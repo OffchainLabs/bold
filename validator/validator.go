@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
@@ -12,12 +13,14 @@ import (
 type Opt = func(val *Validator)
 
 type Validator struct {
-	protocol             protocol.OnChainProtocol
-	stateManager         statemanager.Manager
-	assertionEvents      <-chan protocol.AssertionChainEvent
-	stateUpdateEvents    <-chan *statemanager.StateAdvancedEvent
-	address              common.Address
-	maliciousProbability float64
+	protocol               protocol.OnChainProtocol
+	stateManager           statemanager.Manager
+	assertionEvents        <-chan protocol.AssertionChainEvent
+	stateUpdateEvents      <-chan *statemanager.StateAdvancedEvent
+	address                common.Address
+	createLeafInterval     time.Duration
+	maliciousProbability   float64
+	chaosMonkeyProbability float64
 }
 
 func WithMaliciousProbability(p float64) Opt {
@@ -32,6 +35,12 @@ func WithAddress(addr common.Address) Opt {
 	}
 }
 
+func WithCreateLeafEvery(d time.Duration) Opt {
+	return func(val *Validator) {
+		val.createLeafInterval = d
+	}
+}
+
 func New(
 	ctx context.Context,
 	onChainProtocol protocol.OnChainProtocol,
@@ -39,9 +48,10 @@ func New(
 	opts ...Opt,
 ) (*Validator, error) {
 	v := &Validator{
-		protocol:     onChainProtocol,
-		stateManager: stateManager,
-		address:      common.Address{},
+		protocol:           onChainProtocol,
+		stateManager:       stateManager,
+		address:            common.Address{},
+		createLeafInterval: 5 * time.Second,
 	}
 	for _, o := range opts {
 		o(v)
@@ -55,34 +65,28 @@ func New(
 
 func (v *Validator) Start(ctx context.Context) {
 	go v.listenForAssertionEvents(ctx)
-	go v.listenForStateUpdates(ctx)
+	go v.submitLeafCreationPeriodically(ctx)
 }
 
-func (v *Validator) listenForStateUpdates(ctx context.Context) {
+// TODO: Simulate posting leaf events with some jitter delay, validators will have
+// latency in posting created leaves to the protocol.
+func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
+	ticker := time.NewTicker(v.createLeafInterval)
+	defer ticker.Stop()
 	for {
 		select {
-		case stateUpdated := <-v.stateUpdateEvents:
-			fmt.Printf(
-				"Received a state update event from state manager: height %d, %#x\n",
-				stateUpdated.HistoryCommitment.Height,
-				stateUpdated.HistoryCommitment.Hash(),
-			)
-			fmt.Println("Submitting leaf creation event to chain")
-			stateCommit := protocol.StateCommitment{
-				Height: stateUpdated.HistoryCommitment.Height,
-				State:  stateUpdated.HistoryCommitment.Hash(),
-			}
+		case <-ticker.C:
 			prevAssertion := v.protocol.LatestConfirmed()
-
-			fmt.Printf("Latest confirmed is %d and %#x\n", prevAssertion.SequenceNum, prevAssertion.StateCommitment.Hash())
-
-			// TODO: Simulate posting leaf events with some jitter delay, validators will have latency
-			// in posting created leaves to the protocol.
-			assertion, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, v.address)
+			currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
+			commit := protocol.StateCommitment{
+				Height: currentCommit.Height,
+				State:  currentCommit.Merkle,
+			}
+			assertion, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("Created assertion %+v\n", assertion)
+			fmt.Printf("Submitted new leaf %+v\n", assertion)
 		case <-ctx.Done():
 			return
 		}

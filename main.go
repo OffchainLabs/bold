@@ -17,10 +17,12 @@ import (
 
 const (
 	challengePeriod = 100 * time.Second
-	// For the purposes of our simulation, we initialize 100 blocks worth of "correct" hashes.
-	numSimulationHashes = 100
-	// For the simulation, we have 5 second block times in L2.
-	l2BlockTimes = 5 * time.Second
+	// For the purposes of our simulation, we initialize 1000 blocks worth of "correct" hashes.
+	numSimulationHashes = 1000
+	// For the simulation, we have 1 second block times in L2.
+	l2BlockTimes = time.Second
+	// Honest validators submit leaf creation events every 5 seconds.
+	leafCreationInterval = 5 * time.Second
 )
 
 func main() {
@@ -43,6 +45,7 @@ func main() {
 		ctx,
 		chain,
 		manager,
+		validator.WithCreateLeafEvery(leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {

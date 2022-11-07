@@ -13,6 +13,7 @@ import (
 )
 
 type Manager interface {
+	LatestHistoryCommitment(ctx context.Context) *util.HistoryCommitment
 	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (common.Hash, error)
 	SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent
 }
@@ -52,6 +53,16 @@ func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.
 		o(s)
 	}
 	return s
+}
+
+// LatestHistoryCommitment --
+func (s *Simulated) LatestHistoryCommitment(_ context.Context) *util.HistoryCommitment {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return &util.HistoryCommitment{
+		Height: s.currentHeight.Load(),
+		Merkle: s.stateTree.Root(),
+	}
 }
 
 // HistoryCommitmentAtHeight --
