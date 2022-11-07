@@ -14,6 +14,7 @@ import (
 
 type Manager interface {
 	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (common.Hash, error)
+	SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent
 }
 
 type Simulated struct {
@@ -65,6 +66,10 @@ func (s *Simulated) HistoryCommitmentAtHeight(_ context.Context, height uint64) 
 		Merkle: treeAtHeight.Root(),
 	}
 	return h.Hash(), nil
+}
+
+func (s *Simulated) SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent {
+	return s.feed.Subscribe(ctx)
 }
 
 func (s *Simulated) AdvanceL2Chain(ctx context.Context) {

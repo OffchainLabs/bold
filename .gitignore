@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-new-rollup-protocol
+new-rollup-exploration
 
 # Test binary, built with `go test -c`
 *.test

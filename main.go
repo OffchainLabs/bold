@@ -14,20 +14,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-const challengePeriod = 100 * time.Second
+const (
+	challengePeriod = 100 * time.Second
+	// For the purposes of our simulation, we initialize 100 blocks worth of "correct" hashes.
+	numSimulationHashes = 100
+)
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	timeRef := util.NewRealTimeReference()
 	chain := protocol.NewAssertionChain(ctx, timeRef, challengePeriod)
+	correctLeaves := prepareCorrectHashes(numSimulationHashes)
+	latestHeight := uint64(numSimulationHashes - 1)
 
-	// For the purposes of our simulation, we initialize 100 blocks worth of "correct" hashes
-	// and a block height of 99.
-	correctLeaves := prepareCorrectHashes(100)
-	latestHeight := uint64(00)
-
-	manager := statemanager.NewSimulatedManager(latestHeight, correctLeaves)
+	manager := statemanager.NewSimulatedManager(
+		ctx,
+		latestHeight,
+		correctLeaves,
+		statemanager.WithL2BlockTimes(5*time.Second),
+	)
 
 	// We start our simulation with a single, honest validator.
 	val, err := validator.New(
@@ -55,7 +61,7 @@ func main() {
 	//
 	// TODO: Create either a metrics collector that will gather information about the challenge games being
 	// played and create an API that can extract a graphviz of the current assertion chain to visualize
-	// the actual tree of assertions. Bonus: add detail such as presumtive status, chess clocks, etc.
+	// the actual tree of assertions. Bonus: add detail such as presumptive status, chess clocks, etc.
 	//
 	// Observe:
 	//  1. All honest validators
@@ -78,7 +84,7 @@ func main() {
 }
 
 func prepareCorrectHashes(numBlocks uint64) []common.Hash {
-	ret := make([]common.Hash, numBlocks
+	ret := make([]common.Hash, numBlocks)
 	for i := uint64(0); i < numBlocks; i++ {
 		ret[i] = util.HashForUint(i)
 	}
