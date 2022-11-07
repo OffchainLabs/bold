@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
@@ -13,6 +14,7 @@ type Validator struct {
 	protocol             protocol.OnChainProtocol
 	stateManager         statemanager.Manager
 	assertionEvents      <-chan protocol.AssertionChainEvent
+	stateUpdateEvents    <-chan *statemanager.StateAdvancedEvent
 	maliciousProbability float64
 }
 
@@ -38,10 +40,27 @@ func New(
 	// TODO: Prefer an API where the caller provides the channel and we can subscribe to all challenge and
 	// assertion chain events. Provide the ability to specify the type of the subscription.
 	v.assertionEvents = v.protocol.Subscribe(ctx)
+	v.stateUpdateEvents = v.stateManager.SubscribeStateEvents(ctx)
 	return v, nil
 }
 
-func (v *Validator) Validate(ctx context.Context) {
+func (v *Validator) Start(ctx context.Context) {
+	go v.listenForAssertionEvents(ctx)
+	go v.listenForStateUpdates(ctx)
+}
+
+func (v *Validator) listenForStateUpdates(ctx context.Context) {
+	for {
+		select {
+		case stateUpdated := <-v.stateUpdateEvents:
+			fmt.Println(stateUpdated)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 	for {
 		select {
 		case genericEvent := <-v.assertionEvents:

@@ -69,7 +69,7 @@ func main() {
 	//  3. Honest validators issuing challenges on maliciously-created leaves
 	//  4. Chaos monkey validators operating alongside honest ones.
 	//
-	go val.Validate(ctx)
+	val.Start(ctx)
 
 	// Advance an L2 chain, and each time state is updated, an event will be sent over a feed
 	// and honest validators that has access to the state manager will attempt to submit leaf creation
