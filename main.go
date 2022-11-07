@@ -20,8 +20,7 @@ func main() {
 	_ = chain
 
 	val, err := validator.New(
-		ctx,
-		validator.WithOnChainProtocol(chain),
+		chain,
 		validator.WithMaliciousProbability(0),
 	)
 	if err != nil {
@@ -29,7 +28,6 @@ func main() {
 	}
 	_ = val
 
-	// Ideal API:
 	// go chain.Start(ctx)
 	// create N validators, for each, run in background goroutines
 	// for v := range validator { go v.Validate(ctx) }
@@ -43,6 +41,10 @@ func main() {
 	//
 	// Advances a chain in the background, simulating state transitions running and block heights.
 	// go stateManager.Advance(ctx)
+	//
+	// TODO: Create either a metrics collector that will gather information about the challenge games being
+	// played and create an API that can extract a graphviz of the current assertion chain to visualize
+	// the actual tree of assertions. Bonus: add detail such as presumtive status, chess clocks, etc.
 	//
 	// Observe:
 	//  1. All honest validators
