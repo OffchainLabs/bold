@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Rollup Protocol</title>
+    <script src="//d3js.org/d3.v5.min.js"></script>
+    <script src="https://unpkg.com/@hpcc-js/wasm@0.3.11/dist/index.min.js"></script>
+    <script src="https://unpkg.com/d3-graphviz@3.0.5/build/d3-graphviz.js"></script>
+    <script type="text/javascript">
+        window.onload = function () {
+            var conn = new WebSocket("ws://localhost:3000/assertion-chain");
+            conn.onclose = function (_evt) {
+                var item = document.createElement("div");
+                item.innerHTML = "<b>Connection closed.</b>";
+            };
+            conn.onmessage = function (evt) {
+                console.log("rendering " + evt.data);
+                d3.select("#graph").graphviz()
+                    .renderDot(evt.data);
+            };
+        };
+    </script>
+</head>
+<body>
+<div id="graph" style="text-align: center;"></div>
+</body>
+</html>

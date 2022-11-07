@@ -102,7 +102,6 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 					fmt.Printf("WRONG leaf at height %d, %#x\n", ev.Commitment.Height, ev.Commitment.Hash())
 					v.challengeLeaf(ev)
 				}
-				v.protocol.Visualize()
 			case *protocol.StartChallengeEvent:
 				v.processChallengeStart(ctx, ev)
 			default:

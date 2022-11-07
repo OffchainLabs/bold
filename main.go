@@ -11,6 +11,7 @@ import (
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/OffchainLabs/new-rollup-exploration/validator"
+	"github.com/OffchainLabs/new-rollup-exploration/visualization"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -47,6 +48,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	vis := visualization.New(chain)
+	go vis.Start(ctx)
 
 	// Begin the validator process in the background.
 	// The validator will not only be responsible for listening to new leaf and challenge creation events,

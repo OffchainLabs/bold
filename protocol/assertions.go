@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -640,6 +639,5 @@ func (chain *AssertionChain) Visualize() string {
 			}
 		}
 	}
-	fmt.Println(graph.String())
 	return graph.String()
 }
