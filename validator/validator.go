@@ -16,12 +16,19 @@ type Validator struct {
 	stateManager         statemanager.Manager
 	assertionEvents      <-chan protocol.AssertionChainEvent
 	stateUpdateEvents    <-chan *statemanager.StateAdvancedEvent
+	address              common.Address
 	maliciousProbability float64
 }
 
 func WithMaliciousProbability(p float64) Opt {
 	return func(val *Validator) {
 		val.maliciousProbability = p
+	}
+}
+
+func WithAddress(addr common.Address) Opt {
+	return func(val *Validator) {
+		val.address = addr
 	}
 }
 
@@ -34,6 +41,7 @@ func New(
 	v := &Validator{
 		protocol:     onChainProtocol,
 		stateManager: stateManager,
+		address:      common.Address{},
 	}
 	for _, o := range opts {
 		o(v)
@@ -65,7 +73,10 @@ func (v *Validator) listenForStateUpdates(ctx context.Context) {
 				State:  stateUpdated.HistoryCommitment.Hash(),
 			}
 			prevAssertion := v.protocol.LatestConfirmed()
-			assertion, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, common.Address{})
+
+			// TODO: Simulate posting leaf events with some jitter delay, validators will have latency
+			// in posting created leaves to the protocol.
+			assertion, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, v.address)
 			if err != nil {
 				panic(err)
 			}
