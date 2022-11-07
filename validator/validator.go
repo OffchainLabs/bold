@@ -8,7 +8,10 @@ import (
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("prefix", "validator")
 
 type Opt = func(val *Validator)
 
@@ -82,11 +85,15 @@ func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
 				Height: currentCommit.Height,
 				State:  currentCommit.Merkle,
 			}
-			assertion, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
-			if err != nil {
+			if _, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address); err != nil {
 				panic(err)
 			}
-			fmt.Printf("Submitted new leaf %+v\n", assertion)
+			log.WithFields(logrus.Fields{
+				"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
+				"leafHeight":            commit.Height,
+				"leafCommitment":        fmt.Sprintf("%#x", commit.Hash()),
+				"staker":                fmt.Sprintf("%#x", v.address),
+			}).Info("Submitted leaf creation")
 		case <-ctx.Done():
 			return
 		}
@@ -100,10 +107,18 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 			switch ev := genericEvent.(type) {
 			case *protocol.CreateLeafEvent:
 				if v.isCorrectLeaf(ctx, ev) {
-					fmt.Printf("Got a correct leaf at height %d, %#x\n", ev.Commitment.Height, ev.Commitment.Hash())
+					log.WithFields(logrus.Fields{
+						"height":     ev.Commitment.Height,
+						"commitment": fmt.Sprintf("%#x", ev.Commitment.Hash()),
+						"staker":     fmt.Sprintf("%#x", v.address),
+					}).Info("Leaf creation matches local state")
 					v.defendLeaf(ev)
 				} else {
-					fmt.Printf("WRONG leaf at height %d, %#x\n", ev.Commitment.Height, ev.Commitment.Hash())
+					log.WithFields(logrus.Fields{
+						"height":     ev.Commitment.Height,
+						"commitment": fmt.Sprintf("%#x", ev.Commitment.Hash()),
+						"staker":     fmt.Sprintf("%#x", v.address),
+					}).Warn("Leaf creation DOES NOT MATCH local state")
 					v.challengeLeaf(ev)
 				}
 			case *protocol.StartChallengeEvent:
