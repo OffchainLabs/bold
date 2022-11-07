@@ -14,7 +14,7 @@ import (
 
 type Manager interface {
 	LatestHistoryCommitment(ctx context.Context) *util.HistoryCommitment
-	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (common.Hash, error)
+	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (*util.HistoryCommitment, error)
 	SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent
 }
 
@@ -45,7 +45,7 @@ func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.
 		maxHeight:     maxHeight,
 		currentHeight: &atomic.Uint64{},
 		leaves:        leaves,
-		stateTree:     util.ExpansionFromLeaves(leaves),
+		stateTree:     util.NewEmptyMerkleExpansion(),
 		l2BlockTimes:  time.Second,
 		feed:          protocol.NewEventFeed[*StateAdvancedEvent](ctx),
 	}
@@ -68,18 +68,17 @@ func (s *Simulated) LatestHistoryCommitment(_ context.Context) *util.HistoryComm
 // HistoryCommitmentAtHeight --
 // TODO: Match up with the existing state manager methods to rewind state, for example, for
 // easier integration into the Nitro codebase.
-func (s *Simulated) HistoryCommitmentAtHeight(_ context.Context, height uint64) (common.Hash, error) {
+func (s *Simulated) HistoryCommitmentAtHeight(_ context.Context, height uint64) (*util.HistoryCommitment, error) {
 	s.lock.RLock()
 	if height >= uint64(len(s.leaves)) {
-		return [32]byte{}, fmt.Errorf("height %d exceeds available states %d", height, len(s.leaves))
+		return nil, fmt.Errorf("height %d exceeds available states %d", height, len(s.leaves))
 	}
-	treeAtHeight := util.ExpansionFromLeaves(s.leaves[:height])
+	treeAtHeight := util.ExpansionFromLeaves(s.leaves[:height+1])
 	s.lock.RUnlock()
-	h := &util.HistoryCommitment{
+	return &util.HistoryCommitment{
 		Height: height,
 		Merkle: treeAtHeight.Root(),
-	}
-	return h.Hash(), nil
+	}, nil
 }
 
 func (s *Simulated) SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent {
@@ -94,13 +93,13 @@ func (s *Simulated) AdvanceL2Chain(ctx context.Context) {
 		case <-tick.C:
 			s.currentHeight.Add(1)
 			height := s.currentHeight.Load()
-			s.lock.RLock()
-			treeAtHeight := util.ExpansionFromLeaves(s.leaves[:height])
-			s.lock.RUnlock()
+			s.lock.Lock()
+			s.stateTree = s.stateTree.AppendLeaf(s.leaves[height])
+			s.lock.Unlock()
 			s.feed.Append(&StateAdvancedEvent{
 				HistoryCommitment: &util.HistoryCommitment{
 					Height: height,
-					Merkle: treeAtHeight.Root(),
+					Merkle: s.stateTree.Root(),
 				},
 			})
 		case <-ctx.Done():

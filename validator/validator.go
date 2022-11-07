@@ -133,17 +133,26 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 					continue
 				}
 				logFields := logrus.Fields{
-					"name":       v.name,
-					"height":     ev.Commitment.Height,
-					"commitment": util.FormatHash(ev.Commitment.Hash()),
+					"name":   v.name,
+					"height": ev.Commitment.Height,
 				}
-				if v.isCorrectLeaf(ctx, ev) {
+				localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.Commitment.Height)
+				if err != nil {
+					log.WithError(err).Error("Could not get history commitment")
+					continue
+				}
+				if v.isCorrectLeaf(localCommitment, ev) {
+					logFields["commitment"] = ev.Commitment
 					log.WithFields(logFields).Info("Leaf creation matches local state")
 					v.defendLeaf(ev)
 				} else {
 					if name, ok := v.knownValidatorNames[ev.Staker]; ok {
 						logFields["disagreesWith"] = name
 					}
+					logFields["correctCommitmentHeight"] = localCommitment.Height
+					logFields["badCommitmentHeight"] = ev.Commitment.Height
+					logFields["correctCommitmentMerkle"] = util.FormatHash(localCommitment.Merkle)
+					logFields["badCommitmentMerkle"] = util.FormatHash(ev.Commitment.State)
 					log.WithFields(logFields).Warn("Disagreed with created leaf")
 					v.challengeLeaf(ev)
 				}
@@ -162,12 +171,8 @@ func (v *Validator) isFromSelf(ctx context.Context, ev *protocol.CreateLeafEvent
 	return v.address == ev.Staker
 }
 
-func (v *Validator) isCorrectLeaf(ctx context.Context, ev *protocol.CreateLeafEvent) bool {
-	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.Commitment.Height)
-	if err != nil {
-		panic(err)
-	}
-	return localCommitment == ev.Commitment.State
+func (v *Validator) isCorrectLeaf(localCommitment *util.HistoryCommitment, ev *protocol.CreateLeafEvent) bool {
+	return localCommitment.Hash() == ev.Commitment.Hash()
 }
 
 func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
