@@ -116,7 +116,7 @@ func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seq
 	ev := <-c
 	switch e := ev.(type) {
 	case *CreateLeafEvent:
-		if e.seqNum != seqNum || e.prevSeqNum != prevSeqNum || e.staker != staker || e.Commitment != comm {
+		if e.seqNum != seqNum || e.prevSeqNum != prevSeqNum || e.Staker != staker || e.Commitment != comm {
 			t.Fatal(e)
 		}
 	default:

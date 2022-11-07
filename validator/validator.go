@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -85,15 +86,22 @@ func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
 				Height: currentCommit.Height,
 				State:  currentCommit.Merkle,
 			}
-			if _, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address); err != nil {
-				panic(err)
-			}
-			log.WithFields(logrus.Fields{
+			logFields := logrus.Fields{
 				"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
 				"leafHeight":            commit.Height,
 				"leafCommitment":        fmt.Sprintf("%#x", commit.Hash()),
 				"staker":                fmt.Sprintf("%#x", v.address),
-			}).Info("Submitted leaf creation")
+			}
+			_, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
+			if err != nil {
+				if errors.Is(err, protocol.ErrVertexAlreadyExists) {
+					log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
+					continue
+				}
+				log.WithError(err).Error("Could not create leaf")
+				continue
+			}
+			log.WithFields(logFields).Info("Submitted leaf creation")
 		case <-ctx.Done():
 			return
 		}
@@ -106,6 +114,9 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 		case genericEvent := <-v.assertionEvents:
 			switch ev := genericEvent.(type) {
 			case *protocol.CreateLeafEvent:
+				if v.isFromSelf(ctx, ev) {
+					continue
+				}
 				if v.isCorrectLeaf(ctx, ev) {
 					log.WithFields(logrus.Fields{
 						"height":     ev.Commitment.Height,
@@ -132,12 +143,16 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 	}
 }
 
+func (v *Validator) isFromSelf(ctx context.Context, ev *protocol.CreateLeafEvent) bool {
+	return v.address == ev.Staker
+}
+
 func (v *Validator) isCorrectLeaf(ctx context.Context, ev *protocol.CreateLeafEvent) bool {
 	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.Commitment.Height)
 	if err != nil {
 		panic(err)
 	}
-	return localCommitment != ev.Commitment.Hash()
+	return localCommitment == ev.Commitment.State
 }
 
 func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {

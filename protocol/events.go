@@ -18,7 +18,7 @@ type CreateLeafEvent struct {
 	prevSeqNum uint64
 	seqNum     uint64
 	Commitment StateCommitment
-	staker     common.Address
+	Staker     common.Address
 }
 
 type ConfirmEvent struct {

@@ -54,7 +54,7 @@ type EventProvider interface {
 	Subscribe(ctx context.Context) <-chan AssertionChainEvent
 }
 
-// AssertionManager allows the creation of new leaves for a staker with a State Commitment
+// AssertionManager allows the creation of new leaves for a Staker with a State Commitment
 // and a previous assertion.
 type AssertionManager interface {
 	LatestConfirmed() *Assertion
@@ -205,7 +205,7 @@ func (chain *InnerAssertionChain) CreateLeaf(prev *Assertion, commitment StateCo
 		prevSeqNum: prev.SequenceNum,
 		seqNum:     leaf.SequenceNum,
 		Commitment: leaf.StateCommitment,
-		staker:     staker,
+		Staker:     staker,
 	})
 	return leaf, nil
 }
@@ -627,7 +627,7 @@ func (chain *AssertionChain) Visualize() string {
 			staker = a.staker.OpenKnownFull()
 		}
 		label := fmt.Sprintf(
-			"height: %d\n commitment: %#x\n staker: %#x",
+			"height: %d\n commitment: %#x\n Staker: %#x",
 			commit.Height,
 			commit.Hash(),
 			staker,
