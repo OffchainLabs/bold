@@ -10,7 +10,10 @@ import (
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("prefix", "state-manager")
 
 type Manager interface {
 	LatestHistoryCommitment(ctx context.Context) *util.HistoryCommitment
@@ -45,7 +48,7 @@ func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.
 		maxHeight:     maxHeight,
 		currentHeight: &atomic.Uint64{},
 		leaves:        leaves,
-		stateTree:     util.NewEmptyMerkleExpansion(),
+		stateTree:     util.ExpansionFromLeaves(leaves[:1]),
 		l2BlockTimes:  time.Second,
 		feed:          protocol.NewEventFeed[*StateAdvancedEvent](ctx),
 	}
@@ -95,13 +98,17 @@ func (s *Simulated) AdvanceL2Chain(ctx context.Context) {
 			height := s.currentHeight.Load()
 			s.lock.Lock()
 			s.stateTree = s.stateTree.AppendLeaf(s.leaves[height])
-			s.lock.Unlock()
 			s.feed.Append(&StateAdvancedEvent{
 				HistoryCommitment: &util.HistoryCommitment{
 					Height: height,
 					Merkle: s.stateTree.Root(),
 				},
 			})
+			log.WithFields(logrus.Fields{
+				"newHeight": height,
+				"merkle":    util.FormatHash(s.stateTree.Root()),
+			}).Info("Advancing state")
+			s.lock.Unlock()
 		case <-ctx.Done():
 			return
 		}

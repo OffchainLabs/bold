@@ -105,7 +105,7 @@ func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
 				"name":                  v.name,
 				"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
 				"leafHeight":            commit.Height,
-				"leafCommitment":        util.FormatHash(commit.Hash()),
+				"leafCommitmentMerkle":  util.FormatHash(commit.State),
 			}
 			_, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
 			if err != nil {
@@ -133,8 +133,7 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 					continue
 				}
 				logFields := logrus.Fields{
-					"name":   v.name,
-					"height": ev.Commitment.Height,
+					"name": v.name,
 				}
 				localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.Commitment.Height)
 				if err != nil {
@@ -142,8 +141,12 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 					continue
 				}
 				if v.isCorrectLeaf(localCommitment, ev) {
-					logFields["commitment"] = ev.Commitment
-					log.WithFields(logFields).Info("Leaf creation matches local state")
+					if name, ok := v.knownValidatorNames[ev.Staker]; ok {
+						logFields["createdBy"] = name
+					}
+					logFields["height"] = ev.Commitment.Height
+					logFields["commitmentMerkle"] = util.FormatHash(ev.Commitment.State)
+					log.WithFields(logFields).Info("New leaf matches local state")
 					v.defendLeaf(ev)
 				} else {
 					if name, ok := v.knownValidatorNames[ev.Staker]; ok {

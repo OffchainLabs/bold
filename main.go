@@ -59,23 +59,15 @@ func main() {
 	timeRef := util.NewRealTimeReference()
 	chain := protocol.NewAssertionChain(ctx, timeRef, cfg.challengePeriod)
 	simulationHashes := prepareCorrectHashes(cfg.numSimulationHashes)
-	latestHeight := cfg.numSimulationHashes - 1
+	maxHeight := cfg.numSimulationHashes - 1
 
 	// We create two state providers: one which will be providing a "correct" chain history
 	// and another that always provides an incorrect chain history.
 	correctLeaves := simulationHashes[:len(simulationHashes)/2]
 	correctStateProvider := statemanager.NewSimulatedManager(
 		ctx,
-		latestHeight,
+		maxHeight,
 		correctLeaves,
-		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
-	)
-
-	wrongLeaves := simulationHashes[len(simulationHashes)/2:]
-	incorrectStateProvider := statemanager.NewSimulatedManager(
-		ctx,
-		latestHeight,
-		wrongLeaves,
 		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
 	)
 
@@ -86,7 +78,6 @@ func main() {
 	validatorsByAddress := map[common.Address]string{
 		common.BytesToAddress([]byte("A")): "Alice",
 		common.BytesToAddress([]byte("B")): "Bob",
-		common.BytesToAddress([]byte("C")): "Carl",
 	}
 	validatorA, err := validator.New(
 		ctx,
@@ -107,19 +98,6 @@ func main() {
 		correctStateProvider,
 		validator.WithName("Bob"),
 		validator.WithAddress(common.BytesToAddress([]byte("B"))),
-		validator.WithKnownValidators(validatorsByAddress),
-		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
-		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
-	)
-	if err != nil {
-		panic(err)
-	}
-	validatorC, err := validator.New(
-		ctx,
-		chain,
-		correctStateProvider,
-		validator.WithName("Carl"),
-		validator.WithAddress(common.BytesToAddress([]byte("C"))),
 		validator.WithKnownValidators(validatorsByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
@@ -157,13 +135,11 @@ func main() {
 	// We deploy 2 validators in the simulation.
 	validatorA.Start(ctx)
 	validatorB.Start(ctx)
-	validatorC.Start(ctx)
 
 	// Advance an L2 chain, and each time state is updated, an event will be sent over a feed
 	// and honest validators that has access to the state manager will attempt to submit leaf creation
 	// events to the contracts.
 	go correctStateProvider.AdvanceL2Chain(ctx)
-	go incorrectStateProvider.AdvanceL2Chain(ctx)
 
 	// Await a shutdown signal, which will trigger context cancellation across the program.
 	exit := make(chan os.Signal, 1)
