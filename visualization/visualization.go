@@ -27,6 +27,7 @@ func New(visualizer protocol.ChainVisualizer) *Visualization {
 func (v *Visualization) Start(ctx context.Context) {
 	http.HandleFunc("/assertion-chain", v.streamAssertionChainGraph(ctx))
 	http.Handle("/", http.FileServer(http.Dir("visualization")))
+	// TODO: Make configurable.
 	log.Fatal(http.ListenAndServe("localhost:3000", nil))
 }
 
