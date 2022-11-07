@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"sync"
+	"time"
+
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"sync"
-	"time"
 )
 
 var (
@@ -23,6 +24,37 @@ var (
 	ErrPastDeadline          = errors.New("deadline has passed")
 	ErrNotImplemented        = errors.New("not yet implemented")
 )
+
+// OnChainProtocol defines an interface for interacting with the smart contract implementation
+// of the assertion protocol, with methods to issue mutating transactions, make eth calls, create
+// leafs in the protocol, issue challenges, and subscribe to chain events wrapped in simple abstractions.
+type OnChainProtocol interface {
+	ChainReader
+	ChainWriter
+	EventProvider
+	AssertionManager
+}
+
+// ChainReader can make non-mutating calls to the on-chain protocol.
+type ChainReader interface {
+	Call(clo func(*InnerAssertionChain) error) error
+}
+
+// ChainWriter can make mutating calls to the on-chain protocol.
+type ChainWriter interface {
+	Tx(clo func(*InnerAssertionChain) error) error
+}
+
+// EventProvider allows subscribing to chain events for the on-chain protocol.
+type EventProvider interface {
+	Subscribe(ctx context.Context) <-chan AssertionChainEvent
+}
+
+// AssertionManager allows the creation of new leaves for a staker with a state commitment
+// and a previous assertion.
+type AssertionManager interface {
+	CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
+}
 
 type StateCommitment struct {
 	height uint64
@@ -107,6 +139,14 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 	}
 	genesis.chain = chain
 	return &AssertionChain{chain}
+}
+
+func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error) {
+	return chain.inner.CreateLeaf(prev, commitment, staker)
+}
+
+func (chain *AssertionChain) Subscribe(ctx context.Context) <-chan AssertionChainEvent {
+	return chain.inner.feed.Subscribe(ctx)
 }
 
 func (chain *InnerAssertionChain) LatestConfirmed() *Assertion {

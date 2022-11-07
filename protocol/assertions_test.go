@@ -3,10 +3,15 @@ package protocol
 import (
 	"context"
 	"errors"
-	"github.com/OffchainLabs/new-rollup-exploration/util"
-	"github.com/ethereum/go-ethereum/common"
 	"testing"
 	"time"
+
+	"github.com/OffchainLabs/new-rollup-exploration/util"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+var (
+	_ = OnChainProtocol(&AssertionChain{})
 )
 
 const testChallengePeriod = time.Duration(100 * time.Second)
