@@ -7,7 +7,7 @@ import (
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 )
 
-type Opt = func(val *Validator) error
+type Opt = func(val *Validator)
 
 type Validator struct {
 	protocol             protocol.OnChainProtocol
@@ -17,9 +17,8 @@ type Validator struct {
 }
 
 func WithMaliciousProbability(p float64) Opt {
-	return func(val *Validator) error {
+	return func(val *Validator) {
 		val.maliciousProbability = p
-		return nil
 	}
 }
 
@@ -34,9 +33,7 @@ func New(
 		stateManager: stateManager,
 	}
 	for _, o := range opts {
-		if err := o(v); err != nil {
-			return nil, err
-		}
+		o(v)
 	}
 	// TODO: Prefer an API where the caller provides the channel and we can subscribe to all challenge and
 	// assertion chain events. Provide the ability to specify the type of the subscription.
@@ -79,4 +76,3 @@ func (v *Validator) challengeLeaf(ev *protocol.CreateLeafEvent) {
 func (v *Validator) processChallengeStart(ctx context.Context, ev *protocol.StartChallengeEvent) {
 
 }
-

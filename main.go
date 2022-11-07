@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
@@ -14,37 +17,36 @@ const challengePeriod = 100 * time.Second
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	timeRef := util.NewRealTimeReference()
 	chain := protocol.NewAssertionChain(ctx, timeRef, challengePeriod)
-	_ = chain
-	manager := statemanager.NewSimulatedManager()
+	manager := statemanager.NewSimulatedManager(
+		statemanager.WithL2BlockTimes(5 * time.Second),
+	)
 
+	// We start our simulation with a single, honest validator.
 	val, err := validator.New(
 		ctx,
 		chain,
 		manager,
-		validator.WithMaliciousProbability(0),
+		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {
 		panic(err)
 	}
-	_ = val
 
-	// go chain.Start(ctx)
-	// create N validators, for each, run in background goroutines
-	// for v := range validator { go v.Validate(ctx) }
+	// Begin the validator process in the background.
+	// The validator will not only be responsible for listening to new leaf and challenge creation events,
+	// but will also participate in defending challenges it agrees with and challenge assertions it
+	// disagrees with. Honest validators will also be responsible for creating new leaves in the assertion
+	// tree based on the local state advancing, controlled by the state manager.
 	//
-	// In the background, make validators create leaves for a chain that is "advancing". State transitions
-	// are happening and there are new Merkle commitments that must be posted on-chain and await a challenge game.
-	// Observe behavior using real time-references and simulate different probabilities of malicious / honest
-	// validators. All honest validators will have the same Merkle root as the state transition advances the chain,
+	// All honest validators will have the same Merkle root as the state transition advances the chain,
 	// and therefore all leaves posted by honest validators should have the same commitment. We give all honest
 	// validators the same state reader. State reader is also advancing its state in the background:
 	//
-	// Advances a chain in the background, simulating state transitions running and block heights.
-	// go stateManager.Advance(ctx)
+	// TODO: For the purposes of simulation, we plan to create several validators that can either be malicious, honest,
+	// or chaos monkeys with some probability and we want to observe the behavior of the system.
 	//
 	// TODO: Create either a metrics collector that will gather information about the challenge games being
 	// played and create an API that can extract a graphviz of the current assertion chain to visualize
@@ -56,5 +58,17 @@ func main() {
 	//  3. Honest validators issuing challenges on maliciously-created leaves
 	//  4. Chaos monkey validators operating alongside honest ones.
 	//
-	// Await a graceful shutdown signal...
+	go val.Validate(ctx)
+
+	// Simulate advancing an L2 state via state transitions using our state manager. This can be configured
+	// to advance at different rates, and validators that use this state manager will be notified
+	// of when there is a new state created. This will trigger honest validators to submit leaf creation events
+	// to the on-chain protocol.
+	go manager.AdvanceL2State(ctx)
+
+	// Await a shutdown signal, which will trigger context cancellation across the program.
+	exit := make(chan os.Signal, 1)
+	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
+	<-exit
+	cancel()
 }
