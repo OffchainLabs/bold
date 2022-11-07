@@ -34,7 +34,7 @@ func TestAssertionChain(t *testing.T) {
 		t.Fatal()
 	}
 	genesis := chain.LatestConfirmed()
-	if genesis.stateCommitment != (StateCommitment{0, common.Hash{}}) {
+	if genesis.StateCommitment != (StateCommitment{0, common.Hash{}}) {
 		t.Fatal()
 	}
 
@@ -83,7 +83,7 @@ func TestAssertionChain(t *testing.T) {
 	Require(t, err)
 	challenge, err := newAssertion.CreateChallenge(ctx)
 	Require(t, err)
-	verifyStartChallengeEventInFeed(t, eventChan, newAssertion.sequenceNum)
+	verifyStartChallengeEventInFeed(t, eventChan, newAssertion.SequenceNum)
 	chal1, err := challenge.AddLeaf(branch1, util.HistoryCommitment{100, util.ExpansionFromLeaves(correctBlockHashes[99:200]).Root()})
 	Require(t, err)
 	_, err = challenge.AddLeaf(branch2, util.HistoryCommitment{100, util.ExpansionFromLeaves(wrongBlockHashes[99:200]).Root()})

@@ -3,11 +3,15 @@ package protocol
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/util"
+	"github.com/emicklei/dot"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -33,6 +37,7 @@ type OnChainProtocol interface {
 	ChainWriter
 	EventProvider
 	AssertionManager
+	ChainVisualizer
 }
 
 // ChainReader can make non-mutating calls to the on-chain protocol.
@@ -55,6 +60,10 @@ type EventProvider interface {
 type AssertionManager interface {
 	LatestConfirmed() *Assertion
 	CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
+}
+
+type ChainVisualizer interface {
+	Visualize() string
 }
 
 type StateCommitment struct {
@@ -103,8 +112,8 @@ type AssertionState int
 type Assertion struct {
 	chain                   *InnerAssertionChain
 	status                  AssertionState
-	sequenceNum             uint64
-	stateCommitment         StateCommitment
+	SequenceNum             uint64
+	StateCommitment         StateCommitment
 	prev                    util.Option[*Assertion]
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
@@ -117,8 +126,8 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 	genesis := &Assertion{
 		chain:       nil,
 		status:      ConfirmedAssertionState,
-		sequenceNum: 0,
-		stateCommitment: StateCommitment{
+		SequenceNum: 0,
+		StateCommitment: StateCommitment{
 			Height: 0,
 			State:  common.Hash{},
 		},
@@ -166,18 +175,18 @@ func (chain *InnerAssertionChain) CreateLeaf(prev *Assertion, commitment StateCo
 	if prev.chain != chain {
 		return nil, ErrWrongChain
 	}
-	if prev.stateCommitment.Height >= commitment.Height {
+	if prev.StateCommitment.Height >= commitment.Height {
 		return nil, ErrInvalid
 	}
-	dedupeCode := crypto.Keccak256Hash(binary.BigEndian.AppendUint64(commitment.Hash().Bytes(), prev.sequenceNum))
+	dedupeCode := crypto.Keccak256Hash(binary.BigEndian.AppendUint64(commitment.Hash().Bytes(), prev.SequenceNum))
 	if chain.dedupe[dedupeCode] {
 		return nil, ErrVertexAlreadyExists
 	}
 	leaf := &Assertion{
 		chain:                   chain,
 		status:                  PendingAssertionState,
-		sequenceNum:             uint64(len(chain.assertions)),
-		stateCommitment:         commitment,
+		SequenceNum:             uint64(len(chain.assertions)),
+		StateCommitment:         commitment,
 		prev:                    util.FullOption[*Assertion](prev),
 		isFirstChild:            prev.firstChildCreationTime.IsEmpty(),
 		firstChildCreationTime:  util.EmptyOption[time.Time](),
@@ -194,9 +203,9 @@ func (chain *InnerAssertionChain) CreateLeaf(prev *Assertion, commitment StateCo
 	chain.assertions = append(chain.assertions, leaf)
 	chain.dedupe[dedupeCode] = true
 	chain.feed.Append(&CreateLeafEvent{
-		prevSeqNum: prev.sequenceNum,
-		seqNum:     leaf.sequenceNum,
-		Commitment: leaf.stateCommitment,
+		prevSeqNum: prev.SequenceNum,
+		seqNum:     leaf.SequenceNum,
+		Commitment: leaf.StateCommitment,
 		staker:     staker,
 	})
 	return leaf, nil
@@ -214,7 +223,7 @@ func (a *Assertion) RejectForPrev() error {
 	}
 	a.status = RejectedAssertionState
 	a.chain.feed.Append(&RejectEvent{
-		seqNum: a.sequenceNum,
+		seqNum: a.SequenceNum,
 	})
 	return nil
 }
@@ -239,7 +248,7 @@ func (a *Assertion) RejectForLoss() error {
 	}
 	a.status = RejectedAssertionState
 	a.chain.feed.Append(&RejectEvent{
-		seqNum: a.sequenceNum,
+		seqNum: a.SequenceNum,
 	})
 	return nil
 }
@@ -262,9 +271,9 @@ func (a *Assertion) ConfirmNoRival() error {
 		return ErrNotYet
 	}
 	a.status = ConfirmedAssertionState
-	a.chain.confirmedLatest = a.sequenceNum
+	a.chain.confirmedLatest = a.SequenceNum
 	a.chain.feed.Append(&ConfirmEvent{
-		seqNum: a.sequenceNum,
+		seqNum: a.SequenceNum,
 	})
 	return nil
 }
@@ -291,9 +300,9 @@ func (a *Assertion) ConfirmForWin() error {
 		return ErrInvalid
 	}
 	a.status = ConfirmedAssertionState
-	a.chain.confirmedLatest = a.sequenceNum
+	a.chain.confirmedLatest = a.SequenceNum
 	a.chain.feed.Append(&ConfirmEvent{
-		seqNum: a.sequenceNum,
+		seqNum: a.SequenceNum,
 	})
 	return nil
 }
@@ -347,7 +356,7 @@ func (parent *Assertion) CreateChallenge(ctx context.Context) (*Challenge, error
 	ret.includedHistories[root.commitment.Hash()] = true
 	parent.challenge = util.FullOption[*Challenge](ret)
 	parent.chain.feed.Append(&StartChallengeEvent{
-		parentSeqNum: parent.sequenceNum,
+		parentSeqNum: parent.SequenceNum,
 	})
 	return ret, nil
 }
@@ -389,7 +398,7 @@ func (chal *Challenge) AddLeaf(assertion *Assertion, history util.HistoryCommitm
 	chal.root.maybeNewPresumptiveSuccessor(leaf)
 	chal.feed.Append(&ChallengeLeafEvent{
 		sequenceNum:       leaf.sequenceNum,
-		winnerIfConfirmed: assertion.sequenceNum,
+		winnerIfConfirmed: assertion.SequenceNum,
 		history:           history,
 		becomesPS:         leaf.prev.presumptiveSuccessor == leaf,
 	})
@@ -592,4 +601,45 @@ func (sc *SubChallenge) SetWinner(winner *ChallengeVertex) error {
 	}
 	sc.winner = winner
 	return nil
+}
+
+type vizNode struct {
+	parent  util.Option[*Assertion]
+	dotNode dot.Node
+}
+
+// Visualize returns a graphviz string for the current assertion chain tree.
+func (chain *AssertionChain) Visualize() string {
+	graph := dot.NewGraph(dot.Directed)
+	graph.Attr("rankdir", "RL")
+	graph.Attr("labeljust", "l")
+
+	assertions := chain.inner.assertions
+	// Construct nodes
+	m := make(map[[32]byte]*vizNode)
+	for i := 0; i < len(assertions); i++ {
+		a := assertions[i]
+		commit := a.StateCommitment
+		// Construct label of each node.
+		rStr := hex.EncodeToString(commit.Hash().Bytes())
+		label := "height: " + strconv.Itoa(int(commit.Height)) + "\n commitment: " + rStr
+
+		dotN := graph.Node(rStr).Box().Attr("label", label)
+		m[commit.Hash()] = &vizNode{
+			parent:  a.prev,
+			dotNode: dotN,
+		}
+	}
+
+	// Construct an edge only if block's parent exist in the tree.
+	for _, n := range m {
+		if !n.parent.IsEmpty() {
+			parentHash := n.parent.OpenKnownFull().StateCommitment.Hash()
+			if _, ok := m[parentHash]; ok {
+				graph.Edge(n.dotNode, m[parentHash].dotNode)
+			}
+		}
+	}
+	fmt.Println(graph.String())
+	return graph.String()
 }

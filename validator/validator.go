@@ -74,6 +74,8 @@ func (v *Validator) listenForStateUpdates(ctx context.Context) {
 			}
 			prevAssertion := v.protocol.LatestConfirmed()
 
+			fmt.Printf("Latest confirmed is %d and %#x\n", prevAssertion.SequenceNum, prevAssertion.StateCommitment.Hash())
+
 			// TODO: Simulate posting leaf events with some jitter delay, validators will have latency
 			// in posting created leaves to the protocol.
 			assertion, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, v.address)
@@ -100,6 +102,7 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 					fmt.Printf("WRONG leaf at height %d, %#x\n", ev.Commitment.Height, ev.Commitment.Hash())
 					v.challengeLeaf(ev)
 				}
+				v.protocol.Visualize()
 			case *protocol.StartChallengeEvent:
 				v.processChallengeStart(ctx, ev)
 			default:
