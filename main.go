@@ -70,6 +70,13 @@ func main() {
 		correctLeaves,
 		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
 	)
+	incorrectLeaves := simulationHashes[len(simulationHashes)/2:]
+	incorrectStateProvider := statemanager.NewSimulatedManager(
+		ctx,
+		maxHeight,
+		incorrectLeaves,
+		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
+	)
 
 	// We start our simulation with two validator that post leaves matching a "canonical" chain
 	// state, and create a third validator that has an entirely different chain
@@ -78,6 +85,7 @@ func main() {
 	validatorsByAddress := map[common.Address]string{
 		common.BytesToAddress([]byte("A")): "Alice",
 		common.BytesToAddress([]byte("B")): "Bob",
+		common.BytesToAddress([]byte("C")): "Carl",
 	}
 	validatorA, err := validator.New(
 		ctx,
@@ -98,6 +106,19 @@ func main() {
 		correctStateProvider,
 		validator.WithName("Bob"),
 		validator.WithAddress(common.BytesToAddress([]byte("B"))),
+		validator.WithKnownValidators(validatorsByAddress),
+		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
+		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
+	)
+	if err != nil {
+		panic(err)
+	}
+	validatorC, err := validator.New(
+		ctx,
+		chain,
+		incorrectStateProvider,
+		validator.WithName("Carl"),
+		validator.WithAddress(common.BytesToAddress([]byte("C"))),
 		validator.WithKnownValidators(validatorsByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
@@ -131,10 +152,9 @@ func main() {
 	//  2. Malicious validators issuing challenges on honestly-created leaves
 	//  3. Honest validators issuing challenges on maliciously-created leaves
 	//  4. Chaos monkey validators operating alongside honest ones.
-	//
-	// We deploy 2 validators in the simulation.
 	validatorA.Start(ctx)
 	validatorB.Start(ctx)
+	validatorC.Start(ctx)
 
 	// Advance an L2 chain, and each time state is updated, an event will be sent over a feed
 	// and honest validators that has access to the state manager will attempt to submit leaf creation

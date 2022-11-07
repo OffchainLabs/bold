@@ -108,11 +108,14 @@ func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
 				"leafCommitmentMerkle":  util.FormatHash(commit.State),
 			}
 			_, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
-			if err != nil {
-				if errors.Is(err, protocol.ErrVertexAlreadyExists) {
-					log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
-					continue
-				}
+			switch {
+			case errors.Is(err, protocol.ErrVertexAlreadyExists):
+				log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
+				continue
+			case errors.Is(err, protocol.ErrInvalid):
+				log.WithFields(logFields).Debug("Tried to create a leaf with an older commitment")
+				continue
+			case err != nil:
 				log.WithError(err).Error("Could not create leaf")
 				continue
 			}
