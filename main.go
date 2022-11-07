@@ -11,6 +11,7 @@ import (
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/OffchainLabs/new-rollup-exploration/validator"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 const challengePeriod = 100 * time.Second
@@ -20,9 +21,13 @@ func main() {
 
 	timeRef := util.NewRealTimeReference()
 	chain := protocol.NewAssertionChain(ctx, timeRef, challengePeriod)
-	manager := statemanager.NewSimulatedManager(
-		statemanager.WithL2BlockTimes(5 * time.Second),
-	)
+
+	// For the purposes of our simulation, we initialize 100 blocks worth of "correct" hashes
+	// and a block height of 99.
+	correctLeaves := prepareCorrectHashes(100)
+	latestHeight := uint64(00)
+
+	manager := statemanager.NewSimulatedManager(latestHeight, correctLeaves)
 
 	// We start our simulation with a single, honest validator.
 	val, err := validator.New(
@@ -60,15 +65,22 @@ func main() {
 	//
 	go val.Validate(ctx)
 
-	// Simulate advancing an L2 state via state transitions using our state manager. This can be configured
-	// to advance at different rates, and validators that use this state manager will be notified
-	// of when there is a new state created. This will trigger honest validators to submit leaf creation events
-	// to the on-chain protocol.
-	go manager.AdvanceL2State(ctx)
+	// Advance an L2 chain, and each time state is updated, an event will be sent over a feed
+	// and honest validators that has access to the state manager will attempt to submit leaf creation
+	// events to the contracts.
+	go manager.AdvanceL2Chain(ctx)
 
 	// Await a shutdown signal, which will trigger context cancellation across the program.
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
 	<-exit
 	cancel()
+}
+
+func prepareCorrectHashes(numBlocks uint64) []common.Hash {
+	ret := make([]common.Hash, numBlocks
+	for i := uint64(0); i < numBlocks; i++ {
+		ret[i] = util.HashForUint(i)
+	}
+	return ret
 }
