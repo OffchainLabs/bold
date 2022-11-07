@@ -23,6 +23,8 @@ type Validator struct {
 	assertionEvents        <-chan protocol.AssertionChainEvent
 	stateUpdateEvents      <-chan *statemanager.StateAdvancedEvent
 	address                common.Address
+	name                   string
+	knownValidatorNames    map[common.Address]string
 	createLeafInterval     time.Duration
 	maliciousProbability   float64
 	chaosMonkeyProbability float64
@@ -34,9 +36,21 @@ func WithMaliciousProbability(p float64) Opt {
 	}
 }
 
+func WithName(name string) Opt {
+	return func(val *Validator) {
+		val.name = name
+	}
+}
+
 func WithAddress(addr common.Address) Opt {
 	return func(val *Validator) {
 		val.address = addr
+	}
+}
+
+func WithKnownValidators(vals map[common.Address]string) Opt {
+	return func(val *Validator) {
+		val.knownValidatorNames = vals
 	}
 }
 
@@ -88,10 +102,10 @@ func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
 				State:  currentCommit.Merkle,
 			}
 			logFields := logrus.Fields{
+				"name":                  v.name,
 				"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
 				"leafHeight":            commit.Height,
 				"leafCommitment":        util.FormatHash(commit.Hash()),
-				"staker":                util.FormatAddr(v.address),
 			}
 			_, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
 			if err != nil {
@@ -119,15 +133,18 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 					continue
 				}
 				logFields := logrus.Fields{
+					"name":       v.name,
 					"height":     ev.Commitment.Height,
 					"commitment": util.FormatHash(ev.Commitment.Hash()),
-					"staker":     util.FormatAddr(v.address),
 				}
 				if v.isCorrectLeaf(ctx, ev) {
 					log.WithFields(logFields).Info("Leaf creation matches local state")
 					v.defendLeaf(ev)
 				} else {
-					log.WithFields(logFields).Warn("Leaf creation DOES NOT MATCH local state")
+					if name, ok := v.knownValidatorNames[ev.Staker]; ok {
+						logFields["disagreesWith"] = name
+					}
+					log.WithFields(logFields).Warn("Disagreed with created leaf")
 					v.challengeLeaf(ev)
 				}
 			case *protocol.StartChallengeEvent:
