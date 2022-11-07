@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
+	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/OffchainLabs/new-rollup-exploration/validator"
 )
@@ -18,9 +19,12 @@ func main() {
 	timeRef := util.NewRealTimeReference()
 	chain := protocol.NewAssertionChain(ctx, timeRef, challengePeriod)
 	_ = chain
+	manager := statemanager.NewSimulatedManager()
 
 	val, err := validator.New(
+		ctx,
 		chain,
+		manager,
 		validator.WithMaliciousProbability(0),
 	)
 	if err != nil {
