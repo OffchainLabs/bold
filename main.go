@@ -48,23 +48,24 @@ func init() {
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
+	cfg := defaultSimConfig
 
 	log.WithField(
 		"defaults",
-		fmt.Sprintf("%+v", defaultSimConfig),
+		fmt.Sprintf("%+v", cfg),
 	).Info("Starting assertion protocol simulation")
 	log.Info("View assertion chain live at http://localhost:3000")
 
 	timeRef := util.NewRealTimeReference()
-	chain := protocol.NewAssertionChain(ctx, timeRef, defaultSimConfig.challengePeriod)
-	correctLeaves := prepareCorrectHashes(defaultSimConfig.numSimulationHashes)
-	latestHeight := defaultSimConfig.numSimulationHashes - 1
+	chain := protocol.NewAssertionChain(ctx, timeRef, cfg.challengePeriod)
+	correctLeaves := prepareCorrectHashes(cfg.numSimulationHashes)
+	latestHeight := cfg.numSimulationHashes - 1
 
 	manager := statemanager.NewSimulatedManager(
 		ctx,
 		latestHeight,
 		correctLeaves,
-		statemanager.WithL2BlockTimes(defaultSimConfig.l2BlockTimes),
+		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
 	)
 
 	// We start our simulation with a single, honest validator.
@@ -72,7 +73,7 @@ func main() {
 		ctx,
 		chain,
 		manager,
-		validator.WithCreateLeafEvery(defaultSimConfig.leafCreationInterval),
+		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {

@@ -2,13 +2,15 @@ package visualization
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("prefix", "visualization-server")
 
 type Visualization struct {
 	visualizer protocol.ChainVisualizer
@@ -35,7 +37,7 @@ func (v *Visualization) streamAssertionChainGraph(ctx context.Context) func(w ht
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := v.upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Print("upgrade:", err)
+			log.WithError(err).Error("Could not upgrade websocket connection")
 			return
 		}
 		defer c.Close()
@@ -46,13 +48,12 @@ func (v *Visualization) streamAssertionChainGraph(ctx context.Context) func(w ht
 			case <-ticker.C:
 				g := v.visualizer.Visualize()
 				if err = c.WriteMessage(1, []byte(g)); err != nil {
-					log.Println("Error writing:", err)
-					break
+					log.WithError(err).Error("Could not write chain graph string over websocket")
+					return
 				}
 			case <-ctx.Done():
 			case <-r.Context().Done():
-				log.Println("Context done:", err)
-				break
+				return
 			}
 		}
 	}
