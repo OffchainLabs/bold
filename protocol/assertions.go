@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"strconv"
+	"fmt"
 	"sync"
 	"time"
 
@@ -603,8 +603,9 @@ func (sc *SubChallenge) SetWinner(winner *ChallengeVertex) error {
 }
 
 type vizNode struct {
-	parent  util.Option[*Assertion]
-	dotNode dot.Node
+	parent    util.Option[*Assertion]
+	assertion *Assertion
+	dotNode   dot.Node
 }
 
 // Visualize returns a graphviz string for the current assertion chain tree.
@@ -621,12 +622,22 @@ func (chain *AssertionChain) Visualize() string {
 		commit := a.StateCommitment
 		// Construct label of each node.
 		rStr := hex.EncodeToString(commit.Hash().Bytes())
-		label := "height: " + strconv.Itoa(int(commit.Height)) + "\n commitment: " + rStr
+		staker := common.Address{}
+		if !a.staker.IsEmpty() {
+			staker = a.staker.OpenKnownFull()
+		}
+		label := fmt.Sprintf(
+			"height: %d\n commitment: %#x\n staker: %#x",
+			commit.Height,
+			commit.Hash(),
+			staker,
+		)
 
 		dotN := graph.Node(rStr).Box().Attr("label", label)
 		m[commit.Hash()] = &vizNode{
-			parent:  a.prev,
-			dotNode: dotN,
+			parent:    a.prev,
+			assertion: a,
+			dotNode:   dotN,
 		}
 	}
 
