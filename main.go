@@ -18,6 +18,8 @@ const (
 	challengePeriod = 100 * time.Second
 	// For the purposes of our simulation, we initialize 100 blocks worth of "correct" hashes.
 	numSimulationHashes = 100
+	// For the simulation, we have 5 second block times in L2.
+	l2BlockTimes = 5 * time.Second
 )
 
 func main() {
@@ -32,7 +34,7 @@ func main() {
 		ctx,
 		latestHeight,
 		correctLeaves,
-		statemanager.WithL2BlockTimes(5*time.Second),
+		statemanager.WithL2BlockTimes(l2BlockTimes),
 	)
 
 	// We start our simulation with a single, honest validator.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Opt = func(val *Validator)
@@ -53,7 +54,22 @@ func (v *Validator) listenForStateUpdates(ctx context.Context) {
 	for {
 		select {
 		case stateUpdated := <-v.stateUpdateEvents:
-			fmt.Println(stateUpdated)
+			fmt.Printf(
+				"Received a state update event from state manager: height %d, %#x\n",
+				stateUpdated.HistoryCommitment.Height,
+				stateUpdated.HistoryCommitment.Hash(),
+			)
+			fmt.Println("Submitting leaf creation event to chain")
+			stateCommit := protocol.StateCommitment{
+				Height: stateUpdated.HistoryCommitment.Height,
+				State:  stateUpdated.HistoryCommitment.Hash(),
+			}
+			prevAssertion := v.protocol.LatestConfirmed()
+			assertion, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, common.Address{})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("Created assertion %+v\n", assertion)
 		case <-ctx.Done():
 			return
 		}
@@ -66,9 +82,11 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 		case genericEvent := <-v.assertionEvents:
 			switch ev := genericEvent.(type) {
 			case *protocol.CreateLeafEvent:
-				if v.isCorrectLeaf(ev) {
+				if v.isCorrectLeaf(ctx, ev) {
+					fmt.Printf("Got a correct leaf at height %d, %#x\n", ev.Commitment.Height, ev.Commitment.Hash())
 					v.defendLeaf(ev)
 				} else {
+					fmt.Printf("WRONG leaf at height %d, %#x\n", ev.Commitment.Height, ev.Commitment.Hash())
 					v.challengeLeaf(ev)
 				}
 			case *protocol.StartChallengeEvent:
@@ -82,8 +100,12 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 	}
 }
 
-func (v *Validator) isCorrectLeaf(ev *protocol.CreateLeafEvent) bool {
-	return true
+func (v *Validator) isCorrectLeaf(ctx context.Context, ev *protocol.CreateLeafEvent) bool {
+	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.Commitment.Height)
+	if err != nil {
+		panic(err)
+	}
+	return localCommitment != ev.Commitment.Hash()
 }
 
 func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {

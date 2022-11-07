@@ -15,10 +15,10 @@ import (
 var (
 	ErrWrongChain            = errors.New("wrong chain")
 	ErrInvalid               = errors.New("invalid operation")
-	ErrInvalidHeight         = errors.New("invalid block height")
+	ErrInvalidHeight         = errors.New("invalid block Height")
 	ErrVertexAlreadyExists   = errors.New("vertex already exists")
-	ErrWrongState            = errors.New("vertex state does not allow this operation")
-	ErrWrongPredecessorState = errors.New("predecessor state does not allow this operation")
+	ErrWrongState            = errors.New("vertex State does not allow this operation")
+	ErrWrongPredecessorState = errors.New("predecessor State does not allow this operation")
 	ErrNotYet                = errors.New("deadline has not yet passed")
 	ErrNoWinnerYet           = errors.New("challenges does not yet have a winner")
 	ErrPastDeadline          = errors.New("deadline has passed")
@@ -50,19 +50,20 @@ type EventProvider interface {
 	Subscribe(ctx context.Context) <-chan AssertionChainEvent
 }
 
-// AssertionManager allows the creation of new leaves for a staker with a state commitment
+// AssertionManager allows the creation of new leaves for a staker with a State Commitment
 // and a previous assertion.
 type AssertionManager interface {
+	LatestConfirmed() *Assertion
 	CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
 }
 
 type StateCommitment struct {
-	height uint64
-	state  common.Hash
+	Height uint64
+	State  common.Hash
 }
 
 func (comm *StateCommitment) Hash() common.Hash {
-	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, comm.height), comm.state.Bytes())
+	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, comm.Height), comm.State.Bytes())
 }
 
 type AssertionChain struct {
@@ -118,8 +119,8 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 		status:      ConfirmedAssertionState,
 		sequenceNum: 0,
 		stateCommitment: StateCommitment{
-			height: 0,
-			state:  common.Hash{},
+			Height: 0,
+			State:  common.Hash{},
 		},
 		prev:                    util.EmptyOption[*Assertion](),
 		isFirstChild:            false,
@@ -149,6 +150,10 @@ func (chain *AssertionChain) Subscribe(ctx context.Context) <-chan AssertionChai
 	return chain.inner.feed.Subscribe(ctx)
 }
 
+func (chain *AssertionChain) LatestConfirmed() *Assertion {
+	return chain.inner.LatestConfirmed()
+}
+
 func (chain *InnerAssertionChain) LatestConfirmed() *Assertion {
 	return chain.assertions[chain.confirmedLatest]
 }
@@ -161,7 +166,7 @@ func (chain *InnerAssertionChain) CreateLeaf(prev *Assertion, commitment StateCo
 	if prev.chain != chain {
 		return nil, ErrWrongChain
 	}
-	if prev.stateCommitment.height >= commitment.height {
+	if prev.stateCommitment.Height >= commitment.Height {
 		return nil, ErrInvalid
 	}
 	dedupeCode := crypto.Keccak256Hash(binary.BigEndian.AppendUint64(commitment.Hash().Bytes(), prev.sequenceNum))
@@ -191,7 +196,7 @@ func (chain *InnerAssertionChain) CreateLeaf(prev *Assertion, commitment StateCo
 	chain.feed.Append(&CreateLeafEvent{
 		prevSeqNum: prev.sequenceNum,
 		seqNum:     leaf.sequenceNum,
-		commitment: leaf.stateCommitment,
+		Commitment: leaf.stateCommitment,
 		staker:     staker,
 	})
 	return leaf, nil

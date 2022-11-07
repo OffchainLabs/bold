@@ -54,6 +54,9 @@ func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.
 	return s
 }
 
+// HistoryCommitmentAtHeight --
+// TODO: Match up with the existing state manager methods to rewind state, for example, for
+// easier integration into the Nitro codebase.
 func (s *Simulated) HistoryCommitmentAtHeight(_ context.Context, height uint64) (common.Hash, error) {
 	s.lock.RLock()
 	if height >= uint64(len(s.leaves)) {
