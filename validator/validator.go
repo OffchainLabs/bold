@@ -8,6 +8,7 @@ import (
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
+	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sirupsen/logrus"
 )
@@ -89,8 +90,8 @@ func (v *Validator) submitLeafCreationPeriodically(ctx context.Context) {
 			logFields := logrus.Fields{
 				"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
 				"leafHeight":            commit.Height,
-				"leafCommitment":        fmt.Sprintf("%#x", commit.Hash()),
-				"staker":                fmt.Sprintf("%#x", v.address),
+				"leafCommitment":        util.FormatHash(commit.Hash()),
+				"staker":                util.FormatAddr(v.address),
 			}
 			_, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
 			if err != nil {
@@ -117,19 +118,16 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 				if v.isFromSelf(ctx, ev) {
 					continue
 				}
+				logFields := logrus.Fields{
+					"height":     ev.Commitment.Height,
+					"commitment": util.FormatHash(ev.Commitment.Hash()),
+					"staker":     util.FormatAddr(v.address),
+				}
 				if v.isCorrectLeaf(ctx, ev) {
-					log.WithFields(logrus.Fields{
-						"height":     ev.Commitment.Height,
-						"commitment": fmt.Sprintf("%#x", ev.Commitment.Hash()),
-						"staker":     fmt.Sprintf("%#x", v.address),
-					}).Info("Leaf creation matches local state")
+					log.WithFields(logFields).Info("Leaf creation matches local state")
 					v.defendLeaf(ev)
 				} else {
-					log.WithFields(logrus.Fields{
-						"height":     ev.Commitment.Height,
-						"commitment": fmt.Sprintf("%#x", ev.Commitment.Hash()),
-						"staker":     fmt.Sprintf("%#x", v.address),
-					}).Warn("Leaf creation DOES NOT MATCH local state")
+					log.WithFields(logFields).Warn("Leaf creation DOES NOT MATCH local state")
 					v.challengeLeaf(ev)
 				}
 			case *protocol.StartChallengeEvent:

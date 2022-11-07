@@ -171,6 +171,8 @@ func (chain *InnerAssertionChain) Subscribe(ctx context.Context) <-chan Assertio
 }
 
 func (chain *InnerAssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error) {
+	chain.mutex.Lock()
+	defer chain.mutex.Unlock()
 	if prev.chain != chain {
 		return nil, ErrWrongChain
 	}
