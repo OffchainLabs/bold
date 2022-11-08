@@ -41,7 +41,8 @@ func (v *Visualization) streamAssertionChainGraph(ctx context.Context) func(w ht
 			return
 		}
 		defer c.Close()
-		ticker := time.NewTicker(time.Second)
+		// TODO: Update based on events instead...
+		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
