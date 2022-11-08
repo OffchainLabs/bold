@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
@@ -143,6 +144,8 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 }
 
 func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion {
+	randDuration := rand.Int31n(2000) // 2000 ms for potential latency in submitting leaf creation.
+	time.Sleep(time.Millisecond * time.Duration(randDuration))
 	prevAssertion := v.protocol.LatestConfirmed()
 	currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
 	commit := protocol.StateCommitment{
@@ -177,14 +180,15 @@ func (v *Validator) confirmLeafAfterChallengePeriod(leaf *protocol.Assertion) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(v.protocol.ChallengePeriodLength()))
 	defer cancel()
 	<-ctx.Done()
-	if err := leaf.ConfirmNoRival(); err != nil {
-		log.WithError(err).WithField(
-			"leaf", fmt.Sprintf("%+v", leaf),
-		).Error("Could not confirm that created leaf had no rival")
+	logFields := logrus.Fields{
+		"height":      leaf.StateCommitment.Height,
+		"sequenceNum": leaf.SequenceNum,
 	}
-	log.WithField(
-		"leaf", fmt.Sprintf("%+v", leaf),
-	).Info("Confirmed leaf passed challenge period successfully on-chain")
+	if err := leaf.ConfirmNoRival(); err != nil {
+		log.WithError(err).WithFields(logFields).Error("Could not confirm that created leaf had no rival")
+		return
+	}
+	log.WithFields(logFields).Info("Confirmed leaf passed challenge period successfully on-chain")
 }
 
 func (v *Validator) isFromSelf(ev *protocol.CreateLeafEvent) bool {
