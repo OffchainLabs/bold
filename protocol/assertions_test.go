@@ -14,6 +14,49 @@ var _ = OnChainProtocol(&AssertionChain{})
 
 const testChallengePeriod = 100 * time.Second
 
+func TestLeafCreationTimings(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	timeRef := util.NewArtificialTimeReference()
+	correctBlockHashes := correctBlockHashesForTest(200)
+	staker1 := common.BytesToAddress([]byte{1})
+	staker2 := common.BytesToAddress([]byte{2})
+	_ = staker2
+
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
+	require.Equal(t, 1, len(chain.assertions))
+	require.Equal(t, uint64(0), chain.confirmedLatest)
+
+	genesis := chain.LatestConfirmed()
+	require.Equal(t, util.HistoryCommitment{
+		Height: 0,
+		Merkle: common.Hash{},
+	}, genesis.StateCommitment)
+
+	eventChan := make(chan AssertionChainEvent)
+	chain.feed.Subscribe(ctx, eventChan)
+
+	// Create a new leaf at height 1.
+	comm := util.HistoryCommitment{Height: 1, Merkle: correctBlockHashes[99]}
+	newAssertion, err := chain.CreateLeaf(genesis, comm, staker1)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(chain.assertions))
+
+	// Ensure that genesis is still the latest confirmed.
+	require.Equal(t, genesis, chain.LatestConfirmed())
+	verifyCreateLeafEventInFeed(t, eventChan, 1, 0, staker1, comm)
+
+	// Ensure it cannot become confirmed until after the challenge period is done.
+	err = newAssertion.ConfirmNoRival()
+	require.ErrorIs(t, err, ErrNotYet)
+	timeRef.Add(testChallengePeriod + time.Second)
+
+	// Ensure the new leaf becomes the latest confirmed if no rival.
+	require.NoError(t, newAssertion.ConfirmNoRival())
+	require.Equal(t, newAssertion, chain.LatestConfirmed())
+}
+
 func TestAssertionChain(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
