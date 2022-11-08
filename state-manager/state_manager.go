@@ -16,9 +16,9 @@ import (
 var log = logrus.WithField("prefix", "state-manager")
 
 type Manager interface {
-	LatestHistoryCommitment(ctx context.Context) *util.HistoryCommitment
-	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (*util.HistoryCommitment, error)
-	SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent
+	LatestHistoryCommitment(ctx context.Context) util.HistoryCommitment
+	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (util.HistoryCommitment, error)
+	SubscribeStateEvents(ctx context.Context, ch chan<- *StateAdvancedEvent)
 }
 
 type Simulated struct {
@@ -58,11 +58,15 @@ func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.
 	return s
 }
 
+func (s *Simulated) SubscribeStateEvents(ctx context.Context, ch chan<- *StateAdvancedEvent) {
+	s.feed.Subscribe(ctx, ch)
+}
+
 // LatestHistoryCommitment --
-func (s *Simulated) LatestHistoryCommitment(_ context.Context) *util.HistoryCommitment {
+func (s *Simulated) LatestHistoryCommitment(_ context.Context) util.HistoryCommitment {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return &util.HistoryCommitment{
+	return util.HistoryCommitment{
 		Height: s.currentHeight.Load(),
 		Merkle: s.stateTree.Root(),
 	}
@@ -71,21 +75,17 @@ func (s *Simulated) LatestHistoryCommitment(_ context.Context) *util.HistoryComm
 // HistoryCommitmentAtHeight --
 // TODO: Match up with the existing state manager methods to rewind state, for example, for
 // easier integration into the Nitro codebase.
-func (s *Simulated) HistoryCommitmentAtHeight(_ context.Context, height uint64) (*util.HistoryCommitment, error) {
+func (s *Simulated) HistoryCommitmentAtHeight(_ context.Context, height uint64) (util.HistoryCommitment, error) {
 	s.lock.RLock()
 	if height >= uint64(len(s.leaves)) {
-		return nil, fmt.Errorf("height %d exceeds available states %d", height, len(s.leaves))
+		return util.HistoryCommitment{Height: 0, Merkle: common.Hash{}}, fmt.Errorf("height %d exceeds available states %d", height, len(s.leaves))
 	}
 	treeAtHeight := util.ExpansionFromLeaves(s.leaves[:height+1])
 	s.lock.RUnlock()
-	return &util.HistoryCommitment{
+	return util.HistoryCommitment{
 		Height: height,
 		Merkle: treeAtHeight.Root(),
 	}, nil
-}
-
-func (s *Simulated) SubscribeStateEvents(ctx context.Context) <-chan *StateAdvancedEvent {
-	return s.feed.Subscribe(ctx)
 }
 
 func (s *Simulated) AdvanceL2Chain(ctx context.Context) {

@@ -10,11 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var (
-	_ = OnChainProtocol(&AssertionChain{})
-)
+var _ = OnChainProtocol(&AssertionChain{})
 
-const testChallengePeriod = time.Duration(100 * time.Second)
+const testChallengePeriod = 100 * time.Second
 
 func TestAssertionChain(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -26,7 +24,7 @@ func TestAssertionChain(t *testing.T) {
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 
-	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod).inner
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
 	if len(chain.assertions) != 1 {
 		t.Fatal()
 	}
@@ -34,14 +32,15 @@ func TestAssertionChain(t *testing.T) {
 		t.Fatal()
 	}
 	genesis := chain.LatestConfirmed()
-	if genesis.StateCommitment != (StateCommitment{0, common.Hash{}}) {
+	if genesis.StateCommitment != (util.HistoryCommitment{Height: 0, Merkle: common.Hash{}}) {
 		t.Fatal()
 	}
 
-	eventChan := chain.feed.Subscribe(ctx)
+	eventChan := make(chan AssertionChainEvent)
+	chain.feed.Subscribe(ctx, eventChan)
 
 	// add an assertion, then confirm it
-	comm := StateCommitment{1, correctBlockHashes[99]}
+	comm := util.HistoryCommitment{Height: 1, Merkle: correctBlockHashes[99]}
 	newAssertion, err := chain.CreateLeaf(genesis, comm, staker1)
 	Require(t, err)
 	if len(chain.assertions) != 2 {
@@ -66,18 +65,18 @@ func TestAssertionChain(t *testing.T) {
 	verifyConfirmEventInFeed(t, eventChan, 1)
 
 	// try to create a duplicate assertion
-	_, err = chain.CreateLeaf(genesis, StateCommitment{1, correctBlockHashes[99]}, staker1)
+	_, err = chain.CreateLeaf(genesis, util.HistoryCommitment{Height: 1, Merkle: correctBlockHashes[99]}, staker1)
 	if !errors.Is(err, ErrVertexAlreadyExists) {
 		t.Fatal(err)
 	}
 
 	// create a fork, let first branch win by timeout
-	comm = StateCommitment{2, correctBlockHashes[199]}
+	comm = util.HistoryCommitment{2, correctBlockHashes[199]}
 	branch1, err := chain.CreateLeaf(newAssertion, comm, staker1)
 	Require(t, err)
 	timeRef.Add(5 * time.Second)
 	verifyCreateLeafEventInFeed(t, eventChan, 2, 1, staker1, comm)
-	comm = StateCommitment{2, wrongBlockHashes[199]}
+	comm = util.HistoryCommitment{2, wrongBlockHashes[199]}
 	branch2, err := chain.CreateLeaf(newAssertion, comm, staker2)
 	verifyCreateLeafEventInFeed(t, eventChan, 3, 1, staker2, comm)
 	Require(t, err)
@@ -111,12 +110,12 @@ func TestAssertionChain(t *testing.T) {
 	}
 }
 
-func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seqNum, prevSeqNum uint64, staker common.Address, comm StateCommitment) {
+func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seqNum, prevSeqNum uint64, staker common.Address, comm util.HistoryCommitment) {
 	t.Helper()
 	ev := <-c
 	switch e := ev.(type) {
 	case *CreateLeafEvent:
-		if e.seqNum != seqNum || e.prevSeqNum != prevSeqNum || e.Staker != staker || e.Commitment != comm {
+		if e.SeqNum != seqNum || e.PrevSeqNum != prevSeqNum || e.Staker != staker || e.Commitment != comm {
 			t.Fatal(e)
 		}
 	default:
@@ -142,7 +141,7 @@ func verifyRejectEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seqNum 
 	ev := <-c
 	switch e := ev.(type) {
 	case *RejectEvent:
-		if e.seqNum != seqNum {
+		if e.SeqNum != seqNum {
 			t.Fatal(e)
 		}
 	default:
@@ -155,7 +154,7 @@ func verifyStartChallengeEventInFeed(t *testing.T, c <-chan AssertionChainEvent,
 	ev := <-c
 	switch e := ev.(type) {
 	case *StartChallengeEvent:
-		if e.parentSeqNum != parentSeqNum {
+		if e.ParentSeqNum != parentSeqNum {
 			t.Fatal(e)
 		}
 	default:
@@ -173,10 +172,10 @@ func TestChallengeBisections(t *testing.T) {
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 
-	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod).inner
-	correctBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), StateCommitment{100, correctBlockHashes[100]}, staker1)
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
+	correctBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), util.HistoryCommitment{100, correctBlockHashes[100]}, staker1)
 	Require(t, err)
-	wrongBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), StateCommitment{100, wrongBlockHashes[100]}, staker2)
+	wrongBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), util.HistoryCommitment{100, wrongBlockHashes[100]}, staker2)
 	Require(t, err)
 	challenge, err := chain.LatestConfirmed().CreateChallenge(ctx)
 	Require(t, err)

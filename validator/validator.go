@@ -21,8 +21,8 @@ type Opt = func(val *Validator)
 type Validator struct {
 	protocol               protocol.OnChainProtocol
 	stateManager           statemanager.Manager
-	assertionEvents        <-chan protocol.AssertionChainEvent
-	stateUpdateEvents      <-chan *statemanager.StateAdvancedEvent
+	assertionEvents        chan protocol.AssertionChainEvent
+	stateUpdateEvents      chan *statemanager.StateAdvancedEvent
 	address                common.Address
 	name                   string
 	knownValidatorNames    map[common.Address]string
@@ -72,14 +72,16 @@ func New(
 		stateManager:       stateManager,
 		address:            common.Address{},
 		createLeafInterval: 5 * time.Second,
+		assertionEvents:    make(chan protocol.AssertionChainEvent, 1),
+		stateUpdateEvents:  make(chan *statemanager.StateAdvancedEvent, 1),
 	}
 	for _, o := range opts {
 		o(v)
 	}
 	// TODO: Prefer an API where the caller provides the channel and we can subscribe to all challenge and
 	// assertion chain events. Provide the ability to specify the type of the subscription.
-	v.assertionEvents = v.protocol.Subscribe(ctx)
-	v.stateUpdateEvents = v.stateManager.SubscribeStateEvents(ctx)
+	v.protocol.SubscribeChainEvents(ctx, v.assertionEvents)
+	v.stateManager.SubscribeStateEvents(ctx, v.stateUpdateEvents)
 	return v, nil
 }
 
@@ -148,17 +150,13 @@ func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion 
 	time.Sleep(time.Millisecond * time.Duration(randDuration))
 	prevAssertion := v.protocol.LatestConfirmed()
 	currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
-	commit := protocol.StateCommitment{
-		Height: currentCommit.Height,
-		State:  currentCommit.Merkle,
-	}
 	logFields := logrus.Fields{
 		"name":                  v.name,
 		"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
-		"leafHeight":            commit.Height,
-		"leafCommitmentMerkle":  util.FormatHash(commit.State),
+		"leafHeight":            currentCommit.Height,
+		"leafCommitmentMerkle":  util.FormatHash(currentCommit.Merkle),
 	}
-	leaf, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
+	leaf, err := v.protocol.CreateLeaf(prevAssertion, currentCommit, v.address)
 	switch {
 	case errors.Is(err, protocol.ErrVertexAlreadyExists):
 		log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
@@ -195,7 +193,7 @@ func (v *Validator) isFromSelf(ev *protocol.CreateLeafEvent) bool {
 	return v.address == ev.Staker
 }
 
-func (v *Validator) isCorrectLeaf(localCommitment *util.HistoryCommitment, ev *protocol.CreateLeafEvent) bool {
+func (v *Validator) isCorrectLeaf(localCommitment util.HistoryCommitment, ev *protocol.CreateLeafEvent) bool {
 	return localCommitment.Hash() == ev.Commitment.Hash()
 }
 
@@ -206,11 +204,11 @@ func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 	}
 	logFields["name"] = v.name
 	logFields["height"] = ev.Commitment.Height
-	logFields["commitmentMerkle"] = util.FormatHash(ev.Commitment.State)
+	logFields["commitmentMerkle"] = util.FormatHash(ev.Commitment.Merkle)
 	log.WithFields(logFields).Info("New leaf matches local state")
 }
 
-func (v *Validator) challengeLeaf(localCommitment *util.HistoryCommitment, ev *protocol.CreateLeafEvent) {
+func (v *Validator) challengeLeaf(localCommitment util.HistoryCommitment, ev *protocol.CreateLeafEvent) {
 	logFields := logrus.Fields{}
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
 		logFields["disagreesWith"] = name
@@ -219,7 +217,7 @@ func (v *Validator) challengeLeaf(localCommitment *util.HistoryCommitment, ev *p
 	logFields["correctCommitmentHeight"] = localCommitment.Height
 	logFields["badCommitmentHeight"] = ev.Commitment.Height
 	logFields["correctCommitmentMerkle"] = util.FormatHash(localCommitment.Merkle)
-	logFields["badCommitmentMerkle"] = util.FormatHash(ev.Commitment.State)
+	logFields["badCommitmentMerkle"] = util.FormatHash(ev.Commitment.Merkle)
 	log.WithFields(logFields).Warn("Disagreed with created leaf")
 }
 

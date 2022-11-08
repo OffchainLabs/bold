@@ -15,9 +15,9 @@ func (ev *genericAssertionChainEvent) IsAssertionChainEvent() bool { return true
 
 type CreateLeafEvent struct {
 	genericAssertionChainEvent
-	prevSeqNum uint64
-	seqNum     uint64
-	Commitment StateCommitment
+	PrevSeqNum uint64
+	SeqNum     uint64
+	Commitment util.HistoryCommitment
 	Staker     common.Address
 }
 
@@ -28,12 +28,12 @@ type ConfirmEvent struct {
 
 type RejectEvent struct {
 	genericAssertionChainEvent
-	seqNum uint64
+	SeqNum uint64
 }
 
 type StartChallengeEvent struct {
 	genericAssertionChainEvent
-	parentSeqNum uint64
+	ParentSeqNum uint64
 }
 
 type ChallengeEvent interface {
@@ -46,23 +46,23 @@ func (ev *genericChallengeEvent) IsChallengeEvent() bool { return true }
 
 type ChallengeLeafEvent struct {
 	genericChallengeEvent
-	sequenceNum       uint64
-	winnerIfConfirmed uint64
-	history           util.HistoryCommitment
-	becomesPS         bool
+	SequenceNum       uint64
+	WinnerIfConfirmed uint64
+	History           util.HistoryCommitment
+	BecomesPS         bool
 }
 
 type ChallengeBisectEvent struct {
 	genericChallengeEvent
-	fromSequenceNum uint64 // previously existing vertex
-	sequenceNum     uint64 // newly created vertex
-	history         util.HistoryCommitment
-	becomesPS       bool
+	FromSequenceNum uint64 // previously existing vertex
+	SequenceNum     uint64 // newly created vertex
+	History         util.HistoryCommitment
+	BecomesPS       bool
 }
 
 type ChallengeMergeEvent struct {
 	genericChallengeEvent
-	deeperSequenceNum    uint64
-	shallowerSequenceNum uint64
-	becomesPS            bool
+	DeeperSequenceNum    uint64
+	ShallowerSequenceNum uint64
+	BecomesPS            bool
 }
