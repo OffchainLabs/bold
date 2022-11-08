@@ -148,7 +148,7 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion {
 	randDuration := rand.Int31n(2000) // 2000 ms for potential latency in submitting leaf creation.
 	time.Sleep(time.Millisecond * time.Duration(randDuration))
-	prevAssertion := v.protocol.LatestConfirmed()
+	prevAssertion := v.protocol.LatestAssertion()
 	currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
 	logFields := logrus.Fields{
 		"name":                  v.name,

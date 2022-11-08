@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestLeafCreationTimings(t *testing.T) {
 	defer cancel()
 
 	timeRef := util.NewArtificialTimeReference()
-	correctBlockHashes := correctBlockHashesForTest(200)
+	hashes := correctBlockHashesForTest(100)
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 	_ = staker2
@@ -37,24 +38,29 @@ func TestLeafCreationTimings(t *testing.T) {
 	eventChan := make(chan AssertionChainEvent)
 	chain.feed.Subscribe(ctx, eventChan)
 
-	// Create a new leaf at height 1.
-	comm := util.HistoryCommitment{Height: 1, Merkle: correctBlockHashes[99]}
-	newAssertion, err := chain.CreateLeaf(genesis, comm, staker1)
+	// Create two leaves, one at height 1 and another at height 2
+	comm := util.HistoryCommitment{Height: 1, Merkle: hashes[0]}
+	a1, err := chain.CreateLeaf(genesis, comm, staker1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(chain.assertions))
+	verifyCreateLeafEventInFeed(t, eventChan, 1, 0, staker1, comm)
+
+	comm2 := util.HistoryCommitment{Height: 2, Merkle: hashes[1]}
+	_, err = chain.CreateLeaf(a1, comm2, staker2)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(chain.assertions))
+	verifyCreateLeafEventInFeed(t, eventChan, 2, 1, staker2, comm2)
 
 	// Ensure that genesis is still the latest confirmed.
 	require.Equal(t, genesis, chain.LatestConfirmed())
-	verifyCreateLeafEventInFeed(t, eventChan, 1, 0, staker1, comm)
 
 	// Ensure it cannot become confirmed until after the challenge period is done.
-	err = newAssertion.ConfirmNoRival()
-	require.ErrorIs(t, err, ErrNotYet)
 	timeRef.Add(testChallengePeriod + time.Second)
 
-	// Ensure the new leaf becomes the latest confirmed if no rival.
-	require.NoError(t, newAssertion.ConfirmNoRival())
-	require.Equal(t, newAssertion, chain.LatestConfirmed())
+	// Try to confirm the first leaf.
+	fmt.Printf("%+v\n", a1)
+	require.NoError(t, a1.ConfirmNoRival())
+	require.Equal(t, a1, chain.LatestConfirmed())
 }
 
 func TestAssertionChain(t *testing.T) {

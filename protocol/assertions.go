@@ -59,6 +59,7 @@ type EventProvider interface {
 // and a previous assertion.
 type AssertionManager interface {
 	LatestConfirmed() *Assertion
+	LatestAssertion() *Assertion
 	CreateLeaf(prev *Assertion, commitment util.HistoryCommitment, staker common.Address) (*Assertion, error)
 }
 
@@ -143,7 +144,15 @@ func (chain *AssertionChain) ChallengePeriodLength() time.Duration {
 }
 
 func (chain *AssertionChain) LatestConfirmed() *Assertion {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
 	return chain.assertions[chain.confirmedLatest]
+}
+
+func (chain *AssertionChain) LatestAssertion() *Assertion {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
+	return chain.assertions[len(chain.assertions)-1]
 }
 
 func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {
