@@ -95,7 +95,12 @@ func (v *Validator) prepareLeafCreationPeriodically(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			v.submitLeafCreation(ctx)
+			// Keep track of the leaf we created so we can confirm it as no rival in the future.
+			leaf := v.submitLeafCreation(ctx)
+			if leaf == nil {
+				continue
+			}
+			go v.confirmLeafAfterChallengePeriod(leaf)
 		case <-ctx.Done():
 			return
 		}
@@ -124,8 +129,12 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 				}
 			case *protocol.StartChallengeEvent:
 				v.processChallengeStart(ctx, ev)
+			case *protocol.ConfirmEvent:
+				log.WithField(
+					"sequenceNum", ev.SeqNum,
+				).Info("Leaf with sequence number confirmed on-chain")
 			default:
-				panic("not a recognized assertion chain event")
+				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
 			}
 		case <-ctx.Done():
 			return
@@ -133,7 +142,7 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 	}
 }
 
-func (v *Validator) submitLeafCreation(ctx context.Context) {
+func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion {
 	prevAssertion := v.protocol.LatestConfirmed()
 	currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
 	commit := protocol.StateCommitment{
@@ -146,20 +155,36 @@ func (v *Validator) submitLeafCreation(ctx context.Context) {
 		"leafHeight":            commit.Height,
 		"leafCommitmentMerkle":  util.FormatHash(commit.State),
 	}
-	_, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
+	leaf, err := v.protocol.CreateLeaf(prevAssertion, commit, v.address)
 	switch {
 	case errors.Is(err, protocol.ErrVertexAlreadyExists):
 		log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
-		return
+		return nil
 	case errors.Is(err, protocol.ErrInvalid):
 		log.WithFields(logFields).Debug("Tried to create a leaf with an older commitment")
-		return
+		return nil
 	case err != nil:
 		log.WithError(err).Error("Could not create leaf")
-		return
+		return nil
 	}
 	log.WithFields(logFields).Info("Submitted leaf creation")
-	return
+	return leaf
+}
+
+// For a leaf created by a validator, we confirm the leaf has no rival after the challenge deadline has passed.
+// This function is meant to be ran as a goroutine for each leaf created by the validator.
+func (v *Validator) confirmLeafAfterChallengePeriod(leaf *protocol.Assertion) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(v.protocol.ChallengePeriodLength()))
+	defer cancel()
+	<-ctx.Done()
+	if err := leaf.ConfirmNoRival(); err != nil {
+		log.WithError(err).WithField(
+			"leaf", fmt.Sprintf("%+v", leaf),
+		).Error("Could not confirm that created leaf had no rival")
+	}
+	log.WithField(
+		"leaf", fmt.Sprintf("%+v", leaf),
+	).Info("Confirmed leaf passed challenge period successfully on-chain")
 }
 
 func (v *Validator) isFromSelf(ev *protocol.CreateLeafEvent) bool {
@@ -175,6 +200,7 @@ func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
 		logFields["createdBy"] = name
 	}
+	logFields["name"] = v.name
 	logFields["height"] = ev.Commitment.Height
 	logFields["commitmentMerkle"] = util.FormatHash(ev.Commitment.State)
 	log.WithFields(logFields).Info("New leaf matches local state")
@@ -185,6 +211,7 @@ func (v *Validator) challengeLeaf(localCommitment *util.HistoryCommitment, ev *p
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
 		logFields["disagreesWith"] = name
 	}
+	logFields["name"] = v.name
 	logFields["correctCommitmentHeight"] = localCommitment.Height
 	logFields["badCommitmentHeight"] = ev.Commitment.Height
 	logFields["correctCommitmentMerkle"] = util.FormatHash(localCommitment.Merkle)

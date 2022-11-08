@@ -23,7 +23,7 @@ type CreateLeafEvent struct {
 
 type ConfirmEvent struct {
 	genericAssertionChainEvent
-	seqNum uint64
+	SeqNum uint64
 }
 
 type RejectEvent struct {

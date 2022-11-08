@@ -129,7 +129,7 @@ func verifyConfirmEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seqNum
 	ev := <-c
 	switch e := ev.(type) {
 	case *ConfirmEvent:
-		if e.seqNum != seqNum {
+		if e.SeqNum != seqNum {
 			t.Fatal(e)
 		}
 	default:

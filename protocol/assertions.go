@@ -41,6 +41,7 @@ type OnChainProtocol interface {
 
 // ChainReader can make non-mutating calls to the on-chain protocol.
 type ChainReader interface {
+	ChallengePeriodLength() time.Duration
 	Call(clo func(*InnerAssertionChain) error) error
 }
 
@@ -98,6 +99,10 @@ func (chain *AssertionChain) Call(clo func(*InnerAssertionChain) error) error {
 	chain.inner.mutex.RLock()
 	defer chain.inner.mutex.RUnlock()
 	return clo(chain.inner)
+}
+
+func (chain *AssertionChain) ChallengePeriodLength() time.Duration {
+	return chain.inner.challengePeriod
 }
 
 const (
@@ -274,7 +279,7 @@ func (a *Assertion) ConfirmNoRival() error {
 	a.status = ConfirmedAssertionState
 	a.chain.confirmedLatest = a.SequenceNum
 	a.chain.feed.Append(&ConfirmEvent{
-		seqNum: a.SequenceNum,
+		SeqNum: a.SequenceNum,
 	})
 	return nil
 }
@@ -303,9 +308,13 @@ func (a *Assertion) ConfirmForWin() error {
 	a.status = ConfirmedAssertionState
 	a.chain.confirmedLatest = a.SequenceNum
 	a.chain.feed.Append(&ConfirmEvent{
-		seqNum: a.SequenceNum,
+		SeqNum: a.SequenceNum,
 	})
 	return nil
+}
+
+func (a *Assertion) Prev() util.Option[*Assertion] {
+	return a.prev
 }
 
 type Challenge struct {
