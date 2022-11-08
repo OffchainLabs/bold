@@ -107,7 +107,7 @@ func (s *Simulated) AdvanceL2Chain(ctx context.Context) {
 			log.WithFields(logrus.Fields{
 				"newHeight": height,
 				"merkle":    util.FormatHash(s.stateTree.Root()),
-			}).Info("Advancing state")
+			}).Debug("Advancing L2 chain state")
 			s.lock.Unlock()
 		case <-ctx.Done():
 			return
