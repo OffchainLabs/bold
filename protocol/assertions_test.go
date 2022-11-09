@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,54 +14,6 @@ var _ = OnChainProtocol(&AssertionChain{})
 
 const testChallengePeriod = 100 * time.Second
 
-func TestLeafCreationTimings(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	timeRef := util.NewArtificialTimeReference()
-	hashes := correctBlockHashesForTest(100)
-	staker1 := common.BytesToAddress([]byte{1})
-	staker2 := common.BytesToAddress([]byte{2})
-	_ = staker2
-
-	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
-	require.Equal(t, 1, len(chain.assertions))
-	require.Equal(t, uint64(0), chain.confirmedLatest)
-
-	genesis := chain.LatestConfirmed()
-	require.Equal(t, util.HistoryCommitment{
-		Height: 0,
-		Merkle: common.Hash{},
-	}, genesis.StateCommitment)
-
-	eventChan := make(chan AssertionChainEvent)
-	chain.feed.Subscribe(ctx, eventChan)
-
-	// Create two leaves, one at height 1 and another at height 2
-	comm := StateCommitment{Height: 1, StateRoot: hashes[0]}
-	a1, err := chain.CreateLeaf(genesis, comm, staker1)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(chain.assertions))
-	verifyCreateLeafEventInFeed(t, eventChan, 1, 0, staker1, comm)
-
-	comm2 := StateCommitment{Height: 2, StateRoot: hashes[1]}
-	_, err = chain.CreateLeaf(a1, comm2, staker2)
-	require.NoError(t, err)
-	require.Equal(t, 3, len(chain.assertions))
-	verifyCreateLeafEventInFeed(t, eventChan, 2, 1, staker2, comm2)
-
-	// Ensure that genesis is still the latest confirmed.
-	require.Equal(t, genesis, chain.LatestConfirmed())
-
-	// Ensure it cannot become confirmed until after the challenge period is done.
-	timeRef.Add(testChallengePeriod + time.Second)
-
-	// Try to confirm the first leaf.
-	fmt.Printf("%+v\n", a1)
-	require.NoError(t, a1.ConfirmNoRival())
-	require.Equal(t, a1, chain.LatestConfirmed())
-}
-
 func TestAssertionChain(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,7 +24,7 @@ func TestAssertionChain(t *testing.T) {
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 
-	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod, make(map[common.Address]string))
 	require.Equal(t, 1, len(chain.assertions))
 	require.Equal(t, uint64(0), chain.confirmedLatest)
 	genesis := chain.LatestConfirmed()
@@ -200,7 +151,7 @@ func TestChallengeBisections(t *testing.T) {
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 
-	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod, make(map[common.Address]string))
 	correctBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), StateCommitment{100, correctBlockHashes[100]}, staker1)
 	require.NoError(t, err)
 	wrongBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), StateCommitment{100, wrongBlockHashes[100]}, staker2)

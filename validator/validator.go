@@ -236,6 +236,7 @@ func (v *Validator) isCorrectLeaf(localCommitment protocol.StateCommitment, ev *
 	return localCommitment.Hash() == ev.StateCommitment.Hash()
 }
 
+// TODO: Defend a leaf if it is not created by us, but is a valid leaf from our perspective.
 func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 	logFields := logrus.Fields{}
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
@@ -247,6 +248,7 @@ func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 	log.WithFields(logFields).Info("New leaf matches local state")
 }
 
+// Initiates a challenge on a created leaf.
 func (v *Validator) challengeLeaf(localCommitment protocol.StateCommitment, ev *protocol.CreateLeafEvent) {
 	logFields := logrus.Fields{}
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
@@ -258,6 +260,7 @@ func (v *Validator) challengeLeaf(localCommitment protocol.StateCommitment, ev *
 	logFields["correctStateRoot"] = util.FormatHash(localCommitment.StateRoot)
 	logFields["badStateRoot"] = util.FormatHash(ev.StateCommitment.StateRoot)
 	log.WithFields(logFields).Warn("Disagreed with created leaf")
+
 }
 
 func (v *Validator) processChallengeStart(ctx context.Context, ev *protocol.StartChallengeEvent) {
