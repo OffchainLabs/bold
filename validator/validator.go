@@ -120,15 +120,19 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 				if v.isFromSelf(ev) {
 					continue
 				}
-				localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.Commitment.Height)
+				localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.StateCommitment.Height)
 				if err != nil {
 					log.WithError(err).Error("Could not get history commitment")
 					continue
 				}
-				if v.isCorrectLeaf(localCommitment, ev) {
+				commit := protocol.StateCommitment{
+					Height:    localCommitment.Height,
+					StateRoot: localCommitment.Merkle,
+				}
+				if v.isCorrectLeaf(commit, ev) {
 					v.defendLeaf(ev)
 				} else {
-					v.challengeLeaf(localCommitment, ev)
+					v.challengeLeaf(commit, ev)
 				}
 			case *protocol.StartChallengeEvent:
 				v.processChallengeStart(ctx, ev)
@@ -149,14 +153,19 @@ func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion 
 	randDuration := rand.Int31n(2000) // 2000 ms for potential latency in submitting leaf creation.
 	time.Sleep(time.Millisecond * time.Duration(randDuration))
 	prevAssertion := v.protocol.LatestAssertion()
+	// TODO: Fix! State commit and history commit are not the same thing.
 	currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
+	stateCommit := protocol.StateCommitment{
+		Height:    currentCommit.Height,
+		StateRoot: currentCommit.Merkle,
+	}
 	logFields := logrus.Fields{
 		"name":                  v.name,
 		"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
 		"leafHeight":            currentCommit.Height,
 		"leafCommitmentMerkle":  util.FormatHash(currentCommit.Merkle),
 	}
-	leaf, err := v.protocol.CreateLeaf(prevAssertion, currentCommit, v.address)
+	leaf, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, v.address)
 	switch {
 	case errors.Is(err, protocol.ErrVertexAlreadyExists):
 		log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
@@ -193,8 +202,8 @@ func (v *Validator) isFromSelf(ev *protocol.CreateLeafEvent) bool {
 	return v.address == ev.Staker
 }
 
-func (v *Validator) isCorrectLeaf(localCommitment util.HistoryCommitment, ev *protocol.CreateLeafEvent) bool {
-	return localCommitment.Hash() == ev.Commitment.Hash()
+func (v *Validator) isCorrectLeaf(localCommitment protocol.StateCommitment, ev *protocol.CreateLeafEvent) bool {
+	return localCommitment.Hash() == ev.StateCommitment.Hash()
 }
 
 func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
@@ -203,21 +212,21 @@ func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 		logFields["createdBy"] = name
 	}
 	logFields["name"] = v.name
-	logFields["height"] = ev.Commitment.Height
-	logFields["commitmentMerkle"] = util.FormatHash(ev.Commitment.Merkle)
+	logFields["height"] = ev.StateCommitment.Height
+	logFields["stateRoot"] = util.FormatHash(ev.StateCommitment.StateRoot)
 	log.WithFields(logFields).Info("New leaf matches local state")
 }
 
-func (v *Validator) challengeLeaf(localCommitment util.HistoryCommitment, ev *protocol.CreateLeafEvent) {
+func (v *Validator) challengeLeaf(localCommitment protocol.StateCommitment, ev *protocol.CreateLeafEvent) {
 	logFields := logrus.Fields{}
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
 		logFields["disagreesWith"] = name
 	}
 	logFields["name"] = v.name
 	logFields["correctCommitmentHeight"] = localCommitment.Height
-	logFields["badCommitmentHeight"] = ev.Commitment.Height
-	logFields["correctCommitmentMerkle"] = util.FormatHash(localCommitment.Merkle)
-	logFields["badCommitmentMerkle"] = util.FormatHash(ev.Commitment.Merkle)
+	logFields["badCommitmentHeight"] = ev.StateCommitment.Height
+	logFields["correctStateRoot"] = util.FormatHash(localCommitment.StateRoot)
+	logFields["badStateRoot"] = util.FormatHash(ev.StateCommitment.StateRoot)
 	log.WithFields(logFields).Warn("Disagreed with created leaf")
 }
 

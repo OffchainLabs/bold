@@ -60,7 +60,7 @@ type EventProvider interface {
 type AssertionManager interface {
 	LatestConfirmed() *Assertion
 	LatestAssertion() *Assertion
-	CreateLeaf(prev *Assertion, commitment util.HistoryCommitment, staker common.Address) (*Assertion, error)
+	CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
 }
 
 type ChainVisualizer interface {
@@ -101,7 +101,7 @@ type Assertion struct {
 	chain                   *AssertionChain
 	status                  AssertionState
 	SequenceNum             uint64
-	StateCommitment         util.HistoryCommitment
+	StateCommitment         StateCommitment
 	prev                    util.Option[*Assertion]
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
@@ -110,14 +110,23 @@ type Assertion struct {
 	staker                  util.Option[common.Address]
 }
 
+type StateCommitment struct {
+	Height    uint64
+	StateRoot common.Hash
+}
+
+func (comm *StateCommitment) Hash() common.Hash {
+	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, comm.Height), comm.StateRoot.Bytes())
+}
+
 func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challengePeriod time.Duration) *AssertionChain {
 	genesis := &Assertion{
 		chain:       nil,
 		status:      ConfirmedAssertionState,
 		SequenceNum: 0,
-		StateCommitment: util.HistoryCommitment{
-			Height: 0,
-			Merkle: common.Hash{},
+		StateCommitment: StateCommitment{
+			Height:    0,
+			StateRoot: common.Hash{},
 		},
 		prev:                    util.EmptyOption[*Assertion](),
 		isFirstChild:            false,
@@ -159,7 +168,7 @@ func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<-
 	chain.feed.Subscribe(ctx, ch)
 }
 
-func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment util.HistoryCommitment, staker common.Address) (*Assertion, error) {
+func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error) {
 	chain.mutex.Lock()
 	defer chain.mutex.Unlock()
 	if prev.chain != chain {
@@ -193,10 +202,10 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment util.History
 	chain.assertions = append(chain.assertions, leaf)
 	chain.dedupe[dedupeCode] = true
 	chain.feed.Append(&CreateLeafEvent{
-		PrevSeqNum: prev.SequenceNum,
-		SeqNum:     leaf.SequenceNum,
-		Commitment: leaf.StateCommitment,
-		Staker:     staker,
+		PrevSeqNum:      prev.SequenceNum,
+		SeqNum:          leaf.SequenceNum,
+		StateCommitment: leaf.StateCommitment,
+		Staker:          staker,
 	})
 	return leaf, nil
 }
