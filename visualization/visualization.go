@@ -3,7 +3,6 @@ package visualization
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/gorilla/websocket"
@@ -13,17 +12,30 @@ import (
 var log = logrus.WithField("prefix", "visualization-server")
 
 type Visualization struct {
-	visualizer protocol.ChainVisualizer
-	upgrader   websocket.Upgrader
+	visualizer     protocol.ChainVisualizer
+	eventsProvider protocol.EventsProvider
+	eventsReceived chan protocol.AssertionChainEvent
+	upgrader       websocket.Upgrader
 }
 
-func New(visualizer protocol.ChainVisualizer) *Visualization {
+func New(
+	ctx context.Context,
+	visualizer protocol.ChainVisualizer,
+	eventsProvider protocol.EventsProvider,
+) *Visualization {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(j *http.Request) bool {
 			return true
 		},
 	}
-	return &Visualization{visualizer: visualizer, upgrader: upgrader}
+	eventsReceived := make(chan protocol.AssertionChainEvent, 1)
+	eventsProvider.SubscribeChainEvents(ctx, eventsReceived)
+	return &Visualization{
+		visualizer:     visualizer,
+		upgrader:       upgrader,
+		eventsProvider: eventsProvider,
+		eventsReceived: eventsReceived,
+	}
 }
 
 func (v *Visualization) Start(ctx context.Context) {
@@ -41,12 +53,9 @@ func (v *Visualization) streamAssertionChainGraph(ctx context.Context) func(w ht
 			return
 		}
 		defer c.Close()
-		// TODO: Update based on events instead...
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
 		for {
 			select {
-			case <-ticker.C:
+			case <-v.eventsReceived:
 				g := v.visualizer.Visualize()
 				if err = c.WriteMessage(1, []byte(g)); err != nil {
 					log.WithError(err).Error("Could not write chain graph string over websocket")

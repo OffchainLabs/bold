@@ -17,6 +17,7 @@ var log = logrus.WithField("prefix", "state-manager")
 
 type Manager interface {
 	LatestHistoryCommitment(ctx context.Context) util.HistoryCommitment
+	HasStateRoot(ctx context.Context, stateRoot common.Hash) bool
 	HistoryCommitmentAtHeight(ctx context.Context, height uint64) (util.HistoryCommitment, error)
 	SubscribeStateEvents(ctx context.Context, ch chan<- *StateAdvancedEvent)
 }
@@ -60,6 +61,10 @@ func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.
 
 func (s *Simulated) SubscribeStateEvents(ctx context.Context, ch chan<- *StateAdvancedEvent) {
 	s.feed.Subscribe(ctx, ch)
+}
+
+func (s *Simulated) HasStateRoot(ctx context.Context, stateRoot common.Hash) bool {
+	return false
 }
 
 // LatestHistoryCommitment --

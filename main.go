@@ -27,13 +27,13 @@ type simConfig struct {
 
 var (
 	defaultSimConfig = &simConfig{
-		challengePeriod: 5 * time.Second,
+		challengePeriod: 3 * time.Second,
 		// For the purposes of our simulation, we initialize 2000 hashes.
 		numSimulationHashes: 2000,
 		// For the simulation, we have 1 second block times in L2.
 		l2BlockTimes: time.Second,
 		// Honest validators submit leaf creation events every 5 seconds.
-		leafCreationInterval: 10 * time.Second,
+		leafCreationInterval: 6 * time.Second,
 	}
 	log = logrus.WithField("prefix", "main")
 )
@@ -68,6 +68,13 @@ func main() {
 		ctx,
 		maxHeight,
 		correctLeaves,
+		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
+	)
+	incorrectLeaves := simulationHashes[len(simulationHashes)/2:]
+	incorrectStateProvider := statemanager.NewSimulatedManager(
+		ctx,
+		maxHeight,
+		incorrectLeaves,
 		statemanager.WithL2BlockTimes(cfg.l2BlockTimes),
 	)
 
@@ -105,8 +112,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	validatorC, err := validator.New(
+		ctx,
+		chain,
+		incorrectStateProvider,
+		validator.WithName("Carl"),
+		validator.WithAddress(common.BytesToAddress([]byte("C"))),
+		validator.WithKnownValidators(validatorsByAddress),
+		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
+		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
+	)
+	if err != nil {
+		panic(err)
+	}
 
-	vis := visualization.New(chain)
+	vis := visualization.New(ctx, chain, chain)
 	go vis.Start(ctx)
 
 	// Begin the validator process in the background.
@@ -133,11 +153,13 @@ func main() {
 	//  4. Chaos monkey validators operating alongside honest ones.
 	validatorA.Start(ctx)
 	validatorB.Start(ctx)
+	validatorC.Start(ctx)
 
 	// Advance an L2 chain, and each time state is updated, an event will be sent over a feed
 	// and honest validators that has access to the state manager will attempt to submit leaf creation
 	// events to the contracts.
 	go correctStateProvider.AdvanceL2Chain(ctx)
+	go incorrectStateProvider.AdvanceL2Chain(ctx)
 
 	// Await a shutdown signal, which will trigger context cancellation across the program.
 	exit := make(chan os.Signal, 1)

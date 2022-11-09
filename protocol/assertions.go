@@ -34,7 +34,7 @@ var (
 type OnChainProtocol interface {
 	ChainReader
 	ChainWriter
-	EventProvider
+	EventsProvider
 	AssertionManager
 	ChainVisualizer
 }
@@ -50,16 +50,19 @@ type ChainWriter interface {
 	Tx(clo func(*AssertionChain) error) error
 }
 
-// EventProvider allows subscribing to chain events for the on-chain protocol.
-type EventProvider interface {
+// EventsProvider allows subscribing to chain events for the on-chain protocol.
+type EventsProvider interface {
 	SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent)
 }
 
 // AssertionManager allows the creation of new leaves for a Staker with a State Commitment
 // and a previous assertion.
 type AssertionManager interface {
+	NumAssertions() uint64
+	Genesis() *Assertion
 	LatestConfirmed() *Assertion
 	LatestAssertion() *Assertion
+	AssertionBySequenceNumber(sequenceNum uint64) (*Assertion, error)
 	CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
 }
 
@@ -156,6 +159,31 @@ func (chain *AssertionChain) LatestConfirmed() *Assertion {
 	chain.mutex.RLock()
 	defer chain.mutex.RUnlock()
 	return chain.assertions[chain.confirmedLatest]
+}
+
+func (chain *AssertionChain) Genesis() *Assertion {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
+	return chain.assertions[0]
+}
+
+func (chain *AssertionChain) NumAssertions() uint64 {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
+	return uint64(len(chain.assertions))
+}
+
+func (chain *AssertionChain) AssertionBySequenceNumber(seqNum uint64) (*Assertion, error) {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
+	if seqNum >= uint64(len(chain.assertions)) {
+		return nil, fmt.Errorf(
+			"assertion with sequence number %d exceeds num assertions, %d",
+			seqNum,
+			len(chain.assertions),
+		)
+	}
+	return chain.assertions[seqNum], nil
 }
 
 func (chain *AssertionChain) LatestAssertion() *Assertion {
@@ -607,18 +635,20 @@ func (sc *SubChallenge) SetWinner(winner *ChallengeVertex) error {
 }
 
 type vizNode struct {
-	parent    util.Option[*Assertion]
-	assertion *Assertion
-	dotNode   dot.Node
+	isConfirmed bool
+	parent      util.Option[*Assertion]
+	assertion   *Assertion
+	dotNode     dot.Node
 }
 
 // Visualize returns a graphviz string for the current assertion chain tree.
 func (chain *AssertionChain) Visualize() string {
 	graph := dot.NewGraph(dot.Directed)
-	graph.Attr("rankdir", "RL")
+	graph.Attr("rankdir", "BT")
 	graph.Attr("labeljust", "l")
 
 	assertions := chain.assertions
+	latestConfirmed := chain.LatestConfirmed()
 	// Construct nodes
 	m := make(map[[32]byte]*vizNode)
 	for i := 0; i < len(assertions); i++ {
@@ -630,18 +660,24 @@ func (chain *AssertionChain) Visualize() string {
 		if !a.staker.IsEmpty() {
 			staker = a.staker.OpenKnownFull()
 		}
+		isConfirmed := a.SequenceNum <= latestConfirmed.SequenceNum
 		label := fmt.Sprintf(
-			"height: %d\n commitment: %#x\n Staker: %#x",
+			"height: %d\n commitment: %#x\n Staker: %#x\n Confirmed: %v",
 			commit.Height,
 			commit.Hash(),
 			staker,
+			isConfirmed,
 		)
 
 		dotN := graph.Node(rStr).Box().Attr("label", label)
+		if isConfirmed {
+			dotN.Attr("fillcolor", "#39C141").Attr("style", "filled")
+		}
 		m[commit.Hash()] = &vizNode{
-			parent:    a.prev,
-			assertion: a,
-			dotNode:   dotN,
+			isConfirmed: isConfirmed,
+			parent:      a.prev,
+			assertion:   a,
+			dotNode:     dotN,
 		}
 	}
 

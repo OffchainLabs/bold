@@ -150,9 +150,34 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 }
 
 func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion {
-	randDuration := rand.Int31n(2000) // 2000 ms for potential latency in submitting leaf creation.
+	randDuration := rand.Int31n(2000) // 2000 ms simulating latency in submitting leaf creation.
 	time.Sleep(time.Millisecond * time.Duration(randDuration))
-	prevAssertion := v.protocol.LatestAssertion()
+
+	// Ensure that we only build on a valid parent from this validator's perspective.
+	// TODO: Instead of iterating over all assertions, validator should load up all created assertions since
+	// the latest confirmed one in prod and update that list as faster way of looking up valid parents.
+	// the validator should also have ready access to historical commitments to make sure it can select
+	// the valid parent based on its commitment state root.
+	// TODO: Turn into its own method and test thoroughly.
+	prevAssertion := v.protocol.LatestConfirmed()
+	var latestValidParent *protocol.Assertion
+	if v.stateManager.HasStateRoot(ctx, prevAssertion.StateCommitment.StateRoot) {
+		latestValidParent = prevAssertion
+	}
+	for s := prevAssertion.SequenceNum; s < v.protocol.NumAssertions(); s++ {
+		a, err := v.protocol.AssertionBySequenceNumber(s)
+		if err != nil {
+			log.WithError(err).Error("Could not retrieve assertion by sequence number")
+			return nil
+		}
+		if v.stateManager.HasStateRoot(ctx, a.StateCommitment.StateRoot) {
+			latestValidParent = prevAssertion
+		}
+	}
+	if latestValidParent == nil {
+		latestValidParent = v.protocol.Genesis()
+	}
+
 	// TODO: Fix! State commit and history commit are not the same thing.
 	currentCommit := v.stateManager.LatestHistoryCommitment(ctx)
 	stateCommit := protocol.StateCommitment{
