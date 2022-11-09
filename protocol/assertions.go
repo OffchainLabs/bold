@@ -71,13 +71,14 @@ type ChainVisualizer interface {
 }
 
 type AssertionChain struct {
-	mutex           sync.RWMutex
-	timeReference   util.TimeReference
-	challengePeriod time.Duration
-	confirmedLatest uint64
-	assertions      []*Assertion
-	dedupe          map[common.Hash]bool
-	feed            *EventFeed[AssertionChainEvent]
+	mutex               sync.RWMutex
+	timeReference       util.TimeReference
+	challengePeriod     time.Duration
+	confirmedLatest     uint64
+	assertions          []*Assertion
+	dedupe              map[common.Hash]bool
+	feed                *EventFeed[AssertionChainEvent]
+	knownValidatorNames map[common.Address]string
 }
 
 func (chain *AssertionChain) Tx(clo func(chain *AssertionChain) error) error {
@@ -111,6 +112,7 @@ type Assertion struct {
 	secondChildCreationTime util.Option[time.Time]
 	challenge               util.Option[*Challenge]
 	staker                  util.Option[common.Address]
+	creatorName             string
 }
 
 type StateCommitment struct {
@@ -122,7 +124,12 @@ func (comm *StateCommitment) Hash() common.Hash {
 	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, comm.Height), comm.StateRoot.Bytes())
 }
 
-func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challengePeriod time.Duration) *AssertionChain {
+func NewAssertionChain(
+	ctx context.Context,
+	timeRef util.TimeReference,
+	challengePeriod time.Duration,
+	knownValidatorNames map[common.Address]string,
+) *AssertionChain {
 	genesis := &Assertion{
 		chain:       nil,
 		status:      ConfirmedAssertionState,
@@ -139,13 +146,14 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 		staker:                  util.EmptyOption[common.Address](),
 	}
 	chain := &AssertionChain{
-		mutex:           sync.RWMutex{},
-		timeReference:   timeRef,
-		challengePeriod: challengePeriod,
-		confirmedLatest: 0,
-		assertions:      []*Assertion{genesis},
-		dedupe:          make(map[common.Hash]bool), // no need to insert genesis assertion here
-		feed:            NewEventFeed[AssertionChainEvent](ctx),
+		mutex:               sync.RWMutex{},
+		timeReference:       timeRef,
+		challengePeriod:     challengePeriod,
+		confirmedLatest:     0,
+		assertions:          []*Assertion{genesis},
+		dedupe:              make(map[common.Hash]bool), // no need to insert genesis assertion here
+		feed:                NewEventFeed[AssertionChainEvent](ctx),
+		knownValidatorNames: knownValidatorNames,
 	}
 	genesis.chain = chain
 	return chain
@@ -209,6 +217,10 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 	if chain.dedupe[dedupeCode] {
 		return nil, ErrVertexAlreadyExists
 	}
+	creatorName := "unknown"
+	if name, ok := chain.knownValidatorNames[staker]; ok {
+		creatorName = name
+	}
 	leaf := &Assertion{
 		chain:                   chain,
 		status:                  PendingAssertionState,
@@ -220,6 +232,7 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 		secondChildCreationTime: util.EmptyOption[time.Time](),
 		challenge:               util.EmptyOption[*Challenge](),
 		staker:                  util.FullOption[common.Address](staker),
+		creatorName:             creatorName,
 	}
 	if prev.firstChildCreationTime.IsEmpty() {
 		prev.firstChildCreationTime = util.FullOption[time.Time](chain.timeReference.Get())
@@ -656,16 +669,12 @@ func (chain *AssertionChain) Visualize() string {
 		commit := a.StateCommitment
 		// Construct label of each node.
 		rStr := hex.EncodeToString(commit.Hash().Bytes())
-		staker := common.Address{}
-		if !a.staker.IsEmpty() {
-			staker = a.staker.OpenKnownFull()
-		}
 		isConfirmed := a.SequenceNum <= latestConfirmed.SequenceNum
 		label := fmt.Sprintf(
-			"height: %d\n commitment: %#x\n Staker: %#x\n Confirmed: %v",
+			"height: %d\n commitment: %#x\n Staker: %s\n Confirmed: %v",
 			commit.Height,
-			commit.Hash(),
-			staker,
+			util.FormatHash(commit.Hash()),
+			a.creatorName,
 			isConfirmed,
 		)
 

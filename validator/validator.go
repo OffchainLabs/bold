@@ -159,23 +159,10 @@ func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion 
 	// the validator should also have ready access to historical commitments to make sure it can select
 	// the valid parent based on its commitment state root.
 	// TODO: Turn into its own method and test thoroughly.
-	prevAssertion := v.protocol.LatestConfirmed()
-	var latestValidParent *protocol.Assertion
-	if v.stateManager.HasStateRoot(ctx, prevAssertion.StateCommitment.StateRoot) {
-		latestValidParent = prevAssertion
-	}
-	for s := prevAssertion.SequenceNum; s < v.protocol.NumAssertions(); s++ {
-		a, err := v.protocol.AssertionBySequenceNumber(s)
-		if err != nil {
-			log.WithError(err).Error("Could not retrieve assertion by sequence number")
-			return nil
-		}
-		if v.stateManager.HasStateRoot(ctx, a.StateCommitment.StateRoot) {
-			latestValidParent = prevAssertion
-		}
-	}
-	if latestValidParent == nil {
-		latestValidParent = v.protocol.Genesis()
+	parentAssertion, err := v.findLatestValidAssertion(ctx)
+	if err != nil {
+		log.WithError(err).Error("Could not find valid parent assertion to build leaf upon")
+		return nil
 	}
 
 	// TODO: Fix! State commit and history commit are not the same thing.
@@ -185,12 +172,13 @@ func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion 
 		StateRoot: currentCommit.Merkle,
 	}
 	logFields := logrus.Fields{
-		"name":                  v.name,
-		"latestConfirmedHeight": fmt.Sprintf("%+v", prevAssertion.SequenceNum),
-		"leafHeight":            currentCommit.Height,
-		"leafCommitmentMerkle":  util.FormatHash(currentCommit.Merkle),
+		"name":                       v.name,
+		"latestValidParentHeight":    fmt.Sprintf("%+v", parentAssertion.StateCommitment.Height),
+		"latestValidParentStateRoot": util.FormatHash(parentAssertion.StateCommitment.StateRoot),
+		"leafHeight":                 currentCommit.Height,
+		"leafCommitmentMerkle":       util.FormatHash(currentCommit.Merkle),
 	}
-	leaf, err := v.protocol.CreateLeaf(prevAssertion, stateCommit, v.address)
+	leaf, err := v.protocol.CreateLeaf(parentAssertion, stateCommit, v.address)
 	switch {
 	case errors.Is(err, protocol.ErrVertexAlreadyExists):
 		log.WithFields(logFields).Debug("Vertex already exists, unable to create new leaf")
@@ -206,6 +194,23 @@ func (v *Validator) submitLeafCreation(ctx context.Context) *protocol.Assertion 
 	return leaf
 }
 
+// Finds the latest valid assertion a validator should build their new leaves upon. This starts from
+// the latest confirmed assertion and makes it down the tree to the latest assertion that has a state
+// root matching in the validator's database.
+func (v *Validator) findLatestValidAssertion(ctx context.Context) (*protocol.Assertion, error) {
+	latestValidParent := v.protocol.LatestConfirmed()
+	for s := latestValidParent.SequenceNum; s < v.protocol.NumAssertions(); s++ {
+		a, err := v.protocol.AssertionBySequenceNumber(s)
+		if err != nil {
+			return nil, err
+		}
+		if v.stateManager.HasStateRoot(ctx, a.StateCommitment.StateRoot) {
+			latestValidParent = a
+		}
+	}
+	return latestValidParent, nil
+}
+
 // For a leaf created by a validator, we confirm the leaf has no rival after the challenge deadline has passed.
 // This function is meant to be ran as a goroutine for each leaf created by the validator.
 func (v *Validator) confirmLeafAfterChallengePeriod(leaf *protocol.Assertion) {
@@ -217,7 +222,7 @@ func (v *Validator) confirmLeafAfterChallengePeriod(leaf *protocol.Assertion) {
 		"sequenceNum": leaf.SequenceNum,
 	}
 	if err := leaf.ConfirmNoRival(); err != nil {
-		log.WithError(err).WithFields(logFields).Error("Could not confirm that created leaf had no rival")
+		log.WithError(err).WithFields(logFields).Warn("Could not confirm that created leaf had no rival")
 		return
 	}
 	log.WithFields(logFields).Info("Confirmed leaf passed challenge period successfully on-chain")

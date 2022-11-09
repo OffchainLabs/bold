@@ -7,5 +7,5 @@ import (
 )
 
 func FormatHash(h common.Hash) string {
-	return fmt.Sprintf("%#x", h[:8])
+	return fmt.Sprintf("%#x", h[:3])
 }

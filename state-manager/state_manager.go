@@ -23,13 +23,14 @@ type Manager interface {
 }
 
 type Simulated struct {
-	currentHeight *atomic.Uint64
-	maxHeight     uint64
-	lock          sync.RWMutex
-	leaves        []common.Hash
-	stateTree     util.MerkleExpansion
-	l2BlockTimes  time.Duration
-	feed          *protocol.EventFeed[*StateAdvancedEvent]
+	currentHeight   *atomic.Uint64
+	maxHeight       uint64
+	lock            sync.RWMutex
+	leaves          []common.Hash
+	knownStateRoots map[common.Hash]bool
+	stateTree       util.MerkleExpansion
+	l2BlockTimes    time.Duration
+	feed            *protocol.EventFeed[*StateAdvancedEvent]
 }
 
 type StateAdvancedEvent struct {
@@ -46,12 +47,13 @@ func WithL2BlockTimes(d time.Duration) Opt {
 
 func NewSimulatedManager(ctx context.Context, maxHeight uint64, leaves []common.Hash, opts ...Opt) *Simulated {
 	s := &Simulated{
-		maxHeight:     maxHeight,
-		currentHeight: &atomic.Uint64{},
-		leaves:        leaves,
-		stateTree:     util.ExpansionFromLeaves(leaves[:1]),
-		l2BlockTimes:  time.Second,
-		feed:          protocol.NewEventFeed[*StateAdvancedEvent](ctx),
+		maxHeight:       maxHeight,
+		currentHeight:   &atomic.Uint64{},
+		leaves:          leaves,
+		stateTree:       util.ExpansionFromLeaves(leaves[:1]),
+		l2BlockTimes:    time.Second,
+		feed:            protocol.NewEventFeed[*StateAdvancedEvent](ctx),
+		knownStateRoots: make(map[common.Hash]bool),
 	}
 	for _, o := range opts {
 		o(s)
@@ -64,7 +66,10 @@ func (s *Simulated) SubscribeStateEvents(ctx context.Context, ch chan<- *StateAd
 }
 
 func (s *Simulated) HasStateRoot(ctx context.Context, stateRoot common.Hash) bool {
-	return false
+	// TODO: State commit is not the same as history commit! They are treated as the same for now
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.knownStateRoots[stateRoot]
 }
 
 // LatestHistoryCommitment --
@@ -109,6 +114,7 @@ func (s *Simulated) AdvanceL2Chain(ctx context.Context) {
 					Merkle: s.stateTree.Root(),
 				},
 			})
+			s.knownStateRoots[s.stateTree.Root()] = true
 			log.WithFields(logrus.Fields{
 				"newHeight": height,
 				"merkle":    util.FormatHash(s.stateTree.Root()),

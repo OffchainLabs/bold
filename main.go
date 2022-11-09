@@ -56,8 +56,14 @@ func main() {
 	).Info("Starting assertion protocol simulation")
 	log.Info("View assertion chain live at http://localhost:3000")
 
+	validatorNamesByAddress := map[common.Address]string{
+		common.BytesToAddress([]byte("A")): "Alice",
+		common.BytesToAddress([]byte("B")): "Bob",
+		common.BytesToAddress([]byte("C")): "Carl (Bad Validator)",
+	}
+
 	timeRef := util.NewRealTimeReference()
-	chain := protocol.NewAssertionChain(ctx, timeRef, cfg.challengePeriod)
+	chain := protocol.NewAssertionChain(ctx, timeRef, cfg.challengePeriod, validatorNamesByAddress)
 	simulationHashes := prepareCorrectHashes(cfg.numSimulationHashes)
 	maxHeight := cfg.numSimulationHashes - 1
 
@@ -82,17 +88,13 @@ func main() {
 	// state, and create a third validator that has an entirely different chain
 	// state than the first and also tries to post leaves. The correct vs. incorrect parties
 	// should engage in a challenge game to resolve disputes..
-	validatorsByAddress := map[common.Address]string{
-		common.BytesToAddress([]byte("A")): "Alice",
-		common.BytesToAddress([]byte("B")): "Bob",
-	}
 	validatorA, err := validator.New(
 		ctx,
 		chain,
 		correctStateProvider,
 		validator.WithName("Alice"),
 		validator.WithAddress(common.BytesToAddress([]byte("A"))),
-		validator.WithKnownValidators(validatorsByAddress),
+		validator.WithKnownValidators(validatorNamesByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
 	)
@@ -105,7 +107,7 @@ func main() {
 		correctStateProvider,
 		validator.WithName("Bob"),
 		validator.WithAddress(common.BytesToAddress([]byte("B"))),
-		validator.WithKnownValidators(validatorsByAddress),
+		validator.WithKnownValidators(validatorNamesByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
 	)
@@ -118,13 +120,15 @@ func main() {
 		incorrectStateProvider,
 		validator.WithName("Carl"),
 		validator.WithAddress(common.BytesToAddress([]byte("C"))),
-		validator.WithKnownValidators(validatorsByAddress),
+		validator.WithKnownValidators(validatorNamesByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
 		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {
 		panic(err)
 	}
+	_ = validatorC
+	_ = validatorB
 
 	vis := visualization.New(ctx, chain, chain)
 	go vis.Start(ctx)
