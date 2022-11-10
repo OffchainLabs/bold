@@ -196,7 +196,7 @@ func TestSimpleChallengeGame(t *testing.T) {
 	require.NoError(t, err)
 
 	// Attempt to create a bisection move and succeed.
-	err = cl2.Bisect(util.HistoryCommitment{
+	_, err = cl2.Bisect(util.HistoryCommitment{
 		Height: bisectionHeight,
 		Merkle: loExp.Root(),
 	}, proof)

@@ -289,6 +289,9 @@ func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 }
 
 // Initiates a challenge on a created leaf.
+// TODO: We can only challenge if there are two competing leaves under a parent vertex. We challenge the parent.
+// We should only perform this action if there is a fork, so the validator needs to be aware if a leaf creation
+// event is an actual fork or not.
 func (v *Validator) challengeLeaf(
 	ctx context.Context,
 	localCommitment protocol.StateCommitment,
@@ -309,7 +312,8 @@ func (v *Validator) challengeLeaf(
 	logFields["badCommitmentHeight"] = ev.StateCommitment.Height
 	logFields["correctStateRoot"] = util.FormatHash(localCommitment.StateRoot)
 	logFields["badStateRoot"] = util.FormatHash(ev.StateCommitment.StateRoot)
-	log.WithFields(logFields).Infof("Disagreed with leaf, submitting challenge to protocol")
+	log.WithFields(logFields).Infof("Disagreed with other posted leaf, submitting challenge to protocol")
+
 	challenge, err := assertion.CreateChallenge(ctx)
 	if err != nil {
 		log.WithError(err).Error("Could not issue challenge")
