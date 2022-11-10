@@ -102,16 +102,16 @@ const (
 type AssertionState int
 
 type Assertion struct {
-	chain                   *AssertionChain
-	status                  AssertionState
 	SequenceNum             uint64
 	StateCommitment         StateCommitment
+	Staker                  util.Option[common.Address]
+	chain                   *AssertionChain
+	status                  AssertionState
 	prev                    util.Option[*Assertion]
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
 	secondChildCreationTime util.Option[time.Time]
 	challenge               util.Option[*Challenge]
-	staker                  util.Option[common.Address]
 	creatorName             string
 }
 
@@ -143,7 +143,7 @@ func NewAssertionChain(
 		firstChildCreationTime:  util.EmptyOption[time.Time](),
 		secondChildCreationTime: util.EmptyOption[time.Time](),
 		challenge:               util.EmptyOption[*Challenge](),
-		staker:                  util.EmptyOption[common.Address](),
+		Staker:                  util.EmptyOption[common.Address](),
 	}
 	chain := &AssertionChain{
 		mutex:               sync.RWMutex{},
@@ -231,7 +231,7 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 		firstChildCreationTime:  util.EmptyOption[time.Time](),
 		secondChildCreationTime: util.EmptyOption[time.Time](),
 		challenge:               util.EmptyOption[*Challenge](),
-		staker:                  util.FullOption[common.Address](staker),
+		Staker:                  util.FullOption[common.Address](staker),
 		creatorName:             creatorName,
 	}
 	if prev.firstChildCreationTime.IsEmpty() {
@@ -239,7 +239,7 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 	} else if prev.secondChildCreationTime.IsEmpty() {
 		prev.secondChildCreationTime = util.FullOption[time.Time](chain.timeReference.Get())
 	}
-	prev.staker = util.EmptyOption[common.Address]()
+	prev.Staker = util.EmptyOption[common.Address]()
 	chain.assertions = append(chain.assertions, leaf)
 	chain.dedupe[dedupeCode] = true
 	chain.feed.Append(&CreateLeafEvent{
@@ -671,8 +671,9 @@ func (chain *AssertionChain) Visualize() string {
 		rStr := hex.EncodeToString(commit.Hash().Bytes())
 		isConfirmed := a.SequenceNum <= latestConfirmed.SequenceNum
 		label := fmt.Sprintf(
-			"height: %d\n commitment: %#x\n Staker: %s\n Confirmed: %v",
+			"height: %d\n state root: %#x\ncommitment hash: %#x\n Staker: %s\n Confirmed: %v",
 			commit.Height,
+			util.FormatHash(commit.StateRoot),
 			util.FormatHash(commit.Hash()),
 			a.creatorName,
 			isConfirmed,

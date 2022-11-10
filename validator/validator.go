@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
@@ -26,6 +27,8 @@ type Validator struct {
 	address                common.Address
 	name                   string
 	knownValidatorNames    map[common.Address]string
+	createdLeaves          map[common.Hash]*protocol.Assertion
+	leavesLock             sync.RWMutex
 	createLeafInterval     time.Duration
 	maliciousProbability   float64
 	chaosMonkeyProbability float64
@@ -74,6 +77,7 @@ func New(
 		createLeafInterval: 5 * time.Second,
 		assertionEvents:    make(chan protocol.AssertionChainEvent, 1),
 		stateUpdateEvents:  make(chan *statemanager.StateAdvancedEvent, 1),
+		createdLeaves:      make(map[common.Hash]*protocol.Assertion),
 	}
 	for _, o := range opts {
 		o(v)
@@ -103,6 +107,9 @@ func (v *Validator) prepareLeafCreationPeriodically(ctx context.Context) {
 			if leaf == nil {
 				continue
 			}
+			v.leavesLock.Lock()
+			v.createdLeaves[leaf.StateCommitment.StateRoot] = leaf
+			v.leavesLock.Unlock()
 			go v.confirmLeafAfterChallengePeriod(leaf)
 		case <-ctx.Done():
 			return
@@ -116,26 +123,9 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 		case genericEvent := <-v.assertionEvents:
 			switch ev := genericEvent.(type) {
 			case *protocol.CreateLeafEvent:
-				// TODO: Ignore all events from self, not just CreateLeafEvent.
-				if v.isFromSelf(ev) {
-					continue
-				}
-				localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.StateCommitment.Height)
-				if err != nil {
-					log.WithError(err).Error("Could not get history commitment")
-					continue
-				}
-				commit := protocol.StateCommitment{
-					Height:    localCommitment.Height,
-					StateRoot: localCommitment.Merkle,
-				}
-				if v.isCorrectLeaf(commit, ev) {
-					v.defendLeaf(ev)
-				} else {
-					v.challengeLeaf(commit, ev)
-				}
+				go v.processLeafCreationEvent(ctx, ev)
 			case *protocol.StartChallengeEvent:
-				v.processChallengeStart(ctx, ev)
+				go v.processChallengeStart(ctx, ev)
 			case *protocol.ConfirmEvent:
 				log.WithField(
 					"sequenceNum", ev.SeqNum,
@@ -236,6 +226,56 @@ func (v *Validator) isCorrectLeaf(localCommitment protocol.StateCommitment, ev *
 	return localCommitment.Hash() == ev.StateCommitment.Hash()
 }
 
+func (v *Validator) processLeafCreationEvent(ctx context.Context, ev *protocol.CreateLeafEvent) {
+	// TODO: Ignore all events from self, not just CreateLeafEvent.
+	if v.isFromSelf(ev) {
+		return
+	}
+	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.StateCommitment.Height)
+	if err != nil {
+		log.WithError(err).Error("Could not get history commitment")
+		return
+	}
+	commit := protocol.StateCommitment{
+		Height:    localCommitment.Height,
+		StateRoot: localCommitment.Merkle,
+	}
+	if v.isCorrectLeaf(commit, ev) {
+		v.defendLeaf(ev)
+	} else {
+		v.challengeLeaf(ctx, commit, ev)
+	}
+}
+
+func (v *Validator) processChallengeStart(ctx context.Context, ev *protocol.StartChallengeEvent) {
+	// Checks if the challenge has to do with a vertex we created.
+	challengedAssertion, err := v.protocol.AssertionBySequenceNumber(ev.ParentSeqNum)
+	if err != nil {
+		log.WithError(err).Error("Could not get assertion by sequence number")
+	}
+	v.leavesLock.RLock()
+	defer v.leavesLock.RUnlock()
+	leaf, ok := v.createdLeaves[challengedAssertion.StateCommitment.StateRoot]
+	if !ok {
+		// TODO: Act on the honest vertices even if this challenge does not have to do with us.
+		return
+	}
+	challengerName := "unknown-name"
+	if !leaf.Staker.IsEmpty() {
+		if name, ok := v.knownValidatorNames[leaf.Staker.OpenKnownFull()]; ok {
+			challengerName = name
+		} else {
+			challengerName = leaf.Staker.OpenKnownFull().Hex()
+		}
+	}
+	log.WithFields(logrus.Fields{
+		"name":                 v.name,
+		"challenger":           challengerName,
+		"challengingStateRoot": util.FormatHash(leaf.StateCommitment.StateRoot),
+		"challengingHeight":    leaf.StateCommitment.Height,
+	}).Warn("Received challenge for a created leaf!")
+}
+
 // TODO: Defend a leaf if it is not created by us, but is a valid leaf from our perspective.
 func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 	logFields := logrus.Fields{}
@@ -249,8 +289,18 @@ func (v *Validator) defendLeaf(ev *protocol.CreateLeafEvent) {
 }
 
 // Initiates a challenge on a created leaf.
-func (v *Validator) challengeLeaf(localCommitment protocol.StateCommitment, ev *protocol.CreateLeafEvent) {
+func (v *Validator) challengeLeaf(
+	ctx context.Context,
+	localCommitment protocol.StateCommitment,
+	ev *protocol.CreateLeafEvent,
+) {
+	assertion, err := v.protocol.AssertionBySequenceNumber(ev.SeqNum)
+	if err != nil {
+		log.WithError(err).Error("Could not retrieve assertion for challenge")
+		return
+	}
 	logFields := logrus.Fields{}
+	logFields["disagreesWith"] = "unknown-name"
 	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
 		logFields["disagreesWith"] = name
 	}
@@ -259,10 +309,11 @@ func (v *Validator) challengeLeaf(localCommitment protocol.StateCommitment, ev *
 	logFields["badCommitmentHeight"] = ev.StateCommitment.Height
 	logFields["correctStateRoot"] = util.FormatHash(localCommitment.StateRoot)
 	logFields["badStateRoot"] = util.FormatHash(ev.StateCommitment.StateRoot)
-	log.WithFields(logFields).Warn("Disagreed with created leaf")
-
-}
-
-func (v *Validator) processChallengeStart(ctx context.Context, ev *protocol.StartChallengeEvent) {
-
+	log.WithFields(logFields).Infof("Disagreed with leaf, submitting challenge to protocol")
+	challenge, err := assertion.CreateChallenge(ctx)
+	if err != nil {
+		log.WithError(err).Error("Could not issue challenge")
+		return
+	}
+	log.WithFields(logFields).Infof("Submitted challenge: %+v", challenge)
 }
