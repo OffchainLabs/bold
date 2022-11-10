@@ -126,7 +126,11 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 		case genericEvent := <-v.assertionEvents:
 			switch ev := genericEvent.(type) {
 			case *protocol.CreateLeafEvent:
-				go v.processLeafCreationEvent(ctx, ev)
+				// TODO: Ignore all events from self, not just CreateLeafEvent.
+				if v.isFromSelf(ev) {
+					return
+				}
+				go v.processLeafCreation(ctx, ev.SeqNum, ev.StateCommitment)
 			case *protocol.StartChallengeEvent:
 				go v.processChallengeStart(ctx, ev)
 			case *protocol.ConfirmEvent:
@@ -221,35 +225,31 @@ func (v *Validator) confirmLeafAfterChallengePeriod(leaf *protocol.Assertion) {
 	log.WithFields(logFields).Info("Confirmed leaf passed challenge period successfully on-chain")
 }
 
-func (v *Validator) processLeafCreationEvent(ctx context.Context, ev *protocol.CreateLeafEvent) {
-	// TODO: Ignore all events from self, not just CreateLeafEvent.
-	if v.isFromSelf(ev) {
-		return
-	}
+func (v *Validator) processLeafCreation(ctx context.Context, seqNum uint64, stateCommit protocol.StateCommitment) {
 
 	// Detect if there is a fork, then decide if we want to challenge.
 	// We check if the parent assertion has > 1 child.
-	assertion, err := v.protocol.AssertionBySequenceNumber(ev.SeqNum)
+	assertion, err := v.protocol.AssertionBySequenceNumber(seqNum)
 	if err != nil {
 		log.WithError(err).Error("Could ont get assertion")
 	}
 	v.assertionsLock.Lock()
-	defer v.assertionsLock.Unlock()
-	if assertion.Prev().IsEmpty() {
-		v.assertionsByParentStateRoot[common.Hash{}] = append(
-			v.assertionsByParentStateRoot[common.Hash{}],
-			assertion,
-		)
-	} else {
+	key := common.Hash{}
+	if !assertion.Prev().IsEmpty() {
 		parentAssertion := assertion.Prev().OpenKnownFull()
-		v.assertionsByParentStateRoot[parentAssertion.StateCommitment.StateRoot] = append(
-			v.assertionsByParentStateRoot[parentAssertion.StateCommitment.StateRoot],
-			assertion,
-		)
+		key = parentAssertion.StateCommitment.StateRoot
 	}
-	var hasForked bool
-
-	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.StateCommitment.Height)
+	v.assertionsByParentStateRoot[key] = append(
+		v.assertionsByParentStateRoot[key],
+		assertion,
+	)
+	v.assertionsLock.Unlock()
+	hasForked := len(v.assertionsByParentStateRoot[key]) > 1
+	if !hasForked {
+		return
+	}
+	// We attempt to challenge the parent assertion if we detect a fork.
+	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, stateCommit.Height)
 	if err != nil {
 		log.WithError(err).Error("Could not get history commitment")
 		return
