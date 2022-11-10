@@ -141,7 +141,7 @@ func verifyStartChallengeEventInFeed(t *testing.T, c <-chan AssertionChainEvent,
 	}
 }
 
-func TestChallengeBisections(t *testing.T) {
+func TestSimpleChallengeGame(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -152,15 +152,54 @@ func TestChallengeBisections(t *testing.T) {
 	staker2 := common.BytesToAddress([]byte{2})
 
 	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod, make(map[common.Address]string))
-	correctBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), StateCommitment{100, correctBlockHashes[100]}, staker1)
+
+	// We create a fork with genesis as the parent, where one branch is a higher depth than the other.
+	genesis := chain.LatestConfirmed()
+	correctBranch, err := chain.CreateLeaf(genesis, StateCommitment{100, correctBlockHashes[100]}, staker1)
 	require.NoError(t, err)
-	wrongBranch, err := chain.CreateLeaf(chain.LatestConfirmed(), StateCommitment{100, wrongBlockHashes[100]}, staker2)
+	wrongBranch, err := chain.CreateLeaf(genesis, StateCommitment{101, wrongBlockHashes[101]}, staker2)
 	require.NoError(t, err)
-	challenge, err := chain.LatestConfirmed().CreateChallenge(ctx)
+
+	challenge, err := genesis.CreateChallenge(ctx)
 	require.NoError(t, err)
-	_, err = challenge.AddLeaf(correctBranch, util.HistoryCommitment{100, util.ExpansionFromLeaves(correctBlockHashes[101:200]).Root()})
+
+	// Add some leaves to the mix...
+	cl1, err := challenge.AddLeaf(correctBranch, util.HistoryCommitment{100, util.ExpansionFromLeaves(correctBlockHashes[101:200]).Root()})
 	require.NoError(t, err)
-	_, err = challenge.AddLeaf(wrongBranch, util.HistoryCommitment{100, util.ExpansionFromLeaves(wrongBlockHashes[101:200]).Root()})
+	cl2, err := challenge.AddLeaf(wrongBranch, util.HistoryCommitment{101, util.ExpansionFromLeaves(wrongBlockHashes[102:200]).Root()})
+	require.NoError(t, err)
+
+	// Ensure the lower height challenge vertex is the ps.
+	require.Equal(t, true, cl1.isPresumptiveSuccessor())
+	require.Equal(t, false, cl2.isPresumptiveSuccessor())
+
+	// Next, only the vertex that is not the presumptive successor can start a bisection move.
+	bisectionHeight, err := cl2.requiredBisectionHeight()
+	require.NoError(t, err)
+	require.Equal(t, uint64(64), bisectionHeight)
+
+	// Generate a prefix proof for the associated hashes.
+	loExp := util.ExpansionFromLeaves(wrongBlockHashes[:bisectionHeight])
+	hiExp := util.ExpansionFromLeaves(wrongBlockHashes[101:200])
+	proof := util.GeneratePrefixProof(bisectionHeight, loExp, wrongBlockHashes[bisectionHeight:200])
+	err = util.VerifyPrefixProof(
+		util.HistoryCommitment{
+			Height: bisectionHeight,
+			Merkle: loExp.Root(),
+		},
+		util.HistoryCommitment{
+			Height: 101,
+			Merkle: hiExp.Root(),
+		},
+		proof,
+	)
+	require.NoError(t, err)
+
+	// Attempt to create a bisection move and succeed.
+	err = cl2.Bisect(util.HistoryCommitment{
+		Height: bisectionHeight,
+		Merkle: loExp.Root(),
+	}, proof)
 	require.NoError(t, err)
 }
 
