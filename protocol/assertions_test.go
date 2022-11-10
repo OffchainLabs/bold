@@ -207,7 +207,11 @@ func TestBisectionChallengeGame(t *testing.T) {
 		proof,
 	)
 	require.NoError(t, err)
-	t.Log(bisection)
+
+	// The parent of the bisectoin should be the root of this challenge and the bisection
+	// should be the new presumptive successor.
+	require.Equal(t, challenge.root.commitment.Merkle, bisection.prev.commitment.Merkle)
+	require.Equal(t, true, bisection.prev.isPresumptiveSuccessor())
 }
 
 func correctBlockHashesForTest(numBlocks uint64) []common.Hash {
