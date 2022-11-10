@@ -20,18 +20,20 @@ var log = logrus.WithField("prefix", "validator")
 type Opt = func(val *Validator)
 
 type Validator struct {
-	protocol               protocol.OnChainProtocol
-	stateManager           statemanager.Manager
-	assertionEvents        chan protocol.AssertionChainEvent
-	stateUpdateEvents      chan *statemanager.StateAdvancedEvent
-	address                common.Address
-	name                   string
-	knownValidatorNames    map[common.Address]string
-	createdLeaves          map[common.Hash]*protocol.Assertion
-	leavesLock             sync.RWMutex
-	createLeafInterval     time.Duration
-	maliciousProbability   float64
-	chaosMonkeyProbability float64
+	protocol                    protocol.OnChainProtocol
+	stateManager                statemanager.Manager
+	assertionEvents             chan protocol.AssertionChainEvent
+	stateUpdateEvents           chan *statemanager.StateAdvancedEvent
+	address                     common.Address
+	name                        string
+	knownValidatorNames         map[common.Address]string
+	createdLeaves               map[common.Hash]*protocol.Assertion
+	assertionsLock              sync.RWMutex
+	assertionsByParentStateRoot map[common.Hash][]*protocol.Assertion
+	leavesLock                  sync.RWMutex
+	createLeafInterval          time.Duration
+	maliciousProbability        float64
+	chaosMonkeyProbability      float64
 }
 
 func WithMaliciousProbability(p float64) Opt {
@@ -71,13 +73,14 @@ func New(
 	opts ...Opt,
 ) (*Validator, error) {
 	v := &Validator{
-		protocol:           onChainProtocol,
-		stateManager:       stateManager,
-		address:            common.Address{},
-		createLeafInterval: 5 * time.Second,
-		assertionEvents:    make(chan protocol.AssertionChainEvent, 1),
-		stateUpdateEvents:  make(chan *statemanager.StateAdvancedEvent, 1),
-		createdLeaves:      make(map[common.Hash]*protocol.Assertion),
+		protocol:                    onChainProtocol,
+		stateManager:                stateManager,
+		address:                     common.Address{},
+		createLeafInterval:          5 * time.Second,
+		assertionEvents:             make(chan protocol.AssertionChainEvent, 1),
+		stateUpdateEvents:           make(chan *statemanager.StateAdvancedEvent, 1),
+		createdLeaves:               make(map[common.Hash]*protocol.Assertion),
+		assertionsByParentStateRoot: make(map[common.Hash][]*protocol.Assertion),
 	}
 	for _, o := range opts {
 		o(v)
@@ -218,19 +221,34 @@ func (v *Validator) confirmLeafAfterChallengePeriod(leaf *protocol.Assertion) {
 	log.WithFields(logFields).Info("Confirmed leaf passed challenge period successfully on-chain")
 }
 
-func (v *Validator) isFromSelf(ev *protocol.CreateLeafEvent) bool {
-	return v.address == ev.Staker
-}
-
-func (v *Validator) isCorrectLeaf(localCommitment protocol.StateCommitment, ev *protocol.CreateLeafEvent) bool {
-	return localCommitment.Hash() == ev.StateCommitment.Hash()
-}
-
 func (v *Validator) processLeafCreationEvent(ctx context.Context, ev *protocol.CreateLeafEvent) {
 	// TODO: Ignore all events from self, not just CreateLeafEvent.
 	if v.isFromSelf(ev) {
 		return
 	}
+
+	// Detect if there is a fork, then decide if we want to challenge.
+	// We check if the parent assertion has > 1 child.
+	assertion, err := v.protocol.AssertionBySequenceNumber(ev.SeqNum)
+	if err != nil {
+		log.WithError(err).Error("Could ont get assertion")
+	}
+	v.assertionsLock.Lock()
+	defer v.assertionsLock.Unlock()
+	if assertion.Prev().IsEmpty() {
+		v.assertionsByParentStateRoot[common.Hash{}] = append(
+			v.assertionsByParentStateRoot[common.Hash{}],
+			assertion,
+		)
+	} else {
+		parentAssertion := assertion.Prev().OpenKnownFull()
+		v.assertionsByParentStateRoot[parentAssertion.StateCommitment.StateRoot] = append(
+			v.assertionsByParentStateRoot[parentAssertion.StateCommitment.StateRoot],
+			assertion,
+		)
+	}
+	var hasForked bool
+
 	localCommitment, err := v.stateManager.HistoryCommitmentAtHeight(ctx, ev.StateCommitment.Height)
 	if err != nil {
 		log.WithError(err).Error("Could not get history commitment")
@@ -240,11 +258,7 @@ func (v *Validator) processLeafCreationEvent(ctx context.Context, ev *protocol.C
 		Height:    localCommitment.Height,
 		StateRoot: localCommitment.Merkle,
 	}
-	if v.isCorrectLeaf(commit, ev) {
-		v.defendLeaf(ev)
-	} else {
-		v.challengeLeaf(ctx, commit, ev)
-	}
+	_ = commit
 }
 
 func (v *Validator) processChallengeStart(ctx context.Context, ev *protocol.StartChallengeEvent) {
@@ -320,4 +334,12 @@ func (v *Validator) challengeLeaf(
 		return
 	}
 	log.WithFields(logFields).Infof("Submitted challenge: %+v", challenge)
+}
+
+func (v *Validator) isFromSelf(ev *protocol.CreateLeafEvent) bool {
+	return v.address == ev.Staker
+}
+
+func (v *Validator) isCorrectLeaf(localCommitment protocol.StateCommitment, ev *protocol.CreateLeafEvent) bool {
+	return localCommitment.Hash() == ev.StateCommitment.Hash()
 }
