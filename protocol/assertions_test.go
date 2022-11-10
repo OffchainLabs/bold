@@ -177,9 +177,29 @@ func TestSimpleChallengeGame(t *testing.T) {
 	bisectionHeight, err := cl2.requiredBisectionHeight()
 	require.NoError(t, err)
 	require.Equal(t, uint64(64), bisectionHeight)
+
+	// Generate a prefix proof for the associated hashes.
+	loExp := util.ExpansionFromLeaves(wrongBlockHashes[:bisectionHeight])
+	hiExp := util.ExpansionFromLeaves(wrongBlockHashes[101:200])
+	proof := util.GeneratePrefixProof(bisectionHeight, loExp, wrongBlockHashes[bisectionHeight:200])
+	err = util.VerifyPrefixProof(
+		util.HistoryCommitment{
+			Height: bisectionHeight,
+			Merkle: loExp.Root(),
+		},
+		util.HistoryCommitment{
+			Height: 101,
+			Merkle: hiExp.Root(),
+		},
+		proof,
+	)
+	require.NoError(t, err)
+
+	// Attempt to create a bisection move and succeed.
 	err = cl2.Bisect(util.HistoryCommitment{
 		Height: bisectionHeight,
-	}, make([]common.Hash, 0))
+		Merkle: loExp.Root(),
+	}, proof)
 	require.NoError(t, err)
 }
 
