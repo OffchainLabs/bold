@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -33,8 +34,19 @@ func TestAssertionChain(t *testing.T) {
 		StateRoot: common.Hash{},
 	}, genesis.StateCommitment)
 
+	bigBalance := new(big.Int).Mul(AssertionStakeWei, big.NewInt(1000))
+	chain.SetBalance(staker1, bigBalance)
+	chain.SetBalance(staker2, bigBalance)
+
 	eventChan := make(chan AssertionChainEvent)
-	chain.feed.Subscribe(ctx, eventChan)
+	chain.feed.SubscribeWithFilter(ctx, eventChan, func(ev AssertionChainEvent) bool {
+		switch ev.(type) {
+		case *SetBalanceEvent:
+			return false
+		default:
+			return true
+		}
+	})
 
 	// add an assertion, then confirm it
 	comm := StateCommitment{Height: 1, StateRoot: correctBlockHashes[99]}
@@ -43,11 +55,13 @@ func TestAssertionChain(t *testing.T) {
 	require.Equal(t, 2, len(chain.assertions))
 	require.Equal(t, genesis, chain.LatestConfirmed())
 	verifyCreateLeafEventInFeed(t, eventChan, 1, 0, staker1, comm)
+	require.True(t, new(big.Int).Add(chain.GetBalance(staker1), AssertionStakeWei).Cmp(bigBalance) == 0)
 
 	err = newAssertion.ConfirmNoRival()
 	require.ErrorIs(t, err, ErrNotYet)
 	timeRef.Add(testChallengePeriod + time.Second)
 	require.NoError(t, newAssertion.ConfirmNoRival())
+	require.True(t, chain.GetBalance(staker1).Cmp(bigBalance) == 0)
 
 	require.Equal(t, newAssertion, chain.LatestConfirmed())
 	require.Equal(t, ConfirmedAssertionState, int(newAssertion.status))
@@ -104,7 +118,7 @@ func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seq
 			t.Fatal(e)
 		}
 	default:
-		t.Fatal()
+		t.Fatal(e)
 	}
 }
 
@@ -153,6 +167,10 @@ func TestBisectionChallengeGame(t *testing.T) {
 
 	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod, make(map[common.Address]string))
 
+	bigBalance := new(big.Int).Mul(AssertionStakeWei, big.NewInt(1000))
+	chain.SetBalance(staker1, bigBalance)
+	chain.SetBalance(staker2, bigBalance)
+
 	// We create a fork with genesis as the parent, where one branch is a higher depth than the other.
 	genesis := chain.LatestConfirmed()
 	correctBranch, err := chain.CreateLeaf(genesis, StateCommitment{6, wrongBlockHashes[6]}, staker1)
@@ -167,8 +185,8 @@ func TestBisectionChallengeGame(t *testing.T) {
 	expectedBisectionHeight := uint64(4)
 	lo := expectedBisectionHeight
 	hi := uint64(7)
-	loExp := util.ExpansionFromLeaves(correctBlockHashes[:lo])
-	hiExp := util.ExpansionFromLeaves(correctBlockHashes[:hi])
+	loExp := util.ExpansionFromLeaves(wrongBlockHashes[:lo])
+	hiExp := util.ExpansionFromLeaves(wrongBlockHashes[:hi])
 
 	cl1, err := challenge.AddLeaf(
 		wrongBranch,
@@ -196,9 +214,19 @@ func TestBisectionChallengeGame(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedBisectionHeight, bisectionHeight)
 
+	proof := util.GeneratePrefixProof(lo, loExp, correctBlockHashes[lo:6])
+	_, err = cl1.Bisect(
+		util.HistoryCommitment{
+			Height: lo,
+			Merkle: loExp.Root(),
+		},
+		proof,
+	)
+	require.ErrorIs(t, err, ErrWrongState)
+
 	// Generate a prefix proof for the associated history commitments from the bisection
 	// height up to the height of the state commitment for the non-presumptive challenge leaf.
-	proof := util.GeneratePrefixProof(lo, loExp, correctBlockHashes[lo:hi])
+	proof = util.GeneratePrefixProof(lo, loExp, wrongBlockHashes[lo:hi])
 	bisection, err := cl2.Bisect(
 		util.HistoryCommitment{
 			Height: lo,

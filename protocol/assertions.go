@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 )
 
 var (
+	Gwei              = big.NewInt(1000000000)
+	AssertionStakeWei = Gwei
+
 	ErrWrongChain            = errors.New("wrong chain")
 	ErrInvalid               = errors.New("invalid operation")
 	ErrInvalidHeight         = errors.New("invalid block Height")
@@ -25,6 +29,7 @@ var (
 	ErrNotYet                = errors.New("deadline has not yet passed")
 	ErrNoWinnerYet           = errors.New("challenges does not yet have a winner")
 	ErrPastDeadline          = errors.New("deadline has passed")
+	ErrInsufficientBalance   = errors.New("insufficient balance")
 	ErrNotImplemented        = errors.New("not yet implemented")
 )
 
@@ -79,6 +84,7 @@ type AssertionChain struct {
 	dedupe              map[common.Hash]bool
 	feed                *EventFeed[AssertionChainEvent]
 	knownValidatorNames map[common.Address]string
+	balances            *util.MapWithDefault[common.Address, *big.Int]
 }
 
 func (chain *AssertionChain) Tx(clo func(chain *AssertionChain) error) error {
@@ -154,9 +160,33 @@ func NewAssertionChain(
 		dedupe:              make(map[common.Hash]bool), // no need to insert genesis assertion here
 		feed:                NewEventFeed[AssertionChainEvent](ctx),
 		knownValidatorNames: knownValidatorNames,
+		balances:            util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
 	}
 	genesis.chain = chain
 	return chain
+}
+
+func (chain *AssertionChain) GetBalance(addr common.Address) *big.Int {
+	return chain.balances.Get(addr)
+}
+
+func (chain *AssertionChain) SetBalance(addr common.Address, balance *big.Int) {
+	oldBalance := chain.balances.Get(addr)
+	chain.balances.Set(addr, balance)
+	chain.feed.Append(&SetBalanceEvent{Addr: addr, OldBalance: oldBalance, NewBalance: balance})
+}
+
+func (chain *AssertionChain) AddToBalance(addr common.Address, amount *big.Int) {
+	chain.SetBalance(addr, new(big.Int).Add(chain.GetBalance(addr), amount))
+}
+
+func (chain *AssertionChain) DeductFromBalance(addr common.Address, amount *big.Int) error {
+	balance := chain.GetBalance(addr)
+	if balance.Cmp(amount) < 0 {
+		return ErrInsufficientBalance
+	}
+	chain.SetBalance(addr, new(big.Int).Sub(balance, amount))
+	return nil
 }
 
 func (chain *AssertionChain) ChallengePeriodLength() time.Duration {
@@ -221,6 +251,28 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 	if name, ok := chain.knownValidatorNames[staker]; ok {
 		creatorName = name
 	}
+
+	if err := prev.Staker.IfLet(
+		func(oldStaker common.Address) error {
+			if staker != oldStaker {
+				if err := chain.DeductFromBalance(staker, AssertionStakeWei); err != nil {
+					return err
+				}
+				chain.AddToBalance(staker, AssertionStakeWei)
+				prev.Staker = util.EmptyOption[common.Address]()
+			}
+			return nil
+		},
+		func() error {
+			if err := chain.DeductFromBalance(staker, AssertionStakeWei); err != nil {
+				return err
+			}
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+
 	leaf := &Assertion{
 		chain:                   chain,
 		status:                  PendingAssertionState,
@@ -239,7 +291,6 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 	} else if prev.secondChildCreationTime.IsEmpty() {
 		prev.secondChildCreationTime = util.FullOption[time.Time](chain.timeReference.Get())
 	}
-	prev.Staker = util.EmptyOption[common.Address]()
 	chain.assertions = append(chain.assertions, leaf)
 	chain.dedupe[dedupeCode] = true
 	chain.feed.Append(&CreateLeafEvent{
@@ -315,6 +366,10 @@ func (a *Assertion) ConfirmNoRival() error {
 	a.chain.feed.Append(&ConfirmEvent{
 		SeqNum: a.SequenceNum,
 	})
+	if !a.Staker.IsEmpty() {
+		a.chain.AddToBalance(a.Staker.OpenKnownFull(), AssertionStakeWei)
+		a.Staker = util.EmptyOption[common.Address]()
+	}
 	return nil
 }
 
