@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -24,18 +25,30 @@ func TestAssertionChain(t *testing.T) {
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 
-	assnChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
-	_ = assnChain.Tx(func(tx *ActiveTx, chain *AssertionChain) error {
-		require.Equal(t, 1, len(chain.assertions))
-		require.Equal(t, uint64(0), chain.confirmedLatest)
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
+	require.Equal(t, 1, len(chain.assertions))
+	require.Equal(t, uint64(0), chain.confirmedLatest)
+	var eventChan chan AssertionChainEvent
+	err := chain.Tx(func(tx *ActiveTx, chain *AssertionChain) error {
 		genesis := chain.LatestConfirmed(tx)
 		require.Equal(t, StateCommitment{
 			Height:    0,
 			StateRoot: common.Hash{},
 		}, genesis.StateCommitment)
 
+		bigBalance := new(big.Int).Mul(AssertionStakeWei, big.NewInt(1000))
+		chain.SetBalance(tx, staker1, bigBalance)
+		chain.SetBalance(tx, staker2, bigBalance)
+
 		eventChan := make(chan AssertionChainEvent)
-		chain.feed.Subscribe(ctx, eventChan)
+		chain.feed.SubscribeWithFilter(ctx, eventChan, func(ev AssertionChainEvent) bool {
+			switch ev.(type) {
+			case *SetBalanceEvent:
+				return false
+			default:
+				return true
+			}
+		})
 
 		// add an assertion, then confirm it
 		comm := StateCommitment{Height: 1, StateRoot: correctBlockHashes[99]}
@@ -68,7 +81,7 @@ func TestAssertionChain(t *testing.T) {
 		branch2, err := chain.CreateLeaf(tx, newAssertion, comm, staker2)
 		require.NoError(t, err)
 		verifyCreateLeafEventInFeed(t, eventChan, 3, 1, staker2, comm)
-		challenge, err := newAssertion.CreateChallenge(ctx, tx)
+		challenge, err := newAssertion.CreateChallenge(tx, ctx)
 		require.NoError(t, err)
 		verifyStartChallengeEventInFeed(t, eventChan, newAssertion.SequenceNum)
 		chal1, err := challenge.AddLeaf(tx, branch1, util.HistoryCommitment{100, util.ExpansionFromLeaves(correctBlockHashes[99:200]).Root()})
@@ -87,15 +100,17 @@ func TestAssertionChain(t *testing.T) {
 		require.NoError(t, branch2.RejectForLoss(tx))
 		verifyRejectEventInFeed(t, eventChan, 3)
 
-		// verify that feed is empty
-		time.Sleep(500 * time.Millisecond)
-		select {
-		case ev := <-eventChan:
-			t.Fatal(ev)
-		default:
-		}
 		return nil
 	})
+	require.NoError(t, err)
+
+	// verify that feed is empty
+	time.Sleep(500 * time.Millisecond)
+	select {
+	case ev := <-eventChan:
+		t.Fatal(ev)
+	default:
+	}
 }
 
 func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seqNum, prevSeqNum uint64, staker common.Address, comm StateCommitment) {
@@ -107,7 +122,7 @@ func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seq
 			t.Fatal(e)
 		}
 	default:
-		t.Fatal()
+		t.Fatal(e)
 	}
 }
 
@@ -154,17 +169,21 @@ func TestBisectionChallengeGame(t *testing.T) {
 	staker1 := common.BytesToAddress([]byte{1})
 	staker2 := common.BytesToAddress([]byte{2})
 
-	assnChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
-	_ = assnChain.Tx(func(tx *ActiveTx, chain *AssertionChain) error {
+	chain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
 
+	err := chain.Tx(func(tx *ActiveTx, chain *AssertionChain) error {
 		// We create a fork with genesis as the parent, where one branch is a higher depth than the other.
 		genesis := chain.LatestConfirmed(tx)
+		bigBalance := new(big.Int).Mul(AssertionStakeWei, big.NewInt(1000))
+		chain.SetBalance(tx, staker1, bigBalance)
+		chain.SetBalance(tx, staker2, bigBalance)
+
 		correctBranch, err := chain.CreateLeaf(tx, genesis, StateCommitment{6, correctBlockHashes[6]}, staker1)
 		require.NoError(t, err)
 		wrongBranch, err := chain.CreateLeaf(tx, genesis, StateCommitment{7, wrongBlockHashes[7]}, staker2)
 		require.NoError(t, err)
 
-		challenge, err := genesis.CreateChallenge(ctx, tx)
+		challenge, err := genesis.CreateChallenge(tx, ctx)
 		require.NoError(t, err)
 
 		// Add some leaves to the mix...
@@ -232,6 +251,8 @@ func TestBisectionChallengeGame(t *testing.T) {
 		require.Equal(t, true, bisection.prev.isPresumptiveSuccessor())
 		return nil
 	})
+
+	require.NoError(t, err)
 }
 
 func correctBlockHashesForTest(numBlocks uint64) []common.Hash {
