@@ -87,7 +87,7 @@ func (state *executionStateImpl) Prove(message []byte, afterRoot common.Hash) ([
 		return nil, protocol.ErrWrongState
 	}
 	buf := bytes.Buffer{}
-	if err := state.Serialize(&buf); err != nil {
+	if err := state.serializeLocked(&buf); err != nil {
 		return nil, err
 	}
 	return append(buf.Bytes(), message...), nil
@@ -96,6 +96,10 @@ func (state *executionStateImpl) Prove(message []byte, afterRoot common.Hash) ([
 func (state *executionStateImpl) Serialize(wr io.Writer) error {
 	state.mutex.Lock()
 	defer state.mutex.Unlock()
+	return state.serializeLocked(wr)
+}
+
+func (state *executionStateImpl) serializeLocked(wr io.Writer) error {
 	_, err := wr.Write(binary.BigEndian.AppendUint64(state.vmRoot.Bytes(), state.numMsgsConsumed))
 	return err
 }
