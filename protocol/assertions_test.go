@@ -215,6 +215,10 @@ func TestBisectionChallengeGame(t *testing.T) {
 	require.Equal(t, expectedBisectionHeight, bisectionHeight)
 
 	proof := util.GeneratePrefixProof(lo, loExp, correctBlockHashes[lo:6])
+
+	// Expect the ps of the root to change after we bisect...
+	t.Logf("%#x and %d", challenge.root.presumptiveSuccessor.commitment.Merkle, challenge.root.presumptiveSuccessor.commitment.Height)
+
 	_, err = cl1.Bisect(
 		util.HistoryCommitment{
 			Height: lo,
@@ -236,10 +240,9 @@ func TestBisectionChallengeGame(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// The parent of the bisectoin should be the root of this challenge and the bisection
-	// should be the new presumptive successor.
-	require.Equal(t, challenge.root.commitment.Merkle, bisection.prev.commitment.Merkle)
-	require.Equal(t, true, bisection.prev.isPresumptiveSuccessor())
+	t.Logf("%#x and %d", challenge.root.presumptiveSuccessor.commitment.Merkle, challenge.root.presumptiveSuccessor.commitment.Height)
+
+	require.Equal(t, true, bisection.isPresumptiveSuccessor())
 }
 
 func correctBlockHashesForTest(numBlocks uint64) []common.Hash {
