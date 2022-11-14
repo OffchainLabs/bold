@@ -7,48 +7,58 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"io"
+	"sync"
 )
 
 type ExecutionState interface {
 	Root() common.Hash
 	MessagesConsumed() uint64
 
-	Execute() (ExecutionState, error)
+	ExecuteOne() (ExecutionState, error)
 
 	Prove(message []byte, afterRoot common.Hash) ([]byte, error)
 	GetProofChecker() ProofChecker
 
+	Clone() ExecutionState
 	Serialize(io.Writer) error
 }
 
 type ProofChecker func(beforeRoot common.Hash, afterRoot common.Hash, proof []byte) bool
 
 type executionStateImpl struct {
-	chain        *protocol.AssertionChain
-	vmRoot       common.Hash
-	msgsConsumed uint64
+	mutex           sync.Mutex
+	chain           *protocol.AssertionChain
+	vmRoot          common.Hash
+	numMsgsConsumed uint64
 }
 
 func GenesisExecutionState(chain *protocol.AssertionChain) ExecutionState {
 	return &executionStateImpl{
-		chain:        chain,
-		vmRoot:       common.Hash{},
-		msgsConsumed: 0,
+		mutex:           sync.Mutex{},
+		chain:           chain,
+		vmRoot:          common.Hash{},
+		numMsgsConsumed: 0,
 	}
 }
 
 func (state *executionStateImpl) Root() common.Hash {
-	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64(state.vmRoot.Bytes(), state.msgsConsumed))
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
+	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64(state.vmRoot.Bytes(), state.numMsgsConsumed))
 }
 
 func (state *executionStateImpl) MessagesConsumed() uint64 {
-	return state.msgsConsumed
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
+	return state.numMsgsConsumed
 }
 
-func (state *executionStateImpl) Execute() (ExecutionState, error) {
+func (state *executionStateImpl) ExecuteOne() (ExecutionState, error) {
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
 	var nextMsg []byte
 	err := state.chain.Call(func(tx *protocol.ActiveTx, innerChain *protocol.AssertionChain) error {
-		msg, err2 := innerChain.Inbox().GetMessage(tx, state.msgsConsumed)
+		msg, err2 := innerChain.Inbox().GetMessage(tx, state.numMsgsConsumed)
 		if err2 != nil {
 			return err2
 		}
@@ -58,19 +68,21 @@ func (state *executionStateImpl) Execute() (ExecutionState, error) {
 	if err != nil {
 		return nil, err
 	}
-	return state.executeMessage(nextMsg), nil
+	return state.executeMessageLocked(nextMsg), nil
 }
 
-func (state *executionStateImpl) executeMessage(msg []byte) ExecutionState {
+func (state *executionStateImpl) executeMessageLocked(msg []byte) ExecutionState {
 	return &executionStateImpl{
-		chain:        state.chain,
-		vmRoot:       crypto.Keccak256Hash(state.vmRoot.Bytes(), msg),
-		msgsConsumed: state.msgsConsumed + 1,
+		chain:           state.chain,
+		vmRoot:          crypto.Keccak256Hash(state.vmRoot.Bytes(), msg),
+		numMsgsConsumed: state.numMsgsConsumed + 1,
 	}
 }
 
 func (state *executionStateImpl) Prove(message []byte, afterRoot common.Hash) ([]byte, error) {
-	afterState := state.executeMessage(message)
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
+	afterState := state.executeMessageLocked(message)
 	if afterState.Root() != afterRoot {
 		return nil, protocol.ErrWrongState
 	}
@@ -82,7 +94,9 @@ func (state *executionStateImpl) Prove(message []byte, afterRoot common.Hash) ([
 }
 
 func (state *executionStateImpl) Serialize(wr io.Writer) error {
-	_, err := wr.Write(binary.BigEndian.AppendUint64(state.vmRoot.Bytes(), state.msgsConsumed))
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
+	_, err := wr.Write(binary.BigEndian.AppendUint64(state.vmRoot.Bytes(), state.numMsgsConsumed))
 	return err
 }
 
@@ -92,9 +106,9 @@ func deserializeStateImpl(chain *protocol.AssertionChain, rd io.Reader) (Executi
 		return nil, err
 	}
 	return &executionStateImpl{
-		chain:        chain,
-		vmRoot:       common.BytesToHash(buf[:32]),
-		msgsConsumed: binary.BigEndian.Uint64(buf[32:]),
+		chain:           chain,
+		vmRoot:          common.BytesToHash(buf[:32]),
+		numMsgsConsumed: binary.BigEndian.Uint64(buf[32:]),
 	}, nil
 }
 
@@ -109,7 +123,18 @@ func (state *executionStateImpl) GetProofChecker() ProofChecker {
 		if err != nil {
 			return false
 		}
-		afterState := beforeState.(*executionStateImpl).executeMessage(msg)
+		afterState := beforeState.(*executionStateImpl).executeMessageLocked(msg) // don't need locking because private instance
 		return afterState.Root() == afterRoot
+	}
+}
+
+func (state *executionStateImpl) Clone() ExecutionState {
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
+	return &executionStateImpl{
+		mutex:           sync.Mutex{},
+		chain:           state.chain,
+		vmRoot:          state.vmRoot,
+		numMsgsConsumed: state.numMsgsConsumed,
 	}
 }
