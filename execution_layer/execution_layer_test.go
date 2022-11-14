@@ -26,16 +26,31 @@ func TestExecutionLayer(t *testing.T) {
 
 	msg0 := []byte{0}
 	appendMessage(chain, msg0)
-	execLayer, err := execLayer.ExecuteOne()
+	execLayer, err := execLayer.ExecuteNextChainMessage()
 	require.NoError(t, err)
 	require.NotEqualf(t, execLayer.Root(), genesisRoot, "root did not change after executing first message")
 
 	proof0, err := genesisState.Prove(msg0, execLayer.Root())
 	require.NoError(t, err)
 
-	require.True(t, proofChecker(genesisRoot, execLayer.Root(), proof0))
+	require.True(t, proofChecker(genesisRoot, execLayer.Root(), crypto.Keccak256Hash(msg0), proof0))
 
-	require.False(t, proofChecker(genesisRoot, execLayer.Root(), proof0[:len(proof0)-1]))
+	require.False(t, proofChecker(genesisRoot, execLayer.Root(), crypto.Keccak256Hash(msg0), proof0[:len(proof0)-1]))
+	require.False(t, proofChecker(genesisRoot, execLayer.Root(), crypto.Keccak256Hash([]byte{77}), proof0))
+}
+
+func TestProving(t *testing.T) {
+	execState := GenesisExecutionState(nil)
+	proofChecker := execState.GetProofChecker()
+	for i := 0; i < 20; i++ {
+		msg := []byte{byte(i)}
+		updatedState := execState.ExecuteMessage(msg)
+		proof, err := execState.Prove(msg, updatedState.Root())
+		require.NoError(t, err)
+		require.True(t, proofChecker(execState.Root(), updatedState.Root(), crypto.Keccak256Hash(msg), proof))
+		execState = updatedState
+	}
+
 }
 
 func appendMessage(chain *protocol.AssertionChain, msg []byte) {

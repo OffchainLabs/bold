@@ -14,7 +14,8 @@ type ExecutionState interface {
 	Root() common.Hash
 	MessagesConsumed() uint64
 
-	ExecuteOne() (ExecutionState, error)
+	ExecuteMessage(msg []byte) ExecutionState
+	ExecuteNextChainMessage() (ExecutionState, error)
 
 	Prove(message []byte, afterRoot common.Hash) ([]byte, error)
 	GetProofChecker() ProofChecker
@@ -23,7 +24,7 @@ type ExecutionState interface {
 	Serialize(io.Writer) error
 }
 
-type ProofChecker func(beforeRoot common.Hash, afterRoot common.Hash, proof []byte) bool
+type ProofChecker func(beforeRoot common.Hash, afterRoot common.Hash, msgHash common.Hash, proof []byte) bool
 
 type executionStateImpl struct {
 	mutex           sync.Mutex
@@ -53,7 +54,7 @@ func (state *executionStateImpl) MessagesConsumed() uint64 {
 	return state.numMsgsConsumed
 }
 
-func (state *executionStateImpl) ExecuteOne() (ExecutionState, error) {
+func (state *executionStateImpl) ExecuteNextChainMessage() (ExecutionState, error) {
 	state.mutex.Lock()
 	defer state.mutex.Unlock()
 	var nextMsg []byte
@@ -69,6 +70,12 @@ func (state *executionStateImpl) ExecuteOne() (ExecutionState, error) {
 		return nil, err
 	}
 	return state.executeMessageLocked(nextMsg), nil
+}
+
+func (state *executionStateImpl) ExecuteMessage(msg []byte) ExecutionState {
+	state.mutex.Lock()
+	defer state.mutex.Unlock()
+	return state.executeMessageLocked(msg)
 }
 
 func (state *executionStateImpl) executeMessageLocked(msg []byte) ExecutionState {
@@ -117,7 +124,7 @@ func deserializeStateImpl(chain *protocol.AssertionChain, rd io.Reader) (Executi
 }
 
 func (state *executionStateImpl) GetProofChecker() ProofChecker {
-	return func(beforeRoot common.Hash, afterRoot common.Hash, proof []byte) bool {
+	return func(beforeRoot common.Hash, afterRoot common.Hash, msgHash common.Hash, proof []byte) bool {
 		rd := bytes.NewReader(proof)
 		beforeState, err := deserializeStateImpl(state.chain, rd)
 		if err != nil {
@@ -125,6 +132,9 @@ func (state *executionStateImpl) GetProofChecker() ProofChecker {
 		}
 		msg, err := io.ReadAll(rd)
 		if err != nil {
+			return false
+		}
+		if crypto.Keccak256Hash(msg) != msgHash {
 			return false
 		}
 		afterState := beforeState.(*executionStateImpl).executeMessageLocked(msg) // don't need locking because private instance
