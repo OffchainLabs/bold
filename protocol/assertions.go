@@ -75,6 +75,10 @@ type AssertionChain struct {
 	inbox           *Inbox
 }
 
+type ProofCheckerFunc func(beforeRoot common.Hash, afterRoot common.Hash, msgHash common.Hash, proof []byte) bool
+
+var ProofChecker ProofCheckerFunc // initialized by init func in another package
+
 const (
 	deadTxStatus = iota
 	readOnlyTxStatus

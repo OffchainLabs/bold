@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type Inbox struct {
@@ -41,4 +43,12 @@ func (inbox *Inbox) GetMessage(tx *ActiveTx, num uint64) ([]byte, error) {
 		return nil, ErrInvalid
 	}
 	return inbox.messages[num], nil
+}
+
+func (inbox *Inbox) GetMessageHash(tx *ActiveTx, num uint64) (common.Hash, error) {
+	msg, err := inbox.GetMessage(tx, num)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return crypto.Keccak256Hash(msg), nil
 }

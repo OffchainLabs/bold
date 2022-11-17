@@ -17,8 +17,8 @@ func TestExecutionLayer(t *testing.T) {
 	defer cancel()
 	timeRef := util.NewArtificialTimeReference()
 	chain := protocol.NewAssertionChain(ctx, timeRef, time.Minute)
-	execLayer := GenesisExecutionState(chain)
-	proofChecker := execLayer.GetProofChecker()
+	execLayer := GenesisExecutionState()
+	proofChecker := GetProofChecker()
 
 	genesisState := execLayer.Clone()
 	genesisRoot := genesisState.Root()
@@ -26,7 +26,7 @@ func TestExecutionLayer(t *testing.T) {
 
 	msg0 := []byte{0}
 	appendMessage(chain, msg0)
-	execLayer, err := execLayer.ExecuteNextChainMessage()
+	execLayer, err := execLayer.ExecuteNextChainMessage(chain)
 	require.NoError(t, err)
 	require.NotEqualf(t, execLayer.Root(), genesisRoot, "root did not change after executing first message")
 
@@ -40,8 +40,8 @@ func TestExecutionLayer(t *testing.T) {
 }
 
 func TestProving(t *testing.T) {
-	execState := GenesisExecutionState(nil)
-	proofChecker := execState.GetProofChecker()
+	execState := GenesisExecutionState()
+	proofChecker := GetProofChecker()
 	for i := 0; i < 20; i++ {
 		msg := []byte{byte(i)}
 		updatedState := execState.ExecuteMessage(msg)

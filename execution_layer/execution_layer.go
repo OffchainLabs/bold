@@ -15,28 +15,23 @@ type ExecutionState interface {
 	MessagesConsumed() uint64
 
 	ExecuteMessage(msg []byte) ExecutionState
-	ExecuteNextChainMessage() (ExecutionState, error)
+	ExecuteNextChainMessage(chain *protocol.AssertionChain) (ExecutionState, error)
 
 	Prove(message []byte, afterRoot common.Hash) ([]byte, error)
-	GetProofChecker() ProofChecker
 
 	Clone() ExecutionState
 	Serialize(io.Writer) error
 }
 
-type ProofChecker func(beforeRoot common.Hash, afterRoot common.Hash, msgHash common.Hash, proof []byte) bool
-
 type executionStateImpl struct {
 	mutex           sync.Mutex
-	chain           *protocol.AssertionChain
 	vmRoot          common.Hash
 	numMsgsConsumed uint64
 }
 
-func GenesisExecutionState(chain *protocol.AssertionChain) ExecutionState {
+func GenesisExecutionState() ExecutionState {
 	return &executionStateImpl{
 		mutex:           sync.Mutex{},
-		chain:           chain,
 		vmRoot:          common.Hash{},
 		numMsgsConsumed: 0,
 	}
@@ -54,11 +49,11 @@ func (state *executionStateImpl) MessagesConsumed() uint64 {
 	return state.numMsgsConsumed
 }
 
-func (state *executionStateImpl) ExecuteNextChainMessage() (ExecutionState, error) {
+func (state *executionStateImpl) ExecuteNextChainMessage(chain *protocol.AssertionChain) (ExecutionState, error) {
 	state.mutex.Lock()
 	defer state.mutex.Unlock()
 	var nextMsg []byte
-	err := state.chain.Call(func(tx *protocol.ActiveTx, innerChain *protocol.AssertionChain) error {
+	err := chain.Call(func(tx *protocol.ActiveTx, innerChain *protocol.AssertionChain) error {
 		msg, err2 := innerChain.Inbox().GetMessage(tx, state.numMsgsConsumed)
 		if err2 != nil {
 			return err2
@@ -80,7 +75,6 @@ func (state *executionStateImpl) ExecuteMessage(msg []byte) ExecutionState {
 
 func (state *executionStateImpl) executeMessageLocked(msg []byte) ExecutionState {
 	return &executionStateImpl{
-		chain:           state.chain,
 		vmRoot:          crypto.Keccak256Hash(state.vmRoot.Bytes(), msg),
 		numMsgsConsumed: state.numMsgsConsumed + 1,
 	}
@@ -111,22 +105,21 @@ func (state *executionStateImpl) serializeLocked(wr io.Writer) error {
 	return err
 }
 
-func deserializeStateImpl(chain *protocol.AssertionChain, rd io.Reader) (ExecutionState, error) {
+func deserializeStateImpl(rd io.Reader) (ExecutionState, error) {
 	var buf [40]byte
 	if _, err := io.ReadFull(rd, buf[:]); err != nil {
 		return nil, err
 	}
 	return &executionStateImpl{
-		chain:           chain,
 		vmRoot:          common.BytesToHash(buf[:32]),
 		numMsgsConsumed: binary.BigEndian.Uint64(buf[32:]),
 	}, nil
 }
 
-func (state *executionStateImpl) GetProofChecker() ProofChecker {
+func GetProofChecker() protocol.ProofCheckerFunc {
 	return func(beforeRoot common.Hash, afterRoot common.Hash, msgHash common.Hash, proof []byte) bool {
 		rd := bytes.NewReader(proof)
-		beforeState, err := deserializeStateImpl(state.chain, rd)
+		beforeState, err := deserializeStateImpl(rd)
 		if err != nil {
 			return false
 		}
@@ -142,12 +135,15 @@ func (state *executionStateImpl) GetProofChecker() ProofChecker {
 	}
 }
 
+func init() {
+	protocol.ProofChecker = GetProofChecker()
+}
+
 func (state *executionStateImpl) Clone() ExecutionState {
 	state.mutex.Lock()
 	defer state.mutex.Unlock()
 	return &executionStateImpl{
 		mutex:           sync.Mutex{},
-		chain:           state.chain,
 		vmRoot:          state.vmRoot,
 		numMsgsConsumed: state.numMsgsConsumed,
 	}
