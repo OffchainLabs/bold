@@ -47,7 +47,6 @@ type OnChainProtocol interface {
 // ChainReader can make non-mutating calls to the on-chain protocol.
 type ChainReader interface {
 	ChallengePeriodLength() time.Duration
-	AssertionBySequenceNumber(ctx context.Context, seqNum uint64) (*Assertion, error)
 	NumAssertions() uint64
 	Call(clo func(*AssertionChain) error) error
 }
@@ -69,7 +68,7 @@ type AssertionManager interface {
 	Genesis() *Assertion
 	LatestConfirmed() *Assertion
 	LatestAssertion() *Assertion
-	AssertionBySequenceNumber(sequenceNum uint64) (*Assertion, error)
+	AssertionBySequenceNumber(ctx context.Context, sequenceNum uint64) (*Assertion, error)
 	CreateLeaf(prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
 }
 
@@ -87,6 +86,18 @@ type AssertionChain struct {
 	feed                *EventFeed[AssertionChainEvent]
 	knownValidatorNames map[common.Address]string
 	balances            *util.MapWithDefault[common.Address, *big.Int]
+}
+
+func (chain *AssertionChain) Genesis() *Assertion {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
+	return chain.assertions[0]
+}
+
+func (chain *AssertionChain) LatestAssertion() *Assertion {
+	chain.mutex.RLock()
+	defer chain.mutex.RUnlock()
+	return chain.assertions[len(chain.assertions)-1]
 }
 
 func (chain *AssertionChain) Tx(clo func(chain *AssertionChain) error) error {
@@ -227,10 +238,6 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 	dedupeCode := crypto.Keccak256Hash(binary.BigEndian.AppendUint64(commitment.Hash().Bytes(), prev.SequenceNum))
 	if chain.dedupe[dedupeCode] {
 		return nil, ErrVertexAlreadyExists
-	}
-	creatorName := "unknown"
-	if name, ok := chain.knownValidatorNames[staker]; ok {
-		creatorName = name
 	}
 
 	if err := prev.Staker.IfLet(
@@ -380,10 +387,6 @@ func (a *Assertion) ConfirmForWin() error {
 		SeqNum: a.SequenceNum,
 	})
 	return nil
-}
-
-func (a *Assertion) Prev() util.Option[*Assertion] {
-	return a.prev
 }
 
 type Challenge struct {
@@ -706,11 +709,10 @@ func (chain *AssertionChain) Visualize() string {
 		rStr := hex.EncodeToString(commit.Hash().Bytes())
 		isConfirmed := a.SequenceNum <= latestConfirmed.SequenceNum
 		label := fmt.Sprintf(
-			"height: %d\n state root: %#x\ncommitment hash: %#x\n Staker: %s\n Confirmed: %v",
+			"height: %d\n state root: %#x\ncommitment hash: %#x\n Confirmed: %v",
 			commit.Height,
 			util.FormatHash(commit.StateRoot),
 			util.FormatHash(commit.Hash()),
-			a.creatorName,
 			isConfirmed,
 		)
 
@@ -720,7 +722,7 @@ func (chain *AssertionChain) Visualize() string {
 		}
 		m[commit.Hash()] = &vizNode{
 			isConfirmed: isConfirmed,
-			parent:      a.prev,
+			parent:      a.Prev,
 			assertion:   a,
 			dotNode:     dotN,
 		}

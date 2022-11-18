@@ -179,7 +179,7 @@ func (v *Validator) submitLeafCreation(ctx context.Context) (*protocol.Assertion
 	}
 	stateCommit := protocol.StateCommitment{
 		Height:    currentCommit.Height,
-		StateRoot: currentCommit.Merkle,
+		StateRoot: currentCommit.StateRoot,
 	}
 	leaf, err := v.protocol.CreateLeaf(parentAssertion, stateCommit, v.address)
 	switch {
@@ -195,7 +195,7 @@ func (v *Validator) submitLeafCreation(ctx context.Context) (*protocol.Assertion
 		"latestValidParentHeight":    fmt.Sprintf("%+v", parentAssertion.StateCommitment.Height),
 		"latestValidParentStateRoot": fmt.Sprintf("%#x", parentAssertion.StateCommitment.StateRoot),
 		"leafHeight":                 currentCommit.Height,
-		"leafCommitmentMerkle":       fmt.Sprintf("%#x", currentCommit.Merkle),
+		"leafCommitmentStateRoot":    fmt.Sprintf("%#x", currentCommit.StateRoot),
 	}
 	log.WithFields(logFields).Info("Submitted leaf creation")
 	return leaf, nil

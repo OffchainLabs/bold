@@ -96,7 +96,7 @@ func main() {
 		validator.WithAddress(common.BytesToAddress([]byte("A"))),
 		validator.WithKnownValidators(validatorNamesByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
-		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
+		validator.WithChaosMonkeyProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {
 		panic(err)
@@ -109,7 +109,7 @@ func main() {
 		validator.WithAddress(common.BytesToAddress([]byte("B"))),
 		validator.WithKnownValidators(validatorNamesByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
-		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
+		validator.WithChaosMonkeyProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {
 		panic(err)
@@ -122,7 +122,7 @@ func main() {
 		validator.WithAddress(common.BytesToAddress([]byte("C"))),
 		validator.WithKnownValidators(validatorNamesByAddress),
 		validator.WithCreateLeafEvery(cfg.leafCreationInterval),
-		validator.WithMaliciousProbability(0), // Not a malicious validator for now...
+		validator.WithChaosMonkeyProbability(0), // Not a malicious validator for now...
 	)
 	if err != nil {
 		panic(err)
