@@ -47,6 +47,8 @@ type OnChainProtocol interface {
 // ChainReader can make non-mutating calls to the on-chain protocol.
 type ChainReader interface {
 	ChallengePeriodLength() time.Duration
+	AssertionBySequenceNumber(ctx context.Context, seqNum uint64) (*Assertion, error)
+	NumAssertions() uint64
 	Call(clo func(*AssertionChain) error) error
 }
 
@@ -111,14 +113,13 @@ type Assertion struct {
 	SequenceNum             uint64
 	StateCommitment         StateCommitment
 	Staker                  util.Option[common.Address]
+	Prev                    util.Option[*Assertion]
 	chain                   *AssertionChain
 	status                  AssertionState
-	prev                    util.Option[*Assertion]
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
 	secondChildCreationTime util.Option[time.Time]
 	challenge               util.Option[*Challenge]
-	creatorName             string
 }
 
 type StateCommitment struct {
@@ -144,7 +145,7 @@ func NewAssertionChain(
 			Height:    0,
 			StateRoot: common.Hash{},
 		},
-		prev:                    util.EmptyOption[*Assertion](),
+		Prev:                    util.EmptyOption[*Assertion](),
 		isFirstChild:            false,
 		firstChildCreationTime:  util.EmptyOption[time.Time](),
 		secondChildCreationTime: util.EmptyOption[time.Time](),
@@ -199,35 +200,15 @@ func (chain *AssertionChain) LatestConfirmed() *Assertion {
 	return chain.assertions[chain.confirmedLatest]
 }
 
-func (chain *AssertionChain) Genesis() *Assertion {
-	chain.mutex.RLock()
-	defer chain.mutex.RUnlock()
-	return chain.assertions[0]
-}
-
 func (chain *AssertionChain) NumAssertions() uint64 {
-	chain.mutex.RLock()
-	defer chain.mutex.RUnlock()
 	return uint64(len(chain.assertions))
 }
 
-func (chain *AssertionChain) AssertionBySequenceNumber(seqNum uint64) (*Assertion, error) {
-	chain.mutex.RLock()
-	defer chain.mutex.RUnlock()
+func (chain *AssertionChain) AssertionBySequenceNumber(ctx context.Context, seqNum uint64) (*Assertion, error) {
 	if seqNum >= uint64(len(chain.assertions)) {
-		return nil, fmt.Errorf(
-			"assertion with sequence number %d exceeds num assertions, %d",
-			seqNum,
-			len(chain.assertions),
-		)
+		return nil, fmt.Errorf("sequencer number out of range %d >= %d", seqNum, len(chain.assertions))
 	}
 	return chain.assertions[seqNum], nil
-}
-
-func (chain *AssertionChain) LatestAssertion() *Assertion {
-	chain.mutex.RLock()
-	defer chain.mutex.RUnlock()
-	return chain.assertions[len(chain.assertions)-1]
 }
 
 func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {
@@ -278,13 +259,12 @@ func (chain *AssertionChain) CreateLeaf(prev *Assertion, commitment StateCommitm
 		status:                  PendingAssertionState,
 		SequenceNum:             uint64(len(chain.assertions)),
 		StateCommitment:         commitment,
-		prev:                    util.FullOption[*Assertion](prev),
+		Prev:                    util.FullOption[*Assertion](prev),
 		isFirstChild:            prev.firstChildCreationTime.IsEmpty(),
 		firstChildCreationTime:  util.EmptyOption[time.Time](),
 		secondChildCreationTime: util.EmptyOption[time.Time](),
 		challenge:               util.EmptyOption[*Challenge](),
 		Staker:                  util.FullOption[common.Address](staker),
-		creatorName:             creatorName,
 	}
 	if prev.firstChildCreationTime.IsEmpty() {
 		prev.firstChildCreationTime = util.FullOption[time.Time](chain.timeReference.Get())
@@ -306,10 +286,10 @@ func (a *Assertion) RejectForPrev() error {
 	if a.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if a.prev.IsEmpty() {
+	if a.Prev.IsEmpty() {
 		return ErrInvalid
 	}
-	if a.prev.OpenKnownFull().status != RejectedAssertionState {
+	if a.Prev.OpenKnownFull().status != RejectedAssertionState {
 		return ErrWrongPredecessorState
 	}
 	a.status = RejectedAssertionState
@@ -323,10 +303,10 @@ func (a *Assertion) RejectForLoss() error {
 	if a.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if a.prev.IsEmpty() {
+	if a.Prev.IsEmpty() {
 		return ErrInvalid
 	}
-	chal := a.prev.OpenKnownFull().challenge
+	chal := a.Prev.OpenKnownFull().challenge
 	if chal.IsEmpty() {
 		return util.ErrOptionIsEmpty
 	}
@@ -348,10 +328,10 @@ func (a *Assertion) ConfirmNoRival() error {
 	if a.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if a.prev.IsEmpty() {
+	if a.Prev.IsEmpty() {
 		return ErrInvalid
 	}
-	prev := a.prev.OpenKnownFull()
+	prev := a.Prev.OpenKnownFull()
 	if prev.status != ConfirmedAssertionState {
 		return ErrWrongPredecessorState
 	}
@@ -377,10 +357,10 @@ func (a *Assertion) ConfirmForWin() error {
 	if a.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if a.prev.IsEmpty() {
+	if a.Prev.IsEmpty() {
 		return ErrInvalid
 	}
-	prev := a.prev.OpenKnownFull()
+	prev := a.Prev.OpenKnownFull()
 	if prev.status != ConfirmedAssertionState {
 		return ErrWrongPredecessorState
 	}
@@ -461,10 +441,10 @@ func (parent *Assertion) CreateChallenge(ctx context.Context) (*Challenge, error
 }
 
 func (chal *Challenge) AddLeaf(assertion *Assertion, history util.HistoryCommitment) (*ChallengeVertex, error) {
-	if assertion.prev.IsEmpty() {
+	if assertion.Prev.IsEmpty() {
 		return nil, ErrInvalid
 	}
-	prev := assertion.prev.OpenKnownFull()
+	prev := assertion.Prev.OpenKnownFull()
 	if prev != chal.parent {
 		return nil, ErrInvalid
 	}
