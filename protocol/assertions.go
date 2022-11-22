@@ -480,6 +480,10 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context) (*Ch
 	return ret, nil
 }
 
+func (chal *Challenge) ParentStateCommitment() StateCommitment {
+	return chal.parent.StateCommitment
+}
+
 func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.HistoryCommitment) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	if assertion.Prev.IsEmpty() {
@@ -539,11 +543,11 @@ func (chal *Challenge) Winner(tx *ActiveTx) (*Assertion, error) {
 }
 
 type ChallengeVertex struct {
+	commitment           util.HistoryCommitment
 	challenge            *Challenge
 	sequenceNum          uint64 // unique within the challenge
 	isLeaf               bool
 	status               AssertionState
-	commitment           util.HistoryCommitment
 	prev                 *ChallengeVertex
 	presumptiveSuccessor *ChallengeVertex
 	psTimer              *util.CountUpTimer

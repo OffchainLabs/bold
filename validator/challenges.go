@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,29 +12,37 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Each challenge has a lifecycle we need to manage. A single challenge's entire lifecycle should
+// be managed in a goroutine specific to that challenge. A challenge goroutine will exit if
+//
+// (a) A winner has been found (meaning all subchallenges are resolved), or
+// (b) The chess clock for the challenge ends
+//
+// The validator has a challenge manager which is able to dispatch events from the global feed
+// to specific challenge goroutines. A challenge goroutine is spawned upon receiving
+// a ChallengeStarted event.
 type challengeManager struct {
 	lock                   sync.RWMutex
-	challenges             map[common.Hash]chan protocol.ChallengeEvent
+	challenges             map[common.Hash]*challengeWorker
 	challengeEventsBufSize int
+}
+
+type challengeWorker struct {
+	challenge *protocol.Challenge
+	events    chan protocol.ChallengeEvent
 }
 
 func newChallengeManager() *challengeManager {
 	return &challengeManager{
-		challenges:             make(map[common.Hash]chan protocol.ChallengeEvent),
+		challenges:             make(map[common.Hash]*challengeWorker),
 		challengeEventsBufSize: 100, // TODO: Make configurable.
 	}
 }
 
-func (c *challengeManager) addChallenge(historyCommitmentHash common.Hash) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.challenges[historyCommitmentHash] = make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
-}
-
-func (c *challengeManager) pruneChallenge(historyCommitmentHash common.Hash) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	delete(c.challenges, historyCommitmentHash)
+func (c *challengeManager) numChallenges() int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return len(c.challenges)
 }
 
 func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
@@ -44,38 +53,49 @@ func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
 	if !ok {
 		return
 	}
-	ch <- ev
+	ch.events <- ev
 }
 
-// Each challenge has a lifecycle we need to manage. A single challenge's entire lifecycle should
-// be managed in a goroutine specific to that challenge. A challenge goroutine will exit if
-// (a) A winner has been found (meaning all subchallenges are resolved), or
-// (b) The chess clock for the challenge ends
-// The validator has a `ChallengeManager` which is able to dispatch events from the global feed
-// to specific challenge goroutines. A challenge goroutine is spawned upon receiving
-// a ChallengeStarted event.
+func (c *challengeManager) spawnChallenge(ctx context.Context, challenge *protocol.Challenge) {
+	c.lock.Lock()
+	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
+	commit := challenge.ParentStateCommitment()
+	worker := &challengeWorker{
+		challenge: challenge,
+		events:    ch,
+	}
+	c.challenges[commit.Hash()] = worker
+	c.lock.Unlock()
+	go worker.runChallengeLifecycle(ctx, ch)
+}
 
-// listens for challenge events and dispatches them
-func (v *Validator) listenForChallengeEvents(ctx context.Context) {
+func (w *challengeWorker) runChallengeLifecycle(ctx context.Context, evs chan protocol.ChallengeEvent) {
+	// Manage chess clock
+	// Start a context with deadline for the challenge cleanup
+	// Listen for challenge completion, win
+	// Cleanup the challenge goroutine once done.
+	defer close(evs)
+	ownChessClock := time.Now()
+	_ = ownChessClock
 	for {
 		select {
-		case genericEvent := <-v.challengeEvents:
+		case genericEvent := <-evs:
 			switch ev := genericEvent.(type) {
 			case *protocol.ChallengeLeafEvent:
-				go func() {
-					if err := v.onChallengeLeafAdded(ctx, ev); err != nil {
-						log.WithError(err).Error("Could not process leaf creation event")
-					}
-				}()
+				//go func() {
+				//if err := c.onChallengeLeafAdded(ctx, ev); err != nil {
+				//log.WithError(err).Error("Could not process leaf creation event")
+				//}
+				//}()
 			case *protocol.ChallengeBisectEvent:
-				go func() {
-					if err := v.onBisectionEvent(ctx, ev); err != nil {
-						log.WithError(err).Error("Could not process challenge start event")
-					}
-				}()
+				//go func() {
+				//if err := c.onBisectionEvent(ctx, ev); err != nil {
+				//log.WithError(err).Error("Could not process challenge start event")
+				//}
+				//}()
 			case *protocol.ChallengeMergeEvent:
 				go func() {
-					if err := v.onMergeEvent(ctx, ev); err != nil {
+					if err := c.onMergeEvent(ctx, ev); err != nil {
 						log.WithError(err).Error("Could not process challenge start event")
 					}
 				}()
@@ -86,6 +106,18 @@ func (v *Validator) listenForChallengeEvents(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (c *challengeManager) onChallengeLeafAdded(ctx context.Context, ev *protocol.ChallengeLeafEvent) error {
+	return nil
+}
+
+func (c *challengeManager) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
+	return nil
+}
+
+func (c *challengeManager) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
+	return nil
 }
 
 // Process new challenge creation events from the protocol that were not initiated by self.
@@ -99,15 +131,16 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 	}
 	// Checks if the challenge has to do with a vertex we created.
 	v.leavesLock.RLock()
-	defer v.leavesLock.RUnlock()
 	leaf, ok := v.createdLeaves[ev.ParentStateCommitment.StateRoot]
 	if !ok {
+		v.leavesLock.RUnlock()
 		// TODO: Act on the honest vertices even if this challenge does not have to do with us by
 		// keeping track of associated challenge vertices' clocks and acting if the associated
 		// staker we agree with is not performing their responsibilities on time. As an honest
 		// validator, we should participate in confirming valid assertions.
 		return nil
 	}
+	v.leavesLock.RUnlock()
 	challengerName := "unknown-name"
 	if !leaf.Staker.IsEmpty() {
 		if name, ok := v.knownValidatorNames[leaf.Staker.OpenKnownFull()]; ok {
@@ -122,18 +155,6 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		"challengingStateRoot": fmt.Sprintf("%#x", leaf.StateCommitment.StateRoot),
 		"challengingHeight":    leaf.StateCommitment.Height,
 	}).Warn("Received challenge for a created leaf")
-	return nil
-}
-
-func (v *Validator) onChallengeLeafAdded(ctx context.Context, ev *protocol.ChallengeLeafEvent) error {
-	return nil
-}
-
-func (v *Validator) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
-	return nil
-}
-
-func (v *Validator) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
 	return nil
 }
 
