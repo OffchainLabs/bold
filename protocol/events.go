@@ -60,6 +60,7 @@ func (ev *genericChallengeEvent) IsChallengeEvent() bool { return true }
 
 type ChallengeLeafEvent struct {
 	genericChallengeEvent
+	ParentSeqNum      uint64
 	SequenceNum       uint64
 	WinnerIfConfirmed uint64
 	ParentStateCommit StateCommitment

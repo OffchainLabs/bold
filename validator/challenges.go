@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
@@ -35,9 +34,10 @@ type challengeManager struct {
 }
 
 type challengeWorker struct {
-	challenge *protocol.Challenge
-	leaves    []*protocol.ChallengeVertex
-	events    chan protocol.ChallengeEvent
+	lock              sync.RWMutex
+	challenge         *protocol.Challenge
+	leavesByParentSeq map[uint64][]*protocol.ChallengeVertex
+	events            chan protocol.ChallengeEvent
 }
 
 func newChallengeManager(chain protocol.ChainReadWriter) *challengeManager {
@@ -65,13 +65,28 @@ func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
 	ch.events <- ev
 }
 
-func (c *challengeManager) spawnChallenge(ctx context.Context, challenge *protocol.Challenge) {
+func (c *challengeManager) spawnChallenge(
+	ctx context.Context,
+	challenge *protocol.Challenge,
+	vertex *protocol.ChallengeVertex,
+) {
 	c.lock.Lock()
 	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
 	id := challenge.ParentStateCommitment().Hash()
+	if _, ok := c.challenges[challengeID(id)]; ok {
+		c.lock.Unlock()
+		log.WithField(
+			"challengeID", fmt.Sprintf("%#x", id),
+		).Error("Attempted to spawn challenge that is already in progress")
+		return
+	}
+	parentSeqNum := vertex.Prev.SequenceNum
 	worker := &challengeWorker{
 		challenge: challenge,
-		events:    ch,
+		leavesByParentSeq: map[uint64][]*protocol.ChallengeVertex{
+			parentSeqNum: []*protocol.ChallengeVertex{vertex},
+		},
+		events: ch,
 	}
 	c.challenges[challengeID(id)] = worker
 	c.lock.Unlock()
@@ -83,43 +98,37 @@ func (w *challengeWorker) runChallengeLifecycle(
 	manager *challengeManager,
 	evs chan protocol.ChallengeEvent,
 ) {
+	// TODO:
 	// Manage chess clock moves for the validator.
 	// Listen for challenge completion, win
 	// Cleanup the challenge goroutine once done.
-	defer close(evs)
-	ownChessClock := time.Now()
-	_ = ownChessClock
-	// Figure out if we are at a one-step fork, and then depending on who's turn it is,
+	// TODO: Figure out if we are at a one-step fork, and then depending on who's turn it is,
 	// spawn a subchallenge (BigStepChallenge).
-	manager.chain.Tx(func(at *protocol.ActiveTx, ocp protocol.OnChainProtocol) error {
-		return nil
-	})
-	vertex, _ := w.challenge.AddLeaf(nil, nil, util.HistoryCommitment{})
-	_ = vertex
+	defer close(evs)
 	for {
 		select {
 		case genericEvent := <-evs:
 			switch ev := genericEvent.(type) {
 			case *protocol.ChallengeLeafEvent:
-				//go func() {
-				//if err := c.onChallengeLeafAdded(ctx, ev); err != nil {
-				//log.WithError(err).Error("Could not process leaf creation event")
-				//}
-				//}()
+				go func() {
+					if err := w.onChallengeLeafAdded(ctx, ev); err != nil {
+						log.WithError(err).Error("Could not process challenge leaf added event")
+					}
+				}()
 			case *protocol.ChallengeBisectEvent:
-				//go func() {
-				//if err := c.onBisectionEvent(ctx, ev); err != nil {
-				//log.WithError(err).Error("Could not process challenge start event")
-				//}
-				//}()
+				go func() {
+					if err := w.onBisectionEvent(ctx, ev); err != nil {
+						log.WithError(err).Error("Could not process bisection event")
+					}
+				}()
 			case *protocol.ChallengeMergeEvent:
-				//go func() {
-				//if err := c.onMergeEvent(ctx, ev); err != nil {
-				//log.WithError(err).Error("Could not process challenge start event")
-				//}
-				//}()
+				go func() {
+					if err := w.onMergeEvent(ctx, ev); err != nil {
+						log.WithError(err).Error("Could not process merge event")
+					}
+				}()
 			default:
-				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
+				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized challenge event")
 			}
 		case <-ctx.Done():
 			return
@@ -127,19 +136,31 @@ func (w *challengeWorker) runChallengeLifecycle(
 	}
 }
 
+// TODO: The methods below need to be able to produce historical commitments for leaves.
+//
 // If a leaf has been added, we then check if we should add a competing leaf, bisect, or merge
 // and then perform the corresponding action.
-func (c *challengeManager) onChallengeLeafAdded(ctx context.Context, ev *protocol.ChallengeLeafEvent) error {
+func (w *challengeWorker) onChallengeLeafAdded(ctx context.Context, ev *protocol.ChallengeLeafEvent) error {
+	w.lock.Lock()
+	rivals := w.leavesByParentSeq[ev.ParentSeqNum]
+
+	// If no rivals, we need to add a leaf to the challenge.
+	// TODO:
+	if len(rivals) == 0 {
+		return nil
+	}
+	// Otherwise, we decide if we want to merge or bisect.
+	// TODO: Implement this conditional.
 	return nil
 }
 
 // If a bisection has occurred, we need to determine if we should merge or bisect.
-func (c *challengeManager) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
+func (w *challengeWorker) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
 	return nil
 }
 
 // If we have seen a merge event, what happens...??
-func (c *challengeManager) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
+func (w *challengeWorker) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
 	return nil
 }
 
@@ -178,6 +199,33 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		"challengingStateRoot": fmt.Sprintf("%#x", leaf.StateCommitment.StateRoot),
 		"challengingHeight":    leaf.StateCommitment.Height,
 	}).Warn("Received challenge for a created leaf")
+
+	// We produce a historical commiment to add a leaf to the initiated challenge
+	// by retrieving it from our local state manager.
+	hashes := make([]common.Hash, 0)
+	expansionToLeafHeight := util.ExpansionFromLeaves(hashes[:ev.ParentStateCommitment.Height])
+	historyCommit := util.HistoryCommitment{
+		Height: ev.ParentStateCommitment.Height,
+		Merkle: expansionToLeafHeight.Root(),
+	}
+
+	var challenge *protocol.Challenge
+	var challengeVertex *protocol.ChallengeVertex
+	var err error
+	_ = historyCommit
+	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		//challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, historyCommit)
+		//if err != nil {
+		//return err
+		//}
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "could not create challenge on leaf with sequence number: %d", ev.ParentSeqNum)
+	}
+
+	// Start tracking the challenge and created vertex using the challenge manager.
+	v.challengeManager.spawnChallenge(ctx, challenge, challengeVertex)
+
 	return nil
 }
 
@@ -201,14 +249,23 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	logFields["stateRoot"] = fmt.Sprintf("%#x", ev.StateCommitment.StateRoot)
 	log.WithFields(logFields).Info("Initiating challenge on leaf validator disagrees with")
 
+	// We produce a historical commiment to add a leaf to the initiated challenge
+	// by retrieving it from our local state manager.
+	hashes := make([]common.Hash, 0)
+	expansionToLeafHeight := util.ExpansionFromLeaves(hashes[:ev.StateCommitment.Height])
+	historyCommit := util.HistoryCommitment{
+		Height: ev.StateCommitment.Height,
+		Merkle: expansionToLeafHeight.Root(),
+	}
+
 	var challenge *protocol.Challenge
 	var challengeVertex *protocol.ChallengeVertex
 	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		challenge, err = parentAssertion.CreateChallenge(tx, ctx)
+		challenge, err = parentAssertion.CreateChallenge(tx, ctx, v.address)
 		if err != nil {
 			return err
 		}
-		challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, util.HistoryCommitment{})
+		challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, historyCommit)
 		if err != nil {
 			return err
 		}
@@ -216,7 +273,10 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	}); err != nil {
 		return errors.Wrapf(err, "could not create challenge on leaf with sequence number: %d", ev.PrevSeqNum)
 	}
-	_ = challenge
+
+	// Start tracking the challenge and created vertex using the challenge manager.
+	v.challengeManager.spawnChallenge(ctx, challenge, challengeVertex)
+
 	return nil
 }
 

@@ -18,17 +18,18 @@ var (
 	Gwei              = big.NewInt(1000000000)
 	AssertionStakeWei = Gwei
 
-	ErrWrongChain            = errors.New("wrong chain")
-	ErrInvalid               = errors.New("invalid operation")
-	ErrInvalidHeight         = errors.New("invalid block height")
-	ErrVertexAlreadyExists   = errors.New("vertex already exists")
-	ErrWrongState            = errors.New("vertex state does not allow this operation")
-	ErrWrongPredecessorState = errors.New("predecessor state does not allow this operation")
-	ErrNotYet                = errors.New("deadline has not yet passed")
-	ErrNoWinnerYet           = errors.New("challenges does not yet have a winner")
-	ErrPastDeadline          = errors.New("deadline has passed")
-	ErrInsufficientBalance   = errors.New("insufficient balance")
-	ErrNotImplemented        = errors.New("not yet implemented")
+	ErrWrongChain             = errors.New("wrong chain")
+	ErrInvalid                = errors.New("invalid operation")
+	ErrCannotChallengeOwnLeaf = errors.New("cannot challenge own leaf")
+	ErrInvalidHeight          = errors.New("invalid block height")
+	ErrVertexAlreadyExists    = errors.New("vertex already exists")
+	ErrWrongState             = errors.New("vertex state does not allow this operation")
+	ErrWrongPredecessorState  = errors.New("predecessor state does not allow this operation")
+	ErrNotYet                 = errors.New("deadline has not yet passed")
+	ErrNoWinnerYet            = errors.New("challenges does not yet have a winner")
+	ErrPastDeadline           = errors.New("deadline has passed")
+	ErrInsufficientBalance    = errors.New("insufficient balance")
+	ErrNotImplemented         = errors.New("not yet implemented")
 )
 
 // OnChainProtocol defines an interface for interacting with the smart contract implementation
@@ -431,7 +432,7 @@ type Challenge struct {
 	nextSequenceNum   uint64
 }
 
-func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context) (*Challenge, error) {
+func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, challenger common.Address) (*Challenge, error) {
 	tx.verifyReadWrite()
 	if parent.status != PendingAssertionState && parent.chain.LatestConfirmed(tx) != parent {
 		return nil, ErrWrongState
@@ -441,6 +442,11 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context) (*Ch
 	}
 	if parent.secondChildCreationTime.IsEmpty() {
 		return nil, ErrInvalid
+	}
+	if !parent.Staker.IsEmpty() {
+		if parent.Staker.OpenKnownFull() == challenger {
+			return nil, ErrCannotChallengeOwnLeaf
+		}
 	}
 	root := &ChallengeVertex{
 		challenge:   nil,
@@ -476,6 +482,7 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context) (*Ch
 		ParentSeqNum:          parent.SequenceNum,
 		ParentStateCommitment: parent.StateCommitment,
 		ParentStaker:          parentStaker,
+		Challenger:            challenger,
 	})
 	return ret, nil
 }
@@ -508,11 +515,11 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 	}
 	leaf := &ChallengeVertex{
 		challenge:            chal,
-		sequenceNum:          chal.nextSequenceNum,
+		SequenceNum:          chal.nextSequenceNum,
 		isLeaf:               true,
 		status:               PendingAssertionState,
 		commitment:           history,
-		prev:                 chal.root,
+		Prev:                 chal.root,
 		presumptiveSuccessor: nil,
 		psTimer:              timer,
 		subChallenge:         nil,
@@ -521,10 +528,11 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 	chal.nextSequenceNum++
 	chal.root.maybeNewPresumptiveSuccessor(leaf)
 	chal.parent.chain.challengesFeed.Append(&ChallengeLeafEvent{
-		SequenceNum:       leaf.sequenceNum,
+		ParentSeqNum:      leaf.Prev.SequenceNum,
+		SequenceNum:       leaf.SequenceNum,
 		WinnerIfConfirmed: assertion.SequenceNum,
 		History:           history,
-		BecomesPS:         leaf.prev.presumptiveSuccessor == leaf,
+		BecomesPS:         leaf.Prev.presumptiveSuccessor == leaf,
 	})
 	return leaf, nil
 }
@@ -545,10 +553,10 @@ func (chal *Challenge) Winner(tx *ActiveTx) (*Assertion, error) {
 type ChallengeVertex struct {
 	commitment           util.HistoryCommitment
 	challenge            *Challenge
-	sequenceNum          uint64 // unique within the challenge
+	SequenceNum          uint64 // unique within the challenge
 	isLeaf               bool
 	status               AssertionState
-	prev                 *ChallengeVertex
+	Prev                 *ChallengeVertex
 	presumptiveSuccessor *ChallengeVertex
 	psTimer              *util.CountUpTimer
 	subChallenge         *SubChallenge
@@ -571,11 +579,11 @@ func (vertex *ChallengeVertex) maybeNewPresumptiveSuccessor(succ *ChallengeVerte
 }
 
 func (vertex *ChallengeVertex) isPresumptiveSuccessor() bool {
-	return vertex.prev == nil || vertex.prev.presumptiveSuccessor == vertex
+	return vertex.Prev == nil || vertex.Prev.presumptiveSuccessor == vertex
 }
 
 func (vertex *ChallengeVertex) requiredBisectionHeight() (uint64, error) {
-	return util.BisectionPoint(vertex.prev.commitment.Height, vertex.commitment.Height)
+	return util.BisectionPoint(vertex.Prev.commitment.Height, vertex.commitment.Height)
 }
 
 func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash) (*ChallengeVertex, error) {
@@ -583,7 +591,7 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	if vertex.isPresumptiveSuccessor() {
 		return nil, ErrWrongState
 	}
-	if !vertex.prev.eligibleForNewSuccessor() {
+	if !vertex.Prev.eligibleForNewSuccessor() {
 		return nil, ErrPastDeadline
 	}
 	if vertex.challenge.includedHistories[history.Hash()] {
@@ -603,22 +611,22 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	vertex.psTimer.Stop()
 	newVertex := &ChallengeVertex{
 		challenge:            vertex.challenge,
-		sequenceNum:          vertex.challenge.nextSequenceNum,
+		SequenceNum:          vertex.challenge.nextSequenceNum,
 		isLeaf:               false,
 		commitment:           history,
-		prev:                 vertex.prev,
+		Prev:                 vertex.Prev,
 		presumptiveSuccessor: nil,
 		psTimer:              vertex.psTimer.Clone(),
 	}
 	newVertex.challenge.nextSequenceNum++
 	newVertex.maybeNewPresumptiveSuccessor(vertex)
-	newVertex.prev.maybeNewPresumptiveSuccessor(newVertex)
+	newVertex.Prev.maybeNewPresumptiveSuccessor(newVertex)
 	newVertex.challenge.includedHistories[history.Hash()] = true
 	newVertex.challenge.parent.chain.challengesFeed.Append(&ChallengeBisectEvent{
-		FromSequenceNum: vertex.sequenceNum,
-		SequenceNum:     newVertex.sequenceNum,
+		FromSequenceNum: vertex.SequenceNum,
+		SequenceNum:     newVertex.SequenceNum,
 		History:         newVertex.commitment,
-		BecomesPS:       newVertex.prev.presumptiveSuccessor == newVertex,
+		BecomesPS:       newVertex.Prev.presumptiveSuccessor == newVertex,
 	})
 	return newVertex, nil
 }
@@ -628,7 +636,7 @@ func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, pro
 	if !newPrev.eligibleForNewSuccessor() {
 		return ErrPastDeadline
 	}
-	if vertex.prev != newPrev.prev {
+	if vertex.Prev != newPrev.Prev {
 		return ErrInvalid
 	}
 	if vertex.commitment.Height <= newPrev.commitment.Height {
@@ -638,12 +646,12 @@ func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, pro
 		return err
 	}
 
-	vertex.prev = newPrev
+	vertex.Prev = newPrev
 	newPrev.psTimer.Add(vertex.psTimer.Get())
 	newPrev.maybeNewPresumptiveSuccessor(vertex)
 	vertex.challenge.parent.chain.challengesFeed.Append(&ChallengeMergeEvent{
-		DeeperSequenceNum:    vertex.sequenceNum,
-		ShallowerSequenceNum: newPrev.sequenceNum,
+		DeeperSequenceNum:    vertex.SequenceNum,
+		ShallowerSequenceNum: newPrev.SequenceNum,
 		BecomesPS:            newPrev.presumptiveSuccessor == vertex,
 	})
 	return nil
@@ -654,10 +662,10 @@ func (vertex *ChallengeVertex) ConfirmForSubChallengeWin(tx *ActiveTx) error {
 	if vertex.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if vertex.prev.status != ConfirmedAssertionState {
+	if vertex.Prev.status != ConfirmedAssertionState {
 		return ErrWrongPredecessorState
 	}
-	subChal := vertex.prev.subChallenge
+	subChal := vertex.Prev.subChallenge
 	if subChal == nil || subChal.winner != vertex {
 		return ErrInvalid
 	}
@@ -670,7 +678,7 @@ func (vertex *ChallengeVertex) ConfirmForPsTimer(tx *ActiveTx) error {
 	if vertex.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if vertex.prev.status != ConfirmedAssertionState {
+	if vertex.Prev.status != ConfirmedAssertionState {
 		return ErrWrongPredecessorState
 	}
 	if vertex.psTimer.Get() <= vertex.challenge.parent.chain.challengePeriod {
@@ -685,7 +693,7 @@ func (vertex *ChallengeVertex) ConfirmForChallengeDeadline(tx *ActiveTx) error {
 	if vertex.status != PendingAssertionState {
 		return ErrWrongState
 	}
-	if vertex.prev.status != ConfirmedAssertionState {
+	if vertex.Prev.status != ConfirmedAssertionState {
 		return ErrWrongPredecessorState
 	}
 	chain := vertex.challenge.parent.chain
@@ -729,7 +737,7 @@ func (sc *SubChallenge) SetWinner(tx *ActiveTx, winner *ChallengeVertex) error {
 	if sc.winner != nil {
 		return ErrInvalid
 	}
-	if winner.prev != sc.parent {
+	if winner.Prev != sc.parent {
 		return ErrInvalid
 	}
 	sc.winner = winner
