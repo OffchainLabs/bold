@@ -7,10 +7,16 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
+	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+// TODO: A challenge ID in our challenge manager is a unique identifier for that challenge.
+// Currently, it is using the parent assertion's state commitment hash as an ID,
+// but this value may not work if we want to manage subchallenges in the same way.
+type challengeID common.Hash
 
 // Each challenge has a lifecycle we need to manage. A single challenge's entire lifecycle should
 // be managed in a goroutine specific to that challenge. A challenge goroutine will exit if
@@ -24,19 +30,20 @@ import (
 type challengeManager struct {
 	lock                   sync.RWMutex
 	chain                  protocol.ChainReadWriter
-	challenges             map[common.Hash]*challengeWorker
+	challenges             map[challengeID]*challengeWorker
 	challengeEventsBufSize int
 }
 
 type challengeWorker struct {
 	challenge *protocol.Challenge
+	leaves    []*protocol.ChallengeVertex
 	events    chan protocol.ChallengeEvent
 }
 
 func newChallengeManager(chain protocol.ChainReadWriter) *challengeManager {
 	return &challengeManager{
 		chain:                  chain,
-		challenges:             make(map[common.Hash]*challengeWorker),
+		challenges:             make(map[challengeID]*challengeWorker),
 		challengeEventsBufSize: 100, // TODO: Make configurable.
 	}
 }
@@ -51,8 +58,7 @@ func (c *challengeManager) numChallenges() int {
 func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	challengeID := ev.ParentStateCommitmentHash()
-	ch, ok := c.challenges[challengeID]
+	ch, ok := c.challenges[challengeID(ev.ParentStateCommitmentHash())]
 	if !ok {
 		return
 	}
@@ -62,12 +68,12 @@ func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
 func (c *challengeManager) spawnChallenge(ctx context.Context, challenge *protocol.Challenge) {
 	c.lock.Lock()
 	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
-	challengeID := challenge.ParentStateCommitment().Hash()
+	id := challenge.ParentStateCommitment().Hash()
 	worker := &challengeWorker{
 		challenge: challenge,
 		events:    ch,
 	}
-	c.challenges[challengeID] = worker
+	c.challenges[challengeID(id)] = worker
 	c.lock.Unlock()
 	go worker.runChallengeLifecycle(ctx, c, ch)
 }
@@ -88,6 +94,8 @@ func (w *challengeWorker) runChallengeLifecycle(
 	manager.chain.Tx(func(at *protocol.ActiveTx, ocp protocol.OnChainProtocol) error {
 		return nil
 	})
+	vertex, _ := w.challenge.AddLeaf(nil, nil, util.HistoryCommitment{})
+	_ = vertex
 	for {
 		select {
 		case genericEvent := <-evs:
@@ -119,14 +127,18 @@ func (w *challengeWorker) runChallengeLifecycle(
 	}
 }
 
+// If a leaf has been added, we then check if we should add a competing leaf, bisect, or merge
+// and then perform the corresponding action.
 func (c *challengeManager) onChallengeLeafAdded(ctx context.Context, ev *protocol.ChallengeLeafEvent) error {
 	return nil
 }
 
+// If a bisection has occurred, we need to determine if we should merge or bisect.
 func (c *challengeManager) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
 	return nil
 }
 
+// If we have seen a merge event, what happens...??
 func (c *challengeManager) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
 	return nil
 }
@@ -190,8 +202,13 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	log.WithFields(logFields).Info("Initiating challenge on leaf validator disagrees with")
 
 	var challenge *protocol.Challenge
+	var challengeVertex *protocol.ChallengeVertex
 	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		challenge, err = parentAssertion.CreateChallenge(tx, ctx)
+		if err != nil {
+			return err
+		}
+		challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, util.HistoryCommitment{})
 		if err != nil {
 			return err
 		}
