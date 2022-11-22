@@ -59,6 +59,7 @@ type ChainWriter interface {
 // EventProvider allows subscribing to chain events for the on-chain protocol.
 type EventProvider interface {
 	SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent)
+	SubscribeChallengeEvents(ctx context.Context, ch chan<- ChallengeEvent)
 }
 
 // AssertionManager allows the creation of new leaves for a Staker with a State Commitment
@@ -81,6 +82,7 @@ type AssertionChain struct {
 	dedupe          map[common.Hash]bool
 	balances        *util.MapWithDefault[common.Address, *big.Int]
 	feed            *EventFeed[AssertionChainEvent]
+	challengesFeed  *EventFeed[ChallengeEvent]
 	inbox           *Inbox
 }
 
@@ -179,6 +181,7 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 		dedupe:          make(map[common.Hash]bool), // no need to insert genesis assertion here
 		balances:        util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
 		feed:            NewEventFeed[AssertionChainEvent](ctx),
+		challengesFeed:  NewEventFeed[ChallengeEvent](ctx),
 		inbox:           NewInbox(ctx),
 	}
 	genesis.chain = chain
@@ -245,6 +248,10 @@ func (chain *AssertionChain) AssertionBySequenceNum(tx *ActiveTx, seqNum uint64)
 
 func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {
 	chain.feed.Subscribe(ctx, ch)
+}
+
+func (chain *AssertionChain) SubscribeChallengeEvents(ctx context.Context, ch chan<- ChallengeEvent) {
+	chain.challengesFeed.Subscribe(ctx, ch)
 }
 
 func (chain *AssertionChain) CreateLeaf(tx *ActiveTx, prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error) {
@@ -422,7 +429,6 @@ type Challenge struct {
 	creationTime      time.Time
 	includedHistories map[common.Hash]bool
 	nextSequenceNum   uint64
-	feed              *EventFeed[ChallengeEvent]
 }
 
 func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context) (*Challenge, error) {
@@ -458,7 +464,6 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context) (*Ch
 		creationTime:      parent.chain.timeReference.Get(),
 		includedHistories: make(map[common.Hash]bool),
 		nextSequenceNum:   1,
-		feed:              NewEventFeed[ChallengeEvent](ctx),
 	}
 	root.challenge = ret
 	ret.includedHistories[root.commitment.Hash()] = true
@@ -511,7 +516,7 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 	}
 	chal.nextSequenceNum++
 	chal.root.maybeNewPresumptiveSuccessor(leaf)
-	chal.feed.Append(&ChallengeLeafEvent{
+	chal.parent.chain.challengesFeed.Append(&ChallengeLeafEvent{
 		SequenceNum:       leaf.sequenceNum,
 		WinnerIfConfirmed: assertion.SequenceNum,
 		History:           history,
@@ -605,7 +610,7 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	newVertex.maybeNewPresumptiveSuccessor(vertex)
 	newVertex.prev.maybeNewPresumptiveSuccessor(newVertex)
 	newVertex.challenge.includedHistories[history.Hash()] = true
-	newVertex.challenge.feed.Append(&ChallengeBisectEvent{
+	newVertex.challenge.parent.chain.challengesFeed.Append(&ChallengeBisectEvent{
 		FromSequenceNum: vertex.sequenceNum,
 		SequenceNum:     newVertex.sequenceNum,
 		History:         newVertex.commitment,
@@ -632,7 +637,7 @@ func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, pro
 	vertex.prev = newPrev
 	newPrev.psTimer.Add(vertex.psTimer.Get())
 	newPrev.maybeNewPresumptiveSuccessor(vertex)
-	vertex.challenge.feed.Append(&ChallengeMergeEvent{
+	vertex.challenge.parent.chain.challengesFeed.Append(&ChallengeMergeEvent{
 		DeeperSequenceNum:    vertex.sequenceNum,
 		ShallowerSequenceNum: newPrev.sequenceNum,
 		BecomesPS:            newPrev.presumptiveSuccessor == vertex,

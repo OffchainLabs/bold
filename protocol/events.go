@@ -51,6 +51,7 @@ type SetBalanceEvent struct {
 
 type ChallengeEvent interface {
 	IsChallengeEvent() bool // this method is just a marker that the type intends to be a ChallengeEvent
+	HistoryCommitmentHash() common.Hash
 }
 
 type genericChallengeEvent struct{}
@@ -75,7 +76,20 @@ type ChallengeBisectEvent struct {
 
 type ChallengeMergeEvent struct {
 	genericChallengeEvent
+	History              util.HistoryCommitment
 	DeeperSequenceNum    uint64
 	ShallowerSequenceNum uint64
 	BecomesPS            bool
+}
+
+func (c *ChallengeLeafEvent) HistoryCommitmentHash() common.Hash {
+	return c.History.Hash()
+}
+
+func (c *ChallengeBisectEvent) HistoryCommitmentHash() common.Hash {
+	return c.History.Hash()
+}
+
+func (c *ChallengeMergeEvent) HistoryCommitmentHash() common.Hash {
+	return c.History.Hash()
 }
