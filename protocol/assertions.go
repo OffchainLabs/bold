@@ -152,7 +152,7 @@ type StateCommitment struct {
 	StateRoot common.Hash
 }
 
-func (comm *StateCommitment) Hash() common.Hash {
+func (comm StateCommitment) Hash() common.Hash {
 	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, comm.Height), comm.StateRoot.Bytes())
 }
 

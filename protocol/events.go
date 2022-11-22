@@ -51,7 +51,7 @@ type SetBalanceEvent struct {
 
 type ChallengeEvent interface {
 	IsChallengeEvent() bool // this method is just a marker that the type intends to be a ChallengeEvent
-	HistoryCommitmentHash() common.Hash
+	ParentStateCommitmentHash() common.Hash
 }
 
 type genericChallengeEvent struct{}
@@ -62,34 +62,37 @@ type ChallengeLeafEvent struct {
 	genericChallengeEvent
 	SequenceNum       uint64
 	WinnerIfConfirmed uint64
+	ParentStateCommit StateCommitment
 	History           util.HistoryCommitment
 	BecomesPS         bool
 }
 
 type ChallengeBisectEvent struct {
 	genericChallengeEvent
-	FromSequenceNum uint64 // previously existing vertex
-	SequenceNum     uint64 // newly created vertex
-	History         util.HistoryCommitment
-	BecomesPS       bool
+	FromSequenceNum   uint64 // previously existing vertex
+	SequenceNum       uint64 // newly created vertex
+	ParentStateCommit StateCommitment
+	History           util.HistoryCommitment
+	BecomesPS         bool
 }
 
 type ChallengeMergeEvent struct {
 	genericChallengeEvent
 	History              util.HistoryCommitment
+	ParentStateCommit    StateCommitment
 	DeeperSequenceNum    uint64
 	ShallowerSequenceNum uint64
 	BecomesPS            bool
 }
 
-func (c *ChallengeLeafEvent) HistoryCommitmentHash() common.Hash {
-	return c.History.Hash()
+func (c *ChallengeLeafEvent) ParentStateCommitmentHash() common.Hash {
+	return c.ParentStateCommit.Hash()
 }
 
-func (c *ChallengeBisectEvent) HistoryCommitmentHash() common.Hash {
-	return c.History.Hash()
+func (c *ChallengeBisectEvent) ParentStateCommitmentHash() common.Hash {
+	return c.ParentStateCommit.Hash()
 }
 
-func (c *ChallengeMergeEvent) HistoryCommitmentHash() common.Hash {
-	return c.History.Hash()
+func (c *ChallengeMergeEvent) ParentStateCommitmentHash() common.Hash {
+	return c.ParentStateCommit.Hash()
 }

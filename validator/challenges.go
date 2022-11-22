@@ -23,6 +23,7 @@ import (
 // a ChallengeStarted event.
 type challengeManager struct {
 	lock                   sync.RWMutex
+	chain                  protocol.ChainReadWriter
 	challenges             map[common.Hash]*challengeWorker
 	challengeEventsBufSize int
 }
@@ -32,8 +33,9 @@ type challengeWorker struct {
 	events    chan protocol.ChallengeEvent
 }
 
-func newChallengeManager() *challengeManager {
+func newChallengeManager(chain protocol.ChainReadWriter) *challengeManager {
 	return &challengeManager{
+		chain:                  chain,
 		challenges:             make(map[common.Hash]*challengeWorker),
 		challengeEventsBufSize: 100, // TODO: Make configurable.
 	}
@@ -45,10 +47,11 @@ func (c *challengeManager) numChallenges() int {
 	return len(c.challenges)
 }
 
+// Dispatches an incoming generic challenge event to the respective challenge's worker.
 func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	challengeID := ev.HistoryCommitmentHash()
+	challengeID := ev.ParentStateCommitmentHash()
 	ch, ok := c.challenges[challengeID]
 	if !ok {
 		return
@@ -59,24 +62,32 @@ func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
 func (c *challengeManager) spawnChallenge(ctx context.Context, challenge *protocol.Challenge) {
 	c.lock.Lock()
 	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
-	commit := challenge.ParentStateCommitment()
+	challengeID := challenge.ParentStateCommitment().Hash()
 	worker := &challengeWorker{
 		challenge: challenge,
 		events:    ch,
 	}
-	c.challenges[commit.Hash()] = worker
+	c.challenges[challengeID] = worker
 	c.lock.Unlock()
-	go worker.runChallengeLifecycle(ctx, ch)
+	go worker.runChallengeLifecycle(ctx, c, ch)
 }
 
-func (w *challengeWorker) runChallengeLifecycle(ctx context.Context, evs chan protocol.ChallengeEvent) {
-	// Manage chess clock
-	// Start a context with deadline for the challenge cleanup
+func (w *challengeWorker) runChallengeLifecycle(
+	ctx context.Context,
+	manager *challengeManager,
+	evs chan protocol.ChallengeEvent,
+) {
+	// Manage chess clock moves for the validator.
 	// Listen for challenge completion, win
 	// Cleanup the challenge goroutine once done.
 	defer close(evs)
 	ownChessClock := time.Now()
 	_ = ownChessClock
+	// Figure out if we are at a one-step fork, and then depending on who's turn it is,
+	// spawn a subchallenge (BigStepChallenge).
+	manager.chain.Tx(func(at *protocol.ActiveTx, ocp protocol.OnChainProtocol) error {
+		return nil
+	})
 	for {
 		select {
 		case genericEvent := <-evs:
@@ -94,11 +105,11 @@ func (w *challengeWorker) runChallengeLifecycle(ctx context.Context, evs chan pr
 				//}
 				//}()
 			case *protocol.ChallengeMergeEvent:
-				go func() {
-					if err := c.onMergeEvent(ctx, ev); err != nil {
-						log.WithError(err).Error("Could not process challenge start event")
-					}
-				}()
+				//go func() {
+				//if err := c.onMergeEvent(ctx, ev); err != nil {
+				//log.WithError(err).Error("Could not process challenge start event")
+				//}
+				//}()
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
 			}

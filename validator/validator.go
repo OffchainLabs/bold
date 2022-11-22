@@ -26,6 +26,7 @@ type Validator struct {
 	stateManager                           statemanager.Manager
 	assertionEvents                        chan protocol.AssertionChainEvent
 	challengeEvents                        chan protocol.ChallengeEvent
+	challengeManager                       *challengeManager
 	l2StateUpdateEvents                    chan *statemanager.L2StateEvent
 	address                                common.Address
 	name                                   string
@@ -89,6 +90,7 @@ func New(
 		stateManager:                           stateManager,
 		address:                                common.Address{},
 		createLeafInterval:                     defaultCreateLeafInterval,
+		challengeManager:                       newChallengeManager(),
 		assertionEvents:                        make(chan protocol.AssertionChainEvent, 1),
 		challengeEvents:                        make(chan protocol.ChallengeEvent, 1),
 		l2StateUpdateEvents:                    make(chan *statemanager.L2StateEvent, 1),
@@ -155,6 +157,17 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
 			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (v *Validator) listenForChallengeEvents(ctx context.Context) {
+	for {
+		select {
+		case ev := <-v.challengeEvents:
+			v.challengeManager.dispatch(ev)
 		case <-ctx.Done():
 			return
 		}
