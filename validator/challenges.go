@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
+	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -29,6 +30,7 @@ type challengeID common.Hash
 type challengeManager struct {
 	lock                   sync.RWMutex
 	chain                  protocol.ChainReadWriter
+	stateManager           statemanager.Manager
 	challenges             map[challengeID]*challengeWorker
 	challengeEventsBufSize int
 }
@@ -111,7 +113,7 @@ func (w *challengeWorker) runChallengeLifecycle(
 			switch ev := genericEvent.(type) {
 			case *protocol.ChallengeLeafEvent:
 				go func() {
-					if err := w.onChallengeLeafAdded(ctx, ev); err != nil {
+					if err := w.onChallengeLeafAdded(ctx, manager, ev); err != nil {
 						log.WithError(err).Error("Could not process challenge leaf added event")
 					}
 				}()
@@ -140,7 +142,9 @@ func (w *challengeWorker) runChallengeLifecycle(
 //
 // If a leaf has been added, we then check if we should add a competing leaf, bisect, or merge
 // and then perform the corresponding action.
-func (w *challengeWorker) onChallengeLeafAdded(ctx context.Context, ev *protocol.ChallengeLeafEvent) error {
+func (w *challengeWorker) onChallengeLeafAdded(
+	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeLeafEvent,
+) error {
 	w.lock.Lock()
 	rivals := w.leavesByParentSeq[ev.ParentSeqNum]
 
@@ -151,6 +155,23 @@ func (w *challengeWorker) onChallengeLeafAdded(ctx context.Context, ev *protocol
 	}
 	// Otherwise, we decide if we want to merge or bisect.
 	// TODO: Implement this conditional.
+	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
+		// If we agree with the history commitment, we make a merge move
+		// on the vertex.
+		manager.chain.Tx(func(tx *protocol.ActiveTx, _ protocol.OnChainProtocol) error {
+			return rivals[0].Merge(tx, rivals[0], nil)
+		})
+	}
+	// Otherwise, we must bisect to our own historical commitment and produce
+	// a proof of our own commitment.
+	manager.chain.Tx(func(tx *protocol.ActiveTx, _ protocol.OnChainProtocol) error {
+		bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil)
+		if err != nil {
+			return err
+		}
+		_ = bisectedVertex
+		return nil
+	})
 	return nil
 }
 
