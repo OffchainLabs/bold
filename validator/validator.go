@@ -90,7 +90,7 @@ func New(
 		stateManager:                           stateManager,
 		address:                                common.Address{},
 		createLeafInterval:                     defaultCreateLeafInterval,
-		challengeManager:                       newChallengeManager(),
+		challengeManager:                       newChallengeManager(chain),
 		assertionEvents:                        make(chan protocol.AssertionChainEvent, 1),
 		challengeEvents:                        make(chan protocol.ChallengeEvent, 1),
 		l2StateUpdateEvents:                    make(chan *statemanager.L2StateEvent, 1),

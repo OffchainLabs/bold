@@ -51,7 +51,14 @@ func (m *MockProtocol) Tx(clo func(tx *protocol.ActiveTx, pro protocol.OnChainPr
 	return clo(&protocol.ActiveTx{}, m)
 }
 
+func (m *MockProtocol) Call(clo func(*protocol.ActiveTx, protocol.OnChainProtocol) error) error {
+	return clo(&protocol.ActiveTx{}, m)
+}
+
 func (m *MockProtocol) SubscribeChainEvents(ctx context.Context, ch chan<- protocol.AssertionChainEvent) {
+}
+
+func (m *MockProtocol) SubscribeChallengeEvents(ctx context.Context, ch chan<- protocol.ChallengeEvent) {
 }
 
 func (m *MockProtocol) AssertionBySequenceNum(tx *protocol.ActiveTx, seqNum uint64) (*protocol.Assertion, error) {
@@ -77,8 +84,4 @@ func (m *MockProtocol) ChallengePeriodLength(tx *protocol.ActiveTx) time.Duratio
 func (m *MockProtocol) NumAssertions(tx *protocol.ActiveTx) uint64 {
 	args := m.Called(tx)
 	return args.Get(0).(uint64)
-}
-
-func (m *MockProtocol) Call(clo func(*protocol.ActiveTx, protocol.OnChainProtocol) error) error {
-	return clo(&protocol.ActiveTx{}, m)
 }

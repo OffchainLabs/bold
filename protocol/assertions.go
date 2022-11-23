@@ -450,14 +450,14 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, chal
 	}
 	root := &ChallengeVertex{
 		challenge:   nil,
-		sequenceNum: 0,
+		SequenceNum: 0,
 		isLeaf:      false,
 		status:      ConfirmedAssertionState,
 		commitment: util.HistoryCommitment{
 			Height: 0,
 			Merkle: common.Hash{},
 		},
-		prev:                 nil,
+		Prev:                 nil,
 		presumptiveSuccessor: nil,
 		psTimer:              util.NewCountUpTimer(parent.chain.timeReference),
 		subChallenge:         nil,
