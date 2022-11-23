@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/OffchainLabs/new-rollup-exploration/testing/mocks"
@@ -45,7 +46,7 @@ func Test_processLeafCreation(t *testing.T) {
 			StateCommitment:     newlyCreatedAssertion.StateCommitment,
 			Staker:              newlyCreatedAssertion.Staker.OpenKnownFull(),
 		}
-		err := v.processLeafCreation(ctx, ev)
+		err := v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
 		AssertLogsContain(t, logsHook, "New leaf appended")
 		AssertLogsContain(t, logsHook, "No fork detected in assertion tree")
@@ -93,7 +94,7 @@ func Test_processLeafCreation(t *testing.T) {
 			StateCommitment:     newlyCreatedAssertion.StateCommitment,
 			Staker:              newlyCreatedAssertion.Staker.OpenKnownFull(),
 		}
-		err := v.processLeafCreation(ctx, ev)
+		err := v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
 		ev = &protocol.CreateLeafEvent{
 			PrevSeqNum:          parentAssertion.SequenceNum,
@@ -102,64 +103,72 @@ func Test_processLeafCreation(t *testing.T) {
 			StateCommitment:     forkedAssertion.StateCommitment,
 			Staker:              forkedAssertion.Staker.OpenKnownFull(),
 		}
-		err = v.processLeafCreation(ctx, ev)
+		err = v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
 		AssertLogsContain(t, logsHook, "New leaf appended")
 		AssertLogsContain(t, logsHook, "preparing to defend")
 	})
 	t.Run("fork leads validator to challenge leaf", func(t *testing.T) {
 		logsHook := test.NewGlobal()
-		v, _, s := setupValidator(t)
+		v, p, s := setupValidator(t)
 
 		parentSeqNum := uint64(1)
-		prevRoot := common.BytesToHash([]byte("foo"))
-		parentAssertion := &protocol.Assertion{
-			StateCommitment: protocol.StateCommitment{
-				StateRoot: prevRoot,
-				Height:    parentSeqNum,
-			},
-			Staker: util.FullOption[common.Address](common.BytesToAddress([]byte("foo"))),
+		staker1 := common.BytesToAddress([]byte("foo"))
+		staker2 := common.BytesToAddress([]byte("bar"))
+		commit := protocol.StateCommitment{
+			StateRoot: common.BytesToHash([]byte("baz")),
+			Height:    1,
 		}
-		seqNum := parentSeqNum + 1
-		newlyCreatedAssertion := &protocol.Assertion{
-			Prev:        util.FullOption[*protocol.Assertion](parentAssertion),
-			SequenceNum: seqNum,
-			StateCommitment: protocol.StateCommitment{
-				StateRoot: common.BytesToHash([]byte("foo")),
-				Height:    2,
-			},
-			Staker: util.FullOption[common.Address](common.BytesToAddress([]byte("foo"))),
-		}
-		forkSeqNum := seqNum + 1
-		forkedAssertion := &protocol.Assertion{
-			Prev:        util.FullOption[*protocol.Assertion](parentAssertion),
-			SequenceNum: forkSeqNum,
-			StateCommitment: protocol.StateCommitment{
-				StateRoot: common.BytesToHash([]byte("bar")),
-				Height:    2,
-			},
-			Staker: util.FullOption[common.Address](common.BytesToAddress([]byte("foo"))),
+		forkedCommit := protocol.StateCommitment{
+			StateRoot: common.BytesToHash([]byte("woop")),
+			Height:    2,
 		}
 
-		s.On("HasStateCommitment", ctx, forkedAssertion.StateCommitment).Return(false)
+		s.On("HasStateCommitment", ctx, forkedCommit).Return(false)
+
+		chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
+		var assertion *protocol.Assertion
+		var forkedAssertion *protocol.Assertion
+		var err error
+		chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+			assertion, err = chain.CreateLeaf(
+				tx,
+				chain.Genesis(),
+				commit,
+				staker1,
+			)
+			if err != nil {
+				return err
+			}
+			forkedAssertion, err = chain.CreateLeaf(
+				tx,
+				assertion,
+				forkedCommit,
+				staker2,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 
 		ev := &protocol.CreateLeafEvent{
-			PrevSeqNum:          parentAssertion.SequenceNum,
-			PrevStateCommitment: parentAssertion.StateCommitment,
-			SeqNum:              newlyCreatedAssertion.SequenceNum,
-			StateCommitment:     newlyCreatedAssertion.StateCommitment,
-			Staker:              newlyCreatedAssertion.Staker.OpenKnownFull(),
+			PrevSeqNum:          0,
+			PrevStateCommitment: chain.Genesis().StateCommitment,
+			SeqNum:              assertion.SequenceNum,
+			StateCommitment:     assertion.StateCommitment,
+			Staker:              staker1,
 		}
-		err := v.processLeafCreation(ctx, ev)
+		err = v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
 		ev = &protocol.CreateLeafEvent{
 			PrevSeqNum:          parentAssertion.SequenceNum,
 			PrevStateCommitment: parentAssertion.StateCommitment,
 			SeqNum:              forkedAssertion.SequenceNum,
 			StateCommitment:     forkedAssertion.StateCommitment,
-			Staker:              forkedAssertion.Staker.OpenKnownFull(),
+			Staker:              staker2,
 		}
-		err = v.processLeafCreation(ctx, ev)
+		err = v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
 		AssertLogsContain(t, logsHook, "New leaf appended")
 		AssertLogsContain(t, logsHook, "Initiating challenge")
@@ -174,7 +183,7 @@ func Test_processChallengeStart(t *testing.T) {
 		logsHook := test.NewGlobal()
 		v, _, _ := setupValidator(t)
 
-		err := v.processChallengeStart(ctx, &protocol.StartChallengeEvent{
+		err := v.onChallengeStarted(ctx, &protocol.StartChallengeEvent{
 			ParentSeqNum: seq,
 			ParentStateCommitment: protocol.StateCommitment{
 				Height:    0,
@@ -199,7 +208,7 @@ func Test_processChallengeStart(t *testing.T) {
 		}
 		v.createdLeaves[commitment.StateRoot] = leaf
 
-		err := v.processChallengeStart(ctx, &protocol.StartChallengeEvent{
+		err := v.onChallengeStarted(ctx, &protocol.StartChallengeEvent{
 			ParentSeqNum:          leaf.SequenceNum,
 			ParentStateCommitment: leaf.StateCommitment,
 			Challenger:            common.BytesToAddress([]byte("foo")),

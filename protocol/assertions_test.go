@@ -82,7 +82,7 @@ func TestAssertionChain(t *testing.T) {
 		branch2, err := chain.CreateLeaf(tx, newAssertion, comm, staker2)
 		require.NoError(t, err)
 		verifyCreateLeafEventInFeed(t, eventChan, 3, 1, staker2, comm)
-		challenge, err := newAssertion.CreateChallenge(tx, ctx)
+		challenge, err := newAssertion.CreateChallenge(tx, ctx, staker2)
 		require.NoError(t, err)
 		verifyStartChallengeEventInFeed(t, eventChan, newAssertion.SequenceNum)
 		chal1, err := challenge.AddLeaf(tx, branch1, util.HistoryCommitment{Height: 100, Merkle: util.ExpansionFromLeaves(correctBlockHashes[99:200]).Root()})
@@ -227,7 +227,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 		wrongBranch, err := chain.CreateLeaf(tx, genesis, StateCommitment{7, wrongBlockHashes[7]}, staker2)
 		require.NoError(t, err)
 
-		challenge, err := genesis.CreateChallenge(tx, ctx)
+		challenge, err := genesis.CreateChallenge(tx, ctx, staker2)
 		require.NoError(t, err)
 
 		// Add some leaves to the mix...
@@ -291,8 +291,8 @@ func TestBisectionChallengeGame(t *testing.T) {
 
 		// The parent of the bisectoin should be the root of this challenge and the bisection
 		// should be the new presumptive successor.
-		require.Equal(t, challenge.root.commitment.Merkle, bisection.prev.commitment.Merkle)
-		require.Equal(t, true, bisection.prev.isPresumptiveSuccessor())
+		require.Equal(t, challenge.root.commitment.Merkle, bisection.Prev.commitment.Merkle)
+		require.Equal(t, true, bisection.Prev.isPresumptiveSuccessor())
 		return nil
 	})
 

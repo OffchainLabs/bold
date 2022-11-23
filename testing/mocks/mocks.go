@@ -20,6 +20,11 @@ func (m *MockStateManager) LatestHistoryCommitment(ctx context.Context) util.His
 	return args.Get(0).(util.HistoryCommitment)
 }
 
+func (m *MockStateManager) HasHistoryCommitment(ctx context.Context, commit util.HistoryCommitment) bool {
+	args := m.Called(ctx, commit)
+	return args.Bool(0)
+}
+
 func (m *MockStateManager) HasStateCommitment(ctx context.Context, commit protocol.StateCommitment) bool {
 	args := m.Called(ctx, commit)
 	return args.Bool(0)
@@ -48,7 +53,8 @@ func (m *MockProtocol) Inbox() *protocol.Inbox {
 }
 
 func (m *MockProtocol) Tx(clo func(tx *protocol.ActiveTx, pro protocol.OnChainProtocol) error) error {
-	return clo(&protocol.ActiveTx{}, m)
+	ch := protocol.AssertionChain{}
+	return ch.Tx(clo)
 }
 
 func (m *MockProtocol) Call(clo func(*protocol.ActiveTx, protocol.OnChainProtocol) error) error {
