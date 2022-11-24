@@ -494,6 +494,7 @@ func (chal *Challenge) ParentStateCommitment() StateCommitment {
 func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.HistoryCommitment) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	if assertion.Prev.IsEmpty() {
+		fmt.Println("empty prev")
 		return nil, ErrInvalid
 	}
 	prev := assertion.Prev.OpenKnownFull()

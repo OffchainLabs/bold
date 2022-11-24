@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
+	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/testing/mocks"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
@@ -111,16 +112,23 @@ func Test_processLeafCreation(t *testing.T) {
 	})
 	t.Run("fork leads validator to challenge leaf", func(t *testing.T) {
 		logsHook := test.NewGlobal()
-		v, chain, s := setupValidatorWithChain(t)
-
+		chain := protocol.NewAssertionChain(
+			ctx,
+			util.NewArtificialTimeReference(),
+			time.Second,
+		)
 		staker1 := common.BytesToAddress([]byte("foo"))
 		staker2 := common.BytesToAddress([]byte("bar"))
+		staker3 := common.BytesToAddress([]byte("nyan"))
+		stateManager := &mocks.MockStateManager{}
+		v := setupValidatorWithChain(t, chain, stateManager, staker3)
 
 		// Add balances to the stakers.
 		bal := big.NewInt(0).Mul(protocol.Gwei, big.NewInt(100))
 		err := chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 			chain.AddToBalance(tx, staker1, bal)
 			chain.AddToBalance(tx, staker2, bal)
+			chain.AddToBalance(tx, staker3, bal)
 			return nil
 		})
 		require.NoError(t, err)
@@ -135,7 +143,7 @@ func Test_processLeafCreation(t *testing.T) {
 			Height:    2,
 		}
 
-		s.On("HasStateCommitment", ctx, forkedCommit).Return(false)
+		stateManager.On("HasStateCommitment", ctx, forkedCommit).Return(false)
 
 		var genesis *protocol.Assertion
 		var assertion *protocol.Assertion
@@ -158,7 +166,7 @@ func Test_processLeafCreation(t *testing.T) {
 			}
 			forkedAssertion, err = chain.CreateLeaf(
 				tx,
-				assertion,
+				genesis,
 				forkedCommit,
 				staker2,
 			)
@@ -170,7 +178,7 @@ func Test_processLeafCreation(t *testing.T) {
 		require.NoError(t, err)
 
 		ev := &protocol.CreateLeafEvent{
-			PrevSeqNum:          0,
+			PrevSeqNum:          genesis.SequenceNum,
 			PrevStateCommitment: genesis.StateCommitment,
 			SeqNum:              assertion.SequenceNum,
 			StateCommitment:     assertion.StateCommitment,
@@ -189,6 +197,7 @@ func Test_processLeafCreation(t *testing.T) {
 		require.NoError(t, err)
 		AssertLogsContain(t, logsHook, "New leaf appended")
 		AssertLogsContain(t, logsHook, "Initiating challenge")
+		AssertLogsContain(t, logsHook, "Successfully created challenge and added leaf")
 	})
 }
 
@@ -319,12 +328,12 @@ func setupAssertions(num int) []*protocol.Assertion {
 	return assertions
 }
 
-func setupValidatorWithChain(t testing.TB) (*Validator, *protocol.AssertionChain, *mocks.MockStateManager) {
-	chain := protocol.NewAssertionChain(context.Background(), util.NewArtificialTimeReference(), time.Second)
-	s := &mocks.MockStateManager{}
-	v, err := New(context.Background(), chain, s)
+func setupValidatorWithChain(
+	t testing.TB, chain protocol.ChainReadWriter, manager statemanager.Manager, staker common.Address,
+) *Validator {
+	v, err := New(context.Background(), chain, manager, WithAddress(staker))
 	require.NoError(t, err)
-	return v, chain, s
+	return v
 }
 
 func setupValidator(t testing.TB) (*Validator, *mocks.MockProtocol, *mocks.MockStateManager) {

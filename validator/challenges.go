@@ -254,9 +254,14 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEvent) error {
 	// Retrieves the parent assertion to begin the challenge on.
 	var parentAssertion *protocol.Assertion
+	var currentAssertion *protocol.Assertion
 	var err error
 	if err = v.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		parentAssertion, err = p.AssertionBySequenceNum(tx, ev.PrevSeqNum)
+		if err != nil {
+			return err
+		}
+		currentAssertion, err = p.AssertionBySequenceNum(tx, ev.SeqNum)
 		if err != nil {
 			return err
 		}
@@ -283,14 +288,13 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	var challenge *protocol.Challenge
 	var challengeVertex *protocol.ChallengeVertex
 	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		fmt.Println(parentAssertion)
 		challenge, err = parentAssertion.CreateChallenge(tx, ctx, v.address)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "cannot make challenge")
 		}
-		challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, historyCommit)
+		challengeVertex, err = challenge.AddLeaf(tx, currentAssertion, historyCommit)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "cannot add leaf")
 		}
 		return nil
 	}); err != nil {
@@ -299,6 +303,8 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 
 	// Start tracking the challenge and created vertex using the challenge manager.
 	v.challengeManager.spawnChallenge(ctx, challenge, challengeVertex)
+
+	log.WithFields(logFields).Info("Successfully created challenge and added leaf, now tracking events")
 
 	return nil
 }
