@@ -283,7 +283,7 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	var challenge *protocol.Challenge
 	var challengeVertex *protocol.ChallengeVertex
 	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		fmt.Println(tx)
+		fmt.Println(parentAssertion)
 		challenge, err = parentAssertion.CreateChallenge(tx, ctx, v.address)
 		if err != nil {
 			return err
