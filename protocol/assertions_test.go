@@ -421,3 +421,46 @@ func TestAssertion_ErrInvalid(t *testing.T) {
 	require.ErrorIs(t, newA.ConfirmNoRival(tx), ErrInvalid)
 	require.ErrorIs(t, newA.ConfirmForWin(tx), ErrInvalid)
 }
+
+func FuzzNewAssertionChain(f *testing.F) {
+	ctx := context.Background()
+	timeRef := util.NewRealTimeReference()
+	tcs := []uint64{uint64(testChallengePeriod.Milliseconds()), 0, 9849, 232342344234234}
+	for _, tc := range tcs {
+		f.Add(tc)
+	}
+	f.Fuzz(func(t *testing.T, d uint64) {
+		duration := time.Duration(d)
+		_ = NewAssertionChain(ctx, timeRef, duration)
+	})
+}
+
+func FuzzNewLeafCreation(f *testing.F) {
+	ctx := context.Background()
+	timeRef := util.NewArtificialTimeReference()
+	assertionsChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
+	f.Add([]byte{1}, AssertionStakeWei.Uint64(), uint64(1), []byte{'a'})
+	f.Fuzz(func(t *testing.T, a []byte, b uint64, h uint64, r []byte) {
+		err := assertionsChain.Tx(func(tx *ActiveTx, p OnChainProtocol) error {
+			chain := p.(*AssertionChain)
+			genesis := p.LatestConfirmed(tx)
+			require.Equal(t, StateCommitment{
+				Height:    0,
+				StateRoot: common.Hash{},
+			}, genesis.StateCommitment)
+			staker1 := common.BytesToAddress(a)
+			balances1 := new(big.Int).SetUint64(b)
+			chain.SetBalance(tx, staker1, balances1)
+			var sr [32]byte
+			copy(sr[:], r)
+			comm := StateCommitment{Height: h, StateRoot: sr}
+			newAssertion, err := chain.CreateLeaf(tx, genesis, comm, staker1)
+			require.NoError(t, err)
+			require.ErrorIs(t, ErrNotYet, newAssertion.ConfirmNoRival(tx))
+			timeRef.Add(testChallengePeriod + time.Second)
+			require.NoError(t, newAssertion.ConfirmNoRival(tx))
+			return nil
+		})
+		require.NoError(t, err)
+	})
+}

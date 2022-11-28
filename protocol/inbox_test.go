@@ -3,8 +3,9 @@ package protocol
 import (
 	"bytes"
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestInbox(t *testing.T) {
