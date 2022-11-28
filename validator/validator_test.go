@@ -47,7 +47,7 @@ func Test_processLeafCreation(t *testing.T) {
 		}
 		err := v.processLeafCreation(ctx, ev)
 		require.NoError(t, err)
-		AssertLogsContain(t, logsHook, "New leaf appended")
+		AssertLogsContain(t, logsHook, "Processing new leaf from the protocol")
 		AssertLogsContain(t, logsHook, "No fork detected in assertion tree")
 	})
 	t.Run("fork leads validator to defend leaf", func(t *testing.T) {
@@ -104,7 +104,7 @@ func Test_processLeafCreation(t *testing.T) {
 		}
 		err = v.processLeafCreation(ctx, ev)
 		require.NoError(t, err)
-		AssertLogsContain(t, logsHook, "New leaf appended")
+		AssertLogsContain(t, logsHook, "Processing new leaf from the protocol")
 		AssertLogsContain(t, logsHook, "preparing to defend")
 	})
 	t.Run("fork leads validator to challenge leaf", func(t *testing.T) {
@@ -161,7 +161,7 @@ func Test_processLeafCreation(t *testing.T) {
 		}
 		err = v.processLeafCreation(ctx, ev)
 		require.NoError(t, err)
-		AssertLogsContain(t, logsHook, "New leaf appended")
+		AssertLogsContain(t, logsHook, "Processing new leaf from the protocol")
 		AssertLogsContain(t, logsHook, "Initiating challenge")
 	})
 }
@@ -232,10 +232,10 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		v, p, s := setupValidator(t)
 		assertions := setupAssertions(10)
 		for _, a := range assertions {
-			v.assertions[a.SequenceNum] = &protocol.CreateLeafEvent{
+			v.assertions[a.SequenceNum] = []*protocol.CreateLeafEvent{{
 				StateCommitment: a.StateCommitment,
 				SeqNum:          a.SequenceNum,
-			}
+			}}
 			s.On("HasStateCommitment", ctx, a.StateCommitment).Return(true)
 		}
 		p.On("LatestConfirmed", tx).Return(assertions[0])
@@ -248,10 +248,10 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		v, p, s := setupValidator(t)
 		assertions := setupAssertions(10)
 		for i, a := range assertions {
-			v.assertions[a.SequenceNum] = &protocol.CreateLeafEvent{
+			v.assertions[a.SequenceNum] = []*protocol.CreateLeafEvent{{
 				StateCommitment: a.StateCommitment,
 				SeqNum:          a.SequenceNum,
-			}
+			}}
 			if i <= 5 {
 				s.On("HasStateCommitment", ctx, a.StateCommitment).Return(true)
 			} else {

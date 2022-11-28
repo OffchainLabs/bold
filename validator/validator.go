@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -32,7 +33,7 @@ type Validator struct {
 	createdLeaves                          map[common.Hash]*protocol.Assertion
 	assertionsLock                         sync.RWMutex
 	sequenceNumbersByParentStateCommitment map[common.Hash][]uint64
-	assertions                             map[uint64]*protocol.CreateLeafEvent
+	assertions                             map[uint64][]*protocol.CreateLeafEvent
 	leavesLock                             sync.RWMutex
 	createLeafInterval                     time.Duration
 	chaosMonkeyProbability                 float64
@@ -92,7 +93,7 @@ func New(
 		l2StateUpdateEvents:                    make(chan *statemanager.L2StateEvent, 1),
 		createdLeaves:                          make(map[common.Hash]*protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]uint64),
-		assertions:                             make(map[uint64]*protocol.CreateLeafEvent),
+		assertions:                             make(map[uint64][]*protocol.CreateLeafEvent),
 	}
 	for _, o := range opts {
 		o(v)
@@ -226,13 +227,16 @@ func (v *Validator) findLatestValidAssertion(ctx context.Context) uint64 {
 	v.assertionsLock.RLock()
 	defer v.assertionsLock.RUnlock()
 	for s := numAssertions; s > latestConfirmed; s-- {
-		a, ok := v.assertions[s]
+		as, ok := v.assertions[s]
 		if !ok {
 			continue
 		}
-		if v.stateManager.HasStateCommitment(ctx, a.StateCommitment) {
-			return a.SeqNum
+		for _, a := range as {
+			if v.stateManager.HasStateCommitment(ctx, a.StateCommitment) {
+				return a.SeqNum
+			}
 		}
+
 	}
 	return latestConfirmed
 }
@@ -275,18 +279,32 @@ func (v *Validator) processLeafCreation(ctx context.Context, ev *protocol.Create
 		"name":      v.name,
 		"stateRoot": fmt.Sprintf("%#x", stateCommit.StateRoot),
 		"height":    stateCommit.Height,
-	}).Info("New leaf appended to protocol")
+	}).Info("Processing new leaf from the protocol")
 	// Detect if there is a fork, then decide if we want to challenge.
 	// We check if the parent assertion has > 1 child.
 	v.assertionsLock.Lock()
 	// Keep track of the created assertion locally.
-	v.assertions[seqNum] = ev
+	as, ok := v.assertions[seqNum]
+	if !ok {
+		v.assertions[seqNum] = []*protocol.CreateLeafEvent{ev}
+	} else {
+		var has bool
+		for _, a := range as {
+			if reflect.DeepEqual(a.StateCommitment, ev.StateCommitment) {
+				has = true
+				break
+			}
+		}
+		if !has {
+			v.assertions[seqNum] = append(v.assertions[seqNum], ev)
+		}
+	}
 
 	// Keep track of assertions by parent state root to more easily detect forks.
 	key := ev.PrevStateCommitment.Hash()
 	v.sequenceNumbersByParentStateCommitment[key] = append(
 		v.sequenceNumbersByParentStateCommitment[key],
-		ev.SeqNum,
+		seqNum,
 	)
 	hasForked := len(v.sequenceNumbersByParentStateCommitment[key]) > 1
 	v.assertionsLock.Unlock()
@@ -296,11 +314,7 @@ func (v *Validator) processLeafCreation(ctx context.Context, ev *protocol.Create
 		log.Info("No fork detected in assertion tree upon leaf creation")
 		return nil
 	}
-	// If there is a fork, we challenge if we disagree with its state commitment. Otherwise,
-	// we will defend challenge moves that agree with our local state.
-	if v.stateManager.HasStateCommitment(ctx, stateCommit) {
-		return v.defendLeaf(ctx, ev)
-	}
+
 	return v.challengeLeaf(ctx, ev)
 }
 
