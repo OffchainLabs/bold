@@ -35,9 +35,9 @@ func (m *MockStateManager) StateCommitmentAtHeight(ctx context.Context, height u
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
-func (m *MockStateManager) LatestStateCommitment(ctx context.Context) (util.HistoryCommitment, error) {
+func (m *MockStateManager) LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(util.HistoryCommitment), args.Error(1)
+	return args.Get(0).(protocol.StateCommitment), args.Error(1)
 }
 
 func (m *MockStateManager) SubscribeStateEvents(ctx context.Context, ch chan<- *statemanager.L2StateEvent) {
@@ -75,6 +75,11 @@ func (m *MockProtocol) AssertionBySequenceNum(tx *protocol.ActiveTx, seqNum uint
 func (m *MockProtocol) ChallengeVertexBySequenceNum(tx *protocol.ActiveTx, challengeID common.Hash, seqNum uint64) (*protocol.ChallengeVertex, error) {
 	args := m.Called(tx, challengeID, seqNum)
 	return args.Get(0).(*protocol.ChallengeVertex), args.Error(1)
+}
+
+func (m *MockProtocol) ChallengeByParentCommitmentHash(tx *protocol.ActiveTx, parentCommitHash common.Hash) (*protocol.Challenge, error) {
+	args := m.Called(tx, parentCommitHash)
+	return args.Get(0).(*protocol.Challenge), args.Error(1)
 }
 
 func (m *MockProtocol) LatestConfirmed(tx *protocol.ActiveTx) *protocol.Assertion {

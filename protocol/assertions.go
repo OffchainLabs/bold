@@ -69,6 +69,7 @@ type AssertionManager interface {
 	Inbox() *Inbox
 	NumAssertions(tx *ActiveTx) uint64
 	AssertionBySequenceNum(tx *ActiveTx, seqNum uint64) (*Assertion, error)
+	ChallengeByParentCommitmentHash(tx *ActiveTx, parentCommitHash common.Hash) (*Challenge, error)
 	ChallengeVertexBySequenceNum(tx *ActiveTx, challengeID common.Hash, seqNum uint64) (*ChallengeVertex, error)
 	ChallengePeriodLength(tx *ActiveTx) time.Duration
 	LatestConfirmed(*ActiveTx) *Assertion
@@ -260,6 +261,10 @@ func (chain *AssertionChain) ChallengeVertexBySequenceNum(tx *ActiveTx, challeng
 		return nil, fmt.Errorf("challenve vertex sequence out of range %d >= %d", seqNum, len(vertices))
 	}
 	return vertices[seqNum], nil
+}
+
+func (chain *AssertionChain) ChallengeByParentCommitmentHash(tx *ActiveTx, parentCommitHash common.Hash) (*Challenge, error) {
+	return nil, nil
 }
 
 func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {

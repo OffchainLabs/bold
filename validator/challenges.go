@@ -7,7 +7,6 @@ import (
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
-	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -96,6 +95,7 @@ func (c *challengeManager) spawnChallenge(
 	}
 	c.challenges[challengeID(id)] = worker
 	c.lock.Unlock()
+	log.WithField("challengeID", fmt.Sprintf("%#x", id)).Info("Spawning challenge lifecycle manager")
 	go worker.runChallengeLifecycle(ctx, c, ch)
 }
 
@@ -159,20 +159,15 @@ func (w *challengeWorker) onChallengeLeafAdded(
 		return nil
 	}
 	// TODO: Implement this conditional.
+	// If we have the history commitment the new leaf claims to have, we do not need to act.
+	// TODO: Check if this is the correct assumption.
 	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-			//// Get the challenge vertex by sequence number.
-			//challengeVertex, err := p.ChallengeVertexBySequenceNum(tx, ev.ParentStateCommitmentHash(), ev.SequenceNum)
-			//if err != nil {
-			//return err
-			//}
-			//return challengeVertex.Merge(tx, rivals[0], nil)
-			return nil
-		})
+		return nil
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce
-	// a proof of our own commitment.
-	manager.chain.Tx(func(tx *protocol.ActiveTx, _ protocol.OnChainProtocol) error {
+	// a proof of the vertex we want to bisect to.
+	manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		// TODO: we need to bisect a rival leaf we have created.
 		bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil, w.validatorAddress)
 		if err != nil {
 			return err
@@ -230,31 +225,37 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		"challengingHeight":    leaf.StateCommitment.Height,
 	}).Warn("Received challenge for a created leaf")
 
-	// We produce a historical commiment to add a leaf to the initiated challenge
-	// by retrieving it from our local state manager.
-	//hashes := make([]common.Hash, 0)
-	//expansionToLeafHeight := util.ExpansionFromLeaves(hashes[:ev.ParentStateCommitment.Height])
-	//historyCommit := util.HistoryCommitment{
-	//Height: ev.ParentStateCommitment.Height,
-	//Merkle: expansionToLeafHeight.Root(),
-	//}
+	// TODO: Do we produce a historial commitment at the height == our latest height?
+	historyCommit, err := v.stateManager.LatestHistoryCommitment(ctx)
+	if err != nil {
+		return err
+	}
 
-	//var challenge *protocol.Challenge
-	//var challengeVertex *protocol.ChallengeVertex
-	//var err error
-	//_ = historyCommit
-	//if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-	////challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, historyCommit)
-	////if err != nil {
-	////return err
-	////}
-	//return nil
-	//}); err != nil {
-	//return errors.Wrapf(err, "could not create challenge on leaf with sequence number: %d", ev.ParentSeqNum)
-	//}
+	// We then add a leaf to the challenge using a historical commitment at our latest height.
+	var challenge *protocol.Challenge
+	var challengeVertex *protocol.ChallengeVertex
+	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		parentAssertion, err := p.AssertionBySequenceNum(tx, ev.ParentSeqNum)
+		if err != nil {
+			return err
+		}
+		challenge, err = p.ChallengeByParentCommitmentHash(tx, parentAssertion.StateCommitment.Hash())
+		if err != nil {
+			return err
+		}
+		// TODO: What if the challenge already has a leaf we agree with?
+		// TODO: Match on error ErrDuplicateLeaf to add nicer logs to the user.
+		challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, historyCommit, v.address)
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "could not create challenge on leaf with sequence number: %d", ev.ParentSeqNum)
+	}
 
-	//// Start tracking the challenge and created vertex using the challenge manager.
-	//v.challengeManager.spawnChallenge(ctx, challenge, challengeVertex)
+	// Start tracking the challenge and created vertex using the challenge manager.
+	v.challengeManager.spawnChallenge(ctx, challenge, challengeVertex)
 
 	return nil
 }
@@ -286,12 +287,10 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 
 	// We produce a historical commiment to add a leaf to the initiated challenge
 	// by retrieving it from our local state manager.
-	hashes := make([]common.Hash, 0)
-	//expansionToLeafHeight := util.ExpansionFromLeaves(hashes[:ev.StateCommitment.Height])
-	expansionToLeafHeight := util.ExpansionFromLeaves(hashes)
-	historyCommit := util.HistoryCommitment{
-		Height: ev.StateCommitment.Height,
-		Merkle: expansionToLeafHeight.Root(),
+	// TODO: Do we produce a historial commitment at the height == our latest height?
+	historyCommit, err := v.stateManager.LatestHistoryCommitment(ctx)
+	if err != nil {
+		return err
 	}
 
 	var challenge *protocol.Challenge

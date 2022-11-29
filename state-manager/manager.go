@@ -11,9 +11,10 @@ import (
 // Merkle commitments to L2 state for the validator.
 type Manager interface {
 	HasStateCommitment(ctx context.Context, commitment protocol.StateCommitment) bool
+	StateCommitmentAtHeight(ctx context.Context, height uint64) (protocol.StateCommitment, error)
+	LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error)
 	HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool
-	StateCommitmentAtHeight(ctx context.Context, height uint64) (util.HistoryCommitment, error)
-	LatestStateCommitment(ctx context.Context) (util.HistoryCommitment, error)
+	LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error)
 	SubscribeStateEvents(ctx context.Context, ch chan<- *L2StateEvent)
 }
 
