@@ -153,28 +153,28 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	if isFromSelf(w.validatorAddress, ev.Challenger) {
 		return nil
 	}
-	w.lock.Lock()
-	rivals := w.leavesByParentSeq[ev.ParentSeqNum]
-	if len(rivals) == 0 {
-		return nil
-	}
-	// TODO: Implement this conditional.
-	// If we have the history commitment the new leaf claims to have, we do not need to act.
-	// TODO: Check if this is the correct assumption.
-	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		return nil
-	}
-	// Otherwise, we must bisect to our own historical commitment and produce
-	// a proof of the vertex we want to bisect to.
-	manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		// TODO: we need to bisect a rival leaf we have created.
-		bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil, w.validatorAddress)
-		if err != nil {
-			return err
-		}
-		_ = bisectedVertex
-		return nil
-	})
+	//w.lock.Lock()
+	//rivals := w.leavesByParentSeq[ev.ParentSeqNum]
+	//if len(rivals) == 0 {
+	//return nil
+	//}
+	//// TODO: Implement this conditional.
+	//// If we have the history commitment the new leaf claims to have, we do not need to act.
+	//// TODO: Check if this is the correct assumption.
+	//if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
+	//return nil
+	//}
+	//// Otherwise, we must bisect to our own historical commitment and produce
+	//// a proof of the vertex we want to bisect to.
+	//manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+	//// TODO: we need to bisect a rival leaf we have created.
+	//bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil, w.validatorAddress)
+	//if err != nil {
+	//return err
+	//}
+	//_ = bisectedVertex
+	//return nil
+	//})
 	return nil
 }
 
