@@ -69,22 +69,24 @@ type AssertionManager interface {
 	Inbox() *Inbox
 	NumAssertions(tx *ActiveTx) uint64
 	AssertionBySequenceNum(tx *ActiveTx, seqNum uint64) (*Assertion, error)
+	ChallengeVertexBySequenceNum(tx *ActiveTx, challengeID common.Hash, seqNum uint64) (*ChallengeVertex, error)
 	ChallengePeriodLength(tx *ActiveTx) time.Duration
 	LatestConfirmed(*ActiveTx) *Assertion
 	CreateLeaf(tx *ActiveTx, prev *Assertion, commitment StateCommitment, staker common.Address) (*Assertion, error)
 }
 
 type AssertionChain struct {
-	mutex           sync.RWMutex
-	timeReference   util.TimeReference
-	challengePeriod time.Duration
-	confirmedLatest uint64
-	assertions      []*Assertion
-	dedupe          map[common.Hash]bool
-	balances        *util.MapWithDefault[common.Address, *big.Int]
-	feed            *EventFeed[AssertionChainEvent]
-	challengesFeed  *EventFeed[ChallengeEvent]
-	inbox           *Inbox
+	mutex                          sync.RWMutex
+	timeReference                  util.TimeReference
+	challengePeriod                time.Duration
+	confirmedLatest                uint64
+	assertions                     []*Assertion
+	challengeVerticesByChallengeID map[common.Hash][]*ChallengeVertex
+	dedupe                         map[common.Hash]bool
+	balances                       *util.MapWithDefault[common.Address, *big.Int]
+	feed                           *EventFeed[AssertionChainEvent]
+	challengesFeed                 *EventFeed[ChallengeEvent]
+	inbox                          *Inbox
 }
 
 const (
@@ -174,16 +176,17 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 		Staker:                  util.EmptyOption[common.Address](),
 	}
 	chain := &AssertionChain{
-		mutex:           sync.RWMutex{},
-		timeReference:   timeRef,
-		challengePeriod: challengePeriod,
-		confirmedLatest: 0,
-		assertions:      []*Assertion{genesis},
-		dedupe:          make(map[common.Hash]bool), // no need to insert genesis assertion here
-		balances:        util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
-		feed:            NewEventFeed[AssertionChainEvent](ctx),
-		challengesFeed:  NewEventFeed[ChallengeEvent](ctx),
-		inbox:           NewInbox(ctx),
+		mutex:                          sync.RWMutex{},
+		timeReference:                  timeRef,
+		challengePeriod:                challengePeriod,
+		challengeVerticesByChallengeID: make(map[common.Hash][]*ChallengeVertex),
+		confirmedLatest:                0,
+		assertions:                     []*Assertion{genesis},
+		dedupe:                         make(map[common.Hash]bool), // no need to insert genesis assertion here
+		balances:                       util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
+		feed:                           NewEventFeed[AssertionChainEvent](ctx),
+		challengesFeed:                 NewEventFeed[ChallengeEvent](ctx),
+		inbox:                          NewInbox(ctx),
 	}
 	genesis.chain = chain
 	return chain
@@ -245,6 +248,18 @@ func (chain *AssertionChain) AssertionBySequenceNum(tx *ActiveTx, seqNum uint64)
 		return nil, fmt.Errorf("assertion sequence out of range %d >= %d", seqNum, len(chain.assertions))
 	}
 	return chain.assertions[seqNum], nil
+}
+
+func (chain *AssertionChain) ChallengeVertexBySequenceNum(tx *ActiveTx, challengeID common.Hash, seqNum uint64) (*ChallengeVertex, error) {
+	tx.verifyRead()
+	vertices, ok := chain.challengeVerticesByChallengeID[challengeID]
+	if !ok {
+		return nil, fmt.Errorf("challenge vertices not found for challenge ID %#x", challengeID)
+	}
+	if seqNum >= uint64(len(vertices)) {
+		return nil, fmt.Errorf("challenve vertex sequence out of range %d >= %d", seqNum, len(vertices))
+	}
+	return vertices[seqNum], nil
 }
 
 func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {
@@ -484,6 +499,9 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, chal
 		ParentStaker:          parentStaker,
 		Challenger:            challenger,
 	})
+
+	parent.chain.challengeVerticesByChallengeID[parent.StateCommitment.Hash()] = []*ChallengeVertex{root}
+
 	return ret, nil
 }
 
@@ -491,7 +509,7 @@ func (chal *Challenge) ParentStateCommitment() StateCommitment {
 	return chal.parent.StateCommitment
 }
 
-func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.HistoryCommitment) (*ChallengeVertex, error) {
+func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.HistoryCommitment, challenger common.Address) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	if assertion.Prev.IsEmpty() {
 		fmt.Println("empty prev")
@@ -534,7 +552,13 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 		WinnerIfConfirmed: assertion.SequenceNum,
 		History:           history,
 		BecomesPS:         leaf.Prev.presumptiveSuccessor == leaf,
+		Challenger:        challenger,
 	})
+	parentHash := chal.parent.StateCommitment.Hash()
+	chal.parent.chain.challengeVerticesByChallengeID[parentHash] = append(
+		chal.parent.chain.challengeVerticesByChallengeID[parentHash],
+		leaf,
+	)
 	return leaf, nil
 }
 
@@ -587,7 +611,7 @@ func (vertex *ChallengeVertex) requiredBisectionHeight() (uint64, error) {
 	return util.BisectionPoint(vertex.Prev.commitment.Height, vertex.commitment.Height)
 }
 
-func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash) (*ChallengeVertex, error) {
+func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash, challenger common.Address) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	if vertex.isPresumptiveSuccessor() {
 		return nil, ErrWrongState
@@ -628,11 +652,12 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 		SequenceNum:     newVertex.SequenceNum,
 		History:         newVertex.commitment,
 		BecomesPS:       newVertex.Prev.presumptiveSuccessor == newVertex,
+		Challenger:      challenger,
 	})
 	return newVertex, nil
 }
 
-func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, proof []common.Hash) error {
+func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, proof []common.Hash, challenger common.Address) error {
 	tx.verifyReadWrite()
 	if !newPrev.eligibleForNewSuccessor() {
 		return ErrPastDeadline
@@ -654,6 +679,7 @@ func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, pro
 		DeeperSequenceNum:    vertex.SequenceNum,
 		ShallowerSequenceNum: newPrev.SequenceNum,
 		BecomesPS:            newPrev.presumptiveSuccessor == vertex,
+		Challenger:           challenger,
 	})
 	return nil
 }

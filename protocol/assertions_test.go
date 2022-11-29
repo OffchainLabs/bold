@@ -85,9 +85,9 @@ func TestAssertionChain(t *testing.T) {
 		challenge, err := newAssertion.CreateChallenge(tx, ctx, staker2)
 		require.NoError(t, err)
 		verifyStartChallengeEventInFeed(t, eventChan, newAssertion.SequenceNum)
-		chal1, err := challenge.AddLeaf(tx, branch1, util.HistoryCommitment{Height: 100, Merkle: util.ExpansionFromLeaves(correctBlockHashes[99:200]).Root()})
+		chal1, err := challenge.AddLeaf(tx, branch1, util.HistoryCommitment{Height: 100, Merkle: util.ExpansionFromLeaves(correctBlockHashes[99:200]).Root()}, staker1)
 		require.NoError(t, err)
-		_, err = challenge.AddLeaf(tx, branch2, util.HistoryCommitment{Height: 100, Merkle: util.ExpansionFromLeaves(wrongBlockHashes[99:200]).Root()})
+		_, err = challenge.AddLeaf(tx, branch2, util.HistoryCommitment{Height: 100, Merkle: util.ExpansionFromLeaves(wrongBlockHashes[99:200]).Root()}, staker2)
 		require.NoError(t, err)
 		err = chal1.ConfirmForPsTimer(tx)
 		require.ErrorIs(t, err, ErrNotYet)
@@ -244,6 +244,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 				Height: 6,
 				Merkle: util.ExpansionFromLeaves(correctBlockHashes[:7]).Root(),
 			},
+			staker1,
 		)
 		require.NoError(t, err)
 		cl2, err := challenge.AddLeaf(
@@ -253,6 +254,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 				Height: 7,
 				Merkle: hiExp.Root(),
 			},
+			staker2,
 		)
 		require.NoError(t, err)
 
@@ -273,6 +275,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 				Merkle: loExp.Root(),
 			},
 			proof,
+			staker1,
 		)
 		require.ErrorIs(t, err, ErrWrongState)
 
@@ -286,6 +289,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 				Merkle: loExp.Root(),
 			},
 			proof,
+			staker2,
 		)
 		require.NoError(t, err)
 

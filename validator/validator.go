@@ -90,7 +90,6 @@ func New(
 		stateManager:                           stateManager,
 		address:                                common.Address{},
 		createLeafInterval:                     defaultCreateLeafInterval,
-		challengeManager:                       newChallengeManager(chain),
 		assertionEvents:                        make(chan protocol.AssertionChainEvent, 1),
 		challengeEvents:                        make(chan protocol.ChallengeEvent, 1),
 		l2StateUpdateEvents:                    make(chan *statemanager.L2StateEvent, 1),
@@ -101,6 +100,7 @@ func New(
 	for _, o := range opts {
 		o(v)
 	}
+	v.challengeManager = newChallengeManager(chain, v.address)
 	v.chain.SubscribeChainEvents(ctx, v.assertionEvents)
 	v.chain.SubscribeChallengeEvents(ctx, v.challengeEvents)
 	v.stateManager.SubscribeStateEvents(ctx, v.l2StateUpdateEvents)
@@ -282,7 +282,7 @@ func (v *Validator) onLeafCreated(ctx context.Context, ev *protocol.CreateLeafEv
 	if ev == nil {
 		return nil
 	}
-	if v.isFromSelf(ev.Staker) {
+	if isFromSelf(v.address, ev.Staker) {
 		return nil
 	}
 	seqNum := ev.SeqNum
@@ -320,6 +320,6 @@ func (v *Validator) onLeafCreated(ctx context.Context, ev *protocol.CreateLeafEv
 	return v.challengeLeaf(ctx, ev)
 }
 
-func (v *Validator) isFromSelf(staker common.Address) bool {
-	return v.address == staker
+func isFromSelf(self, staker common.Address) bool {
+	return self == staker
 }

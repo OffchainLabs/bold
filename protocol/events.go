@@ -66,6 +66,7 @@ type ChallengeLeafEvent struct {
 	ParentStateCommit StateCommitment
 	History           util.HistoryCommitment
 	BecomesPS         bool
+	Challenger        common.Address
 }
 
 type ChallengeBisectEvent struct {
@@ -75,6 +76,7 @@ type ChallengeBisectEvent struct {
 	ParentStateCommit StateCommitment
 	History           util.HistoryCommitment
 	BecomesPS         bool
+	Challenger        common.Address
 }
 
 type ChallengeMergeEvent struct {
@@ -84,6 +86,7 @@ type ChallengeMergeEvent struct {
 	DeeperSequenceNum    uint64
 	ShallowerSequenceNum uint64
 	BecomesPS            bool
+	Challenger           common.Address
 }
 
 func (c *ChallengeLeafEvent) ParentStateCommitmentHash() common.Hash {

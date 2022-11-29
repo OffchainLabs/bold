@@ -72,6 +72,11 @@ func (m *MockProtocol) AssertionBySequenceNum(tx *protocol.ActiveTx, seqNum uint
 	return args.Get(0).(*protocol.Assertion), args.Error(1)
 }
 
+func (m *MockProtocol) ChallengeVertexBySequenceNum(tx *protocol.ActiveTx, challengeID common.Hash, seqNum uint64) (*protocol.ChallengeVertex, error) {
+	args := m.Called(tx, challengeID, seqNum)
+	return args.Get(0).(*protocol.ChallengeVertex), args.Error(1)
+}
+
 func (m *MockProtocol) LatestConfirmed(tx *protocol.ActiveTx) *protocol.Assertion {
 	args := m.Called(tx)
 	return args.Get(0).(*protocol.Assertion)

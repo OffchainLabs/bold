@@ -31,6 +31,7 @@ type challengeManager struct {
 	lock                   sync.RWMutex
 	chain                  protocol.ChainReadWriter
 	stateManager           statemanager.Manager
+	validatorAddress       common.Address
 	challenges             map[challengeID]*challengeWorker
 	challengeEventsBufSize int
 }
@@ -38,14 +39,16 @@ type challengeManager struct {
 type challengeWorker struct {
 	lock              sync.RWMutex
 	challenge         *protocol.Challenge
+	validatorAddress  common.Address
 	leavesByParentSeq map[uint64][]*protocol.ChallengeVertex
 	events            chan protocol.ChallengeEvent
 }
 
-func newChallengeManager(chain protocol.ChainReadWriter) *challengeManager {
+func newChallengeManager(chain protocol.ChainReadWriter, validatorAddress common.Address) *challengeManager {
 	return &challengeManager{
 		chain:                  chain,
 		challenges:             make(map[challengeID]*challengeWorker),
+		validatorAddress:       validatorAddress,
 		challengeEventsBufSize: 100, // TODO: Make configurable.
 	}
 }
@@ -86,9 +89,10 @@ func (c *challengeManager) spawnChallenge(
 	worker := &challengeWorker{
 		challenge: challenge,
 		leavesByParentSeq: map[uint64][]*protocol.ChallengeVertex{
-			parentSeqNum: []*protocol.ChallengeVertex{vertex},
+			parentSeqNum: {vertex},
 		},
-		events: ch,
+		validatorAddress: c.validatorAddress,
+		events:           ch,
 	}
 	c.challenges[challengeID(id)] = worker
 	c.lock.Unlock()
@@ -145,27 +149,31 @@ func (w *challengeWorker) runChallengeLifecycle(
 func (w *challengeWorker) onChallengeLeafAdded(
 	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeLeafEvent,
 ) error {
+	// Ignore challenges initiated by self.
+	if isFromSelf(w.validatorAddress, ev.Challenger) {
+		return nil
+	}
 	w.lock.Lock()
 	rivals := w.leavesByParentSeq[ev.ParentSeqNum]
-
-	// If no rivals, we need to add a leaf to the challenge.
-	// TODO:
 	if len(rivals) == 0 {
 		return nil
 	}
-	// Otherwise, we decide if we want to merge or bisect.
 	// TODO: Implement this conditional.
 	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		// If we agree with the history commitment, we make a merge move
-		// on the vertex.
-		manager.chain.Tx(func(tx *protocol.ActiveTx, _ protocol.OnChainProtocol) error {
-			return rivals[0].Merge(tx, rivals[0], nil)
+		manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+			//// Get the challenge vertex by sequence number.
+			//challengeVertex, err := p.ChallengeVertexBySequenceNum(tx, ev.ParentStateCommitmentHash(), ev.SequenceNum)
+			//if err != nil {
+			//return err
+			//}
+			//return challengeVertex.Merge(tx, rivals[0], nil)
+			return nil
 		})
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce
 	// a proof of our own commitment.
 	manager.chain.Tx(func(tx *protocol.ActiveTx, _ protocol.OnChainProtocol) error {
-		bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil)
+		bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil, w.validatorAddress)
 		if err != nil {
 			return err
 		}
@@ -177,6 +185,7 @@ func (w *challengeWorker) onChallengeLeafAdded(
 
 // If a bisection has occurred, we need to determine if we should merge or bisect.
 func (w *challengeWorker) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
+	// If we agree with the history commitment, we make a merge move on the vertex.
 	return nil
 }
 
@@ -191,7 +200,7 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		return nil
 	}
 	// Ignore challenges initiated by self.
-	if v.isFromSelf(ev.Challenger) {
+	if isFromSelf(v.address, ev.Challenger) {
 		return nil
 	}
 	// Checks if the challenge has to do with a vertex we created.
@@ -292,7 +301,7 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 		if err != nil {
 			return errors.Wrap(err, "cannot make challenge")
 		}
-		challengeVertex, err = challenge.AddLeaf(tx, currentAssertion, historyCommit)
+		challengeVertex, err = challenge.AddLeaf(tx, currentAssertion, historyCommit, v.address)
 		if err != nil {
 			return errors.Wrap(err, "cannot add leaf")
 		}
