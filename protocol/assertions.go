@@ -261,7 +261,7 @@ func (chain *AssertionChain) ChallengeVertexBySequenceNum(tx *ActiveTx, challeng
 		return nil, fmt.Errorf("challenge vertices not found for challenge ID %#x", challengeID)
 	}
 	if seqNum >= uint64(len(vertices)) {
-		return nil, fmt.Errorf("challenve vertex sequence out of range %d >= %d", seqNum, len(vertices))
+		return nil, fmt.Errorf("challenge vertex sequence out of range %d >= %d", seqNum, len(vertices))
 	}
 	return vertices[seqNum], nil
 }
@@ -670,6 +670,11 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 		BecomesPS:       newVertex.Prev.presumptiveSuccessor == newVertex,
 		Challenger:      challenger,
 	})
+	parentHash := newVertex.challenge.parent.StateCommitment.Hash()
+	newVertex.challenge.parent.chain.challengeVerticesByChallengeID[parentHash] = append(
+		newVertex.challenge.parent.chain.challengeVerticesByChallengeID[parentHash],
+		newVertex,
+	)
 	return newVertex, nil
 }
 

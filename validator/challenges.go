@@ -198,11 +198,6 @@ func (w *challengeWorker) onBisectionEvent(
 		"merkle": fmt.Sprintf("%#x", ev.History.Merkle),
 	}).Infof("Received bisection event from %#x", ev.Challenger)
 
-	// Make a merge move.
-	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		log.Info("Agreed with bisection event from other challenger, starting a merge move")
-		return nil
-	}
 	w.lock.Lock()
 	if len(w.createdVertices) == 0 {
 		w.lock.Unlock()
@@ -210,6 +205,15 @@ func (w *challengeWorker) onBisectionEvent(
 	}
 	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
 	w.lock.Unlock()
+
+	// Make a merge move.
+	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
+		log.Info("Agreed with bisection event from other challenger, starting a merge move")
+		if err := w.merge(ctx, manager, validatorChallengeVertex, ev.SequenceNum); err != nil {
+			return errors.Wrap(err, "failed to merge to a bisected vertex")
+		}
+		return nil
+	}
 
 	log.WithFields(logrus.Fields{
 		"name":   w.validatorName,
@@ -292,6 +296,60 @@ func (w *challengeWorker) bisect(
 		bisectedVertex.Commitment.Merkle,
 	)
 	return bisectedVertex, nil
+}
+
+func (w *challengeWorker) merge(
+	ctx context.Context,
+	manager *challengeManager,
+	validatorChallengeVertex *protocol.ChallengeVertex,
+	newPrevSeqNum uint64,
+) error {
+	var bisectedVertex *protocol.ChallengeVertex
+	var err error
+	err = manager.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		id := w.challenge.ParentStateCommitment().Hash()
+		bisectedVertex, err = p.ChallengeVertexBySequenceNum(tx, id, newPrevSeqNum)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not read challenge vertex from protocol")
+	}
+	bisectionHeight := bisectedVertex.Commitment.Height
+	historyCommit, err := manager.stateManager.HistoryCommitmentUpTo(ctx, bisectionHeight)
+	if err != nil {
+		return err
+	}
+	currentCommit := validatorChallengeVertex.Commitment
+	proof, err := manager.stateManager.PrefixProof(ctx, bisectionHeight, currentCommit.Height)
+	if err != nil {
+		return err
+	}
+	if err := util.VerifyPrefixProof(historyCommit, currentCommit, proof); err != nil {
+		return errors.Wrap(err, "FAILED MERGE PROOF")
+	}
+	if err := manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		return validatorChallengeVertex.Merge(tx, bisectedVertex, proof, w.validatorAddress)
+	}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not merge vertex with height %d and commit %#x to height %x and commit %#x",
+			currentCommit.Height,
+			currentCommit.Merkle,
+			bisectionHeight,
+			bisectedVertex.Commitment.Merkle,
+		)
+	}
+	log.WithFields(logrus.Fields{
+		"name": w.validatorName,
+	}).Infof(
+		"Successfully merged to vertex with height %d and commit %#x",
+		bisectedVertex.Commitment.Height,
+		bisectedVertex.Commitment.Merkle,
+	)
+	return nil
 }
 
 // Process new challenge creation events from the protocol that were not initiated by self.
