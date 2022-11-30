@@ -259,8 +259,8 @@ func TestBisectionChallengeGame(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure the lower height challenge vertex is the ps.
-		require.Equal(t, true, cl1.isPresumptiveSuccessor())
-		require.Equal(t, false, cl2.isPresumptiveSuccessor())
+		require.Equal(t, true, cl1.IsPresumptiveSuccessor())
+		require.Equal(t, false, cl2.IsPresumptiveSuccessor())
 
 		// Next, only the vertex that is not the presumptive successor can start a bisection move.
 		bisectionHeight, err := cl2.requiredBisectionHeight()
@@ -296,7 +296,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 		// The parent of the bisectoin should be the root of this challenge and the bisection
 		// should be the new presumptive successor.
 		require.Equal(t, challenge.root.commitment.Merkle, bisection.Prev.commitment.Merkle)
-		require.Equal(t, true, bisection.Prev.isPresumptiveSuccessor())
+		require.Equal(t, true, bisection.Prev.IsPresumptiveSuccessor())
 		return nil
 	})
 

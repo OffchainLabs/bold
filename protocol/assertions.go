@@ -547,6 +547,7 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 	leaf := &ChallengeVertex{
 		challenge:            chal,
 		SequenceNum:          chal.nextSequenceNum,
+		Challenger:           challenger,
 		isLeaf:               true,
 		status:               PendingAssertionState,
 		commitment:           history,
@@ -592,6 +593,7 @@ type ChallengeVertex struct {
 	commitment           util.HistoryCommitment
 	challenge            *Challenge
 	SequenceNum          uint64 // unique within the challenge
+	Challenger           common.Address
 	isLeaf               bool
 	status               AssertionState
 	Prev                 *ChallengeVertex
@@ -616,7 +618,7 @@ func (vertex *ChallengeVertex) maybeNewPresumptiveSuccessor(succ *ChallengeVerte
 	}
 }
 
-func (vertex *ChallengeVertex) isPresumptiveSuccessor() bool {
+func (vertex *ChallengeVertex) IsPresumptiveSuccessor() bool {
 	return vertex.Prev == nil || vertex.Prev.presumptiveSuccessor == vertex
 }
 
@@ -626,7 +628,7 @@ func (vertex *ChallengeVertex) requiredBisectionHeight() (uint64, error) {
 
 func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash, challenger common.Address) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
-	if vertex.isPresumptiveSuccessor() {
+	if vertex.IsPresumptiveSuccessor() {
 		return nil, ErrWrongState
 	}
 	if !vertex.Prev.eligibleForNewSuccessor() {
@@ -650,6 +652,7 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	newVertex := &ChallengeVertex{
 		challenge:            vertex.challenge,
 		SequenceNum:          vertex.challenge.nextSequenceNum,
+		Challenger:           challenger,
 		isLeaf:               false,
 		commitment:           history,
 		Prev:                 vertex.Prev,

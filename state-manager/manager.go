@@ -14,6 +14,7 @@ type Manager interface {
 	HasStateCommitment(ctx context.Context, commitment protocol.StateCommitment) bool
 	StateCommitmentAtHeight(ctx context.Context, height uint64) (protocol.StateCommitment, error)
 	LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error)
+	HistoryCommitmentUpTo(ctx context.Context, from, to uint64) (util.HistoryCommitment, []common.Hash, error)
 	HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool
 	LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error)
 }
@@ -51,6 +52,18 @@ func (s *Simulated) LatestStateCommitment(ctx context.Context) (protocol.StateCo
 		Height:    uint64(len(s.stateRoots)) - 1,
 		StateRoot: s.stateRoots[len(s.stateRoots)-1],
 	}, nil
+}
+
+func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, from, to uint64) (util.HistoryCommitment, []common.Hash, error) {
+	proof := util.GeneratePrefixProof(
+		from,
+		util.ExpansionFromLeaves(s.stateRoots[from:to]),
+		s.stateRoots,
+	)
+	return util.HistoryCommitment{
+		Height: to,
+		Merkle: util.ExpansionFromLeaves(s.stateRoots).Root(),
+	}, proof, nil
 }
 
 func (s *Simulated) HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool {

@@ -25,7 +25,6 @@ type Validator struct {
 	chain                                  protocol.ChainReadWriter
 	stateManager                           statemanager.Manager
 	assertionEvents                        chan protocol.AssertionChainEvent
-	challengeEvents                        chan protocol.ChallengeEvent
 	challengeManager                       *challengeManager
 	address                                common.Address
 	name                                   string
@@ -98,7 +97,6 @@ func New(
 		address:                                common.Address{},
 		createLeafInterval:                     defaultCreateLeafInterval,
 		assertionEvents:                        make(chan protocol.AssertionChainEvent, 1),
-		challengeEvents:                        make(chan protocol.ChallengeEvent, 1),
 		createdLeaves:                          make(map[common.Hash]*protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]uint64),
 		assertions:                             make(map[uint64]*protocol.CreateLeafEvent),
@@ -113,13 +111,16 @@ func New(
 		StateCommitment:     protocol.StateCommitment{},
 		Staker:              common.Address{},
 	}
-	v.challengeManager = newChallengeManager(chain, v.address, v.name)
+	v.challengeManager = newChallengeManager(chain, stateManager, v.address, v.name)
 	v.chain.SubscribeChainEvents(ctx, v.assertionEvents)
-	v.chain.SubscribeChallengeEvents(ctx, v.challengeEvents)
 	return v, nil
 }
 
 func (v *Validator) Start(ctx context.Context) {
+	log.WithFields(logrus.Fields{
+		"address": v.address,
+		"name":    v.name,
+	}).Info("Starting validator")
 	go v.listenForAssertionEvents(ctx)
 	if !v.disableLeafCreation {
 		go v.prepareLeafCreationPeriodically(ctx)
@@ -172,17 +173,6 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
 			}
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func (v *Validator) listenForChallengeEvents(ctx context.Context) {
-	for {
-		select {
-		case ev := <-v.challengeEvents:
-			v.challengeManager.dispatch(ev)
 		case <-ctx.Done():
 			return
 		}

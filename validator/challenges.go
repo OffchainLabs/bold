@@ -7,6 +7,7 @@ import (
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
+	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -37,20 +38,23 @@ type challengeManager struct {
 }
 
 type challengeWorker struct {
-	lock              sync.RWMutex
-	challenge         *protocol.Challenge
-	validatorAddress  common.Address
-	leavesByParentSeq map[uint64][]*protocol.ChallengeVertex
-	events            chan protocol.ChallengeEvent
+	lock                  sync.RWMutex
+	challenge             *protocol.Challenge
+	validatorAddress      common.Address
+	validatorName         string
+	verticesBySequenceNum map[uint64][]*protocol.ChallengeVertex
+	events                chan protocol.ChallengeEvent
 }
 
 func newChallengeManager(
 	chain protocol.ChainReadWriter,
+	stateManager statemanager.Manager,
 	validatorAddress common.Address,
 	validatorName string,
 ) *challengeManager {
 	return &challengeManager{
 		chain:                  chain,
+		stateManager:           stateManager,
 		challenges:             make(map[challengeID]*challengeWorker),
 		validatorAddress:       validatorAddress,
 		validatorName:          validatorName,
@@ -64,17 +68,6 @@ func (c *challengeManager) numChallenges() int {
 	return len(c.challenges)
 }
 
-// Dispatches an incoming generic challenge event to the respective challenge's worker.
-func (c *challengeManager) dispatch(ev protocol.ChallengeEvent) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	ch, ok := c.challenges[challengeID(ev.ParentStateCommitmentHash())]
-	if !ok {
-		return
-	}
-	ch.events <- ev
-}
-
 func (c *challengeManager) spawnChallenge(
 	ctx context.Context,
 	challenge *protocol.Challenge,
@@ -82,6 +75,7 @@ func (c *challengeManager) spawnChallenge(
 ) {
 	c.lock.Lock()
 	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
+	c.chain.SubscribeChallengeEvents(ctx, ch)
 	id := challenge.ParentStateCommitment().Hash()
 	if _, ok := c.challenges[challengeID(id)]; ok {
 		c.lock.Unlock()
@@ -94,10 +88,11 @@ func (c *challengeManager) spawnChallenge(
 	parentSeqNum := vertex.Prev.SequenceNum
 	worker := &challengeWorker{
 		challenge: challenge,
-		leavesByParentSeq: map[uint64][]*protocol.ChallengeVertex{
+		verticesBySequenceNum: map[uint64][]*protocol.ChallengeVertex{
 			parentSeqNum: {vertex},
 		},
 		validatorAddress: c.validatorAddress,
+		validatorName:    c.validatorName,
 		events:           ch,
 	}
 	c.challenges[challengeID(id)] = worker
@@ -157,34 +152,70 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	if isFromSelf(w.validatorAddress, ev.Challenger) {
 		return nil
 	}
-	//w.lock.Lock()
-	//rivals := w.leavesByParentSeq[ev.ParentSeqNum]
-	//if len(rivals) == 0 {
-	//return nil
-	//}
-	//// TODO: Implement this conditional.
-	//// If we have the history commitment the new leaf claims to have, we do not need to act.
-	//// TODO: Check if this is the correct assumption.
-	//if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-	//return nil
-	//}
-	//// Otherwise, we must bisect to our own historical commitment and produce
-	//// a proof of the vertex we want to bisect to.
-	//manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-	//// TODO: we need to bisect a rival leaf we have created.
-	//bisectedVertex, err := rivals[0].Bisect(tx, ev.History, nil, w.validatorAddress)
-	//if err != nil {
-	//return err
-	//}
-	//_ = bisectedVertex
-	//return nil
-	//})
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	rivals := w.verticesBySequenceNum[ev.ParentSeqNum]
+	if len(rivals) == 0 {
+		return nil
+	}
+	var validatorChallengeLeaf *protocol.ChallengeVertex
+	for _, vertex := range rivals {
+		if vertex.Challenger == w.validatorAddress {
+			validatorChallengeLeaf = vertex
+			break
+		}
+	}
+	if validatorChallengeLeaf == nil {
+		return errors.New("expected to find validator challenge leaf")
+	}
+
+	// If we have the history commitment the new leaf claims to have, we do not need to act.
+	// TODO: Check if this is the correct assumption.
+	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
+		return nil
+	}
+
+	// We cannot act if we are the presumptive successor vertex of the challenge.
+	if validatorChallengeLeaf.IsPresumptiveSuccessor() {
+		return nil
+	}
+
+	parentHeight := ev.ParentStateCommit.Height
+	shouldBisectTo, err := util.BisectionPoint(parentHeight, ev.History.Height)
+	if err != nil {
+		return err
+	}
+	historyCommit, proof, err := manager.stateManager.HistoryCommitmentUpTo(ctx, parentHeight, shouldBisectTo)
+	if err != nil {
+		return err
+	}
+	// Otherwise, we must bisect to our own historical commitment and produce
+	// a proof of the vertex we want to bisect to.
+	err = manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		_, err := validatorChallengeLeaf.Bisect(tx, historyCommit, proof, w.validatorAddress)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"could not bisect vertex with sequence %d and challenger %#x to height %d with history %d and %#x",
+			validatorChallengeLeaf.SequenceNum,
+			validatorChallengeLeaf.Challenger,
+			shouldBisectTo,
+			historyCommit.Height,
+			historyCommit.Merkle,
+		)
+	}
 	return nil
 }
 
 // If a bisection has occurred, we need to determine if we should merge or bisect.
 func (w *challengeWorker) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
 	// If we agree with the history commitment, we make a merge move on the vertex.
+	log.WithField("name", w.validatorName).Info("Received bisection event")
 	return nil
 }
 
