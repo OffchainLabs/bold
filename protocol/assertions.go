@@ -20,6 +20,7 @@ var (
 
 	ErrWrongChain             = errors.New("wrong chain")
 	ErrInvalid                = errors.New("invalid operation")
+	ErrChallengeAlreadyExists = errors.New("challenge already exists on leaf")
 	ErrCannotChallengeOwnLeaf = errors.New("cannot challenge own leaf")
 	ErrInvalidHeight          = errors.New("invalid block height")
 	ErrVertexAlreadyExists    = errors.New("vertex already exists")
@@ -458,7 +459,7 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, chal
 		return nil, ErrWrongState
 	}
 	if !parent.challenge.IsEmpty() {
-		return nil, ErrInvalid
+		return nil, ErrChallengeAlreadyExists
 	}
 	if parent.secondChildCreationTime.IsEmpty() {
 		return nil, ErrInvalid

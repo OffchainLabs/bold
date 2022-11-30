@@ -27,7 +27,6 @@ type Validator struct {
 	assertionEvents                        chan protocol.AssertionChainEvent
 	challengeEvents                        chan protocol.ChallengeEvent
 	challengeManager                       *challengeManager
-	l2StateUpdateEvents                    chan *statemanager.L2StateEvent
 	address                                common.Address
 	name                                   string
 	knownValidatorNames                    map[common.Address]string
@@ -38,6 +37,7 @@ type Validator struct {
 	leavesLock                             sync.RWMutex
 	createLeafInterval                     time.Duration
 	chaosMonkeyProbability                 float64
+	disableLeafCreation                    bool
 }
 
 // WithChaosMonkeyProbability adds a probability a validator will take
@@ -77,6 +77,13 @@ func WithCreateLeafEvery(d time.Duration) Opt {
 	}
 }
 
+// WithDisableLeafCreation disables the validator submitting new leaves to the protocol.
+func WithDisableLeafCreation() Opt {
+	return func(val *Validator) {
+		val.disableLeafCreation = true
+	}
+}
+
 // New sets up a validator client instances provided a protocol, state manager,
 // and additional options.
 func New(
@@ -92,7 +99,6 @@ func New(
 		createLeafInterval:                     defaultCreateLeafInterval,
 		assertionEvents:                        make(chan protocol.AssertionChainEvent, 1),
 		challengeEvents:                        make(chan protocol.ChallengeEvent, 1),
-		l2StateUpdateEvents:                    make(chan *statemanager.L2StateEvent, 1),
 		createdLeaves:                          make(map[common.Hash]*protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]uint64),
 		assertions:                             make(map[uint64]*protocol.CreateLeafEvent),
@@ -100,16 +106,24 @@ func New(
 	for _, o := range opts {
 		o(v)
 	}
+	v.assertions[0] = &protocol.CreateLeafEvent{
+		PrevSeqNum:          0,
+		PrevStateCommitment: protocol.StateCommitment{},
+		SeqNum:              0,
+		StateCommitment:     protocol.StateCommitment{},
+		Staker:              common.Address{},
+	}
 	v.challengeManager = newChallengeManager(chain, v.address)
 	v.chain.SubscribeChainEvents(ctx, v.assertionEvents)
 	v.chain.SubscribeChallengeEvents(ctx, v.challengeEvents)
-	v.stateManager.SubscribeStateEvents(ctx, v.l2StateUpdateEvents)
 	return v, nil
 }
 
 func (v *Validator) Start(ctx context.Context) {
 	go v.listenForAssertionEvents(ctx)
-	go v.prepareLeafCreationPeriodically(ctx)
+	if !v.disableLeafCreation {
+		go v.prepareLeafCreationPeriodically(ctx)
+	}
 }
 
 func (v *Validator) prepareLeafCreationPeriodically(ctx context.Context) {
@@ -225,6 +239,23 @@ func (v *Validator) submitLeafCreation(ctx context.Context) (*protocol.Assertion
 		"leafCommitmentMerkle":       fmt.Sprintf("%#x", currentCommit.StateRoot),
 	}
 	log.WithFields(logFields).Info("Submitted leaf creation")
+	v.assertionsLock.Lock()
+
+	// Keep track of the created assertion locally.
+	prev := leaf.Prev.OpenKnownFull()
+	v.assertions[leaf.SequenceNum] = &protocol.CreateLeafEvent{
+		PrevSeqNum:          prev.SequenceNum,
+		SeqNum:              leaf.SequenceNum,
+		PrevStateCommitment: prev.StateCommitment,
+		StateCommitment:     leaf.StateCommitment,
+		Staker:              v.address,
+	}
+	key := prev.StateCommitment.Hash()
+	v.sequenceNumbersByParentStateCommitment[key] = append(
+		v.sequenceNumbersByParentStateCommitment[key],
+		leaf.SequenceNum,
+	)
+	v.assertionsLock.Unlock()
 	return leaf, nil
 }
 

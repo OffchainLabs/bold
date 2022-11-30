@@ -16,16 +16,16 @@ type Manager interface {
 	LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error)
 	HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool
 	LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error)
-	SubscribeStateEvents(ctx context.Context, ch chan<- *L2StateEvent)
 }
-
-type L2StateEvent struct{}
 
 type Simulated struct {
 	stateRoots []common.Hash
 }
 
 func New(stateRoots []common.Hash) *Simulated {
+	if len(stateRoots) == 0 {
+		panic("must have state roots")
+	}
 	return &Simulated{stateRoots}
 }
 
@@ -48,7 +48,7 @@ func (s *Simulated) StateCommitmentAtHeight(ctx context.Context, height uint64) 
 
 func (s *Simulated) LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error) {
 	return protocol.StateCommitment{
-		Height:    uint64(len(s.stateRoots)),
+		Height:    uint64(len(s.stateRoots)) - 1,
 		StateRoot: s.stateRoots[len(s.stateRoots)-1],
 	}, nil
 }
@@ -57,13 +57,13 @@ func (s *Simulated) HasHistoryCommitment(ctx context.Context, commitment util.Hi
 	if commitment.Height >= uint64(len(s.stateRoots)) {
 		panic("commitment height out of range")
 	}
-	return false
+	merkle := util.ExpansionFromLeaves(s.stateRoots[:commitment.Height]).Root()
+	return merkle == commitment.Merkle
 }
 
 func (s *Simulated) LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (s *Simulated) SubscribeStateEvents(ctx context.Context, ch chan<- *L2StateEvent) {
-	panic("not implemented") // TODO: Implement
+	return util.HistoryCommitment{
+		Height: uint64(len(s.stateRoots)) - 1,
+		Merkle: util.ExpansionFromLeaves(s.stateRoots).Root(),
+	}, nil
 }

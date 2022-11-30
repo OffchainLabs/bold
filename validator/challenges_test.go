@@ -1,7 +1,17 @@
 package validator
 
 import (
+	"context"
+	"math/big"
 	"testing"
+	"time"
+
+	"github.com/OffchainLabs/new-rollup-exploration/protocol"
+	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
+	"github.com/OffchainLabs/new-rollup-exploration/util"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
@@ -26,22 +36,77 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	//
 	//
 
-	// TODO: Setup a history for both validators such that they disagree at the
-	// transition from height 3 to 4. They should agree at the history up to and including
-	// the state at height 3, then they will diverge.
+	// Alice and bob agree up to height 3. From there, their local states diverge.
+	hook := test.NewGlobal()
+	stateRootsInCommon := make([]common.Hash, 0)
+	for i := uint64(0); i <= 3; i++ {
+		stateRootsInCommon = append(stateRootsInCommon, util.HashForUint(i))
+	}
+	aliceRoots := append(
+		stateRootsInCommon,
+		common.BytesToHash([]byte("a4")),
+		common.BytesToHash([]byte("a5")),
+		common.BytesToHash([]byte("a6")),
+	)
+	bobRoots := append(
+		stateRootsInCommon,
+		common.BytesToHash([]byte("b4")),
+		common.BytesToHash([]byte("b5")),
+		common.BytesToHash([]byte("b6")),
+	)
+	aliceStateManager := statemanager.New(aliceRoots)
+	bobStateManager := statemanager.New(bobRoots)
 
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	//defer cancel()
-	//chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
-	//manager := &mocks.MockStateManager{}
-	//staker1 := common.BytesToAddress([]byte("foo"))
-	//staker2 := common.BytesToAddress([]byte("bar"))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
+	aliceAddr := common.BytesToAddress([]byte("a"))
+	bobAddr := common.BytesToAddress([]byte("b"))
 
-	//// TODO: Disable leaf creation for validators, do it manually.
-	//v1, err := New(ctx, chain, manager, WithAddress(staker1))
-	//require.NoError(t, err)
-	//v2, err := New(ctx, chain, manager, WithAddress(staker2))
-	//require.NoError(t, err)
+	bal := big.NewInt(0).Mul(protocol.Gwei, big.NewInt(100))
+	err := chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		chain.AddToBalance(tx, aliceAddr, bal)
+		chain.AddToBalance(tx, bobAddr, bal)
+		return nil
+	})
+	require.NoError(t, err)
+
+	// TODO: Disable leaf creation for validators, do it manually.
+	alice, err := New(
+		ctx,
+		chain,
+		aliceStateManager,
+		WithName("alice"),
+		WithAddress(aliceAddr),
+		WithDisableLeafCreation(),
+	)
+	require.NoError(t, err)
+	bob, err := New(
+		ctx,
+		chain,
+		bobStateManager,
+		WithName("bob"),
+		WithAddress(bobAddr),
+		WithDisableLeafCreation(),
+	)
+	require.NoError(t, err)
+
+	go alice.Start(ctx)
+	go bob.Start(ctx)
+
+	leaf, err := alice.submitLeafCreation(ctx)
+	require.NoError(t, err)
+	_ = leaf
+	leaf, err = bob.submitLeafCreation(ctx)
+	require.NoError(t, err)
+	_ = leaf
+
+	AssertLogsContain(t, hook, "Submitted leaf creation")
+	AssertLogsContain(t, hook, "Submitted leaf creation")
+
+	<-ctx.Done()
+
+	// Alice makes leaf, bob makes leaf, alice creates challenge on genesis.
 
 	//go v1.Start(ctx)
 	//go v2.Start(ctx)

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
-	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
@@ -15,9 +14,9 @@ type MockStateManager struct {
 	mock.Mock
 }
 
-func (m *MockStateManager) LatestHistoryCommitment(ctx context.Context) util.HistoryCommitment {
+func (m *MockStateManager) LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(util.HistoryCommitment)
+	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
 func (m *MockStateManager) HasHistoryCommitment(ctx context.Context, commit util.HistoryCommitment) bool {
@@ -30,17 +29,14 @@ func (m *MockStateManager) HasStateCommitment(ctx context.Context, commit protoc
 	return args.Bool(0)
 }
 
-func (m *MockStateManager) StateCommitmentAtHeight(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
+func (m *MockStateManager) StateCommitmentAtHeight(ctx context.Context, height uint64) (protocol.StateCommitment, error) {
 	args := m.Called(ctx, height)
-	return args.Get(0).(util.HistoryCommitment), args.Error(1)
+	return args.Get(0).(protocol.StateCommitment), args.Error(1)
 }
 
 func (m *MockStateManager) LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(protocol.StateCommitment), args.Error(1)
-}
-
-func (m *MockStateManager) SubscribeStateEvents(ctx context.Context, ch chan<- *statemanager.L2StateEvent) {
 }
 
 type MockProtocol struct {
