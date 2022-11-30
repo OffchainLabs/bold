@@ -67,28 +67,6 @@ func compUncompTest(t *testing.T, me MerkleExpansion) {
 	require.Equal(t, me.Root(), me2.Root())
 }
 
-func TestSpecificProof(t *testing.T) {
-	lo := uint64(4)
-	hi := uint64(6)
-	leaves := hashesForUints(0, hi)
-	t.Log(len(leaves))
-	loExp := ExpansionFromLeaves(leaves[:lo])
-	hiExp := ExpansionFromLeaves(leaves[:hi])
-	proof := GeneratePrefixProof(lo, loExp, leaves[lo:hi])
-	err := VerifyPrefixProof(
-		HistoryCommitment{
-			Height: lo,
-			Merkle: loExp.Root(),
-		},
-		HistoryCommitment{
-			Height: hi,
-			Merkle: hiExp.Root(),
-		},
-		proof,
-	)
-	require.NoError(t, err)
-}
-
 func TestMerkleProof(t *testing.T) {
 	for _, c := range []struct {
 		lo uint64

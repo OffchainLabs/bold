@@ -190,17 +190,12 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	if err != nil {
 		return err
 	}
-	historyCommit2, err := manager.stateManager.HistoryCommitmentUpTo(ctx, toHeight)
-	if err != nil {
-		return err
-	}
 	proof, err := manager.stateManager.PrefixProof(ctx, bisectTo, toHeight)
 	if err != nil {
 		return err
 	}
-	log.Infof("from %d, to %d", bisectTo, toHeight)
-	if err := util.VerifyPrefixProof(historyCommit, historyCommit2, proof); err != nil {
-		return errors.Wrap(err, "failedddd")
+	if err := util.VerifyPrefixProof(historyCommit, validatorChallengeLeaf.Commitment, proof); err != nil {
+		return err
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce
 	// a proof of the vertex we want to bisect to.
@@ -221,7 +216,6 @@ func (w *challengeWorker) onChallengeLeafAdded(
 			historyCommit.Merkle,
 		)
 	}
-	log.Info("BISECTOOOOOOOOR")
 	return nil
 }
 
