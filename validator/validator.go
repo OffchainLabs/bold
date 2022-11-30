@@ -113,7 +113,7 @@ func New(
 		StateCommitment:     protocol.StateCommitment{},
 		Staker:              common.Address{},
 	}
-	v.challengeManager = newChallengeManager(chain, v.address)
+	v.challengeManager = newChallengeManager(chain, v.address, v.name)
 	v.chain.SubscribeChainEvents(ctx, v.assertionEvents)
 	v.chain.SubscribeChallengeEvents(ctx, v.challengeEvents)
 	return v, nil
@@ -168,6 +168,7 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 				log.WithField(
 					"sequenceNum", ev.SeqNum,
 				).Info("Leaf with sequence number confirmed on-chain")
+			case *protocol.SetBalanceEvent:
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
 			}

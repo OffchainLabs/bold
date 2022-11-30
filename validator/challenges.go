@@ -31,6 +31,7 @@ type challengeManager struct {
 	chain                  protocol.ChainReadWriter
 	stateManager           statemanager.Manager
 	validatorAddress       common.Address
+	validatorName          string
 	challenges             map[challengeID]*challengeWorker
 	challengeEventsBufSize int
 }
@@ -43,11 +44,16 @@ type challengeWorker struct {
 	events            chan protocol.ChallengeEvent
 }
 
-func newChallengeManager(chain protocol.ChainReadWriter, validatorAddress common.Address) *challengeManager {
+func newChallengeManager(
+	chain protocol.ChainReadWriter,
+	validatorAddress common.Address,
+	validatorName string,
+) *challengeManager {
 	return &challengeManager{
 		chain:                  chain,
 		challenges:             make(map[challengeID]*challengeWorker),
 		validatorAddress:       validatorAddress,
+		validatorName:          validatorName,
 		challengeEventsBufSize: 100, // TODO: Make configurable.
 	}
 }
@@ -79,9 +85,10 @@ func (c *challengeManager) spawnChallenge(
 	id := challenge.ParentStateCommitment().Hash()
 	if _, ok := c.challenges[challengeID(id)]; ok {
 		c.lock.Unlock()
-		log.WithField(
-			"challengeID", fmt.Sprintf("%#x", id),
-		).Error("Attempted to spawn challenge that is already in progress")
+		log.WithFields(logrus.Fields{
+			"challengeID": fmt.Sprintf("%#x", id),
+			"name":        c.validatorName,
+		}).Error("Attempted to spawn challenge that is already in progress")
 		return
 	}
 	parentSeqNum := vertex.Prev.SequenceNum
@@ -95,7 +102,10 @@ func (c *challengeManager) spawnChallenge(
 	}
 	c.challenges[challengeID(id)] = worker
 	c.lock.Unlock()
-	log.WithField("challengeID", fmt.Sprintf("%#x", id)).Info("Spawning challenge lifecycle manager")
+	log.WithFields(logrus.Fields{
+		"challengeID": fmt.Sprintf("%#x", id),
+		"name":        c.validatorName,
+	}).Info("Spawning challenge lifecycle manager")
 	go worker.runChallengeLifecycle(ctx, c, ch)
 }
 
@@ -104,10 +114,6 @@ func (w *challengeWorker) runChallengeLifecycle(
 	manager *challengeManager,
 	evs chan protocol.ChallengeEvent,
 ) {
-	// TODO:
-	// Manage chess clock moves for the validator.
-	// Listen for challenge completion, win
-	// Cleanup the challenge goroutine once done.
 	// TODO: Figure out if we are at a one-step fork, and then depending on who's turn it is,
 	// spawn a subchallenge (BigStepChallenge).
 	defer close(evs)
@@ -285,14 +291,6 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	logFields["disagreedLeaf"] = fmt.Sprintf("%#x", ev.StateCommitment.StateRoot)
 	log.WithFields(logFields).Info("Initiating challenge on parent of leaf validator disagrees with")
 
-	// We produce a historical commiment to add a leaf to the initiated challenge
-	// by retrieving it from our local state manager.
-	// TODO: Do we produce a historial commitment at the height == our latest height?
-	historyCommit, err := v.stateManager.LatestHistoryCommitment(ctx)
-	if err != nil {
-		return err
-	}
-
 	var challenge *protocol.Challenge
 	var challengeVertex *protocol.ChallengeVertex
 	err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
@@ -327,6 +325,14 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 		return errors.New("got nil challenge from protocol")
 	}
 
+	// We produce a historical commiment to add a leaf to the initiated challenge
+	// by retrieving it from our local state manager.
+	// TODO: Do we produce a historial commitment at the height == our latest height?
+	historyCommit, err := v.stateManager.LatestHistoryCommitment(ctx)
+	if err != nil {
+		return err
+	}
+
 	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		challengeVertex, err = challenge.AddLeaf(tx, currentAssertion, historyCommit, v.address)
 		if err != nil {
@@ -344,6 +350,7 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	logFields["name"] = v.name
 	logFields["parentAssertionSeqNum"] = parentAssertion.SequenceNum
 	logFields["parentAssertionStateRoot"] = fmt.Sprintf("%#x", parentAssertion.StateCommitment.StateRoot)
+	logFields["challengeID"] = fmt.Sprintf("%#x", parentAssertion.StateCommitment.Hash())
 	log.WithFields(logFields).Info("Successfully created challenge and added leaf, now tracking events")
 
 	return nil

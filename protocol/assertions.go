@@ -84,6 +84,7 @@ type AssertionChain struct {
 	confirmedLatest                uint64
 	assertions                     []*Assertion
 	challengeVerticesByChallengeID map[common.Hash][]*ChallengeVertex
+	challengesByParentCommitHash   map[common.Hash]*Challenge
 	dedupe                         map[common.Hash]bool
 	balances                       *util.MapWithDefault[common.Address, *big.Int]
 	feed                           *EventFeed[AssertionChainEvent]
@@ -182,6 +183,7 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 		timeReference:                  timeRef,
 		challengePeriod:                challengePeriod,
 		challengeVerticesByChallengeID: make(map[common.Hash][]*ChallengeVertex),
+		challengesByParentCommitHash:   make(map[common.Hash]*Challenge),
 		confirmedLatest:                0,
 		assertions:                     []*Assertion{genesis},
 		dedupe:                         make(map[common.Hash]bool), // no need to insert genesis assertion here
@@ -265,7 +267,11 @@ func (chain *AssertionChain) ChallengeVertexBySequenceNum(tx *ActiveTx, challeng
 }
 
 func (chain *AssertionChain) ChallengeByParentCommitmentHash(tx *ActiveTx, parentCommitHash common.Hash) (*Challenge, error) {
-	return nil, nil
+	chal, ok := chain.challengesByParentCommitHash[parentCommitHash]
+	if !ok {
+		return nil, fmt.Errorf("challenge not found for challenge ID %#x", parentCommitHash)
+	}
+	return chal, nil
 }
 
 func (chain *AssertionChain) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {
@@ -561,6 +567,7 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 		Challenger:        challenger,
 	})
 	parentHash := chal.parent.StateCommitment.Hash()
+	chal.parent.chain.challengesByParentCommitHash[parentHash] = chal
 	chal.parent.chain.challengeVerticesByChallengeID[parentHash] = append(
 		chal.parent.chain.challengeVerticesByChallengeID[parentHash],
 		leaf,
