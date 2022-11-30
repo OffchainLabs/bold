@@ -172,17 +172,17 @@ func (w *challengeWorker) onBisectionEvent(
 		return nil
 	}
 	// If we agree with the history commitment, we make a merge move on the vertex.
-	log.WithField(
-		"name", w.validatorName,
-	).Infof("Received bisection event from %#x", ev.Challenger)
+	log.WithFields(logrus.Fields{
+		"name":   w.validatorName,
+		"height": ev.History.Height,
+		"merkle": fmt.Sprintf("%#x", ev.History.Merkle),
+	}).Infof("Received bisection event from %#x", ev.Challenger)
 
 	// Make a merge move.
 	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
 		log.Info("Agreed with bisection event from other challenger, starting a merge move")
 		return nil
 	}
-	// Bisect.
-	log.Info("Disagreed with bisection event from other challenger, bisecting")
 	w.lock.Lock()
 	if len(w.createdVertices) == 0 {
 		w.lock.Unlock()
@@ -190,6 +190,12 @@ func (w *challengeWorker) onBisectionEvent(
 	}
 	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
 	w.lock.Unlock()
+	// Bisect.
+	log.WithFields(logrus.Fields{
+		"name":   w.validatorName,
+		"height": validatorChallengeVertex.Commitment.Height,
+		"merkle": fmt.Sprintf("%#x", validatorChallengeVertex.Commitment.Merkle),
+	}).Info("Disagreed with bisection event from other challenger, bisecting")
 	return w.bisect(ctx, ev.ParentStateCommit.Height, validatorChallengeVertex, manager)
 }
 
@@ -206,8 +212,10 @@ func (w *challengeWorker) bisect(
 ) error {
 	// We cannot act if we are the presumptive successor vertex of the challenge.
 	if validatorChallengeVertex.IsPresumptiveSuccessor() {
+		log.Warnf("%s is presumptive, cannot act", w.validatorName)
 		return nil
 	}
+
 	toHeight := validatorChallengeVertex.Commitment.Height
 	bisectTo, err := util.BisectionPoint(parentHeight, toHeight)
 	if err != nil {
