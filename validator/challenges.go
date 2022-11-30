@@ -38,12 +38,12 @@ type challengeManager struct {
 }
 
 type challengeWorker struct {
-	lock                  sync.RWMutex
-	challenge             *protocol.Challenge
-	validatorAddress      common.Address
-	validatorName         string
-	verticesBySequenceNum map[uint64][]*protocol.ChallengeVertex
-	events                chan protocol.ChallengeEvent
+	lock             sync.RWMutex
+	challenge        *protocol.Challenge
+	validatorAddress common.Address
+	validatorName    string
+	createdVertices  []*protocol.ChallengeVertex
+	events           chan protocol.ChallengeEvent
 }
 
 func newChallengeManager(
@@ -85,12 +85,9 @@ func (c *challengeManager) spawnChallenge(
 		}).Error("Attempted to spawn challenge that is already in progress")
 		return
 	}
-	parentSeqNum := vertex.Prev.SequenceNum
 	worker := &challengeWorker{
-		challenge: challenge,
-		verticesBySequenceNum: map[uint64][]*protocol.ChallengeVertex{
-			parentSeqNum: {vertex},
-		},
+		challenge:        challenge,
+		createdVertices:  []*protocol.ChallengeVertex{vertex},
 		validatorAddress: c.validatorAddress,
 		validatorName:    c.validatorName,
 		events:           ch,
@@ -124,7 +121,7 @@ func (w *challengeWorker) runChallengeLifecycle(
 				}()
 			case *protocol.ChallengeBisectEvent:
 				go func() {
-					if err := w.onBisectionEvent(ctx, ev); err != nil {
+					if err := w.onBisectionEvent(ctx, manager, ev); err != nil {
 						log.WithError(err).Error("Could not process bisection event")
 					}
 				}()
@@ -144,48 +141,78 @@ func (w *challengeWorker) runChallengeLifecycle(
 }
 
 // If a leaf has been added, we check if we should add bisect.
-// TODO: What if we should not bisect?
 func (w *challengeWorker) onChallengeLeafAdded(
 	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeLeafEvent,
 ) error {
-	// Ignore challenges initiated by self.
 	if isFromSelf(w.validatorAddress, ev.Challenger) {
 		return nil
 	}
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	rivals := w.verticesBySequenceNum[ev.ParentSeqNum]
-	if len(rivals) == 0 {
-		return nil
-	}
-	var validatorChallengeLeaf *protocol.ChallengeVertex
-	for _, vertex := range rivals {
-		if vertex.Challenger == w.validatorAddress {
-			validatorChallengeLeaf = vertex
-			break
-		}
-	}
-	if validatorChallengeLeaf == nil {
-		return errors.New("expected to find validator challenge leaf")
-	}
-
 	// If we have the history commitment the new leaf claims to have, we do not need to act.
 	// TODO: Check if this is the correct assumption.
+	// TODO: Should we just return nil here or do something else?
 	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
 		return nil
 	}
 
-	// We cannot act if we are the presumptive successor vertex of the challenge.
-	if validatorChallengeLeaf.IsPresumptiveSuccessor() {
+	w.lock.Lock()
+	if len(w.createdVertices) == 0 {
+		w.lock.Unlock()
 		return nil
 	}
+	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
+	w.lock.Unlock()
+	return w.bisect(ctx, ev.ParentStateCommit.Height, validatorChallengeVertex, manager)
+}
 
-	parentHeight := ev.ParentStateCommit.Height
-	bisectTo, err := util.BisectionPoint(parentHeight, ev.History.Height)
+// If a bisection has occurred, we need to determine if we should merge or bisect ourselves.
+func (w *challengeWorker) onBisectionEvent(
+	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeBisectEvent,
+) error {
+	if isFromSelf(w.validatorAddress, ev.Challenger) {
+		return nil
+	}
+	// If we agree with the history commitment, we make a merge move on the vertex.
+	log.WithField(
+		"name", w.validatorName,
+	).Infof("Received bisection event from %#x", ev.Challenger)
+
+	// Make a merge move.
+	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
+		log.Info("Agreed with bisection event from other challenger, starting a merge move")
+		return nil
+	}
+	// Bisect.
+	log.Info("Disagreed with bisection event from other challenger, bisecting")
+	w.lock.Lock()
+	if len(w.createdVertices) == 0 {
+		w.lock.Unlock()
+		return nil
+	}
+	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
+	w.lock.Unlock()
+	return w.bisect(ctx, ev.ParentStateCommit.Height, validatorChallengeVertex, manager)
+}
+
+// If we have seen a merge event, what happens...??
+func (w *challengeWorker) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
+	return nil
+}
+
+func (w *challengeWorker) bisect(
+	ctx context.Context,
+	parentHeight uint64,
+	validatorChallengeVertex *protocol.ChallengeVertex,
+	manager *challengeManager,
+) error {
+	// We cannot act if we are the presumptive successor vertex of the challenge.
+	if validatorChallengeVertex.IsPresumptiveSuccessor() {
+		return nil
+	}
+	toHeight := validatorChallengeVertex.Commitment.Height
+	bisectTo, err := util.BisectionPoint(parentHeight, toHeight)
 	if err != nil {
 		return err
 	}
-	toHeight := validatorChallengeLeaf.Commitment.Height
 	historyCommit, err := manager.stateManager.HistoryCommitmentUpTo(ctx, bisectTo)
 	if err != nil {
 		return err
@@ -194,13 +221,15 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	if err != nil {
 		return err
 	}
-	if err := util.VerifyPrefixProof(historyCommit, validatorChallengeLeaf.Commitment, proof); err != nil {
+	if err := util.VerifyPrefixProof(historyCommit, validatorChallengeVertex.Commitment, proof); err != nil {
 		return err
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce
 	// a proof of the vertex we want to bisect to.
+	var bisectedVertex *protocol.ChallengeVertex
 	err = manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		if _, err := validatorChallengeLeaf.Bisect(tx, historyCommit, proof, w.validatorAddress); err != nil {
+		bisectedVertex, err = validatorChallengeVertex.Bisect(tx, historyCommit, proof, w.validatorAddress)
+		if err != nil {
 			return err
 		}
 		return nil
@@ -209,25 +238,21 @@ func (w *challengeWorker) onChallengeLeafAdded(
 		return errors.Wrapf(
 			err,
 			"could not bisect vertex with sequence %d and challenger %#x to height %d with history %d and %#x",
-			validatorChallengeLeaf.SequenceNum,
-			validatorChallengeLeaf.Challenger,
+			validatorChallengeVertex.SequenceNum,
+			validatorChallengeVertex.Challenger,
 			bisectTo,
 			historyCommit.Height,
 			historyCommit.Merkle,
 		)
 	}
-	return nil
-}
-
-// If a bisection has occurred, we need to determine if we should merge or bisect.
-func (w *challengeWorker) onBisectionEvent(ctx context.Context, ev *protocol.ChallengeBisectEvent) error {
-	// If we agree with the history commitment, we make a merge move on the vertex.
-	log.WithField("name", w.validatorName).Info("Received bisection event")
-	return nil
-}
-
-// If we have seen a merge event, what happens...??
-func (w *challengeWorker) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
+	log.WithField("name", w.validatorName).Infof(
+		"Successfully bisected to vertex with height %d and commit %#x",
+		bisectedVertex.Commitment.Height,
+		bisectedVertex.Commitment.Merkle,
+	)
+	w.lock.Lock()
+	w.createdVertices = append(w.createdVertices, bisectedVertex)
+	w.lock.Unlock()
 	return nil
 }
 

@@ -39,17 +39,19 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	// Alice and bob agree up to height 3. From there, their local states diverge.
 	hook := test.NewGlobal()
 	stateRootsInCommon := make([]common.Hash, 0)
-	for i := uint64(0); i <= 3; i++ {
+	for i := uint64(0); i < 3; i++ {
 		stateRootsInCommon = append(stateRootsInCommon, util.HashForUint(i))
 	}
 	aliceRoots := append(
 		stateRootsInCommon,
+		common.BytesToHash([]byte("a3")),
 		common.BytesToHash([]byte("a4")),
 		common.BytesToHash([]byte("a5")),
 		common.BytesToHash([]byte("a6")),
 	)
 	bobRoots := append(
 		stateRootsInCommon,
+		common.BytesToHash([]byte("b3")),
 		common.BytesToHash([]byte("b4")),
 		common.BytesToHash([]byte("b5")),
 		common.BytesToHash([]byte("b6")),
