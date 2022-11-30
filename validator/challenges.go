@@ -109,6 +109,8 @@ func (w *challengeWorker) runChallengeLifecycle(
 	// TODO: Figure out if we are at a one-step fork, and then depending on who's turn it is,
 	// spawn a subchallenge (BigStepChallenge).
 	// defer close(evs)
+	reachedOneStepFork := make(chan struct{})
+	defer close(reachedOneStepFork)
 	for {
 		select {
 		case genericEvent := <-evs:
@@ -134,6 +136,9 @@ func (w *challengeWorker) runChallengeLifecycle(
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized challenge event")
 			}
+		case <-reachedOneStepFork:
+			// TODO: Trigger subchallenge!
+			return
 		case <-ctx.Done():
 			return
 		}
@@ -161,7 +166,22 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	}
 	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
 	w.lock.Unlock()
-	return w.bisect(ctx, ev.ParentStateCommit.Height, validatorChallengeVertex, manager)
+
+	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
+	currentVertex := validatorChallengeVertex
+	var err error
+
+	// TODO: Check if we are also at a one-step fork or not.
+	for !hasPresumptiveSuccessor {
+		currentVertex, err = w.bisect(ctx, ev.ParentStateCommit.Height, currentVertex, manager)
+		if err != nil {
+			return err
+		}
+		w.lock.Lock()
+		w.createdVertices = append(w.createdVertices, currentVertex)
+		w.lock.Unlock()
+	}
+	return nil
 }
 
 // If a bisection has occurred, we need to determine if we should merge or bisect ourselves.
@@ -190,13 +210,29 @@ func (w *challengeWorker) onBisectionEvent(
 	}
 	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
 	w.lock.Unlock()
-	// Bisect.
+
 	log.WithFields(logrus.Fields{
 		"name":   w.validatorName,
 		"height": validatorChallengeVertex.Commitment.Height,
 		"merkle": fmt.Sprintf("%#x", validatorChallengeVertex.Commitment.Merkle),
 	}).Info("Disagreed with bisection event from other challenger, bisecting")
-	return w.bisect(ctx, ev.ParentStateCommit.Height, validatorChallengeVertex, manager)
+
+	// Bisect.
+	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
+	currentVertex := validatorChallengeVertex
+	var err error
+
+	// TODO: Check if we are also at a one-step fork or not.
+	for !hasPresumptiveSuccessor {
+		currentVertex, err = w.bisect(ctx, ev.ParentStateCommit.Height, currentVertex, manager)
+		if err != nil {
+			return err
+		}
+		w.lock.Lock()
+		w.createdVertices = append(w.createdVertices, currentVertex)
+		w.lock.Unlock()
+	}
+	return nil
 }
 
 // If we have seen a merge event, what happens...??
@@ -209,28 +245,22 @@ func (w *challengeWorker) bisect(
 	parentHeight uint64,
 	validatorChallengeVertex *protocol.ChallengeVertex,
 	manager *challengeManager,
-) error {
-	// We cannot act if we are the presumptive successor vertex of the challenge.
-	if validatorChallengeVertex.IsPresumptiveSuccessor() {
-		log.Warnf("%s is presumptive, cannot act", w.validatorName)
-		return nil
-	}
-
+) (*protocol.ChallengeVertex, error) {
 	toHeight := validatorChallengeVertex.Commitment.Height
 	bisectTo, err := util.BisectionPoint(parentHeight, toHeight)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	historyCommit, err := manager.stateManager.HistoryCommitmentUpTo(ctx, bisectTo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	proof, err := manager.stateManager.PrefixProof(ctx, bisectTo, toHeight)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := util.VerifyPrefixProof(historyCommit, validatorChallengeVertex.Commitment, proof); err != nil {
-		return err
+		return nil, err
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce
 	// a proof of the vertex we want to bisect to.
@@ -243,7 +273,7 @@ func (w *challengeWorker) bisect(
 		return nil
 	})
 	if err != nil {
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			err,
 			"could not bisect vertex with sequence %d and challenger %#x to height %d with history %d and %#x",
 			validatorChallengeVertex.SequenceNum,
@@ -261,10 +291,7 @@ func (w *challengeWorker) bisect(
 		bisectedVertex.Commitment.Height,
 		bisectedVertex.Commitment.Merkle,
 	)
-	w.lock.Lock()
-	w.createdVertices = append(w.createdVertices, bisectedVertex)
-	w.lock.Unlock()
-	return nil
+	return bisectedVertex, nil
 }
 
 // Process new challenge creation events from the protocol that were not initiated by self.
