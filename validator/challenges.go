@@ -148,10 +148,8 @@ func (w *challengeWorker) runChallengeLifecycle(
 	}
 }
 
-// TODO: The methods below need to be able to produce historical commitments for leaves.
-//
-// If a leaf has been added, we then check if we should add a competing leaf, bisect, or merge
-// and then perform the corresponding action.
+// If a leaf has been added, we check if we should add bisect.
+// TODO: What if we should not bisect?
 func (w *challengeWorker) onChallengeLeafAdded(
 	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeLeafEvent,
 ) error {
