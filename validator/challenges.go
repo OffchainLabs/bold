@@ -253,7 +253,10 @@ func (w *challengeWorker) bisect(
 			historyCommit.Merkle,
 		)
 	}
-	log.WithField("name", w.validatorName).Infof(
+	log.WithFields(logrus.Fields{
+		"name":                   w.validatorName,
+		"IsPresumptiveSuccessor": bisectedVertex.IsPresumptiveSuccessor(),
+	}).Infof(
 		"Successfully bisected to vertex with height %d and commit %#x",
 		bisectedVertex.Commitment.Height,
 		bisectedVertex.Commitment.Merkle,
