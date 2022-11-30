@@ -14,7 +14,8 @@ type Manager interface {
 	HasStateCommitment(ctx context.Context, commitment protocol.StateCommitment) bool
 	StateCommitmentAtHeight(ctx context.Context, height uint64) (protocol.StateCommitment, error)
 	LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error)
-	HistoryCommitmentUpTo(ctx context.Context, from, to uint64) (util.HistoryCommitment, []common.Hash, error)
+	HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error)
+	PrefixProof(ctx context.Context, from, to uint64) ([]common.Hash, error)
 	HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool
 	LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error)
 }
@@ -54,16 +55,21 @@ func (s *Simulated) LatestStateCommitment(ctx context.Context) (protocol.StateCo
 	}, nil
 }
 
-func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, from, to uint64) (util.HistoryCommitment, []common.Hash, error) {
-	proof := util.GeneratePrefixProof(
-		from,
-		util.ExpansionFromLeaves(s.stateRoots[from:to]),
-		s.stateRoots,
-	)
+func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
+	exp := util.ExpansionFromLeaves(s.stateRoots[:height])
 	return util.HistoryCommitment{
-		Height: to,
-		Merkle: util.ExpansionFromLeaves(s.stateRoots).Root(),
-	}, proof, nil
+		Height: height,
+		Merkle: exp.Root(),
+	}, nil
+}
+
+func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]common.Hash, error) {
+	exp := util.ExpansionFromLeaves(s.stateRoots[:lo])
+	return util.GeneratePrefixProof(
+		lo,
+		exp,
+		s.stateRoots[lo:hi],
+	), nil
 }
 
 func (s *Simulated) HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool {

@@ -111,7 +111,7 @@ func (w *challengeWorker) runChallengeLifecycle(
 ) {
 	// TODO: Figure out if we are at a one-step fork, and then depending on who's turn it is,
 	// spawn a subchallenge (BigStepChallenge).
-	defer close(evs)
+	// defer close(evs)
 	for {
 		select {
 		case genericEvent := <-evs:
@@ -181,19 +181,31 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	}
 
 	parentHeight := ev.ParentStateCommit.Height
-	shouldBisectTo, err := util.BisectionPoint(parentHeight, ev.History.Height)
+	bisectTo, err := util.BisectionPoint(parentHeight, ev.History.Height)
 	if err != nil {
 		return err
 	}
-	historyCommit, proof, err := manager.stateManager.HistoryCommitmentUpTo(ctx, parentHeight, shouldBisectTo)
+	toHeight := validatorChallengeLeaf.Commitment.Height
+	historyCommit, err := manager.stateManager.HistoryCommitmentUpTo(ctx, bisectTo)
 	if err != nil {
 		return err
+	}
+	historyCommit2, err := manager.stateManager.HistoryCommitmentUpTo(ctx, toHeight)
+	if err != nil {
+		return err
+	}
+	proof, err := manager.stateManager.PrefixProof(ctx, bisectTo, toHeight)
+	if err != nil {
+		return err
+	}
+	log.Infof("from %d, to %d", bisectTo, toHeight)
+	if err := util.VerifyPrefixProof(historyCommit, historyCommit2, proof); err != nil {
+		return errors.Wrap(err, "failedddd")
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce
 	// a proof of the vertex we want to bisect to.
 	err = manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		_, err := validatorChallengeLeaf.Bisect(tx, historyCommit, proof, w.validatorAddress)
-		if err != nil {
+		if _, err := validatorChallengeLeaf.Bisect(tx, historyCommit, proof, w.validatorAddress); err != nil {
 			return err
 		}
 		return nil
@@ -204,11 +216,12 @@ func (w *challengeWorker) onChallengeLeafAdded(
 			"could not bisect vertex with sequence %d and challenger %#x to height %d with history %d and %#x",
 			validatorChallengeLeaf.SequenceNum,
 			validatorChallengeLeaf.Challenger,
-			shouldBisectTo,
+			bisectTo,
 			historyCommit.Height,
 			historyCommit.Merkle,
 		)
 	}
+	log.Info("BISECTOOOOOOOOR")
 	return nil
 }
 

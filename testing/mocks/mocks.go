@@ -24,9 +24,15 @@ func (m *MockStateManager) HasHistoryCommitment(ctx context.Context, commit util
 	return args.Bool(0)
 }
 
-func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, from, to uint64) (util.HistoryCommitment, []common.Hash, error) {
+func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
+
+	args := m.Called(ctx, height)
+	return args.Get(0).(util.HistoryCommitment), args.Error(1)
+}
+
+func (m *MockStateManager) PrefixProof(ctx context.Context, from, to uint64) ([]common.Hash, error) {
 	args := m.Called(ctx, from, to)
-	return args.Get(0).(util.HistoryCommitment), args.Get(1).([]common.Hash), args.Error(2)
+	return args.Get(0).([]common.Hash), args.Error(1)
 }
 
 func (m *MockStateManager) HasStateCommitment(ctx context.Context, commit protocol.StateCommitment) bool {

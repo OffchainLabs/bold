@@ -295,7 +295,7 @@ func TestBisectionChallengeGame(t *testing.T) {
 
 		// The parent of the bisectoin should be the root of this challenge and the bisection
 		// should be the new presumptive successor.
-		require.Equal(t, challenge.root.commitment.Merkle, bisection.Prev.commitment.Merkle)
+		require.Equal(t, challenge.root.Commitment.Merkle, bisection.Prev.Commitment.Merkle)
 		require.Equal(t, true, bisection.Prev.IsPresumptiveSuccessor())
 		return nil
 	})

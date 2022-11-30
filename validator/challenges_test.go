@@ -94,12 +94,10 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	go alice.Start(ctx)
 	go bob.Start(ctx)
 
-	leaf, err := alice.submitLeafCreation(ctx)
+	_, err = alice.submitLeafCreation(ctx)
 	require.NoError(t, err)
-	_ = leaf
-	leaf, err = bob.submitLeafCreation(ctx)
+	_, err = bob.submitLeafCreation(ctx)
 	require.NoError(t, err)
-	_ = leaf
 
 	AssertLogsContain(t, hook, "Submitted leaf creation")
 	AssertLogsContain(t, hook, "Submitted leaf creation")

@@ -480,7 +480,7 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, chal
 		SequenceNum: 0,
 		isLeaf:      false,
 		status:      ConfirmedAssertionState,
-		commitment: util.HistoryCommitment{
+		Commitment: util.HistoryCommitment{
 			Height: 0,
 			Merkle: common.Hash{},
 		},
@@ -499,7 +499,7 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, chal
 		nextSequenceNum:   1,
 	}
 	root.challenge = ret
-	ret.includedHistories[root.commitment.Hash()] = true
+	ret.includedHistories[root.Commitment.Hash()] = true
 	parent.challenge = util.FullOption[*Challenge](ret)
 	parentStaker := common.Address{}
 	if !parent.Staker.IsEmpty() {
@@ -550,7 +550,7 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 		Challenger:           challenger,
 		isLeaf:               true,
 		status:               PendingAssertionState,
-		commitment:           history,
+		Commitment:           history,
 		Prev:                 chal.root,
 		presumptiveSuccessor: nil,
 		psTimer:              timer,
@@ -590,7 +590,7 @@ func (chal *Challenge) Winner(tx *ActiveTx) (*Assertion, error) {
 }
 
 type ChallengeVertex struct {
-	commitment           util.HistoryCommitment
+	Commitment           util.HistoryCommitment
 	challenge            *Challenge
 	SequenceNum          uint64 // unique within the challenge
 	Challenger           common.Address
@@ -608,7 +608,7 @@ func (vertex *ChallengeVertex) eligibleForNewSuccessor() bool {
 }
 
 func (vertex *ChallengeVertex) maybeNewPresumptiveSuccessor(succ *ChallengeVertex) {
-	if vertex.presumptiveSuccessor != nil && succ.commitment.Height < vertex.presumptiveSuccessor.commitment.Height {
+	if vertex.presumptiveSuccessor != nil && succ.Commitment.Height < vertex.presumptiveSuccessor.Commitment.Height {
 		vertex.presumptiveSuccessor.psTimer.Stop()
 		vertex.presumptiveSuccessor = nil
 	}
@@ -623,7 +623,7 @@ func (vertex *ChallengeVertex) IsPresumptiveSuccessor() bool {
 }
 
 func (vertex *ChallengeVertex) requiredBisectionHeight() (uint64, error) {
-	return util.BisectionPoint(vertex.Prev.commitment.Height, vertex.commitment.Height)
+	return util.BisectionPoint(vertex.Prev.Commitment.Height, vertex.Commitment.Height)
 }
 
 func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash, challenger common.Address) (*ChallengeVertex, error) {
@@ -644,7 +644,7 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	if bisectionHeight != history.Height {
 		return nil, ErrInvalidHeight
 	}
-	if err := util.VerifyPrefixProof(history, vertex.commitment, proof); err != nil {
+	if err := util.VerifyPrefixProof(history, vertex.Commitment, proof); err != nil {
 		return nil, err
 	}
 
@@ -654,7 +654,7 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 		SequenceNum:          vertex.challenge.nextSequenceNum,
 		Challenger:           challenger,
 		isLeaf:               false,
-		commitment:           history,
+		Commitment:           history,
 		Prev:                 vertex.Prev,
 		presumptiveSuccessor: nil,
 		psTimer:              vertex.psTimer.Clone(),
@@ -666,7 +666,7 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	newVertex.challenge.parent.chain.challengesFeed.Append(&ChallengeBisectEvent{
 		FromSequenceNum: vertex.SequenceNum,
 		SequenceNum:     newVertex.SequenceNum,
-		History:         newVertex.commitment,
+		History:         newVertex.Commitment,
 		BecomesPS:       newVertex.Prev.presumptiveSuccessor == newVertex,
 		Challenger:      challenger,
 	})
@@ -681,10 +681,10 @@ func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, pro
 	if vertex.Prev != newPrev.Prev {
 		return ErrInvalid
 	}
-	if vertex.commitment.Height <= newPrev.commitment.Height {
+	if vertex.Commitment.Height <= newPrev.Commitment.Height {
 		return ErrInvalidHeight
 	}
-	if err := util.VerifyPrefixProof(newPrev.commitment, vertex.commitment, proof); err != nil {
+	if err := util.VerifyPrefixProof(newPrev.Commitment, vertex.Commitment, proof); err != nil {
 		return err
 	}
 
