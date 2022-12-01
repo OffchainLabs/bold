@@ -52,7 +52,7 @@ type SetBalanceEvent struct {
 type ChallengeEvent interface {
 	IsChallengeEvent() bool // this method is just a marker that the type intends to be a ChallengeEvent
 	ParentStateCommitmentHash() common.Hash
-	ChallengerAddress() common.Address
+	ActorAddress() common.Address
 }
 
 type genericChallengeEvent struct{}
@@ -67,7 +67,7 @@ type ChallengeLeafEvent struct {
 	ParentStateCommit StateCommitment
 	History           util.HistoryCommitment
 	BecomesPS         bool
-	Challenger        common.Address
+	Actor             common.Address
 }
 
 type ChallengeBisectEvent struct {
@@ -77,7 +77,7 @@ type ChallengeBisectEvent struct {
 	ParentStateCommit StateCommitment
 	History           util.HistoryCommitment
 	BecomesPS         bool
-	Challenger        common.Address
+	Actor             common.Address
 }
 
 type ChallengeMergeEvent struct {
@@ -87,7 +87,7 @@ type ChallengeMergeEvent struct {
 	DeeperSequenceNum    uint64
 	ShallowerSequenceNum uint64
 	BecomesPS            bool
-	Challenger           common.Address
+	Actor                common.Address
 }
 
 func (c *ChallengeLeafEvent) ParentStateCommitmentHash() common.Hash {
@@ -102,14 +102,14 @@ func (c *ChallengeMergeEvent) ParentStateCommitmentHash() common.Hash {
 	return c.ParentStateCommit.Hash()
 }
 
-func (c *ChallengeLeafEvent) ChallengerAddress() common.Address {
-	return c.Challenger
+func (c *ChallengeLeafEvent) ActorAddress() common.Address {
+	return c.Actor
 }
 
-func (c *ChallengeBisectEvent) ChallengerAddress() common.Address {
-	return c.Challenger
+func (c *ChallengeBisectEvent) ActorAddress() common.Address {
+	return c.Actor
 }
 
-func (c *ChallengeMergeEvent) ChallengerAddress() common.Address {
-	return c.Challenger
+func (c *ChallengeMergeEvent) ActorAddress() common.Address {
+	return c.Actor
 }

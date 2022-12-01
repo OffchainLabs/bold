@@ -79,13 +79,13 @@ func (m *MockProtocol) AssertionBySequenceNum(tx *protocol.ActiveTx, seqNum uint
 	return args.Get(0).(*protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) ChallengeVertexBySequenceNum(tx *protocol.ActiveTx, challengeID common.Hash, seqNum uint64) (*protocol.ChallengeVertex, error) {
+func (m *MockProtocol) ChallengeVertexBySequenceNum(tx *protocol.ActiveTx, challengeID protocol.ChallengeID, seqNum uint64) (*protocol.ChallengeVertex, error) {
 	args := m.Called(tx, challengeID, seqNum)
 	return args.Get(0).(*protocol.ChallengeVertex), args.Error(1)
 }
 
-func (m *MockProtocol) ChallengeByParentCommitmentHash(tx *protocol.ActiveTx, parentCommitHash common.Hash) (*protocol.Challenge, error) {
-	args := m.Called(tx, parentCommitHash)
+func (m *MockProtocol) ChallengeByID(tx *protocol.ActiveTx, id protocol.ChallengeID) (*protocol.Challenge, error) {
+	args := m.Called(tx, id)
 	return args.Get(0).(*protocol.Challenge), args.Error(1)
 }
 

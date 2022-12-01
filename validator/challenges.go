@@ -13,11 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: A challenge ID in our challenge manager is a unique identifier for that challenge.
-// Currently, it is using the parent assertion's state commitment hash as an ID,
-// but this value may not work if we want to manage subchallenges in the same way.
-type challengeID common.Hash
-
 // Each challenge has a lifecycle we need to manage. A single challenge's entire lifecycle should
 // be managed in a goroutine specific to that challenge. A challenge goroutine will exit if
 //
@@ -33,7 +28,7 @@ type challengeManager struct {
 	stateManager           statemanager.Manager
 	validatorAddress       common.Address
 	validatorName          string
-	challenges             map[challengeID]*challengeWorker
+	challenges             map[protocol.ChallengeID]*challengeWorker
 	challengeEventsBufSize int
 }
 
@@ -55,7 +50,7 @@ func newChallengeManager(
 	return &challengeManager{
 		chain:                  chain,
 		stateManager:           stateManager,
-		challenges:             make(map[challengeID]*challengeWorker),
+		challenges:             make(map[protocol.ChallengeID]*challengeWorker),
 		validatorAddress:       validatorAddress,
 		validatorName:          validatorName,
 		challengeEventsBufSize: 100, // TODO: Make configurable.
@@ -71,7 +66,7 @@ func (c *challengeManager) spawnChallenge(
 	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
 	c.chain.SubscribeChallengeEvents(ctx, ch)
 	id := challenge.ParentStateCommitment().Hash()
-	if _, ok := c.challenges[challengeID(id)]; ok {
+	if _, ok := c.challenges[protocol.ChallengeID(id)]; ok {
 		c.lock.Unlock()
 		log.WithFields(logrus.Fields{
 			"challengeID": fmt.Sprintf("%#x", id),
@@ -89,7 +84,7 @@ func (c *challengeManager) spawnChallenge(
 		validatorName:      c.validatorName,
 		events:             ch,
 	}
-	c.challenges[challengeID(id)] = worker
+	c.challenges[protocol.ChallengeID(id)] = worker
 	c.lock.Unlock()
 	log.WithFields(logrus.Fields{
 		"challengeID": fmt.Sprintf("%#x", id),
@@ -145,7 +140,7 @@ func (w *challengeWorker) runChallengeLifecycle(
 func (w *challengeWorker) onChallengeLeafAdded(
 	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeLeafEvent,
 ) error {
-	if isFromSelf(w.validatorAddress, ev.Challenger) {
+	if isFromSelf(w.validatorAddress, ev.Actor) {
 		return nil
 	}
 	// If we have the history commitment the new leaf claims to have, we do not need to act.
@@ -158,14 +153,16 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	if w.createdVertices.Empty() {
 		return nil
 	}
-	validatorChallengeVertex := w.createdVertices.Last().Unwrap()
-
-	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
-	currentVertex := validatorChallengeVertex
+	vertexToBisect := w.createdVertices.Last().Unwrap()
+	hasPresumptiveSuccessor := vertexToBisect.IsPresumptiveSuccessor()
+	currentVertex := vertexToBisect
 	var err error
 
-	// TODO: Check if we are also at a one-step fork or not.
 	for !hasPresumptiveSuccessor {
+		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
+			w.reachedOneStepFork <- struct{}{}
+			break
+		}
 		currentVertex, err = w.bisect(ctx, ev.ParentStateCommit.Height, currentVertex, manager)
 		if err != nil {
 			return err
@@ -179,7 +176,7 @@ func (w *challengeWorker) onChallengeLeafAdded(
 func (w *challengeWorker) onBisectionEvent(
 	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeBisectEvent,
 ) error {
-	if isFromSelf(w.validatorAddress, ev.Challenger) {
+	if isFromSelf(w.validatorAddress, ev.Actor) {
 		return nil
 	}
 	// If we agree with the history commitment, we make a merge move on the vertex.
@@ -187,7 +184,7 @@ func (w *challengeWorker) onBisectionEvent(
 		"name":   w.validatorName,
 		"height": ev.History.Height,
 		"merkle": fmt.Sprintf("%#x", ev.History.Merkle),
-	}).Infof("Received bisection event from %#x", ev.Challenger)
+	}).Infof("Received bisection event from %#x", ev.Actor)
 
 	if w.createdVertices.Empty() {
 		return nil
@@ -258,7 +255,7 @@ func (w *challengeWorker) onMergeEvent(
 	manager *challengeManager,
 	ev *protocol.ChallengeMergeEvent,
 ) error {
-	if isFromSelf(w.validatorAddress, ev.Challenger) {
+	if isFromSelf(w.validatorAddress, ev.Actor) {
 		return nil
 	}
 	if w.createdVertices.Empty() {
@@ -298,15 +295,15 @@ func (w *challengeWorker) onMergeEvent(
 	var err error
 
 	for !hasPresumptiveSuccessor {
+		if currentVertex.Commitment.Height == vertexToBisect.Commitment.Height+1 {
+			w.reachedOneStepFork <- struct{}{}
+			break
+		}
 		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
 		if err != nil {
 			return err
 		}
 		w.createdVertices.Append(currentVertex)
-		if currentVertex.Commitment.Height == vertexToBisect.Commitment.Height+1 {
-			w.reachedOneStepFork <- struct{}{}
-			break
-		}
 	}
 	return nil
 }
@@ -374,7 +371,7 @@ func (w *challengeWorker) merge(
 	var bisectedVertex *protocol.ChallengeVertex
 	var err error
 	err = manager.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		id := w.challenge.ParentStateCommitment().Hash()
+		id := protocol.ChallengeID(w.challenge.ParentStateCommitment().Hash())
 		bisectedVertex, err = p.ChallengeVertexBySequenceNum(tx, id, newPrevSeqNum)
 		if err != nil {
 			return err
@@ -469,7 +466,7 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		if err != nil {
 			return err
 		}
-		challenge, err = p.ChallengeByParentCommitmentHash(tx, parentAssertion.StateCommitment.Hash())
+		challenge, err = p.ChallengeByID(tx, protocol.ChallengeID(parentAssertion.StateCommitment.Hash()))
 		if err != nil {
 			return err
 		}
@@ -528,7 +525,7 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	case errors.Is(err, protocol.ErrChallengeAlreadyExists):
 		log.Info("Challenge on leaf already exists, reading existing challenge from protocol")
 		if err = v.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-			challenge, err = p.ChallengeByParentCommitmentHash(tx, parentAssertion.StateCommitment.Hash())
+			challenge, err = p.ChallengeByID(tx, protocol.ChallengeID(parentAssertion.StateCommitment.Hash()))
 			if err != nil {
 				return errors.Wrap(err, "cannot make challenge")
 			}
