@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
+func TestChallenges_ValidatorsReachOneStepFork_Simple(t *testing.T) {
 	// Tests that validators are able to reach a one step fork correctly
 	// by playing the challenge game on their own upon observing leaves
 	// they disagree with. Here's the example with Alice and Bob.
@@ -58,7 +59,7 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	aliceStateManager := statemanager.New(aliceRoots)
 	bobStateManager := statemanager.New(bobRoots)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
 	aliceAddr := common.BytesToAddress([]byte("a"))
@@ -72,7 +73,6 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// TODO: Disable leaf creation for validators, do it manually.
 	alice, err := New(
 		ctx,
 		chain,
@@ -92,6 +92,9 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	harnessObserver := make(chan protocol.ChallengeEvent, 1)
+	chain.SubscribeChallengeEvents(ctx, harnessObserver)
+
 	go alice.Start(ctx)
 	go bob.Start(ctx)
 
@@ -103,20 +106,47 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	AssertLogsContain(t, hook, "Submitted leaf creation")
 	AssertLogsContain(t, hook, "Submitted leaf creation")
 
-	<-ctx.Done()
-
-	//eventsToAssert := []*protocol.ChallengeEvent{}
-
-	//harnessObserver := make(chan protocol.ChallengeEvent)
-	//defer close(harnessObserver)
-	//chain.SubscribeChallengeEvents(harnessObserver)
-
-	//for {
-	//select {
-	//case ev := <-harnessObserver:
-	//require.Equal(t, true, expectedEvent(eventsToAssert, ev))
-	//case <-ctx.Done():
-	//break
-	//}
-	//}
+	// TODO: There is unpredictability in who creates the first leaf. We should find
+	// a way to make it deterministic so we can assert details of each event in addition
+	// to the type of event being fired.
+	eventsToAssert := []protocol.ChallengeEvent{
+		// Alice adds leaf 6, is presumptive.
+		&protocol.ChallengeLeafEvent{},
+		// Bob adds leaf 6.
+		&protocol.ChallengeLeafEvent{},
+		// Alice bisects to 4, is presumptive.
+		&protocol.ChallengeBisectEvent{},
+		// Bob bisects to 4.
+		&protocol.ChallengeBisectEvent{},
+		// Bob bisects to 2, is presumptive.
+		&protocol.ChallengeBisectEvent{},
+		// Alice merges to 2.
+		&protocol.ChallengeMergeEvent{},
+		// Alice bisects from 4 to 3, is presumptive.
+		&protocol.ChallengeBisectEvent{},
+		// Bob merges to 3.
+		&protocol.ChallengeMergeEvent{},
+		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
+	}
+	expectedEventIndex := 0
+	for {
+		if expectedEventIndex == len(eventsToAssert) {
+			t.Log("Finished asserting events")
+			AssertLogsContain(t, hook, "Reached a one-step-fork")
+			AssertLogsContain(t, hook, "Reached a one-step-fork")
+			break
+		}
+		select {
+		case ev := <-harnessObserver:
+			t.Logf("%+T", ev)
+			wantedEv := eventsToAssert[expectedEventIndex]
+			wanted := reflect.TypeOf(wantedEv).Elem()
+			got := reflect.TypeOf(ev).Elem()
+			t.Logf("Asserting wanted event %+T against received %+T", wantedEv, ev)
+			require.Equal(t, wanted, got)
+			expectedEventIndex++
+		case <-ctx.Done():
+			t.Fatal("Timed out - validators were unable to reach one-step-fork in time")
+		}
+	}
 }

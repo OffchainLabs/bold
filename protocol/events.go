@@ -52,6 +52,7 @@ type SetBalanceEvent struct {
 type ChallengeEvent interface {
 	IsChallengeEvent() bool // this method is just a marker that the type intends to be a ChallengeEvent
 	ParentStateCommitmentHash() common.Hash
+	ChallengerAddress() common.Address
 }
 
 type genericChallengeEvent struct{}
@@ -99,4 +100,16 @@ func (c *ChallengeBisectEvent) ParentStateCommitmentHash() common.Hash {
 
 func (c *ChallengeMergeEvent) ParentStateCommitmentHash() common.Hash {
 	return c.ParentStateCommit.Hash()
+}
+
+func (c *ChallengeLeafEvent) ChallengerAddress() common.Address {
+	return c.Challenger
+}
+
+func (c *ChallengeBisectEvent) ChallengerAddress() common.Address {
+	return c.Challenger
+}
+
+func (c *ChallengeMergeEvent) ChallengerAddress() common.Address {
+	return c.Challenger
 }
