@@ -267,6 +267,7 @@ func (chain *AssertionChain) ChallengeVertexBySequenceNum(tx *ActiveTx, challeng
 }
 
 func (chain *AssertionChain) ChallengeByParentCommitmentHash(tx *ActiveTx, parentCommitHash common.Hash) (*Challenge, error) {
+	tx.verifyRead()
 	chal, ok := chain.challengesByParentCommitHash[parentCommitHash]
 	if !ok {
 		return nil, fmt.Errorf("challenge not found for challenge ID %#x", parentCommitHash)
@@ -524,7 +525,6 @@ func (chal *Challenge) ParentStateCommitment() StateCommitment {
 func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.HistoryCommitment, challenger common.Address) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	if assertion.Prev.IsEmpty() {
-		fmt.Println("empty prev")
 		return nil, ErrInvalid
 	}
 	prev := assertion.Prev.OpenKnownFull()

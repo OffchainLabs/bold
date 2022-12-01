@@ -293,6 +293,9 @@ func TestBisectionChallengeGame(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		// Ensure the prev value of cl2 is set to the vertex we just bisected to.
+		require.Equal(t, bisection, cl2.Prev)
+
 		// The parent of the bisectoin should be the root of this challenge and the bisection
 		// should be the new presumptive successor.
 		require.Equal(t, challenge.root.Commitment.Merkle, bisection.Prev.Commitment.Merkle)

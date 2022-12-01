@@ -20,10 +20,13 @@ type Manager interface {
 	LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error)
 }
 
+// Simulated defines a very naive state manager that is initialized from a list of predetermined
+// state roots. It can produce state and history commitments from those roots.
 type Simulated struct {
 	stateRoots []common.Hash
 }
 
+// New simulated manager from a list of predefined state roots, useful for tests and simulations.
 func New(stateRoots []common.Hash) *Simulated {
 	if len(stateRoots) == 0 {
 		panic("must have state roots")
@@ -31,6 +34,7 @@ func New(stateRoots []common.Hash) *Simulated {
 	return &Simulated{stateRoots}
 }
 
+// HasStateCommitment checks if a state commitment is found in our local list of state roots.
 func (s *Simulated) HasStateCommitment(ctx context.Context, commitment protocol.StateCommitment) bool {
 	if commitment.Height >= uint64(len(s.stateRoots)) {
 		panic("commitment height out of range")
@@ -38,6 +42,7 @@ func (s *Simulated) HasStateCommitment(ctx context.Context, commitment protocol.
 	return s.stateRoots[commitment.Height] == commitment.StateRoot
 }
 
+// StateCommitmentAtHeight gets the state commitment at a specified height from our local list of state roots.
 func (s *Simulated) StateCommitmentAtHeight(ctx context.Context, height uint64) (protocol.StateCommitment, error) {
 	if height >= uint64(len(s.stateRoots)) {
 		panic("commitment height out of range")
@@ -48,6 +53,7 @@ func (s *Simulated) StateCommitmentAtHeight(ctx context.Context, height uint64) 
 	}, nil
 }
 
+// LatestStateCommitment gets the state commitment corresponding to the last, local state root the manager has.
 func (s *Simulated) LatestStateCommitment(ctx context.Context) (protocol.StateCommitment, error) {
 	return protocol.StateCommitment{
 		Height:    uint64(len(s.stateRoots)) - 1,
@@ -55,6 +61,7 @@ func (s *Simulated) LatestStateCommitment(ctx context.Context) (protocol.StateCo
 	}, nil
 }
 
+// HistoryCommitmentUpTo gets the history commitment for the merkle expansion up to a height.
 func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
 	exp := util.ExpansionFromLeaves(s.stateRoots[:height])
 	return util.HistoryCommitment{
@@ -63,6 +70,8 @@ func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, height uint64) (u
 	}, nil
 }
 
+// PrefixProof generates a proof of a merkle expansion from genesis to a low point to a slice of state roots
+// from a low point to a high point specified as arguments.
 func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]common.Hash, error) {
 	exp := util.ExpansionFromLeaves(s.stateRoots[:lo])
 	return util.GeneratePrefixProof(
@@ -72,6 +81,7 @@ func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]common.Ha
 	), nil
 }
 
+// HasHistoryCommitment checks if a history commitment matches our merkle expansion for the specified height.
 func (s *Simulated) HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool {
 	if commitment.Height >= uint64(len(s.stateRoots)) {
 		panic("commitment height out of range")
@@ -80,6 +90,7 @@ func (s *Simulated) HasHistoryCommitment(ctx context.Context, commitment util.Hi
 	return merkle == commitment.Merkle
 }
 
+// LatestHistoryCommitment gets the history commitment up to and including the last, local state root the manager has.
 func (s *Simulated) LatestHistoryCommitment(ctx context.Context) (util.HistoryCommitment, error) {
 	height := uint64(len(s.stateRoots)) - 1
 	return util.HistoryCommitment{
