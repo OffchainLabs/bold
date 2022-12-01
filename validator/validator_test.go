@@ -24,7 +24,7 @@ func Test_processLeafCreation(t *testing.T) {
 	_ = ctx
 	t.Run("no fork detected", func(t *testing.T) {
 		logsHook := test.NewGlobal()
-		v, _, _ := setupValidator(t)
+		v, _, s := setupValidator(t)
 
 		parentSeqNum := uint64(1)
 		prevRoot := common.BytesToHash([]byte("foo"))
@@ -48,6 +48,9 @@ func Test_processLeafCreation(t *testing.T) {
 			StateCommitment:     newlyCreatedAssertion.StateCommitment,
 			Staker:              newlyCreatedAssertion.Staker.Unwrap(),
 		}
+
+		s.On("HasStateCommitment", ctx, protocol.StateCommitment{}).Return(false)
+
 		err := v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
 		AssertLogsContain(t, logsHook, "New leaf appended")
@@ -86,7 +89,9 @@ func Test_processLeafCreation(t *testing.T) {
 			Height:    2,
 		}
 
+		stateManager.On("HasStateCommitment", ctx, commit).Return(false)
 		stateManager.On("HasStateCommitment", ctx, forkedCommit).Return(false)
+		stateManager.On("LatestHistoryCommitment", ctx).Return(util.HistoryCommitment{}, nil)
 
 		var genesis *protocol.Assertion
 		var assertion *protocol.Assertion
@@ -162,28 +167,6 @@ func Test_processChallengeStart(t *testing.T) {
 		})
 		require.NoError(t, err)
 		AssertLogsDoNotContain(t, logsHook, "Received challenge")
-	})
-	t.Run("challenge concerns us, we should act", func(t *testing.T) {
-		logsHook := test.NewGlobal()
-		v, _, _ := setupValidator(t)
-
-		commitment := protocol.StateCommitment{
-			Height:    0,
-			StateRoot: common.BytesToHash([]byte("foo")),
-		}
-		leaf := &protocol.Assertion{
-			StateCommitment: commitment,
-			Staker:          util.None[common.Address](),
-		}
-		v.createdLeaves[commitment.StateRoot] = leaf
-
-		err := v.onChallengeStarted(ctx, &protocol.StartChallengeEvent{
-			ParentSeqNum:          leaf.SequenceNum,
-			ParentStateCommitment: leaf.StateCommitment,
-			Challenger:            common.BytesToAddress([]byte("foo")),
-		})
-		require.NoError(t, err)
-		AssertLogsContain(t, logsHook, "Received challenge")
 	})
 }
 
