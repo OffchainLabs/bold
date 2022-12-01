@@ -159,26 +159,25 @@ func (w *challengeWorker) act(
 			break
 		}
 	}
-	log.WithFields(logrus.Fields{
-		"name":   w.validatorName,
-		"height": eventHistoryCommit.Height,
-	}).Infof("Received a merge event")
 
-	mergedToOurs := eventHistoryCommit.Height == vertexToActUpon.Commitment.Height
+	mergedToOurs := eventHistoryCommit.Hash() == vertexToActUpon.Commitment.Hash()
 	if mergedToOurs {
 		log.WithFields(logrus.Fields{
-			"name":         w.validatorName,
-			"mergedHeight": eventHistoryCommit.Height,
+			"name":                w.validatorName,
+			"mergedHeight":        eventHistoryCommit.Height,
+			"mergedHistoryMerkle": eventHistoryCommit.Merkle,
 		}).Info("Other validator merged to our vertex")
 	}
 
 	// Make a merge move.
-	if manager.stateManager.HasHistoryCommitment(ctx, eventHistoryCommit) {
-		log.WithField(
-			"name", w.validatorName,
-		).Info("Agreed with bisection event from other challenger, starting a merge move")
-		if err := w.merge(ctx, manager, vertexToBisect, eventSequenceNum); err != nil {
-			return errors.Wrap(err, "failed to merge to a bisected vertex")
+	if manager.stateManager.HasHistoryCommitment(ctx, eventHistoryCommit) && !mergedToOurs {
+		if err := w.merge(ctx, manager, vertexToActUpon, eventSequenceNum); err != nil {
+			// TODO: Find a better way to exit if a merge is invalid than showing a scary log to the user.
+			// Validators currently try to make merge moves they should not during the challenge game.
+			if errors.Is(err, protocol.ErrInvalid) {
+				return nil
+			}
+			return errors.Wrap(err, "failed to merge")
 		}
 	}
 
@@ -193,6 +192,15 @@ func (w *challengeWorker) act(
 		}
 		bisectedVertex, err := w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
 		if err != nil {
+			// TODO: Find another way of cleanly ending the bisection process so that we do not
+			// end on a scary "state did not allow this operation" log.
+			if errors.Is(err, protocol.ErrWrongState) {
+				log.WithError(err).Debug("State incorrect for bisection")
+				return nil
+			}
+			if errors.Is(err, protocol.ErrVertexAlreadyExists) {
+				return nil
+			}
 			return err
 		}
 		currentVertex = bisectedVertex
@@ -345,7 +353,8 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		"challengingHeight":    leaf.StateCommitment.Height,
 	}).Warn("Received challenge for a created leaf")
 
-	// TODO: Do we produce a historial commitment at the height == our latest height?
+	// TODO: Instead of producing a history commitment at our highest height, we should do it at the height
+	// of the forked assertion we care about in the challenge game.
 	historyCommit, err := v.stateManager.LatestHistoryCommitment(ctx)
 	if err != nil {
 		return err
@@ -363,8 +372,8 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		if err != nil {
 			return err
 		}
-		// TODO: What if the challenge already has a leaf we agree with?
 		// TODO: Match on error ErrDuplicateLeaf to add nicer logs to the user.
+		// TODO: Ideally, check if the leaf already exists before making the tx.
 		challengeVertex, err = challenge.AddLeaf(tx, parentAssertion, historyCommit, v.address)
 		if err != nil {
 			return err
