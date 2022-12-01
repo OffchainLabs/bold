@@ -181,7 +181,6 @@ func (w *challengeWorker) act(
 		}
 	}
 
-	// Bisect.
 	hasPresumptiveSuccessor := vertexToActUpon.IsPresumptiveSuccessor()
 	currentVertex := vertexToActUpon
 
