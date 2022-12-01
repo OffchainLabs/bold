@@ -150,12 +150,12 @@ func (w *challengeWorker) act(
 	}
 	// Go down the tree to find the first vertex we created that has a commitment height >
 	// the vertex seen from the merge event.
-	vertexToBisect := w.createdVertices.Last().Unwrap()
+	vertexToActUpon := w.createdVertices.Last().Unwrap()
 	numVertices := w.createdVertices.Len()
 	for i := numVertices - 1; i > 0; i-- {
 		vertex := w.createdVertices.Get(i).Unwrap()
 		if vertex.Commitment.Height > eventHistoryCommit.Height {
-			vertexToBisect = vertex
+			vertexToActUpon = vertex
 			break
 		}
 	}
@@ -164,7 +164,7 @@ func (w *challengeWorker) act(
 		"height": eventHistoryCommit.Height,
 	}).Infof("Received a merge event")
 
-	mergedToOurs := eventHistoryCommit.Height == vertexToBisect.Commitment.Height
+	mergedToOurs := eventHistoryCommit.Height == vertexToActUpon.Commitment.Height
 	if mergedToOurs {
 		log.WithFields(logrus.Fields{
 			"name":         w.validatorName,
@@ -183,8 +183,8 @@ func (w *challengeWorker) act(
 	}
 
 	// Bisect.
-	hasPresumptiveSuccessor := vertexToBisect.IsPresumptiveSuccessor()
-	currentVertex := vertexToBisect
+	hasPresumptiveSuccessor := vertexToActUpon.IsPresumptiveSuccessor()
+	currentVertex := vertexToActUpon
 
 	for !hasPresumptiveSuccessor {
 		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
