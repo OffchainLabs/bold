@@ -34,12 +34,6 @@ func TestChallenges_ValidatorsReachOneStepFork(t *testing.T) {
 	//
 	//
 	//
-	//                   [4]-[6]-Bob
-	//                  /
-	//      [genesis]---
-	//                  \[4]-[6]-Alice
-	//
-	//
 
 	// Alice and bob agree up to height 3. From there, their local states diverge.
 	hook := test.NewGlobal()

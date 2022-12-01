@@ -663,6 +663,9 @@ func (vertex *ChallengeVertex) Bisect(tx *ActiveTx, history util.HistoryCommitme
 	newVertex.maybeNewPresumptiveSuccessor(vertex)
 	newVertex.Prev.maybeNewPresumptiveSuccessor(newVertex)
 	newVertex.challenge.includedHistories[history.Hash()] = true
+
+	vertex.Prev = newVertex
+
 	newVertex.challenge.parent.chain.challengesFeed.Append(&ChallengeBisectEvent{
 		FromSequenceNum: vertex.SequenceNum,
 		SequenceNum:     newVertex.SequenceNum,
@@ -700,6 +703,7 @@ func (vertex *ChallengeVertex) Merge(tx *ActiveTx, newPrev *ChallengeVertex, pro
 		DeeperSequenceNum:    vertex.SequenceNum,
 		ShallowerSequenceNum: newPrev.SequenceNum,
 		BecomesPS:            newPrev.presumptiveSuccessor == vertex,
+		History:              newPrev.Commitment,
 		Challenger:           challenger,
 	})
 	return nil

@@ -38,12 +38,13 @@ type challengeManager struct {
 }
 
 type challengeWorker struct {
-	lock             sync.RWMutex
-	challenge        *protocol.Challenge
-	validatorAddress common.Address
-	validatorName    string
-	createdVertices  []*protocol.ChallengeVertex
-	events           chan protocol.ChallengeEvent
+	lock               sync.RWMutex
+	challenge          *protocol.Challenge
+	validatorAddress   common.Address
+	reachedOneStepFork chan struct{}
+	validatorName      string
+	createdVertices    []*protocol.ChallengeVertex
+	events             chan protocol.ChallengeEvent
 }
 
 func newChallengeManager(
@@ -86,11 +87,12 @@ func (c *challengeManager) spawnChallenge(
 		return
 	}
 	worker := &challengeWorker{
-		challenge:        challenge,
-		createdVertices:  []*protocol.ChallengeVertex{vertex},
-		validatorAddress: c.validatorAddress,
-		validatorName:    c.validatorName,
-		events:           ch,
+		challenge:          challenge,
+		createdVertices:    []*protocol.ChallengeVertex{vertex},
+		validatorAddress:   c.validatorAddress,
+		reachedOneStepFork: make(chan struct{}),
+		validatorName:      c.validatorName,
+		events:             ch,
 	}
 	c.challenges[challengeID(id)] = worker
 	c.lock.Unlock()
@@ -109,8 +111,7 @@ func (w *challengeWorker) runChallengeLifecycle(
 	// TODO: Figure out if we are at a one-step fork, and then depending on who's turn it is,
 	// spawn a subchallenge (BigStepChallenge).
 	// defer close(evs)
-	reachedOneStepFork := make(chan struct{})
-	defer close(reachedOneStepFork)
+	defer close(w.reachedOneStepFork)
 	for {
 		select {
 		case genericEvent := <-evs:
@@ -129,14 +130,17 @@ func (w *challengeWorker) runChallengeLifecycle(
 				}()
 			case *protocol.ChallengeMergeEvent:
 				go func() {
-					if err := w.onMergeEvent(ctx, ev); err != nil {
+					if err := w.onMergeEvent(ctx, manager, ev); err != nil {
 						log.WithError(err).Error("Could not process merge event")
 					}
 				}()
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized challenge event")
 			}
-		case <-reachedOneStepFork:
+		case <-w.reachedOneStepFork:
+			log.WithField(
+				"name", w.validatorName,
+			).Infof("Reached a one-step-fork in the challenge, now awaiting subchallenge resolution")
 			// TODO: Trigger subchallenge!
 			return
 		case <-ctx.Done():
@@ -204,22 +208,41 @@ func (w *challengeWorker) onBisectionEvent(
 		return nil
 	}
 	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
+
+	isHigherThanOurs := ev.History.Height > validatorChallengeVertex.Commitment.Height
+	if isHigherThanOurs {
+		log.WithFields(logrus.Fields{
+			"name":            w.validatorName,
+			"bisectedVertex":  ev.History.Height,
+			"ourLatestVertex": validatorChallengeVertex.Commitment.Height,
+		}).Info("Other validator bisected to a higher vertex than our own latest vertex")
+		numVertices := len(w.createdVertices) - 1
+		for i := numVertices; i > 0; i-- {
+			vertex := w.createdVertices[i]
+			if vertex.Commitment.Height > ev.History.Height {
+				validatorChallengeVertex = vertex
+				break
+			}
+		}
+	}
 	w.lock.Unlock()
 
 	// Make a merge move.
 	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		log.Info("Agreed with bisection event from other challenger, starting a merge move")
+		log.WithField(
+			"name", w.validatorName,
+		).Info("Agreed with bisection event from other challenger, starting a merge move")
 		if err := w.merge(ctx, manager, validatorChallengeVertex, ev.SequenceNum); err != nil {
 			return errors.Wrap(err, "failed to merge to a bisected vertex")
 		}
-		return nil
+	} else {
+		log.WithFields(logrus.Fields{
+			"name":          w.validatorName,
+			"prevHeight":    validatorChallengeVertex.Prev.Commitment.Height,
+			"bisectingFrom": validatorChallengeVertex.Commitment.Height,
+			"merkle":        fmt.Sprintf("%#x", validatorChallengeVertex.Commitment.Merkle),
+		}).Info("Disagreed with bisection event from other challenger, bisecting")
 	}
-
-	log.WithFields(logrus.Fields{
-		"name":   w.validatorName,
-		"height": validatorChallengeVertex.Commitment.Height,
-		"merkle": fmt.Sprintf("%#x", validatorChallengeVertex.Commitment.Merkle),
-	}).Info("Disagreed with bisection event from other challenger, bisecting")
 
 	// Bisect.
 	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
@@ -228,7 +251,16 @@ func (w *challengeWorker) onBisectionEvent(
 
 	// TODO: Check if we are also at a one-step fork or not.
 	for !hasPresumptiveSuccessor {
-		currentVertex, err = w.bisect(ctx, ev.ParentStateCommit.Height, currentVertex, manager)
+		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
+			w.reachedOneStepFork <- struct{}{}
+			return nil
+		}
+		log.WithFields(logrus.Fields{
+			"name":          w.validatorName,
+			"prevHeight":    currentVertex.Prev.Commitment.Height,
+			"bisectingFrom": currentVertex.Commitment.Height,
+		}).Info("Attempting bisection now")
+		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
 		if err != nil {
 			return err
 		}
@@ -240,7 +272,62 @@ func (w *challengeWorker) onBisectionEvent(
 }
 
 // If we have seen a merge event, what happens...??
-func (w *challengeWorker) onMergeEvent(ctx context.Context, ev *protocol.ChallengeMergeEvent) error {
+func (w *challengeWorker) onMergeEvent(
+	ctx context.Context,
+	manager *challengeManager,
+	ev *protocol.ChallengeMergeEvent,
+) error {
+	if isFromSelf(w.validatorAddress, ev.Challenger) {
+		return nil
+	}
+	log.WithFields(logrus.Fields{
+		"name":   w.validatorName,
+		"height": ev.History.Height,
+	}).Infof("Received a merge event")
+	// Go down the tree to find the first vertex we created that has a commitment height >
+	// the vertex seen from the merge event.
+	w.lock.Lock()
+	numVertices := len(w.createdVertices) - 1
+	vertexToBisect := w.createdVertices[numVertices]
+	for i := numVertices; i > 0; i-- {
+		vertex := w.createdVertices[i]
+		if vertex.Commitment.Height > ev.History.Height {
+			vertexToBisect = vertex
+			break
+		}
+	}
+	w.lock.Unlock()
+
+	isHigherThanOurs := ev.History.Height == vertexToBisect.Commitment.Height
+	if isHigherThanOurs {
+		log.WithFields(logrus.Fields{
+			"name":         w.validatorName,
+			"mergedHeight": ev.History.Height,
+		}).Info("Other validator merged to our vertex")
+	}
+
+	if vertexToBisect.Commitment.Height == ev.History.Height+1 {
+		w.reachedOneStepFork <- struct{}{}
+		return nil
+	}
+	// Bisect.
+	hasPresumptiveSuccessor := vertexToBisect.IsPresumptiveSuccessor()
+	currentVertex := vertexToBisect
+	var err error
+
+	for !hasPresumptiveSuccessor {
+		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
+		if err != nil {
+			return err
+		}
+		w.lock.Lock()
+		w.createdVertices = append(w.createdVertices, currentVertex)
+		w.lock.Unlock()
+		if currentVertex.Commitment.Height == vertexToBisect.Commitment.Height+1 {
+			w.reachedOneStepFork <- struct{}{}
+			break
+		}
+	}
 	return nil
 }
 
@@ -328,7 +415,7 @@ func (w *challengeWorker) merge(
 		return err
 	}
 	if err := util.VerifyPrefixProof(historyCommit, currentCommit, proof); err != nil {
-		return errors.Wrap(err, "FAILED MERGE PROOF")
+		return err
 	}
 	if err := manager.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		return validatorChallengeVertex.Merge(tx, bisectedVertex, proof, w.validatorAddress)
