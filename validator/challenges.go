@@ -38,12 +38,11 @@ type challengeManager struct {
 }
 
 type challengeWorker struct {
-	lock               sync.RWMutex
 	challenge          *protocol.Challenge
 	validatorAddress   common.Address
 	reachedOneStepFork chan struct{}
 	validatorName      string
-	createdVertices    []*protocol.ChallengeVertex
+	createdVertices    *util.ThreadSafeSlice[*protocol.ChallengeVertex]
 	events             chan protocol.ChallengeEvent
 }
 
@@ -86,9 +85,11 @@ func (c *challengeManager) spawnChallenge(
 		}).Error("Attempted to spawn challenge that is already in progress")
 		return
 	}
+	vertices := util.NewThreadSafeSlice[*protocol.ChallengeVertex]()
+	vertices.Append(vertex)
 	worker := &challengeWorker{
 		challenge:          challenge,
-		createdVertices:    []*protocol.ChallengeVertex{vertex},
+		createdVertices:    vertices,
 		validatorAddress:   c.validatorAddress,
 		reachedOneStepFork: make(chan struct{}),
 		validatorName:      c.validatorName,
@@ -160,13 +161,10 @@ func (w *challengeWorker) onChallengeLeafAdded(
 		return nil
 	}
 
-	w.lock.Lock()
-	if len(w.createdVertices) == 0 {
-		w.lock.Unlock()
+	if w.createdVertices.Empty() {
 		return nil
 	}
-	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
-	w.lock.Unlock()
+	validatorChallengeVertex := w.createdVertices.Last().OpenKnownFull()
 
 	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
 	currentVertex := validatorChallengeVertex
@@ -178,9 +176,7 @@ func (w *challengeWorker) onChallengeLeafAdded(
 		if err != nil {
 			return err
 		}
-		w.lock.Lock()
-		w.createdVertices = append(w.createdVertices, currentVertex)
-		w.lock.Unlock()
+		w.createdVertices.Append(currentVertex)
 	}
 	return nil
 }
@@ -199,12 +195,10 @@ func (w *challengeWorker) onBisectionEvent(
 		"merkle": fmt.Sprintf("%#x", ev.History.Merkle),
 	}).Infof("Received bisection event from %#x", ev.Challenger)
 
-	w.lock.Lock()
-	if len(w.createdVertices) == 0 {
-		w.lock.Unlock()
+	if w.createdVertices.Empty() {
 		return nil
 	}
-	validatorChallengeVertex := w.createdVertices[len(w.createdVertices)-1]
+	validatorChallengeVertex := w.createdVertices.Last().OpenKnownFull()
 
 	isHigherThanOurs := ev.History.Height > validatorChallengeVertex.Commitment.Height
 	if isHigherThanOurs {
@@ -213,16 +207,15 @@ func (w *challengeWorker) onBisectionEvent(
 			"bisectedVertex":  ev.History.Height,
 			"ourLatestVertex": validatorChallengeVertex.Commitment.Height,
 		}).Info("Other validator bisected to a higher vertex than our own latest vertex")
-		numVertices := len(w.createdVertices) - 1
-		for i := numVertices; i > 0; i-- {
-			vertex := w.createdVertices[i]
+		numVertices := w.createdVertices.Len()
+		for i := numVertices - 1; i > 0; i-- {
+			vertex := w.createdVertices.Get(i).OpenKnownFull()
 			if vertex.Commitment.Height > ev.History.Height {
 				validatorChallengeVertex = vertex
 				break
 			}
 		}
 	}
-	w.lock.Unlock()
 
 	// Make a merge move.
 	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
@@ -246,7 +239,6 @@ func (w *challengeWorker) onBisectionEvent(
 	currentVertex := validatorChallengeVertex
 	var err error
 
-	// TODO: Check if we are also at a one-step fork or not.
 	for !hasPresumptiveSuccessor {
 		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
 			w.reachedOneStepFork <- struct{}{}
@@ -261,9 +253,7 @@ func (w *challengeWorker) onBisectionEvent(
 		if err != nil {
 			return err
 		}
-		w.lock.Lock()
-		w.createdVertices = append(w.createdVertices, currentVertex)
-		w.lock.Unlock()
+		w.createdVertices.Append(currentVertex)
 	}
 	return nil
 }
@@ -277,23 +267,24 @@ func (w *challengeWorker) onMergeEvent(
 	if isFromSelf(w.validatorAddress, ev.Challenger) {
 		return nil
 	}
-	log.WithFields(logrus.Fields{
-		"name":   w.validatorName,
-		"height": ev.History.Height,
-	}).Infof("Received a merge event")
+	if w.createdVertices.Empty() {
+		return nil
+	}
 	// Go down the tree to find the first vertex we created that has a commitment height >
 	// the vertex seen from the merge event.
-	w.lock.Lock()
-	numVertices := len(w.createdVertices) - 1
-	vertexToBisect := w.createdVertices[numVertices]
-	for i := numVertices; i > 0; i-- {
-		vertex := w.createdVertices[i]
+	vertexToBisect := w.createdVertices.Last().OpenKnownFull()
+	numVertices := w.createdVertices.Len()
+	for i := numVertices - 1; i > 0; i-- {
+		vertex := w.createdVertices.Get(i).OpenKnownFull()
 		if vertex.Commitment.Height > ev.History.Height {
 			vertexToBisect = vertex
 			break
 		}
 	}
-	w.lock.Unlock()
+	log.WithFields(logrus.Fields{
+		"name":   w.validatorName,
+		"height": ev.History.Height,
+	}).Infof("Received a merge event")
 
 	isHigherThanOurs := ev.History.Height == vertexToBisect.Commitment.Height
 	if isHigherThanOurs {
@@ -317,9 +308,7 @@ func (w *challengeWorker) onMergeEvent(
 		if err != nil {
 			return err
 		}
-		w.lock.Lock()
-		w.createdVertices = append(w.createdVertices, currentVertex)
-		w.lock.Unlock()
+		w.createdVertices.Append(currentVertex)
 		if currentVertex.Commitment.Height == vertexToBisect.Commitment.Height+1 {
 			w.reachedOneStepFork <- struct{}{}
 			break

@@ -59,7 +59,7 @@ func TestChallenges_ValidatorsReachOneStepFork_Simple(t *testing.T) {
 	aliceStateManager := statemanager.New(aliceRoots)
 	bobStateManager := statemanager.New(bobRoots)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
 	aliceAddr := common.BytesToAddress([]byte("a"))
