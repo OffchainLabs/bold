@@ -20,18 +20,18 @@ func TestChallenges_ValidatorsReachOneStepFork_Simple(t *testing.T) {
 	// by playing the challenge game on their own upon observing leaves
 	// they disagree with. Here's the example with Alice and Bob.
 	//
-	// 1. Alice and Bob create their own leaves at height 6 they disagree with
-	// 2. Alice bisects to 4, Bob disagrees with the bisection and bisects to his own 4
-	// 3. Alice bisects to 2, Bob agrees and merges to 2
-	// 4. Alice bisects from 4 to 3, Bob agrees and merges to 3
-	// 5. There is now a one-step fork from height 3 to 4
+	// 1. alice and bob create their own leaves at height 6 they disagree with
+	// 2. alice bisects to 4, bob disagrees with the bisection and bisects to his own 4
+	// 3. alice bisects to 2, bob agrees and merges to 2
+	// 4. alice bisects from 4 to 3, bob agrees and merges to 3
+	// 5. there is now a one-step fork from height 3 to 4
 	//
 	//
 	//
-	//                   [4]-[6]-Bob
+	//                   [4]-[6]-bob
 	//                  /
 	// [genesis]-[2]-[3]
-	//                  \[4]-[6]-Alice
+	//                  \[4]-[6]-alice
 	//
 	//
 	//

@@ -108,9 +108,6 @@ func (w *challengeWorker) runChallengeLifecycle(
 	manager *challengeManager,
 	evs chan protocol.ChallengeEvent,
 ) {
-	// TODO: Figure out if we are at a one-step fork, and then depending on who's turn it is,
-	// spawn a subchallenge (BigStepChallenge).
-	// defer close(evs)
 	defer close(w.reachedOneStepFork)
 	for {
 		select {
@@ -597,23 +594,5 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	logFields["challengeID"] = fmt.Sprintf("%#x", parentAssertion.StateCommitment.Hash())
 	log.WithFields(logFields).Info("Successfully created challenge and added leaf, now tracking events")
 
-	return nil
-}
-
-// Prepares to defend a leaf that matches our local history and is part of a fork
-// in the assertions tree. This leaf may be challenged and the local validator should
-// be ready to perform proper challenge moves on the assertion if no one else is making them.
-func (v *Validator) defendLeaf(ctx context.Context, ev *protocol.CreateLeafEvent) error {
-	logFields := logrus.Fields{}
-	if name, ok := v.knownValidatorNames[ev.Staker]; ok {
-		logFields["createdBy"] = name
-	}
-	logFields["name"] = v.name
-	logFields["height"] = ev.StateCommitment.Height
-	logFields["stateRoot"] = fmt.Sprintf("%#x", ev.StateCommitment.StateRoot)
-	log.WithFields(logFields).Info(
-		"New leaf created by another validator matching local state has " +
-			"forked the protocol, preparing to defend",
-	)
 	return nil
 }
