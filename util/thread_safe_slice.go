@@ -2,6 +2,9 @@ package util
 
 import "sync"
 
+// ThreadSafeSlice defines a slice with common methods such as length, reading values at an index,
+// and empty checks. It uses an RWMutex to protect the underlying slice from concurrent access and
+// uses option types in return values.
 type ThreadSafeSlice[T any] struct {
 	items []T
 	lock  sync.RWMutex
@@ -33,16 +36,16 @@ func (s *ThreadSafeSlice[T]) Last() Option[T] {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	if len(s.items) == 0 {
-		return EmptyOption[T]()
+		return None[T]()
 	}
-	return FullOption[T](s.items[len(s.items)-1])
+	return Some[T](s.items[len(s.items)-1])
 }
 
 func (s *ThreadSafeSlice[T]) Get(i int) Option[T] {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	if i >= len(s.items) {
-		return EmptyOption[T]()
+		return None[T]()
 	}
-	return FullOption[T](s.items[i])
+	return Some[T](s.items[i])
 }

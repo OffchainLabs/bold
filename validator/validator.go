@@ -233,7 +233,7 @@ func (v *Validator) submitLeafCreation(ctx context.Context) (*protocol.Assertion
 	v.assertionsLock.Lock()
 
 	// Keep track of the created assertion locally.
-	prev := leaf.Prev.OpenKnownFull()
+	prev := leaf.Prev.Unwrap()
 	v.assertions[leaf.SequenceNum] = &protocol.CreateLeafEvent{
 		PrevSeqNum:          prev.SequenceNum,
 		SeqNum:              leaf.SequenceNum,
