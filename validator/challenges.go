@@ -164,7 +164,7 @@ func (w *challengeWorker) onChallengeLeafAdded(
 	if w.createdVertices.Empty() {
 		return nil
 	}
-	validatorChallengeVertex := w.createdVertices.Last().OpenKnownFull()
+	validatorChallengeVertex := w.createdVertices.Last().Unwrap()
 
 	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
 	currentVertex := validatorChallengeVertex
@@ -198,7 +198,7 @@ func (w *challengeWorker) onBisectionEvent(
 	if w.createdVertices.Empty() {
 		return nil
 	}
-	validatorChallengeVertex := w.createdVertices.Last().OpenKnownFull()
+	validatorChallengeVertex := w.createdVertices.Last().Unwrap()
 
 	isHigherThanOurs := ev.History.Height > validatorChallengeVertex.Commitment.Height
 	if isHigherThanOurs {
@@ -209,7 +209,7 @@ func (w *challengeWorker) onBisectionEvent(
 		}).Info("Other validator bisected to a higher vertex than our own latest vertex")
 		numVertices := w.createdVertices.Len()
 		for i := numVertices - 1; i > 0; i-- {
-			vertex := w.createdVertices.Get(i).OpenKnownFull()
+			vertex := w.createdVertices.Get(i).Unwrap()
 			if vertex.Commitment.Height > ev.History.Height {
 				validatorChallengeVertex = vertex
 				break
@@ -272,10 +272,10 @@ func (w *challengeWorker) onMergeEvent(
 	}
 	// Go down the tree to find the first vertex we created that has a commitment height >
 	// the vertex seen from the merge event.
-	vertexToBisect := w.createdVertices.Last().OpenKnownFull()
+	vertexToBisect := w.createdVertices.Last().Unwrap()
 	numVertices := w.createdVertices.Len()
 	for i := numVertices - 1; i > 0; i-- {
-		vertex := w.createdVertices.Get(i).OpenKnownFull()
+		vertex := w.createdVertices.Get(i).Unwrap()
 		if vertex.Commitment.Height > ev.History.Height {
 			vertexToBisect = vertex
 			break
@@ -447,11 +447,11 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 	}
 	v.leavesLock.RUnlock()
 	challengerName := "unknown-name"
-	if !leaf.Staker.IsEmpty() {
-		if name, ok := v.knownValidatorNames[leaf.Staker.OpenKnownFull()]; ok {
+	if !leaf.Staker.IsNone() {
+		if name, ok := v.knownValidatorNames[leaf.Staker.Unwrap()]; ok {
 			challengerName = name
 		} else {
-			challengerName = leaf.Staker.OpenKnownFull().Hex()
+			challengerName = leaf.Staker.Unwrap().Hex()
 		}
 	}
 	log.WithFields(logrus.Fields{
