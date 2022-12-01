@@ -62,12 +62,6 @@ func newChallengeManager(
 	}
 }
 
-func (c *challengeManager) numChallenges() int {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return len(c.challenges)
-}
-
 func (c *challengeManager) spawnChallenge(
 	ctx context.Context,
 	challenge *protocol.Challenge,
