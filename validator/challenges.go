@@ -98,26 +98,25 @@ func (w *challengeWorker) runChallengeLifecycle(
 	manager *challengeManager,
 	evs chan protocol.ChallengeEvent,
 ) {
-	defer close(w.reachedOneStepFork)
 	for {
 		select {
 		case genericEvent := <-evs:
 			switch ev := genericEvent.(type) {
 			case *protocol.ChallengeLeafEvent:
 				go func() {
-					if err := w.onChallengeLeafAdded(ctx, manager, ev); err != nil {
+					if err := w.act(ctx, manager, ev.Actor, ev.History, ev.SequenceNum); err != nil {
 						log.WithError(err).Error("Could not process challenge leaf added event")
 					}
 				}()
 			case *protocol.ChallengeBisectEvent:
 				go func() {
-					if err := w.onBisectionEvent(ctx, manager, ev); err != nil {
+					if err := w.act(ctx, manager, ev.Actor, ev.History, ev.SequenceNum); err != nil {
 						log.WithError(err).Error("Could not process bisection event")
 					}
 				}()
 			case *protocol.ChallengeMergeEvent:
 				go func() {
-					if err := w.onMergeEvent(ctx, manager, ev); err != nil {
+					if err := w.act(ctx, manager, ev.Actor, ev.History, ev.ShallowerSequenceNum); err != nil {
 						log.WithError(err).Error("Could not process merge event")
 					}
 				}()
@@ -136,127 +135,14 @@ func (w *challengeWorker) runChallengeLifecycle(
 	}
 }
 
-// If a leaf has been added, we check if we should add bisect.
-func (w *challengeWorker) onChallengeLeafAdded(
-	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeLeafEvent,
-) error {
-	if isFromSelf(w.validatorAddress, ev.Actor) {
-		return nil
-	}
-	// If we have the history commitment the new leaf claims to have, we do not need to act.
-	// TODO: Check if this is the correct assumption.
-	// TODO: Should we just return nil here or do something else?
-	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		return nil
-	}
-
-	if w.createdVertices.Empty() {
-		return nil
-	}
-	vertexToBisect := w.createdVertices.Last().Unwrap()
-	hasPresumptiveSuccessor := vertexToBisect.IsPresumptiveSuccessor()
-	currentVertex := vertexToBisect
-	var err error
-
-	for !hasPresumptiveSuccessor {
-		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
-			w.reachedOneStepFork <- struct{}{}
-			break
-		}
-		currentVertex, err = w.bisect(ctx, ev.ParentStateCommit.Height, currentVertex, manager)
-		if err != nil {
-			return err
-		}
-		w.createdVertices.Append(currentVertex)
-	}
-	return nil
-}
-
-// If a bisection has occurred, we need to determine if we should merge or bisect ourselves.
-func (w *challengeWorker) onBisectionEvent(
-	ctx context.Context, manager *challengeManager, ev *protocol.ChallengeBisectEvent,
-) error {
-	if isFromSelf(w.validatorAddress, ev.Actor) {
-		return nil
-	}
-	// If we agree with the history commitment, we make a merge move on the vertex.
-	log.WithFields(logrus.Fields{
-		"name":   w.validatorName,
-		"height": ev.History.Height,
-		"merkle": fmt.Sprintf("%#x", ev.History.Merkle),
-	}).Infof("Received bisection event from %#x", ev.Actor)
-
-	if w.createdVertices.Empty() {
-		return nil
-	}
-	validatorChallengeVertex := w.createdVertices.Last().Unwrap()
-	numVertices := w.createdVertices.Len()
-	for i := numVertices - 1; i > 0; i-- {
-		vertex := w.createdVertices.Get(i).Unwrap()
-		if vertex.Commitment.Height > ev.History.Height {
-			validatorChallengeVertex = vertex
-			break
-		}
-	}
-
-	isHigherThanOurs := ev.History.Height > validatorChallengeVertex.Commitment.Height
-	if isHigherThanOurs {
-		log.WithFields(logrus.Fields{
-			"name":            w.validatorName,
-			"bisectedVertex":  ev.History.Height,
-			"ourLatestVertex": validatorChallengeVertex.Commitment.Height,
-		}).Info("Other validator bisected to a higher vertex than our own latest vertex")
-	}
-
-	// Make a merge move.
-	if manager.stateManager.HasHistoryCommitment(ctx, ev.History) {
-		log.WithField(
-			"name", w.validatorName,
-		).Info("Agreed with bisection event from other challenger, starting a merge move")
-		if err := w.merge(ctx, manager, validatorChallengeVertex, ev.SequenceNum); err != nil {
-			return errors.Wrap(err, "failed to merge to a bisected vertex")
-		}
-	}
-
-	// Bisect.
-	hasPresumptiveSuccessor := validatorChallengeVertex.IsPresumptiveSuccessor()
-	currentVertex := validatorChallengeVertex
-	var err error
-
-	for !hasPresumptiveSuccessor {
-		log.Infof("%v and %v", currentVertex, currentVertex.Prev)
-		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
-			w.reachedOneStepFork <- struct{}{}
-			return nil
-		}
-		log.WithFields(logrus.Fields{
-			"name":          w.validatorName,
-			"bisectingFrom": currentVertex.Commitment.Height,
-		}).Info("Attempting bisection now")
-		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
-		switch {
-		// TODO: In prod, we should check if the vertex we are bisecting to already exists in the protocol
-		// so we do not waste sending a transaction and paying gas for nothing.
-		case errors.Is(err, protocol.ErrVertexAlreadyExists):
-			break
-		case errors.Is(err, protocol.ErrWrongState):
-			break
-		case err != nil:
-			return err
-		default:
-		}
-		w.createdVertices.Append(currentVertex)
-	}
-	return nil
-}
-
-// If we have seen a merge event, what happens...??
-func (w *challengeWorker) onMergeEvent(
+func (w *challengeWorker) act(
 	ctx context.Context,
 	manager *challengeManager,
-	ev *protocol.ChallengeMergeEvent,
+	eventActor common.Address,
+	eventHistoryCommit util.HistoryCommitment,
+	eventSequenceNum uint64,
 ) error {
-	if isFromSelf(w.validatorAddress, ev.Actor) {
+	if isFromSelf(w.validatorAddress, eventActor) {
 		return nil
 	}
 	if w.createdVertices.Empty() {
@@ -268,46 +154,48 @@ func (w *challengeWorker) onMergeEvent(
 	numVertices := w.createdVertices.Len()
 	for i := numVertices - 1; i > 0; i-- {
 		vertex := w.createdVertices.Get(i).Unwrap()
-		if vertex.Commitment.Height > ev.History.Height {
+		if vertex.Commitment.Height > eventHistoryCommit.Height {
 			vertexToBisect = vertex
 			break
 		}
 	}
 	log.WithFields(logrus.Fields{
 		"name":   w.validatorName,
-		"height": ev.History.Height,
+		"height": eventHistoryCommit.Height,
 	}).Infof("Received a merge event")
 
-	mergedToOurs := ev.History.Height == vertexToBisect.Commitment.Height
+	mergedToOurs := eventHistoryCommit.Height == vertexToBisect.Commitment.Height
 	if mergedToOurs {
 		log.WithFields(logrus.Fields{
 			"name":         w.validatorName,
-			"mergedHeight": ev.History.Height,
+			"mergedHeight": eventHistoryCommit.Height,
 		}).Info("Other validator merged to our vertex")
+	}
+
+	// Make a merge move.
+	if manager.stateManager.HasHistoryCommitment(ctx, eventHistoryCommit) {
+		log.WithField(
+			"name", w.validatorName,
+		).Info("Agreed with bisection event from other challenger, starting a merge move")
+		if err := w.merge(ctx, manager, vertexToBisect, eventSequenceNum); err != nil {
+			return errors.Wrap(err, "failed to merge to a bisected vertex")
+		}
 	}
 
 	// Bisect.
 	hasPresumptiveSuccessor := vertexToBisect.IsPresumptiveSuccessor()
 	currentVertex := vertexToBisect
-	var err error
 
 	for !hasPresumptiveSuccessor {
-		if currentVertex.Commitment.Height == vertexToBisect.Commitment.Height+1 {
+		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
 			w.reachedOneStepFork <- struct{}{}
 			break
 		}
-		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
-		switch {
-		// TODO: In prod, we should check if the vertex we are bisecting to already exists in the protocol
-		// so we do not waste sending a transaction and paying gas for nothing.
-		case errors.Is(err, protocol.ErrVertexAlreadyExists):
-			break
-		case errors.Is(err, protocol.ErrWrongState):
-			break
-		case err != nil:
+		bisectedVertex, err := w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
+		if err != nil {
 			return err
-		default:
 		}
+		currentVertex = bisectedVertex
 		w.createdVertices.Append(currentVertex)
 	}
 	return nil
