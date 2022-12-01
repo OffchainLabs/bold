@@ -190,6 +190,14 @@ func (w *challengeWorker) onBisectionEvent(
 		return nil
 	}
 	validatorChallengeVertex := w.createdVertices.Last().Unwrap()
+	numVertices := w.createdVertices.Len()
+	for i := numVertices - 1; i > 0; i-- {
+		vertex := w.createdVertices.Get(i).Unwrap()
+		if vertex.Commitment.Height > ev.History.Height {
+			validatorChallengeVertex = vertex
+			break
+		}
+	}
 
 	isHigherThanOurs := ev.History.Height > validatorChallengeVertex.Commitment.Height
 	if isHigherThanOurs {
@@ -198,14 +206,6 @@ func (w *challengeWorker) onBisectionEvent(
 			"bisectedVertex":  ev.History.Height,
 			"ourLatestVertex": validatorChallengeVertex.Commitment.Height,
 		}).Info("Other validator bisected to a higher vertex than our own latest vertex")
-		numVertices := w.createdVertices.Len()
-		for i := numVertices - 1; i > 0; i-- {
-			vertex := w.createdVertices.Get(i).Unwrap()
-			if vertex.Commitment.Height > ev.History.Height {
-				validatorChallengeVertex = vertex
-				break
-			}
-		}
 	}
 
 	// Make a merge move.
@@ -216,13 +216,6 @@ func (w *challengeWorker) onBisectionEvent(
 		if err := w.merge(ctx, manager, validatorChallengeVertex, ev.SequenceNum); err != nil {
 			return errors.Wrap(err, "failed to merge to a bisected vertex")
 		}
-	} else {
-		log.WithFields(logrus.Fields{
-			"name":          w.validatorName,
-			"prevHeight":    validatorChallengeVertex.Prev.Commitment.Height,
-			"bisectingFrom": validatorChallengeVertex.Commitment.Height,
-			"merkle":        fmt.Sprintf("%#x", validatorChallengeVertex.Commitment.Merkle),
-		}).Info("Disagreed with bisection event from other challenger, bisecting")
 	}
 
 	// Bisect.
@@ -231,18 +224,26 @@ func (w *challengeWorker) onBisectionEvent(
 	var err error
 
 	for !hasPresumptiveSuccessor {
+		log.Infof("%v and %v", currentVertex, currentVertex.Prev)
 		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
 			w.reachedOneStepFork <- struct{}{}
 			return nil
 		}
 		log.WithFields(logrus.Fields{
 			"name":          w.validatorName,
-			"prevHeight":    currentVertex.Prev.Commitment.Height,
 			"bisectingFrom": currentVertex.Commitment.Height,
 		}).Info("Attempting bisection now")
 		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
-		if err != nil {
+		switch {
+		// TODO: In prod, we should check if the vertex we are bisecting to already exists in the protocol
+		// so we do not waste sending a transaction and paying gas for nothing.
+		case errors.Is(err, protocol.ErrVertexAlreadyExists):
+			break
+		case errors.Is(err, protocol.ErrWrongState):
+			break
+		case err != nil:
 			return err
+		default:
 		}
 		w.createdVertices.Append(currentVertex)
 	}
@@ -277,18 +278,14 @@ func (w *challengeWorker) onMergeEvent(
 		"height": ev.History.Height,
 	}).Infof("Received a merge event")
 
-	isHigherThanOurs := ev.History.Height == vertexToBisect.Commitment.Height
-	if isHigherThanOurs {
+	mergedToOurs := ev.History.Height == vertexToBisect.Commitment.Height
+	if mergedToOurs {
 		log.WithFields(logrus.Fields{
 			"name":         w.validatorName,
 			"mergedHeight": ev.History.Height,
 		}).Info("Other validator merged to our vertex")
 	}
 
-	if vertexToBisect.Commitment.Height == ev.History.Height+1 {
-		w.reachedOneStepFork <- struct{}{}
-		return nil
-	}
 	// Bisect.
 	hasPresumptiveSuccessor := vertexToBisect.IsPresumptiveSuccessor()
 	currentVertex := vertexToBisect
@@ -300,8 +297,16 @@ func (w *challengeWorker) onMergeEvent(
 			break
 		}
 		currentVertex, err = w.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex, manager)
-		if err != nil {
+		switch {
+		// TODO: In prod, we should check if the vertex we are bisecting to already exists in the protocol
+		// so we do not waste sending a transaction and paying gas for nothing.
+		case errors.Is(err, protocol.ErrVertexAlreadyExists):
+			break
+		case errors.Is(err, protocol.ErrWrongState):
+			break
+		case err != nil:
 			return err
+		default:
 		}
 		w.createdVertices.Append(currentVertex)
 	}
