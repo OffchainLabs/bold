@@ -517,6 +517,7 @@ func (parent *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, chal
 	})
 
 	parent.chain.challengeVerticesByChallengeID[ChallengeID(parent.StateCommitment.Hash())] = []*ChallengeVertex{root}
+	parent.chain.challengesByID[ChallengeID(parent.StateCommitment.Hash())] = ret
 
 	return ret, nil
 }
