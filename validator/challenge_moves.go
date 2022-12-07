@@ -32,7 +32,7 @@ func (v *Validator) bisect(
 	if err != nil {
 		return nil, err
 	}
-	if err := util.VerifyPrefixProof(historyCommit, validatorChallengeVertex.Commitment, proof); err != nil {
+	if err = util.VerifyPrefixProof(historyCommit, validatorChallengeVertex.Commitment, proof); err != nil {
 		return nil, err
 	}
 	// Otherwise, we must bisect to our own historical commitment and produce

@@ -59,8 +59,8 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 	var challenge *protocol.Challenge
 	var challengeVertex *protocol.ChallengeVertex
 	if err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		parentAssertion, err := p.AssertionBySequenceNum(tx, ev.ParentSeqNum)
-		if err != nil {
+		parentAssertion, fetchErr := p.AssertionBySequenceNum(tx, ev.ParentSeqNum)
+		if fetchErr != nil {
 			return err
 		}
 		challenge, err = p.ChallengeByAssertionStateCommit(tx, protocol.AssertionStateCommitHash(parentAssertion.StateCommitment.Hash()))
