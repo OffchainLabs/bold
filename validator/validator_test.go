@@ -26,12 +26,12 @@ func Test_processLeafCreation(t *testing.T) {
 		logsHook := test.NewGlobal()
 		v, _, s := setupValidator(t)
 
-		parentSeqNum := uint64(1)
+		parentSeqNum := protocol.SequenceNum(1)
 		prevRoot := common.BytesToHash([]byte("foo"))
 		parentAssertion := &protocol.Assertion{
 			StateCommitment: protocol.StateCommitment{
 				StateRoot: prevRoot,
-				Height:    parentSeqNum,
+				Height:    uint64(parentSeqNum),
 			},
 		}
 		seqNum := parentSeqNum + 1
@@ -46,7 +46,7 @@ func Test_processLeafCreation(t *testing.T) {
 			PrevStateCommitment: parentAssertion.StateCommitment,
 			SeqNum:              newlyCreatedAssertion.SequenceNum,
 			StateCommitment:     newlyCreatedAssertion.StateCommitment,
-			Staker:              newlyCreatedAssertion.Staker.Unwrap(),
+			Validator:           newlyCreatedAssertion.Staker.Unwrap(),
 		}
 
 		s.On("HasStateCommitment", ctx, protocol.StateCommitment{}).Return(false)
@@ -130,7 +130,7 @@ func Test_processLeafCreation(t *testing.T) {
 			PrevStateCommitment: genesis.StateCommitment,
 			SeqNum:              assertion.SequenceNum,
 			StateCommitment:     assertion.StateCommitment,
-			Staker:              staker1,
+			Validator:           staker1,
 		}
 		err = v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
@@ -139,7 +139,7 @@ func Test_processLeafCreation(t *testing.T) {
 			PrevStateCommitment: genesis.StateCommitment,
 			SeqNum:              forkedAssertion.SequenceNum,
 			StateCommitment:     forkedAssertion.StateCommitment,
-			Staker:              staker2,
+			Validator:           staker2,
 		}
 		err = v.onLeafCreated(ctx, ev)
 		require.NoError(t, err)
@@ -151,7 +151,7 @@ func Test_processLeafCreation(t *testing.T) {
 
 func Test_processChallengeStart(t *testing.T) {
 	ctx := context.Background()
-	seq := uint64(1)
+	seq := protocol.SequenceNum(1)
 
 	t.Run("challenge does not concern us", func(t *testing.T) {
 		logsHook := test.NewGlobal()
@@ -163,7 +163,7 @@ func Test_processChallengeStart(t *testing.T) {
 				Height:    0,
 				StateRoot: common.BytesToHash([]byte("foo")),
 			},
-			Challenger: common.BytesToAddress([]byte("foo")),
+			Validator: common.BytesToAddress([]byte("foo")),
 		})
 		require.NoError(t, err)
 		AssertLogsDoNotContain(t, logsHook, "Received challenge")
@@ -242,7 +242,7 @@ func setupAssertions(num int) []*protocol.Assertion {
 	assertions := []*protocol.Assertion{genesis}
 	for i := 1; i < num; i++ {
 		assertions = append(assertions, &protocol.Assertion{
-			SequenceNum: uint64(i),
+			SequenceNum: protocol.SequenceNum(i),
 			StateCommitment: protocol.StateCommitment{
 				Height:    uint64(i),
 				StateRoot: common.BytesToHash([]byte(fmt.Sprintf("%d", i))),

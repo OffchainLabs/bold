@@ -28,7 +28,7 @@ type challengeManager struct {
 	stateManager           statemanager.Manager
 	validatorAddress       common.Address
 	validatorName          string
-	challenges             map[protocol.ChallengeID]*challengeWorker
+	challenges             map[protocol.AssertionStateCommitHash]*challengeWorker
 	challengeEventsBufSize int
 }
 
@@ -50,7 +50,7 @@ func newChallengeManager(
 	return &challengeManager{
 		chain:                  chain,
 		stateManager:           stateManager,
-		challenges:             make(map[protocol.ChallengeID]*challengeWorker),
+		challenges:             make(map[protocol.AssertionStateCommitHash]*challengeWorker),
 		validatorAddress:       validatorAddress,
 		validatorName:          validatorName,
 		challengeEventsBufSize: 100, // TODO: Make configurable.
@@ -66,7 +66,7 @@ func (c *challengeManager) spawnChallenge(
 	ch := make(chan protocol.ChallengeEvent, c.challengeEventsBufSize)
 	c.chain.SubscribeChallengeEvents(ctx, ch)
 	id := challenge.ParentStateCommitment().Hash()
-	if _, ok := c.challenges[protocol.ChallengeID(id)]; ok {
+	if _, ok := c.challenges[protocol.AssertionStateCommitHash(id)]; ok {
 		c.lock.Unlock()
 		log.WithFields(logrus.Fields{
 			"challengeID": fmt.Sprintf("%#x", id),
@@ -84,7 +84,7 @@ func (c *challengeManager) spawnChallenge(
 		validatorName:      c.validatorName,
 		events:             ch,
 	}
-	c.challenges[protocol.ChallengeID(id)] = worker
+	c.challenges[protocol.AssertionStateCommitHash(id)] = worker
 	c.lock.Unlock()
 	log.WithFields(logrus.Fields{
 		"challengeID": fmt.Sprintf("%#x", id),
@@ -104,19 +104,19 @@ func (w *challengeWorker) runChallengeLifecycle(
 			switch ev := genericEvent.(type) {
 			case *protocol.ChallengeLeafEvent:
 				go func() {
-					if err := w.act(ctx, manager, ev.Actor, ev.History, ev.SequenceNum); err != nil {
+					if err := w.act(ctx, manager, ev.Validator, ev.History, ev.SequenceNum); err != nil {
 						log.WithError(err).Error("Could not process challenge leaf added event")
 					}
 				}()
 			case *protocol.ChallengeBisectEvent:
 				go func() {
-					if err := w.act(ctx, manager, ev.Actor, ev.History, ev.SequenceNum); err != nil {
+					if err := w.act(ctx, manager, ev.Validator, ev.History, ev.SequenceNum); err != nil {
 						log.WithError(err).Error("Could not process bisection event")
 					}
 				}()
 			case *protocol.ChallengeMergeEvent:
 				go func() {
-					if err := w.act(ctx, manager, ev.Actor, ev.History, ev.ShallowerSequenceNum); err != nil {
+					if err := w.act(ctx, manager, ev.Validator, ev.History, ev.ShallowerSequenceNum); err != nil {
 						log.WithError(err).Error("Could not process merge event")
 					}
 				}()
@@ -140,7 +140,7 @@ func (w *challengeWorker) act(
 	manager *challengeManager,
 	eventActor common.Address,
 	eventHistoryCommit util.HistoryCommitment,
-	eventSequenceNum uint64,
+	eventSequenceNum protocol.SequenceNum,
 ) error {
 	if isFromSelf(w.validatorAddress, eventActor) {
 		return nil
@@ -266,12 +266,12 @@ func (w *challengeWorker) merge(
 	ctx context.Context,
 	manager *challengeManager,
 	validatorChallengeVertex *protocol.ChallengeVertex,
-	newPrevSeqNum uint64,
+	newPrevSeqNum protocol.SequenceNum,
 ) error {
 	var bisectedVertex *protocol.ChallengeVertex
 	var err error
 	err = manager.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		id := protocol.ChallengeID(w.challenge.ParentStateCommitment().Hash())
+		id := protocol.AssertionStateCommitHash(w.challenge.ParentStateCommitment().Hash())
 		bisectedVertex, err = p.ChallengeVertexBySequenceNum(tx, id, newPrevSeqNum)
 		if err != nil {
 			return err
@@ -322,7 +322,7 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		return nil
 	}
 	// Ignore challenges initiated by self.
-	if isFromSelf(v.address, ev.Challenger) {
+	if isFromSelf(v.address, ev.Validator) {
 		return nil
 	}
 	// Checks if the challenge has to do with a vertex we created.
@@ -367,7 +367,7 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 		if err != nil {
 			return err
 		}
-		challenge, err = p.ChallengeByID(tx, protocol.ChallengeID(parentAssertion.StateCommitment.Hash()))
+		challenge, err = p.ChallengeByAssertionStateCommit(tx, protocol.AssertionStateCommitHash(parentAssertion.StateCommitment.Hash()))
 		if err != nil {
 			return err
 		}
@@ -426,7 +426,7 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	case errors.Is(err, protocol.ErrChallengeAlreadyExists):
 		log.Info("Challenge on leaf already exists, reading existing challenge from protocol")
 		if err = v.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-			challenge, err = p.ChallengeByID(tx, protocol.ChallengeID(parentAssertion.StateCommitment.Hash()))
+			challenge, err = p.ChallengeByAssertionStateCommit(tx, protocol.AssertionStateCommitHash(parentAssertion.StateCommitment.Hash()))
 			if err != nil {
 				return errors.Wrap(err, "cannot make challenge")
 			}
