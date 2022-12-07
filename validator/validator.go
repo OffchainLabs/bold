@@ -25,7 +25,6 @@ type Validator struct {
 	chain                                  protocol.ChainReadWriter
 	stateManager                           statemanager.Manager
 	assertionEvents                        chan protocol.AssertionChainEvent
-	challengeManager                       *challengeManager
 	address                                common.Address
 	name                                   string
 	knownValidatorNames                    map[common.Address]string
@@ -33,10 +32,13 @@ type Validator struct {
 	assertionsLock                         sync.RWMutex
 	sequenceNumbersByParentStateCommitment map[common.Hash][]protocol.SequenceNum
 	assertions                             map[protocol.SequenceNum]*protocol.CreateLeafEvent
+	challengesLock                         sync.RWMutex
 	leavesLock                             sync.RWMutex
 	createLeafInterval                     time.Duration
 	chaosMonkeyProbability                 float64
 	disableLeafCreation                    bool
+	challenges                             map[protocol.AssertionStateCommitHash]*challengeWorker
+	challengeEventsBufSize                 int
 }
 
 // WithChaosMonkeyProbability adds a probability a validator will take
@@ -100,6 +102,8 @@ func New(
 		createdLeaves:                          make(map[common.Hash]*protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]protocol.SequenceNum),
 		assertions:                             make(map[protocol.SequenceNum]*protocol.CreateLeafEvent),
+		challenges:                             make(map[protocol.AssertionStateCommitHash]*challengeWorker),
+		challengeEventsBufSize:                 100, // TODO: Make configurable.
 	}
 	for _, o := range opts {
 		o(v)
@@ -111,7 +115,6 @@ func New(
 		StateCommitment:     protocol.StateCommitment{},
 		Validator:           common.Address{},
 	}
-	v.challengeManager = newChallengeManager(chain, stateManager, v.address, v.name)
 	v.chain.SubscribeChainEvents(ctx, v.assertionEvents)
 	return v, nil
 }
