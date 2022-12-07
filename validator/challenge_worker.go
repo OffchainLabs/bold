@@ -77,6 +77,13 @@ func (w *challengeWorker) runChallengeLifecycle(
 	}
 }
 
+// Performs the actions required by a validator when a ChallengeEvent is fired during
+// a block challenge. The basic algorith is as follows:
+//
+// 1. We fetch our last created vertex that is higher than the commitment of the vertex seen
+// during the challenge event.
+// 2. If we have the same history commitment, and the vertex is not ours, we make a merge move.
+// 3. While we are not presumptive, we keep trying to merge until we are presumptive or we reach a one-step-fork.
 func (w *challengeWorker) actOnBlockChallenge(
 	ctx context.Context,
 	validator *Validator,
@@ -126,6 +133,8 @@ func (w *challengeWorker) actOnBlockChallenge(
 	hasPresumptiveSuccessor := vertexToActUpon.IsPresumptiveSuccessor()
 	currentVertex := vertexToActUpon
 
+	// While we do not have the presumptive successor, we keep trying to bisect and
+	// break from the loop if reach a one step fork.
 	for !hasPresumptiveSuccessor {
 		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
 			w.reachedOneStepFork <- struct{}{}

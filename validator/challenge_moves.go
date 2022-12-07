@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Performs a bisection move on a BlockChallenge in the assertion protocol given
-// a parent height and a validator challenge vertex.
+// Performs a bisection move during a BlockChallenge in the assertion protocol given
+// a validator challenge vertex.
 func (v *Validator) bisect(
 	ctx context.Context,
 	validatorChallengeVertex *protocol.ChallengeVertex,
@@ -67,17 +67,20 @@ func (v *Validator) bisect(
 	return bisectedVertex, nil
 }
 
+// Performs a merge move during a BlockChallenge in the assertion protocol given
+// a challenge vertex and the sequence number we should be merging into. To do this, we
+// also need to fetch vertex we are are merging to by reading it from the protocol.
 func (v *Validator) merge(
 	ctx context.Context,
 	challenge *protocol.Challenge,
 	validatorChallengeVertex *protocol.ChallengeVertex,
 	newPrevSeqNum protocol.SequenceNum,
 ) error {
-	var bisectedVertex *protocol.ChallengeVertex
+	var mergingTo *protocol.ChallengeVertex
 	var err error
 	err = v.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		id := protocol.AssertionStateCommitHash(challenge.ParentStateCommitment().Hash())
-		bisectedVertex, err = p.ChallengeVertexBySequenceNum(tx, id, newPrevSeqNum)
+		mergingTo, err = p.ChallengeVertexBySequenceNum(tx, id, newPrevSeqNum)
 		if err != nil {
 			return err
 		}
@@ -86,13 +89,13 @@ func (v *Validator) merge(
 	if err != nil {
 		return errors.Wrap(err, "could not read challenge vertex from protocol")
 	}
-	bisectionHeight := bisectedVertex.Commitment.Height
-	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, bisectionHeight)
+	mergingToHeight := mergingTo.Commitment.Height
+	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, mergingToHeight)
 	if err != nil {
 		return err
 	}
 	currentCommit := validatorChallengeVertex.Commitment
-	proof, err := v.stateManager.PrefixProof(ctx, bisectionHeight, currentCommit.Height)
+	proof, err := v.stateManager.PrefixProof(ctx, mergingToHeight, currentCommit.Height)
 	if err != nil {
 		return err
 	}
@@ -100,23 +103,23 @@ func (v *Validator) merge(
 		return err
 	}
 	if err := v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		return validatorChallengeVertex.Merge(tx, bisectedVertex, proof, v.address)
+		return validatorChallengeVertex.Merge(tx, mergingTo, proof, v.address)
 	}); err != nil {
 		return errors.Wrapf(
 			err,
 			"could not merge vertex with height %d and commit %#x to height %x and commit %#x",
 			currentCommit.Height,
 			currentCommit.Merkle,
-			bisectionHeight,
-			bisectedVertex.Commitment.Merkle,
+			mergingToHeight,
+			mergingTo.Commitment.Merkle,
 		)
 	}
 	log.WithFields(logrus.Fields{
 		"name": v.name,
 	}).Infof(
 		"Successfully merged to vertex with height %d and commit %#x",
-		bisectedVertex.Commitment.Height,
-		bisectedVertex.Commitment.Merkle,
+		mergingTo.Commitment.Height,
+		mergingTo.Commitment.Merkle,
 	)
 	return nil
 }
