@@ -131,7 +131,7 @@ func (w *challengeWorker) actOnBlockChallenge(
 			w.reachedOneStepFork <- struct{}{}
 			break
 		}
-		bisectedVertex, err := validator.bisect(ctx, currentVertex.Prev.Commitment.Height, currentVertex)
+		bisectedVertex, err := validator.bisect(ctx, currentVertex)
 		if err != nil {
 			// TODO: Find another way of cleanly ending the bisection process so that we do not
 			// end on a scary "state did not allow this operation" log.

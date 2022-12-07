@@ -9,12 +9,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Performs a bisection move on a BlockChallenge in the assertion protocol given
+// a parent height and a validator challenge vertex.
 func (v *Validator) bisect(
 	ctx context.Context,
-	parentHeight uint64,
 	validatorChallengeVertex *protocol.ChallengeVertex,
 ) (*protocol.ChallengeVertex, error) {
+
+	// TODO: Use optionals for safety around nil.
 	toHeight := validatorChallengeVertex.Commitment.Height
+	parentHeight := validatorChallengeVertex.Prev.Commitment.Height
+
 	bisectTo, err := util.BisectionPoint(parentHeight, toHeight)
 	if err != nil {
 		return nil, err

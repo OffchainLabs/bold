@@ -10,7 +10,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Process new challenge creation events from the protocol that were not initiated by self.
+// Processes new challenge creation events from the protocol that were not initiated by other validators.
+// This will fetch the challenge, its parent assertion, and create a challenge leaf that is
+// relevant towards resolving the challenge. We then spawn a challenge tracker in the background.
 func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartChallengeEvent) error {
 	if ev == nil {
 		return nil
@@ -82,9 +84,10 @@ func (v *Validator) onChallengeStarted(ctx context.Context, ev *protocol.StartCh
 	return nil
 }
 
-// Initiates a challenge on a created leaf event.
+// Initiates a challenge on a leaf added to the assertion protocol by finding its parent assertion
+// and starting a challenge transaction. If the challenge creation is successful, we add a leaf
+// with an associated history commitment to it and spawn a challenge tracker in the background.
 func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEvent) error {
-	// Retrieves the parent assertion to begin the challenge on.
 	var parentAssertion *protocol.Assertion
 	var currentAssertion *protocol.Assertion
 	var err error
@@ -172,6 +175,9 @@ func (v *Validator) challengeLeaf(ctx context.Context, ev *protocol.CreateLeafEv
 	return nil
 }
 
+// Spawns a challenge worker in the background to manage the lifecycle of a specified challenge.
+// This will worker will subscribe to events relevant to the challenge and perform the required actions
+// as a participant in the protocol until the challenge is resolved in the background.
 func (v *Validator) spawnChallenge(
 	ctx context.Context,
 	challenge *protocol.Challenge,
