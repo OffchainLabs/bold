@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -95,37 +96,58 @@ func TestChallenges_ValidatorsReachOneStepFork_Simple(t *testing.T) {
 	harnessObserver := make(chan protocol.ChallengeEvent, 1)
 	chain.SubscribeChallengeEvents(ctx, harnessObserver)
 
-	go alice.Start(ctx)
-	go bob.Start(ctx)
-
-	_, err = alice.submitLeafCreation(ctx)
-	require.NoError(t, err)
+	// We submit leaves manually.
 	_, err = bob.submitLeafCreation(ctx)
 	require.NoError(t, err)
+	_, err = alice.submitLeafCreation(ctx)
+	require.NoError(t, err)
 
 	AssertLogsContain(t, hook, "Submitted leaf creation")
 	AssertLogsContain(t, hook, "Submitted leaf creation")
 
-	// TODO: There is unpredictability in who creates the first leaf. We should find
-	// a way to make it deterministic so we can assert details of each event in addition
-	// to the type of event being fired.
+	// We fire off Alice and Bob's background routines, with Bob going first.
+	// this means Bob should be the first to attempt to challenge Bob's leaf
+	// and successfully create a challenge with an attached challenge vertex.
+	// This means we will have a deterministic sequence of events we can verify
+	// from Alice and Bob's interaction after this occurrence by reading from the challenge
+	// events feed in the protocol.
+	go bob.Start(ctx)
+	time.Sleep(time.Millisecond * 100)
+	go alice.Start(ctx)
+
 	eventsToAssert := []protocol.ChallengeEvent{
-		// Alice adds leaf 6, is presumptive.
-		&protocol.ChallengeLeafEvent{},
-		// Bob adds leaf 6.
-		&protocol.ChallengeLeafEvent{},
+		// Bob adds a challenge leaf 6, is presumptive.
+		&protocol.ChallengeLeafEvent{
+			Validator: bobAddr,
+		},
+		// Alice adds leaf 6.
+		&protocol.ChallengeLeafEvent{
+			Validator: aliceAddr,
+		},
 		// Alice bisects to 4, is presumptive.
-		&protocol.ChallengeBisectEvent{},
+		&protocol.ChallengeBisectEvent{
+			Validator: aliceAddr,
+		},
 		// Bob bisects to 4.
-		&protocol.ChallengeBisectEvent{},
+		&protocol.ChallengeBisectEvent{
+			Validator: bobAddr,
+		},
 		// Bob bisects to 2, is presumptive.
-		&protocol.ChallengeBisectEvent{},
+		&protocol.ChallengeBisectEvent{
+			Validator: bobAddr,
+		},
 		// Alice merges to 2.
-		&protocol.ChallengeMergeEvent{},
+		&protocol.ChallengeMergeEvent{
+			Validator: aliceAddr,
+		},
 		// Alice bisects from 4 to 3, is presumptive.
-		&protocol.ChallengeBisectEvent{},
+		&protocol.ChallengeBisectEvent{
+			Validator: aliceAddr,
+		},
 		// Bob merges to 3.
-		&protocol.ChallengeMergeEvent{},
+		&protocol.ChallengeMergeEvent{
+			Validator: bobAddr,
+		},
 		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
 	}
 	expectedEventIndex := 0
@@ -144,6 +166,14 @@ func TestChallenges_ValidatorsReachOneStepFork_Simple(t *testing.T) {
 			got := reflect.TypeOf(ev).Elem()
 			t.Logf("Asserting wanted event %+T against received %+T", wantedEv, ev)
 			require.Equal(t, wanted, got)
+
+			// Check the validator address is the one we expect from the sequence of events.
+			require.Equal(
+				t,
+				wantedEv.ValidatorAddress(),
+				ev.ValidatorAddress(),
+				fmt.Sprintf("event at index %d did not match", expectedEventIndex),
+			)
 			expectedEventIndex++
 		case <-ctx.Done():
 			t.Fatal("Timed out - validators were unable to reach one-step-fork in time")
