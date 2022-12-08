@@ -64,6 +64,34 @@ func TestBlockChallenge(t *testing.T) {
 		}
 		runBlockChallengeTest(t, cfg)
 	})
+	t.Run("two validators opening leaves at same height, fork point is a power of two", func(t *testing.T) {
+		aliceAddr := common.BytesToAddress([]byte{1})
+		bobAddr := common.BytesToAddress([]byte{2})
+		cfg := &blockChallengeTestConfig{
+			numValidators: 2,
+			latestStateHeightByAddress: map[common.Address]uint64{
+				aliceAddr: 6,
+				bobAddr:   6,
+			},
+			validatorAddrs: []common.Address{aliceAddr, bobAddr},
+			validatorNamesByAddress: map[common.Address]string{
+				aliceAddr: "alice",
+				bobAddr:   "bob",
+			},
+			// The heights at which the validators diverge in histories. In this test,
+			// alice and bob agree up to and including height 3.
+			divergenceHeightsByAddress: map[common.Address]uint64{
+				aliceAddr: 4,
+				bobAddr:   4,
+			},
+		}
+		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
+			&protocol.ChallengeLeafEvent{}:   2,
+			&protocol.ChallengeBisectEvent{}: 2,
+			&protocol.ChallengeMergeEvent{}:  1,
+		}
+		runBlockChallengeTest(t, cfg)
+	})
 	t.Run("two validators opening leaves at heights 6 and 256", func(t *testing.T) {
 		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
@@ -97,6 +125,7 @@ func TestBlockChallenge(t *testing.T) {
 		runBlockChallengeTest(t, cfg)
 	})
 	t.Run("two validators opening leaves at heights 129 and 256", func(t *testing.T) {
+		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
