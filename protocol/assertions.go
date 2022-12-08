@@ -18,19 +18,20 @@ var (
 	Gwei              = big.NewInt(1000000000)
 	AssertionStakeWei = Gwei
 
-	ErrWrongChain             = errors.New("wrong chain")
-	ErrInvalid                = errors.New("invalid operation")
-	ErrChallengeAlreadyExists = errors.New("challenge already exists on leaf")
-	ErrCannotChallengeOwnLeaf = errors.New("cannot challenge own leaf")
-	ErrInvalidHeight          = errors.New("invalid block height")
-	ErrVertexAlreadyExists    = errors.New("vertex already exists")
-	ErrWrongState             = errors.New("vertex state does not allow this operation")
-	ErrWrongPredecessorState  = errors.New("predecessor state does not allow this operation")
-	ErrNotYet                 = errors.New("deadline has not yet passed")
-	ErrNoWinnerYet            = errors.New("challenges does not yet have a winner")
-	ErrPastDeadline           = errors.New("deadline has passed")
-	ErrInsufficientBalance    = errors.New("insufficient balance")
-	ErrNotImplemented         = errors.New("not yet implemented")
+	ErrWrongChain                   = errors.New("wrong chain")
+	ErrInvalid                      = errors.New("invalid operation")
+	ErrChallengeVertexAlreadyExists = errors.New("challenge vertex already exists in challenge")
+	ErrChallengeAlreadyExists       = errors.New("challenge already exists on leaf")
+	ErrCannotChallengeOwnLeaf       = errors.New("cannot challenge own leaf")
+	ErrInvalidHeight                = errors.New("invalid block height")
+	ErrVertexAlreadyExists          = errors.New("vertex already exists")
+	ErrWrongState                   = errors.New("vertex state does not allow this operation")
+	ErrWrongPredecessorState        = errors.New("predecessor state does not allow this operation")
+	ErrNotYet                       = errors.New("deadline has not yet passed")
+	ErrNoWinnerYet                  = errors.New("challenges does not yet have a winner")
+	ErrPastDeadline                 = errors.New("deadline has passed")
+	ErrInsufficientBalance          = errors.New("insufficient balance")
+	ErrNotImplemented               = errors.New("not yet implemented")
 )
 
 // AssertionStateCommitHash uses the hash of an assertion's state commitment
@@ -542,6 +543,15 @@ func (chal *Challenge) ParentStateCommitment() StateCommitment {
 
 func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.HistoryCommitment, challenger common.Address) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
+
+	// TODO: Inefficient check for duplicates, consider a better approach.
+	parentStateCommitHash := AssertionStateCommitHash(chal.parent.StateCommitment.Hash())
+	existingVertices := chal.parent.chain.challengeVerticesByAssertionStateHash[parentStateCommitHash]
+	for _, v := range existingVertices {
+		if v.Commitment.Hash() == history.Hash() {
+			return nil, ErrChallengeVertexAlreadyExists
+		}
+	}
 	if assertion.Prev.IsNone() {
 		return nil, ErrInvalid
 	}
@@ -585,7 +595,6 @@ func (chal *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.
 		BecomesPS:         leaf.Prev.presumptiveSuccessor == leaf,
 		Validator:         challenger,
 	})
-	parentStateCommitHash := AssertionStateCommitHash(chal.parent.StateCommitment.Hash())
 	chal.parent.chain.challengesByAssertionStateHash[parentStateCommitHash] = chal
 	chal.parent.chain.challengeVerticesByAssertionStateHash[parentStateCommitHash][leaf.SequenceNum] = leaf
 	return leaf, nil
