@@ -27,6 +27,7 @@ func TestBlockChallenge(t *testing.T) {
 	//                  \[4]-[6]-bob
 	//
 	t.Run("two validators opening leaves at same height", func(t *testing.T) {
+		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
@@ -63,7 +64,8 @@ func TestBlockChallenge(t *testing.T) {
 		}
 		runBlockChallengeTest(t, cfg)
 	})
-	t.Run("two validators opening leaves at very different heights", func(t *testing.T) {
+	t.Run("two validators opening leaves at heights 6 and 256", func(t *testing.T) {
+		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
@@ -90,6 +92,36 @@ func TestBlockChallenge(t *testing.T) {
 		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
 			&protocol.ChallengeLeafEvent{}:   2,
 			&protocol.ChallengeBisectEvent{}: 9,
+			&protocol.ChallengeMergeEvent{}:  3,
+		}
+		runBlockChallengeTest(t, cfg)
+	})
+	t.Run("two validators opening leaves at heights 129 and 256", func(t *testing.T) {
+		aliceAddr := common.BytesToAddress([]byte{1})
+		bobAddr := common.BytesToAddress([]byte{2})
+		cfg := &blockChallengeTestConfig{
+			numValidators: 2,
+			latestStateHeightByAddress: map[common.Address]uint64{
+				aliceAddr: 256,
+				bobAddr:   129,
+			},
+			validatorAddrs: []common.Address{aliceAddr, bobAddr},
+			validatorNamesByAddress: map[common.Address]string{
+				aliceAddr: "alice",
+				bobAddr:   "bob",
+			},
+			// The heights at which the validators diverge in histories. In this test,
+			// alice and bob agree up to and including height 3.
+			divergenceHeightsByAddress: map[common.Address]uint64{
+				aliceAddr: 3,
+				bobAddr:   3,
+			},
+		}
+		// Same as the test case above but bob has 4 more bisections to perform
+		// if Bob starts at 129.
+		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
+			&protocol.ChallengeLeafEvent{}:   2,
+			&protocol.ChallengeBisectEvent{}: 14,
 			&protocol.ChallengeMergeEvent{}:  2,
 		}
 		runBlockChallengeTest(t, cfg)
