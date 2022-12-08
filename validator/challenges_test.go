@@ -85,9 +85,9 @@ func TestBlockChallenge(t *testing.T) {
 			},
 		}
 		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
-			&protocol.ChallengeLeafEvent{}:   2,
-			&protocol.ChallengeBisectEvent{}: 4,
-			&protocol.ChallengeMergeEvent{}:  2,
+			&protocol.ChallengeLeafEvent{}:   3,
+			&protocol.ChallengeBisectEvent{}: 5,
+			&protocol.ChallengeMergeEvent{}:  4,
 		}
 		runBlockChallengeTest(t, cfg)
 	})
@@ -199,7 +199,7 @@ func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 	seenEventCount := make(map[string]uint)
 	for ev := range harnessObserver {
 		if totalEventsSeen > totalEventsWanted {
-			t.Fatal("Received more events than expected")
+			t.Fatalf("Received more events than expected, saw an extra %+T", ev)
 		}
 		t.Logf(
 			"Seen event %+T: %+v from validator %s",
