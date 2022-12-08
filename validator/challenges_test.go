@@ -16,7 +16,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChallenges_ValidatorsReachOneStepFork_Simple(t *testing.T) {
+func TestValidator_SingleBlockChallenge(t *testing.T) {
+	t.Run("two validators' leaves created at same height", func(tt *testing.T) {
+		cfg := &blockChallengeTestConfig{}
+		runBlockChallengeValidators(tt, cfg)
+	})
+	t.Run("three validators' leaves created at same height", func(tt *testing.T) {
+		cfg := &blockChallengeTestConfig{}
+		runBlockChallengeValidators(tt, cfg)
+	})
+	t.Run("two validators' leaves created at large difference in heights", func(tt *testing.T) {
+		cfg := &blockChallengeTestConfig{}
+		runBlockChallengeValidators(tt, cfg)
+	})
+	t.Run("three validators' leaves created at large difference in heights", func(tt *testing.T) {
+		cfg := &blockChallengeTestConfig{}
+		runBlockChallengeValidators(tt, cfg)
+	})
+	t.Run("fifty validators with many varying heights and many equal heights", func(tt *testing.T) {
+		cfg := &blockChallengeTestConfig{}
+		runBlockChallengeValidators(tt, cfg)
+	})
+}
+
+func TestBlockChallenge_ValidatorParticipatesInMultipleChallengesConcurrently(t *testing.T) {
+}
+
+type blockChallengeTestConfig struct {
+	numValidators              uint16
+	stateRoots                 []common.Hash
+	divergenceHeightsByAddress map[common.Address]uint64
+	validatorNamesByAddress    map[common.Address]string
+	eventsToAssert             []protocol.ChallengeEvent
+}
+
+func runBlockChallengeValidators(t *testing.T, cfg *blockChallengeTestConfig) {
 	// Tests that validators are able to reach a one step fork correctly
 	// by playing the challenge game on their own upon observing leaves
 	// they disagree with. Here's the example with Alice and Bob.
