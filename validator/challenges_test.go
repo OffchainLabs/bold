@@ -92,6 +92,10 @@ func TestBlockChallenge(t *testing.T) {
 		}
 		runBlockChallengeTest(t, cfg)
 	})
+	t.Run("two validators opening leaves at very different heights", func(t *testing.T) {
+		// TODO: Needs to change the state roots each validator has. Bob might have up to height N
+		// while Alice has up to height M, which will cause them to post leaves at different heights.
+	})
 }
 
 type blockChallengeTestConfig struct {
