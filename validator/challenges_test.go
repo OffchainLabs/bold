@@ -66,6 +66,43 @@ func TestBlockChallenge(t *testing.T) {
 		}
 		runBlockChallengeTest(t, cfg)
 	})
+	t.Run("two validators opening leaves at very different heights", func(t *testing.T) {
+		aliceAddr := common.BytesToAddress([]byte{1})
+		bobAddr := common.BytesToAddress([]byte{2})
+		cfg := &blockChallengeTestConfig{
+			numValidators: 2,
+			latestStateHeightByAddress: map[common.Address]uint64{
+				aliceAddr: 256,
+				bobAddr:   6,
+			},
+			validatorAddrs: []common.Address{aliceAddr, bobAddr},
+			validatorNamesByAddress: map[common.Address]string{
+				aliceAddr: "alice",
+				bobAddr:   "bob",
+			},
+			// The heights at which the validators diverge in histories. In this test,
+			// alice and bob agree up to and including height 3.
+			divergenceHeightsByAddress: map[common.Address]uint64{
+				aliceAddr: 3,
+				bobAddr:   3,
+			},
+		}
+		// Alice adds a challenge leaf 6, is presumptive.
+		// Bob adds leaf 6.
+		// Bob bisects to 4, is presumptive.
+		// Alice bisects to 4.
+		// Alice bisects to 2, is presumptive.
+		// Bob merges to 2.
+		// Bob bisects from 4 to 3, is presumptive.
+		// Alice merges to 3.
+		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
+		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
+			&protocol.ChallengeLeafEvent{}:   2,
+			&protocol.ChallengeBisectEvent{}: 4,
+			&protocol.ChallengeMergeEvent{}:  2,
+		}
+		runBlockChallengeTest(t, cfg)
+	})
 	t.Run("three validators opening leaves at same height", func(t *testing.T) {
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
@@ -97,10 +134,6 @@ func TestBlockChallenge(t *testing.T) {
 			&protocol.ChallengeMergeEvent{}:  4,
 		}
 		runBlockChallengeTest(t, cfg)
-	})
-	t.Run("two validators opening leaves at very different heights", func(t *testing.T) {
-		// TODO: Needs to change the state roots each validator has. Bob might have up to height N
-		// while Alice has up to height M, which will cause them to post leaves at different heights.
 	})
 }
 
@@ -144,7 +177,7 @@ func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 		divergenceHeight := cfg.divergenceHeightsByAddress[addr]
 		stateRoots := make([]common.Hash, numRoots)
 		for i := uint64(0); i < numRoots; i++ {
-			if i < divergenceHeight {
+			if divergenceHeight == 0 || i < divergenceHeight {
 				stateRoots[i] = util.HashForUint(i)
 			} else {
 				divergingRoot := make([]byte, 32)
