@@ -176,19 +176,16 @@ func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 	harnessObserver := make(chan protocol.ChallengeEvent, 100)
 	chain.SubscribeChallengeEvents(ctx, harnessObserver)
 
-	// We fire off each validator's background routines.
-	for _, val := range validators {
-		go val.Start(ctx)
-	}
-	// Give validators time to ensure all of them are started and ready.
-	// TODO: Refactor based on some `ready` channel instead of sleeping.
-	time.Sleep(time.Millisecond * 100)
-
 	// Submit leaf creation manually for each validator.
 	for _, val := range validators {
 		_, err = val.submitLeafCreation(ctx)
 		require.NoError(t, err)
 		AssertLogsContain(t, hook, "Submitted leaf creation")
+	}
+
+	// We fire off each validator's background routines.
+	for _, val := range validators {
+		go val.Start(ctx)
 	}
 
 	// Sleep before reading events for cleaner logs below.
@@ -201,9 +198,6 @@ func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 	totalEventsSeen := uint16(0)
 	seenEventCount := make(map[string]uint)
 	for ev := range harnessObserver {
-		if ctx.Err() != nil {
-			t.Fatal(err)
-		}
 		if totalEventsSeen > totalEventsWanted {
 			t.Fatal("Received more events than expected")
 		}
