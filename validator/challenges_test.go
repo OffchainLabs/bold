@@ -30,11 +30,14 @@ func TestBlockChallenge(t *testing.T) {
 	//
 	//
 	t.Run("two validators opening leaves at same height", func(t *testing.T) {
-		aliceAddr := common.BytesToAddress([]byte("a"))
-		bobAddr := common.BytesToAddress([]byte("b"))
+		aliceAddr := common.BytesToAddress([]byte{1})
+		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
-			numValidators:  2,
-			numStateRoots:  7,
+			numValidators: 2,
+			latestStateHeightByAddress: map[common.Address]uint64{
+				aliceAddr: 6,
+				bobAddr:   6,
+			},
 			validatorAddrs: []common.Address{aliceAddr, bobAddr},
 			validatorNamesByAddress: map[common.Address]string{
 				aliceAddr: "alice",
@@ -69,8 +72,12 @@ func TestBlockChallenge(t *testing.T) {
 		charlieAddr := common.BytesToAddress([]byte{3})
 		cfg := &blockChallengeTestConfig{
 			numValidators:  3,
-			numStateRoots:  7,
 			validatorAddrs: []common.Address{aliceAddr, bobAddr, charlieAddr},
+			latestStateHeightByAddress: map[common.Address]uint64{
+				aliceAddr:   6,
+				bobAddr:     6,
+				charlieAddr: 6,
+			},
 			validatorNamesByAddress: map[common.Address]string{
 				aliceAddr:   "alice",
 				bobAddr:     "bob",
@@ -100,12 +107,12 @@ func TestBlockChallenge(t *testing.T) {
 type blockChallengeTestConfig struct {
 	// Number of validators we want to enter a block challenge with.
 	numValidators uint16
-	// Total number of state roots in the chain.
-	numStateRoots uint16
 	// The heights at which each validator by address diverges histories.
 	divergenceHeightsByAddress map[common.Address]uint64
 	// Validator human-readable names by address.
 	validatorNamesByAddress map[common.Address]string
+	// Latest state height by address.
+	latestStateHeightByAddress map[common.Address]uint64
 	// List of validator addresses to initialize in order.
 	validatorAddrs []common.Address
 	// Events we want to assert are fired from the protocol.
@@ -114,10 +121,6 @@ type blockChallengeTestConfig struct {
 
 func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 	hook := test.NewGlobal()
-	stateRoots := make([]common.Hash, 0)
-	for i := uint64(0); i < uint64(cfg.numStateRoots); i++ {
-		stateRoots = append(stateRoots, util.HashForUint(i))
-	}
 
 	ctx := context.Background()
 	chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
@@ -136,21 +139,21 @@ func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 	// at specified points in the test config.
 	validatorStateRoots := make([][]common.Hash, cfg.numValidators)
 	for i := uint16(0); i < cfg.numValidators; i++ {
-		validatorStateRoots[i] = make([]common.Hash, len(stateRoots))
-		for r, rt := range stateRoots {
-			var newRoot common.Hash
-			copy(newRoot[:], rt[:])
-			validatorStateRoots[i][r] = newRoot
-		}
-
 		addr := cfg.validatorAddrs[i]
+		numRoots := cfg.latestStateHeightByAddress[addr] + 1
 		divergenceHeight := cfg.divergenceHeightsByAddress[addr]
-		for h := divergenceHeight; h < uint64(len(validatorStateRoots[i])); h++ {
-			divergingRoot := make([]byte, 32)
-			_, err = rand.Read(divergingRoot)
-			require.NoError(t, err)
-			validatorStateRoots[i][h] = common.BytesToHash(divergingRoot)
+		stateRoots := make([]common.Hash, numRoots)
+		for i := uint64(0); i < numRoots; i++ {
+			if i < divergenceHeight {
+				stateRoots[i] = util.HashForUint(i)
+			} else {
+				divergingRoot := make([]byte, 32)
+				_, err = rand.Read(divergingRoot)
+				require.NoError(t, err)
+				stateRoots[i] = common.BytesToHash(divergingRoot)
+			}
 		}
+		validatorStateRoots[i] = stateRoots
 	}
 
 	// Initialize each validator.
