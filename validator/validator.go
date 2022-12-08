@@ -209,6 +209,7 @@ func (v *Validator) submitLeafCreation(ctx context.Context) (*protocol.Assertion
 		Height:    currentCommit.Height,
 		StateRoot: currentCommit.StateRoot,
 	}
+	fmt.Printf("Creating with %d and %#x and %s\n", currentCommit.Height, currentCommit.StateRoot, v.name)
 	var leaf *protocol.Assertion
 	err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		leaf, err = p.CreateLeaf(tx, parentAssertion, stateCommit, v.address)

@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -16,41 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidator_SingleBlockChallenge(t *testing.T) {
-	t.Run("two validators' leaves created at same height", func(tt *testing.T) {
-		cfg := &blockChallengeTestConfig{}
-		runBlockChallengeValidators(tt, cfg)
-	})
-	t.Run("three validators' leaves created at same height", func(tt *testing.T) {
-		cfg := &blockChallengeTestConfig{}
-		runBlockChallengeValidators(tt, cfg)
-	})
-	t.Run("two validators' leaves created at large difference in heights", func(tt *testing.T) {
-		cfg := &blockChallengeTestConfig{}
-		runBlockChallengeValidators(tt, cfg)
-	})
-	t.Run("three validators' leaves created at large difference in heights", func(tt *testing.T) {
-		cfg := &blockChallengeTestConfig{}
-		runBlockChallengeValidators(tt, cfg)
-	})
-	t.Run("fifty validators with many varying heights and many equal heights", func(tt *testing.T) {
-		cfg := &blockChallengeTestConfig{}
-		runBlockChallengeValidators(tt, cfg)
-	})
-}
-
-func TestBlockChallenge_ValidatorParticipatesInMultipleChallengesConcurrently(t *testing.T) {
-}
-
-type blockChallengeTestConfig struct {
-	numValidators              uint16
-	stateRoots                 []common.Hash
-	divergenceHeightsByAddress map[common.Address]uint64
-	validatorNamesByAddress    map[common.Address]string
-	eventsToAssert             []protocol.ChallengeEvent
-}
-
-func runBlockChallengeValidators(t *testing.T, cfg *blockChallengeTestConfig) {
+func TestBlockChallenge(t *testing.T) {
 	// Tests that validators are able to reach a one step fork correctly
 	// by playing the challenge game on their own upon observing leaves
 	// they disagree with. Here's the example with Alice and Bob.
@@ -70,132 +37,167 @@ func runBlockChallengeValidators(t *testing.T, cfg *blockChallengeTestConfig) {
 	//
 	//
 	//
+	t.Run("two validators opening leaves at same height", func(t *testing.T) {
+		aliceAddr := common.BytesToAddress([]byte("a"))
+		bobAddr := common.BytesToAddress([]byte("b"))
+		cfg := &blockChallengeTestConfig{
+			numValidators:  2,
+			numStateRoots:  6,
+			validatorAddrs: []common.Address{aliceAddr, bobAddr},
+			validatorNamesByAddress: map[common.Address]string{
+				aliceAddr: "alice",
+				bobAddr:   "bob",
+			},
+			// The heights at which the validators diverge in histories. In this test,
+			// alice and bob agree up to and including height 3.
+			divergenceHeightsByAddress: map[common.Address]uint64{
+				aliceAddr: 3,
+				bobAddr:   3,
+			},
+		}
+		cfg.eventsToAssert = []protocol.ChallengeEvent{
+			// Alice adds a challenge leaf 6, is presumptive.
+			&protocol.ChallengeLeafEvent{
+				Validator: aliceAddr,
+			},
+			// Bob adds leaf 6.
+			&protocol.ChallengeLeafEvent{
+				Validator: bobAddr,
+			},
+			// Bob bisects to 4, is presumptive.
+			&protocol.ChallengeBisectEvent{
+				Validator: bobAddr,
+			},
+			// Alice bisects to 4.
+			&protocol.ChallengeBisectEvent{
+				Validator: aliceAddr,
+			},
+			// Alice bisects to 2, is presumptive.
+			&protocol.ChallengeBisectEvent{
+				Validator: aliceAddr,
+			},
+			// Bob merges to 2.
+			&protocol.ChallengeMergeEvent{
+				Validator: bobAddr,
+			},
+			// Bob bisects from 4 to 3, is presumptive.
+			&protocol.ChallengeBisectEvent{
+				Validator: bobAddr,
+			},
+			// Alice merges to 3.
+			&protocol.ChallengeMergeEvent{
+				Validator: aliceAddr,
+			},
+			// Both challengers are now at a one-step fork, we now await subchallenge resolution.
+		}
+		runBlockChallengeTest(t, cfg)
+	})
+}
 
-	// Alice and bob agree up to height 3. From there, their local states diverge.
+type blockChallengeTestConfig struct {
+	// Number of validators we want to enter a block challenge with.
+	numValidators uint16
+	// Total number of state roots in the chain.
+	numStateRoots uint16
+	// The heights at which each validator by address diverges histories.
+	divergenceHeightsByAddress map[common.Address]uint64
+	// Validator human-readable names by address.
+	validatorNamesByAddress map[common.Address]string
+	// List of validator addresses to initialize in order.
+	validatorAddrs []common.Address
+	// Events we want to assert are fired from the protocol.
+	eventsToAssert []protocol.ChallengeEvent
+}
+
+func runBlockChallengeTest(t testing.TB, cfg *blockChallengeTestConfig) {
 	hook := test.NewGlobal()
-	stateRootsInCommon := make([]common.Hash, 0)
-	for i := uint64(0); i < 3; i++ {
-		stateRootsInCommon = append(stateRootsInCommon, util.HashForUint(i))
+	stateRoots := make([]common.Hash, 0)
+	for i := uint64(0); i < uint64(cfg.numStateRoots); i++ {
+		stateRoots = append(stateRoots, util.HashForUint(i))
 	}
-	aliceRoots := append(
-		stateRootsInCommon,
-		common.BytesToHash([]byte("a3")),
-		common.BytesToHash([]byte("a4")),
-		common.BytesToHash([]byte("a5")),
-		common.BytesToHash([]byte("a6")),
-	)
-	bobRoots := append(
-		stateRootsInCommon,
-		common.BytesToHash([]byte("b3")),
-		common.BytesToHash([]byte("b4")),
-		common.BytesToHash([]byte("b5")),
-		common.BytesToHash([]byte("b6")),
-	)
-	aliceStateManager := statemanager.New(aliceRoots)
-	bobStateManager := statemanager.New(bobRoots)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	ctx := context.Background()
 	chain := protocol.NewAssertionChain(ctx, util.NewArtificialTimeReference(), time.Second)
-	aliceAddr := common.BytesToAddress([]byte("a"))
-	bobAddr := common.BytesToAddress([]byte("b"))
 
+	// Increase the balance for each validator in the test.
 	bal := big.NewInt(0).Mul(protocol.Gwei, big.NewInt(100))
 	err := chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		chain.AddToBalance(tx, aliceAddr, bal)
-		chain.AddToBalance(tx, bobAddr, bal)
+		for addr := range cfg.validatorNamesByAddress {
+			chain.AddToBalance(tx, addr, bal)
+		}
 		return nil
 	})
 	require.NoError(t, err)
 
-	alice, err := New(
-		ctx,
-		chain,
-		aliceStateManager,
-		WithName("alice"),
-		WithAddress(aliceAddr),
-		WithDisableLeafCreation(),
-	)
-	require.NoError(t, err)
-	bob, err := New(
-		ctx,
-		chain,
-		bobStateManager,
-		WithName("bob"),
-		WithAddress(bobAddr),
-		WithDisableLeafCreation(),
-	)
-	require.NoError(t, err)
+	// Initialize each validator associated state roots which diverge
+	// at specified points in the test config.
+	validatorStateRoots := make([][]common.Hash, cfg.numValidators)
+	for i := uint16(0); i < cfg.numValidators; i++ {
+		validatorStateRoots[i] = make([]common.Hash, len(stateRoots))
+		for r, rt := range stateRoots {
+			var newRoot common.Hash
+			copy(newRoot[:], rt[:])
+			validatorStateRoots[i][r] = newRoot
+		}
+
+		addr := cfg.validatorAddrs[i]
+		divergenceHeight := cfg.divergenceHeightsByAddress[addr]
+		for h := divergenceHeight; h < uint64(len(validatorStateRoots[i])); h++ {
+			divergingRoot := make([]byte, 32)
+			_, err = rand.Read(divergingRoot)
+			require.NoError(t, err)
+			validatorStateRoots[i][h] = common.BytesToHash(divergingRoot)
+		}
+	}
+
+	// Initialize each validator.
+	validators := make([]*Validator, cfg.numValidators)
+	for i := 0; i < len(validators); i++ {
+		manager := statemanager.New(validatorStateRoots[i])
+		addr := cfg.validatorAddrs[i]
+		v, err := New(
+			ctx,
+			chain,
+			manager,
+			WithName(cfg.validatorNamesByAddress[addr]),
+			WithAddress(addr),
+			WithDisableLeafCreation(),
+		)
+		require.NoError(t, err)
+		validators[i] = v
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
 	harnessObserver := make(chan protocol.ChallengeEvent, 1)
 	chain.SubscribeChallengeEvents(ctx, harnessObserver)
 
-	// We submit leaves manually.
-	_, err = bob.submitLeafCreation(ctx)
-	require.NoError(t, err)
-	_, err = alice.submitLeafCreation(ctx)
-	require.NoError(t, err)
+	// Submit leaves for each validator.
+	for _, val := range validators {
+		_, err = val.submitLeafCreation(ctx)
+		require.NoError(t, err)
+		AssertLogsContain(t, hook, "Submitted leaf creation")
+	}
 
-	AssertLogsContain(t, hook, "Submitted leaf creation")
-	AssertLogsContain(t, hook, "Submitted leaf creation")
-
-	// We fire off Alice and Bob's background routines, with Bob going first.
-	// this means Bob should be the first to attempt to challenge Bob's leaf
-	// and successfully create a challenge with an attached challenge vertex.
-	// This means we will have a deterministic sequence of events we can verify
-	// from Alice and Bob's interaction after this occurrence by reading from the challenge
-	// events feed in the protocol.
-	go bob.Start(ctx)
-	time.Sleep(time.Millisecond * 100)
-	go alice.Start(ctx)
-
-	eventsToAssert := []protocol.ChallengeEvent{
-		// Bob adds a challenge leaf 6, is presumptive.
-		&protocol.ChallengeLeafEvent{
-			Validator: bobAddr,
-		},
-		// Alice adds leaf 6.
-		&protocol.ChallengeLeafEvent{
-			Validator: aliceAddr,
-		},
-		// Alice bisects to 4, is presumptive.
-		&protocol.ChallengeBisectEvent{
-			Validator: aliceAddr,
-		},
-		// Bob bisects to 4.
-		&protocol.ChallengeBisectEvent{
-			Validator: bobAddr,
-		},
-		// Bob bisects to 2, is presumptive.
-		&protocol.ChallengeBisectEvent{
-			Validator: bobAddr,
-		},
-		// Alice merges to 2.
-		&protocol.ChallengeMergeEvent{
-			Validator: aliceAddr,
-		},
-		// Alice bisects from 4 to 3, is presumptive.
-		&protocol.ChallengeBisectEvent{
-			Validator: aliceAddr,
-		},
-		// Bob merges to 3.
-		&protocol.ChallengeMergeEvent{
-			Validator: bobAddr,
-		},
-		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
+	// We fire off each validator's background routines in a specific order.
+	for _, val := range validators {
+		go val.Start(ctx)
+		time.Sleep(time.Millisecond * 100)
 	}
 	expectedEventIndex := 0
 	for {
-		if expectedEventIndex == len(eventsToAssert) {
+		if expectedEventIndex == len(cfg.eventsToAssert) {
 			t.Log("Finished asserting events")
-			AssertLogsContain(t, hook, "Reached a one-step-fork")
-			AssertLogsContain(t, hook, "Reached a one-step-fork")
+			for i := 0; i < int(cfg.numValidators); i++ {
+				AssertLogsContain(t, hook, "Reached a one-step-fork")
+			}
 			break
 		}
 		select {
 		case ev := <-harnessObserver:
 			t.Logf("%+T", ev)
-			wantedEv := eventsToAssert[expectedEventIndex]
+			wantedEv := cfg.eventsToAssert[expectedEventIndex]
 			wanted := reflect.TypeOf(wantedEv).Elem()
 			got := reflect.TypeOf(ev).Elem()
 			t.Logf("Asserting wanted event %+T against received %+T", wantedEv, ev)
@@ -216,6 +218,7 @@ func runBlockChallengeValidators(t *testing.T, cfg *blockChallengeTestConfig) {
 }
 
 func TestChallenges_ThreeValidatorsReachOneStepFork_Simple(t *testing.T) {
+	t.Skip()
 	// Similar to the two validator test, but with three validators.
 	//
 	// 1. alice, bob and charlies create their own leaves at height 6 they disagree with
