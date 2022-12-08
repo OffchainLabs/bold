@@ -21,13 +21,10 @@ func TestBlockChallenge(t *testing.T) {
 	// by playing the challenge game on their own upon observing leaves
 	// they disagree with. Here's the example with Alice and Bob.
 	//
-	//
-	//                   [4]-[6]-bob
+	//                   [4]-[6]-alice
 	//                  /
 	// [genesis]-[2]-[3]
-	//                  \[4]-[6]-alice
-	//
-	//
+	//                  \[4]-[6]-bob
 	//
 	t.Run("two validators opening leaves at same height", func(t *testing.T) {
 		aliceAddr := common.BytesToAddress([]byte{1})
@@ -66,6 +63,13 @@ func TestBlockChallenge(t *testing.T) {
 		}
 		runBlockChallengeTest(t, cfg)
 	})
+	//
+	//                   [4]-[6]-alice
+	//                  /
+	// [genesis]-[2]-[3]-[4]-[6]-bob
+	//                  \
+	//                   [4]-[6]-charlie
+	//
 	t.Run("three validators opening leaves at same height", func(t *testing.T) {
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
