@@ -57,37 +57,21 @@ func TestBlockChallenge(t *testing.T) {
 		}
 		cfg.eventsToAssert = []protocol.ChallengeEvent{
 			// Alice adds a challenge leaf 6, is presumptive.
-			&protocol.ChallengeLeafEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeLeafEvent{Validator: aliceAddr},
 			// Bob adds leaf 6.
-			&protocol.ChallengeLeafEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeLeafEvent{Validator: bobAddr},
 			// Bob bisects to 4, is presumptive.
-			&protocol.ChallengeBisectEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: bobAddr},
 			// Alice bisects to 4.
-			&protocol.ChallengeBisectEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: aliceAddr},
 			// Alice bisects to 2, is presumptive.
-			&protocol.ChallengeBisectEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: aliceAddr},
 			// Bob merges to 2.
-			&protocol.ChallengeMergeEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeMergeEvent{Validator: bobAddr},
 			// Bob bisects from 4 to 3, is presumptive.
-			&protocol.ChallengeBisectEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: bobAddr},
 			// Alice merges to 3.
-			&protocol.ChallengeMergeEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeMergeEvent{Validator: aliceAddr},
 			// Both challengers are now at a one-step fork, we now await subchallenge resolution.
 		}
 		runBlockChallengeTest(t, cfg)
@@ -116,37 +100,21 @@ func TestBlockChallenge(t *testing.T) {
 		// NOTE: THIS SHOULD FAIL!
 		cfg.eventsToAssert = []protocol.ChallengeEvent{
 			// Alice adds a challenge leaf 6, is presumptive.
-			&protocol.ChallengeLeafEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeLeafEvent{Validator: aliceAddr},
 			// Bob adds leaf 6.
-			&protocol.ChallengeLeafEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeLeafEvent{Validator: bobAddr},
 			// Bob bisects to 4, is presumptive.
-			&protocol.ChallengeBisectEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: bobAddr},
 			// Alice bisects to 4.
-			&protocol.ChallengeBisectEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: aliceAddr},
 			// Alice bisects to 2, is presumptive.
-			&protocol.ChallengeBisectEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: aliceAddr},
 			// Bob merges to 2.
-			&protocol.ChallengeMergeEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeMergeEvent{Validator: bobAddr},
 			// Bob bisects from 4 to 3, is presumptive.
-			&protocol.ChallengeBisectEvent{
-				Validator: bobAddr,
-			},
+			&protocol.ChallengeBisectEvent{Validator: bobAddr},
 			// Alice merges to 3.
-			&protocol.ChallengeMergeEvent{
-				Validator: aliceAddr,
-			},
+			&protocol.ChallengeMergeEvent{Validator: aliceAddr},
 			// Both challengers are now at a one-step fork, we now await subchallenge resolution.
 		}
 		runBlockChallengeTest(t, cfg)
