@@ -37,7 +37,7 @@ func New(stateRoots []common.Hash) *Simulated {
 // HasStateCommitment checks if a state commitment is found in our local list of state roots.
 func (s *Simulated) HasStateCommitment(ctx context.Context, commitment protocol.StateCommitment) bool {
 	if commitment.Height >= uint64(len(s.stateRoots)) {
-		panic("commitment height out of range")
+		return false
 	}
 	return s.stateRoots[commitment.Height] == commitment.StateRoot
 }
@@ -84,7 +84,7 @@ func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]common.Ha
 // HasHistoryCommitment checks if a history commitment matches our merkle expansion for the specified height.
 func (s *Simulated) HasHistoryCommitment(ctx context.Context, commitment util.HistoryCommitment) bool {
 	if commitment.Height >= uint64(len(s.stateRoots)) {
-		panic("commitment height out of range")
+		return false
 	}
 	merkle := util.ExpansionFromLeaves(s.stateRoots[:commitment.Height]).Root()
 	return merkle == commitment.Merkle

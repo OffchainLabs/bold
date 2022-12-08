@@ -84,18 +84,12 @@ func TestBlockChallenge(t *testing.T) {
 				bobAddr:   3,
 			},
 		}
-		// Alice adds a challenge leaf 6, is presumptive.
-		// Bob adds leaf 6.
-		// Bob bisects to 4, is presumptive.
-		// Alice bisects to 4.
-		// Alice bisects to 2, is presumptive.
-		// Bob merges to 2.
-		// Bob bisects from 4 to 3, is presumptive.
-		// Alice merges to 3.
-		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
+		// With Alice starting at 256 and bisecting all the way down to 4
+		// will take 6 bisections. Then, Alice bisects from 4 to 3. Bob bisects twice to 4 and 2.
+		// We should see a total of 9 bisections and 2 merges.
 		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
 			&protocol.ChallengeLeafEvent{}:   2,
-			&protocol.ChallengeBisectEvent{}: 4,
+			&protocol.ChallengeBisectEvent{}: 9,
 			&protocol.ChallengeMergeEvent{}:  2,
 		}
 		runBlockChallengeTest(t, cfg)
