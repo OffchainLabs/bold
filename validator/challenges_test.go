@@ -27,7 +27,6 @@ func TestBlockChallenge(t *testing.T) {
 	//                  \[4]-[6]-bob
 	//
 	t.Run("two validators opening leaves at same height", func(t *testing.T) {
-		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
@@ -93,7 +92,6 @@ func TestBlockChallenge(t *testing.T) {
 		runBlockChallengeTest(t, cfg)
 	})
 	t.Run("two validators opening leaves at heights 6 and 256", func(t *testing.T) {
-		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
@@ -120,12 +118,11 @@ func TestBlockChallenge(t *testing.T) {
 		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
 			&protocol.ChallengeLeafEvent{}:   2,
 			&protocol.ChallengeBisectEvent{}: 9,
-			&protocol.ChallengeMergeEvent{}:  3,
+			&protocol.ChallengeMergeEvent{}:  2,
 		}
 		runBlockChallengeTest(t, cfg)
 	})
 	t.Run("two validators opening leaves at heights 129 and 256", func(t *testing.T) {
-		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		cfg := &blockChallengeTestConfig{
@@ -163,6 +160,7 @@ func TestBlockChallenge(t *testing.T) {
 	//                   [4]-[6]-charlie
 	//
 	t.Run("three validators opening leaves at same height, same fork point", func(t *testing.T) {
+		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		charlieAddr := common.BytesToAddress([]byte{3})
@@ -226,10 +224,11 @@ func TestBlockChallenge(t *testing.T) {
 				charlieAddr: 4,
 			},
 		}
+
 		cfg.eventsToAssert = map[protocol.ChallengeEvent]uint{
 			&protocol.ChallengeLeafEvent{}:   3,
 			&protocol.ChallengeBisectEvent{}: 5,
-			&protocol.ChallengeMergeEvent{}:  4,
+			&protocol.ChallengeMergeEvent{}:  3,
 		}
 		runBlockChallengeTest(t, cfg)
 	})
