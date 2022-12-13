@@ -35,6 +35,10 @@ type Validator struct {
 	leavesLock                             sync.RWMutex
 	createLeafInterval                     time.Duration
 	chaosMonkeyProbability                 float64
+	disableLeafCreation                    bool
+	challengesLock                         sync.RWMutex
+	challenges                             map[protocol.CommitHash]*blockChallengeWorker
+	challengeEventsBufSize                 int
 }
 
 // WithChaosMonkeyProbability adds a probability a validator will take
@@ -42,6 +46,12 @@ type Validator struct {
 func WithChaosMonkeyProbability(p float64) Opt {
 	return func(val *Validator) {
 		val.chaosMonkeyProbability = p
+	}
+}
+
+func WithDisableLeafCreation() Opt {
+	return func(val *Validator) {
+		val.disableLeafCreation = true
 	}
 }
 
@@ -90,10 +100,19 @@ func New(
 		assertionEvents:                        make(chan protocol.AssertionChainEvent, 1),
 		createdLeaves:                          make(map[common.Hash]*protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]protocol.AssertionSequenceNumber),
+		challenges:                             make(map[protocol.CommitHash]*blockChallengeWorker),
+		challengeEventsBufSize:                 100, // TODO: Make configurable.
 		assertions:                             make(map[protocol.AssertionSequenceNumber]*protocol.CreateLeafEvent),
 	}
 	for _, o := range opts {
 		o(v)
+	}
+	v.assertions[0] = &protocol.CreateLeafEvent{
+		PrevSeqNum:          0,
+		PrevStateCommitment: protocol.StateCommitment{},
+		SeqNum:              0,
+		StateCommitment:     protocol.StateCommitment{},
+		Validator:           common.Address{},
 	}
 	v.chain.SubscribeChainEvents(ctx, v.assertionEvents)
 	return v, nil
@@ -101,7 +120,9 @@ func New(
 
 func (v *Validator) Start(ctx context.Context) {
 	go v.listenForAssertionEvents(ctx)
-	go v.prepareLeafCreationPeriodically(ctx)
+	if !v.disableLeafCreation {
+		go v.prepareLeafCreationPeriodically(ctx)
+	}
 }
 
 func (v *Validator) prepareLeafCreationPeriodically(ctx context.Context) {
@@ -146,6 +167,7 @@ func (v *Validator) listenForAssertionEvents(ctx context.Context) {
 				log.WithField(
 					"sequenceNum", ev.SeqNum,
 				).Info("Leaf with sequence number confirmed on-chain")
+			case *protocol.SetBalanceEvent:
 			default:
 				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized chain event")
 			}
@@ -206,6 +228,25 @@ func (v *Validator) submitLeafCreation(ctx context.Context) (*protocol.Assertion
 		"leafCommitmentMerkle":       fmt.Sprintf("%#x", currentCommit.StateRoot),
 	}
 	log.WithFields(logFields).Info("Submitted leaf creation")
+
+	v.assertionsLock.Lock()
+
+	// Keep track of the created assertion locally.
+	prev := leaf.Prev.Unwrap()
+	v.assertions[leaf.SequenceNum] = &protocol.CreateLeafEvent{
+		PrevSeqNum:          prev.SequenceNum,
+		SeqNum:              leaf.SequenceNum,
+		PrevStateCommitment: prev.StateCommitment,
+		StateCommitment:     leaf.StateCommitment,
+		Validator:           v.address,
+	}
+	key := prev.StateCommitment.Hash()
+	v.sequenceNumbersByParentStateCommitment[key] = append(
+		v.sequenceNumbersByParentStateCommitment[key],
+		leaf.SequenceNum,
+	)
+	v.assertionsLock.Unlock()
+
 	return leaf, nil
 }
 

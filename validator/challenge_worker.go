@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
@@ -28,6 +29,53 @@ type blockChallengeWorker struct {
 	validatorName      string
 	createdVertices    *util.ThreadSafeSlice[*protocol.ChallengeVertex]
 	events             chan protocol.ChallengeEvent
+}
+
+func (w *blockChallengeWorker) runChallengeLifecycle(
+	ctx context.Context,
+	v *Validator,
+	blockChallengeEvents chan protocol.ChallengeEvent,
+) {
+	for {
+		select {
+		// When we receive events related to a BlockChallenge, we take the required actions.
+		case genericEvent := <-blockChallengeEvents:
+			var address common.Address
+			var history util.HistoryCommitment
+			var seqNum protocol.VertexSequenceNumber
+
+			// Extract the values we need from the challenge event to act on a block challenge.
+			switch ev := genericEvent.(type) {
+			case *protocol.ChallengeLeafEvent:
+				address = ev.Validator
+				history = ev.History
+				seqNum = ev.SequenceNum
+			case *protocol.ChallengeBisectEvent:
+				address = ev.Validator
+				history = ev.History
+				seqNum = ev.SequenceNum
+			case *protocol.ChallengeMergeEvent:
+				address = ev.Validator
+				history = ev.History
+				seqNum = ev.ShallowerSequenceNum
+			default:
+				log.WithField("ev", fmt.Sprintf("%+v", ev)).Error("Not a recognized challenge event")
+			}
+			go func() {
+				if err := w.actOnBlockChallenge(ctx, v, address, history, seqNum); err != nil {
+					log.WithError(err).Error("Could not process challenge leaf added event")
+				}
+			}()
+		case <-w.reachedOneStepFork:
+			log.WithField(
+				"name", w.validatorName,
+			).Infof("Reached a one-step-fork in the challenge, now awaiting subchallenge resolution")
+			// TODO: Trigger subchallenge!
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // Performs the actions required by a validator when a ChallengeEvent is fired during
