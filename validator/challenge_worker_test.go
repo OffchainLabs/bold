@@ -22,6 +22,33 @@ func init() {
 }
 
 func Test_actOnBlockChallenge(t *testing.T) {
+	logsHook := test.NewGlobal()
+	alice := common.BytesToAddress([]byte("alice"))
+	w := &blockChallengeWorker{
+		createdVertices:  util.NewThreadSafeSlice[*protocol.ChallengeVertex](),
+		validatorAddress: alice,
+	}
+	v := &Validator{}
+	ctx := context.Background()
+	err := w.actOnBlockChallenge(
+		ctx,
+		v,
+		alice, // Self.
+		util.HistoryCommitment{},
+		protocol.VertexSequenceNumber(0),
+	)
+	require.NoError(t, err)
+
+	bob := common.BytesToAddress([]byte("bob"))
+	err = w.actOnBlockChallenge(
+		ctx,
+		v,
+		bob,
+		util.HistoryCommitment{},
+		protocol.VertexSequenceNumber(0),
+	)
+	require.NoError(t, err)
+	AssertLogsContain(t, logsHook, "No created vertices, not acting")
 }
 
 func Test_loadVertexToActUpon(t *testing.T) {
