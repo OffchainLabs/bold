@@ -2,7 +2,6 @@ package validator
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
@@ -115,8 +114,9 @@ func (w *blockChallengeWorker) shouldMakeMergeMove(
 			"mergedHeight":        incomingEventCommit.Height,
 			"mergedHistoryMerkle": incomingEventCommit.Merkle,
 		}).Info("Other validator merged to our vertex")
+		return false
 	}
-	return validator.stateManager.HasHistoryCommitment(ctx, incomingEventCommit) && !mergedToOurs
+	return validator.stateManager.HasHistoryCommitment(ctx, incomingEventCommit)
 }
 
 // Obtains a challenge vertex we should perform a merge move into given its corresponding challenge ID
@@ -138,6 +138,9 @@ func (w *blockChallengeWorker) vertexToMergeInto(
 	}); err != nil {
 		return nil, err
 	}
+	if mergingTo == nil {
+		return nil, errors.New("fetched nil challenge vertex from protocol")
+	}
 	return mergingTo, nil
 }
 
@@ -153,18 +156,18 @@ func (w *blockChallengeWorker) bisectWhileNonPresumptive(
 ) error {
 	current := startVertex
 	hasPresumptiveSuccessor := startVertex.IsPresumptiveSuccessor()
+	if hasPresumptiveSuccessor {
+		log.Debug("Has presumptive successor, not acting")
+		return nil
+	}
+
 	// While we do not have the presumptive successor, we keep trying to bisect and
 	// break from the loop if reach a one step fork.
 	for !hasPresumptiveSuccessor {
 		bisectedVertex, err := validator.bisect(ctx, current)
 		if err != nil {
-			// TODO: Find another way of cleanly ending the bisection process so that we do not
-			// end on a scary "state did not allow this operation" log.
-			if errors.Is(err, protocol.ErrWrongState) {
-				log.WithError(err).Debug("State incorrect for bisection")
-				return nil
-			}
 			if errors.Is(err, protocol.ErrVertexAlreadyExists) {
+				log.WithError(err).Debug("Attempted to bisect to a vertex that already exists")
 				return nil
 			}
 			return err
@@ -175,6 +178,10 @@ func (w *blockChallengeWorker) bisectWhileNonPresumptive(
 
 		// If we have reached a one-step-fork, we send a notification to a channel.
 		if current.Commitment.Height == current.Prev.Commitment.Height+1 {
+			log.WithFields(logrus.Fields{
+				"height":     current.Commitment.Height,
+				"prevHeight": current.Prev.Commitment.Height,
+			}).Debug("Reached one-step-fork after bisection action")
 			w.reachedOneStepFork <- struct{}{}
 			return nil
 		}
