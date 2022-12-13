@@ -52,12 +52,12 @@ func (v *Validator) bisect(
 	})
 	if err != nil {
 		if errors.Is(protocol.ErrVertexAlreadyExists, err) {
-			log.Infof(
+			return nil, errors.Wrapf(
+				err,
 				"Bisected vertex with height %d and commit %#x already exists",
 				historyCommit.Height,
 				historyCommit.Merkle,
 			)
-			return nil, nil
 		}
 		return nil, errors.Wrapf(
 			err,
@@ -74,7 +74,7 @@ func (v *Validator) bisect(
 		"isPresumptiveSuccessor": bisectedVertex.IsPresumptiveSuccessor(),
 		"historyCommitHeight":    bisectedVertex.Commitment.Height,
 		"historyCommitMerkle":    fmt.Sprintf("%#x", bisectedVertex.Commitment.Height),
-	}).Info("Successfully bisected to vertex")
+	}).Infof("Successfully bisected to vertex with height %d", bisectedVertex.Commitment.Height)
 	return bisectedVertex, nil
 }
 

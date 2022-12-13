@@ -168,16 +168,11 @@ func (w *blockChallengeWorker) bisectWhileNonPresumptive(
 	for !hasPresumptiveSuccessor {
 		bisectedVertex, err := validator.bisect(ctx, current)
 		if err != nil {
-			if errors.Is(err, protocol.ErrVertexAlreadyExists) {
-				log.WithError(err).Debug("Attempted to bisect to a vertex that already exists")
-				return nil
-			}
 			return err
 		}
 		current = bisectedVertex
 		hasPresumptiveSuccessor = current.IsPresumptiveSuccessor()
 		w.createdVertices.Append(current)
-
 		// If we have reached a one-step-fork, we send a notification to a channel.
 		if current.Commitment.Height == current.Prev.Commitment.Height+1 {
 			log.WithFields(logrus.Fields{
