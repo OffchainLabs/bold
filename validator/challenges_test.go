@@ -160,7 +160,6 @@ func TestBlockChallenge(t *testing.T) {
 	//                   [4]-[6]-charlie
 	//
 	t.Run("three validators opening leaves at same height, same fork point", func(t *testing.T) {
-		t.Skip()
 		aliceAddr := common.BytesToAddress([]byte{1})
 		bobAddr := common.BytesToAddress([]byte{2})
 		charlieAddr := common.BytesToAddress([]byte{3})
