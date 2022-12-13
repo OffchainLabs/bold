@@ -10,16 +10,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Each challenge has a lifecycle we need to manage. A single challenge's entire lifecycle should
+// be managed in a goroutine specific to that challenge. A challenge goroutine will exit if
+//
+// - A winner has been found (meaning all subchallenges are resolved), or
+// - The validator's chess clock times out
+//
+// The validator has is able to dispatch events from the global feed
+// to specific challenge goroutines. A challenge goroutine is spawned upon receiving
+// a ChallengeStarted event. Each challenge goroutine is managed by a challenge worker struct
+// which has enough information about the challenge to make respective moves on its
+// associated events coming from the protocol.
 type challengeWorker struct {
 	challenge          *protocol.Challenge
 	validatorAddress   common.Address
-	validatorName      string
-	createdVertices    util.ThreadSafeSlice[*protocol.ChallengeVertex]
 	reachedOneStepFork chan struct{}
+	validatorName      string
+	createdVertices    *util.ThreadSafeSlice[*protocol.ChallengeVertex]
+	events             chan protocol.ChallengeEvent
 }
 
 // Performs the actions required by a validator when a ChallengeEvent is fired during
-// a block challenge. The basic algorith is as follows:
+// a BlockChallenge. The basic algorith is as follows:
 //
 // 1. We fetch our last created vertex that is higher than the commitment of the vertex seen
 // during the challenge event.
@@ -50,19 +62,24 @@ func (w *challengeWorker) actOnBlockChallenge(
 		}
 	}
 
-	mergedToOurs := eventHistoryCommit.Hash() == vertexToActUpon.Commitment.Hash()
-	if mergedToOurs {
-		log.WithFields(logrus.Fields{
-			"name":                w.validatorName,
-			"mergedHeight":        eventHistoryCommit.Height,
-			"mergedHistoryMerkle": eventHistoryCommit.Merkle,
-		}).Info("Other validator merged to our vertex")
-	}
-
-	// Make a merge move.
-	if validator.stateManager.HasHistoryCommitment(ctx, eventHistoryCommit) && !mergedToOurs {
+	if w.shouldMakeMergeMove(ctx, validator, eventHistoryCommit, vertexToActUpon.Commitment) {
 		challengeID := protocol.CommitHash(w.challenge.ParentStateCommitment().Hash())
-		if err := validator.merge(ctx, challengeID, vertexToActUpon, eventSequenceNum); err != nil {
+		mergingFrom := vertexToActUpon
+
+		var mergingTo *protocol.ChallengeVertex
+		var err error
+		if err = validator.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+			mergingTo, err = p.ChallengeVertexBySequenceNum(tx, challengeID, eventSequenceNum)
+			if err != nil {
+				return err
+			}
+			return nil
+
+		}); err != nil {
+			return err
+		}
+
+		if err := validator.merge(ctx, mergingTo, mergingFrom); err != nil {
 			// TODO: Find a better way to exit if a merge is invalid than showing a scary log to the user.
 			// Validators currently try to make merge moves they should not during the challenge game.
 			if errors.Is(err, protocol.ErrInvalidOp) {
@@ -72,17 +89,45 @@ func (w *challengeWorker) actOnBlockChallenge(
 		}
 	}
 
-	hasPresumptiveSuccessor := vertexToActUpon.IsPresumptiveSuccessor()
-	currentVertex := vertexToActUpon
+	// While we do not have the presumptive successor, we keep trying to bisect and
+	// break from the loop if reach a one step fork.
+	return w.bisectWhileNonPresumptive(ctx, validator, vertexToActUpon)
+}
 
+// If the event is firing a history commitment that we have, and the event is not a merge
+// move to one of our vertices, we should attempt to merge to that event's vertex.
+func (w *challengeWorker) shouldMakeMergeMove(
+	ctx context.Context,
+	validator *Validator,
+	incomingEventCommit,
+	ourVertexCommit util.HistoryCommitment,
+) bool {
+	mergedToOurs := incomingEventCommit.Hash() == ourVertexCommit.Hash()
+	if mergedToOurs {
+		log.WithFields(logrus.Fields{
+			"name":                w.validatorName,
+			"mergedHeight":        incomingEventCommit.Height,
+			"mergedHistoryMerkle": incomingEventCommit.Merkle,
+		}).Info("Other validator merged to our vertex")
+	}
+	return validator.stateManager.HasHistoryCommitment(ctx, incomingEventCommit) && !mergedToOurs
+}
+
+func (w *challengeWorker) vertexToMergeInto() (*protocol.ChallengeVertex, error) {
+	return nil, nil
+}
+
+func (w *challengeWorker) bisectWhileNonPresumptive(
+	ctx context.Context,
+	validator *Validator,
+	startVertex *protocol.ChallengeVertex,
+) error {
+	current := startVertex
+	hasPresumptiveSuccessor := startVertex.IsPresumptiveSuccessor()
 	// While we do not have the presumptive successor, we keep trying to bisect and
 	// break from the loop if reach a one step fork.
 	for !hasPresumptiveSuccessor {
-		if currentVertex.Commitment.Height == currentVertex.Prev.Commitment.Height+1 {
-			w.reachedOneStepFork <- struct{}{}
-			break
-		}
-		bisectedVertex, err := validator.bisect(ctx, currentVertex)
+		bisectedVertex, err := validator.bisect(ctx, current)
 		if err != nil {
 			// TODO: Find another way of cleanly ending the bisection process so that we do not
 			// end on a scary "state did not allow this operation" log.
@@ -95,8 +140,15 @@ func (w *challengeWorker) actOnBlockChallenge(
 			}
 			return err
 		}
-		currentVertex = bisectedVertex
-		w.createdVertices.Append(currentVertex)
+		current = bisectedVertex
+		hasPresumptiveSuccessor = current.IsPresumptiveSuccessor()
+		w.createdVertices.Append(current)
+
+		// If we have reached a one-step-fork, we send a notification to a channel.
+		if current.Commitment.Height == current.Prev.Commitment.Height+1 {
+			w.reachedOneStepFork <- struct{}{}
+			return nil
+		}
 	}
 	return nil
 }
