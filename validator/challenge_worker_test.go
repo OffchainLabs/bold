@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
@@ -10,12 +11,92 @@ import (
 	"github.com/OffchainLabs/new-rollup-exploration/testing/mocks"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetOutput(io.Discard)
+}
+
+func Test_actOnBlockChallenge(t *testing.T) {
+}
+
 func Test_bisectWhileNonPresumptive(t *testing.T) {
-	t.Run("has presumptive successor, no action taken", func(t *testing.T) {
+	ctx := context.Background()
+	t.Run("has presumptive successor no action taken", func(t *testing.T) {
+		logsHook := test.NewGlobal()
+		stateRoots := generateStateRoots(10)
+		manager := statemanager.New(stateRoots)
+		leaf1, leaf2, validator := createTwoValidatorFork(t, ctx, manager, stateRoots)
+
+		// Should first process leaf creation through the validator
+		// which should result in the validator taking challenge actions on those
+		// leaves by interacting with the chain. We assert an challenge log
+		// has indeed been emitted.
+		err := validator.onLeafCreated(ctx, leaf1)
+		require.NoError(t, err)
+		err = validator.onLeafCreated(ctx, leaf2)
+		require.NoError(t, err)
+		AssertLogsContain(t, logsHook, "New leaf appended")
+		AssertLogsContain(t, logsHook, "New leaf appended")
+		AssertLogsContain(t, logsHook, "Successfully created challenge and added leaf")
+
+		historyCommit, err := validator.stateManager.HistoryCommitmentUpTo(
+			ctx,
+			leaf1.StateCommitment.Height,
+		)
+		require.NoError(t, err)
+
+		genesisCommit := protocol.StateCommitment{
+			Height:    0,
+			StateRoot: common.Hash{},
+		}
+
+		// Upon creating a challenge, we should have added a challenge vertex to it.
+		// However, because this test only has a single validator, we will
+		// add the second challenge vertex as well.
+		id := protocol.CommitHash(genesisCommit.Hash())
+		var vertexHeight5 *protocol.ChallengeVertex
+		var vertexHeight6 *protocol.ChallengeVertex
+		err = validator.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+			height5SeqNum := protocol.AssertionSequenceNumber(1)
+			assertion, fetchErr := p.AssertionBySequenceNum(tx, height5SeqNum)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			challenge, challErr := p.ChallengeByCommitHash(tx, id)
+			if challErr != nil {
+				return challErr
+			}
+			vertexHeight5, err = challenge.AddLeaf(
+				tx, assertion, historyCommit, validator.address,
+			)
+			if err != nil {
+				return err
+			}
+			vertexHeight6, err = p.ChallengeVertexBySequenceNum(
+				tx,
+				id,
+				protocol.VertexSequenceNumber(1),
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotNil(t, vertexHeight5)
+		_ = vertexHeight6
+
+		w := &blockChallengeWorker{
+			createdVertices: util.NewThreadSafeSlice[*protocol.ChallengeVertex](),
+		}
+		err = w.bisectWhileNonPresumptive(ctx, validator, vertexHeight5)
+		require.NoError(t, err)
+		AssertLogsContain(t, logsHook, "Has presumptive successor, not acting")
 	})
 	t.Run("bisects three times until presumptive", func(t *testing.T) {
 	})

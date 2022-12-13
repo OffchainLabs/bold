@@ -49,6 +49,7 @@ func (w *blockChallengeWorker) actOnBlockChallenge(
 		return nil
 	}
 	if w.createdVertices.Empty() {
+		log.Debug("No created vertices, not acting during block challenge")
 		return nil
 	}
 	// Go down the tree to find the first vertex we created that has a commitment height >
@@ -64,8 +65,9 @@ func (w *blockChallengeWorker) actOnBlockChallenge(
 			return err
 		}
 		if err := validator.merge(ctx, mergingTo, mergingFrom); err != nil {
-			// TODO: Find a better way to exit if a merge is invalid than showing a scary log to the user.
-			// Validators currently try to make merge moves they should not during the challenge game.
+			// TODO: Validators during our integration tests sometimes hit this error
+			// and perhaps we need a different way of preventing them from taking
+			// invalid actions in the first place.
 			if errors.Is(err, protocol.ErrInvalidOp) {
 				return nil
 			}
