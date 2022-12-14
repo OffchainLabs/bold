@@ -6,6 +6,7 @@ import (
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -30,7 +31,7 @@ func (v *Validator) bisect(
 
 	var bisectedVertex *protocol.ChallengeVertex
 	err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		proof, err := v.stateManager.PrefixProof(ctx, bisectTo, currentHeight)
+		proof, historyCommit, err := v.getProofAndHistoryCommit(ctx, bisectTo, currentHeight)
 		if err != nil {
 			return err
 		}
@@ -76,14 +77,15 @@ func (v *Validator) merge(
 	mergingTo *protocol.ChallengeVertex,
 	mergingFrom *protocol.ChallengeVertex,
 ) error {
-	mergingToHeight := mergingTo.Commitment.Height
+	newParentHeight := mergingTo.Commitment.Height
 	currentCommit := mergingFrom.Commitment
-	if err := v.verifyPrefixProofWithHeights(ctx, currentCommit, mergingTo.Commitment.Height, currentCommit.Height); err != nil {
+	currentHeight := currentCommit.Height
+	if err := v.verifyPrefixProofWithHeights(ctx, currentCommit, newParentHeight, currentHeight); err != nil {
 		return err
 	}
 
 	if err := v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		proof, err := v.stateManager.PrefixProof(ctx, mergingToHeight, currentCommit.Height)
+		proof, _, err := v.getProofAndHistoryCommit(ctx, newParentHeight, currentHeight)
 		if err != nil {
 			return err
 		}
@@ -94,7 +96,7 @@ func (v *Validator) merge(
 			"could not merge vertex with height %d and commit %#x to height %x and commit %#x",
 			currentCommit.Height,
 			currentCommit.Merkle,
-			mergingToHeight,
+			newParentHeight,
 			mergingTo.Commitment.Merkle,
 		)
 	}
@@ -110,16 +112,11 @@ func (v *Validator) merge(
 
 // verifies prefix proofs with heights and commitment.
 func (v *Validator) verifyPrefixProofWithHeights(ctx context.Context, commitment util.HistoryCommitment, fromHeight uint64, toHeight uint64) error {
-	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, fromHeight)
+	proof, historyCommit, err := v.getProofAndHistoryCommit(ctx, fromHeight, toHeight)
 	if err != nil {
-		return errors.Wrapf(err, "could not rertieve history commitment up to height %d", fromHeight)
+		return errors.Wrapf(err, "could not get proof and history commitment from height %d to %d", fromHeight, toHeight)
 	}
-	proof, err := v.stateManager.PrefixProof(ctx, fromHeight, toHeight)
-	if err != nil {
-		return errors.Wrapf(err, "generating prefix proof failed from height %d to %d", fromHeight, toHeight)
-	}
-	// Perform an extra safety check to ensure our proof verifies against the specified commitment
-	// before we make an on-chain transaction.
+	// Validate proof verifies against the specified commitment.
 	if err = util.VerifyPrefixProof(historyCommit, commitment, proof); err != nil {
 		return errors.Wrapf(
 			err,
@@ -129,4 +126,16 @@ func (v *Validator) verifyPrefixProofWithHeights(ctx context.Context, commitment
 		)
 	}
 	return nil
+}
+
+func (v *Validator) getProofAndHistoryCommit(ctx context.Context, fromHeight, toHeight uint64) ([]common.Hash, util.HistoryCommitment, error) {
+	proof, err := v.stateManager.PrefixProof(ctx, fromHeight, toHeight)
+	if err != nil {
+		return nil, util.HistoryCommitment{}, err
+	}
+	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, fromHeight)
+	if err != nil {
+		return nil, util.HistoryCommitment{}, err
+	}
+	return proof, historyCommit, nil
 }
