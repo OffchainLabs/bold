@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
@@ -204,7 +205,7 @@ func runBisectionTest(
 
 	bisectedVertex, err := validator.bisect(ctx, vertexToBisect)
 	require.NoError(t, err)
-
+	fmt.Println(bisectedVertex)
 	bisectionHeight := uint64(4)
 	loExp := util.ExpansionFromLeaves(stateRoots[:bisectionHeight])
 	bisectionCommit := util.HistoryCommitment{

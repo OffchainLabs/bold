@@ -17,33 +17,23 @@ func (v *Validator) bisect(
 	ctx context.Context,
 	validatorChallengeVertex *protocol.ChallengeVertex,
 ) (*protocol.ChallengeVertex, error) {
-	toHeight := validatorChallengeVertex.Commitment.Height
+	currentHeight := validatorChallengeVertex.Commitment.Height
 	parentHeight := validatorChallengeVertex.Prev.Commitment.Height
+	bisectTo, err := util.BisectionPoint(parentHeight, currentHeight)
+	if err != nil {
+		return nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", parentHeight, currentHeight)
+	}
+	historyCommit := validatorChallengeVertex.Commitment
+	if err := v.verifyPrefixProofWithHeights(ctx, historyCommit, bisectTo, currentHeight); err != nil {
+		return nil, err
+	}
 
-	bisectTo, err := util.BisectionPoint(parentHeight, toHeight)
-	if err != nil {
-		return nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", parentHeight, toHeight)
-	}
-	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, bisectTo)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not rertieve history commitment up to height %d", bisectTo)
-	}
-	proof, err := v.stateManager.PrefixProof(ctx, bisectTo, toHeight)
-	if err != nil {
-		return nil, errors.Wrapf(err, "generating prefix proof failed from height %d to %d", bisectTo, toHeight)
-	}
-	// Perform an extra safety check to ensure our proof verifies against the specified commitment
-	// before we make an on-chain transaction.
-	if err = util.VerifyPrefixProof(historyCommit, validatorChallengeVertex.Commitment, proof); err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"prefix proof failed to verify for commit %+v to commit %+v",
-			historyCommit,
-			validatorChallengeVertex.Commitment,
-		)
-	}
 	var bisectedVertex *protocol.ChallengeVertex
 	err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		proof, err := v.stateManager.PrefixProof(ctx, bisectTo, currentHeight)
+		if err != nil {
+			return err
+		}
 		bisectedVertex, err = validatorChallengeVertex.Bisect(tx, historyCommit, proof, v.address)
 		if err != nil {
 			return err
@@ -87,19 +77,16 @@ func (v *Validator) merge(
 	mergingFrom *protocol.ChallengeVertex,
 ) error {
 	mergingToHeight := mergingTo.Commitment.Height
-	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, mergingToHeight)
-	if err != nil {
-		return err
-	}
 	currentCommit := mergingFrom.Commitment
-	proof, err := v.stateManager.PrefixProof(ctx, mergingToHeight, currentCommit.Height)
-	if err != nil {
+	if err := v.verifyPrefixProofWithHeights(ctx, currentCommit, mergingTo.Commitment.Height, currentCommit.Height); err != nil {
 		return err
 	}
-	if err := util.VerifyPrefixProof(historyCommit, currentCommit, proof); err != nil {
-		return err
-	}
+
 	if err := v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		proof, err := v.stateManager.PrefixProof(ctx, mergingToHeight, currentCommit.Height)
+		if err != nil {
+			return err
+		}
 		return mergingFrom.Merge(tx, mergingTo, proof, v.address)
 	}); err != nil {
 		return errors.Wrapf(
@@ -118,5 +105,28 @@ func (v *Validator) merge(
 		mergingTo.Commitment.Height,
 		mergingTo.Commitment.Merkle,
 	)
+	return nil
+}
+
+// verifies prefix proofs with heights and commitment.
+func (v *Validator) verifyPrefixProofWithHeights(ctx context.Context, commitment util.HistoryCommitment, fromHeight uint64, toHeight uint64) error {
+	historyCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, fromHeight)
+	if err != nil {
+		return errors.Wrapf(err, "could not rertieve history commitment up to height %d", fromHeight)
+	}
+	proof, err := v.stateManager.PrefixProof(ctx, fromHeight, toHeight)
+	if err != nil {
+		return errors.Wrapf(err, "generating prefix proof failed from height %d to %d", fromHeight, toHeight)
+	}
+	// Perform an extra safety check to ensure our proof verifies against the specified commitment
+	// before we make an on-chain transaction.
+	if err = util.VerifyPrefixProof(historyCommit, commitment, proof); err != nil {
+		return errors.Wrapf(
+			err,
+			"prefix proof failed to verify for commit %+v to commit %+v",
+			historyCommit,
+			commitment,
+		)
+	}
 	return nil
 }
