@@ -25,13 +25,14 @@ func (v *Validator) bisect(
 		return nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", parentHeight, currentHeight)
 	}
 	historyCommit := validatorChallengeVertex.Commitment
-	if err := v.verifyPrefixProofWithHeights(ctx, historyCommit, bisectTo, currentHeight); err != nil {
+	if err = v.verifyPrefixProofWithHeights(ctx, historyCommit, bisectTo, currentHeight); err != nil {
 		return nil, err
 	}
 
 	var bisectedVertex *protocol.ChallengeVertex
 	err = v.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		proof, historyCommit, err := v.getProofAndHistoryCommit(ctx, bisectTo, currentHeight)
+		var proof []common.Hash
+		proof, historyCommit, err = v.getProofAndHistoryCommit(ctx, bisectTo, currentHeight)
 		if err != nil {
 			return err
 		}
