@@ -82,6 +82,7 @@ type EventProvider interface {
 // and a previous assertion.
 type AssertionManager interface {
 	Inbox() *Inbox
+	TimeReference() util.TimeReference
 	NumAssertions(tx *ActiveTx) uint64
 	AssertionBySequenceNum(tx *ActiveTx, seqNum AssertionSequenceNumber) (*Assertion, error)
 	ChallengeByCommitHash(tx *ActiveTx, commitHash ChallengeCommitHash) (*Challenge, error)

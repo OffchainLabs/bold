@@ -68,6 +68,10 @@ func (m *MockProtocol) Call(clo func(*protocol.ActiveTx, protocol.OnChainProtoco
 	return clo(&protocol.ActiveTx{}, m)
 }
 
+func (m *MockProtocol) TimeReference() util.TimeReference {
+	return util.NewRealTimeReference()
+}
+
 func (m *MockProtocol) SubscribeChainEvents(ctx context.Context, ch chan<- protocol.AssertionChainEvent) {
 }
 

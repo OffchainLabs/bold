@@ -109,6 +109,13 @@ func New(
 	stateManager statemanager.Manager,
 	opts ...Opt,
 ) (*Validator, error) {
+	var timeRef util.TimeReference
+	if err := chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		timeRef = p.TimeReference()
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 	v := &Validator{
 		chain:                                  chain,
 		stateManager:                           stateManager,
@@ -118,7 +125,7 @@ func New(
 		createdLeaves:                          make(map[common.Hash]*protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]protocol.AssertionSequenceNumber),
 		assertions:                             make(map[protocol.AssertionSequenceNumber]*protocol.CreateLeafEvent),
-		timeRef:                                util.NewRealTimeReference(),
+		timeRef:                                timeRef,
 		challengeVertexWakeInterval:            time.Millisecond * 100,
 	}
 	for _, o := range opts {
