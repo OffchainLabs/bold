@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 
@@ -661,6 +662,7 @@ func (c *Challenge) AddLeaf(tx *ActiveTx, assertion *Assertion, history util.His
 		return nil, ErrPastDeadline
 	}
 	if c.includedHistories[history.Hash()] {
+		fmt.Println("in here")
 		return nil, errors.Wrapf(ErrVertexAlreadyExists, fmt.Sprintf("Hash: %s", history.Hash().String()))
 	}
 
@@ -954,13 +956,20 @@ type vizNode struct {
 	dotNode   dot.Node
 }
 
+type vizNodeChallengeVertex struct {
+	parent    util.Option[*ChallengeVertex]
+	assertion *ChallengeVertex
+	dotNode   dot.Node
+}
+
 // Visualize returns a graphviz string for the current assertion chain tree.
 func (chain *AssertionChain) Visualize() string {
 	graph := dot.NewGraph(dot.Directed)
-	graph.Attr("rankdir", "RL")
+	graph.Attr("rankdir", "TB")
 	graph.Attr("labeljust", "l")
 
 	assertions := chain.assertions
+
 	// Construct nodes
 	m := make(map[[32]byte]*vizNode)
 	for i := 0; i < len(assertions); i++ {
@@ -993,5 +1002,64 @@ func (chain *AssertionChain) Visualize() string {
 			}
 		}
 	}
+
 	return graph.String()
+}
+
+// Visualize returns a graphviz string for the current assertion chain tree.
+func (chain *AssertionChain) VisualizeChallenges() string {
+	graph := dot.NewGraph(dot.Directed)
+	graph.Attr("rankdir", "TB")
+	graph.Attr("labeljust", "l")
+
+	m2 := make(map[[32]byte]*vizNodeChallengeVertex)
+	nodesByHeight := make(map[uint64][]dot.Node)
+
+	for _, challenge := range chain.challengeVerticesByCommitHash {
+		for _, cv := range challenge {
+
+			rStr := hexutil.Encode(cv.Commitment.Hash().Bytes())
+			label := fmt.Sprintf(
+				"height: %d\n commitment: %#x\n validator: %#x\n",
+				cv.Commitment.Height,
+				cv.Commitment.Hash().Bytes()[0:4],
+				cv.Validator.Bytes()[16:20],
+			)
+			dotN := graph.Node(rStr).Box().Attr("label", label)
+
+			m2[cv.Commitment.Hash()] = &vizNodeChallengeVertex{
+				parent:    cv.Prev,
+				assertion: cv,
+				dotNode:   dotN,
+			}
+			currentNodesByHeight := nodesByHeight[cv.Commitment.Height]
+			if len(currentNodesByHeight) == 0 {
+				newNodes := make([]dot.Node, 0)
+				newNodes = append(newNodes, dotN)
+				nodesByHeight[cv.Commitment.Height] = newNodes
+			} else {
+				newNodes := append(currentNodesByHeight, dotN)
+				nodesByHeight[cv.Commitment.Height] = newNodes
+			}
+
+		}
+	}
+
+	for k, v := range nodesByHeight {
+		kString := strconv.FormatUint(k, 10)
+		graph.AddToSameRank(kString, v...)
+	}
+
+	for _, n := range m2 {
+		if !n.parent.IsNone() {
+			parentHash := n.parent.Unwrap().Commitment.Hash()
+			if _, ok := m2[parentHash]; ok {
+				graph.Edge(n.dotNode, m2[parentHash].dotNode)
+			}
+		}
+	}
+
+	diString := graph.String()
+	fmt.Println(diString)
+	return diString
 }

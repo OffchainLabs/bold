@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/new-rollup-exploration/protocol"
-	"github.com/OffchainLabs/new-rollup-exploration/state-manager"
+	statemanager "github.com/OffchainLabs/new-rollup-exploration/state-manager"
 	"github.com/OffchainLabs/new-rollup-exploration/util"
 	"github.com/OffchainLabs/new-rollup-exploration/validator"
 	"github.com/OffchainLabs/new-rollup-exploration/web"
@@ -50,8 +50,10 @@ func defaultConfig() *config {
 		ChallengePeriod:             time.Minute,
 		ChallengeVertexWakeInterval: time.Second,
 		DivergenceHeightByValidatorIndex: map[uint8]uint64{
-			0: 3,
-			1: 3,
+			0: 4,
+			1: 5,
+			2: 6,
+			3: 7,
 		},
 	}
 }
@@ -150,6 +152,23 @@ func (s *server) triggerAssertionCreation(c echo.Context) error {
 	return nil
 }
 
+func (s *server) triggerAssertionCreation2(index uint8) error {
+	if int(index) >= len(s.validators) {
+		// http.Error(w, "Validator index out of range", http.StatusBadRequest)
+		return nil
+	}
+	s.lock.RLock()
+	v := s.validators[index]
+	s.lock.RUnlock()
+	_, err := v.SubmitLeafCreation(s.ctx)
+	if err != nil {
+		log.WithError(err).Error("Failed to create a new assertion leaf")
+		// http.Error(w, "Assertion creation failed", http.StatusInternalServerError)
+		return nil
+	}
+	return nil
+}
+
 func (s *server) registerWebsocketConnection(c echo.Context) error {
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -177,16 +196,18 @@ func (s *server) startBackgroundRoutines(ctx context.Context, cfg *config) {
 
 	go s.sendChainEventsToClients(ctx, challengeObserver, chainObserver)
 
-	for _, v := range validators {
+	for i, v := range validators {
 		go v.Start(ctx)
+		s.triggerAssertionCreation2(uint8(i))
 	}
 	log.Infof("Started application background routines successfully with config %+v", s.cfg)
 }
 
 type event struct {
-	Typ      string `json:"typ"`
-	Contents string `json:"contents"`
-	Vis      string `json:"vis"`
+	Typ           string `json:"typ"`
+	Contents      string `json:"contents"`
+	Vis           string `json:"vis"`
+	VisChallenege string `json:"visChallenge"`
 }
 
 func (s *server) sendChainEventsToClients(
@@ -199,11 +220,13 @@ func (s *server) sendChainEventsToClients(
 		case ev := <-chalEvs:
 			log.Infof("Got challenge event: %+T, and %+v", ev, ev)
 			vis := s.chain.Visualize()
+			visChallenge := s.chain.VisualizeChallenges()
 			s.lock.RLock()
 			eventToSend := &event{
-				Typ:      fmt.Sprintf("%+T", ev),
-				Contents: fmt.Sprintf("%+v", ev),
-				Vis:      vis,
+				Typ:           fmt.Sprintf("%+T", ev),
+				Contents:      fmt.Sprintf("%+v", ev),
+				Vis:           vis,
+				VisChallenege: visChallenge,
 			}
 			enc, err := json.Marshal(eventToSend)
 			if err != nil {
@@ -224,11 +247,13 @@ func (s *server) sendChainEventsToClients(
 		case ev := <-chainEvs:
 			log.Infof("Got chain event: %+T, and %+v", ev, ev)
 			vis := s.chain.Visualize()
+			visChallenge := s.chain.VisualizeChallenges()
 			s.lock.RLock()
 			eventToSend := &event{
-				Typ:      fmt.Sprintf("%+T", ev),
-				Contents: fmt.Sprintf("%+v", ev),
-				Vis:      vis,
+				Typ:           fmt.Sprintf("%+T", ev),
+				Contents:      fmt.Sprintf("%+v", ev),
+				Vis:           vis,
+				VisChallenege: visChallenge,
 			}
 			enc, err := json.Marshal(eventToSend)
 			if err != nil {

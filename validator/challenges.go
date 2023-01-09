@@ -145,7 +145,7 @@ func (v *Validator) addChallengeVertex(
 	}); err != nil {
 		return nil, errors.Wrapf(
 			err,
-			"could add challenge vertex to challenge with parent state commitment: height=%d, stateRoot=%#x",
+			"could not add challenge vertex to challenge with parent state commitment: height=%d, stateRoot=%#x",
 			challenge.ParentStateCommitment().Height,
 			challenge.ParentStateCommitment().StateRoot,
 		)

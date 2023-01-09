@@ -3,21 +3,20 @@ import React, { useEffect, useState } from 'react';
 interface Data {
   typ: string;
   contents: string;
+  vis: string;
 }
 
 export const EventsComponent = () => {
   const [data, setData] = useState<Data[]>([]);
-
+  
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:8000/api/ws');
     socket.onmessage = (event: any) => {
       const item = JSON.parse(event.data);
-      const items = [...data, item];
-      console.log(items.length);
-      setData(items);
+      setData(prevData => [...prevData, item]);
     };
     return () => socket.close();
-  }, data);
+  }, []);
 
   let items: any = (<div>No events</div>);
   if (data.length > 0) {

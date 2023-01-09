@@ -2,15 +2,25 @@ import React, { useState, useEffect } from 'react';
 
 interface FormData {
   num_validators: number;
+  diverge_height_by_validator_index: { [ validator: number]: number};
 }
 
 export const SidebarConfig: React.FC = () => {
-  const [formData, setFormData] = useState<FormData>({ num_validators: 0 });
+  const [formData, setFormData] = useState<FormData>({ num_validators: 0, diverge_height_by_validator_index: 
+    {
+    0: 3,
+    1: 3,
+  }  });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData({ ...formData, num_validators: parseInt(event.target.value) });
+      setFormData({ ...formData, 
+        num_validators: parseInt(event.target.value), 
+        diverge_height_by_validator_index: {
+          0: 3, 1: 5, 2: 7, 3:2 
+        }
+       });
   };
 
   useEffect(() => {
@@ -40,7 +50,7 @@ export const SidebarConfig: React.FC = () => {
       }
       // reset the form
       const resp: FormData = await response.json();
-      console.log(resp);
+      console.log("config update", resp);
       setFormData(resp);
     } catch (e: any) {
       setError(e.message)
