@@ -8,6 +8,5 @@ contract AssertionChainTest is Test {
     AssertionChain public chain;
 
     function setUp() public {
-        chain = new AssertionChain();
     }
 }
