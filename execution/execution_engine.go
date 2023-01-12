@@ -8,40 +8,48 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Capsule API description:
-//
-// BlockGenerator generates the blocks that make up a chain.
-// NewBlockGenerator(maxInstructionsPerBlock uint64) creates a block generator
-//      each block will use up to maxInstructionsPerBlock instructions of execution (randomly varying)
-//
-// blockGenerator.BlockHash(blockNum) gets the block hash of blockNum
-// blockGenerator.NewExecutionEngine(blockNum) creates an execution engine for the state transition function
-//      execution that creates blockNum (starting with the state at blockNum-1
-//
-// executionEngine.NumSteps() returns the number of steps of execution to create that block
-// executionEngine.StateAfter(num) returns the ExecutionState after executing num instructions (or error)
-//
-// executionState.Hash() gets the state root of executionState
-// executionState.NextState() gets the execution state after executing one instruction from executionState
-// executionState.OneStepProof() generates a one-step proof for executing one instruction from executionState
-//
-// VerifyOneStepProof(beforeStateRoot, claimedAfterStateRoot, proof) verifies a one-step proof
-
 var OutOfBoundsError = errors.New("instruction number out of bounds")
 
-type BlockGenerator struct {
+type Engine interface {
+	// Gets the state root of the execution state.
+	MachineHash() common.Hash
+	BlockHash(blockNum uint64) common.Hash
+	MachineIterator
+	OneStepProver
+}
+
+type MachineIterator interface {
+	IsStopped() bool
+	// NumSteps returns the number of steps of execution to create that block.
+	NumSteps() uint64
+	// NextState gets the execution state after executing one instruction from an execution state.
+	NextState() (*ExecutionState, error)
+	// StateAfter returns the ExecutionState after executing num instructions.
+	StateAfter(num uint64) (*ExecutionState, error)
+}
+
+// OneStepProver generates a one-step proof for executing one instruction from
+// an execution state.
+type OneStepProver interface {
+	OneStepProof() ([]byte, error)
+}
+
+// SimulatedBlockGenerator generates the blocks that make up a chain.
+type SimulatedBlockGenerator struct {
 	stateRoots              []common.Hash
 	maxInstructionsPerBlock uint64
 }
 
-func NewBlockGenerator(maxInstructionsPerBlock uint64) *BlockGenerator {
-	return &BlockGenerator{
+// NewBlockGenerator(maxInstructionsPerBlock uint64) creates a block generator
+// each block will use up to maxInstructionsPerBlock instructions of execution (randomly varying).
+func NewBlockGenerator(maxInstructionsPerBlock uint64) *SimulatedBlockGenerator {
+	return &SimulatedBlockGenerator{
 		stateRoots:              []common.Hash{util.HashForUint(0)},
 		maxInstructionsPerBlock: maxInstructionsPerBlock,
 	}
 }
 
-func (gen *BlockGenerator) BlockHash(blockNum uint64) common.Hash {
+func (gen *SimulatedBlockGenerator) BlockHash(blockNum uint64) common.Hash {
 	for uint64(len(gen.stateRoots)) <= blockNum {
 		gen.stateRoots = append(
 			gen.stateRoots,
@@ -51,27 +59,27 @@ func (gen *BlockGenerator) BlockHash(blockNum uint64) common.Hash {
 	return gen.stateRoots[blockNum]
 }
 
-func (gen *BlockGenerator) NewExecutionEngine(blockNum uint64) (*ExecutionEngine, error) {
+func (gen *SimulatedBlockGenerator) NewExecutionEngine(blockNum uint64) (*SimulatedEngine, error) {
 	if blockNum == 0 {
 		return nil, errors.New("tried to make execution engine for genesis block")
 	}
 	startStateRoot := gen.BlockHash(blockNum - 1)
 	endStateRoot := gen.BlockHash(blockNum)
 	numSteps := binary.BigEndian.Uint64(crypto.Keccak256(startStateRoot.Bytes())[:8]) % (1 + gen.maxInstructionsPerBlock)
-	return &ExecutionEngine{
+	return &SimulatedEngine{
 		startStateRoot: startStateRoot,
 		endStateRoot:   endStateRoot,
 		numSteps:       numSteps,
 	}, nil
 }
 
-type ExecutionEngine struct {
+type SimulatedEngine struct {
 	startStateRoot common.Hash
 	endStateRoot   common.Hash
 	numSteps       uint64
 }
 
-func (engine *ExecutionEngine) serialize() []byte {
+func (engine *SimulatedEngine) serialize() []byte {
 	ret := []byte{}
 	ret = append(ret, engine.startStateRoot.Bytes()...)
 	ret = append(ret, engine.endStateRoot.Bytes()...)
@@ -79,31 +87,31 @@ func (engine *ExecutionEngine) serialize() []byte {
 	return ret
 }
 
-func deserializeExecutionEngine(buf []byte) (*ExecutionEngine, error) {
+func deserializeExecutionEngine(buf []byte) (*SimulatedEngine, error) {
 	if len(buf) != 32+32+8 {
 		return nil, errors.New("deserialization error")
 	}
-	return &ExecutionEngine{
+	return &SimulatedEngine{
 		startStateRoot: common.BytesToHash(buf[:32]),
 		endStateRoot:   common.BytesToHash(buf[32:64]),
 		numSteps:       binary.BigEndian.Uint64(buf[64:]),
 	}, nil
 }
 
-func (engine *ExecutionEngine) internalHash() common.Hash {
+func (engine *SimulatedEngine) internalHash() common.Hash {
 	return crypto.Keccak256Hash(engine.serialize())
 }
 
 type ExecutionState struct {
-	engine  *ExecutionEngine
+	engine  *SimulatedEngine
 	stepNum uint64
 }
 
-func (engine *ExecutionEngine) NumSteps() uint64 {
+func (engine *SimulatedEngine) NumSteps() uint64 {
 	return engine.numSteps
 }
 
-func (engine *ExecutionEngine) StateAfter(num uint64) (*ExecutionState, error) {
+func (engine *SimulatedEngine) StateAfter(num uint64) (*ExecutionState, error) {
 	if num > engine.numSteps {
 		return nil, OutOfBoundsError
 	}
@@ -143,6 +151,7 @@ func (execState *ExecutionState) OneStepProof() ([]byte, error) {
 	return ret, nil
 }
 
+// VerifyOneStepProof for a machine pre and post states.
 func VerifyOneStepProof(beforeStateRoot common.Hash, claimedAfterStateRoot common.Hash, proof []byte) bool {
 	if len(proof) < 8 {
 		return false
