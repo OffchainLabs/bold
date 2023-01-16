@@ -43,7 +43,7 @@ library ChallengeLib {
     struct Challenge {
         bytes32 stub;
     }
-    
+
     struct SegmentSelection {
         bytes32 stub;
     }

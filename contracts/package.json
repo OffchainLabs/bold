@@ -18,10 +18,15 @@
       "url": "https://github.com/offchainlabs/nitro/issues"
     },
     "scripts": {
+      "prettier:solidity": "prettier --write src/**/*.sol"
     },
     "dependencies": {
       "@openzeppelin/contracts": "4.5.0",
       "@openzeppelin/contracts-upgradeable": "4.5.2"
+    },
+    "devDependencies": {
+      "prettier": "^2.5.1",
+      "prettier-plugin-solidity": "1.0.0-beta.19"
     },
     "private": true
 }

@@ -17,7 +17,6 @@ abstract contract AbsRollupUserLogic is
     IRollupUserAbs,
     IChallengeResultReceiver
 {
-
     modifier onlyValidator() {
         revert("UNIMPLEMENTED");
         _;

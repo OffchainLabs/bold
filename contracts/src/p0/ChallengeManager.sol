@@ -14,7 +14,6 @@ import "../challenge/IChallengeManager.sol";
 import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
 
 contract ChallengeManager is DelegateCallAware, IChallengeManager {
-
     enum ChallengeModeRequirement {
         ANY,
         BLOCK,

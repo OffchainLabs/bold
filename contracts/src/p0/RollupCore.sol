@@ -20,7 +20,6 @@ import "../bridge/IInbox.sol";
 import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
 
 abstract contract RollupCore is IRollupCore, PausableUpgradeable {
-
     // Rollup Config
     uint64 public confirmPeriodBlocks;
     uint64 public extraChallengeTimeBlocks;
