@@ -33,10 +33,14 @@ struct Node {
 
 struct Config {
     bytes32 stub;
+    address stakeToken;
+    address owner;
 }
 
 struct ContractDependencies {
     bytes32 stub;
+    address rollupAdminLogic;
+    address rollupUserLogic;
 }
 
 library ChallengeLib {
