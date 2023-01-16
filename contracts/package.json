@@ -1,0 +1,28 @@
+{
+    "name": "new-rollup-contracts",
+    "version": "0.0.1",
+    "description": "",
+    "author": "Offchain Labs, Inc.",
+    "license": "BUSL-1.1",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/offchainlabs/nitro.git",
+      "directory": "contracts"
+    },
+    "files": [
+      "src/",
+      "scripts/build.bash",
+      "hardhat.prod-config.js"
+    ],
+    "bugs": {
+      "url": "https://github.com/offchainlabs/nitro/issues"
+    },
+    "scripts": {
+    },
+    "dependencies": {
+      "@openzeppelin/contracts": "4.5.0",
+      "@openzeppelin/contracts-upgradeable": "4.5.2"
+    },
+    "private": true
+}
+  
