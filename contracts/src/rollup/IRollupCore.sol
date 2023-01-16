@@ -4,8 +4,14 @@
 
 pragma solidity ^0.8.0;
 
-import "./Node.sol";
-import "./RollupLib.sol";
+// import "./Node.sol";
+// import "./RollupLib.sol";
+import "../libraries/IStub.sol";
+import "../bridge/IBridge.sol";
+import "../bridge/ISequencerInbox.sol";
+import "../bridge/IOutbox.sol";
+import "../rollup/IRollupEventInbox.sol";
+import "../challenge/IChallengeManager.sol";
 
 interface IRollupCore {
     struct Staker {

@@ -4,14 +4,14 @@
 
 pragma solidity ^0.8.0;
 
-import "../state/Machine.sol";
+// import "../state/Machine.sol";
 import "../bridge/IBridge.sol";
 import "../bridge/ISequencerInbox.sol";
 import "../osp/IOneStepProofEntry.sol";
 
 import "./IChallengeResultReceiver.sol";
 
-import "./ChallengeLib.sol";
+// import "./ChallengeLib.sol";
 
 interface IChallengeManager {
     enum ChallengeTerminationType {

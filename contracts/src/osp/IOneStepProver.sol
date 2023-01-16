@@ -4,9 +4,10 @@
 
 pragma solidity ^0.8.0;
 
-import "../state/Machine.sol";
-import "../state/Module.sol";
-import "../state/Instructions.sol";
+// import "../state/Machine.sol";
+// import "../state/Module.sol";
+// import "../state/Instructions.sol";
+import "../libraries/IStub.sol";
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IBridge.sol";
 
