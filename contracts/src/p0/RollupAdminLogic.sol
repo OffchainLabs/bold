@@ -21,7 +21,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         onlyProxy
         initializer
     {
-        revert("UNIMPLEMENTED");
+        // revert("UNIMPLEMENTED");
     }
 
     function createInitialNode() private view returns (Node memory) {

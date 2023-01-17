@@ -299,7 +299,7 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
     /// @dev the user logic just validated configuration and shouldn't write to state during init
     /// this allows the admin logic to ensure consistency on parameters.
     function initialize(address _stakeToken) external view override onlyProxy {
-        revert("UNIMPLEMENTED");
+        // revert("UNIMPLEMENTED");
     }
 
     /**
