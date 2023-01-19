@@ -146,6 +146,39 @@ func (v *Validator) Start(ctx context.Context) {
 	).Info("Started validator client")
 }
 
+func (v *Validator) syncFromLatestConfirmed(ctx context.Context) {
+	var latestConfirmed *protocol.Assertion
+	_ = v.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
+		totalSeq := p.NumAssertions(tx)
+		latestConfirmed = p.LatestConfirmed(tx)
+		// Start from latest confirmed seq num until total seq num.
+		for i := uint64(latestConfirmed.SequenceNum + 1); i < totalSeq; i++ {
+			// Check every assertion to see if it's a challenge.
+			a, err := p.AssertionBySequenceNum(tx, protocol.AssertionSequenceNumber(i))
+			if err != nil {
+				return err
+			}
+			if a.Challenge.IsNone() {
+				continue
+			}
+			challenge := a.Challenge.Unwrap()
+
+			// For every challenge, start a new tracker routine based on new vertex leaf.
+			challengeVertex, err := v.addChallengeVertex(ctx, challenge)
+			if err != nil {
+				switch {
+				// If the vertex already exists, then `challengeVertex` would be the one to use.
+				case errors.Is(err, protocol.ErrVertexAlreadyExists):
+				default:
+					return err
+				}
+			}
+			go newVertexTracker(v.timeRef, v.challengeVertexWakeInterval, challenge, challengeVertex, v).track(ctx)
+		}
+		return nil
+	})
+}
+
 func (v *Validator) prepareLeafCreationPeriodically(ctx context.Context) {
 	ticker := time.NewTicker(v.createLeafInterval)
 	defer ticker.Stop()

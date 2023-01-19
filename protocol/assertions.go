@@ -182,7 +182,7 @@ type Assertion struct {
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
 	secondChildCreationTime util.Option[time.Time]
-	challenge               util.Option[*Challenge]
+	Challenge               util.Option[*Challenge]
 }
 
 // StateCommitment is a type used to represent the state commitment of an assertion.
@@ -210,7 +210,7 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 		isFirstChild:            false,
 		firstChildCreationTime:  util.None[time.Time](),
 		secondChildCreationTime: util.None[time.Time](),
-		challenge:               util.None[*Challenge](),
+		Challenge:               util.None[*Challenge](),
 		Staker:                  util.None[common.Address](),
 	}
 
@@ -460,7 +460,7 @@ func (chain *AssertionChain) CreateLeaf(tx *ActiveTx, prev *Assertion, commitmen
 		isFirstChild:            prev.firstChildCreationTime.IsNone(),
 		firstChildCreationTime:  util.None[time.Time](),
 		secondChildCreationTime: util.None[time.Time](),
-		challenge:               util.None[*Challenge](),
+		Challenge:               util.None[*Challenge](),
 		Staker:                  util.Some(staker),
 	}
 	if prev.firstChildCreationTime.IsNone() {
@@ -508,7 +508,7 @@ func (a *Assertion) RejectForLoss(tx *ActiveTx) error {
 	if a.Prev.IsNone() {
 		return ErrInvalidOp
 	}
-	chal := a.Prev.Unwrap().challenge
+	chal := a.Prev.Unwrap().Challenge
 	if chal.IsNone() {
 		return util.ErrOptionIsEmpty
 	}
@@ -571,10 +571,10 @@ func (a *Assertion) ConfirmForWin(tx *ActiveTx) error {
 	if prev.status != ConfirmedAssertionState {
 		return errors.Wrapf(ErrWrongPredecessorState, fmt.Sprintf("State: %d", a.Prev.Unwrap().status))
 	}
-	if prev.challenge.IsNone() {
+	if prev.Challenge.IsNone() {
 		return ErrWrongPredecessorState
 	}
-	winner, err := prev.challenge.Unwrap().Winner(tx)
+	winner, err := prev.Challenge.Unwrap().Winner(tx)
 	if err != nil {
 		return err
 	}
@@ -606,7 +606,7 @@ func (a *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, validator
 	if a.status != PendingAssertionState && a.chain.LatestConfirmed(tx) != a {
 		return nil, errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d, Confirmed status: %v", a.status, a.chain.LatestConfirmed(tx) != a))
 	}
-	if !a.challenge.IsNone() {
+	if !a.Challenge.IsNone() {
 		return nil, ErrChallengeAlreadyExists
 	}
 	if a.secondChildCreationTime.IsNone() {
@@ -639,7 +639,7 @@ func (a *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, validator
 	}
 	rootVertex.Challenge = util.Some(chal)
 	chal.includedHistories[rootVertex.Commitment.Hash()] = true
-	a.challenge = util.Some(chal)
+	a.Challenge = util.Some(chal)
 	parentStaker := common.Address{}
 	if !a.Staker.IsNone() {
 		parentStaker = a.Staker.Unwrap()
