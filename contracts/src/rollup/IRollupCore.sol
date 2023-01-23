@@ -12,6 +12,7 @@ import "../bridge/ISequencerInbox.sol";
 import "../bridge/IOutbox.sol";
 import "../rollup/IRollupEventInbox.sol";
 import "../challenge/IChallengeManager.sol";
+import "../p0/RollupLib.sol";
 
 interface IRollupCore {
     struct Staker {

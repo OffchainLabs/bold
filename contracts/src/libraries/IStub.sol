@@ -50,9 +50,3 @@ library ChallengeLib {
         bytes32 stub;
     }
 }
-
-library RollupLib {
-    struct Assertion {
-        bytes32 stub;
-    }
-}
