@@ -18,9 +18,8 @@ interface IRollupCore {
     struct Staker {
         uint256 amountStaked;
         uint64 index;
-        uint64 latestStakedNode;
-        // currentChallenge is 0 if staker is not in a challenge
-        uint64 currentChallenge;
+        uint64 latestStakedAssertion;
+        // removed currentChallenge
         bool isStaked;
     }
 

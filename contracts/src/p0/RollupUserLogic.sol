@@ -18,7 +18,7 @@ abstract contract AbsRollupUserLogic is
     IChallengeResultReceiver
 {
     modifier onlyValidator() {
-        revert("UNIMPLEMENTED");
+        require(isValidator[msg.sender] || validatorWhitelistDisabled, "NOT_VALIDATOR");
         _;
     }
 
@@ -76,7 +76,12 @@ abstract contract AbsRollupUserLogic is
      * @param depositAmount The amount of either eth or tokens staked
      */
     function _newStake(uint256 depositAmount) internal onlyValidator whenNotPaused {
-        revert("UNIMPLEMENTED");
+        // Verify that sender is not already a staker
+        require(!isStaked(msg.sender), "ALREADY_STAKED");
+        require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
+        require(depositAmount >= currentRequiredStake(), "NOT_ENOUGH_STAKE");
+
+        createNewStake(msg.sender, depositAmount);
     }
 
     /**
@@ -103,6 +108,44 @@ abstract contract AbsRollupUserLogic is
         uint256 prevNodeInboxMaxCount
     ) public onlyValidator whenNotPaused {
         revert("UNIMPLEMENTED");
+    }
+
+    function stakeOnNewAssertion(
+        bytes32 prevHash,
+        RollupLib.StateCommitment calldata stateCommitment
+    ) public onlyValidator whenNotPaused {
+        // seems not required anymore?
+        // require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
+
+        // Ensure staker is staked on the previous node
+        uint64 prevNode = latestStakedAssertion(msg.sender);
+
+        {
+            uint256 timeSinceLastNode = block.number - getNode(prevNode).createdAtBlock;
+            // Verify that assertion meets the minimum Delta time requirement
+            require(timeSinceLastNode >= minimumAssertionPeriod, "TIME_DELTA");
+
+            // Minimum size requirement: any assertion must consume at least all inbox messages
+            // put into L1 inbox before the prev node’s L1 blocknum.
+            // We make an exception if the machine enters the errored state,
+            // as it can't consume future batches.
+            require(
+                assertion.afterState.machineStatus == MachineStatus.ERRORED ||
+                    assertion.afterState.globalState.getInboxPosition() == prevNodeInboxMaxCount,
+                "TOO_SMALL"
+            );
+            // Minimum size requirement: any assertion must contain at least one block
+            require(assertion.numBlocks > 0, "EMPTY_ASSERTION");
+
+            // The rollup cannot advance normally from an errored state
+            require(
+                assertion.beforeState.machineStatus == MachineStatus.FINISHED,
+                "BAD_PREV_STATUS"
+            );
+        }
+        createNewAssertion(prevHash, stateCommitment);
+
+        stakeOnNode(msg.sender, latestNodeCreated());
     }
 
     /**
@@ -244,7 +287,7 @@ abstract contract AbsRollupUserLogic is
     }
 
     function currentRequiredStake() public view returns (uint256) {
-        revert("UNIMPLEMENTED");
+        return 1 ether;
     }
 
     /**
@@ -323,6 +366,14 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
         uint256 prevNodeInboxMaxCount
     ) external payable override {
         revert("UNIMPLEMENTED");
+    }
+
+    function newStakeOnNewAssertion(
+        bytes32 prevHash,
+        RollupLib.StateCommitment calldata stateCommitment
+    ) external payable override {
+        _newStake(msg.value);
+        stakeOnNewAssertion(prevHash, stateCommitment);
     }
 
     /**

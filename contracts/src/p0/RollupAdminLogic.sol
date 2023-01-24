@@ -21,7 +21,10 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         onlyProxy
         initializer
     {
-        // revert("UNIMPLEMENTED");
+        RollupLib.Assertion memory assertion;
+        assertion.stateCommitment.stateRoot = GENESIS_STATE_ROOT;
+        minimumAssertionPeriod = 75;
+        initializeCore(assertion);
     }
 
     function createInitialNode() private view returns (Node memory) {
@@ -111,7 +114,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      * @param newPeriod new minimum period for assertions
      */
     function setMinimumAssertionPeriod(uint256 newPeriod) external override {
-        revert("UNIMPLEMENTED");
+        minimumAssertionPeriod = newPeriod;
+        emit OwnerFunctionCalled(8);
     }
 
     /**
@@ -226,6 +230,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      * @param _validatorWhitelistDisabled new value of validatorWhitelistDisabled, i.e. true = disabled
      */
     function setValidatorWhitelistDisabled(bool _validatorWhitelistDisabled) external {
-        revert("UNIMPLEMENTED");
+        validatorWhitelistDisabled = _validatorWhitelistDisabled;
+        emit OwnerFunctionCalled(30);
     }
 }

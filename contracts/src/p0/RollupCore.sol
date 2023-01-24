@@ -72,6 +72,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     bool public validatorWhitelistDisabled;
 
+    // Add new storage variables for new rollup below
+    mapping(bytes32 => RollupLib.Assertion) private _assertions;
+    uint64 private _latestCreatedAssertion;
+    uint64 private _latestConfirmedAssertion;
+    bytes32 internal constant GENESIS_STATE_ROOT = keccak256('GENESIS_STATE_ROOT');
+
     /**
      * @notice Get a storage reference to the Node for the given node index
      * @param nodeNum Index of the node
@@ -81,11 +87,19 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         revert("UNIMPLEMENTED");
     }
 
+    function getAssertionStorage(uint64 seqNum) internal view returns (Assertion storage) {
+        return _assertions[seqNum];
+    }
+
     /**
      * @notice Get the Node for the given index.
      */
     function getNode(uint64 nodeNum) public view override returns (Node memory) {
         revert("UNIMPLEMENTED");
+    }
+
+    function getAssertion(uint64 seqNum) public view override returns (Assertion memory) {
+        return getAssertionStorage(seqNum);
     }
 
     /**
@@ -111,7 +125,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return True or False for whether the staker was staked
      */
     function isStaked(address staker) public view override returns (bool) {
-        revert("UNIMPLEMENTED");
+        return _stakerMap[staker].isStaked;
     }
 
     /**
@@ -131,6 +145,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function latestStakedNode(address staker) public view override returns (uint64) {
         revert("UNIMPLEMENTED");
+    }
+
+    function latestStakedAssertion(address staker) public view override returns (uint64) {
+        return _stakerMap[staker].latestStakedAssertion;
     }
 
     /**
@@ -193,7 +211,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function isZombie(address staker) public view override returns (bool) {
-        revert("UNIMPLEMENTED");
+        for (uint256 i = 0; i < _zombies.length; i++) {
+            if (staker == _zombies[i].stakerAddress) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -235,10 +258,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     /**
      * @notice Initialize the core with an initial node
-     * @param initialNode Initial node to start the chain with
+     * @param initialAssertion Initial assertion to start the chain with
      */
-    function initializeCore(Node memory initialNode) internal {
-        revert("UNIMPLEMENTED");
+    function initializeCore(RollupLib.Assertion memory initialAssertion) internal {
+        __Pausable_init();
+        initialAssertion.seqNum = 0;
+        _assertions[RollupLib.stateCommitmentHash(initialAssertion.stateCommitment)] = initialAssertion;
     }
 
     /**
@@ -268,7 +293,17 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param depositAmount Stake amount of the new staker
      */
     function createNewStake(address stakerAddress, uint256 depositAmount) internal {
-        revert("UNIMPLEMENTED");
+        uint64 stakerIndex = uint64(_stakerList.length);
+        _stakerList.push(stakerAddress);
+        _stakerMap[stakerAddress] = Staker(
+            depositAmount,
+            stakerIndex,
+            _latestConfirmed,
+            true
+        );
+        _nodeStakers[_latestConfirmed][stakerAddress] = true;
+        _lastStakeBlock = uint64(block.number);
+        emit UserStakeUpdated(stakerAddress, 0, depositAmount);
     }
 
     /**
@@ -428,5 +463,47 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 expectedNodeHash
     ) internal returns (bytes32 newNodeHash) {
         revert("UNIMPLEMENTED");
+    }
+
+    // aka createAssertion
+    function createNewAssertion(
+        bytes32 prevHash,
+        RollupLib.StateCommitment calldata stateCommitment
+        // uint256 prevNodeInboxMaxCount,
+        // bytes32 expectedNodeHash
+    ) internal returns (bytes32 newAssertionHash) {
+        newAssertionHash = RollupLib.stateCommitmentHash(stateCommitment);
+        // TODO: make sure [0] is not used 
+        require(RollupLib.assertionIsNone(_assertions[newAssertionHash]), "ErrVertexAlreadyExists");
+
+        RollupLib.Assertion storage prev = _assertions[prevHash];
+
+        if(!RollupLib.assertionIsNone(_assertions[prev.prev])){ // not genesis
+            // The parent must exist on-chain.
+            require(!RollupLib.assertionIsNone(prev), "ErrParentDoesNotExist");
+            // No need to check parent sequence number becuase it is strictly increasing
+        }
+
+        require(prev.stateCommitment.height < stateCommitment.height, "ErrInvalidOp");
+
+        RollupLib.Assertion memory leaf = RollupLib.Assertion({
+            seqNum: ++_latestCreatedAssertion,
+            stateCommitment: stateCommitment,
+            staker: msg.sender,
+            prev: prevHash,
+            status: RollupLib.Status.Pending,
+            isFirstChild: prev.firstChildCreationBlock == 0,
+            firstChildCreationBlock: 0,
+            secondChildCreationBlock: 0,
+            challenge: bytes32(0),
+            createdAtBlock: uint64(block.number)
+        });
+        if(prev.firstChildCreationBlock == 0){
+            prev.firstChildCreationBlock = uint64(block.number);
+        }else if(prev.secondChildCreationBlock == 0){
+            prev.secondChildCreationBlock = uint64(block.number);
+        }
+
+        _assertions[newAssertionHash] = leaf;
     }
 }
