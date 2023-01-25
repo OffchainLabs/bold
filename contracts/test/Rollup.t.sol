@@ -8,6 +8,14 @@ import "../src/rollup/RollupProxy.sol";
 import "../src/rollup/RollupCore.sol";
 import "../src/rollup/RollupUserLogic.sol";
 import "../src/rollup/RollupAdminLogic.sol";
+import "../src/rollup/RollupCreator.sol";
+
+import "../src/osp/OneStepProver0.sol";
+import "../src/osp/OneStepProverMemory.sol";
+import "../src/osp/OneStepProverMath.sol";
+import "../src/osp/OneStepProverHostIo.sol";
+import "../src/osp/OneStepProofEntry.sol";
+import "../src/challenge/ChallengeManager.sol";
 
 contract RollupTest is Test {
     address owner = address(1);
@@ -17,7 +25,37 @@ contract RollupTest is Test {
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
 
+    event RollupCreated(
+        address indexed rollupAddress,
+        address inboxAddress,
+        address adminProxy,
+        address sequencerInbox,
+        address bridge
+    );
+
     function setUp() public {
+        OneStepProver0 oneStepProver = new OneStepProver0();
+        OneStepProverMemory oneStepProverMemory = new OneStepProverMemory();
+        OneStepProverMath oneStepProverMath = new OneStepProverMath();
+        OneStepProverHostIo oneStepProverHostIo = new OneStepProverHostIo();
+        OneStepProofEntry oneStepProofEntry = new OneStepProofEntry(
+            oneStepProver, oneStepProverMemory, oneStepProverMath, oneStepProverHostIo);
+        ChallengeManager challengeManagerImpl = new ChallengeManager();
+        BridgeCreator bridgeCreator = new BridgeCreator();
+        RollupCreator rollupCreator = new RollupCreator();
+        RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
+        RollupUserLogic rollupUserLogicImpl = new RollupUserLogic();
+
+        rollupCreator.setTemplates(
+            bridgeCreator,
+            oneStepProofEntry,
+            challengeManagerImpl,
+            rollupAdminLogicImpl,
+            rollupUserLogicImpl,
+            address(0),
+            address(0)
+        );
+
         Config memory config = Config({
             baseStake: 10,
             chainId: 0,
@@ -35,23 +73,15 @@ contract RollupTest is Test {
             loserStakeEscrow: address(0),
             genesisBlockNum: 0
         });
-        RollupUserLogic userLogic = new RollupUserLogic();
-        RollupAdminLogic adminLogic = new RollupAdminLogic();
-        ContractDependencies memory connectedContracts = ContractDependencies({
-            challengeManager: IChallengeManager(address(0)),
-            bridge: IBridge(address(0)),
-            inbox: IInbox(address(0)),
-            outbox: IOutbox(address(0)),
-            rollupAdminLogic: IRollupAdmin(adminLogic),
-            rollupEventInbox: IRollupEventInbox(address(0)),
-            rollupUserLogic: IRollupUser(userLogic),
-            sequencerInbox: ISequencerInbox(address(0)),
-            validatorUtils: address(0),
-            validatorWalletCreator: address(0)
-        });
-        rollup = new RollupProxy(config, connectedContracts);
-        userRollup = RollupUserLogic(address(rollup));
-        adminRollup = RollupAdminLogic(address(rollup));
+
+        address expectedRollupAddr = address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xd6), bytes1(0x94), address(rollupCreator), bytes1(0x03))))));
+
+        vm.expectEmit(true, true, false, false);
+        emit RollupCreated(expectedRollupAddr, address(0), address(0), address(0), address(0));
+        rollupCreator.createRollup(config, expectedRollupAddr);
+
+        userRollup = RollupUserLogic(address(expectedRollupAddr));
+        adminRollup = RollupAdminLogic(address(expectedRollupAddr));
 
         vm.startPrank(owner);
         adminRollup.setValidatorWhitelistDisabled(true);
