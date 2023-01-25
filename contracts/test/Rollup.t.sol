@@ -18,8 +18,9 @@ import "../src/osp/OneStepProofEntry.sol";
 import "../src/challenge/ChallengeManager.sol";
 
 contract RollupTest is Test {
-    address owner = address(1);
-    bytes32 wasmModuleRoot = keccak256("wasmModuleRoot");
+    address constant owner = address(1337);
+    bytes32 constant wasmModuleRoot = keccak256("wasmModuleRoot");
+    uint256 constant BASE_STAKE = 10;
 
     RollupProxy rollup;
     RollupUserLogic userRollup;
@@ -57,7 +58,7 @@ contract RollupTest is Test {
         );
 
         Config memory config = Config({
-            baseStake: 10,
+            baseStake: BASE_STAKE,
             chainId: 0,
             confirmPeriodBlocks: 100,
             extraChallengeTimeBlocks: 100,
