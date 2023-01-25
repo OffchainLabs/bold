@@ -9,6 +9,7 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "./Node.sol";
 import "./IRollupCore.sol";
 import "./RollupLib.sol";
+import "./AssertionLib.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
 
@@ -23,6 +24,7 @@ import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
 abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     using NodeLib for Node;
     using GlobalStateLib for GlobalState;
+    using AssertionLib for Assertion;
 
     // Rollup Config
     uint64 public confirmPeriodBlocks;
@@ -76,20 +78,42 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     bool public validatorWhitelistDisabled;
 
+    // Add new storage variables for new rollup below
+    mapping(uint64 => Assertion) private _assertions;
+    uint64 private _latestAssertionCreated;
+    uint64 private _latestConfirmedAssertion;
+
     /**
      * @notice Get a storage reference to the Node for the given node index
      * @param nodeNum Index of the node
      * @return Node struct
      */
     function getNodeStorage(uint64 nodeNum) internal view returns (Node storage) {
-        return _nodes[nodeNum];
+        revert("DEPRECATED getNodeStorage");
     }
 
     /**
      * @notice Get the Node for the given index.
      */
     function getNode(uint64 nodeNum) public view override returns (Node memory) {
-        return getNodeStorage(nodeNum);
+        revert("DEPRECATED getNode");
+    }
+
+
+    /**
+     * @notice Get a storage reference to the Assertion for the given index
+     * @param seqNum Index of the Assertion
+     * @return Assertion struct
+     */
+    function getAssertionStorage(uint64 seqNum) internal view returns (Assertion storage) {
+        return _assertions[seqNum];
+    }
+
+    /**
+     * @notice Get the Assertion for the given index.
+     */
+    function getAssertion(uint64 seqNum) public view returns (Assertion memory) {
+        return getAssertionStorage(seqNum);
     }
 
     /**
@@ -125,7 +149,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return True or False for whether the staker was staked
      */
     function isStakedOnLatestConfirmed(address staker) public view returns (bool) {
-        return _stakerMap[staker].isStaked && nodeHasStaker(_latestConfirmed, staker);
+        revert("DEPRECATED isStakedOnLatestConfirmed");
     }
 
     /**
@@ -134,7 +158,16 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return Latest node staked of the staker
      */
     function latestStakedNode(address staker) public view override returns (uint64) {
-        return _stakerMap[staker].latestStakedNode;
+        revert("DEPRECATED latestStakedNode");
+    }
+
+    /**
+     * @notice Get the latest staked assertion of the given staker
+     * @param staker Staker address to lookup
+     * @return Latest assertion staked of the staker
+     */
+    function latestStakedAssertion(address staker) public view returns (uint64) {
+        return _stakerMap[staker].latestStakedAssertion;
     }
 
     /**
@@ -143,7 +176,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return Current challenge of the staker
      */
     function currentChallenge(address staker) public view override returns (uint64) {
-        return _stakerMap[staker].currentChallenge;
+        revert("DEPRECATED currentChallenge");
     }
 
     /**
@@ -179,7 +212,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return Latest node that the given zombie is staked on
      */
     function zombieLatestStakedNode(uint256 zombieNum) public view override returns (uint64) {
-        return _zombies[zombieNum].latestStakedNode;
+        revert("DEPRECATED zombieLatestStakedNode");
     }
 
     /**
@@ -227,9 +260,19 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return _latestConfirmed;
     }
 
+    /// @return Index of the latest confirmed assertion
+    function latestConfirmedAssertion() public view returns (uint64) {
+        return _latestConfirmedAssertion;
+    }
+
     /// @return Index of the latest rollup node created
     function latestNodeCreated() public view override returns (uint64) {
-        return _latestNodeCreated;
+        revert("DEPRECATED latestNodeCreated");
+    }
+
+    /// @return Index of the latest rollup node created
+    function latestAssertionCreated() public view returns (uint64) {
+        return _latestAssertionCreated;
     }
 
     /// @return Ethereum block that the most recent stake was created
@@ -243,13 +286,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
-     * @notice Initialize the core with an initial node
-     * @param initialNode Initial node to start the chain with
+     * @notice Initialize the core with an initial assertion
+     * @param initialAssertion Initial assertion to start the chain with
      */
-    function initializeCore(Node memory initialNode) internal {
+    function initializeCore(Assertion memory initialAssertion) internal {
         __Pausable_init();
-        _nodes[GENESIS_NODE] = initialNode;
-        _firstUnresolvedNode = GENESIS_NODE + 1;
+        _assertions[GENESIS_NODE] = initialAssertion;
+        _latestAssertionCreated = GENESIS_NODE;
     }
 
     /**
@@ -257,8 +300,17 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param node Node that was newly created
      */
     function nodeCreated(Node memory node) internal {
-        _latestNodeCreated++;
-        _nodes[_latestNodeCreated] = node;
+        revert("DEPRECATED nodeCreated");
+    }
+
+    /**
+     * @notice React to a new assertion being created by storing it an incrementing the latest assertion counter
+     * @param assertion Assertion that was newly created
+     */
+    function assertionCreated(Assertion memory assertion) internal {
+        // TODO: can we not copy this assertion to memory?
+        _latestAssertionCreated++;
+        _assertions[_latestAssertionCreated] = assertion; 
     }
 
     /// @notice Reject the next unresolved node
@@ -290,6 +342,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param depositAmount Stake amount of the new staker
      */
     function createNewStake(address stakerAddress, uint256 depositAmount) internal {
+        revert("NOT_IMPLEMENTED");
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
         _stakerMap[stakerAddress] = Staker(
@@ -299,7 +352,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             NO_CHAL_INDEX, // new staker is not in challenge
             true
         );
-        _nodeStakers[_latestConfirmed][stakerAddress] = true;
+        _nodeStakers[_latestConfirmedAssertion][stakerAddress] = true;
         _lastStakeBlock = uint64(block.number);
         emit UserStakeUpdated(stakerAddress, 0, depositAmount);
     }
@@ -315,12 +368,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         view
         returns (uint64)
     {
-        Staker storage staker1 = _stakerMap[stakerAddress1];
-        Staker storage staker2 = _stakerMap[stakerAddress2];
-        uint64 challenge = staker1.currentChallenge;
-        require(challenge != NO_CHAL_INDEX, "NO_CHAL");
-        require(challenge == staker2.currentChallenge, "DIFF_IN_CHAL");
-        return challenge;
+        revert("DEPRECATED inChallenge");
     }
 
     /**
@@ -328,8 +376,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the staker to remove from a challenge
      */
     function clearChallenge(address stakerAddress) internal {
-        Staker storage staker = _stakerMap[stakerAddress];
-        staker.currentChallenge = NO_CHAL_INDEX;
+        revert("DEPRECATED clearChallenge");
     }
 
     /**
@@ -343,8 +390,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         address staker2,
         uint64 challenge
     ) internal {
-        _stakerMap[staker1].currentChallenge = challenge;
-        _stakerMap[staker2].currentChallenge = challenge;
+        revert("DEPRECATED challengeStarted");
     }
 
     /**
@@ -382,9 +428,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the staker to remove
      */
     function turnIntoZombie(address stakerAddress) internal {
-        Staker storage staker = _stakerMap[stakerAddress];
-        _zombies.push(Zombie(stakerAddress, staker.latestStakedNode));
-        deleteStaker(stakerAddress);
+        revert("DEPRECATED turnIntoZombie");
     }
 
     /**
@@ -393,7 +437,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param latest New latest node the zombie is staked on
      */
     function zombieUpdateLatestStakedNode(uint256 zombieNum, uint64 latest) internal {
-        _zombies[zombieNum].latestStakedNode = latest;
+        revert("DEPRECATED zombieUpdateLatestStakedNode");
     }
 
     /**
@@ -449,11 +493,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the staker withdrawing their stake
      */
     function withdrawStaker(address stakerAddress) internal {
+        revert("NOT_IMPLEMENTED");
         Staker storage staker = _stakerMap[stakerAddress];
-        uint64 latestConfirmedNum = latestConfirmed();
+        uint64 latestConfirmedNum = latestConfirmedAssertion();
         if (nodeHasStaker(latestConfirmedNum, stakerAddress)) {
             // Withdrawing a staker whose latest staked node isn't resolved should be impossible
-            assert(staker.latestStakedNode == latestConfirmedNum);
+            assert(staker.latestStakedAssertion == latestConfirmedNum);
             removeStaker(latestConfirmedNum, stakerAddress);
         }
         uint256 initialStaked = staker.amountStaked;
@@ -468,9 +513,21 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param nodeNum Index of the node to stake on
      */
     function stakeOnNode(address stakerAddress, uint64 nodeNum) internal {
+        revert("NOT_IMPLEMENTED");
         Staker storage staker = _stakerMap[stakerAddress];
         addStaker(nodeNum, stakerAddress);
-        staker.latestStakedNode = nodeNum;
+        staker.latestStakedAssertion = nodeNum;
+    }
+
+    /**
+     * @notice Advance the given staker to the given assertion
+     * @param stakerAddress Address of the staker adding their stake
+     * @param assertionNum Index of the assertion to stake on
+     */
+    function stakeOnAssertion(address stakerAddress, uint64 assertionNum) internal {
+        Staker storage staker = _stakerMap[stakerAddress];
+        getAssertionStorage(assertionNum).staker = stakerAddress;
+        staker.latestStakedAssertion = assertionNum;
     }
 
     /**
@@ -523,46 +580,65 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 sequencerBatchAcc;
     }
 
+    struct StakeOnNewAssertionFrame {
+        uint256 currentInboxSize;
+        Assertion assertion;
+        bytes32 executionHash;
+        Assertion prevAssertion;
+        bytes32 lastHash;
+        bool notFirstChild;
+        uint64 deadlineBlock;
+        bytes32 sequencerBatchAcc;
+    }
+
     function createNewNode(
         OldAssertion calldata assertion,
         uint64 prevNodeNum,
         uint256 prevNodeInboxMaxCount,
         bytes32 expectedNodeHash
     ) internal returns (bytes32 newNodeHash) {
+        revert("DEPRECATED createNewNode");
+    }
+
+    function createNewAssertion(
+        NewAssertionInputs calldata inputs
+    ) internal returns (bytes32 newAssertionHash) {
         require(
-            assertion.afterState.machineStatus == MachineStatus.FINISHED ||
-                assertion.afterState.machineStatus == MachineStatus.ERRORED,
+            inputs.afterState.machineStatus == MachineStatus.FINISHED ||
+                inputs.afterState.machineStatus == MachineStatus.ERRORED,
             "BAD_AFTER_STATUS"
         );
 
-        StakeOnNewNodeFrame memory memoryFrame;
+        StakeOnNewAssertionFrame memory memoryFrame;
         {
             // validate data
-            memoryFrame.prevNode = getNode(prevNodeNum);
+            memoryFrame.prevAssertion = getAssertion(inputs.prevNum);
             memoryFrame.currentInboxSize = bridge.sequencerMessageCount();
 
             // Make sure the previous state is correct against the node being built on
             require(
-                RollupLib.stateHash(assertion.beforeState, prevNodeInboxMaxCount) ==
-                    memoryFrame.prevNode.stateHash,
+                RollupLib.stateHash(inputs.beforeState, inputs.prevNodeInboxMaxCount) ==
+                    memoryFrame.prevAssertion.stateHash,
                 "PREV_STATE_HASH"
             );
 
-            // Ensure that the assertion doesn't read past the end of the current inbox
-            uint64 afterInboxCount = assertion.afterState.globalState.getInboxPosition();
-            uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
-            require(afterInboxCount >= prevInboxPosition, "INBOX_BACKWARDS");
-            if (afterInboxCount == prevInboxPosition) {
-                require(
-                    assertion.afterState.globalState.getPositionInMessage() >=
-                        assertion.beforeState.globalState.getPositionInMessage(),
-                    "INBOX_POS_IN_MSG_BACKWARDS"
-                );
-            }
+            // TODO: check what we need to check here since we already
+            //       checked it consumed the exact amount of message in stakeOnNewAssertion
+            // // Ensure that the assertion doesn't read past the end of the current inbox
+            uint64 afterInboxCount = inputs.afterState.globalState.getInboxPosition();
+            // uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
+            // require(afterInboxCount >= prevInboxPosition, "INBOX_BACKWARDS");
+            // if (afterInboxCount == prevInboxPosition) {
+            //     require(
+            //         assertion.afterState.globalState.getPositionInMessage() >=
+            //             assertion.beforeState.globalState.getPositionInMessage(),
+            //         "INBOX_POS_IN_MSG_BACKWARDS"
+            //     );
+            // }
             // See validator/assertion.go ExecutionState RequiredBatches() for reasoning
             if (
-                assertion.afterState.machineStatus == MachineStatus.ERRORED ||
-                assertion.afterState.globalState.getPositionInMessage() > 0
+                inputs.afterState.machineStatus == MachineStatus.ERRORED ||
+                inputs.afterState.globalState.getPositionInMessage() > 0
             ) {
                 // The current inbox message was read
                 afterInboxCount++;
@@ -575,67 +651,76 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         }
 
         {
-            memoryFrame.executionHash = RollupLib.executionHash(assertion);
+            // TODO: figure out how to hash the assertion
+            // memoryFrame.executionHash = RollupLib.executionHash(assertion);
 
-            memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
+            // memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
 
-            memoryFrame.hasSibling = memoryFrame.prevNode.latestChildNumber > 0;
-            // here we don't use ternacy operator to remain compatible with slither
-            if (memoryFrame.hasSibling) {
-                memoryFrame.lastHash = getNodeStorage(memoryFrame.prevNode.latestChildNumber)
-                    .nodeHash;
-            } else {
-                memoryFrame.lastHash = memoryFrame.prevNode.nodeHash;
-            }
+            memoryFrame.notFirstChild = memoryFrame.prevAssertion.firstChildCreationBlock > 0;
 
-            newNodeHash = RollupLib.nodeHash(
-                memoryFrame.hasSibling,
-                memoryFrame.lastHash,
-                memoryFrame.executionHash,
-                memoryFrame.sequencerBatchAcc,
-                wasmModuleRoot
-            );
+            // TODO: is it ok to just set last hash to prev since regardless?
+            memoryFrame.lastHash = memoryFrame.prevAssertion.nodeHash;
+            // // here we don't use ternacy operator to remain compatible with slither
+            // if (!memoryFrame.notFirstChild) {
+            //     memoryFrame.lastHash = getAssertionStorage(memoryFrame.prevAssertion.latestChildNumber)
+            //         .nodeHash;
+            // } else {
+            //     memoryFrame.lastHash = memoryFrame.prevAssertion.nodeHash;
+            // }
+
+            newAssertionHash = AssertionLib.assertionHash({
+                notFirstChild: memoryFrame.notFirstChild,
+                lastHash: memoryFrame.lastHash,
+                assertionExecHash: memoryFrame.executionHash,
+                inboxAcc: memoryFrame.sequencerBatchAcc,
+                wasmModuleRoot: wasmModuleRoot
+            });
             require(
-                newNodeHash == expectedNodeHash || expectedNodeHash == bytes32(0),
+                newAssertionHash == inputs.expectedAssertionHash || inputs.expectedAssertionHash == bytes32(0),
                 "UNEXPECTED_NODE_HASH"
             );
 
-            memoryFrame.node = NodeLib.createNode(
-                RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
-                RollupLib.challengeRootHash(
-                    memoryFrame.executionHash,
-                    block.number,
-                    wasmModuleRoot
-                ),
-                RollupLib.confirmHash(assertion),
-                prevNodeNum,
-                memoryFrame.deadlineBlock,
-                newNodeHash
-            );
+            memoryFrame.assertion = AssertionLib.createAssertion({
+                _inputs: inputs,
+                _inboxMaxCount: memoryFrame.currentInboxSize
+            });
+            // memoryFrame.node = NodeLib.createNode(
+            //     RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
+            //     RollupLib.challengeRootHash(
+            //         memoryFrame.executionHash,
+            //         block.number,
+            //         wasmModuleRoot
+            //     ),
+            //     RollupLib.confirmHash(assertion),
+            //     prevNodeNum,
+            //     memoryFrame.deadlineBlock,
+            //     newNodeHash
+            // );
         }
 
         {
-            uint64 nodeNum = latestNodeCreated() + 1;
+            uint64 assertionNum = latestAssertionCreated() + 1;
 
             // Fetch a storage reference to prevNode since we copied our other one into memory
             // and we don't have enough stack available to keep to keep the previous storage reference around
-            Node storage prevNode = getNodeStorage(prevNodeNum);
-            prevNode.childCreated(nodeNum);
+            Assertion storage prevAssertion = getAssertionStorage(inputs.prevNum);
+            prevAssertion.childCreated(assertionNum);
 
-            nodeCreated(memoryFrame.node);
+            assertionCreated(memoryFrame.assertion);
         }
 
-        emit NodeCreated(
-            latestNodeCreated(),
-            memoryFrame.prevNode.nodeHash,
-            newNodeHash,
-            memoryFrame.executionHash,
-            assertion,
-            memoryFrame.sequencerBatchAcc,
-            wasmModuleRoot,
-            memoryFrame.currentInboxSize
-        );
+        // TODO: fix event
+        // emit NodeCreated(
+        //     latestNodeCreated(),
+        //     memoryFrame.prevNode.nodeHash,
+        //     newNodeHash,
+        //     memoryFrame.executionHash,
+        //     assertion,
+        //     memoryFrame.sequencerBatchAcc,
+        //     wasmModuleRoot,
+        //     memoryFrame.currentInboxSize
+        // );
 
-        return newNodeHash;
+        return inputs.expectedAssertionHash;
     }
 }

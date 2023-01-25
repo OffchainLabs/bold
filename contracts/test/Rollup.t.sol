@@ -88,4 +88,23 @@ contract RollupTest is Test {
         adminRollup.setValidatorWhitelistDisabled(true);
         vm.stopPrank();
     }
+
+    function testCreateAssertion() public {
+        ExecutionState memory beforeState;
+        beforeState.machineStatus = MachineStatus.FINISHED;
+        ExecutionState memory afterState;
+        afterState.machineStatus = MachineStatus.FINISHED;
+        afterState.globalState.u64Vals[0] = 1;
+        NewAssertionInputs memory inputs = NewAssertionInputs({
+            beforeState: beforeState,
+            afterState: afterState,
+            numBlocks: 1,
+            prevNum: 0,
+            prevStateCommitment: bytes32(0),
+            prevNodeInboxMaxCount: 1,
+            expectedAssertionHash: bytes32(0)
+        });
+        vm.roll(block.number + 75); // bypass TIME_DELTA error
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(inputs);
+    }
 }

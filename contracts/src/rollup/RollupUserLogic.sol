@@ -158,7 +158,7 @@ abstract contract AbsRollupUserLogic is
         require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
         require(depositAmount >= currentRequiredStake(), "NOT_ENOUGH_STAKE");
 
-        createNewStake(msg.sender, depositAmount);
+        // createNewStake(msg.sender, depositAmount); // TODO: figure this out
     }
 
     /**
@@ -193,36 +193,52 @@ abstract contract AbsRollupUserLogic is
         bytes32 expectedNodeHash,
         uint256 prevNodeInboxMaxCount
     ) public onlyValidator whenNotPaused {
-        require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
-        // Ensure staker is staked on the previous node
-        uint64 prevNode = latestStakedNode(msg.sender);
+        revert("DEPRECATED stakeOnNewNode");
+    }
+
+    /**
+     * @notice Create a new node and move stake onto it
+     * @param inputs New states to assert
+     */
+    function stakeOnNewAssertion(
+        NewAssertionInputs calldata inputs
+    ) public onlyValidator whenNotPaused {
+
+        // TODO: Seems not required anymore?
+        // require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
+
+        // TODO: Ensure the staker is either
+        // 1. Deposited but unstaked; or
+        // 2. The last staked node is an ancestor of the new assertion node
+
+        uint64 prevAssertionNum = latestStakedAssertion(msg.sender);
 
         {
-            uint256 timeSinceLastNode = block.number - getNode(prevNode).createdAtBlock;
+            uint256 timeSinceLastAssertion = block.number - getAssertion(prevAssertionNum).createdAtBlock;
             // Verify that assertion meets the minimum Delta time requirement
-            require(timeSinceLastNode >= minimumAssertionPeriod, "TIME_DELTA");
+            require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
 
             // Minimum size requirement: any assertion must consume at least all inbox messages
             // put into L1 inbox before the prev node’s L1 blocknum.
             // We make an exception if the machine enters the errored state,
             // as it can't consume future batches.
             require(
-                assertion.afterState.machineStatus == MachineStatus.ERRORED ||
-                    assertion.afterState.globalState.getInboxPosition() >= prevNodeInboxMaxCount,
-                "TOO_SMALL"
+                inputs.afterState.machineStatus == MachineStatus.ERRORED ||
+                    inputs.afterState.globalState.getInboxPosition() == inputs.prevNodeInboxMaxCount,
+                "MUST_EQUAL_INBOX_COUNT"
             );
             // Minimum size requirement: any assertion must contain at least one block
-            require(assertion.numBlocks > 0, "EMPTY_ASSERTION");
+            require(inputs.numBlocks > 0, "EMPTY_ASSERTION");
 
             // The rollup cannot advance normally from an errored state
             require(
-                assertion.beforeState.machineStatus == MachineStatus.FINISHED,
+                inputs.beforeState.machineStatus == MachineStatus.FINISHED,
                 "BAD_PREV_STATUS"
             );
         }
-        createNewNode(assertion, prevNode, prevNodeInboxMaxCount, expectedNodeHash);
+        createNewAssertion(inputs);
 
-        stakeOnNode(msg.sender, latestNodeCreated());
+        stakeOnAssertion(msg.sender, latestAssertionCreated());
     }
 
     /**
@@ -529,9 +545,10 @@ abstract contract AbsRollupUserLogic is
     }
 
     function currentRequiredStake() public view returns (uint256) {
-        uint64 firstUnresolvedNodeNum = firstUnresolvedNode();
+        // uint64 firstUnresolvedNodeNum = firstUnresolvedNode();
 
-        return currentRequiredStake(block.number, firstUnresolvedNodeNum, latestNodeCreated());
+        // return currentRequiredStake(block.number, firstUnresolvedNodeNum, latestNodeCreated());
+        return baseStake; // TODO: how do we calculate stake required?
     }
 
     /**
@@ -638,6 +655,17 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
     ) external payable override {
         _newStake(msg.value);
         stakeOnNewNode(assertion, expectedNodeHash, prevNodeInboxMaxCount);
+    }
+
+    /**
+     * @notice Create a new stake on a new node
+     * @param inputs New states to assert
+     */
+    function newStakeOnNewAssertion(
+        NewAssertionInputs calldata inputs
+    ) external payable {
+        _newStake(msg.value);
+        stakeOnNewAssertion(inputs);
     }
 
     /**

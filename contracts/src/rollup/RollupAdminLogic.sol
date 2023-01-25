@@ -50,8 +50,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
         challengeManager = connectedContracts.challengeManager;
 
-        Node memory node = createInitialNode();
-        initializeCore(node);
+        Assertion memory assertion = createInitialAssertion();
+        initializeCore(assertion);
 
         confirmPeriodBlocks = config.confirmPeriodBlocks;
         extraChallengeTimeBlocks = config.extraChallengeTimeBlocks;
@@ -73,21 +73,16 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         emit RollupInitialized(config.wasmModuleRoot, config.chainId);
     }
 
-    function createInitialNode() private view returns (Node memory) {
+    function createInitialAssertion() private view returns (Assertion memory) {
         GlobalState memory emptyGlobalState;
         bytes32 state = RollupLib.stateHashMem(
             ExecutionState(emptyGlobalState, MachineStatus.FINISHED),
             1 // inboxMaxCount - force the first assertion to read a message
         );
-        return
-            NodeLib.createNode(
-                state,
-                0, // challenge hash (not challengeable)
-                0, // confirm data
-                0, // prev node
-                uint64(block.number), // deadline block (not challengeable)
-                0 // initial node has a node hash of 0
-            );
+        Assertion memory assertion;
+        assertion.stateHash = state;
+        assertion.createdAtBlock =  uint64(block.number);
+        return assertion;
     }
 
     /**
@@ -273,13 +268,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     }
 
     function forceRefundStaker(address[] calldata staker) external override whenPaused {
-        require(staker.length > 0, "EMPTY_ARRAY");
-        for (uint256 i = 0; i < staker.length; i++) {
-            require(_stakerMap[staker[i]].currentChallenge == NO_CHAL_INDEX, "STAKER_IN_CHALL");
-            reduceStakeTo(staker[i], 0);
-            turnIntoZombie(staker[i]);
-        }
-        emit OwnerFunctionCalled(22);
+        revert("NOT_IMPLEMENTED");
     }
 
     function forceCreateNode(
