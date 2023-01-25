@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -15,6 +16,147 @@ var (
 	ErrSubchallengeAlreadyExists = errors.New("subchallenge already exists on vertex")
 	ErrNotEnoughValidChildren    = errors.New("vertex needs at least two unexpired children")
 )
+
+// AddSubchallengeLeaf adds a leaf vertex to a subchallenge according to
+// the rules of the specification.
+// A leaf can be created with reference to a vertex V in a
+// higher level challenge if:
+
+// - V.predecessor = P, and
+// - P.challenge is this challenge type, and
+// - V.height = V.predecessor.height + 1, and
+
+// The leaf creation will provide a merkle commitment to a
+// sequence of wavm states, where the last state in the sequence must
+// be proven to be the end state of the wavm VM corresponding to the state
+// transition function completing and producing the last block in V’s merkle commitment.
+func (c *Challenge) AddSubchallengeLeaf(
+	tx *ActiveTx,
+	topLevelVertex *ChallengeVertex,
+	subchallengeType ChallengeType,
+	history util.HistoryCommitment,
+	validator common.Address,
+) (*ChallengeVertex, error) {
+	tx.verifyReadWrite()
+	// The challenge and vertex provided must meet basic integrity checks.
+	if c.rootVertex.IsNone() || topLevelVertex.Prev.IsNone() {
+		return nil, ErrNoChallenge
+	}
+
+	// We must be creating a leaf for the appropriate subchallenge type.
+	if subchallengeType == BlockChallenge {
+		return nil, ErrWrongChallengeKind
+	}
+	if c.challengeType != subchallengeType {
+		return nil, ErrWrongChallengeKind
+	}
+	challengedVertex := c.rootVertex.Unwrap()
+	prev := topLevelVertex.Prev.Unwrap()
+
+	// The previous vertex's challenge must be this one.
+	if prev.Challenge.Unwrap() != c {
+		return nil, ErrInvalidOp
+	}
+
+	// The previous vertex must match the root vertex of this challenge.
+	if prev != challengedVertex {
+		return nil, ErrInvalidOp
+	}
+
+	// The vertex must be one-step away from its previous vertex.
+	// TODO: Should we check if the previous vertex is at a one-step-fork?
+	if prev.Commitment.Height != topLevelVertex.Commitment.Height+1 {
+		return nil, ErrInvalidOp
+	}
+
+	// We check if we have already included the vertex in the challenge.
+	if c.includedHistories[history.Hash()] {
+		return nil, errors.Wrapf(ErrVertexAlreadyExists, fmt.Sprintf("Hash: %s", history.Hash().String()))
+	}
+
+	// We deduct a stake from the validator for creating a leaf vertex.
+	if err := c.rootAssertion.Unwrap().chain.DeductFromBalance(tx, validator, ChallengeVertexStake); err != nil {
+		return nil, errors.Wrapf(ErrInsufficientBalance, err.Error())
+	}
+
+	// If we are in a small step challenge, the height must be equal to 2^20 if the top-level
+	// vertex is not a leaf or a positive value <= 2^20 if the top-level vertex is a leaf.
+	if c.challengeType == SmallStepChallenge {
+		if topLevelVertex.isLeaf {
+			if history.Height > 1<<20 {
+				return nil, ErrInvalidHeight
+			}
+		} else {
+			if history.Height != 1<<20 {
+				return nil, ErrInvalidHeight
+			}
+		}
+	}
+
+	// The last leaf claimed in the history commitment must be the
+	// state root of the assertion we are adding a leaf for.
+	if history.LastLeaf == (common.Hash{}) ||
+		len(history.LastLeafProof) == 0 ||
+		history.LastLeafPrefix.IsNone() ||
+		history.Normalized().IsNone() {
+		return nil, errors.New("history commitment must provide a last leaf proof")
+	}
+	if topLevelVertex.Commitment.LastLeaf != history.LastLeaf {
+		return nil, errors.Wrapf(
+			ErrInvalidOp,
+			"last leaf of history does not match top-level vertex's last leaf %#x != %#x",
+			topLevelVertex.Commitment.LastLeaf,
+			history.LastLeaf,
+		)
+	}
+
+	// The validator must provide a history commitment over
+	// a series of states where the last state must be proven to be
+	// one corresponding to the top-level vertex.
+	if err := util.VerifyPrefixProof(
+		history.LastLeafPrefix.Unwrap(),
+		history.Normalized().Unwrap(),
+		history.LastLeafProof,
+	); err != nil {
+		return nil, errors.New(
+			"merkle proof fails to verify for last state of history commitment",
+		)
+	}
+
+	timer := topLevelVertex.PsTimer.Clone()
+	nextSeqNumber := c.currentVertexSeqNumber + 1
+	leaf := &ChallengeVertex{
+		Challenge:            util.Some(c),
+		SequenceNum:          nextSeqNumber,
+		Validator:            validator,
+		isLeaf:               true,
+		Status:               PendingAssertionState,
+		Commitment:           history,
+		Prev:                 c.rootVertex,
+		PresumptiveSuccessor: util.None[*ChallengeVertex](),
+		PsTimer:              timer,
+		SubChallenge:         util.None[*Challenge](),
+		winnerIfConfirmed:    topLevelVertex.winnerIfConfirmed,
+	}
+	c.currentVertexSeqNumber = nextSeqNumber
+
+	winnerIfConfirmed := leaf.winnerIfConfirmed.Unwrap()
+	c.rootVertex.Unwrap().maybeNewPresumptiveSuccessor(leaf)
+	c.rootAssertion.Unwrap().chain.challengesFeed.Append(&ChallengeLeafEvent{
+		ParentSeqNum:      leaf.Prev.Unwrap().SequenceNum,
+		SequenceNum:       leaf.SequenceNum,
+		WinnerIfConfirmed: winnerIfConfirmed.SequenceNum,
+		History:           history,
+		BecomesPS:         leaf.Prev.Unwrap().PresumptiveSuccessor.Unwrap() == leaf,
+		Validator:         validator,
+	})
+	c.includedHistories[history.Hash()] = true
+	h := ChallengeCommitHash(c.rootAssertion.Unwrap().StateCommitment.Hash())
+	c.rootAssertion.Unwrap().chain.challengesByCommitHash[h] = c
+	c.rootAssertion.Unwrap().chain.challengeVerticesByCommitHash[h][VertexCommitHash(leaf.Commitment.Hash())] = leaf
+	c.leafVertexCount++
+	return nil, nil
+}
 
 // CreateBigStepChallenge creates a BigStep subchallenge on a vertex.
 func (v *ChallengeVertex) CreateBigStepChallenge(tx *ActiveTx) error {
