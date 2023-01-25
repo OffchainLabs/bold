@@ -4,85 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"context"
 	"fmt"
-	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"math/big"
 )
-
-func TestChallenge_EndToEndResolution(t *testing.T) {
-	ctx := context.Background()
-	correctStateRoots := correctBlockHashesForTest(10)
-	wrongStateRoots := wrongBlockHashesForTest(10)
-	correctManager := statemanager.New(correctStateRoots)
-	wrongManager := statemanager.New(wrongStateRoots)
-	_ = correctManager
-	_ = wrongManager
-	chain := NewAssertionChain(
-		ctx,
-		util.NewArtificialTimeReference(),
-		time.Second,
-	)
-
-	// Creates two conflicting leaves in the assertion chain.
-	staker1 := common.BytesToAddress([]byte("foo"))
-	staker2 := common.BytesToAddress([]byte("bar"))
-
-	commit1 := util.StateCommitment{
-		StateRoot: correctStateRoots[5],
-		Height:    5,
-	}
-	commit2 := util.StateCommitment{
-		StateRoot: wrongStateRoots[5],
-		Height:    5,
-	}
-	assertion1, assertion2 := setupAssertionChainFork(
-		t,
-		ctx,
-		chain,
-		staker1,
-		staker2,
-		commit1,
-		commit2,
-	)
-	_ = assertion1
-	_ = assertion2
-}
-
-func setupAssertionChainFork(
-	t *testing.T,
-	ctx context.Context,
-	chain *AssertionChain,
-	staker1,
-	staker2 common.Address,
-	commit1,
-	commit2 util.StateCommitment,
-) (*Assertion, *Assertion) {
-	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
-	bal := big.NewInt(0).Mul(AssertionStake, big.NewInt(100))
-	chain.AddToBalance(tx, staker1, bal)
-	chain.AddToBalance(tx, staker2, bal)
-
-	genesis := chain.LatestConfirmed(tx)
-	assertion1, err := chain.CreateLeaf(
-		tx,
-		genesis,
-		commit1,
-		staker1,
-	)
-	require.NoError(t, err)
-	assertion2, err := chain.CreateLeaf(
-		tx,
-		genesis,
-		commit2,
-		staker2,
-	)
-	require.NoError(t, err)
-	return assertion1, assertion2
-}
 
 func TestChallengeVertex_CreateBigStepChallenge(t *testing.T) {
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
@@ -460,7 +386,7 @@ func TestChallengeVertex_hasUnexpiredChildren(t *testing.T) {
 					rootAssertion: util.None[*Assertion](),
 				}),
 			}
-			challengeHash := ChallengeCommitHash((StateCommitment{}).Hash())
+			challengeHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
 
 			vertices := make(map[VertexCommitHash]*ChallengeVertex, testCase.numChildren)
 			for i := uint(0); i < testCase.numChildren; i++ {
