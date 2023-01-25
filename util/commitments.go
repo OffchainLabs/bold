@@ -9,8 +9,19 @@ import (
 )
 
 var (
-	emptyCommit = HistoryCommitment{}
+	emptyHistCommit = HistoryCommitment{}
 )
+
+// StateCommitment is a type used to represent the state commitment of an assertion.
+type StateCommitment struct {
+	Height    uint64      `json:"height"`
+	StateRoot common.Hash `json:"state_root"`
+}
+
+// Hash returns the hash of the state commitment.
+func (comm StateCommitment) Hash() common.Hash {
+	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, comm.Height), comm.StateRoot.Bytes())
+}
 
 // HistoryCommitment defines a Merkle accumulator over a list of leaves, which
 // are understood to be state roots in the protocol. A history commitment contains
@@ -94,7 +105,7 @@ func NewHistoryCommitment(
 	opts ...CommitOpt,
 ) (HistoryCommitment, error) {
 	if len(leaves) == 0 {
-		return emptyCommit, errors.New("must commit to at least one leaf")
+		return emptyHistCommit, errors.New("must commit to at least one leaf")
 	}
 	exp := ExpansionFromLeaves(leaves)
 	h := HistoryCommitment{
@@ -103,7 +114,7 @@ func NewHistoryCommitment(
 	}
 	for _, o := range opts {
 		if err := o(&h); err != nil {
-			return emptyCommit, err
+			return emptyHistCommit, err
 		}
 	}
 	return h, nil
