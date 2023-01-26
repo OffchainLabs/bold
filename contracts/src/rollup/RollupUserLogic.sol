@@ -212,7 +212,7 @@ abstract contract AbsRollupUserLogic is
         // TODO: Ensure the staker is either
         // 1. Deposited but unstaked; or
         // 2. The last staked node is an ancestor of the new assertion node
-        bool isDeposit = !isStaked(msg.sender) && amountStaked(msg.sender) >= currentRequiredStake();
+        bool isDeposit = amountStaked(msg.sender) >= currentRequiredStake();
         bool isStakedOnPrev = false;
 
         uint64 prevAssertionNum = inputs.prevNum;
@@ -224,7 +224,8 @@ abstract contract AbsRollupUserLogic is
             prevAssertionNum = getAssertionStorage(prevAssertionNum).prevNum;
         }
 
-        require(isDeposit || isStakedOnPrev, "NOT_STAKED");
+        require(isStaked(msg.sender) || isDeposit, "NOT_STAKED_OR_DEPOSITED");
+        require(!isStaked(msg.sender) || isStakedOnPrev, "WRONG_BRANCH");
 
         {
             uint256 timeSinceLastAssertion = block.number - getAssertion(prevStakedAssertionNum).createdAtBlock;
