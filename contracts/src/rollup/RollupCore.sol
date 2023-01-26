@@ -81,6 +81,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     // Add new storage variables for new rollup below
     mapping(uint64 => Assertion) private _assertions;
     mapping(bytes32 => uint64) private _assertionToNum;
+    uint64 private _firstUnresolvedAssertion;
     uint64 private _latestAssertionCreated;
     uint64 private _latestConfirmedAssertion;
 
@@ -256,6 +257,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return _firstUnresolvedNode;
     }
 
+    /**
+     * @return Index of the first unresolved node
+     * @dev If all nodes have been resolved, this will be latestNodeCreated + 1
+     */
+    function firstUnresolvedAssertion() public view returns (uint64) {
+        return _firstUnresolvedAssertion;
+    }
+
     /// @return Index of the latest confirmed node
     function latestConfirmed() public view override returns (uint64) {
         return _latestConfirmed;
@@ -294,6 +303,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         __Pausable_init();
         _assertions[GENESIS_NODE] = initialAssertion;
         _latestAssertionCreated = GENESIS_NODE;
+        _firstUnresolvedAssertion = GENESIS_NODE + 1;
     }
 
     /**
@@ -316,7 +326,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     /// @notice Reject the next unresolved node
     function _rejectNextNode() internal {
+        revert("DEPRECATED _rejectNextNode");
         _firstUnresolvedNode++;
+    }
+
+    /// @notice Reject the next unresolved node
+    function _rejectNextAssertion() internal {
+        _firstUnresolvedAssertion++;
     }
 
     function confirmNode(
@@ -324,6 +340,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 blockHash,
         bytes32 sendRoot
     ) internal {
+        revert("DEPRECATED");
         Node storage node = getNodeStorage(nodeNum);
         // Authenticate data against node's confirm data pre-image
         require(node.confirmData == RollupLib.confirmHash(blockHash, sendRoot), "CONFIRM_DATA");
@@ -335,6 +352,24 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _firstUnresolvedNode = nodeNum + 1;
 
         emit NodeConfirmed(nodeNum, blockHash, sendRoot);
+    }
+
+    function confirmAssertion(
+        uint64 assertionNum,
+        bytes32 blockHash,
+        bytes32 sendRoot
+    ) internal {
+        Assertion storage assertion = getAssertionStorage(assertionNum);
+        // Authenticate data against node's confirm data pre-image
+        require(assertion.confirmHash == RollupLib.confirmHash(blockHash, sendRoot), "CONFIRM_DATA");
+
+        // trusted external call to outbox
+        outbox.updateSendRoot(sendRoot, blockHash);
+
+        _latestConfirmedAssertion = assertionNum;
+        _firstUnresolvedAssertion = assertionNum + 1;
+
+        emit NodeConfirmed(assertionNum, blockHash, sendRoot); // TODO: fix event
     }
 
     /**

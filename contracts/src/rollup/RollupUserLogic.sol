@@ -119,6 +119,7 @@ abstract contract AbsRollupUserLogic is
         onlyValidator
         whenNotPaused
     {
+        revert("DEPRECATED");
         requireUnresolvedExists();
 
         uint64 nodeNum = firstUnresolvedNode();
@@ -146,6 +147,50 @@ abstract contract AbsRollupUserLogic is
         );
 
         confirmNode(nodeNum, blockHash, sendRoot);
+    }
+
+    /**
+     * @notice Confirm the next unresolved node
+     * @param blockHash The block hash at the end of the assertion
+     * @param sendRoot The send root at the end of the assertion
+     */
+    function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot)
+        external
+        onlyValidator
+        whenNotPaused
+    {
+        requireUnresolvedExists();
+
+        uint64 assertionNum = firstUnresolvedAssertion();
+        require(assertionNum != 0, "ASSERTION_NOT_FOUND");
+        Assertion storage assertion = getAssertionStorage(assertionNum);
+        Assertion storage prevAssertion = getAssertionStorage(assertion.prevNum);
+
+        // Verify the block's deadline has passed
+        // node.requirePastDeadline();
+        require(prevAssertion.firstChildCreationBlock + confirmPeriodBlocks < block.number, "TOO_EARLY");
+
+        // Check that prev is latest confirmed
+        require(assertion.prevNum == latestConfirmedAssertion(), "PREV_NOT_CONFIRMED");
+
+        require(prevAssertion.secondChildCreationBlock == 0, "IN_CHAL");
+
+        // Node storage prevNode = getNodeStorage(node.prevNum);
+        // prevNode.requirePastChildConfirmDeadline();
+
+        // removeOldZombies(0);
+
+        // Require only zombies are staked on siblings to this node, and there's at least one non-zombie staked on this node
+        // uint256 stakedZombies = countStakedZombies(nodeNum);
+        // uint256 zombiesStakedOnOtherChildren = countZombiesStakedOnChildren(node.prevNum) -
+        //     stakedZombies;
+        // require(node.stakerCount > stakedZombies, "NO_STAKERS");
+        // require(
+        //     prevNode.childStakerCount == node.stakerCount + zombiesStakedOnOtherChildren,
+        //     "NOT_ALL_STAKED"
+        // );
+
+        confirmAssertion(assertionNum, blockHash, sendRoot);
     }
 
     /**
@@ -613,19 +658,19 @@ abstract contract AbsRollupUserLogic is
     }
 
     /**
-     * @notice Verify that there are some number of nodes still unresolved
+     * @notice Verify that there are some number of assertions still unresolved
      */
     function requireUnresolvedExists() public view override {
-        uint256 firstUnresolved = firstUnresolvedNode();
+        uint256 firstUnresolved = firstUnresolvedAssertion();
         require(
-            firstUnresolved > latestConfirmed() && firstUnresolved <= latestNodeCreated(),
+            firstUnresolved > latestConfirmedAssertion() && firstUnresolved <= latestAssertionCreated(),
             "NO_UNRESOLVED"
         );
     }
 
-    function requireUnresolved(uint256 nodeNum) public view override {
-        require(nodeNum >= firstUnresolvedNode(), "ALREADY_DECIDED");
-        require(nodeNum <= latestNodeCreated(), "DOESNT_EXIST");
+    function requireUnresolved(uint256 assertionNum) public view override {
+        require(assertionNum >= firstUnresolvedAssertion(), "ALREADY_DECIDED");
+        require(assertionNum <= latestAssertionCreated(), "DOESNT_EXIST");
     }
 
     /**

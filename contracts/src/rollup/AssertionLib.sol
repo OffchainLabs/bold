@@ -44,6 +44,7 @@ struct Assertion {
  * @notice Utility functions for Node
  */
 library AssertionLib {
+    using GlobalStateLib for GlobalState;
     /**
      * @notice Initialize a Node
      * @param _inputs Initial state
@@ -58,7 +59,10 @@ library AssertionLib {
         // assertion.nodeHash = _nodeHash;
         assertion.stateHash = RollupLib.stateHashMem(_inputs.afterState, _inboxMaxCount);
         // assertion.challengeHash = _challengeHash;
-        // assertion.confirmData = _confirmData;
+        assertion.confirmHash = RollupLib.confirmHash(
+            _inputs.afterState.globalState.getBlockHash(),
+            _inputs.afterState.globalState.getSendRoot()
+        );
 
         // assertion.height = _inputs.height;
         // assertion.prevNum = _prev;

@@ -27,6 +27,10 @@ contract RollupTest is Test {
 
     bytes32 constant wasmModuleRoot = keccak256("wasmModuleRoot");
     uint256 constant BASE_STAKE = 10;
+    uint256 constant CONFIRM_PERIOD_BLOCKS = 100;
+
+    bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
+    bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
 
     RollupProxy rollup;
     RollupUserLogic userRollup;
@@ -69,7 +73,7 @@ contract RollupTest is Test {
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
-            confirmPeriodBlocks: 100,
+            confirmPeriodBlocks: uint64(CONFIRM_PERIOD_BLOCKS),
             extraChallengeTimeBlocks: 100,
             owner: owner,
             sequencerInboxMaxTimeVariation: ISequencerInbox.MaxTimeVariation({
@@ -133,7 +137,10 @@ contract RollupTest is Test {
         beforeState.machineStatus = MachineStatus.FINISHED;
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
-        afterState.globalState.u64Vals[0] = 1;
+        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
+        afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        afterState.globalState.u64Vals[0] = 1; // inbox count
+        afterState.globalState.u64Vals[1] = 0; // pos in msg
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
             beforeState: beforeState,
@@ -167,7 +174,10 @@ contract RollupTest is Test {
         beforeState.machineStatus = MachineStatus.FINISHED;
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
-        afterState.globalState.u64Vals[0] = 1;
+        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
+        afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        afterState.globalState.u64Vals[0] = 1; // inbox count
+        afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         NewAssertionInputs memory inputs = NewAssertionInputs({
             beforeState: beforeState,
@@ -193,7 +203,10 @@ contract RollupTest is Test {
         beforeState.machineStatus = MachineStatus.FINISHED;
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
-        afterState.globalState.u64Vals[0] = 1;
+        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
+        afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        afterState.globalState.u64Vals[0] = 1; // inbox count
+        afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
@@ -227,7 +240,10 @@ contract RollupTest is Test {
         beforeState.machineStatus = MachineStatus.FINISHED;
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
-        afterState.globalState.u64Vals[0] = 1;
+        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
+        afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        afterState.globalState.u64Vals[0] = 1; // inbox count
+        afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
@@ -255,5 +271,27 @@ contract RollupTest is Test {
         assertEq(userRollup.getAssertion(0).secondChildCreationBlock, block.number);
     }
 
+    function testRevertConfirmWrongInput() public {
+        testSuccessCreateAssertions();
+        vm.roll(userRollup.getAssertion(0).firstChildCreationBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.prank(validator1);
+        vm.expectRevert("CONFIRM_DATA");
+        userRollup.confirmNextAssertion(bytes32(0), bytes32(0));
+    }
+
+    function testSuccessConfirmUnchallengedAssertions() public {
+        testSuccessCreateAssertions();
+        vm.roll(userRollup.getAssertion(0).firstChildCreationBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.prank(validator1);
+        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
+    }
+
+    function testRevertConfirmChallengedAssertions() public {
+        testSuccessCreateSecondChild();
+        vm.roll(userRollup.getAssertion(0).firstChildCreationBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.prank(validator1);
+        vm.expectRevert("IN_CHAL");
+        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
+    }
 }
 
