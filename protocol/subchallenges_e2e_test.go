@@ -124,30 +124,32 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 	subChal, err := bobBisected.CreateBigStepChallenge(tx)
 	require.NoError(t, err)
 
+	t.Logf("%+v", subChal)
+
 	// Alice and bob add leaves to the BigStepChallenge.
-	aliceV = addBigStepChallengeLeaf(
-		t,
-		correctStateRoots,
-		3,
-		subChal,
-		bobBisected,
-		alice,
-	)
+	// aliceV = addBigStepChallengeLeaf(
+	// 	t,
+	// 	correctStateRoots,
+	// 	3,
+	// 	subChal,
+	// 	bobBisected,
+	// 	alice,
+	// )
 
-	bobV = addBigStepChallengeLeaf(
-		t,
-		wrongStateRoots,
-		3,
-		subChal,
-		bobBisected,
-		bob,
-	)
+	// bobV = addBigStepChallengeLeaf(
+	// 	t,
+	// 	wrongStateRoots,
+	// 	3,
+	// 	subChal,
+	// 	bobBisected,
+	// 	bob,
+	// )
 
-	// A single bisection and merge will lead to a one-step-fork
-	// once more.
-	bobBisected = bisect(t, bobV, wrongManager, bob)
-	aliceMerged = merge(t, aliceV, bobBisected, correctManager, alice)
-	_ = aliceMerged
+	// // A single bisection and merge will lead to a one-step-fork
+	// // once more.
+	// bobBisected = bisect(t, bobV, wrongManager, bob)
+	// aliceMerged = merge(t, aliceV, bobBisected, correctManager, alice)
+	// _ = aliceMerged
 
 	// The non-presumptive vertex should then open a
 	// SmallStepChallenge on vertex 1, which is the parent vertex

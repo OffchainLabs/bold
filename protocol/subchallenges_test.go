@@ -14,12 +14,12 @@ func TestChallengeVertex_CreateBigStepChallenge(t *testing.T) {
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	t.Run("top level challenge must be block challenge", func(t *testing.T) {
 		v := setupValidSubChallengeCreation(t, SmallStepChallenge)
-		err := v.CreateBigStepChallenge(tx)
+		_, err := v.CreateBigStepChallenge(tx)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("OK", func(t *testing.T) {
 		v := setupValidSubChallengeCreation(t, BlockChallenge)
-		err := v.CreateBigStepChallenge(tx)
+		_, err := v.CreateBigStepChallenge(tx)
 		require.NoError(t, err)
 		sub := v.SubChallenge.Unwrap()
 		require.Equal(t, ChallengeType(BigStepChallenge), sub.challengeType)
