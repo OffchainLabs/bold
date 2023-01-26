@@ -141,7 +141,7 @@ func (c *Challenge) AddSubchallengeLeaf(
 	c.rootAssertion.Unwrap().chain.challengesByHash[h] = c
 	c.rootAssertion.Unwrap().chain.challengeVerticesByCommitHash[h][VertexCommitHash(leaf.Commitment.Hash())] = leaf
 	c.leafVertexCount++
-	return nil, nil
+	return leaf, nil
 }
 
 // CreateBigStepChallenge creates a BigStep subchallenge on a vertex.
@@ -215,19 +215,70 @@ func (v *ChallengeVertex) CreateBigStepChallenge(
 }
 
 // CreateSmallStepChallenge creates a SmallStep subchallenge on a vertex.
-func (v *ChallengeVertex) CreateSmallStepChallenge(tx *ActiveTx) error {
+func (v *ChallengeVertex) CreateSmallStepChallenge(tx *ActiveTx, validator common.Address) (*Challenge, error) {
 	tx.verifyReadWrite()
 	if err := v.canCreateSubChallenge(SmallStepChallenge); err != nil {
-		return err
+		return nil, err
 	}
-	// TODO: Add all other required challenge fields.
-	v.SubChallenge = util.Some(&Challenge{
-		creationTime:  v.Challenge.Unwrap().creationTime,
-		ChallengeType: SmallStepChallenge,
-	})
 	// TODO: Add the challenge to the chain under a key that does not
 	// collide with top-level challenges and fire events.
-	return nil
+	rootAssertion := v.Challenge.Unwrap().rootAssertion.Unwrap()
+	chain := rootAssertion.chain
+	currSeqNumber := VertexSequenceNumber(0)
+	rootVertex := &ChallengeVertex{
+		Challenge:   util.None[*Challenge](),
+		SequenceNum: currSeqNumber,
+		isLeaf:      false,
+		Status:      ConfirmedAssertionState,
+		Commitment: util.HistoryCommitment{
+			Height: 0,
+			Merkle: common.Hash{},
+		},
+		Prev:                 util.None[*ChallengeVertex](),
+		PresumptiveSuccessor: util.None[*ChallengeVertex](),
+		PsTimer:              util.NewCountUpTimer(chain.timeReference),
+		SubChallenge:         util.None[*Challenge](),
+	}
+
+	subChal := &Challenge{
+		rootAssertion:     util.Some(rootAssertion),
+		WinnerAssertion:   util.None[*Assertion](),
+		WinnerVertex:      util.None[*ChallengeVertex](),
+		rootVertex:        util.Some(rootVertex),
+		includedHistories: make(map[common.Hash]bool),
+		challengePeriod:   chain.challengePeriod,
+		// Set the creation time of the subchallenge to be
+		// the same as the top-level challenge, as they should
+		// expire at the same timestamp.
+		creationTime:  v.Challenge.Unwrap().creationTime,
+		ChallengeType: SmallStepChallenge,
+	}
+
+	rootVertex.Challenge = util.Some(subChal)
+	subChal.includedHistories[rootVertex.Commitment.Hash()] = true
+	v.SubChallenge = util.Some(subChal)
+
+	parentStaker := common.Address{}
+	if !rootAssertion.Staker.IsNone() {
+		parentStaker = rootAssertion.Staker.Unwrap()
+	}
+
+	// TODO: Fire a subchallenge event instead?
+	chain.feed.Append(&StartChallengeEvent{
+		ParentSeqNum:          rootAssertion.SequenceNum,
+		ParentStateCommitment: rootAssertion.StateCommitment,
+		ParentStaker:          parentStaker,
+		Validator:             validator,
+	})
+
+	challengeID := subChal.Hash()
+	if _, ok := chain.challengesByHash[challengeID]; ok {
+		return nil, errors.New("challenge with id already exists")
+	}
+	chain.challengesByHash[challengeID] = subChal
+	chain.challengeVerticesByCommitHash[challengeID] = map[VertexCommitHash]*ChallengeVertex{VertexCommitHash(rootVertex.Commitment.Hash()): rootVertex}
+
+	return subChal, nil
 }
 
 // Verifies the a subchallenge can be created on a challenge vertex
