@@ -730,7 +730,7 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			history,
 			validator,
 		)
-		require.ErrorContains(t, err, "must provide a last leaf proof")
+		require.ErrorIs(t, err, ErrNoLastLeafProof)
 	})
 	t.Run("last leaf does not match assertion state root", func(t *testing.T) {
 		balances := util.NewMapWithDefaultAdvanced[common.Address](
@@ -768,7 +768,7 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			history,
 			validator,
 		)
-		require.ErrorContains(t, err, "last leaf of history does not match")
+		require.ErrorIs(t, err, ErrWrongLastLeaf)
 	})
 	t.Run("prev height must be less than current height", func(t *testing.T) {
 		balances := util.NewMapWithDefaultAdvanced[common.Address](
@@ -814,7 +814,7 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			history,
 			validator,
 		)
-		require.ErrorContains(t, err, "must be less than")
+		require.ErrorIs(t, err, ErrInvalidHeight)
 	})
 	t.Run("claimed height must be range of curr - prev's heights", func(t *testing.T) {
 		balances := util.NewMapWithDefaultAdvanced[common.Address](
@@ -860,7 +860,7 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			history,
 			validator,
 		)
-		require.ErrorContains(t, err, "history height does not match expected value")
+		require.ErrorIs(t, err, ErrInvalidHeight)
 	})
 	t.Run("commitment should prove the last element in the Merkleization is the last leaf", func(t *testing.T) {
 		balances := util.NewMapWithDefaultAdvanced[common.Address](
@@ -910,7 +910,7 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			history,
 			validator,
 		)
-		require.ErrorContains(t, err, "merkle proof fails to verify")
+		require.ErrorIs(t, err, ErrProofFailsToVerify)
 	})
 	t.Run("OK", func(t *testing.T) {
 		ref := util.NewArtificialTimeReference()
