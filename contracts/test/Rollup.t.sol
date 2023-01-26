@@ -168,8 +168,8 @@ contract RollupTest is Test {
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
         afterState.globalState.u64Vals[0] = 1;
-        vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
+
+        NewAssertionInputs memory inputs = NewAssertionInputs({
             beforeState: beforeState,
             afterState: afterState,
             numBlocks: 1,
@@ -177,19 +177,14 @@ contract RollupTest is Test {
             prevStateCommitment: bytes32(0),
             prevNodeInboxMaxCount: 1,
             expectedAssertionHash: bytes32(0)
-        }));
+        });
+
+        vm.prank(validator1);
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(inputs);
 
         vm.prank(validator2);
         vm.expectRevert("ASSERTION_SEEN");
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
-            beforeState: beforeState,
-            afterState: afterState,
-            numBlocks: 1,
-            prevNum: 0,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: 1,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(inputs);
     }
 
 }
