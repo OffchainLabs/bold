@@ -6,6 +6,7 @@ pragma solidity ^0.8.0;
 
 import "./Node.sol";
 import "./RollupLib.sol";
+import "./AssertionLib.sol";
 
 interface IRollupCore {
     struct Staker {
@@ -25,6 +26,17 @@ interface IRollupCore {
         bytes32 indexed nodeHash,
         bytes32 executionHash,
         OldAssertion assertion,
+        bytes32 afterInboxBatchAcc,
+        bytes32 wasmModuleRoot,
+        uint256 inboxMaxCount
+    );
+
+    event AssertionCreated(
+        uint64 indexed nodeNum,
+        bytes32 indexed parentNodeHash,
+        bytes32 indexed nodeHash,
+        bytes32 executionHash,
+        NewAssertionInputs inputs,
         bytes32 afterInboxBatchAcc,
         bytes32 wasmModuleRoot,
         uint256 inboxMaxCount

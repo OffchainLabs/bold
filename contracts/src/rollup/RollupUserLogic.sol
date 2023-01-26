@@ -158,7 +158,7 @@ abstract contract AbsRollupUserLogic is
         require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
         require(depositAmount >= currentRequiredStake(), "NOT_ENOUGH_STAKE");
 
-        // createNewStake(msg.sender, depositAmount); // TODO: figure this out
+        createNewStake(msg.sender, depositAmount); // TODO: figure this out
     }
 
     /**
@@ -207,14 +207,27 @@ abstract contract AbsRollupUserLogic is
         // TODO: Seems not required anymore?
         // require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
 
+        uint64 prevStakedAssertionNum = latestStakedAssertion(msg.sender);
+
         // TODO: Ensure the staker is either
         // 1. Deposited but unstaked; or
         // 2. The last staked node is an ancestor of the new assertion node
+        bool isDeposit = !isStaked(msg.sender) && amountStaked(msg.sender) >= currentRequiredStake();
+        bool isStakedOnPrev = false;
 
-        uint64 prevAssertionNum = latestStakedAssertion(msg.sender);
+        uint64 prevAssertionNum = inputs.prevNum;
+        while(prevAssertionNum != 0) {
+            if (prevAssertionNum == prevStakedAssertionNum) {
+                isStakedOnPrev = true;
+                break;
+            }
+            prevAssertionNum = getAssertionStorage(prevAssertionNum).prevNum;
+        }
+
+        require(isDeposit || isStakedOnPrev, "NOT_STAKED");
 
         {
-            uint256 timeSinceLastAssertion = block.number - getAssertion(prevAssertionNum).createdAtBlock;
+            uint256 timeSinceLastAssertion = block.number - getAssertion(prevStakedAssertionNum).createdAtBlock;
             // Verify that assertion meets the minimum Delta time requirement
             require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
 

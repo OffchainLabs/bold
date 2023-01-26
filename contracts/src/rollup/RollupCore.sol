@@ -80,6 +80,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // Add new storage variables for new rollup below
     mapping(uint64 => Assertion) private _assertions;
+    mapping(bytes32 => uint64) private _assertionToNum;
     uint64 private _latestAssertionCreated;
     uint64 private _latestConfirmedAssertion;
 
@@ -342,17 +343,16 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param depositAmount Stake amount of the new staker
      */
     function createNewStake(address stakerAddress, uint256 depositAmount) internal {
-        revert("NOT_IMPLEMENTED");
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
         _stakerMap[stakerAddress] = Staker(
             depositAmount,
             stakerIndex,
-            _latestConfirmed,
+            0, // TODO: 
             NO_CHAL_INDEX, // new staker is not in challenge
-            true
+            false
         );
-        _nodeStakers[_latestConfirmedAssertion][stakerAddress] = true;
+        // _nodeStakers[_latestConfirmedAssertion][stakerAddress] = true;
         _lastStakeBlock = uint64(block.number);
         emit UserStakeUpdated(stakerAddress, 0, depositAmount);
     }
@@ -528,6 +528,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         Staker storage staker = _stakerMap[stakerAddress];
         getAssertionStorage(assertionNum).staker = stakerAddress;
         staker.latestStakedAssertion = assertionNum;
+        staker.isStaked = true;
     }
 
     /**
@@ -701,6 +702,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             uint64 assertionNum = latestAssertionCreated() + 1;
 
+            require(_assertionToNum[memoryFrame.assertion.stateHash] == 0, "ASSERTION_SEEN");
+            _assertionToNum[memoryFrame.assertion.stateHash] = assertionNum;
+
             // Fetch a storage reference to prevNode since we copied our other one into memory
             // and we don't have enough stack available to keep to keep the previous storage reference around
             Assertion storage prevAssertion = getAssertionStorage(inputs.prevNum);
@@ -710,17 +714,17 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         }
 
         // TODO: fix event
-        // emit NodeCreated(
-        //     latestNodeCreated(),
-        //     memoryFrame.prevNode.nodeHash,
-        //     newNodeHash,
-        //     memoryFrame.executionHash,
-        //     assertion,
-        //     memoryFrame.sequencerBatchAcc,
-        //     wasmModuleRoot,
-        //     memoryFrame.currentInboxSize
-        // );
+        emit AssertionCreated(
+            latestAssertionCreated(),
+            memoryFrame.prevAssertion.nodeHash,
+            newAssertionHash,
+            memoryFrame.executionHash,
+            inputs,
+            memoryFrame.sequencerBatchAcc,
+            wasmModuleRoot,
+            memoryFrame.currentInboxSize
+        );
 
-        return inputs.expectedAssertionHash;
+        return newAssertionHash;
     }
 }

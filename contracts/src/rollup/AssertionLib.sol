@@ -56,7 +56,7 @@ library AssertionLib {
         Assertion memory assertion;
 
         // assertion.nodeHash = _nodeHash;
-        // assertion.stateHash = _stateHash;
+        assertion.stateHash = RollupLib.stateHashMem(_inputs.afterState, _inboxMaxCount);
         // assertion.challengeHash = _challengeHash;
         // assertion.confirmData = _confirmData;
 

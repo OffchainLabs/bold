@@ -20,12 +20,20 @@ import "../src/challenge/ChallengeManager.sol";
 contract RollupTest is Test {
     address constant owner = address(1337);
     address constant sequencer = address(7331);
+
+    address constant validator1 = address(100001);
+    address constant validator2 = address(100002);
+    address constant validator3 = address(100003);
+
     bytes32 constant wasmModuleRoot = keccak256("wasmModuleRoot");
     uint256 constant BASE_STAKE = 10;
 
     RollupProxy rollup;
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
+
+    address[] validators;
+    bool[] flags;
 
     event RollupCreated(
         address indexed rollupAddress,
@@ -86,9 +94,21 @@ contract RollupTest is Test {
         adminRollup = RollupAdminLogic(address(expectedRollupAddr));
 
         vm.startPrank(owner);
-        adminRollup.setValidatorWhitelistDisabled(true);
+        validators.push(validator1);
+        validators.push(validator2);
+        validators.push(validator3);
+        flags.push(true);
+        flags.push(true);
+        flags.push(true);
+        adminRollup.setValidator(address[](validators), flags);
         adminRollup.sequencerInbox().setIsBatchPoster(sequencer, true);
         vm.stopPrank();
+
+        payable(validator1).transfer(1 ether);
+        payable(validator2).transfer(1 ether);
+        payable(validator3).transfer(1 ether);
+
+        vm.roll(block.number + 75); 
     }
 
     function _createNewBatch() internal returns (uint256){
@@ -107,13 +127,15 @@ contract RollupTest is Test {
         return count;
     }
 
-    function testCreateAssertion() public {
+    function testSuccessCreateAssertions() public {
+        uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
         afterState.globalState.u64Vals[0] = 1;
-        NewAssertionInputs memory inputs = NewAssertionInputs({
+        vm.prank(validator1);
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
             beforeState: beforeState,
             afterState: afterState,
             numBlocks: 1,
@@ -121,8 +143,54 @@ contract RollupTest is Test {
             prevStateCommitment: bytes32(0),
             prevNodeInboxMaxCount: 1,
             expectedAssertionHash: bytes32(0)
-        });
-        vm.roll(block.number + 75); // bypass TIME_DELTA error
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(inputs);
+        }));
+
+        ExecutionState memory afterState2;
+        afterState2.machineStatus = MachineStatus.FINISHED;
+        afterState2.globalState.u64Vals[0] = inboxcount;
+        vm.roll(block.number + 75); 
+        vm.prank(validator1);
+        userRollup.stakeOnNewAssertion(NewAssertionInputs({
+            beforeState: afterState,
+            afterState: afterState2,
+            numBlocks: 1,
+            prevNum: 1,
+            prevStateCommitment: bytes32(0),
+            prevNodeInboxMaxCount: inboxcount,
+            expectedAssertionHash: bytes32(0)
+        }));
     }
+
+    function testRevertIdentialAssertions() public {
+        uint64 inboxcount = uint64(_createNewBatch());
+        ExecutionState memory beforeState;
+        beforeState.machineStatus = MachineStatus.FINISHED;
+        ExecutionState memory afterState;
+        afterState.machineStatus = MachineStatus.FINISHED;
+        afterState.globalState.u64Vals[0] = 1;
+        vm.prank(validator1);
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
+            beforeState: beforeState,
+            afterState: afterState,
+            numBlocks: 1,
+            prevNum: 0,
+            prevStateCommitment: bytes32(0),
+            prevNodeInboxMaxCount: 1,
+            expectedAssertionHash: bytes32(0)
+        }));
+
+        vm.prank(validator2);
+        vm.expectRevert("ASSERTION_SEEN");
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
+            beforeState: beforeState,
+            afterState: afterState,
+            numBlocks: 1,
+            prevNum: 0,
+            prevStateCommitment: bytes32(0),
+            prevNodeInboxMaxCount: 1,
+            expectedAssertionHash: bytes32(0)
+        }));
+    }
+
 }
+
