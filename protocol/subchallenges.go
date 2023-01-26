@@ -50,23 +50,12 @@ func (c *Challenge) AddSubchallengeLeaf(
 	if c.ChallengeType != subchallengeType {
 		return nil, ErrWrongChallengeKind
 	}
-	challengedVertex := c.rootVertex.Unwrap()
 	prev := topLevelVertex.Prev.Unwrap()
-
-	// The previous vertex's challenge must be this one.
-	if prev.Challenge.Unwrap() != c {
-		return nil, ErrInvalidOp
-	}
-
-	// The previous vertex must match the root vertex of this challenge.
-	if prev != challengedVertex {
-		return nil, ErrInvalidOp
-	}
 
 	// The vertex must be one-step away from its previous vertex.
 	// TODO: Should we check if the previous vertex is at a one-step-fork?
-	if prev.Commitment.Height != topLevelVertex.Commitment.Height+1 {
-		return nil, ErrInvalidOp
+	if topLevelVertex.Commitment.Height != prev.Commitment.Height+1 {
+		return nil, ErrInvalidHeight
 	}
 
 	// We check if we have already included the vertex in the challenge.
@@ -95,11 +84,8 @@ func (c *Challenge) AddSubchallengeLeaf(
 
 	// The last leaf claimed in the history commitment must be the
 	// state root of the assertion we are adding a leaf for.
-	if history.LastLeaf == (common.Hash{}) ||
-		len(history.LastLeafProof) == 0 ||
-		history.LastLeafPrefix.IsNone() ||
-		history.Normalized().IsNone() {
-		return nil, errors.New("history commitment must provide a last leaf proof")
+	if !historyProvidesLastLeafProof(history) {
+		return nil, ErrNoLastLeafProof
 	}
 	if topLevelVertex.Commitment.LastLeaf != history.LastLeaf {
 		return nil, errors.Wrapf(

@@ -124,26 +124,24 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 	subChal, err := bobBisected.CreateBigStepChallenge(tx, alice)
 	require.NoError(t, err)
 
-	t.Logf("%+v", subChal)
-
 	// Alice and bob add leaves to the BigStepChallenge.
-	// aliceV = addBigStepChallengeLeaf(
-	// 	t,
-	// 	correctStateRoots,
-	// 	3,
-	// 	subChal,
-	// 	bobBisected,
-	// 	alice,
-	// )
+	aliceV = addBigStepChallengeLeaf(
+		t,
+		correctStateRoots,
+		3,
+		subChal,
+		bobBisected,
+		alice,
+	)
 
-	// bobV = addBigStepChallengeLeaf(
-	// 	t,
-	// 	wrongStateRoots,
-	// 	3,
-	// 	subChal,
-	// 	bobBisected,
-	// 	bob,
-	// )
+	bobV = addBigStepChallengeLeaf(
+		t,
+		wrongStateRoots,
+		3,
+		subChal,
+		bobBisected,
+		bob,
+	)
 
 	// // A single bisection and merge will lead to a one-step-fork
 	// // once more.
