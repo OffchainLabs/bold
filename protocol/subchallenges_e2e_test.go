@@ -91,17 +91,12 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 		bobAssertion,
 		bob,
 	)
-	t.Logf("%d bob, prev %d", bobV.Commitment.Height, bobV.Prev.Unwrap().Commitment.Height)
-	t.Logf("%d alie, prev %d", aliceV.Commitment.Height, aliceV.Prev.Unwrap().Commitment.Height)
-	t.Log("")
 
 	// Leaves have height 2, so after bisecting to 1, and a merge to 1,
 	// they will be at a one-step-fork from the root vertex of the challenge.
-	bobV = bisect(t, bobV, wrongManager, bob)
-	aliceV = merge(t, aliceV, bobV, correctManager, alice)
-
-	t.Logf("Alice prev %#x", aliceV.Prev.Unwrap().Commitment.Hash())
-	t.Logf("Bob prev %#x", aliceV.Prev.Unwrap().Commitment.Hash())
+	bobBisected := bisect(t, bobV, wrongManager, bob)
+	aliceMerged := merge(t, aliceV, bobBisected, correctManager, alice)
+	_ = aliceMerged
 
 	ok, err := chain.IsAtOneStepFork(
 		tx,
@@ -121,13 +116,38 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// The non-presumptive vertex should then open a
+	// The non-presumptive vertex, created by Bob, should then open a
 	// BigStepChallenge on vertex 1, which is the parent vertex
 	// of the one-step-fork.
+	require.True(t, bobBisected.IsPresumptiveSuccessor())
+
+	subChal, err := bobBisected.CreateBigStepChallenge(tx)
+	require.NoError(t, err)
 
 	// Alice and bob add leaves to the BigStepChallenge.
+	aliceV = addBigStepChallengeLeaf(
+		t,
+		correctStateRoots,
+		3,
+		subChal,
+		bobBisected,
+		alice,
+	)
+
+	bobV = addBigStepChallengeLeaf(
+		t,
+		wrongStateRoots,
+		3,
+		subChal,
+		bobBisected,
+		bob,
+	)
+
 	// A single bisection and merge will lead to a one-step-fork
 	// once more.
+	bobBisected = bisect(t, bobV, wrongManager, bob)
+	aliceMerged = merge(t, aliceV, bobBisected, correctManager, alice)
+	_ = aliceMerged
 
 	// The non-presumptive vertex should then open a
 	// SmallStepChallenge on vertex 1, which is the parent vertex
@@ -218,6 +238,32 @@ func merge(
 	)
 	require.NoError(t, err)
 	return mergingTo
+}
+
+func addBigStepChallengeLeaf(
+	t *testing.T,
+	stateRoots []common.Hash,
+	height uint64,
+	chal *Challenge,
+	vertex *ChallengeVertex,
+	staker common.Address,
+) *ChallengeVertex {
+	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
+	commit, err := util.NewHistoryCommitment(
+		height,
+		stateRoots[:height],
+		util.WithLastElementProof(stateRoots[:height+2]),
+	)
+	require.NoError(t, err)
+	leaf, err := chal.AddSubchallengeLeaf(
+		tx,
+		vertex,
+		BigStepChallenge,
+		commit,
+		staker,
+	)
+	require.NoError(t, err)
+	return leaf
 }
 
 func setupAssertionChainFork(

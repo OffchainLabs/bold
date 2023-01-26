@@ -326,7 +326,6 @@ func verticesContainOneStepFork(vertices map[VertexCommitHash]*ChallengeVertex, 
 	if len(vertices) < 2 {
 		return false
 	}
-	fmt.Println("vertices", vertices)
 	childVertices := make([]*ChallengeVertex, 0)
 	for _, v := range vertices {
 		if v.Prev.IsNone() {
@@ -338,7 +337,6 @@ func verticesContainOneStepFork(vertices map[VertexCommitHash]*ChallengeVertex, 
 			childVertices = append(childVertices, v)
 		}
 	}
-	fmt.Println(len(childVertices), childVertices)
 	if len(childVertices) < 2 {
 		return false
 	}

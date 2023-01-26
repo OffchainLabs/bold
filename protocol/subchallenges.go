@@ -159,22 +159,23 @@ func (c *Challenge) AddSubchallengeLeaf(
 }
 
 // CreateBigStepChallenge creates a BigStep subchallenge on a vertex.
-func (v *ChallengeVertex) CreateBigStepChallenge(tx *ActiveTx) error {
+func (v *ChallengeVertex) CreateBigStepChallenge(tx *ActiveTx) (*Challenge, error) {
 	tx.verifyReadWrite()
 	if err := v.canCreateSubChallenge(BigStepChallenge); err != nil {
-		return err
+		return nil, err
 	}
 	// TODO: Add all other required challenge fields.
-	v.SubChallenge = util.Some(&Challenge{
+	subChal := &Challenge{
 		// Set the creation time of the subchallenge to be
 		// the same as the top-level challenge, as they should
 		// expire at the same timestamp.
 		creationTime:  v.Challenge.Unwrap().creationTime,
 		challengeType: BigStepChallenge,
-	})
+	}
+	v.SubChallenge = util.Some(subChal)
 	// TODO: Add the challenge to the chain under a key that does not
 	// collide with top-level challenges and fire events.
-	return nil
+	return subChal, nil
 }
 
 // CreateSmallStepChallenge creates a SmallStep subchallenge on a vertex.
