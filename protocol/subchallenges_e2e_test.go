@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"crypto/rand"
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,54 +15,111 @@ import (
 func TestChallenge_EndToEndResolution(t *testing.T) {
 	ctx := context.Background()
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
-	correctStateRoots := correctBlockHashesForTest(10)
-	wrongStateRoots := wrongBlockHashesForTest(10)
+	divergingAt := uint64(1)
+	numRoots := uint64(5)
+	correctStateRoots := createDivergingStateRoots(t, divergingAt, numRoots)
+	wrongStateRoots := createDivergingStateRoots(t, divergingAt, numRoots)
+
+	require.Equal(t, wrongStateRoots[0], correctStateRoots[0])
+	require.NotEqual(t, wrongStateRoots[1], correctStateRoots[1])
+
 	correctManager := statemanager.New(correctStateRoots)
 	wrongManager := statemanager.New(wrongStateRoots)
-	_ = correctManager
-	_ = wrongManager
+	alice := common.BytesToAddress([]byte("alice"))
+	bob := common.BytesToAddress([]byte("bob"))
+
 	chain := NewAssertionChain(
 		ctx,
 		util.NewArtificialTimeReference(),
 		time.Second,
 	)
 
-	// Creates two conflicting leaves in the assertion chain.
-	alice := common.BytesToAddress([]byte("alice"))
-	bob := common.BytesToAddress([]byte("bob"))
-
-	commit1 := util.StateCommitment{
-		StateRoot: correctStateRoots[2],
-		Height:    2,
+	bal := big.NewInt(0).Mul(AssertionStake, big.NewInt(100))
+	chain.AddToBalance(tx, alice, bal)
+	chain.AddToBalance(tx, bob, bal)
+	commit := util.StateCommitment{
+		StateRoot: correctStateRoots[1],
+		Height:    1,
 	}
-	commit2 := util.StateCommitment{
-		StateRoot: wrongStateRoots[2],
-		Height:    2,
-	}
-	assertion1, assertion2 := setupAssertionChainFork(
-		t,
-		ctx,
-		chain,
-		alice,
-		bob,
-		commit1,
-		commit2,
-	)
-	_ = assertion1
-	_ = assertion2
 
 	genesis := chain.LatestConfirmed(tx)
+	assertion1, err := chain.CreateLeaf(
+		tx,
+		genesis,
+		commit,
+		alice,
+	)
+	require.NoError(t, err)
+	assertion1.status = ConfirmedAssertionState
+	chain.latestConfirmed = assertion1.SequenceNum
 
-	// Create a challenge on genesis.
-	challenge, err := genesis.CreateChallenge(tx, ctx, alice)
+	// Creates two conflicting leaves in the assertion chain.
+	aliceCommit := util.StateCommitment{
+		StateRoot: correctStateRoots[3],
+		Height:    3,
+	}
+	bobCommit := util.StateCommitment{
+		StateRoot: wrongStateRoots[3],
+		Height:    3,
+	}
+	aliceAssertion, bobAssertion := setupAssertionChainFork(
+		t,
+		chain,
+		assertion1,
+		alice,
+		bob,
+		aliceCommit,
+		bobCommit,
+	)
+
+	// Create a BlockChallenge on genesis.
+	challenge, err := assertion1.CreateChallenge(tx, ctx, alice)
 	require.NoError(t, err)
 
-	_ = challenge
+	// Alice and bob will add challenge leaves to the BlockChallenge.
+	aliceV := addBlockChallengeLeaf(
+		t,
+		correctStateRoots,
+		challenge,
+		aliceAssertion,
+		alice,
+	)
+	bobV := addBlockChallengeLeaf(
+		t,
+		wrongStateRoots,
+		challenge,
+		bobAssertion,
+		bob,
+	)
+	t.Logf("%d bob, prev %d", bobV.Commitment.Height, bobV.Prev.Unwrap().Commitment.Height)
+	t.Logf("%d alie, prev %d", aliceV.Commitment.Height, aliceV.Prev.Unwrap().Commitment.Height)
+	t.Log("")
 
-	// Alice and bob will add challenge leaves.
+	// Leaves have height 2, so after bisecting to 1, and a merge to 1,
+	// they will be at a one-step-fork from the root vertex of the challenge.
+	bobV = bisect(t, bobV, wrongManager, bob)
+	aliceV = merge(t, aliceV, bobV, correctManager, alice)
 
-	// Leaves have height 2, so a bisection from Alice to 1
-	// and a merge from Bob to 1 will lead to a one-step-fork
+	t.Logf("Alice prev %#x", aliceV.Prev.Unwrap().Commitment.Hash())
+	t.Logf("Bob prev %#x", aliceV.Prev.Unwrap().Commitment.Hash())
+
+	ok, err := chain.IsAtOneStepFork(
+		tx,
+		ChallengeCommitHash(challenge.ParentStateCommitment().Hash()),
+		bobV.Commitment,
+		bobV.Prev.Unwrap().Commitment,
+	)
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	ok, err = chain.IsAtOneStepFork(
+		tx,
+		ChallengeCommitHash(challenge.ParentStateCommitment().Hash()),
+		aliceV.Commitment,
+		aliceV.Prev.Unwrap().Commitment,
+	)
+	require.NoError(t, err)
+	require.True(t, ok)
 
 	// The non-presumptive vertex should then open a
 	// BigStepChallenge on vertex 1, which is the parent vertex
@@ -81,45 +139,91 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 
 	// After a bisection and merge, Alice and Bob reach a one-step-fork
 	// which will be resolved with a one-step-proof. Alice should win.
-	// expectedBisectionHeight := uint64(4)
-	// lo := expectedBisectionHeight
+}
 
-	// hi := uint64(6)
-	// loExp := util.ExpansionFromLeaves(wrongBlockHashes[:lo])
-	// badCommit, err := util.NewHistoryCommitment(
-	// 	hi,
-	// 	wrongBlockHashes[:hi],
-	// 	util.WithLastElementProof(wrongBlockHashes[:hi+1]),
-	// )
-	// require.NoError(t, err)
+func addBlockChallengeLeaf(
+	t *testing.T,
+	stateRoots []common.Hash,
+	chal *Challenge,
+	assertion *Assertion,
+	staker common.Address,
+) *ChallengeVertex {
+	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
+	height := assertion.StateCommitment.Height - assertion.Prev.Unwrap().StateCommitment.Height
+	commit, err := util.NewHistoryCommitment(
+		height,
+		stateRoots[:height],
+		util.WithLastElementProof(stateRoots[:height+2]),
+	)
+	require.NoError(t, err)
+	leaf, err := chal.AddLeaf(
+		tx,
+		assertion,
+		commit,
+		staker,
+	)
+	require.NoError(t, err)
+	return leaf
+}
 
-	// badLeaf, err := challenge.AddLeaf(
-	// 	tx,
-	// 	wrongBranch,
-	// 	badCommit,
-	// 	staker1,
-	// )
-	// require.NoError(t, err)
+func bisect(
+	t *testing.T,
+	v *ChallengeVertex,
+	manager statemanager.Manager,
+	staker common.Address,
+) *ChallengeVertex {
+	ctx := context.Background()
+	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
+	prevHeight := v.Prev.Unwrap().Commitment.Height
+	vHeight := v.Commitment.Height
+	bisectionHeight, err := util.BisectionPoint(prevHeight, vHeight)
+	require.NoError(t, err)
 
-	// goodCommit, err := util.NewHistoryCommitment(
-	// 	hi,
-	// 	correctBlockHashes[:hi],
-	// 	util.WithLastElementProof(correctBlockHashes[:hi+1]),
-	// )
-	// require.NoError(t, err)
-	// goodLeaf, err := challenge.AddLeaf(
-	// 	tx,
-	// 	correctBranch,
-	// 	goodCommit,
-	// 	staker2,
-	// )
-	// require.NoError(t, err)
+	proof, err := manager.PrefixProof(ctx, bisectionHeight, vHeight)
+	require.NoError(t, err)
+
+	history, err := manager.HistoryCommitmentUpTo(ctx, bisectionHeight)
+	require.NoError(t, err)
+
+	bisectedTo, err := v.Bisect(
+		tx,
+		history,
+		proof,
+		staker,
+	)
+	require.NoError(t, err)
+	return bisectedTo
+}
+
+func merge(
+	t *testing.T,
+	mergingFrom,
+	mergingTo *ChallengeVertex,
+	manager statemanager.Manager,
+	staker common.Address,
+) *ChallengeVertex {
+	ctx := context.Background()
+	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
+	mergingToHeight := mergingTo.Commitment.Height
+	mergingFromHeight := mergingFrom.Commitment.Height
+
+	proof, err := manager.PrefixProof(ctx, mergingToHeight, mergingFromHeight)
+	require.NoError(t, err)
+
+	err = mergingFrom.Merge(
+		tx,
+		mergingTo,
+		proof,
+		staker,
+	)
+	require.NoError(t, err)
+	return mergingTo
 }
 
 func setupAssertionChainFork(
 	t *testing.T,
-	ctx context.Context,
 	chain *AssertionChain,
+	latest *Assertion,
 	staker1,
 	staker2 common.Address,
 	commit1,
@@ -130,20 +234,34 @@ func setupAssertionChainFork(
 	chain.AddToBalance(tx, staker1, bal)
 	chain.AddToBalance(tx, staker2, bal)
 
-	genesis := chain.LatestConfirmed(tx)
 	assertion1, err := chain.CreateLeaf(
 		tx,
-		genesis,
+		latest,
 		commit1,
 		staker1,
 	)
 	require.NoError(t, err)
 	assertion2, err := chain.CreateLeaf(
 		tx,
-		genesis,
+		latest,
 		commit2,
 		staker2,
 	)
 	require.NoError(t, err)
 	return assertion1, assertion2
+}
+
+func createDivergingStateRoots(t *testing.T, divergingAt, numRoots uint64) []common.Hash {
+	stateRoots := make([]common.Hash, numRoots)
+	for i := uint64(0); i < numRoots; i++ {
+		if divergingAt == 0 || i < divergingAt {
+			stateRoots[i] = util.HashForUint(i)
+		} else {
+			divergingRoot := make([]byte, 32)
+			_, err := rand.Read(divergingRoot)
+			require.NoError(t, err)
+			stateRoots[i] = common.BytesToHash(divergingRoot)
+		}
+	}
+	return stateRoots
 }
