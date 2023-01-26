@@ -406,13 +406,13 @@ contract RollupTest is Test {
     }
 
     function testRevertConfirmForPSTimer() public {
-        (uint64 challengeIndex) = testSuccessAddLeaves();
+        uint64 challengeIndex = testSuccessAddLeaves();
         vm.expectRevert("PSTIMER_LOW");
         challengeManager.confirmForPSTimer(challengeIndex, 2);
     }
 
     function testSuccessConfirmForPSTimer() public {
-        (uint64 challengeIndex) = testSuccessAddLeaves();
+        uint64 challengeIndex = testSuccessAddLeaves();
         vm.roll(block.number + CONFIRM_PERIOD_BLOCKS + 1);
         challengeManager.confirmForPSTimer(challengeIndex, 2);
     }
@@ -424,8 +424,9 @@ contract RollupTest is Test {
     }
 
     bytes32[] temp;
+
     function testSuccessBisect() public returns (uint64, uint256) {
-        (uint64 challengeIndex) = testSuccessAddLeaves();
+        uint64 challengeIndex = testSuccessAddLeaves();
         vm.prank(validator2);
         uint256 newVertexIndex = challengeManager.bisect({
             challengeIndex: challengeIndex,
@@ -433,7 +434,10 @@ contract RollupTest is Test {
             history: NewChallengeLib.HistoryCommitment({height: 6, merkleRoot: keccak256("123")}),
             proof: temp
         });
-        assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, newVertexIndex);
+        assertEq(
+            challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor,
+            newVertexIndex
+        );
         return (challengeIndex, newVertexIndex);
     }
 

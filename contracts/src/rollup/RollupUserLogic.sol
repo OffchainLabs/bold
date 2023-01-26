@@ -177,7 +177,8 @@ abstract contract AbsRollupUserLogic is
         require(assertion.prevNum == latestConfirmedAssertion(), "PREV_NOT_CONFIRMED");
 
         require(
-            prevAssertion.secondChildCreationBlock == 0 || prevAssertion.challengeWinner == assertionNum,
+            prevAssertion.secondChildCreationBlock == 0 ||
+                prevAssertion.challengeWinner == assertionNum,
             "IN_CHAL"
         );
 

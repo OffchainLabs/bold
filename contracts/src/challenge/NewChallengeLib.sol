@@ -49,10 +49,14 @@ library NewChallengeLib {
 
     function bisectHeight(uint256 height) internal pure returns (uint256) {
         // TODO: implement
-        return height-2;
+        return height - 2;
     }
 
-    function verifyPrefixProof(bytes32 prefix, bytes32 root, bytes32[] memory proof) internal pure returns (bool) {
+    function verifyPrefixProof(
+        bytes32 prefix,
+        bytes32 root,
+        bytes32[] memory proof
+    ) internal pure returns (bool) {
         // TODO: implement
         return true;
     }

@@ -122,7 +122,7 @@ contract NewChallengeManager is DelegateCallAware, IChallengeManager {
         updatePresumptivSuccessor(challengeIndex, vertex.prev, 0);
         require(vertex.psTimer >= challenges[challengeIndex].confirmPeriodBlocks, "PSTIMER_LOW");
         vertex.status = NewChallengeLib.VertexStatus.Confirmed;
-        if(vertex.winnerIfConfirmed > 0){
+        if (vertex.winnerIfConfirmed > 0) {
             resultReceiver.completeChallenge(challengeIndex, vertex.winnerIfConfirmed);
         }
     }
@@ -154,7 +154,7 @@ contract NewChallengeManager is DelegateCallAware, IChallengeManager {
     }
 
     function bisect(
-        uint64 challengeIndex, 
+        uint64 challengeIndex,
         uint64 vertexIndex,
         NewChallengeLib.HistoryCommitment calldata history,
         bytes32[] calldata proof
@@ -170,15 +170,21 @@ contract NewChallengeManager is DelegateCallAware, IChallengeManager {
         NewChallengeLib.Vertex storage prev = vertices[challengeIndex][vertex.prev];
         require(prev.presumptivSuccessor != vertexIndex, "ALREADY_IS_PS");
         NewChallengeLib.Vertex storage prevps = vertices[challengeIndex][prev.presumptivSuccessor];
-        require(prevps.psTimer < challenges[challengeIndex].confirmPeriodBlocks, "PREV_PS_CONFIRMED");
+        require(
+            prevps.psTimer < challenges[challengeIndex].confirmPeriodBlocks,
+            "PREV_PS_CONFIRMED"
+        );
         require(prev.height <= vertex.height - 2, "SHOULD_OSP");
         require(NewChallengeLib.bisectHeight(vertex.height) == history.height, "BAD_BISECT_HIGHT");
-        require(NewChallengeLib.verifyPrefixProof({
-            prefix: history.merkleRoot,
-            root: vertex.history,
-            proof: proof
-        }), "BAD_PREFIX_PROOF");
-        
+        require(
+            NewChallengeLib.verifyPrefixProof({
+                prefix: history.merkleRoot,
+                root: vertex.history,
+                proof: proof
+            }),
+            "BAD_PREFIX_PROOF"
+        );
+
         // update psTimer
         updatePresumptivSuccessor(challengeIndex, vertex.prev, 0);
 
@@ -199,29 +205,38 @@ contract NewChallengeManager is DelegateCallAware, IChallengeManager {
         return bisectIndex;
     }
 
-    function merge(uint64 challengeIndex, uint64 vertexFromIndex, uint64 vertexToIndex, bytes32[] calldata proof) external returns (uint256) {
-
+    function merge(
+        uint64 challengeIndex,
+        uint64 vertexFromIndex,
+        uint64 vertexToIndex,
+        bytes32[] calldata proof
+    ) external returns (uint256) {
         NewChallengeLib.Vertex storage vertexFrom = vertices[challengeIndex][vertexFromIndex];
         require(vertexFrom.validator != address(0), "VERTEX_NOT_FOUND");
         require(vertexFrom.status == NewChallengeLib.VertexStatus.Pending, "NOT_PENDING_VERTEX");
         NewChallengeLib.Vertex storage vertexTo = vertices[challengeIndex][vertexToIndex];
         require(vertexTo.validator != address(0), "VERTEX_NOT_FOUND");
 
-
         require(vertexFrom.prev > 0, "PREV_IS_NIL");
         NewChallengeLib.Vertex storage prev = vertices[challengeIndex][vertexFrom.prev];
         require(prev.height <= vertexFrom.height - 2, "SHOULD_OSP");
-        require(NewChallengeLib.bisectHeight(vertexFrom.height) == vertexTo.height, "BAD_MERGE_HEIGHT");
-        require(NewChallengeLib.verifyPrefixProof({
-            prefix: vertexTo.history,
-            root: vertexFrom.history,
-            proof: proof
-        }), "BAD_PREFIX_PROOF");
+        require(
+            NewChallengeLib.bisectHeight(vertexFrom.height) == vertexTo.height,
+            "BAD_MERGE_HEIGHT"
+        );
+        require(
+            NewChallengeLib.verifyPrefixProof({
+                prefix: vertexTo.history,
+                root: vertexFrom.history,
+                proof: proof
+            }),
+            "BAD_PREFIX_PROOF"
+        );
 
         // require(prev.presumptivSuccessor != vertexIndex, "ALREADY_IS_PS");
         // NewChallengeLib.Vertex storage prevps = vertices[challengeIndex][prev.presumptivSuccessor];
         // require(prevps.psTimer < challenges[challengeIndex].confirmPeriodBlocks, "PREV_PS_CONFIRMED");
-        
+
         // update psTimer
         updatePresumptivSuccessor(challengeIndex, vertexFrom.prev, 0);
 
