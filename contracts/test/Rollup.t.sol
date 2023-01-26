@@ -207,7 +207,7 @@ contract RollupTest is Test {
         }));
 
         vm.expectRevert("WRONG_BRANCH");
-        afterState.globalState.u64Vals[1] = 1;
+        afterState.globalState.u64Vals[1] = 1; // modify the state
         vm.roll(block.number + 75); 
         vm.prank(validator1);
         userRollup.stakeOnNewAssertion(NewAssertionInputs({
@@ -219,6 +219,40 @@ contract RollupTest is Test {
             prevNodeInboxMaxCount: 1,
             expectedAssertionHash: bytes32(0)
         }));
+    }
+
+    function testSuccessCreateSecondChild() public {
+        uint64 inboxcount = uint64(_createNewBatch());
+        ExecutionState memory beforeState;
+        beforeState.machineStatus = MachineStatus.FINISHED;
+        ExecutionState memory afterState;
+        afterState.machineStatus = MachineStatus.FINISHED;
+        afterState.globalState.u64Vals[0] = 1;
+
+        vm.prank(validator1);
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
+            beforeState: beforeState,
+            afterState: afterState,
+            numBlocks: 1,
+            prevNum: 0,
+            prevStateCommitment: bytes32(0),
+            prevNodeInboxMaxCount: 1,
+            expectedAssertionHash: bytes32(0)
+        }));
+
+        afterState.globalState.u64Vals[1] = 1; // modify the state
+        vm.prank(validator2);
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
+            beforeState: beforeState,
+            afterState: afterState,
+            numBlocks: 1,
+            prevNum: 0,
+            prevStateCommitment: bytes32(0),
+            prevNodeInboxMaxCount: 1,
+            expectedAssertionHash: bytes32(0)
+        }));
+
+        assertEq(userRollup.getAssertion(0).secondChildCreationBlock, block.number);
     }
 
 }
