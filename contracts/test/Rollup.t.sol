@@ -19,6 +19,7 @@ import "../src/challenge/ChallengeManager.sol";
 
 contract RollupTest is Test {
     address constant owner = address(1337);
+    address constant sequencer = address(7331);
     bytes32 constant wasmModuleRoot = keccak256("wasmModuleRoot");
     uint256 constant BASE_STAKE = 10;
 
@@ -86,7 +87,24 @@ contract RollupTest is Test {
 
         vm.startPrank(owner);
         adminRollup.setValidatorWhitelistDisabled(true);
+        adminRollup.sequencerInbox().setIsBatchPoster(sequencer, true);
         vm.stopPrank();
+    }
+
+    function _createNewBatch() internal returns (uint256){
+        uint256 count = userRollup.bridge().sequencerMessageCount();
+        vm.startPrank(sequencer);
+        userRollup.sequencerInbox().addSequencerL2Batch({
+            sequenceNumber: count, 
+            data: "", 
+            afterDelayedMessagesRead : 1, 
+            gasRefunder: IGasRefunder(address(0)), 
+            prevMessageCount: 0, 
+            newMessageCount: 0
+        });
+        vm.stopPrank();
+        assertEq(userRollup.bridge().sequencerMessageCount(), ++count);
+        return count;
     }
 
     function testCreateAssertion() public {
