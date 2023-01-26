@@ -397,10 +397,20 @@ contract RollupTest is Test {
         return (challengeIndex);
     }
 
+    function testRevertConfirmForPSTimer() public {
+        (uint64 challengeIndex) = testSuccessAddLeaf();
+        vm.expectRevert("PSTIMER_LOW");
+        challengeManager.confirmForPSTimer(challengeIndex, 1);
+    }
+
     function testSuccessConfirmForPSTimer() public {
         (uint64 challengeIndex) = testSuccessAddLeaf();
         vm.roll(block.number + CONFIRM_PERIOD_BLOCKS + 1);
         challengeManager.confirmForPSTimer(challengeIndex, 1);
+    }
+
+    function testSuccessConfirmChallengeWinner() public {
+        testSuccessConfirmForPSTimer();
         vm.prank(validator1);
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
     }
