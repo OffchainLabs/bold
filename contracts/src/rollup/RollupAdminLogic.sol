@@ -81,7 +81,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         );
         Assertion memory assertion;
         assertion.stateHash = state;
-        assertion.createdAtBlock =  uint64(block.number);
+        assertion.createdAtBlock = uint64(block.number);
         assertion.status = AssertionStatus.Confirmed;
         return assertion;
     }

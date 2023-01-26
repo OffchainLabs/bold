@@ -53,7 +53,11 @@ contract RollupTest is Test {
         OneStepProverMath oneStepProverMath = new OneStepProverMath();
         OneStepProverHostIo oneStepProverHostIo = new OneStepProverHostIo();
         OneStepProofEntry oneStepProofEntry = new OneStepProofEntry(
-            oneStepProver, oneStepProverMemory, oneStepProverMath, oneStepProverHostIo);
+            oneStepProver,
+            oneStepProverMemory,
+            oneStepProverMath,
+            oneStepProverHostIo
+        );
         ChallengeManager challengeManagerImpl = new ChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator();
         RollupCreator rollupCreator = new RollupCreator();
@@ -88,7 +92,20 @@ contract RollupTest is Test {
             genesisBlockNum: 0
         });
 
-        address expectedRollupAddr = address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xd6), bytes1(0x94), address(rollupCreator), bytes1(0x03))))));
+        address expectedRollupAddr = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xd6),
+                            bytes1(0x94),
+                            address(rollupCreator),
+                            bytes1(0x03)
+                        )
+                    )
+                )
+            )
+        );
 
         vm.expectEmit(true, true, false, false);
         emit RollupCreated(expectedRollupAddr, address(0), address(0), address(0), address(0));
@@ -112,18 +129,18 @@ contract RollupTest is Test {
         payable(validator2).transfer(1 ether);
         payable(validator3).transfer(1 ether);
 
-        vm.roll(block.number + 75); 
+        vm.roll(block.number + 75);
     }
 
-    function _createNewBatch() internal returns (uint256){
+    function _createNewBatch() internal returns (uint256) {
         uint256 count = userRollup.bridge().sequencerMessageCount();
         vm.startPrank(sequencer);
         userRollup.sequencerInbox().addSequencerL2Batch({
-            sequenceNumber: count, 
-            data: "", 
-            afterDelayedMessagesRead : 1, 
-            gasRefunder: IGasRefunder(address(0)), 
-            prevMessageCount: 0, 
+            sequenceNumber: count,
+            data: "",
+            afterDelayedMessagesRead: 1,
+            gasRefunder: IGasRefunder(address(0)),
+            prevMessageCount: 0,
             newMessageCount: 0
         });
         vm.stopPrank();
@@ -142,30 +159,34 @@ contract RollupTest is Test {
         afterState.globalState.u64Vals[0] = 1; // inbox count
         afterState.globalState.u64Vals[1] = 0; // pos in msg
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
-            beforeState: beforeState,
-            afterState: afterState,
-            numBlocks: 1,
-            prevNum: 0,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: 1,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(
+            NewAssertionInputs({
+                beforeState: beforeState,
+                afterState: afterState,
+                numBlocks: 1,
+                prevNum: 0,
+                prevStateCommitment: bytes32(0),
+                prevNodeInboxMaxCount: 1,
+                expectedAssertionHash: bytes32(0)
+            })
+        );
 
         ExecutionState memory afterState2;
         afterState2.machineStatus = MachineStatus.FINISHED;
         afterState2.globalState.u64Vals[0] = inboxcount;
-        vm.roll(block.number + 75); 
+        vm.roll(block.number + 75);
         vm.prank(validator1);
-        userRollup.stakeOnNewAssertion(NewAssertionInputs({
-            beforeState: afterState,
-            afterState: afterState2,
-            numBlocks: 1,
-            prevNum: 1,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: inboxcount,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.stakeOnNewAssertion(
+            NewAssertionInputs({
+                beforeState: afterState,
+                afterState: afterState2,
+                numBlocks: 1,
+                prevNum: 1,
+                prevStateCommitment: bytes32(0),
+                prevNodeInboxMaxCount: inboxcount,
+                expectedAssertionHash: bytes32(0)
+            })
+        );
     }
 
     function testRevertIdentialAssertions() public {
@@ -209,29 +230,33 @@ contract RollupTest is Test {
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
-            beforeState: beforeState,
-            afterState: afterState,
-            numBlocks: 1,
-            prevNum: 0,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: 1,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(
+            NewAssertionInputs({
+                beforeState: beforeState,
+                afterState: afterState,
+                numBlocks: 1,
+                prevNum: 0,
+                prevStateCommitment: bytes32(0),
+                prevNodeInboxMaxCount: 1,
+                expectedAssertionHash: bytes32(0)
+            })
+        );
 
         vm.expectRevert("WRONG_BRANCH");
         afterState.globalState.u64Vals[1] = 1; // modify the state
-        vm.roll(block.number + 75); 
+        vm.roll(block.number + 75);
         vm.prank(validator1);
-        userRollup.stakeOnNewAssertion(NewAssertionInputs({
-            beforeState: beforeState,
-            afterState: afterState,
-            numBlocks: 1,
-            prevNum: 0,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: 1,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.stakeOnNewAssertion(
+            NewAssertionInputs({
+                beforeState: beforeState,
+                afterState: afterState,
+                numBlocks: 1,
+                prevNum: 0,
+                prevStateCommitment: bytes32(0),
+                prevNodeInboxMaxCount: 1,
+                expectedAssertionHash: bytes32(0)
+            })
+        );
     }
 
     function testSuccessCreateSecondChild() public {
@@ -246,27 +271,31 @@ contract RollupTest is Test {
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
-            beforeState: beforeState,
-            afterState: afterState,
-            numBlocks: 1,
-            prevNum: 0,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: 1,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(
+            NewAssertionInputs({
+                beforeState: beforeState,
+                afterState: afterState,
+                numBlocks: 1,
+                prevNum: 0,
+                prevStateCommitment: bytes32(0),
+                prevNodeInboxMaxCount: 1,
+                expectedAssertionHash: bytes32(0)
+            })
+        );
 
         afterState.globalState.u64Vals[1] = 1; // modify the state
         vm.prank(validator2);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(NewAssertionInputs({
-            beforeState: beforeState,
-            afterState: afterState,
-            numBlocks: 1,
-            prevNum: 0,
-            prevStateCommitment: bytes32(0),
-            prevNodeInboxMaxCount: 1,
-            expectedAssertionHash: bytes32(0)
-        }));
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(
+            NewAssertionInputs({
+                beforeState: beforeState,
+                afterState: afterState,
+                numBlocks: 1,
+                prevNum: 0,
+                prevStateCommitment: bytes32(0),
+                prevNodeInboxMaxCount: 1,
+                expectedAssertionHash: bytes32(0)
+            })
+        );
 
         assertEq(userRollup.getAssertion(0).secondChildCreationBlock, block.number);
     }
@@ -294,4 +323,3 @@ contract RollupTest is Test {
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
     }
 }
-

@@ -168,7 +168,10 @@ abstract contract AbsRollupUserLogic is
 
         // Verify the block's deadline has passed
         // node.requirePastDeadline();
-        require(prevAssertion.firstChildCreationBlock + confirmPeriodBlocks < block.number, "TOO_EARLY");
+        require(
+            prevAssertion.firstChildCreationBlock + confirmPeriodBlocks < block.number,
+            "TOO_EARLY"
+        );
 
         // Check that prev is latest confirmed
         require(assertion.prevNum == latestConfirmedAssertion(), "PREV_NOT_CONFIRMED");
@@ -245,10 +248,11 @@ abstract contract AbsRollupUserLogic is
      * @notice Create a new node and move stake onto it
      * @param inputs New states to assert
      */
-    function stakeOnNewAssertion(
-        NewAssertionInputs calldata inputs
-    ) public onlyValidator whenNotPaused {
-
+    function stakeOnNewAssertion(NewAssertionInputs calldata inputs)
+        public
+        onlyValidator
+        whenNotPaused
+    {
         // TODO: Seems not required anymore?
         // require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
 
@@ -261,7 +265,7 @@ abstract contract AbsRollupUserLogic is
         bool isStakedOnPrev = false;
 
         uint64 prevAssertionNum = inputs.prevNum;
-        while(prevAssertionNum != 0) {
+        while (prevAssertionNum != 0) {
             if (prevAssertionNum == prevStakedAssertionNum) {
                 isStakedOnPrev = true;
                 break;
@@ -273,7 +277,8 @@ abstract contract AbsRollupUserLogic is
         require(!isStaked(msg.sender) || isStakedOnPrev, "WRONG_BRANCH");
 
         {
-            uint256 timeSinceLastAssertion = block.number - getAssertion(prevStakedAssertionNum).createdAtBlock;
+            uint256 timeSinceLastAssertion = block.number -
+                getAssertion(prevStakedAssertionNum).createdAtBlock;
             // Verify that assertion meets the minimum Delta time requirement
             require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
 
@@ -283,17 +288,15 @@ abstract contract AbsRollupUserLogic is
             // as it can't consume future batches.
             require(
                 inputs.afterState.machineStatus == MachineStatus.ERRORED ||
-                    inputs.afterState.globalState.getInboxPosition() == inputs.prevNodeInboxMaxCount,
+                    inputs.afterState.globalState.getInboxPosition() ==
+                    inputs.prevNodeInboxMaxCount,
                 "MUST_EQUAL_INBOX_COUNT"
             );
             // Minimum size requirement: any assertion must contain at least one block
             require(inputs.numBlocks > 0, "EMPTY_ASSERTION");
 
             // The rollup cannot advance normally from an errored state
-            require(
-                inputs.beforeState.machineStatus == MachineStatus.FINISHED,
-                "BAD_PREV_STATUS"
-            );
+            require(inputs.beforeState.machineStatus == MachineStatus.FINISHED, "BAD_PREV_STATUS");
         }
         createNewAssertion(inputs);
 
@@ -663,7 +666,8 @@ abstract contract AbsRollupUserLogic is
     function requireUnresolvedExists() public view override {
         uint256 firstUnresolved = firstUnresolvedAssertion();
         require(
-            firstUnresolved > latestConfirmedAssertion() && firstUnresolved <= latestAssertionCreated(),
+            firstUnresolved > latestConfirmedAssertion() &&
+                firstUnresolved <= latestAssertionCreated(),
             "NO_UNRESOLVED"
         );
     }
@@ -720,9 +724,7 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
      * @notice Create a new stake on a new node
      * @param inputs New states to assert
      */
-    function newStakeOnNewAssertion(
-        NewAssertionInputs calldata inputs
-    ) external payable {
+    function newStakeOnNewAssertion(NewAssertionInputs calldata inputs) external payable {
         _newStake(msg.value);
         stakeOnNewAssertion(inputs);
     }

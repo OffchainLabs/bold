@@ -101,7 +101,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         revert("DEPRECATED getNode");
     }
 
-
     /**
      * @notice Get a storage reference to the Assertion for the given index
      * @param seqNum Index of the Assertion
@@ -321,7 +320,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function assertionCreated(Assertion memory assertion) internal {
         // TODO: can we not copy this assertion to memory?
         _latestAssertionCreated++;
-        _assertions[_latestAssertionCreated] = assertion; 
+        _assertions[_latestAssertionCreated] = assertion;
     }
 
     /// @notice Reject the next unresolved node
@@ -361,7 +360,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     ) internal {
         Assertion storage assertion = getAssertionStorage(assertionNum);
         // Authenticate data against node's confirm data pre-image
-        require(assertion.confirmHash == RollupLib.confirmHash(blockHash, sendRoot), "CONFIRM_DATA");
+        require(
+            assertion.confirmHash == RollupLib.confirmHash(blockHash, sendRoot),
+            "CONFIRM_DATA"
+        );
 
         // trusted external call to outbox
         outbox.updateSendRoot(sendRoot, blockHash);
@@ -383,7 +385,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _stakerMap[stakerAddress] = Staker(
             depositAmount,
             stakerIndex,
-            0, // TODO: 
+            0, // TODO:
             NO_CHAL_INDEX, // new staker is not in challenge
             false
         );
@@ -636,9 +638,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         revert("DEPRECATED createNewNode");
     }
 
-    function createNewAssertion(
-        NewAssertionInputs calldata inputs
-    ) internal returns (bytes32 newAssertionHash) {
+    function createNewAssertion(NewAssertionInputs calldata inputs)
+        internal
+        returns (bytes32 newAssertionHash)
+    {
         require(
             inputs.afterState.machineStatus == MachineStatus.FINISHED ||
                 inputs.afterState.machineStatus == MachineStatus.ERRORED,
@@ -712,7 +715,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 wasmModuleRoot: wasmModuleRoot
             });
             require(
-                newAssertionHash == inputs.expectedAssertionHash || inputs.expectedAssertionHash == bytes32(0),
+                newAssertionHash == inputs.expectedAssertionHash ||
+                    inputs.expectedAssertionHash == bytes32(0),
                 "UNEXPECTED_NODE_HASH"
             );
 

@@ -10,10 +10,8 @@ struct NewAssertionInputs {
     ExecutionState beforeState;
     ExecutionState afterState;
     uint64 numBlocks; // TODO: do we need this or can we just calc from height
-
     uint64 prevNum;
     bytes32 prevStateCommitment;
-
     uint256 prevNodeInboxMaxCount;
     bytes32 expectedAssertionHash;
 }
@@ -24,16 +22,14 @@ enum AssertionStatus {
     Rejected
 }
 
-struct Assertion {    
+struct Assertion {
     bytes32 stateHash;
     bytes32 nodeHash;
     bytes32 challengeHash;
     bytes32 confirmHash;
-
     address staker;
     AssertionStatus status;
     bool notFirstChild;
-
     uint64 prevNum;
     uint64 firstChildCreationBlock;
     uint64 secondChildCreationBlock;
@@ -45,6 +41,7 @@ struct Assertion {
  */
 library AssertionLib {
     using GlobalStateLib for GlobalState;
+
     /**
      * @notice Initialize a Node
      * @param _inputs Initial state
@@ -76,13 +73,7 @@ library AssertionLib {
         pure
         returns (bytes32)
     {
-        return
-            keccak256(
-                abi.encode(
-                    states,
-                    inboxMaxCount
-                )
-            );
+        return keccak256(abi.encode(states, inboxMaxCount));
     }
 
     // TODO: figure out what we need here
@@ -96,13 +87,7 @@ library AssertionLib {
         uint8 notFirstChildInt = notFirstChild ? 1 : 0;
         return
             keccak256(
-                abi.encode(
-                    notFirstChildInt,
-                    lastHash,
-                    assertionExecHash,
-                    inboxAcc,
-                    wasmModuleRoot
-                )
+                abi.encode(notFirstChildInt, lastHash, assertionExecHash, inboxAcc, wasmModuleRoot)
             );
     }
 
