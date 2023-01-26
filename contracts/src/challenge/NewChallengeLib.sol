@@ -46,4 +46,14 @@ library NewChallengeLib {
     function historyHash(HistoryCommitment memory commitment) internal pure returns (bytes32) {
         return keccak256(abi.encode(commitment.height, commitment.merkleRoot));
     }
+
+    function bisectHeight(uint256 height) internal pure returns (uint256) {
+        // TODO: implement
+        return height-2;
+    }
+
+    function verifyPrefixProof(bytes32 prefix, bytes32 root, bytes32[] memory proof) internal pure returns (bool) {
+        // TODO: implement
+        return true;
+    }
 }

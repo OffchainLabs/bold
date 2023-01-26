@@ -165,7 +165,7 @@ contract RollupTest is Test {
             NewAssertionInputs({
                 beforeState: beforeState,
                 afterState: afterState,
-                numBlocks: 1,
+                numBlocks: 8,
                 prevNum: 0,
                 prevStateCommitment: bytes32(0),
                 prevNodeInboxMaxCount: 1,
@@ -182,7 +182,7 @@ contract RollupTest is Test {
             NewAssertionInputs({
                 beforeState: afterState,
                 afterState: afterState2,
-                numBlocks: 1,
+                numBlocks: 8,
                 prevNum: 1,
                 prevStateCommitment: bytes32(0),
                 prevNodeInboxMaxCount: inboxcount,
@@ -205,7 +205,7 @@ contract RollupTest is Test {
         NewAssertionInputs memory inputs = NewAssertionInputs({
             beforeState: beforeState,
             afterState: afterState,
-            numBlocks: 1,
+            numBlocks: 8,
             prevNum: 0,
             prevStateCommitment: bytes32(0),
             prevNodeInboxMaxCount: 1,
@@ -236,7 +236,7 @@ contract RollupTest is Test {
             NewAssertionInputs({
                 beforeState: beforeState,
                 afterState: afterState,
-                numBlocks: 1,
+                numBlocks: 8,
                 prevNum: 0,
                 prevStateCommitment: bytes32(0),
                 prevNodeInboxMaxCount: 1,
@@ -252,7 +252,7 @@ contract RollupTest is Test {
             NewAssertionInputs({
                 beforeState: beforeState,
                 afterState: afterState,
-                numBlocks: 1,
+                numBlocks: 8,
                 prevNum: 0,
                 prevStateCommitment: bytes32(0),
                 prevNodeInboxMaxCount: 1,
@@ -284,7 +284,7 @@ contract RollupTest is Test {
             NewAssertionInputs({
                 beforeState: beforeState,
                 afterState: afterState,
-                numBlocks: 1,
+                numBlocks: 8,
                 prevNum: 0,
                 prevStateCommitment: bytes32(0),
                 prevNodeInboxMaxCount: 1,
@@ -299,7 +299,7 @@ contract RollupTest is Test {
             NewAssertionInputs({
                 beforeState: beforeState,
                 afterState: afterState2,
-                numBlocks: 1,
+                numBlocks: 8,
                 prevNum: 0,
                 prevStateCommitment: bytes32(0),
                 prevNodeInboxMaxCount: 1,
@@ -373,7 +373,7 @@ contract RollupTest is Test {
         });
     }
 
-    function testSuccessAddLeaf() public returns (uint64) {
+    function testSuccessAddLeaves() public returns (uint64) {
         ExecutionState memory beforeState;
         ExecutionState memory afterState1;
         ExecutionState memory afterState2;
@@ -390,28 +390,62 @@ contract RollupTest is Test {
         challengeManager.addChallengeVertex({
             challengeIndex: challengeIndex,
             assertionNum: 1,
-            history: NewChallengeLib.HistoryCommitment({height: 0, merkleRoot: bytes32(0)})
+            history: NewChallengeLib.HistoryCommitment({height: 8, merkleRoot: bytes32(0)})
         });
-        assertEq(challengeManager.getChallengeVertex(challengeIndex, 0).presumptivSuccessor, 1);
+        assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, 2);
+
+        vm.prank(validator2);
+        challengeManager.addChallengeVertex({
+            challengeIndex: challengeIndex,
+            assertionNum: 2,
+            history: NewChallengeLib.HistoryCommitment({height: 8, merkleRoot: keccak256("123")})
+        });
+        assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, 2);
 
         return (challengeIndex);
     }
 
     function testRevertConfirmForPSTimer() public {
-        (uint64 challengeIndex) = testSuccessAddLeaf();
+        (uint64 challengeIndex) = testSuccessAddLeaves();
         vm.expectRevert("PSTIMER_LOW");
-        challengeManager.confirmForPSTimer(challengeIndex, 1);
+        challengeManager.confirmForPSTimer(challengeIndex, 2);
     }
 
     function testSuccessConfirmForPSTimer() public {
-        (uint64 challengeIndex) = testSuccessAddLeaf();
+        (uint64 challengeIndex) = testSuccessAddLeaves();
         vm.roll(block.number + CONFIRM_PERIOD_BLOCKS + 1);
-        challengeManager.confirmForPSTimer(challengeIndex, 1);
+        challengeManager.confirmForPSTimer(challengeIndex, 2);
     }
 
     function testSuccessConfirmChallengeWinner() public {
         testSuccessConfirmForPSTimer();
         vm.prank(validator1);
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
+    }
+
+    bytes32[] temp;
+    function testSuccessBisect() public returns (uint64, uint256) {
+        (uint64 challengeIndex) = testSuccessAddLeaves();
+        vm.prank(validator2);
+        uint256 newVertexIndex = challengeManager.bisect({
+            challengeIndex: challengeIndex,
+            vertexIndex: 3,
+            history: NewChallengeLib.HistoryCommitment({height: 6, merkleRoot: keccak256("123")}),
+            proof: temp
+        });
+        assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, newVertexIndex);
+        return (challengeIndex, newVertexIndex);
+    }
+
+    function testSuccessMerge() public {
+        (uint64 challengeIndex, uint256 toIndex) = testSuccessBisect();
+        vm.prank(validator2);
+        uint256 newVertexIndex = challengeManager.merge({
+            challengeIndex: challengeIndex,
+            vertexFromIndex: 2,
+            vertexToIndex: uint64(toIndex),
+            proof: temp
+        });
+        assertEq(challengeManager.getChallengeVertex(challengeIndex, 2).prev, toIndex);
     }
 }
