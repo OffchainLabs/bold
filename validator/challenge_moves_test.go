@@ -90,11 +90,8 @@ func Test_bisect(t *testing.T) {
 
 func Test_merge(t *testing.T) {
 	ctx := context.Background()
-	genesisCommit := util.StateCommitment{
-		Height:    0,
-		StateRoot: common.Hash{},
-	}
-	challengeCommitHash := protocol.ChallengeCommitHash(genesisCommit.Hash())
+	c := &protocol.Challenge{ChallengeType: protocol.BlockChallenge}
+	challengeCommitHash := c.Hash()
 
 	t.Run("fails to verify prefix proof", func(t *testing.T) {
 		logsHook := test.NewGlobal()
@@ -196,18 +193,14 @@ func runBisectionTest(
 	historyCommit, err := validator.stateManager.HistoryCommitmentUpTo(ctx, leaf1.StateCommitment.Height)
 	require.NoError(t, err)
 
-	genesisCommit := util.StateCommitment{
-		Height:    0,
-		StateRoot: common.Hash{},
-	}
-
-	id := protocol.ChallengeCommitHash(genesisCommit.Hash())
+	chal := &protocol.Challenge{ChallengeType: protocol.BlockChallenge}
+	id := chal.Hash()
 	err = validator.chain.Tx(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		assertion, fetchErr := p.AssertionBySequenceNum(tx, protocol.AssertionSequenceNumber(1))
 		if fetchErr != nil {
 			return fetchErr
 		}
-		challenge, challErr := p.ChallengeByCommitHash(tx, id)
+		challenge, challErr := p.ChallengeByHash(tx, id)
 		if challErr != nil {
 			return challErr
 		}

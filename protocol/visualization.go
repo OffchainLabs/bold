@@ -86,7 +86,7 @@ type ChallengeVisualization struct {
 
 func (chain *AssertionChain) visualizeChallenges() []*ChallengeVisualization {
 	res := make([]*ChallengeVisualization, 0, len(chain.challengeVerticesByCommitHash))
-	for cHash, challenge := range chain.challengesByCommitHash {
+	for cHash, challenge := range chain.challengesByHash {
 		// Ignore challenges with no root assertion or completed status.
 		if challenge.rootAssertion.IsNone() {
 			continue

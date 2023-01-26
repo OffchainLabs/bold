@@ -100,7 +100,7 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 
 	ok, err := chain.IsAtOneStepFork(
 		tx,
-		ChallengeCommitHash(challenge.ParentStateCommitment().Hash()),
+		challenge.Hash(),
 		bobV.Commitment,
 		bobV.Prev.Unwrap().Commitment,
 	)
@@ -109,7 +109,7 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 
 	ok, err = chain.IsAtOneStepFork(
 		tx,
-		ChallengeCommitHash(challenge.ParentStateCommitment().Hash()),
+		challenge.Hash(),
 		aliceV.Commitment,
 		aliceV.Prev.Unwrap().Commitment,
 	)
@@ -121,7 +121,7 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 	// of the one-step-fork.
 	require.True(t, bobBisected.IsPresumptiveSuccessor())
 
-	subChal, err := bobBisected.CreateBigStepChallenge(tx)
+	subChal, err := bobBisected.CreateBigStepChallenge(tx, alice)
 	require.NoError(t, err)
 
 	t.Logf("%+v", subChal)

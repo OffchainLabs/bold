@@ -6,6 +6,7 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -207,9 +208,12 @@ func (v *Validator) fetchProtocolChallenge(
 	var err error
 	var challenge *protocol.Challenge
 	if err = v.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		challenge, err = p.ChallengeByCommitHash(
+		challengeCommitHash := parentAssertionCommit.Hash()
+		challengeTyp := []byte{uint8(protocol.BlockChallenge)}
+		challengeHash := crypto.Keccak256Hash(challengeCommitHash[:], challengeTyp)
+		challenge, err = p.ChallengeByHash(
 			tx,
-			protocol.ChallengeCommitHash(parentAssertionCommit.Hash()),
+			protocol.ChallengeHash(challengeHash),
 		)
 		if err != nil {
 			return err

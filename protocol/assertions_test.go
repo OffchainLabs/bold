@@ -330,7 +330,11 @@ func TestIsAtOneStepFork(t *testing.T) {
 
 	timeRef := util.NewArtificialTimeReference()
 	assertionsChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
-	genesisCommitHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
+
+	c := &Challenge{
+		ChallengeType: BlockChallenge,
+	}
+	genesisCommitHash := c.Hash()
 
 	tests := []struct {
 		name         string
@@ -488,7 +492,7 @@ func TestIsAtOneStepFork(t *testing.T) {
 				parentCommit := util.HistoryCommitment{
 					Height: tt.parentHeight,
 				}
-				assertionsChain.challengeVerticesByCommitHash = make(map[ChallengeCommitHash]map[VertexCommitHash]*ChallengeVertex)
+				assertionsChain.challengeVerticesByCommitHash = make(map[ChallengeHash]map[VertexCommitHash]*ChallengeVertex)
 				assertionsChain.challengeVerticesByCommitHash[genesisCommitHash] = tt.vertices
 				ok, err := assertionsChain.IsAtOneStepFork(
 					tx,
@@ -515,7 +519,8 @@ func TestChallengeVertexByHistoryCommit(t *testing.T) {
 	err := assertionsChain.Tx(func(tx *ActiveTx, p OnChainProtocol) error {
 		chain := p.(*AssertionChain)
 
-		genesisCommitHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
+		chal := &Challenge{}
+		genesisCommitHash := chal.Hash()
 		t.Run("vertices not found for challenge", func(t *testing.T) {
 			vertexCommit := util.HistoryCommitment{
 				Height: 1,
@@ -925,8 +930,8 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			balances:                      balances,
 			feed:                          NewEventFeed[AssertionChainEvent](ctx),
 			challengesFeed:                NewEventFeed[ChallengeEvent](ctx),
-			challengesByCommitHash:        make(map[ChallengeCommitHash]*Challenge),
-			challengeVerticesByCommitHash: make(map[ChallengeCommitHash]map[VertexCommitHash]*ChallengeVertex),
+			challengesByHash:              make(map[ChallengeHash]*Challenge),
+			challengeVerticesByCommitHash: make(map[ChallengeHash]map[VertexCommitHash]*ChallengeVertex),
 		}
 
 		hashes := correctBlockHashesForTest(10)
@@ -942,7 +947,7 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			includedHistories: make(map[common.Hash]bool),
 		}
 
-		chalHash := ChallengeCommitHash(c.rootAssertion.Unwrap().StateCommitment.Hash())
+		chalHash := c.Hash()
 		chain.challengeVerticesByCommitHash[chalHash] = make(map[VertexCommitHash]*ChallengeVertex)
 
 		c.rootVertex = util.Some(&ChallengeVertex{})
@@ -1364,13 +1369,13 @@ func TestAssertion_HasConfirmedSibling(t *testing.T) {
 	tx := &ActiveTx{TxStatus: ReadOnlyTxStatus}
 	a := util.Some(&Assertion{
 		chain: &AssertionChain{
-			challengeVerticesByCommitHash: make(map[ChallengeCommitHash]map[VertexCommitHash]*ChallengeVertex),
+			challengeVerticesByCommitHash: make(map[ChallengeHash]map[VertexCommitHash]*ChallengeVertex),
 		}})
 	c.rootAssertion = a
 
 	h := c.ParentStateCommitment().Hash()
 	parent := &ChallengeVertex{}
-	c.rootAssertion.Unwrap().chain.challengeVerticesByCommitHash[ChallengeCommitHash(h)] = map[VertexCommitHash]*ChallengeVertex{
+	c.rootAssertion.Unwrap().chain.challengeVerticesByCommitHash[c.Hash()] = map[VertexCommitHash]*ChallengeVertex{
 		VertexCommitHash(h): {SequenceNum: 100, Status: ConfirmedAssertionState, Prev: util.Some(parent)},
 	}
 

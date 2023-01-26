@@ -83,7 +83,7 @@ func (m *MockProtocol) AssertionBySequenceNum(tx *protocol.ActiveTx, seqNum prot
 	return args.Get(0).(*protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) ChallengeVertexByCommitHash(tx *protocol.ActiveTx, challengeHash protocol.ChallengeCommitHash, vertexHash protocol.VertexCommitHash) (*protocol.ChallengeVertex, error) {
+func (m *MockProtocol) ChallengeVertexByCommitHash(tx *protocol.ActiveTx, challengeHash protocol.ChallengeHash, vertexHash protocol.VertexCommitHash) (*protocol.ChallengeVertex, error) {
 	args := m.Called(tx, challengeHash, vertexHash)
 	return args.Get(0).(*protocol.ChallengeVertex), args.Error(1)
 }
@@ -100,16 +100,16 @@ func (m *MockProtocol) HasConfirmedAboveSeqNumber(tx *protocol.ActiveTx, seqNum 
 
 func (m *MockProtocol) IsAtOneStepFork(
 	tx *protocol.ActiveTx,
-	challengeCommitHash protocol.ChallengeCommitHash,
+	challengeHash protocol.ChallengeHash,
 	vertexCommit util.HistoryCommitment,
 	vertexParentCommit util.HistoryCommitment,
 ) (bool, error) {
-	args := m.Called(tx, challengeCommitHash, vertexCommit, vertexParentCommit)
+	args := m.Called(tx, challengeHash, vertexCommit, vertexParentCommit)
 	return args.Get(0).(bool), args.Error(1)
 }
 
-func (m *MockProtocol) ChallengeByCommitHash(tx *protocol.ActiveTx, commitHash protocol.ChallengeCommitHash) (*protocol.Challenge, error) {
-	args := m.Called(tx, commitHash)
+func (m *MockProtocol) ChallengeByHash(tx *protocol.ActiveTx, challengeHash protocol.ChallengeHash) (*protocol.Challenge, error) {
+	args := m.Called(tx, challengeHash)
 	return args.Get(0).(*protocol.Challenge), args.Error(1)
 }
 

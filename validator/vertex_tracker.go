@@ -174,7 +174,7 @@ func (v *vertexTracker) isAtOneStepFork() (bool, error) {
 	if err = v.validator.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
 		atOneStepFork, err = p.IsAtOneStepFork(
 			tx,
-			protocol.ChallengeCommitHash(v.challenge.ParentStateCommitment().Hash()),
+			v.challenge.Hash(),
 			v.vertex.Commitment,
 			v.vertex.Prev.Unwrap().Commitment,
 		)
@@ -194,7 +194,7 @@ func (v *vertexTracker) fetchVertexByHistoryCommit(hash protocol.VertexCommitHas
 	var mergingTo *protocol.ChallengeVertex
 	var err error
 	if err = v.validator.chain.Call(func(tx *protocol.ActiveTx, p protocol.OnChainProtocol) error {
-		mergingTo, err = p.ChallengeVertexByCommitHash(tx, protocol.ChallengeCommitHash(v.challenge.ParentStateCommitment().Hash()), hash)
+		mergingTo, err = p.ChallengeVertexByCommitHash(tx, v.challenge.Hash(), hash)
 		if err != nil {
 			return err
 		}
@@ -228,7 +228,7 @@ func (v *vertexTracker) mergeToExistingVertex(ctx context.Context) (*protocol.Ch
 		return nil, err
 	}
 	mergingFrom := v.vertex
-	mergedTo, err := v.validator.merge(ctx, protocol.ChallengeCommitHash(v.challenge.ParentStateCommitment().Hash()), mergingInto, mergingFrom)
+	mergedTo, err := v.validator.merge(ctx, v.challenge.Hash(), mergingInto, mergingFrom)
 	if err != nil {
 		return nil, err
 	}
