@@ -371,6 +371,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _latestConfirmedAssertion = assertionNum;
         _firstUnresolvedAssertion = assertionNum + 1;
 
+        assertion.status = AssertionStatus.Confirmed;
         emit NodeConfirmed(assertionNum, blockHash, sendRoot); // TODO: fix event
     }
 

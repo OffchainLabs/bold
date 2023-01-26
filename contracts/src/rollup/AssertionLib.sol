@@ -34,6 +34,8 @@ struct Assertion {
     uint64 firstChildCreationBlock;
     uint64 secondChildCreationBlock;
     uint64 createdAtBlock;
+    uint64 challengeIndex;
+    uint64 challengeWinner;
 }
 
 /**

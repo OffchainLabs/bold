@@ -176,7 +176,10 @@ abstract contract AbsRollupUserLogic is
         // Check that prev is latest confirmed
         require(assertion.prevNum == latestConfirmedAssertion(), "PREV_NOT_CONFIRMED");
 
-        require(prevAssertion.secondChildCreationBlock == 0, "IN_CHAL");
+        require(
+            prevAssertion.secondChildCreationBlock == 0 || prevAssertion.challengeWinner == assertionNum,
+            "IN_CHAL"
+        );
 
         // Node storage prevNode = getNodeStorage(node.prevNum);
         // prevNode.requirePastChildConfirmDeadline();
@@ -429,6 +432,33 @@ abstract contract AbsRollupUserLogic is
         emit RollupChallengeStarted(challengeIndex, stakers[0], stakers[1], nodeNums[0]);
     }
 
+    function createChallengeNew(
+        uint64 assertionNum,
+        ExecutionState calldata executionState,
+        uint64 inboxMaxCount,
+        bytes32 wasmModuleRoot_
+    ) external onlyValidator whenNotPaused {
+        require(latestConfirmedAssertion() <= assertionNum, "ALREADY_RESOLVED");
+        require(
+            getAssertionStorage(assertionNum).challengeIndex == NO_CHAL_INDEX,
+            "ALREADY_CHALLENGED"
+        );
+        // TODO: verify the wasmModuleRoot_ is correct
+        // TODO: verify the state match with the assertion
+        require(
+            getAssertionStorage(assertionNum).stateHash ==
+                RollupLib.stateHash(executionState, inboxMaxCount),
+            "WRONG_STATE_HASH"
+        );
+        uint64 challengeIndex = challengeManager.createChallenge(
+            executionState.machineStatus,
+            executionState.globalState,
+            wasmModuleRoot_,
+            confirmPeriodBlocks
+        );
+        getAssertionStorage(assertionNum).challengeIndex = challengeIndex;
+    }
+
     function createChallengeHelper(
         address[2] calldata stakers,
         MachineStatus[2] calldata machineStatuses,
@@ -438,36 +468,32 @@ abstract contract AbsRollupUserLogic is
         uint256 asserterTimeLeft,
         uint256 challengerTimeLeft
     ) internal returns (uint64) {
-        return
-            challengeManager.createChallenge(
-                wasmModuleRoots[0],
-                machineStatuses,
-                globalStates,
-                numBlocks,
-                stakers[0],
-                stakers[1],
-                asserterTimeLeft,
-                challengerTimeLeft
-            );
+        revert("DEPRECATED");
     }
 
     /**
      * @notice Inform the rollup that the challenge between the given stakers is completed
-     * @param winningStaker Address of the winning staker
-     * @param losingStaker Address of the losing staker
      */
-    function completeChallenge(
-        uint256 challengeIndex,
-        address winningStaker,
-        address losingStaker
-    ) external override whenNotPaused {
+    function completeChallenge(uint256 challengeIndex, uint64 winningAssertionNum)
+        external
+        override
+        whenNotPaused
+    {
         // Only the challenge manager contract can call this to declare the winner and loser
         require(msg.sender == address(challengeManager), "WRONG_SENDER");
-        require(challengeIndex == inChallenge(winningStaker, losingStaker), "NOT_IN_CHAL");
-        completeChallengeImpl(winningStaker, losingStaker);
+        // require(challengeIndex == inChallenge(winningStaker, losingStaker), "NOT_IN_CHAL");
+        // completeChallengeImpl(winningStaker, losingStaker);
+        Assertion storage winningAssertion = getAssertionStorage(winningAssertionNum);
+        Assertion storage prev = getAssertionStorage(winningAssertion.prevNum);
+        require(prev.challengeIndex == challengeIndex, "WRONG_CHAL");
+        require(prev.status == AssertionStatus.Confirmed, "NOT_CONFIRMED");
+        require(winningAssertion.status == AssertionStatus.Pending, "NOT_PENDING_ASSERTION");
+        // TODO: make sure confirm period passed
+        prev.challengeWinner = winningAssertionNum;
     }
 
     function completeChallengeImpl(address winningStaker, address losingStaker) private {
+        revert("DEPRECATED");
         uint256 remainingLoserStake = amountStaked(losingStaker);
         uint256 winnerStake = amountStaked(winningStaker);
         if (remainingLoserStake > winnerStake) {

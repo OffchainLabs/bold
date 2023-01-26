@@ -15,7 +15,7 @@ import "../src/osp/OneStepProverMemory.sol";
 import "../src/osp/OneStepProverMath.sol";
 import "../src/osp/OneStepProverHostIo.sol";
 import "../src/osp/OneStepProofEntry.sol";
-import "../src/challenge/ChallengeManager.sol";
+import "../src/challenge/NewChallengeManager.sol";
 
 contract RollupTest is Test {
     address constant owner = address(1337);
@@ -25,7 +25,7 @@ contract RollupTest is Test {
     address constant validator2 = address(100002);
     address constant validator3 = address(100003);
 
-    bytes32 constant wasmModuleRoot = keccak256("wasmModuleRoot");
+    bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
     uint256 constant CONFIRM_PERIOD_BLOCKS = 100;
 
@@ -35,6 +35,7 @@ contract RollupTest is Test {
     RollupProxy rollup;
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
+    NewChallengeManager challengeManager;
 
     address[] validators;
     bool[] flags;
@@ -58,7 +59,7 @@ contract RollupTest is Test {
             oneStepProverMath,
             oneStepProverHostIo
         );
-        ChallengeManager challengeManagerImpl = new ChallengeManager();
+        NewChallengeManager challengeManagerImpl = new NewChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator();
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
@@ -87,7 +88,7 @@ contract RollupTest is Test {
                 futureSeconds: 60 * 60
             }),
             stakeToken: address(0),
-            wasmModuleRoot: wasmModuleRoot,
+            wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: address(0),
             genesisBlockNum: 0
         });
@@ -113,6 +114,7 @@ contract RollupTest is Test {
 
         userRollup = RollupUserLogic(address(expectedRollupAddr));
         adminRollup = RollupAdminLogic(address(expectedRollupAddr));
+        challengeManager = NewChallengeManager(address(userRollup.challengeManager()));
 
         vm.startPrank(owner);
         validators.push(validator1);
@@ -259,7 +261,14 @@ contract RollupTest is Test {
         );
     }
 
-    function testSuccessCreateSecondChild() public {
+    function testSuccessCreateSecondChild()
+        public
+        returns (
+            ExecutionState memory,
+            ExecutionState memory,
+            ExecutionState memory
+        )
+    {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
@@ -283,12 +292,13 @@ contract RollupTest is Test {
             })
         );
 
-        afterState.globalState.u64Vals[1] = 1; // modify the state
+        ExecutionState memory afterState2 = afterState;
+        afterState2.globalState.u64Vals[1] = 1; // modify the state
         vm.prank(validator2);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}(
             NewAssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
+                afterState: afterState2,
                 numBlocks: 1,
                 prevNum: 0,
                 prevStateCommitment: bytes32(0),
@@ -298,6 +308,8 @@ contract RollupTest is Test {
         );
 
         assertEq(userRollup.getAssertion(0).secondChildCreationBlock, block.number);
+
+        return (beforeState, afterState, afterState2);
     }
 
     function testRevertConfirmWrongInput() public {
@@ -320,6 +332,76 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(0).firstChildCreationBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.prank(validator1);
         vm.expectRevert("IN_CHAL");
+        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
+    }
+
+    function testRevertWrongStateToCreateChallenge() public {
+        ExecutionState memory beforeState;
+        (beforeState, , ) = testSuccessCreateSecondChild();
+        vm.prank(validator1);
+        vm.expectRevert("WRONG_STATE_HASH");
+        userRollup.createChallengeNew({
+            assertionNum: 0,
+            executionState: beforeState,
+            inboxMaxCount: 0,
+            wasmModuleRoot_: WASM_MODULE_ROOT
+        });
+    }
+
+    function testSuccessChallengeAssertions() public {
+        ExecutionState memory beforeState;
+        (beforeState, , ) = testSuccessCreateSecondChild();
+        vm.prank(validator1);
+        userRollup.createChallengeNew({
+            assertionNum: 0,
+            executionState: beforeState,
+            inboxMaxCount: 1,
+            wasmModuleRoot_: WASM_MODULE_ROOT
+        });
+    }
+
+    function testRevertDuplicateChallenge() public {
+        testSuccessChallengeAssertions();
+        ExecutionState memory emptyState;
+        vm.prank(validator1);
+        vm.expectRevert("ALREADY_CHALLENGED");
+        userRollup.createChallengeNew({
+            assertionNum: 0,
+            executionState: emptyState,
+            inboxMaxCount: 1,
+            wasmModuleRoot_: WASM_MODULE_ROOT
+        });
+    }
+
+    function testSuccessAddLeaf() public returns (uint64) {
+        ExecutionState memory beforeState;
+        ExecutionState memory afterState1;
+        ExecutionState memory afterState2;
+        (beforeState, afterState1, afterState2) = testSuccessCreateSecondChild();
+        vm.prank(validator1);
+        userRollup.createChallengeNew({
+            assertionNum: 0,
+            executionState: beforeState,
+            inboxMaxCount: 1,
+            wasmModuleRoot_: WASM_MODULE_ROOT
+        });
+        uint64 challengeIndex = uint64(userRollup.getAssertion(0).challengeIndex);
+        vm.prank(validator1);
+        challengeManager.addChallengeVertex({
+            challengeIndex: challengeIndex,
+            assertionNum: 1,
+            history: NewChallengeLib.HistoryCommitment({height: 0, merkleRoot: bytes32(0)})
+        });
+        assertEq(challengeManager.getChallengeVertex(challengeIndex, 0).presumptivSuccessor, 1);
+
+        return (challengeIndex);
+    }
+
+    function testSuccessConfirmForPSTimer() public {
+        (uint64 challengeIndex) = testSuccessAddLeaf();
+        vm.roll(block.number + CONFIRM_PERIOD_BLOCKS + 1);
+        challengeManager.confirmForPSTimer(challengeIndex, 1);
+        vm.prank(validator1);
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
     }
 }
