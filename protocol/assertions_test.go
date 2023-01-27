@@ -574,6 +574,8 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 	ctx := context.Background()
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	validator := common.BytesToAddress([]byte("foo"))
+
+	hashes := correctBlockHashesForTest(10)
 	t.Run("prev does not match root assertion", func(t *testing.T) {
 		c := &Challenge{}
 		assertion := &Assertion{
@@ -605,80 +607,6 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		require.ErrorIs(t, err, ErrInvalidOp)
 	})
-	t.Run("challenge already complete", func(t *testing.T) {
-		c := &Challenge{
-			rootAssertion: util.Some(&Assertion{
-				SequenceNum: 1,
-			}),
-			WinnerAssertion: util.Some(&Assertion{}),
-		}
-		assertion := &Assertion{
-			Prev: c.rootAssertion,
-		}
-		_, err := c.AddLeaf(
-			tx,
-			assertion,
-			util.HistoryCommitment{},
-			validator,
-		)
-		require.ErrorIs(t, err, ErrWrongState)
-	})
-	t.Run("ineligible for new successor", func(t *testing.T) {
-		ref := util.NewArtificialTimeReference()
-		c := &Challenge{
-			rootAssertion: util.Some(&Assertion{
-				SequenceNum: 1,
-				chain: &AssertionChain{
-					challengePeriod: time.Minute,
-				},
-			}),
-			WinnerAssertion: util.None[*Assertion](),
-		}
-		timer := util.NewCountUpTimer(ref)
-		timer.Add(2 * time.Minute)
-		rootVertex := &ChallengeVertex{
-			PresumptiveSuccessor: util.Some(&ChallengeVertex{
-				PsTimer: timer,
-			}),
-			Challenge: util.Some(c),
-		}
-		c.rootVertex = util.Some(rootVertex)
-		assertion := &Assertion{
-			Prev: c.rootAssertion,
-		}
-		_, err := c.AddLeaf(
-			tx,
-			assertion,
-			util.HistoryCommitment{},
-			validator,
-		)
-		require.ErrorIs(t, err, ErrPastDeadline)
-	})
-	t.Run("vertex already exists", func(t *testing.T) {
-		history := util.HistoryCommitment{}
-		c := &Challenge{
-			rootAssertion: util.Some(&Assertion{
-				SequenceNum: 1,
-				chain: &AssertionChain{
-					challengePeriod: time.Minute,
-				},
-			}),
-			includedHistories: map[common.Hash]bool{
-				history.Hash(): true,
-			},
-		}
-		c.rootVertex = util.Some(&ChallengeVertex{})
-		assertion := &Assertion{
-			Prev: c.rootAssertion,
-		}
-		_, err := c.AddLeaf(
-			tx,
-			assertion,
-			history,
-			validator,
-		)
-		require.ErrorIs(t, err, ErrVertexAlreadyExists)
-	})
 	t.Run("insufficient balance", func(t *testing.T) {
 		history := util.HistoryCommitment{}
 		c := &Challenge{
@@ -706,14 +634,51 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		require.ErrorIs(t, err, ErrInsufficientBalance)
 	})
-	t.Run("no proof of last leaf provided", func(t *testing.T) {
+	t.Run("challenge already complete", func(t *testing.T) {
 		balances := util.NewMapWithDefaultAdvanced[common.Address](
 			common.Big0,
 			func(x *big.Int) bool { return x.Sign() == 0 },
 		)
 		balances.Set(validator, ChallengeVertexStake)
-
-		history := util.HistoryCommitment{}
+		c := &Challenge{
+			rootAssertion: util.Some(&Assertion{
+				SequenceNum: 1,
+				chain: &AssertionChain{
+					balances: balances,
+					feed:     NewEventFeed[AssertionChainEvent](ctx),
+				},
+				StateCommitment: util.StateCommitment{
+					Height:    5,
+					StateRoot: hashes[5],
+				},
+			}),
+			WinnerAssertion: util.Some(&Assertion{}),
+		}
+		assertion := &Assertion{
+			Prev: c.rootAssertion,
+			StateCommitment: util.StateCommitment{
+				Height:    8,
+				StateRoot: hashes[8],
+			},
+		}
+		_, err := c.AddLeaf(
+			tx,
+			assertion,
+			util.HistoryCommitment{
+				Height: 3,
+				Merkle: hashes[3],
+			},
+			validator,
+		)
+		require.ErrorIs(t, err, ErrWrongState)
+	})
+	t.Run("ineligible for new successor", func(t *testing.T) {
+		balances := util.NewMapWithDefaultAdvanced[common.Address](
+			common.Big0,
+			func(x *big.Int) bool { return x.Sign() == 0 },
+		)
+		balances.Set(validator, ChallengeVertexStake)
+		ref := util.NewArtificialTimeReference()
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
 				SequenceNum: 1,
@@ -722,12 +687,116 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 					balances:        balances,
 					feed:            NewEventFeed[AssertionChainEvent](ctx),
 				},
+				StateCommitment: util.StateCommitment{
+					Height:    5,
+					StateRoot: hashes[5],
+				},
+			}),
+			WinnerAssertion: util.None[*Assertion](),
+		}
+		timer := util.NewCountUpTimer(ref)
+		timer.Add(2 * time.Minute)
+		rootVertex := &ChallengeVertex{
+			PresumptiveSuccessor: util.Some(&ChallengeVertex{
+				PsTimer: timer,
+			}),
+			Challenge: util.Some(c),
+		}
+		c.rootVertex = util.Some(rootVertex)
+		assertion := &Assertion{
+			Prev: c.rootAssertion,
+			StateCommitment: util.StateCommitment{
+				Height:    8,
+				StateRoot: hashes[8],
+			},
+		}
+		_, err := c.AddLeaf(
+			tx,
+			assertion,
+			util.HistoryCommitment{
+				Height: 3,
+				Merkle: hashes[3],
+			},
+			validator,
+		)
+		require.ErrorIs(t, err, ErrPastDeadline)
+	})
+	t.Run("vertex already exists", func(t *testing.T) {
+		balances := util.NewMapWithDefaultAdvanced[common.Address](
+			common.Big0,
+			func(x *big.Int) bool { return x.Sign() == 0 },
+		)
+		balances.Set(validator, ChallengeVertexStake)
+		history := util.HistoryCommitment{
+			Height: 3,
+			Merkle: hashes[3],
+		}
+		c := &Challenge{
+			rootAssertion: util.Some(&Assertion{
+				SequenceNum: 1,
+				chain: &AssertionChain{
+					challengePeriod: time.Minute,
+					balances:        balances,
+					feed:            NewEventFeed[AssertionChainEvent](ctx),
+				},
+				StateCommitment: util.StateCommitment{
+					Height:    5,
+					StateRoot: hashes[5],
+				},
+			}),
+			includedHistories: map[common.Hash]bool{
+				history.Hash(): true,
+			},
+		}
+		c.rootVertex = util.Some(&ChallengeVertex{})
+		assertion := &Assertion{
+			Prev: c.rootAssertion,
+			StateCommitment: util.StateCommitment{
+				Height:    8,
+				StateRoot: hashes[8],
+			},
+		}
+		_, err := c.AddLeaf(
+			tx,
+			assertion,
+			history,
+			validator,
+		)
+		require.ErrorIs(t, err, ErrVertexAlreadyExists)
+	})
+	t.Run("no proof of last leaf provided", func(t *testing.T) {
+		balances := util.NewMapWithDefaultAdvanced[common.Address](
+			common.Big0,
+			func(x *big.Int) bool { return x.Sign() == 0 },
+		)
+		balances.Set(validator, ChallengeVertexStake)
+
+		history := util.HistoryCommitment{
+			Height: 3,
+			Merkle: hashes[3],
+		}
+		c := &Challenge{
+			rootAssertion: util.Some(&Assertion{
+				SequenceNum: 1,
+				chain: &AssertionChain{
+					challengePeriod: time.Minute,
+					balances:        balances,
+					feed:            NewEventFeed[AssertionChainEvent](ctx),
+				},
+				StateCommitment: util.StateCommitment{
+					Height:    5,
+					StateRoot: hashes[5],
+				},
 			}),
 			includedHistories: make(map[common.Hash]bool),
 		}
 		c.rootVertex = util.Some(&ChallengeVertex{})
 		assertion := &Assertion{
 			Prev: c.rootAssertion,
+			StateCommitment: util.StateCommitment{
+				Height:    8,
+				StateRoot: hashes[8],
+			},
 		}
 		_, err := c.AddLeaf(
 			tx,
@@ -752,17 +821,23 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 					balances:        balances,
 					feed:            NewEventFeed[AssertionChainEvent](ctx),
 				},
+				StateCommitment: util.StateCommitment{
+					Height:    5,
+					StateRoot: hashes[5],
+				},
 			}),
 			includedHistories: make(map[common.Hash]bool),
 		}
 		c.rootVertex = util.Some(&ChallengeVertex{})
 		assertion := &Assertion{
 			Prev: c.rootAssertion,
+			StateCommitment: util.StateCommitment{
+				Height:    8,
+				StateRoot: hashes[8],
+			},
 		}
-
-		hashes := correctBlockHashesForTest(10)
 		history, err := util.NewHistoryCommitment(
-			5,
+			3,
 			hashes[:5],
 			util.WithLastElementProof(hashes[:5]),
 		)
@@ -782,7 +857,6 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		balances.Set(validator, ChallengeVertexStake)
 
-		hashes := correctBlockHashesForTest(10)
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
 				SequenceNum: 1,
@@ -828,7 +902,6 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		balances.Set(validator, ChallengeVertexStake)
 
-		hashes := correctBlockHashesForTest(10)
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
 				SequenceNum: 1,
@@ -874,7 +947,6 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		balances.Set(validator, ChallengeVertexStake)
 
-		hashes := correctBlockHashesForTest(10)
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
 				SequenceNum: 1,
@@ -934,7 +1006,6 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			challengeVerticesByCommitHash: make(map[ChallengeHash]map[VertexCommitHash]*ChallengeVertex),
 		}
 
-		hashes := correctBlockHashesForTest(10)
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
 				SequenceNum: 1,

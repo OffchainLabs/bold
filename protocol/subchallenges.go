@@ -51,46 +51,77 @@ func (c *Challenge) AddSubchallengeLeaf(
 	validator common.Address,
 ) (*ChallengeVertex, error) {
 	tx.verifyReadWrite()
-	// The challenge and vertex provided must meet basic integrity checks.
-	if c.rootVertex.IsNone() || topLevelVertex.Prev.IsNone() {
-		return nil, ErrNoChallenge
-	}
-
-	// We must be creating a leaf for the appropriate subchallenge type.
-	if subchallengeType == BlockChallenge {
-		return nil, ErrWrongChallengeKind
-	}
-	if c.ChallengeType != subchallengeType {
-		return nil, ErrWrongChallengeKind
-	}
-	prev := topLevelVertex.Prev.Unwrap()
-
-	// The vertex must be one-step away from its previous vertex.
-	// TODO: Should we check if the previous vertex is at a one-step-fork?
-	if topLevelVertex.Commitment.Height != prev.Commitment.Height+1 {
-		return nil, ErrInvalidHeight
-	}
-
-	// We check if we have already included the vertex in the challenge.
-	if c.includedHistories[history.Hash()] {
-		return nil, errors.Wrapf(ErrVertexAlreadyExists, fmt.Sprintf("Hash: %s", history.Hash().String()))
-	}
 
 	// We deduct a stake from the validator for creating a leaf vertex.
 	if err := c.rootAssertion.Unwrap().chain.DeductFromBalance(tx, validator, ChallengeVertexStake); err != nil {
 		return nil, errors.Wrapf(ErrInsufficientBalance, err.Error())
 	}
 
+	// The challenge and vertex provided must meet basic integrity checks.
+	if c.rootVertex.IsNone() || topLevelVertex.Prev.IsNone() {
+		return nil, ErrNoChallenge
+	}
+	// We must be creating a leaf for the appropriate subchallenge type.
+	if subchallengeType == BlockChallenge {
+		return nil, errors.Wrap(ErrWrongChallengeKind, "cannot add a subchallenge leaf to a block challenge")
+	}
+	if c.ChallengeType != subchallengeType {
+		return nil, ErrWrongChallengeKind
+	}
+
+	// The vertex must be one-step away from its previous vertex.
+	prev := topLevelVertex.Prev.Unwrap()
+	if topLevelVertex.Commitment.Height != prev.Commitment.Height+1 {
+		return nil, ErrInvalidHeight
+	}
+
+	// We verify other common invariants of challenge leaf addition.
+	if err := c.canAddLeaf(
+		tx,
+		history,
+		topLevelVertex.Commitment.LastLeaf,
+		util.Some(topLevelVertex),
+		validator,
+	); err != nil {
+		return nil, err
+	}
+
+	timer := topLevelVertex.PsTimer.Clone()
+	return c.addLeafToChallenge(validator, history, timer, topLevelVertex.winnerIfConfirmed), nil
+}
+
+func (c *Challenge) canAddLeaf(
+	tx *ActiveTx,
+	history util.HistoryCommitment,
+	lastLeafToCheck common.Hash,
+	topLevelVertex util.Option[*ChallengeVertex],
+	validator common.Address,
+) error {
+	if c.Completed(tx) {
+		return ErrWrongState
+	}
+	if !c.rootVertex.Unwrap().EligibleForNewSuccessor() {
+		return ErrPastDeadline
+	}
+	// We check if we have already included the vertex in the challenge.
+	if c.includedHistories[history.Hash()] {
+		return errors.Wrapf(ErrVertexAlreadyExists, fmt.Sprintf("Hash: %s", history.Hash().String()))
+	}
+
 	// If we are in a small step challenge, the height must be equal to 2^20 if the top-level
 	// vertex is not a leaf or a positive value <= 2^20 if the top-level vertex is a leaf.
 	if c.ChallengeType == SmallStepChallenge {
-		if topLevelVertex.isLeaf {
+		if topLevelVertex.IsNone() {
+			return errors.New("top level vertex cannot be empty in SmallStepChallenge")
+		}
+		topLevelV := topLevelVertex.Unwrap()
+		if topLevelV.isLeaf {
 			if history.Height > 1<<20 {
-				return nil, ErrInvalidHeight
+				return ErrInvalidHeight
 			}
 		} else {
 			if history.Height != 1<<20 {
-				return nil, ErrInvalidHeight
+				return ErrInvalidHeight
 			}
 		}
 	}
@@ -98,31 +129,38 @@ func (c *Challenge) AddSubchallengeLeaf(
 	// The last leaf claimed in the history commitment must be the
 	// state root of the assertion we are adding a leaf for.
 	if !historyProvidesLastLeafProof(history) {
-		return nil, ErrNoLastLeafProof
+		return ErrNoLastLeafProof
 	}
-	if topLevelVertex.Commitment.LastLeaf != history.LastLeaf {
-		return nil, errors.Wrapf(
-			ErrInvalidOp,
-			"last leaf of history does not match top-level vertex's last leaf %#x != %#x",
-			topLevelVertex.Commitment.LastLeaf,
+	if lastLeafToCheck != history.LastLeaf {
+		return errors.Wrapf(
+			ErrWrongLastLeaf,
+			"last leaf of history, %#x, does not match expected %#x",
 			history.LastLeaf,
+			lastLeafToCheck,
 		)
 	}
 
 	// The validator must provide a history commitment over
 	// a series of states where the last state must be proven to be
-	// one corresponding to the top-level vertex.
+	// one corresponding to a correct last leaf.
 	if err := util.VerifyPrefixProof(
 		history.LastLeafPrefix.Unwrap(),
 		history.Normalized().Unwrap(),
 		history.LastLeafProof,
 	); err != nil {
-		return nil, errors.New(
-			"merkle proof fails to verify for last state of history commitment",
-		)
+		return ErrProofFailsToVerify
 	}
+	return nil
+}
 
-	timer := topLevelVertex.PsTimer.Clone()
+// Adds a leaf vertex to a challenge by mutating it and returns
+// the added vertex.
+func (c *Challenge) addLeafToChallenge(
+	validator common.Address,
+	history util.HistoryCommitment,
+	timer *util.CountUpTimer,
+	winnerIfConfirmed util.Option[*Assertion],
+) *ChallengeVertex {
 	nextSeqNumber := c.currentVertexSeqNumber + 1
 	leaf := &ChallengeVertex{
 		Challenge:            util.Some(c),
@@ -135,16 +173,16 @@ func (c *Challenge) AddSubchallengeLeaf(
 		PresumptiveSuccessor: util.None[*ChallengeVertex](),
 		PsTimer:              timer,
 		SubChallenge:         util.None[*Challenge](),
-		winnerIfConfirmed:    topLevelVertex.winnerIfConfirmed,
+		winnerIfConfirmed:    winnerIfConfirmed,
 	}
 	c.currentVertexSeqNumber = nextSeqNumber
 
-	winnerIfConfirmed := leaf.winnerIfConfirmed.Unwrap()
+	tentativeWinner := leaf.winnerIfConfirmed.Unwrap()
 	c.rootVertex.Unwrap().maybeNewPresumptiveSuccessor(leaf)
 	c.rootAssertion.Unwrap().chain.challengesFeed.Append(&ChallengeLeafEvent{
 		ParentSeqNum:      leaf.Prev.Unwrap().SequenceNum,
 		SequenceNum:       leaf.SequenceNum,
-		WinnerIfConfirmed: winnerIfConfirmed.SequenceNum,
+		WinnerIfConfirmed: tentativeWinner.SequenceNum,
 		History:           history,
 		BecomesPS:         leaf.Prev.Unwrap().PresumptiveSuccessor.Unwrap() == leaf,
 		Validator:         validator,
@@ -154,7 +192,7 @@ func (c *Challenge) AddSubchallengeLeaf(
 	c.rootAssertion.Unwrap().chain.challengesByHash[h] = c
 	c.rootAssertion.Unwrap().chain.challengeVerticesByCommitHash[h][VertexCommitHash(leaf.Commitment.Hash())] = leaf
 	c.leafVertexCount++
-	return leaf, nil
+	return leaf
 }
 
 // Verifies the a subchallenge can be created on a challenge vertex
@@ -175,7 +213,6 @@ func (v *ChallengeVertex) canCreateSubChallenge(
 	// part of a challenge of a specified kind.
 	switch subChallengeType {
 	case NoChallengeType:
-		fmt.Println("none found")
 		return ErrWrongChallengeKind
 	case BlockChallenge:
 		return ErrWrongChallengeKind
@@ -223,7 +260,7 @@ func (v *ChallengeVertex) createSubChallenge(challengeType ChallengeType, valida
 	subChal := createChallengeBase(
 		chain,
 		rootAssertion,
-		SmallStepChallenge,
+		challengeType,
 		v.Challenge.Unwrap().creationTime,
 	)
 	v.SubChallenge = util.Some(subChal)

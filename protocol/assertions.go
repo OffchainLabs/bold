@@ -711,29 +711,10 @@ func (c *Challenge) AddLeaf(
 	if prev != c.rootAssertion.Unwrap() {
 		return nil, ErrInvalidOp
 	}
-	if c.Completed(tx) {
-		return nil, ErrWrongState
-	}
-	if !c.rootVertex.Unwrap().EligibleForNewSuccessor() {
-		return nil, ErrPastDeadline
-	}
-	if c.includedHistories[history.Hash()] {
-		return nil, errors.Wrapf(ErrVertexAlreadyExists, fmt.Sprintf("Hash: %s", history.Hash().String()))
-	}
+	// We deduct a stake from the validator for creating a leaf vertex.
 	if err := c.rootAssertion.Unwrap().chain.DeductFromBalance(tx, validator, ChallengeVertexStake); err != nil {
 		return nil, errors.Wrapf(ErrInsufficientBalance, err.Error())
 	}
-
-	// The last leaf claimed in the history commitment must be the
-	// state root of the assertion we are adding a leaf for.
-	if !historyProvidesLastLeafProof(history) {
-		return nil, ErrNoLastLeafProof
-	}
-
-	if assertion.StateCommitment.StateRoot != history.LastLeaf {
-		return nil, ErrWrongLastLeaf
-	}
-
 	// Assert the history commitment's height is equal to the
 	// assertion.height - assertion.prev.height
 	if prev.StateCommitment.Height >= assertion.StateCommitment.Height {
@@ -754,15 +735,15 @@ func (c *Challenge) AddLeaf(
 		)
 	}
 
-	// The validator must provide a history commitment over
-	// a series of states where the last state must be proven to be
-	// one corresponding to the assertion specified.
-	if err := util.VerifyPrefixProof(
-		history.LastLeafPrefix.Unwrap(),
-		history.Normalized().Unwrap(),
-		history.LastLeafProof,
+	// We verify other common invariants of challenge leaf addition.
+	if err := c.canAddLeaf(
+		tx,
+		history,
+		assertion.StateCommitment.StateRoot,
+		util.None[*ChallengeVertex](),
+		validator,
 	); err != nil {
-		return nil, ErrProofFailsToVerify
+		return nil, err
 	}
 
 	chain := assertion.chain
@@ -771,37 +752,7 @@ func (c *Challenge) AddLeaf(
 		delta := prev.secondChildCreationTime.Unwrap().Sub(prev.firstChildCreationTime.Unwrap())
 		timer.Set(delta)
 	}
-	nextSeqNumber := c.currentVertexSeqNumber + 1
-	leaf := &ChallengeVertex{
-		Challenge:            util.Some(c),
-		SequenceNum:          nextSeqNumber,
-		Validator:            validator,
-		isLeaf:               true,
-		Status:               PendingAssertionState,
-		Commitment:           history,
-		Prev:                 c.rootVertex,
-		PresumptiveSuccessor: util.None[*ChallengeVertex](),
-		PsTimer:              timer,
-		SubChallenge:         util.None[*Challenge](),
-		winnerIfConfirmed:    util.Some(assertion),
-	}
-	c.currentVertexSeqNumber = nextSeqNumber
-	c.rootVertex.Unwrap().maybeNewPresumptiveSuccessor(leaf)
-	c.rootAssertion.Unwrap().chain.challengesFeed.Append(&ChallengeLeafEvent{
-		ParentSeqNum:      leaf.Prev.Unwrap().SequenceNum,
-		SequenceNum:       leaf.SequenceNum,
-		WinnerIfConfirmed: assertion.SequenceNum,
-		History:           history,
-		BecomesPS:         leaf.Prev.Unwrap().PresumptiveSuccessor.Unwrap() == leaf,
-		Validator:         validator,
-	})
-	c.includedHistories[history.Hash()] = true
-	h := c.Hash()
-	c.rootAssertion.Unwrap().chain.challengesByHash[h] = c
-	c.rootAssertion.Unwrap().chain.challengeVerticesByCommitHash[h][VertexCommitHash(leaf.Commitment.Hash())] = leaf
-	c.leafVertexCount++
-
-	return leaf, nil
+	return c.addLeafToChallenge(validator, history, timer, util.Some(assertion)), nil
 }
 
 // Completed returns true if the challenge is completed.
