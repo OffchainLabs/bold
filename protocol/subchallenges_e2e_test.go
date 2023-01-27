@@ -130,7 +130,7 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 	require.True(t, bobBisected.IsPresumptiveSuccessor())
 
 	t.Log("One-step-fork, Alice creates a BigStepChallenge")
-	subChal, err := bobBisected.CreateBigStepChallenge(tx, alice)
+	subChal, err := bobBisected.CreateSubChallenge(tx, alice, BigStepChallenge)
 	require.NoError(t, err)
 
 	// Alice and bob add leaves to the BigStepChallenge.
@@ -182,7 +182,7 @@ func TestChallenge_EndToEndResolution(t *testing.T) {
 	// The non-presumptive vertex should then open a
 	// SmallStepChallenge on vertex 1, which is the parent vertex
 	// of the one-step-fork.
-	subChal, err = bobBisected.CreateSmallStepChallenge(tx, alice)
+	subChal, err = bobBisected.CreateSubChallenge(tx, alice, SmallStepChallenge)
 	require.NoError(t, err)
 
 	t.Log("One-step-fork, Alice creates a SmallStepChallenge")

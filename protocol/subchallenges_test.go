@@ -12,35 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChallengeVertex_CreateBigStepChallenge(t *testing.T) {
+func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	t.Run("top level challenge must be block challenge", func(t *testing.T) {
 		v := setupValidSubChallengeCreation(t, SmallStepChallenge)
-		_, err := v.CreateBigStepChallenge(tx, common.Address{})
-		require.ErrorIs(t, err, ErrWrongChallengeKind)
-	})
-	t.Run("OK", func(t *testing.T) {
-		v := setupValidSubChallengeCreation(t, BlockChallenge)
-		_, err := v.CreateBigStepChallenge(tx, common.Address{})
-		require.NoError(t, err)
-		sub := v.SubChallenge.Unwrap()
-		require.Equal(t, ChallengeType(BigStepChallenge), sub.ChallengeType)
-	})
-}
-
-func TestChallengeVertex_CreateSmallStepChallenge(t *testing.T) {
-	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
-	t.Run("top level challenge must be big step challenge", func(t *testing.T) {
-		v := setupValidSubChallengeCreation(t, SmallStepChallenge)
-		_, err := v.CreateSmallStepChallenge(tx, common.Address{})
+		_, err := v.CreateSubChallenge(tx, common.Address{}, BigStepChallenge)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("OK", func(t *testing.T) {
 		v := setupValidSubChallengeCreation(t, BigStepChallenge)
-		_, err := v.CreateSmallStepChallenge(tx, common.Address{})
+		_, err := v.CreateSubChallenge(tx, common.Address{}, SmallStepChallenge)
 		require.NoError(t, err)
-		sub := v.SubChallenge.Unwrap()
-		require.Equal(t, ChallengeType(SmallStepChallenge), sub.ChallengeType)
 	})
 }
 
