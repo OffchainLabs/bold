@@ -3,14 +3,73 @@ package protocol
 import (
 	"context"
 	"crypto/rand"
+	"math/big"
+	"testing"
+	"time"
+
+	"github.com/OffchainLabs/challenge-protocol-v2/execution"
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
-	"time"
 )
+
+func TestChallenge_WithExecutionEngine(t *testing.T) {
+	maxWavmInstructionsPerBlock := 1 << 43
+	executionService := execution.NewBlockGenerator(uint64(maxWavmInstructionsPerBlock))
+
+	highestBlock := uint64(4)
+	blockStateRoots := make([]common.Hash, highestBlock+1)
+	for i := 0; i < len(blockStateRoots); i++ {
+		blockStateRoots[i] = executionService.BlockHash(uint64(i))
+	}
+	for i, r := range blockStateRoots {
+		t.Logf("%d and hash %#x", i, r)
+	}
+
+	blockChallengeCommit, err := util.NewHistoryCommitment(
+		highestBlock,
+		blockStateRoots[:highestBlock+1],
+		util.WithLastElementProof(blockStateRoots[:highestBlock+1]),
+	)
+	require.NoError(t, err)
+	_ = blockChallengeCommit
+
+	// We assume a block challenge where validators reach a one-step-fork
+	// from height 1 to 2, so then we must create a history commitment
+	// over the N big steps that each validator believes exist
+	// between height 1 and 2.
+	oneStepForkChildHeight := uint64(2)
+	oneStepForkParentHeight := uint64(1)
+
+	engine, err := executionService.NewExecutionEngine(oneStepForkChildHeight)
+	require.NoError(t, err)
+	numWavmOpcodes := engine.NumSteps()
+
+	t.Log("")
+	t.Logf(
+		"Num steps from block %d to %d = %d",
+		oneStepForkParentHeight,
+		oneStepForkChildHeight,
+		numWavmOpcodes,
+	)
+	t.Log("")
+
+	bigStepSize := uint64(1 << 20)
+	num := uint64(1 << 43)
+	numBigSteps := uint64(1)
+
+	for {
+		if num <= bigStepSize {
+			break
+		}
+		num -= bigStepSize
+		numBigSteps++
+	}
+
+	t.Logf("Number of big steps found = %d", numBigSteps)
+	t.Logf("Max number of big steps allowed = %d", numBigSteps)
+}
 
 func TestChallenge_EndToEndResolution(t *testing.T) {
 	ctx := context.Background()
