@@ -36,6 +36,7 @@ var (
 	ErrInsufficientBalance    = errors.New("insufficient balance")
 	ErrNotImplemented         = errors.New("not yet implemented")
 	ErrNoLastLeafProof        = errors.New("history commitment must provide a last leaf proof")
+	ErrWrongFirstLeaf         = errors.New("first leaf of history does not match required state root")
 	ErrWrongLastLeaf          = errors.New("last leaf of history does not match required state root")
 	ErrProofFailsToVerify     = errors.New("Merkle proof fails to verify for last state of history commitment")
 )
@@ -715,6 +716,7 @@ func (c *Challenge) AddLeaf(
 	if err := c.rootAssertion.Unwrap().chain.DeductFromBalance(tx, validator, ChallengeVertexStake); err != nil {
 		return nil, errors.Wrapf(ErrInsufficientBalance, err.Error())
 	}
+
 	// Assert the history commitment's height is equal to the
 	// assertion.height - assertion.prev.height
 	if prev.StateCommitment.Height >= assertion.StateCommitment.Height {
@@ -733,6 +735,12 @@ func (c *Challenge) AddLeaf(
 			history.Height,
 			expectedHeight,
 		)
+	}
+
+	// The first leaf in the history commitment must be the
+	// same as the previous vertex's history state root.
+	if prev.StateCommitment.Height != 0 && prev.StateCommitment.StateRoot != history.FirstLeaf {
+		return nil, ErrWrongFirstLeaf
 	}
 
 	// We verify other common invariants of challenge leaf addition.
