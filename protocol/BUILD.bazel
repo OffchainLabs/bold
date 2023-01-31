@@ -28,12 +28,10 @@ go_test(
     srcs = [
         "assertions_test.go",
         "inbox_test.go",
-        "subchallenges_e2e_test.go",
         "subchallenges_test.go",
     ],
     embed = [":protocol"],
     deps = [
-        "//state-manager",
         "//util",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_stretchr_testify//require",
