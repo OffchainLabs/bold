@@ -669,8 +669,9 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			tx,
 			assertion,
 			util.HistoryCommitment{
-				Height: 3,
-				Merkle: hashes[3],
+				Height:    3,
+				Merkle:    hashes[3],
+				FirstLeaf: hashes[5],
 			},
 			validator,
 		)
@@ -718,8 +719,9 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 			tx,
 			assertion,
 			util.HistoryCommitment{
-				Height: 3,
-				Merkle: hashes[3],
+				Height:    3,
+				Merkle:    hashes[3],
+				FirstLeaf: hashes[5],
 			},
 			validator,
 		)
@@ -732,8 +734,9 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		balances.Set(validator, ChallengeVertexStake)
 		history := util.HistoryCommitment{
-			Height: 3,
-			Merkle: hashes[3],
+			Height:    3,
+			Merkle:    hashes[3],
+			FirstLeaf: hashes[5],
 		}
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
@@ -776,8 +779,9 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		balances.Set(validator, ChallengeVertexStake)
 
 		history := util.HistoryCommitment{
-			Height: 3,
-			Merkle: hashes[3],
+			Height:    3,
+			Merkle:    hashes[3],
+			FirstLeaf: hashes[5],
 		}
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
@@ -842,10 +846,11 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		}
 		history, err := util.NewHistoryCommitment(
 			3,
-			hashes[:5],
-			util.WithLastElementProof(hashes[:5]),
+			hashes[5:8],
+			util.WithLastElementProof(hashes[5:9]),
 		)
 		require.NoError(t, err)
+		history.LastLeaf = common.BytesToHash([]byte("foo"))
 		_, err = c.AddLeaf(
 			tx,
 			assertion,
@@ -880,15 +885,15 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		assertion := &Assertion{
 			Prev: c.rootAssertion,
 			StateCommitment: util.StateCommitment{
-				Height:    3,
+				Height:    8,
 				StateRoot: hashes[5],
 			},
 		}
 
 		history, err := util.NewHistoryCommitment(
-			5,
-			hashes[:5],
-			util.WithLastElementProof(hashes[:6]),
+			3,
+			hashes[4:8],
+			util.WithLastElementProof(hashes[4:9]),
 		)
 		require.NoError(t, err)
 		_, err = c.AddLeaf(
