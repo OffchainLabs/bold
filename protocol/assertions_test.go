@@ -911,7 +911,6 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		)
 		balances.Set(validator, ChallengeVertexStake)
 
-		hashes := correctBlockHashesForTest(10)
 		c := &Challenge{
 			rootAssertion: util.Some(&Assertion{
 				SequenceNum: 1,
