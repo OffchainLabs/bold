@@ -13,11 +13,11 @@ import (
 // which do not expose Ethereum internals to callers outside of this package.
 type AssertionChain struct {
 	backend bind.ContractBackend
-	chain   *bindings.AssertionChain
+	chain   *bindings.IAssertionChain
 }
 
 func NewAssertionChain() (*AssertionChain, error) {
-	chain, err := bindings.NewAssertionChain(common.Address{}, nil)
+	chain, err := bindings.NewIAssertionChain(common.Address{}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func NewAssertionChain() (*AssertionChain, error) {
 }
 
 func (ac *AssertionChain) ChallengePeriodLength() (uint64, error) {
-	res, err := ac.chain.AssertionChainCaller.ChallengePeriodSeconds(&bind.CallOpts{})
+	res, err := ac.chain.IAssertionChainCaller.ChallengePeriodSeconds(&bind.CallOpts{})
 	if err != nil {
 		return 0, err
 	}
@@ -35,7 +35,7 @@ func (ac *AssertionChain) ChallengePeriodLength() (uint64, error) {
 }
 
 func (ac *AssertionChain) NumAssertions() (uint64, error) {
-	res, err := ac.chain.AssertionChainCaller.NumAssertions(&bind.CallOpts{})
+	res, err := ac.chain.IAssertionChainCaller.NumAssertions(&bind.CallOpts{})
 	if err != nil {
 		return 0, err
 	}
