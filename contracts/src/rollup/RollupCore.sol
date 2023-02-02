@@ -769,27 +769,39 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
         return newAssertionHash;
     }
 
+    // TODO: Should we change to hash based? any reason not to?
+    function getAssertionByIdStorage(bytes32 assertionId) internal view returns (Assertion storage){
+        return getAssertionStorage(_assertionToNum[assertionId]);
+    }
+    function getPrevStorage(bytes32 assertionId) internal view returns (Assertion storage){
+        Assertion storage assertion = getAssertionByIdStorage(assertionId);
+        return getAssertionStorage(assertion.prevNum);
+    }
+
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
-        revert("NOT_IMPLEMENTED");
+        return getPrevStorage(assertionId).stateHash;
     }
 
     function getHeight(bytes32 assertionId) external view returns (uint256) {
-        revert("NOT_IMPLEMENTED");
-    }
+        // TODO: it is currently part of the state hash, do we store it or prove it?
+        revert("NOT_IMPLEMENTED");    }
 
     function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256) {
+        // TODO: it is currently part of the state hash, do we store it or prove it?
         revert("NOT_IMPLEMENTED");
     }
 
     function getStateHash(bytes32 assertionId) external view returns (bytes32) {
+        // TODO: how is state hash different from id?
         revert("NOT_IMPLEMENTED");
     }
 
     function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
+        // TODO: it is currently index based
         revert("NOT_IMPLEMENTED");
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool) {
-        revert("NOT_IMPLEMENTED");
+        return !getAssertionByIdStorage(assertionId).notFirstChild;
     }
 }
