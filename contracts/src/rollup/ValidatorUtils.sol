@@ -214,13 +214,15 @@ contract ValidatorUtils {
         for (uint256 i = 0; i < stakers.length; i++) {
             address staker = stakers[i];
             uint64 challengeIndex = rollup.currentChallenge(staker);
-            if (
-                challengeIndex != NO_CHAL_INDEX &&
-                challengeManager.isTimedOut(challengeIndex) &&
-                challengeManager.currentResponder(challengeIndex) == staker
-            ) {
-                challenges[index++] = challengeIndex;
-            }
+            // TODO: FIX THIS
+            revert("NOT_IMPLEMENTED");
+            // if (
+            //     challengeIndex != NO_CHAL_INDEX &&
+            //     challengeManager.isTimedOut(challengeIndex) &&
+            //     challengeManager.currentResponder(challengeIndex) == staker
+            // ) {
+            //     challenges[index++] = challengeIndex;
+            // }
         }
         // Shrink array down to real size
         assembly {

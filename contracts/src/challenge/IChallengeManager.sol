@@ -1,69 +1,60 @@
 // Copyright 2021-2022, Offchain Labs, Inc.
 // For license information, see https://github.com/nitro/blob/master/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
-
 pragma solidity ^0.8.0;
-
-import "../state/Machine.sol";
-import "../bridge/IBridge.sol";
-import "../bridge/ISequencerInbox.sol";
-import "../osp/IOneStepProofEntry.sol";
 
 import "./IChallengeResultReceiver.sol";
 
-import "./NewChallengeLib.sol";
+struct ChallengeVertex {
+    uint256 stub;
+}
 
 interface IChallengeManager {
-    enum ChallengeTerminationType {
-        TIMEOUT,
-        BLOCK_PROOF,
-        EXECUTION_PROOF,
-        CLEARED
-    }
+    function createChallenge(bytes32 startId) external returns (bytes32);
 
-    event InitiatedChallenge(
-        uint64 indexed challengeIndex,
-        GlobalState startState,
-        GlobalState endState
-    );
+    function winningClaim(bytes32 challengeId) external view returns (bytes32);
 
-    event Bisected(
-        uint64 indexed challengeIndex,
-        bytes32 indexed challengeRoot,
-        uint256 challengedSegmentStart,
-        uint256 challengedSegmentLength,
-        bytes32[] chainHashes
-    );
+    function vertexExists(bytes32 challengeId, bytes32 vId) external view returns (bool);
 
-    event ExecutionChallengeBegun(uint64 indexed challengeIndex, uint256 blockSteps);
-    event OneStepProofCompleted(uint64 indexed challengeIndex);
-
-    event ChallengeEnded(uint64 indexed challengeIndex, ChallengeTerminationType kind);
-
-    function initialize(
-        IChallengeResultReceiver resultReceiver_,
-        ISequencerInbox sequencerInbox_,
-        IBridge bridge_,
-        IOneStepProofEntry osp_
-    ) external;
-
-    function createChallenge(
-        MachineStatus startMachineStatuses_,
-        GlobalState calldata startGlobalStates_,
-        bytes32 wasmModuleRoot_,
-        uint256 confirmPeriodBlocks
-    ) external returns (uint64);
-
-    function challengeInfo(uint64 challengeIndex_)
+    function getVertex(bytes32 challengeId, bytes32 vId)
         external
         view
-        returns (NewChallengeLib.Challenge memory);
+        returns (ChallengeVertex memory);
 
-    function currentResponder(uint64 challengeIndex) external view returns (address);
+    function getCurrentPsTimer(bytes32 challengeId, bytes32 vId) external view returns (uint256);
 
-    function isTimedOut(uint64 challengeIndex) external view returns (bool);
+    function confirmForPsTimer(bytes32 challengeId, bytes32 vId) external;
 
-    function clearChallenge(uint64 challengeIndex_) external;
+    function confirmForSucessionChallengeWin(bytes32 challengeId, bytes32 vId) external;
 
-    function timeout(uint64 challengeIndex_) external;
+    function createSubChallenge(
+        bytes32 challengeId,
+        bytes32 child1Id,
+        bytes32 child2Id
+    ) external;
+
+    function bisect(
+        bytes32 challengeId,
+        bytes32 vId,
+        bytes32 prefixHistoryCommitment,
+        bytes memory prefixProof
+    ) external;
+
+    function merge(
+        bytes32 challengeId,
+        bytes32 vId,
+        bytes32 prefixHistoryCommitment,
+        bytes memory prefixProof
+    ) external;
+
+    function addLeaf(
+        bytes32 challengeId,
+        bytes32 claimId,
+        uint256 height,
+        bytes32 historyCommitment,
+        bytes32 lastState,
+        bytes memory lastStatehistoryProof,
+        bytes memory proof1,
+        bytes memory proof2
+    ) external;
 }

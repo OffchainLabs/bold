@@ -263,7 +263,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             require(chall != NO_CHAL_INDEX, "NOT_IN_CHALL");
             clearChallenge(stakerA[i]);
             clearChallenge(stakerB[i]);
-            challengeManager.clearChallenge(chall);
+            // TODO: FIX THIS
+            revert("NOT_IMPLEMENTED");
+            // challengeManager.clearChallenge(chall);
         }
         emit OwnerFunctionCalled(21);
     }

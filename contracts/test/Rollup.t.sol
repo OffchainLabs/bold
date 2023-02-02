@@ -15,7 +15,7 @@ import "../src/osp/OneStepProverMemory.sol";
 import "../src/osp/OneStepProverMath.sol";
 import "../src/osp/OneStepProverHostIo.sol";
 import "../src/osp/OneStepProofEntry.sol";
-import "../src/challenge/NewChallengeManager.sol";
+import "../src/challenge/ChallengeManager.sol";
 
 contract RollupTest is Test {
     address constant owner = address(1337);
@@ -35,7 +35,7 @@ contract RollupTest is Test {
     RollupProxy rollup;
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
-    NewChallengeManager challengeManager;
+    ChallengeManager challengeManager;
 
     address[] validators;
     bool[] flags;
@@ -59,7 +59,7 @@ contract RollupTest is Test {
             oneStepProverMath,
             oneStepProverHostIo
         );
-        NewChallengeManager challengeManagerImpl = new NewChallengeManager();
+        ChallengeManager challengeManagerImpl = new ChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator();
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
@@ -114,7 +114,7 @@ contract RollupTest is Test {
 
         userRollup = RollupUserLogic(address(expectedRollupAddr));
         adminRollup = RollupAdminLogic(address(expectedRollupAddr));
-        challengeManager = NewChallengeManager(address(userRollup.challengeManager()));
+        challengeManager = ChallengeManager(address(userRollup.challengeManager()));
 
         vm.startPrank(owner);
         validators.push(validator1);
@@ -348,108 +348,108 @@ contract RollupTest is Test {
         });
     }
 
-    function testSuccessChallengeAssertions() public {
-        ExecutionState memory beforeState;
-        (beforeState, , ) = testSuccessCreateSecondChild();
-        vm.prank(validator1);
-        userRollup.createChallengeNew({
-            assertionNum: 0,
-            executionState: beforeState,
-            inboxMaxCount: 1,
-            wasmModuleRoot_: WASM_MODULE_ROOT
-        });
-    }
+    // function testSuccessChallengeAssertions() public {
+    //     ExecutionState memory beforeState;
+    //     (beforeState, , ) = testSuccessCreateSecondChild();
+    //     vm.prank(validator1);
+    //     userRollup.createChallengeNew({
+    //         assertionNum: 0,
+    //         executionState: beforeState,
+    //         inboxMaxCount: 1,
+    //         wasmModuleRoot_: WASM_MODULE_ROOT
+    //     });
+    // }
+    //
+    // function testRevertDuplicateChallenge() public {
+    //     testSuccessChallengeAssertions();
+    //     ExecutionState memory emptyState;
+    //     vm.prank(validator1);
+    //     vm.expectRevert("ALREADY_CHALLENGED");
+    //     userRollup.createChallengeNew({
+    //         assertionNum: 0,
+    //         executionState: emptyState,
+    //         inboxMaxCount: 1,
+    //         wasmModuleRoot_: WASM_MODULE_ROOT
+    //     });
+    // }
+    //
+    // function testSuccessAddLeaves() public returns (uint64) {
+    //     ExecutionState memory beforeState;
+    //     ExecutionState memory afterState1;
+    //     ExecutionState memory afterState2;
+    //     (beforeState, afterState1, afterState2) = testSuccessCreateSecondChild();
+    //     vm.prank(validator1);
+    //     userRollup.createChallengeNew({
+    //         assertionNum: 0,
+    //         executionState: beforeState,
+    //         inboxMaxCount: 1,
+    //         wasmModuleRoot_: WASM_MODULE_ROOT
+    //     });
+    //     uint64 challengeIndex = uint64(userRollup.getAssertion(0).challengeIndex);
+    //     vm.prank(validator1);
+    //     challengeManager.addChallengeVertex({
+    //         challengeIndex: challengeIndex,
+    //         assertionNum: 1,
+    //         history: ChallengeLib.HistoryCommitment({height: 8, merkleRoot: bytes32(0)})
+    //     });
+    //     assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, 2);
 
-    function testRevertDuplicateChallenge() public {
-        testSuccessChallengeAssertions();
-        ExecutionState memory emptyState;
-        vm.prank(validator1);
-        vm.expectRevert("ALREADY_CHALLENGED");
-        userRollup.createChallengeNew({
-            assertionNum: 0,
-            executionState: emptyState,
-            inboxMaxCount: 1,
-            wasmModuleRoot_: WASM_MODULE_ROOT
-        });
-    }
+    //     vm.prank(validator2);
+    //     challengeManager.addChallengeVertex({
+    //         challengeIndex: challengeIndex,
+    //         assertionNum: 2,
+    //         history: ChallengeLib.HistoryCommitment({height: 8, merkleRoot: keccak256("123")})
+    //     });
+    //     assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, 2);
 
-    function testSuccessAddLeaves() public returns (uint64) {
-        ExecutionState memory beforeState;
-        ExecutionState memory afterState1;
-        ExecutionState memory afterState2;
-        (beforeState, afterState1, afterState2) = testSuccessCreateSecondChild();
-        vm.prank(validator1);
-        userRollup.createChallengeNew({
-            assertionNum: 0,
-            executionState: beforeState,
-            inboxMaxCount: 1,
-            wasmModuleRoot_: WASM_MODULE_ROOT
-        });
-        uint64 challengeIndex = uint64(userRollup.getAssertion(0).challengeIndex);
-        vm.prank(validator1);
-        challengeManager.addChallengeVertex({
-            challengeIndex: challengeIndex,
-            assertionNum: 1,
-            history: NewChallengeLib.HistoryCommitment({height: 8, merkleRoot: bytes32(0)})
-        });
-        assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, 2);
+    //     return (challengeIndex);
+    // }
 
-        vm.prank(validator2);
-        challengeManager.addChallengeVertex({
-            challengeIndex: challengeIndex,
-            assertionNum: 2,
-            history: NewChallengeLib.HistoryCommitment({height: 8, merkleRoot: keccak256("123")})
-        });
-        assertEq(challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor, 2);
+    // function testRevertConfirmForPSTimer() public {
+    //     uint64 challengeIndex = testSuccessAddLeaves();
+    //     vm.expectRevert("PSTIMER_LOW");
+    //     challengeManager.confirmForPSTimer(challengeIndex, 2);
+    // }
 
-        return (challengeIndex);
-    }
+    // function testSuccessConfirmForPSTimer() public {
+    //     uint64 challengeIndex = testSuccessAddLeaves();
+    //     vm.roll(block.number + CONFIRM_PERIOD_BLOCKS + 1);
+    //     challengeManager.confirmForPSTimer(challengeIndex, 2);
+    // }
 
-    function testRevertConfirmForPSTimer() public {
-        uint64 challengeIndex = testSuccessAddLeaves();
-        vm.expectRevert("PSTIMER_LOW");
-        challengeManager.confirmForPSTimer(challengeIndex, 2);
-    }
+    // function testSuccessConfirmChallengeWinner() public {
+    //     testSuccessConfirmForPSTimer();
+    //     vm.prank(validator1);
+    //     userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
+    // }
 
-    function testSuccessConfirmForPSTimer() public {
-        uint64 challengeIndex = testSuccessAddLeaves();
-        vm.roll(block.number + CONFIRM_PERIOD_BLOCKS + 1);
-        challengeManager.confirmForPSTimer(challengeIndex, 2);
-    }
+    // bytes32[] temp;
 
-    function testSuccessConfirmChallengeWinner() public {
-        testSuccessConfirmForPSTimer();
-        vm.prank(validator1);
-        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT);
-    }
+    // function testSuccessBisect() public returns (uint64, uint256) {
+    //     uint64 challengeIndex = testSuccessAddLeaves();
+    //     vm.prank(validator2);
+    //     uint256 newVertexIndex = challengeManager.bisect({
+    //         challengeIndex: challengeIndex,
+    //         vertexIndex: 3,
+    //         history: ChallengeLib.HistoryCommitment({height: 6, merkleRoot: keccak256("123")}),
+    //         proof: temp
+    //     });
+    //     assertEq(
+    //         challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor,
+    //         newVertexIndex
+    //     );
+    //     return (challengeIndex, newVertexIndex);
+    // }
 
-    bytes32[] temp;
-
-    function testSuccessBisect() public returns (uint64, uint256) {
-        uint64 challengeIndex = testSuccessAddLeaves();
-        vm.prank(validator2);
-        uint256 newVertexIndex = challengeManager.bisect({
-            challengeIndex: challengeIndex,
-            vertexIndex: 3,
-            history: NewChallengeLib.HistoryCommitment({height: 6, merkleRoot: keccak256("123")}),
-            proof: temp
-        });
-        assertEq(
-            challengeManager.getChallengeVertex(challengeIndex, 1).presumptivSuccessor,
-            newVertexIndex
-        );
-        return (challengeIndex, newVertexIndex);
-    }
-
-    function testSuccessMerge() public {
-        (uint64 challengeIndex, uint256 toIndex) = testSuccessBisect();
-        vm.prank(validator2);
-        uint256 newVertexIndex = challengeManager.merge({
-            challengeIndex: challengeIndex,
-            vertexFromIndex: 2,
-            vertexToIndex: uint64(toIndex),
-            proof: temp
-        });
-        assertEq(challengeManager.getChallengeVertex(challengeIndex, 2).prev, toIndex);
-    }
+    // function testSuccessMerge() public {
+    //     (uint64 challengeIndex, uint256 toIndex) = testSuccessBisect();
+    //     vm.prank(validator2);
+    //     uint256 newVertexIndex = challengeManager.merge({
+    //         challengeIndex: challengeIndex,
+    //         vertexFromIndex: 2,
+    //         vertexToIndex: uint64(toIndex),
+    //         proof: temp
+    //     });
+    //     assertEq(challengeManager.getChallengeVertex(challengeIndex, 2).prev, toIndex);
+    // }
 }

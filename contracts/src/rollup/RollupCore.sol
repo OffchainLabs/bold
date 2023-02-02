@@ -12,6 +12,7 @@ import "./RollupLib.sol";
 import "./AssertionLib.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
+import "./IAssertionChain.sol";
 
 import "../challenge/IChallengeManager.sol";
 
@@ -21,7 +22,7 @@ import "../bridge/IOutbox.sol";
 
 import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
 
-abstract contract RollupCore is IRollupCore, PausableUpgradeable {
+abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeable {
     using NodeLib for Node;
     using GlobalStateLib for GlobalState;
     using AssertionLib for Assertion;
@@ -766,5 +767,29 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         );
 
         return newAssertionHash;
+    }
+
+    function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
+        revert("NOT_IMPLEMENTED");
+    }
+
+    function getHeight(bytes32 assertionId) external view returns (uint256) {
+        revert("NOT_IMPLEMENTED");
+    }
+
+    function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256) {
+        revert("NOT_IMPLEMENTED");
+    }
+
+    function getStateHash(bytes32 assertionId) external view returns (bytes32) {
+        revert("NOT_IMPLEMENTED");
+    }
+
+    function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
+        revert("NOT_IMPLEMENTED");
+    }
+
+    function isFirstChild(bytes32 assertionId) external view returns (bool) {
+        revert("NOT_IMPLEMENTED");
     }
 }

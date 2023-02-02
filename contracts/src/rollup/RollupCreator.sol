@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./RollupProxy.sol";
+import "../osp/IOneStepProofEntry.sol";
 
 contract RollupCreator is Ownable {
     event RollupCreated(
@@ -97,12 +98,13 @@ contract RollupCreator is Ownable {
                 )
             )
         );
-        challengeManager.initialize(
-            IChallengeResultReceiver(expectedRollupAddr),
-            frame.sequencerInbox,
-            frame.bridge,
-            osp
-        );
+        // TODO: init challengeManager
+        // challengeManager.initialize(
+        //     IChallengeResultReceiver(expectedRollupAddr),
+        //     frame.sequencerInbox,
+        //     frame.bridge,
+        //     osp
+        // );
 
         frame.rollup = new RollupProxy(
             config,

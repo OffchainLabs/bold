@@ -171,13 +171,15 @@ contract ValidatorWallet is OwnableUpgradeable, DelegateCallAware, GasRefundEnab
     ) public onlyExecutorOrOwner refundsGas(gasRefunder) {
         uint256 challengesCount = challenges.length;
         for (uint256 i = 0; i < challengesCount; i++) {
-            try manager.timeout(challenges[i]) {} catch (bytes memory error) {
-                if (error.length == 0) {
-                    // Assume out of gas
-                    // We need to revert here so gas estimation works
-                    require(false, "GAS");
-                }
-            }
+            // TODO: FIX THIS
+            revert("NOT_IMPLEMENTED");
+            // try manager.timeout(challenges[i]) {} catch (bytes memory error) {
+            //     if (error.length == 0) {
+            //         // Assume out of gas
+            //         // We need to revert here so gas estimation works
+            //         require(false, "GAS");
+            //     }
+            // }
         }
     }
 

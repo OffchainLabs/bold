@@ -451,12 +451,15 @@ abstract contract AbsRollupUserLogic is
                 RollupLib.stateHash(executionState, inboxMaxCount),
             "WRONG_STATE_HASH"
         );
-        uint64 challengeIndex = challengeManager.createChallenge(
-            executionState.machineStatus,
-            executionState.globalState,
-            wasmModuleRoot_,
-            confirmPeriodBlocks
-        );
+        // TODO: FIX THIS
+        revert("NOT_IMPLEMENTED");
+        uint64 challengeIndex = 0;
+        // uint64 challengeIndex = challengeManager.createChallenge(
+        //     executionState.machineStatus,
+        //     executionState.globalState,
+        //     wasmModuleRoot_,
+        //     confirmPeriodBlocks
+        // );
         getAssertionStorage(assertionNum).challengeIndex = challengeIndex;
     }
 
