@@ -340,7 +340,7 @@ contract RollupTest is Test {
         (beforeState, , ) = testSuccessCreateSecondChild();
         vm.prank(validator1);
         vm.expectRevert("WRONG_STATE_HASH");
-        userRollup.createChallengeNew({
+        userRollup.createChallenge({
             assertionNum: 0,
             executionState: beforeState,
             inboxMaxCount: 0,

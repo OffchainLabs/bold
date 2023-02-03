@@ -12,7 +12,6 @@ import "./RollupLib.sol";
 import "./AssertionLib.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
-import "./IAssertionChain.sol";
 
 import "../challenge/IChallengeManager.sol";
 
@@ -22,7 +21,7 @@ import "../bridge/IOutbox.sol";
 
 import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
 
-abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeable {
+abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     using NodeLib for Node;
     using GlobalStateLib for GlobalState;
     using AssertionLib for Assertion;
@@ -98,7 +97,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
     /**
      * @notice Get the Node for the given index.
      */
-    function getNode(uint64 nodeNum) public view override returns (Node memory) {
+    function getNode(uint64 nodeNum) public view returns (Node memory) {
         revert("DEPRECATED getNode");
     }
 
@@ -122,7 +121,8 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
      * @notice Check if the specified node has been staked on by the provided staker.
      * Only accurate at the latest confirmed node and afterwards.
      */
-    function nodeHasStaker(uint64 nodeNum, address staker) public view override returns (bool) {
+    function nodeHasStaker(uint64 nodeNum, address staker) public view returns (bool) {
+        revert("DEPRECATED");
         return _nodeStakers[nodeNum][staker];
     }
 
@@ -159,7 +159,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
      * @param staker Staker address to lookup
      * @return Latest node staked of the staker
      */
-    function latestStakedNode(address staker) public view override returns (uint64) {
+    function latestStakedNode(address staker) public view returns (uint64) {
         revert("DEPRECATED latestStakedNode");
     }
 
@@ -204,7 +204,8 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
      * @param zombieNum Index of the zombie to lookup
      * @return Original staker address of the zombie
      */
-    function zombieAddress(uint256 zombieNum) public view override returns (address) {
+    function zombieAddress(uint256 zombieNum) public view returns (address) {
+        revert("DEPRECATED");
         return _zombies[zombieNum].stakerAddress;
     }
 
@@ -213,7 +214,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
      * @param zombieNum Index of the zombie to lookup
      * @return Latest node that the given zombie is staked on
      */
-    function zombieLatestStakedNode(uint256 zombieNum) public view override returns (uint64) {
+    function zombieLatestStakedNode(uint256 zombieNum) public view returns (uint64) {
         revert("DEPRECATED zombieLatestStakedNode");
     }
 
@@ -227,11 +228,13 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
     }
 
     /// @return Current number of un-removed zombies
-    function zombieCount() public view override returns (uint256) {
+    function zombieCount() public view returns (uint256) {
+        revert("DEPRECATED zombieCount");
         return _zombies.length;
     }
 
-    function isZombie(address staker) public view override returns (bool) {
+    function isZombie(address staker) public view returns (bool) {
+        revert("DEPRECATED isZombie");
         for (uint256 i = 0; i < _zombies.length; i++) {
             if (staker == _zombies[i].stakerAddress) {
                 return true;
@@ -253,7 +256,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
      * @return Index of the first unresolved node
      * @dev If all nodes have been resolved, this will be latestNodeCreated + 1
      */
-    function firstUnresolvedNode() public view override returns (uint64) {
+    function firstUnresolvedNode() public view returns (uint64) {
         return _firstUnresolvedNode;
     }
 
@@ -266,7 +269,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
     }
 
     /// @return Index of the latest confirmed node
-    function latestConfirmed() public view override returns (uint64) {
+    function latestConfirmed() public view returns (uint64) {
         return _latestConfirmed;
     }
 
@@ -276,7 +279,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
     }
 
     /// @return Index of the latest rollup node created
-    function latestNodeCreated() public view override returns (uint64) {
+    function latestNodeCreated() public view returns (uint64) {
         revert("DEPRECATED latestNodeCreated");
     }
 
@@ -351,7 +354,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
         _latestConfirmed = nodeNum;
         _firstUnresolvedNode = nodeNum + 1;
 
-        emit NodeConfirmed(nodeNum, blockHash, sendRoot);
+        // emit NodeConfirmed(nodeNum, blockHash, sendRoot);
     }
 
     function confirmAssertion(
@@ -373,7 +376,7 @@ abstract contract RollupCore is IRollupCore, IAssertionChain, PausableUpgradeabl
         _firstUnresolvedAssertion = assertionNum + 1;
 
         assertion.status = AssertionStatus.Confirmed;
-        emit NodeConfirmed(assertionNum, blockHash, sendRoot); // TODO: fix event
+        emit AssertionConfirmed(assertionNum, blockHash, sendRoot); // TODO: fix event
     }
 
     /**

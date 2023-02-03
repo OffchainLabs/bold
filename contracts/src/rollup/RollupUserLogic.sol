@@ -67,6 +67,7 @@ abstract contract AbsRollupUserLogic is
      * @param stakerAddress Example staker staked on sibling, used to prove a node is on an unconfirmable branch and can be rejected
      */
     function rejectNextNode(address stakerAddress) external onlyValidator whenNotPaused {
+        revert("DEPRECATED");
         requireUnresolvedExists();
         uint64 latestConfirmedNodeNum = latestConfirmed();
         uint64 firstUnresolvedNodeNum = firstUnresolvedNode();
@@ -106,7 +107,11 @@ abstract contract AbsRollupUserLogic is
         // Simpler case: if the first unreseolved node doesn't point to the last confirmed node, another branch was confirmed and can simply reject it outright
         _rejectNextNode();
 
-        emit NodeRejected(firstUnresolvedNodeNum);
+        // emit NodeRejected(firstUnresolvedNodeNum);
+    }
+
+    function rejectNextAssertion(address stakerAddress) external onlyValidator whenNotPaused {
+        revert("NOT_IMPLEMENTED");
     }
 
     /**
@@ -207,7 +212,7 @@ abstract contract AbsRollupUserLogic is
     function _newStake(uint256 depositAmount) internal onlyValidator whenNotPaused {
         // Verify that sender is not already a staker
         require(!isStaked(msg.sender), "ALREADY_STAKED");
-        require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
+        // require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
         require(depositAmount >= currentRequiredStake(), "NOT_ENOUGH_STAKE");
 
         createNewStake(msg.sender, depositAmount); // TODO: figure this out
@@ -223,6 +228,7 @@ abstract contract AbsRollupUserLogic is
         onlyValidator
         whenNotPaused
     {
+        revert("DEPRECATED");
         require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
 
         require(
@@ -315,6 +321,7 @@ abstract contract AbsRollupUserLogic is
      * @param stakerAddress Address of the staker whose stake is refunded
      */
     function returnOldDeposit(address stakerAddress) external override onlyValidator whenNotPaused {
+        // TODO: review unstake conditions
         require(latestStakedNode(stakerAddress) <= latestConfirmed(), "TOO_RECENT");
         requireUnchallengedStaker(stakerAddress);
         withdrawStaker(stakerAddress);
@@ -339,6 +346,7 @@ abstract contract AbsRollupUserLogic is
      * @param target Target amount of stake for the staker. If this is below the current minimum, it will be set to minimum instead
      */
     function reduceDeposit(uint256 target) external onlyValidator whenNotPaused {
+        // TODO: review unstake conditions
         requireUnchallengedStaker(msg.sender);
         uint256 currentRequired = currentRequiredStake();
         if (target < currentRequired) {
@@ -347,93 +355,7 @@ abstract contract AbsRollupUserLogic is
         reduceStakeTo(msg.sender, target);
     }
 
-    /**
-     * @notice Start a challenge between the given stakers over the node created by the first staker assuming that the two are staked on conflicting nodes. N.B.: challenge creator does not necessarily need to be one of the two asserters.
-     * @param stakers Stakers engaged in the challenge. The first staker should be staked on the first node
-     * @param nodeNums Nodes of the stakers engaged in the challenge. The first node should be the earliest and is the one challenged
-     * @param machineStatuses The before and after machine status for the first assertion
-     * @param globalStates The before and after global state for the first assertion
-     * @param numBlocks The number of L2 blocks contained in the first assertion
-     * @param secondExecutionHash The execution hash of the second assertion
-     * @param proposedBlocks L1 block numbers that the two nodes were proposed at
-     * @param wasmModuleRoots The wasm module roots at the time of the creation of each assertion
-     */
     function createChallenge(
-        address[2] calldata stakers,
-        uint64[2] calldata nodeNums,
-        MachineStatus[2] calldata machineStatuses,
-        GlobalState[2] calldata globalStates,
-        uint64 numBlocks,
-        bytes32 secondExecutionHash,
-        uint256[2] calldata proposedBlocks,
-        bytes32[2] calldata wasmModuleRoots
-    ) external onlyValidator whenNotPaused {
-        require(nodeNums[0] < nodeNums[1], "WRONG_ORDER");
-        require(nodeNums[1] <= latestNodeCreated(), "NOT_PROPOSED");
-        require(latestConfirmed() < nodeNums[0], "ALREADY_CONFIRMED");
-
-        Node storage node1 = getNodeStorage(nodeNums[0]);
-        Node storage node2 = getNodeStorage(nodeNums[1]);
-
-        // ensure nodes staked on the same parent (and thus in conflict)
-        require(node1.prevNum == node2.prevNum, "DIFF_PREV");
-
-        // ensure both stakers aren't currently in challenge
-        requireUnchallengedStaker(stakers[0]);
-        requireUnchallengedStaker(stakers[1]);
-
-        require(nodeHasStaker(nodeNums[0], stakers[0]), "STAKER1_NOT_STAKED");
-        require(nodeHasStaker(nodeNums[1], stakers[1]), "STAKER2_NOT_STAKED");
-
-        // Check param data against challenge hash
-        require(
-            node1.challengeHash ==
-                RollupLib.challengeRootHash(
-                    RollupLib.executionHash(machineStatuses, globalStates, numBlocks),
-                    proposedBlocks[0],
-                    wasmModuleRoots[0]
-                ),
-            "CHAL_HASH1"
-        );
-
-        require(
-            node2.challengeHash ==
-                RollupLib.challengeRootHash(
-                    secondExecutionHash,
-                    proposedBlocks[1],
-                    wasmModuleRoots[1]
-                ),
-            "CHAL_HASH2"
-        );
-
-        // Calculate upper limit for allowed node proposal time:
-        uint256 commonEndBlock = getNodeStorage(node1.prevNum).firstChildBlock +
-            // Dispute start: dispute timer for a node starts when its first child is created
-            (node1.deadlineBlock - proposedBlocks[0]) +
-            extraChallengeTimeBlocks; // add dispute window to dispute start time
-        if (commonEndBlock < proposedBlocks[1]) {
-            // The 2nd node was created too late; loses challenge automatically.
-            completeChallengeImpl(stakers[0], stakers[1]);
-            return;
-        }
-        // Start a challenge between staker1 and staker2. Staker1 will defend the correctness of node1, and staker2 will challenge it.
-        uint64 challengeIndex = createChallengeHelper(
-            stakers,
-            machineStatuses,
-            globalStates,
-            numBlocks,
-            wasmModuleRoots,
-            // convert from block counts to real second based timestamps
-            (commonEndBlock - proposedBlocks[0]) * ETH_POS_BLOCK_TIME,
-            (commonEndBlock - proposedBlocks[1]) * ETH_POS_BLOCK_TIME
-        ); // trusted external call
-
-        challengeStarted(stakers[0], stakers[1], challengeIndex);
-
-        emit RollupChallengeStarted(challengeIndex, stakers[0], stakers[1], nodeNums[0]);
-    }
-
-    function createChallengeNew(
         uint64 assertionNum,
         ExecutionState calldata executionState,
         uint64 inboxMaxCount,
@@ -463,18 +385,6 @@ abstract contract AbsRollupUserLogic is
         getAssertionStorage(assertionNum).challengeIndex = challengeIndex;
     }
 
-    function createChallengeHelper(
-        address[2] calldata stakers,
-        MachineStatus[2] calldata machineStatuses,
-        GlobalState[2] calldata globalStates,
-        uint64 numBlocks,
-        bytes32[2] calldata wasmModuleRoots,
-        uint256 asserterTimeLeft,
-        uint256 challengerTimeLeft
-    ) internal returns (uint64) {
-        revert("DEPRECATED");
-    }
-
     /**
      * @notice Inform the rollup that the challenge between the given stakers is completed
      */
@@ -496,28 +406,6 @@ abstract contract AbsRollupUserLogic is
         prev.challengeWinner = winningAssertionNum;
     }
 
-    function completeChallengeImpl(address winningStaker, address losingStaker) private {
-        revert("DEPRECATED");
-        uint256 remainingLoserStake = amountStaked(losingStaker);
-        uint256 winnerStake = amountStaked(winningStaker);
-        if (remainingLoserStake > winnerStake) {
-            // If loser has a higher stake than the winner, refund the difference
-            remainingLoserStake -= reduceStakeTo(losingStaker, winnerStake);
-        }
-
-        // Reward the winner with half the remaining stake
-        uint256 amountWon = remainingLoserStake / 2;
-        increaseStakeBy(winningStaker, amountWon);
-        remainingLoserStake -= amountWon;
-        // We deliberately leave loser in challenge state to prevent them from
-        // doing certain thing that are allowed only to parties not in a challenge
-        clearChallenge(winningStaker);
-        // Credit the other half to the loserStakeEscrow address
-        increaseWithdrawableFunds(loserStakeEscrow, remainingLoserStake);
-        // Turning loser into zombie renders the loser's remaining stake inaccessible
-        turnIntoZombie(losingStaker);
-    }
-
     /**
      * @notice Remove the given zombie from nodes it is staked on, moving backwords from the latest node it is staked on
      * @param zombieNum Index of the zombie to remove
@@ -528,6 +416,7 @@ abstract contract AbsRollupUserLogic is
         onlyValidator
         whenNotPaused
     {
+        revert("DEPRECATED");
         require(zombieNum < zombieCount(), "NO_SUCH_ZOMBIE");
         address zombieStakerAddress = zombieAddress(zombieNum);
         uint64 latestNodeStaked = zombieLatestStakedNode(zombieNum);
@@ -551,6 +440,7 @@ abstract contract AbsRollupUserLogic is
      * @param startIndex Index in the zombie list to start removing zombies from (to limit the cost of this transaction)
      */
     function removeOldZombies(uint256 startIndex) public onlyValidator whenNotPaused {
+        revert("DEPRECATED");
         uint256 currentZombieCount = zombieCount();
         uint256 latestConfirmedNum = latestConfirmed();
         for (uint256 i = startIndex; i < currentZombieCount; i++) {
@@ -575,6 +465,7 @@ abstract contract AbsRollupUserLogic is
         uint64 _firstUnresolvedNodeNum,
         uint256 _latestCreatedNode
     ) internal view returns (uint256) {
+        revert("DEPRECATED");
         // If there are no unresolved nodes, then you can use the base stake
         if (_firstUnresolvedNodeNum - 1 == _latestCreatedNode) {
             return baseStake;
@@ -629,6 +520,7 @@ abstract contract AbsRollupUserLogic is
         uint64 firstUnresolvedNodeNum,
         uint64 latestCreatedNode
     ) external view returns (uint256) {
+        revert("DEPRECATED");
         return currentRequiredStake(blockNumber, firstUnresolvedNodeNum, latestCreatedNode);
     }
 
@@ -653,7 +545,8 @@ abstract contract AbsRollupUserLogic is
      * @param nodeNum The node on which to count staked zombies
      * @return The number of zombies staked on the node
      */
-    function countStakedZombies(uint64 nodeNum) public view override returns (uint256) {
+    function countStakedZombies(uint64 nodeNum) public view returns (uint256) {
+        revert("DEPRECATED");
         uint256 currentZombieCount = zombieCount();
         uint256 stakedZombieCount = 0;
         for (uint256 i = 0; i < currentZombieCount; i++) {
@@ -674,7 +567,8 @@ abstract contract AbsRollupUserLogic is
      * @param nodeNum The parent node on which to count zombies staked on children
      * @return The number of zombies staked on children of the node
      */
-    function countZombiesStakedOnChildren(uint64 nodeNum) public view override returns (uint256) {
+    function countZombiesStakedOnChildren(uint64 nodeNum) public view returns (uint256) {
+        revert("DEPRECATED");
         uint256 currentZombieCount = zombieCount();
         uint256 stakedZombieCount = 0;
         for (uint256 i = 0; i < currentZombieCount; i++) {
@@ -726,31 +620,6 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
     }
 
     /**
-     * @notice Create a new stake on an existing node
-     * @param nodeNum Number of the node your stake will be place one
-     * @param nodeHash Node hash of the node with the given nodeNum
-     */
-    function newStakeOnExistingNode(uint64 nodeNum, bytes32 nodeHash) external payable override {
-        _newStake(msg.value);
-        stakeOnExistingNode(nodeNum, nodeHash);
-    }
-
-    /**
-     * @notice Create a new stake on a new node
-     * @param assertion Assertion describing the state change between the old node and the new one
-     * @param expectedNodeHash Node hash of the node that will be created
-     * @param prevNodeInboxMaxCount Total of messages in the inbox as of the previous node
-     */
-    function newStakeOnNewNode(
-        OldAssertion calldata assertion,
-        bytes32 expectedNodeHash,
-        uint256 prevNodeInboxMaxCount
-    ) external payable override {
-        _newStake(msg.value);
-        stakeOnNewNode(assertion, expectedNodeHash, prevNodeInboxMaxCount);
-    }
-
-    /**
      * @notice Create a new stake on a new node
      * @param inputs New states to assert
      */
@@ -792,42 +661,6 @@ contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
     function initialize(address _stakeToken) external view override onlyProxy {
         require(_stakeToken != address(0), "NEED_STAKE_TOKEN");
         require(isERC20Enabled(), "FACET_NOT_ERC20");
-    }
-
-    /**
-     * @notice Create a new stake on an existing node
-     * @param tokenAmount Amount of the rollups staking token to stake
-     * @param nodeNum Number of the node your stake will be place one
-     * @param nodeHash Node hash of the node with the given nodeNum
-     */
-    function newStakeOnExistingNode(
-        uint256 tokenAmount,
-        uint64 nodeNum,
-        bytes32 nodeHash
-    ) external override {
-        _newStake(tokenAmount);
-        stakeOnExistingNode(nodeNum, nodeHash);
-        /// @dev This is an external call, safe because it's at the end of the function
-        receiveTokens(tokenAmount);
-    }
-
-    /**
-     * @notice Create a new stake on a new node
-     * @param tokenAmount Amount of the rollups staking token to stake
-     * @param assertion Assertion describing the state change between the old node and the new one
-     * @param expectedNodeHash Node hash of the node that will be created
-     * @param prevNodeInboxMaxCount Total of messages in the inbox as of the previous node
-     */
-    function newStakeOnNewNode(
-        uint256 tokenAmount,
-        OldAssertion calldata assertion,
-        bytes32 expectedNodeHash,
-        uint256 prevNodeInboxMaxCount
-    ) external override {
-        _newStake(tokenAmount);
-        stakeOnNewNode(assertion, expectedNodeHash, prevNodeInboxMaxCount);
-        /// @dev This is an external call, safe because it's at the end of the function
-        receiveTokens(tokenAmount);
     }
 
     /**

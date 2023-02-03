@@ -279,7 +279,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         uint256 prevNodeInboxMaxCount,
         OldAssertion calldata assertion,
         bytes32 expectedNodeHash
-    ) external override whenPaused {
+    ) external whenPaused {
+        revert("DEPRECATED");
         require(prevNode == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
         createNewNode(assertion, prevNode, prevNodeInboxMaxCount, expectedNodeHash);
@@ -291,7 +292,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         uint64 nodeNum,
         bytes32 blockHash,
         bytes32 sendRoot
-    ) external override whenPaused {
+    ) external whenPaused {
+        revert("DEPRECATED");
         // this skips deadline, staker and zombie validation
         confirmNode(nodeNum, blockHash, sendRoot);
         emit OwnerFunctionCalled(24);
