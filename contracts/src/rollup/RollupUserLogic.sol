@@ -363,7 +363,7 @@ abstract contract AbsRollupUserLogic is
     ) external onlyValidator whenNotPaused {
         require(latestConfirmedAssertion() <= assertionNum, "ALREADY_RESOLVED");
         require(
-            getAssertionStorage(assertionNum).challengeIndex == NO_CHAL_INDEX,
+            getAssertionStorage(assertionNum).challengeId == bytes32(0),
             "ALREADY_CHALLENGED"
         );
         // TODO: verify the wasmModuleRoot_ is correct
@@ -375,20 +375,20 @@ abstract contract AbsRollupUserLogic is
         );
         // TODO: FIX THIS
         revert("NOT_IMPLEMENTED");
-        uint64 challengeIndex = 0;
+        bytes32 challengeId;
         // uint64 challengeIndex = challengeManager.createChallenge(
         //     executionState.machineStatus,
         //     executionState.globalState,
         //     wasmModuleRoot_,
         //     confirmPeriodBlocks
         // );
-        getAssertionStorage(assertionNum).challengeIndex = challengeIndex;
+        getAssertionStorage(assertionNum).challengeId = challengeId;
     }
 
     /**
      * @notice Inform the rollup that the challenge between the given stakers is completed
      */
-    function completeChallenge(uint256 challengeIndex, uint64 winningAssertionNum)
+    function completeChallenge(bytes32 challengeId, uint64 winningAssertionNum)
         external
         override
         whenNotPaused
@@ -399,7 +399,7 @@ abstract contract AbsRollupUserLogic is
         // completeChallengeImpl(winningStaker, losingStaker);
         Assertion storage winningAssertion = getAssertionStorage(winningAssertionNum);
         Assertion storage prev = getAssertionStorage(winningAssertion.prevNum);
-        require(prev.challengeIndex == challengeIndex, "WRONG_CHAL");
+        require(prev.challengeId == challengeId, "WRONG_CHAL");
         require(prev.status == AssertionStatus.Confirmed, "NOT_CONFIRMED");
         require(winningAssertion.status == AssertionStatus.Pending, "NOT_PENDING_ASSERTION");
         // TODO: make sure confirm period passed

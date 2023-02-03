@@ -772,22 +772,16 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return newAssertionHash;
     }
 
-    // TODO: Should we change to hash based? any reason not to?
-    function getAssertionByIdStorage(bytes32 assertionId) internal view returns (Assertion storage){
-        return getAssertionStorage(_assertionToNum[assertionId]);
-    }
-    function getPrevStorage(bytes32 assertionId) internal view returns (Assertion storage){
-        Assertion storage assertion = getAssertionByIdStorage(assertionId);
-        return getAssertionStorage(assertion.prevNum);
-    }
-
+    // This will return 0 if the assertion does not exists
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
-        return getPrevStorage(assertionId).stateHash;
+        require(uint256(assertionId) <= type(uint64).max, "> uint64");
+        return bytes32(uint256(_assertions[uint64(uint256(assertionId))].prevNum));
     }
 
     function getHeight(bytes32 assertionId) external view returns (uint256) {
         // TODO: it is currently part of the state hash, do we store it or prove it?
-        revert("NOT_IMPLEMENTED");    }
+        revert("NOT_IMPLEMENTED");    
+    }
 
     function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256) {
         // TODO: it is currently part of the state hash, do we store it or prove it?
@@ -795,16 +789,17 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function getStateHash(bytes32 assertionId) external view returns (bytes32) {
-        // TODO: how is state hash different from id?
-        revert("NOT_IMPLEMENTED");
+        require(uint256(assertionId) <= type(uint64).max, "> uint64");
+        return _assertions[uint64(uint256(assertionId))].stateHash;
     }
 
     function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
-        // TODO: it is currently index based
-        revert("NOT_IMPLEMENTED");
+        require(uint256(assertionId) <= type(uint64).max, "> uint64");
+        return _assertions[uint64(uint256(assertionId))].challengeId;
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool) {
-        return !getAssertionByIdStorage(assertionId).notFirstChild;
+        require(uint256(assertionId) <= type(uint64).max, "> uint64");
+        return _assertions[uint64(uint256(assertionId))].notFirstChild;
     }
 }

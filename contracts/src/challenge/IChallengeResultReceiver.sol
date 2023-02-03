@@ -5,5 +5,5 @@
 pragma solidity ^0.8.0;
 
 interface IChallengeResultReceiver {
-    function completeChallenge(uint256 challengeIndex, uint64 winner) external;
+    function completeChallenge(bytes32 challengeIndex, uint64 winner) external;
 }

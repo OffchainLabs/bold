@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+// TODO: assertionId is currently casted to a uint64 assertionNum
+//       we might change it from index based to hash based in the future
 interface IAssertionChain {
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32);
 
