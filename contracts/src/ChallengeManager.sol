@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "./DataEntities.sol";
 import "./osp/IOneStepProofEntry.sol";
+import "forge-std/Test.sol";
 
 library ChallengeVertexLib {
     function newRoot(bytes32 challengeId, bytes32 historyCommitment) internal pure returns (ChallengeVertex memory) {
@@ -633,12 +634,13 @@ interface IChallengeLeafAdder {
         IChallengeManager challengeGetter,
         AddLeafLibArgs memory leafLibArgs, // CHRIS: TODO: better name
         IAssertionChain assertionChain
-    ) external returns (bytes32);
+    ) external payable returns (bytes32);
 }
 
-interface ISubchallengeLeafAdder {
+interface ISubChallengeLeafAdder {
     function addLeaf(IVertexManager vertexManager, IChallengeManager challengeGetter, AddLeafLibArgs memory leafLibArgs)
         external
+        payable
         returns (bytes32);
 }
 
@@ -652,9 +654,9 @@ contract ChallengeManager is IChallengeManager {
     IOneStepProofEntry internal oneStepProofEntry;
     IVertexManager internal vertexManager;
 
-    IChallengeLeafAdder internal blockChallengeLeafAdder;
-    ISubchallengeLeafAdder internal bigStepLeafAdder;
-    ISubchallengeLeafAdder internal smallStepLeafAdder;
+    IChallengeLeafAdder internal blockChallengeLeafAdder = new BlockLeafAdder();
+    ISubChallengeLeafAdder internal bigStepLeafAdder = new BigStepLeafAdder();
+    ISubChallengeLeafAdder internal smallStepLeafAdder = new SmallStepLeafAdder();
 
     uint256 public immutable miniStakeValue;
     uint256 public immutable challengePeriod;
@@ -680,7 +682,7 @@ contract ChallengeManager is IChallengeManager {
         returns (bytes32)
     {
         if (challenges[leafData.challengeId].challengeType == ChallengeType.Block) {
-            return blockChallengeLeafAdder.addLeaf(
+            return blockChallengeLeafAdder.addLeaf{value: msg.value}(
                 vertexManager,
                 this,
                 AddLeafLibArgs({
@@ -693,7 +695,7 @@ contract ChallengeManager is IChallengeManager {
                 assertionChain
             );
         } else if (challenges[leafData.challengeId].challengeType == ChallengeType.BigStep) {
-            return bigStepLeafAdder.addLeaf(
+            return bigStepLeafAdder.addLeaf{value: msg.value}(
                 vertexManager,
                 this,
                 AddLeafLibArgs({
@@ -705,7 +707,7 @@ contract ChallengeManager is IChallengeManager {
                 })
             );
         } else if (challenges[leafData.challengeId].challengeType == ChallengeType.SmallStep) {
-            return smallStepLeafAdder.addLeaf(
+            return smallStepLeafAdder.addLeaf{value: msg.value}(
                 vertexManager,
                 this,
                 AddLeafLibArgs({
@@ -932,9 +934,11 @@ contract ChallengeManager is IChallengeManager {
         );
 
         // CHRIS: TODO: validate the execCtx?
-        bytes32 afterHash = oneStepProofEntry.proveOneStep(
-            oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
-        );
+        bytes32 afterHash = bytes32(bytes(oneStepData.proof));
+        // CHRIS: TODO: add one step entry back in
+        // bytes32 afterHash = oneStepProofEntry.proveOneStep(
+        //     oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
+        // );
 
         require(
             HistoryCommitmentLib.hasState(
@@ -995,7 +999,7 @@ contract ChallengeManager is IChallengeManager {
     }
 }
 
-contract BlockLeafAdder {
+contract BlockLeafAdder is IChallengeLeafAdder {
     // CHRIS: TODO: not all these libs are used
     using ChallengeVertexLib for ChallengeVertex;
     using ChallengeVertexMappingLib for mapping(bytes32 => ChallengeVertex);
@@ -1031,7 +1035,7 @@ contract BlockLeafAdder {
         IChallengeManager challengeManager,
         AddLeafLibArgs memory leafLibArgs, // CHRIS: TODO: better name
         IAssertionChain assertionChain
-    ) external returns (bytes32) {
+    ) external payable returns (bytes32) {
         {
             // check that the predecessor of this claim has registered this contract as it's succession challenge
             bytes32 predecessorId = assertionChain.getPredecessorId(leafLibArgs.leafData.claimId);
@@ -1080,7 +1084,7 @@ contract BlockLeafAdder {
     // CHRIS: TODO: check exists whenever we access the challenges? also the vertices now have a challenge index
 }
 
-contract BigStepLeafAdder {
+contract BigStepLeafAdder is ISubChallengeLeafAdder {
     using ChallengeVertexLib for ChallengeVertex;
     using ChallengeVertexMappingLib for mapping(bytes32 => ChallengeVertex);
 
@@ -1102,7 +1106,7 @@ contract BigStepLeafAdder {
         IVertexManager vertexManager,
         IChallengeManager challengeManager,
         AddLeafLibArgs memory leafLibArgs // CHRIS: TODO: better name
-    ) external returns (bytes32) {
+    ) external payable returns (bytes32) {
         {
             // CHRIS: TODO: we should only have the special stuff in here, we can pass in the initial ps timer or something
             // CHRIS: TODO: rename challenge to challenge manager
@@ -1147,7 +1151,7 @@ contract BigStepLeafAdder {
     }
 }
 
-contract SmallStepLeafAdder {
+contract SmallStepLeafAdder is ISubChallengeLeafAdder {
     using ChallengeVertexLib for ChallengeVertex;
     using ChallengeVertexMappingLib for mapping(bytes32 => ChallengeVertex);
 
@@ -1164,7 +1168,7 @@ contract SmallStepLeafAdder {
         IVertexManager vertexManager,
         IChallengeManager challengeManager,
         AddLeafLibArgs memory leafLibArgs
-    ) external returns (bytes32) {
+    ) external payable returns (bytes32) {
         {
             require(vertexManager.exists(leafLibArgs.leafData.claimId), "Claim does not exist");
             ChallengeVertex memory vertex = vertexManager.getVertexById(leafLibArgs.leafData.claimId);
