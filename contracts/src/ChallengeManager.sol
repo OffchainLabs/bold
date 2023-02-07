@@ -653,9 +653,9 @@ contract ChallengeManager is IChallengeManager {
     IOneStepProofEntry internal oneStepProofEntry;
     IVertexManager internal vertexManager;
 
-    IChallengeLeafAdder internal blockChallengeLeafAdder = new BlockLeafAdder();
-    ISubChallengeLeafAdder internal bigStepLeafAdder = new BigStepLeafAdder();
-    ISubChallengeLeafAdder internal smallStepLeafAdder = new SmallStepLeafAdder();
+    IChallengeLeafAdder internal blockChallengeLeafAdder;
+    ISubChallengeLeafAdder internal bigStepLeafAdder;
+    ISubChallengeLeafAdder internal smallStepLeafAdder;
 
     uint256 public immutable miniStakeValue;
     uint256 public immutable challengePeriod;
@@ -664,13 +664,19 @@ contract ChallengeManager is IChallengeManager {
         IAssertionChain _assertionChain,
         IVertexManager _manager,
         uint256 _miniStakeValue,
-        uint256 _challengePeriod //IOneStepProofEntry _oneStepProofEntry
+        uint256 _challengePeriod, //IOneStepProofEntry _oneStepProofEntry
+        IChallengeLeafAdder _blockChallengeLeafAdder,
+        ISubChallengeLeafAdder _bigStepLeafAdder,
+        ISubChallengeLeafAdder _smallStepLeafAdder
     ) {
         assertionChain = _assertionChain;
         vertexManager = _manager;
         miniStakeValue = _miniStakeValue;
         challengePeriod = _challengePeriod;
         //oneStepProofEntry = _oneStepProofEntry;
+        blockChallengeLeafAdder = _blockChallengeLeafAdder;
+        bigStepLeafAdder = _bigStepLeafAdder;
+        smallStepLeafAdder = _smallStepLeafAdder;
     }
 
     // CHRIS: TODO: re-arrange the order of args on all these functions - we should use something consistent

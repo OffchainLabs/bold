@@ -36,9 +36,12 @@ contract ChallengeManagerE2ETest is Test {
 
     function deploy() internal returns (MockAssertionChain, ChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
+        IChallengeLeafAdder blockChallengeLeafAdder = new BlockLeafAdder();
+        ISubChallengeLeafAdder bigStepLeafAdder = new BigStepLeafAdder();
+        ISubChallengeLeafAdder smallStepLeafAdder = new SmallStepLeafAdder();
         VertexManager vManager = new VertexManager();
         ChallengeManager challengeManager =
-            new ChallengeManager(assertionChain, vManager, miniStakeVal, challengePeriod);
+        new ChallengeManager(assertionChain, vManager, miniStakeVal, challengePeriod, blockChallengeLeafAdder, bigStepLeafAdder, smallStepLeafAdder);
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, 0, 0, genesisHash, 0);
         return (assertionChain, challengeManager, genesis);
     }
