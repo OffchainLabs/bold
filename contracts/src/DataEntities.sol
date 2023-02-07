@@ -59,23 +59,16 @@ interface IChallengeManager {
 
     function createSubChallenge(bytes32 vId) external returns (bytes32);
 
-    function bisect(
-        bytes32 vId,
-        bytes32 prefixHistoryCommitment,
-        bytes memory prefixProof
-    ) external returns (bytes32);
+    function bisect(bytes32 vId, bytes32 prefixHistoryCommitment, bytes memory prefixProof)
+        external
+        returns (bytes32);
 
-    function merge(
-        bytes32 vId,
-        bytes32 prefixHistoryCommitment,
-        bytes memory prefixProof
-    ) external returns (bytes32);
+    function merge(bytes32 vId, bytes32 prefixHistoryCommitment, bytes memory prefixProof) external returns (bytes32);
 
-    function addLeaf(
-        AddLeafArgs calldata leafData,
-        bytes calldata proof1,
-        bytes calldata proof2
-    ) external payable returns (bytes32);
+    function addLeaf(AddLeafArgs calldata leafData, bytes calldata proof1, bytes calldata proof2)
+        external
+        payable
+        returns (bytes32);
 }
 
 struct ChallengeVertex {
