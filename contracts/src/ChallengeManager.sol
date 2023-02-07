@@ -326,7 +326,7 @@ library ChallengeManagerLib {
         mapping(bytes32 => ChallengeVertex) storage vertices,
         bytes32 vId,
         uint256 challengePeriod
-    ) internal view {
+    ) external view {
         confirmationPreChecks(vertices, vId);
 
         // ensure only one type of confirmation is valid on this node and all it's siblings
@@ -342,7 +342,7 @@ library ChallengeManagerLib {
         mapping(bytes32 => ChallengeVertex) storage vertices,
         mapping(bytes32 => Challenge) storage challenges,
         bytes32 vId
-    ) internal view {
+    ) external view {
         confirmationPreChecks(vertices, vId);
 
         // ensure only one type of confirmation is valid on this node and all it's siblings
@@ -496,7 +496,7 @@ struct AddLeafLibArgs {
     bytes proof2;
 }
 
-contract ChallengeManager is IChallengeManager {
+contract ChallengeManagerImpl is IChallengeManager {
     // CHRIS: TODO: do this in a different way
     // ChallengeManagers internal challengeManagers;
 
@@ -511,7 +511,12 @@ contract ChallengeManager is IChallengeManager {
     uint256 public immutable miniStakeValue;
     uint256 public immutable challengePeriod;
 
-    constructor(IAssertionChain _assertionChain, uint256 _miniStakeValue, uint256 _challengePeriod, IOneStepProofEntry _oneStepProofEntry) {
+    constructor(
+        IAssertionChain _assertionChain,
+        uint256 _miniStakeValue,
+        uint256 _challengePeriod,
+        IOneStepProofEntry _oneStepProofEntry
+    ) {
         assertionChain = _assertionChain;
         miniStakeValue = _miniStakeValue;
         challengePeriod = _challengePeriod;
@@ -739,34 +744,49 @@ contract ChallengeManager is IChallengeManager {
     }
 
     function executeOneStep(
-            bytes32 winnerVId,
-            OneStepData calldata oneStepData,
-            bytes calldata beforeHistoryInclusionProof,
-            bytes calldata afterHistoryInclusionProof
-        ) public returns(bytes32) {
-
+        bytes32 winnerVId,
+        OneStepData calldata oneStepData,
+        bytes calldata beforeHistoryInclusionProof,
+        bytes calldata afterHistoryInclusionProof
+    ) public returns (bytes32) {
         require(vertexExists(winnerVId), "Vertex does not exist");
         bytes32 predecessorId = vertices[winnerVId].predecessorId;
         require(vertexExists(predecessorId), "Predecessor does not exist");
 
         bytes32 challengeId = vertices[predecessorId].successionChallenge;
         require(challengeId != 0, "Succession challenge does not exist");
-        require(challenges[challengeId].challengeType == ChallengeType.OneStep, "Challenge is not at one step execution point");
-        
+        require(
+            challenges[challengeId].challengeType == ChallengeType.OneStep,
+            "Challenge is not at one step execution point"
+        );
+
         // check that the before hash is the state has of the root id
         // the root id is challenge id combined with the history commitment and the height
         // bytes32 historyCommitment, bytes32 state, uint256 stateHeight, bytes memory proof
-        require(HistoryCommitmentLib.hasState(vertices[predecessorId].historyCommitment, oneStepData.beforeHash, oneStepData.machineStep, beforeHistoryInclusionProof), "Before state not in history");
-        
-        // CHRIS: TODO: validate the execCtx?
-        bytes32 afterHash = oneStepProofEntry.proveOneStep(
-            oneStepData.execCtx,
-            oneStepData.machineStep,
-            oneStepData.beforeHash,
-            oneStepData.proof
+        require(
+            HistoryCommitmentLib.hasState(
+                vertices[predecessorId].historyCommitment,
+                oneStepData.beforeHash,
+                oneStepData.machineStep,
+                beforeHistoryInclusionProof
+            ),
+            "Before state not in history"
         );
 
-        require(HistoryCommitmentLib.hasState(vertices[winnerVId].historyCommitment, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof), "After state not in history");
+        // CHRIS: TODO: validate the execCtx?
+        bytes32 afterHash = oneStepProofEntry.proveOneStep(
+            oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
+        );
+
+        require(
+            HistoryCommitmentLib.hasState(
+                vertices[winnerVId].historyCommitment,
+                afterHash,
+                oneStepData.machineStep + 1,
+                afterHistoryInclusionProof
+            ),
+            "After state not in history"
+        );
 
         challenges[challengeId].winningClaim = winnerVId;
     }
@@ -852,7 +872,7 @@ library BlockLeafAdder {
         mapping(bytes32 => Challenge) storage challenges,
         AddLeafLibArgs memory leafLibArgs, // CHRIS: TODO: better name
         IAssertionChain assertionChain
-    ) public returns (bytes32) {
+    ) external returns (bytes32) {
         {
             // check that the predecessor of this claim has registered this contract as it's succession challenge
             bytes32 predecessorId = assertionChain.getPredecessorId(leafLibArgs.leafData.claimId);
@@ -922,7 +942,7 @@ library BigStepLeafAdder {
         mapping(bytes32 => ChallengeVertex) storage vertices,
         mapping(bytes32 => Challenge) storage challenges,
         AddLeafLibArgs memory leafLibArgs // CHRIS: TODO: better name
-    ) internal returns (bytes32) {
+    ) external returns (bytes32) {
         {
             // CHRIS: TODO: we should only have the special stuff in here, we can pass in the initial ps timer or something
             // CHRIS: TODO: rename challenge to challenge manager
@@ -984,7 +1004,7 @@ library SmallStepLeafAdder {
         mapping(bytes32 => ChallengeVertex) storage vertices,
         mapping(bytes32 => Challenge) storage challenges,
         AddLeafLibArgs memory leafLibArgs
-    ) internal returns (bytes32) {
+    ) external returns (bytes32) {
         {
             require(vertices[leafLibArgs.leafData.claimId].exists(), "Claim does not exist");
             bytes32 predecessorId = vertices[leafLibArgs.leafData.claimId].predecessorId;

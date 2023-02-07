@@ -8,12 +8,11 @@ import "../src/ChallengeManager.sol";
 import "../src/osp/IOneStepProofEntry.sol";
 
 contract MockOneStepProofEntry is IOneStepProofEntry {
-    function proveOneStep(
-        ExecutionContext calldata,
-        uint256,
-        bytes32,
-        bytes calldata proof
-    ) external view returns (bytes32 afterHash) {
+    function proveOneStep(ExecutionContext calldata, uint256, bytes32, bytes calldata proof)
+        external
+        view
+        returns (bytes32 afterHash)
+    {
         return bytes32(proof);
     }
 }
@@ -36,10 +35,10 @@ contract ChallengeManagerE2ETest is Test {
     uint256 miniStakeVal = 1 ether;
     uint256 challengePeriod = 1000;
 
-    function deploy() internal returns (MockAssertionChain, ChallengeManager, bytes32) {
+    function deploy() internal returns (MockAssertionChain, ChallengeManagerImpl, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
-        ChallengeManager challengeManager =
-            new ChallengeManager(assertionChain, miniStakeVal, challengePeriod, new MockOneStepProofEntry());
+        ChallengeManagerImpl challengeManager =
+            new ChallengeManagerImpl(assertionChain, miniStakeVal, challengePeriod, new MockOneStepProofEntry());
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, 0, 0, genesisHash, 0);
 
         return (assertionChain, challengeManager, genesis);
@@ -47,9 +46,9 @@ contract ChallengeManagerE2ETest is Test {
 
     function deployAndInitChallenge()
         internal
-        returns (MockAssertionChain, ChallengeManager, bytes32, bytes32, bytes32, bytes32)
+        returns (MockAssertionChain, ChallengeManagerImpl, bytes32, bytes32, bytes32, bytes32)
     {
-        (MockAssertionChain assertionChain, ChallengeManager challengeManager, bytes32 genesis) = deploy();
+        (MockAssertionChain assertionChain, ChallengeManagerImpl challengeManager, bytes32 genesis) = deploy();
 
         bytes32 a1 = assertionChain.addAssertion(genesis, height1, inboxSeenCount1, h1, 0);
         bytes32 a2 = assertionChain.addAssertion(genesis, height1, inboxSeenCount1, h2, 0);
@@ -60,7 +59,7 @@ contract ChallengeManagerE2ETest is Test {
     }
 
     function testCanConfirmPs() public {
-        (, ChallengeManager challengeManager,, bytes32 a1,, bytes32 challengeId) = deployAndInitChallenge();
+        (, ChallengeManagerImpl challengeManager,, bytes32 a1,, bytes32 challengeId) = deployAndInitChallenge();
 
         bytes32 v1Id = challengeManager.addLeaf{value: miniStakeVal}(
             AddLeafArgs({
@@ -85,7 +84,7 @@ contract ChallengeManagerE2ETest is Test {
     }
 
     function testCanConfirmSubChallenge() public {
-        (, ChallengeManager challengeManager,, bytes32 a1, bytes32 a2, bytes32 blockChallengeId) =
+        (, ChallengeManagerImpl challengeManager,, bytes32 a1, bytes32 a2, bytes32 blockChallengeId) =
             deployAndInitChallenge();
 
         bytes32 v1Id = challengeManager.addLeaf{value: miniStakeVal}(
@@ -245,7 +244,7 @@ contract ChallengeManagerE2ETest is Test {
     }
 
     function testCanConfirmFromOneStep() public {
-        (, ChallengeManager challengeManager,, bytes32 a1, bytes32 a2, bytes32 blockChallengeId) =
+        (, ChallengeManagerImpl challengeManager,, bytes32 a1, bytes32 a2, bytes32 blockChallengeId) =
             deployAndInitChallenge();
 
         (bytes32[5] memory blockWinners, bytes32[5] memory blockLosers) = addLeafsAndBisectToSubChallenge(
@@ -261,21 +260,23 @@ contract ChallengeManagerE2ETest is Test {
         bytes32 smallStepChallengeId =
             challengeManager.createSubChallenge(challengeManager.getVertex(bigStepWinners[0]).predecessorId);
 
-        (bytes32[5] memory smallStepWinners, ) = addLeafsAndBisectToSubChallenge(
-            challengeManager, smallStepChallengeId, bigStepWinners[0], h1, bigStepLosers[0], h2, abi.encodePacked(height1)
+        (bytes32[5] memory smallStepWinners,) = addLeafsAndBisectToSubChallenge(
+            challengeManager,
+            smallStepChallengeId,
+            bigStepWinners[0],
+            h1,
+            bigStepLosers[0],
+            h2,
+            abi.encodePacked(height1)
         );
-
 
         challengeManager.createSubChallenge(challengeManager.getVertex(smallStepWinners[0]).predecessorId);
         uint256 height = challengeManager.getVertex(smallStepWinners[0]).height - 1;
 
         challengeManager.executeOneStep(
             smallStepWinners[0],
-            ChallengeManager.OneStepData({
-                execCtx: ExecutionContext({
-                    maxInboxMessagesRead: 0,
-                    bridge: IBridge(address(0))
-                }),
+            ChallengeManagerImpl.OneStepData({
+                execCtx: ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0))}),
                 machineStep: height,
                 beforeHash: genesisHash,
                 proof: abi.encodePacked(bytes32(smallStepWinners[0]))
@@ -285,13 +286,12 @@ contract ChallengeManagerE2ETest is Test {
         );
 
         challengeManager.confirmForSucessionChallengeWin(smallStepWinners[0]);
-        
+
         vm.warp(challengePeriod + 2);
         challengeManager.confirmForPsTimer(smallStepWinners[1]);
         challengeManager.confirmForPsTimer(smallStepWinners[2]);
         challengeManager.confirmForPsTimer(smallStepWinners[3]);
         challengeManager.confirmForPsTimer(smallStepWinners[4]);
-        
 
         challengeManager.confirmForSucessionChallengeWin(bigStepWinners[0]);
         challengeManager.confirmForPsTimer(bigStepWinners[1]);
