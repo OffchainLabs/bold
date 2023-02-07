@@ -100,7 +100,7 @@ library ChallengeVertexMappingLib {
         address successorStaker,
         uint256 successorInitialPsTime,
         uint256 challengePeriod
-    ) public returns (bytes32) {
+    ) external returns (bytes32) {
         bytes32 vId = ChallengeVertexLib.id(challengeId, successorHistoryCommitment, successorHeight);
         require(!has(vertices, vId), "Successor already exists");
         require(has(vertices, predecessorId), "Predecessor does not already exist");
@@ -265,7 +265,7 @@ library ChallengeVertexMappingLib {
     }
 
     function bisectionHeight(mapping(bytes32 => ChallengeVertex) storage vertices, bytes32 vId)
-        internal
+        external
         view
         returns (uint256)
     {
@@ -363,7 +363,7 @@ library ChallengeManagerLib {
         mapping(bytes32 => Challenge) storage challenges,
         bytes32 vId,
         uint256 challengePeriod
-    ) internal view {
+    ) external view {
         vertices.checkAtOneStepFork(vId);
 
         require(challenges[vId].winningClaim == 0, "Winner already declared");
@@ -412,7 +412,7 @@ library ChallengeManagerLib {
         bytes32 prefixHistoryCommitment,
         bytes memory prefixProof,
         uint256 challengePeriod
-    ) internal view returns (bytes32, uint256) {
+    ) external view returns (bytes32, uint256) {
         (bytes32 bVId, uint256 bHeight) = ChallengeManagerLib.calculateBisectionVertex(
             vertices, challenges, vId, prefixHistoryCommitment, prefixProof, challengePeriod
         );
@@ -430,7 +430,7 @@ library ChallengeManagerLib {
         bytes32 prefixHistoryCommitment,
         bytes memory prefixProof,
         uint256 challengePeriod
-    ) internal view returns (bytes32, uint256) {
+    ) external view returns (bytes32, uint256) {
         (bytes32 bVId, uint256 bHeight) = ChallengeManagerLib.calculateBisectionVertex(
             vertices, challenges, vId, prefixHistoryCommitment, prefixProof, challengePeriod
         );
@@ -447,7 +447,7 @@ library ChallengeManagerLib {
         mapping(bytes32 => Challenge) storage challenges,
         AddLeafArgs memory leafData,
         uint256 miniStake
-    ) internal view {
+    ) external view {
         require(leafData.claimId != 0, "Empty claimId");
         require(leafData.historyCommitment != 0, "Empty historyCommitment");
         // CHRIS: TODO: we should also prove that the height is greater than 1 if we set the root heigt to 1
