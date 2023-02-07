@@ -3,7 +3,6 @@ pragma solidity ^0.8.17;
 
 import "./DataEntities.sol";
 import "./osp/IOneStepProofEntry.sol";
-import "forge-std/Test.sol";
 
 library ChallengeVertexLib {
     function newRoot(bytes32 challengeId, bytes32 historyCommitment) internal pure returns (ChallengeVertex memory) {
