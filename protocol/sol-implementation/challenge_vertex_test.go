@@ -33,8 +33,44 @@ func TestChallengeVertex_ConfirmPsTimer(t *testing.T) {
 		require.ErrorIs(t, v1.ConfirmPsTimer(context.Background()), ErrPsTimerNotYet)
 	})
 	t.Run("vertex ps timer has exceeded challenge duration", func(t *testing.T) {
-		require.NoError(t, acc.backend.AdjustTime(time.Second * 2000))
+		require.NoError(t, acc.backend.AdjustTime(time.Second*2000))
 		require.NoError(t, v1.ConfirmPsTimer(context.Background()))
+	})
+}
+
+func TestChallengeVertex_ConfirmForSuccessionChallengeWin(t *testing.T) {
+	chain, acc := setupAssertionChainWithChallengeManager(t)
+	height1 := uint64(6)
+	height2 := uint64(7)
+	a1, _, challenge := setupTopLevelFork(t, chain, height1, height2)
+
+	genesis, err := chain.AssertionByID(common.Hash{})
+	require.NoError(t, err)
+
+	v1, err := challenge.AddLeaf(
+		a1,
+		util.HistoryCommitment{
+			Height:    height1,
+			Merkle:    common.BytesToHash([]byte("nyan")),
+			FirstLeaf: genesis.inner.StateHash,
+		},
+	)
+	require.NoError(t, err)
+
+	t.Run("vertex does not exist", func(t *testing.T) {
+		oldId := v1.id
+		v1.id = common.Hash{1}
+		require.ErrorIs(t, v1.ConfirmForSuccessionChallengeWin(context.Background()), ErrNotFound)
+		v1.id = oldId
+	})
+	t.Run("succession does not exist", func(t *testing.T) {
+		require.NoError(t, acc.backend.AdjustTime(time.Second*2000))
+		require.NoError(t, v1.ConfirmPsTimer(context.Background()))
+		acc.backend.Commit()
+		require.ErrorIs(t, v1.ConfirmForSuccessionChallengeWin(context.Background()), ErrSuccessionNotFound)
+	})
+	t.Run("can confirm through succession", func(t *testing.T) {
+		t.Skip("TODO: Need one step proof")
 	})
 }
 

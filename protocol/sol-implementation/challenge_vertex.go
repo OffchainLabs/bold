@@ -70,3 +70,31 @@ func (v *ChallengeVertex) ConfirmPsTimer(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (v *ChallengeVertex) ConfirmForSuccessionChallengeWin(ctx context.Context) error {
+	err := withChainCommitment(v.manager.assertionChain.backend, func() error {
+		_, err := v.manager.writer.ConfirmForSucessionChallengeWin(
+			v.manager.assertionChain.txOpts,
+			v.id,
+		)
+		return err
+	})
+	switch {
+	case err == nil:
+	case strings.Contains(err.Error(), "Vertex does not exist"):
+		return errors.Wrapf(ErrNotFound, "vertex id %#v", v.id)
+	case strings.Contains(err.Error(), "Vertex is not pending"):
+		return errors.Wrapf(ErrNonPendingAssertion, "vertex id %#v", v.id)
+	case strings.Contains(err.Error(), "Predecessor vertex does not exist"):
+		return errors.Wrapf(ErrNotFound, "vertex predecessor id %#v", v.inner.PredecessorId)
+	case strings.Contains(err.Error(), "Predecessor vertex is not confirmed"):
+		return errors.Wrapf(ErrNonConfirmedAssertion, "vertex predecessor id %#v", v.inner.PredecessorId)
+	case strings.Contains(err.Error(), "Succession challenge does not exist"):
+		return errors.Wrapf(ErrSuccessionNotFound, "succession challenge id %#v", v.inner.SuccessionChallenge)
+	case strings.Contains(err.Error(), "Succession challenge did not declare this vertex the winner"):
+		return errors.Wrapf(ErrNotFound, "succession challenge id %#v", v.inner.SuccessionChallenge)
+	default:
+		return err
+	}
+	return nil
+}
