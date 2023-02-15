@@ -8,11 +8,9 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 import "./Assertion.sol";
 import "./IRollupCore.sol";
-import "./RollupLib.sol";
+// import "./RollupLib.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
-
-import "../challenge/IOldChallengeManager.sol";
 
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IBridge.sol";

@@ -5,7 +5,11 @@
 pragma solidity ^0.8.0;
 
 import "./Assertion.sol";
-import "./RollupLib.sol";
+import "../bridge/IBridge.sol";
+import "../bridge/ISequencerInbox.sol";
+import "../bridge/IOutbox.sol";
+import "./IRollupEventInbox.sol";
+// import "../challenge/IOldChallengeManager.sol";
 
 interface IRollupCore {
     struct Staker {

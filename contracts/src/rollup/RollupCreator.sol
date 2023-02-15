@@ -11,6 +11,8 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./RollupProxy.sol";
+import "../challengeV2/DataEntities.sol";
+import "./Config.sol";
 
 contract RollupCreator is Ownable {
     event RollupCreated(
@@ -114,14 +116,14 @@ contract RollupCreator is Ownable {
         frame.rollup = new RollupProxy(
             config,
             ContractDependencies({
-                bridge: frame.bridge,
-                sequencerInbox: frame.sequencerInbox,
-                inbox: frame.inbox,
-                outbox: frame.outbox,
-                rollupEventInbox: frame.rollupEventInbox,
-                challengeManager: challengeManager,
-                rollupAdminLogic: rollupAdminLogic,
-                rollupUserLogic: rollupUserLogic,
+                bridge: address(frame.bridge),
+                sequencerInbox: address(frame.sequencerInbox),
+                inbox: address(frame.inbox),
+                outbox: address(frame.outbox),
+                rollupEventInbox: address(frame.rollupEventInbox),
+                challengeManager: address(challengeManager),
+                rollupAdminLogic: address(rollupAdminLogic),
+                rollupUserLogic: address(rollupUserLogic),
                 validatorUtils: validatorUtils,
                 validatorWalletCreator: validatorWalletCreator
             })

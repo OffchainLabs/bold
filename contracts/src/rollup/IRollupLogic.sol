@@ -9,6 +9,7 @@ import "./IRollupCore.sol";
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IOutbox.sol";
 import "../bridge/IOwnable.sol";
+import "./Config.sol";
 
 interface IRollupUserAbs is IRollupCore, IOwnable {
     /// @dev the user logic just validated configuration and shouldn't write to state during init

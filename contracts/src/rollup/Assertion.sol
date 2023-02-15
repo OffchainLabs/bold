@@ -4,6 +4,20 @@
 
 pragma solidity ^0.8.0;
 
+import "../state/GlobalState.sol";
+import "../state/Machine.sol";
+
+struct ExecutionState {
+    GlobalState globalState;
+    MachineStatus machineStatus;
+}
+
+struct AssertionInputs {
+    ExecutionState beforeState;
+    ExecutionState afterState;
+    uint64 numBlocks;
+}
+
 struct AssertionNode {
     // Hash of the state of the chain as of this assertion
     bytes32 stateHash;

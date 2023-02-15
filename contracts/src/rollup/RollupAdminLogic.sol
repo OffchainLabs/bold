@@ -22,22 +22,22 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         initializer
     {
         rollupDeploymentBlock = block.number;
-        bridge = connectedContracts.bridge;
-        sequencerInbox = connectedContracts.sequencerInbox;
-        connectedContracts.bridge.setDelayedInbox(address(connectedContracts.inbox), true);
-        connectedContracts.bridge.setSequencerInbox(address(connectedContracts.sequencerInbox));
+        bridge = IBridge(connectedContracts.bridge);
+        sequencerInbox = ISequencerInbox(connectedContracts.sequencerInbox);
+        bridge.setDelayedInbox(connectedContracts.inbox, true);
+        bridge.setSequencerInbox(connectedContracts.sequencerInbox);
 
-        inbox = connectedContracts.inbox;
-        outbox = connectedContracts.outbox;
-        connectedContracts.bridge.setOutbox(address(connectedContracts.outbox), true);
-        rollupEventInbox = connectedContracts.rollupEventInbox;
-        connectedContracts.bridge.setDelayedInbox(
-            address(connectedContracts.rollupEventInbox),
+        inbox = IInbox(connectedContracts.inbox);
+        outbox = IOutbox(connectedContracts.outbox);
+        bridge.setOutbox(connectedContracts.outbox, true);
+        rollupEventInbox = IRollupEventInbox(connectedContracts.rollupEventInbox);
+        bridge.setDelayedInbox(
+            connectedContracts.rollupEventInbox,
             true
         );
 
-        connectedContracts.rollupEventInbox.rollupInitialized(config.chainId);
-        connectedContracts.sequencerInbox.addSequencerL2Batch(
+        rollupEventInbox.rollupInitialized(config.chainId);
+        sequencerInbox.addSequencerL2Batch(
             0,
             "",
             1,
@@ -48,7 +48,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         validatorUtils = connectedContracts.validatorUtils;
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
-        challengeManager = connectedContracts.challengeManager;
+        challengeManager = IChallengeManager(connectedContracts.challengeManager);
 
         AssertionNode memory assertion = createInitialAssertion();
         initializeCore(assertion);
