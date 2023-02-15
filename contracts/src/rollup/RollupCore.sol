@@ -36,7 +36,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     IOutbox public outbox;
     ISequencerInbox public sequencerInbox;
     IRollupEventInbox public rollupEventInbox;
-    IOldChallengeManager public override oldChallengeManager;
+    // IOldChallengeManager public override oldChallengeManager;
 
     // misc useful contracts when interacting with the rollup
     address public validatorUtils;

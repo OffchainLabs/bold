@@ -207,26 +207,7 @@ contract ValidatorUtils {
         uint64 startIndex,
         uint64 max
     ) external view returns (uint64[] memory, bool hasMore) {
-        (address[] memory stakers, bool hasMoreStakers) = getStakers(rollup, startIndex, max);
-        uint64[] memory challenges = new uint64[](stakers.length);
-        uint256 index = 0;
-        IOldChallengeManager oldChallengeManager = rollup.oldChallengeManager();
-        for (uint256 i = 0; i < stakers.length; i++) {
-            address staker = stakers[i];
-            uint64 challengeIndex = rollup.currentChallenge(staker);
-            if (
-                challengeIndex != NO_CHAL_INDEX &&
-                oldChallengeManager.isTimedOut(challengeIndex) &&
-                oldChallengeManager.currentResponder(challengeIndex) == staker
-            ) {
-                challenges[index++] = challengeIndex;
-            }
-        }
-        // Shrink array down to real size
-        assembly {
-            mstore(challenges, index)
-        }
-        return (challenges, hasMoreStakers);
+        revert("DEPRECATED");
     }
 
     // Worst case runtime of O(depth), as it terminates if it switches paths.
