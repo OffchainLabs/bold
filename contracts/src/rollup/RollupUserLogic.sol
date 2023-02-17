@@ -206,6 +206,9 @@ abstract contract AbsRollupUserLogic is
         bytes32 expectedAssertionHash,
         uint256 prevAssertionInboxMaxCount
     ) public onlyValidator whenNotPaused {
+        require(
+            getAssertionNum(expectedAssertionHash) == 0, "ASSERTION_SEEN"
+        );
         require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
         // Ensure staker is staked on the previous assertion
         uint64 prevAssertion = latestStakedAssertion(msg.sender);
