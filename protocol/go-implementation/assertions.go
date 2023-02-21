@@ -42,28 +42,6 @@ var (
 	ErrProofFailsToVerify     = errors.New("Merkle proof fails to verify for last state of history commitment")
 )
 
-// ChallengeCommitHash returns the hash of the state commitment of the challenge.
-type ChallengeCommitHash common.Hash
-
-// VertexCommitHash returns the hash of the history commitment of the vertex.
-type VertexCommitHash common.Hash
-
-// AssertionSequenceNumber is a monotonically increasing index, starting from 0, for the creation
-// of in a collection such as assertions.
-type AssertionSequenceNumber uint64
-
-// VertexSequenceNumber is a monotonically increasing index, starting from 0, for the creation
-// of in a collection such as challenge vertexes.
-type VertexSequenceNumber uint64
-
-// OnChainProtocol defines an interface for interacting with the smart contract implementation
-// of the assertion protocol, with methods to issue mutating transactions, make eth calls, create
-// leafs in the protocol, issue challenges, and subscribe to chain events wrapped in simple abstractions.
-type OnChainProtocol interface {
-	ChainReadWriter
-	AssertionManager
-}
-
 // ChainReadWriter can make mutating and non-mutating calls to the blockchain.
 type ChainReadWriter interface {
 	ChainReader
@@ -74,12 +52,12 @@ type ChainReadWriter interface {
 // ChainReader can make non-mutating calls to the on-chain goimpl. It provides
 // an ActiveTx type which has the block number to use when making chain calls.
 type ChainReader interface {
-	Call(clo func(*ActiveTx) error) error
+	Call(clo func(protocol.ActiveTx) error) error
 }
 
 // ChainWriter can make mutating calls to the on-chain goimpl.
 type ChainWriter interface {
-	Tx(clo func(*ActiveTx) error) error
+	Tx(clo func(protocol.ActiveTx) error) error
 }
 
 // EventProvider allows subscribing to chain events for the on-chain goimpl.
@@ -92,11 +70,11 @@ type AssertionChain struct {
 	mutex                         sync.RWMutex
 	timeReference                 util.TimeReference
 	challengePeriod               time.Duration
-	latestConfirmed               AssertionSequenceNumber
+	latestConfirmed               protocol.AssertionSequenceNumber
 	assertions                    []*Assertion
-	assertionsBySeqNum            map[common.Hash]AssertionSequenceNumber
-	challengeVerticesByCommitHash map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface
-	challengesByCommitHash        map[ChallengeCommitHash]protocol.Challenge
+	assertionsBySeqNum            map[common.Hash]protocol.AssertionSequenceNumber
+	challengeVerticesByCommitHash map[protocol.ChallengeHash]map[protocol.VertexHash]protocol.ChallengeVertex
+	challengesByCommitHash        map[protocol.ChallengeHash]protocol.Challenge
 	balances                      *util.MapWithDefault[common.Address, *big.Int]
 	feed                          *EventFeed[AssertionChainEvent]
 	challengesFeed                *EventFeed[ChallengeEvent]
@@ -150,11 +128,11 @@ func (chain *AssertionChain) Call(clo func(tx *ActiveTx) error) error {
 	return err
 }
 
-func (chain *AssertionChain) GetChallengeVerticesByCommitHashmap() map[ChallengeCommitHash]map[VertexCommitHash]protocol.ChallengeVertex {
+func (chain *AssertionChain) GetChallengeVerticesByCommitHashmap() map[protocol.ChallengeHash]map[protocol.VertexHash]protocol.ChallengeVertex {
 	return chain.challengeVerticesByCommitHash
 }
 
-func (chain *AssertionChain) GetChallengesByCommitHash() map[ChallengeCommitHash]protocol.Challenge {
+func (chain *AssertionChain) GetChallengesByCommitHash() map[protocol.ChallengeHash]protocol.Challenge {
 	return chain.challengesByCommitHash
 }
 
@@ -166,7 +144,7 @@ func (chain *AssertionChain) GetFeed() *EventFeed[AssertionChainEvent] {
 	return chain.feed
 }
 
-func (chain *AssertionChain) SetLatestConfirmed(assertionSequenceNumber AssertionSequenceNumber) {
+func (chain *AssertionChain) SetLatestConfirmed(assertionSequenceNumber protocol.AssertionSequenceNumber) {
 	chain.latestConfirmed = assertionSequenceNumber
 }
 
@@ -181,8 +159,8 @@ type AssertionState int
 
 // Assertion represents an assertion in the goimpl.
 type Assertion struct {
-	SequenceNum             AssertionSequenceNumber `json:"sequence_num"`
-	StateCommitment         util.StateCommitment    `json:"state_commitment"`
+	SequenceNum             protocol.AssertionSequenceNumber `json:"sequence_num"`
+	StateCommitment         util.StateCommitment             `json:"state_commitment"`
 	Staker                  util.Option[common.Address]
 	Prev                    util.Option[*Assertion]
 	challengeManager        protocol.ChallengeManager
@@ -191,6 +169,22 @@ type Assertion struct {
 	firstChildCreationTime  util.Option[time.Time]
 	secondChildCreationTime util.Option[time.Time]
 	challenge               util.Option[*Challenge]
+}
+
+func (a *Assertion) Height() uint64 {
+	return a.StateCommitment.Height
+}
+
+func (a *Assertion) SeqNum() protocol.AssertionSequenceNumber {
+	return protocol.AssertionSequenceNumber(a.SequenceNum)
+}
+
+func (a *Assertion) PrevSeqNum() protocol.AssertionSequenceNumber {
+	return protocol.AssertionSequenceNumber(a.Prev.Unwrap().SequenceNum)
+}
+
+func (a *Assertion) StateHash() common.Hash {
+	return a.StateCommitment.StateRoot
 }
 
 // NewAssertionChainWithChainId creates a new AssertionChain with specified chainId.
@@ -217,15 +211,15 @@ func NewAssertionChainWithChainId(ctx context.Context, timeRef util.TimeReferenc
 			math.MaxUint64,
 		),
 	)
-	assertionsSeen := map[common.Hash]AssertionSequenceNumber{
+	assertionsSeen := map[common.Hash]protocol.AssertionSequenceNumber{
 		genesisKey: 0,
 	}
 	chain := &AssertionChain{
 		mutex:                         sync.RWMutex{},
 		timeReference:                 timeRef,
 		challengePeriod:               challengePeriod,
-		challengesByCommitHash:        make(map[ChallengeCommitHash]protocol.Challenge),
-		challengeVerticesByCommitHash: make(map[ChallengeCommitHash]map[VertexCommitHash]protocol.ChallengeVertex),
+		challengesByCommitHash:        make(map[protocol.ChallengeHash]protocol.Challenge),
+		challengeVerticesByCommitHash: make(map[protocol.ChallengeHash]map[protocol.VertexHash]protocol.ChallengeVertex),
 		latestConfirmed:               0,
 		assertions:                    []*Assertion{genesis},
 		balances:                      util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
@@ -244,6 +238,8 @@ func NewAssertionChain(ctx context.Context, timeRef util.TimeReference, challeng
 	return NewAssertionChainWithChainId(ctx, timeRef, challengePeriod, 0)
 }
 
+/* Assertion chain methods */
+
 // TimeReference returns the time reference used by the chain.
 func (chain *AssertionChain) TimeReference() util.TimeReference {
 	return chain.timeReference
@@ -261,13 +257,13 @@ func (chain *AssertionChain) ChainId() uint64 {
 
 // GetBalance returns the balance of the given address.
 func (chain *AssertionChain) GetBalance(tx protocol.ActiveTx, addr common.Address) *big.Int {
-	tx.verifyRead()
+	tx.VerifyRead()
 	return chain.balances.Get(addr)
 }
 
 // SetBalance sets the balance of the given address.
 func (chain *AssertionChain) SetBalance(tx protocol.ActiveTx, addr common.Address, balance *big.Int) {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	oldBalance := chain.balances.Get(addr)
 	chain.balances.Set(addr, balance)
 	chain.feed.Append(&SetBalanceEvent{Addr: addr, OldBalance: oldBalance, NewBalance: balance})
@@ -275,13 +271,13 @@ func (chain *AssertionChain) SetBalance(tx protocol.ActiveTx, addr common.Addres
 
 // AddToBalance adds the given amount to the balance of the given address.
 func (chain *AssertionChain) AddToBalance(tx protocol.ActiveTx, addr common.Address, amount *big.Int) {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	chain.SetBalance(tx, addr, new(big.Int).Add(chain.GetBalance(tx, addr), amount))
 }
 
 // DeductFromBalance deducts the given amount from the balance of the given address.
 func (chain *AssertionChain) DeductFromBalance(tx protocol.ActiveTx, addr common.Address, amount *big.Int) error {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	balance := chain.GetBalance(tx, addr)
 	if balance.Cmp(amount) < 0 {
 		return errors.Wrapf(ErrInsufficientBalance, "%s < %s", balance.String(), amount.String())
@@ -290,31 +286,56 @@ func (chain *AssertionChain) DeductFromBalance(tx protocol.ActiveTx, addr common
 	return nil
 }
 
-// ChallengePeriodLength returns the length of the challenge period.
-func (chain *AssertionChain) ChallengePeriodLength(tx protocol.ActiveTx) time.Duration {
-	tx.verifyRead()
-	return chain.challengePeriod
-}
-
 // LatestConfirmed returns the latest confirmed assertion.
-func (chain *AssertionChain) LatestConfirmed(tx protocol.ActiveTx) *Assertion {
-	tx.verifyRead()
-	return chain.assertions[chain.latestConfirmed]
-}
-
-// NumAssertions returns the number of assertions in the chain.
-func (chain *AssertionChain) NumAssertions(tx protocol.ActiveTx) uint64 {
-	tx.verifyRead()
-	return uint64(len(chain.assertions))
+func (chain *AssertionChain) LatestConfirmed(ctx context.Context, tx protocol.ActiveTx) (protocol.Assertion, error) {
+	tx.VerifyRead()
+	return chain.assertions[chain.latestConfirmed], nil
 }
 
 // AssertionBySequenceNum returns the assertion with the given sequence number.
-func (chain *AssertionChain) AssertionBySequenceNum(tx protocol.ActiveTx, seqNum AssertionSequenceNumber) (*Assertion, error) {
-	tx.verifyRead()
-	if seqNum >= AssertionSequenceNumber(len(chain.assertions)) {
+func (chain *AssertionChain) AssertionBySequenceNum(ctx context.Context, tx protocol.ActiveTx, seqNum protocol.AssertionSequenceNumber) (protocol.Assertion, error) {
+	tx.VerifyRead()
+	if seqNum >= protocol.AssertionSequenceNumber(len(chain.assertions)) {
 		return nil, fmt.Errorf("assertion sequence out of range %d >= %d", seqNum, len(chain.assertions))
 	}
 	return chain.assertions[seqNum], nil
+}
+
+/* Challenge manager methods */
+func (chain *AssertionChain) CurrentChallengeManager(ctx context.Context, tx protocol.ActiveTx) (protocol.ChallengeManager, error) {
+	tx.VerifyRead()
+	return chain, nil
+}
+
+func (chain *AssertionChain) ChallengePeriodSeconds(
+	ctx context.Context, tx protocol.ActiveTx,
+) (time.Duration, error) {
+	return time.Second, nil
+}
+
+func (chain *AssertionChain) CalculateChallengeHash(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	itemId common.Hash,
+	challengeType protocol.ChallengeType,
+) (protocol.ChallengeHash, error) {
+	return protocol.ChallengeHash{}, nil
+}
+
+func (chain *AssertionChain) GetVertex(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	vertexId protocol.VertexHash,
+) (util.Option[protocol.ChallengeVertex], error) {
+	return util.None[protocol.ChallengeVertex](), nil
+}
+
+func (chain *AssertionChain) GetChallenge(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	challengeId protocol.ChallengeHash,
+) (util.Option[protocol.Challenge], error) {
+	return util.None[protocol.Challenge](), nil
 }
 
 // IsAtOneStepFork when given a challenge vertex's history commitment
@@ -323,7 +344,7 @@ func (chain *AssertionChain) AssertionBySequenceNum(tx protocol.ActiveTx, seqNum
 func (chain *AssertionChain) IsAtOneStepFork(
 	ctx context.Context,
 	tx protocol.ActiveTx,
-	challengeCommitHash ChallengeCommitHash,
+	challengeCommitHash protocol.ChallengeHash,
 	vertexCommit util.HistoryCommitment,
 	vertexParentCommit util.HistoryCommitment,
 ) (bool, error) {
@@ -335,14 +356,14 @@ func (chain *AssertionChain) IsAtOneStepFork(
 	if !ok {
 		return false, fmt.Errorf("challenge vertices not found for assertion with state commit hash %#x", challengeCommitHash)
 	}
-	parentCommitHash := VertexCommitHash(vertexParentCommit.Hash())
+	parentCommitHash := protocol.VertexHash(vertexParentCommit.Hash())
 	return verticesContainOneStepFork(ctx, tx, vertices, parentCommitHash), nil
 }
 
 // Check if a vertices with a matching parent commitment hash are at a one-step-fork from their parent.
 // First, we filter out vertices with the specified parent commit hash, then check that all of the
 // matching vertices are one-step away from their parent.
-func verticesContainOneStepFork(ctx context.Context, tx protocol.ActiveTx, vertices map[VertexCommitHash]protocol.ChallengeVertex, parentCommitHash VertexCommitHash) bool {
+func verticesContainOneStepFork(ctx context.Context, tx protocol.ActiveTx, vertices map[protocol.VertexHash]protocol.ChallengeVertex, parentCommitHash protocol.VertexHash) bool {
 	if len(vertices) < 2 {
 		return false
 	}
@@ -354,7 +375,7 @@ func verticesContainOneStepFork(ctx context.Context, tx protocol.ActiveTx, verti
 		}
 		// We only check vertices that have a matching parent commit hash.
 		commitment, _ := prev.Unwrap().GetCommitment(ctx, tx)
-		vParentHash := VertexCommitHash(commitment.Hash())
+		vParentHash := protocol.VertexHash(commitment.Hash())
 		if vParentHash == parentCommitHash {
 			childVertices = append(childVertices, v)
 		}
@@ -382,8 +403,8 @@ func isOneStepAwayFromParent(ctx context.Context, tx protocol.ActiveTx, vertex p
 
 // ChallengeVertexByCommitHash returns the challenge vertex with the given commit hash.
 func (chain *AssertionChain) ChallengeVertexByCommitHash(
-	tx *ActiveTx, challengeHash ChallengeCommitHash, vertexHash VertexCommitHash,
-) (*ChallengeVertex, error) {
+	tx *ActiveTx, challengeHash protocol.ChallengeHash, vertexHash protocol.VertexHash,
+) (protocol.ChallengeVertex, error) {
 	tx.verifyRead()
 	vertices, ok := chain.challengeVerticesByCommitHash[challengeHash]
 	if !ok {
@@ -393,11 +414,11 @@ func (chain *AssertionChain) ChallengeVertexByCommitHash(
 	if !ok {
 		return nil, fmt.Errorf("challenge vertex with sequence number not found %#x", vertexHash)
 	}
-	return vertex.(*ChallengeVertex), nil
+	return vertex, nil
 }
 
 // ChallengeByCommitHash returns the challenge with the given commit hash.
-func (chain *AssertionChain) ChallengeByCommitHash(tx protocol.ActiveTx, commitHash ChallengeCommitHash) (protocol.Challenge, error) {
+func (chain *AssertionChain) ChallengeByCommitHash(tx protocol.ActiveTx, commitHash protocol.ChallengeHash) (protocol.Challenge, error) {
 	tx.verifyRead()
 	chal, ok := chain.challengesByCommitHash[commitHash]
 	if !ok {
@@ -416,9 +437,34 @@ func (chain *AssertionChain) SubscribeChallengeEvents(ctx context.Context, ch ch
 	chain.challengesFeed.Subscribe(ctx, ch)
 }
 
+func (chain *AssertionChain) Confirm(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	blockHash,
+	sendRoot common.Hash,
+) error {
+	return nil
+}
+
+func (chain *AssertionChain) Reject(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	staker common.Address,
+) error {
+	return nil
+}
+
 // CreateLeaf creates a new leaf assertion.
-func (chain *AssertionChain) CreateLeaf(tx protocol.ActiveTx, prev *Assertion, commitment util.StateCommitment, staker common.Address) (*Assertion, error) {
-	tx.verifyReadWrite()
+func (chain *AssertionChain) CreateAssertion(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	height uint64,
+	prevAssertionId uint64,
+	prevAssertionState *protocol.ExecutionState,
+	postState *protocol.ExecutionState,
+	prevInboxMaxCount *big.Int,
+) (protocol.Assertion, error) {
+	tx.VerifyReadWrite()
 	if prev.challengeManager.ChainId() != chain.ChainId() {
 		return nil, ErrWrongChain
 	}
@@ -468,7 +514,7 @@ func (chain *AssertionChain) CreateLeaf(tx protocol.ActiveTx, prev *Assertion, c
 	leaf := &Assertion{
 		challengeManager:        chain,
 		status:                  PendingAssertionState,
-		SequenceNum:             AssertionSequenceNumber(len(chain.assertions)),
+		SequenceNum:             protocol.AssertionSequenceNumber(len(chain.assertions)),
 		StateCommitment:         commitment,
 		Prev:                    util.Some(prev),
 		isFirstChild:            prev.firstChildCreationTime.IsNone(),
@@ -621,14 +667,18 @@ type Challenge struct {
 	leafVertexCount        uint64
 	creationTime           time.Time
 	includedHistories      map[common.Hash]bool
-	currentVertexSeqNumber VertexSequenceNumber
+	currentVertexSeqNumber protocol.VertexSequenceNumber
 	challengePeriod        time.Duration
 	challengeType          protocol.ChallengeType
 }
 
 // CreateChallenge creates a challenge for the assertion and moves the assertion to `ChallengedAssertionState` state.
-func (a *Assertion) CreateChallenge(ctx context.Context, tx protocol.ActiveTx, validator common.Address) (protocol.Challenge, error) {
-	tx.verifyReadWrite()
+func (a *AssertionChain) CreateSuccessionChallenge(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	seqNum protocol.AssertionSequenceNumber,
+) (protocol.Challenge, error) {
+	tx.VerifyReadWrite()
 	if a.status != PendingAssertionState && a.challengeManager.LatestConfirmed(tx) != a {
 		return nil, errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d, Confirmed status: %v", a.status, a.challengeManager.LatestConfirmed(tx) != a))
 	}
@@ -638,7 +688,7 @@ func (a *Assertion) CreateChallenge(ctx context.Context, tx protocol.ActiveTx, v
 	if a.secondChildCreationTime.IsNone() {
 		return nil, ErrInvalidOp
 	}
-	currSeqNumber := VertexSequenceNumber(0)
+	currSeqNumber := protocol.VertexSequenceNumber(0)
 	rootVertex := &ChallengeVertex{
 		Challenge:   util.None[protocol.Challenge](),
 		SequenceNum: currSeqNumber,
@@ -694,7 +744,7 @@ func (c *Challenge) ParentStateCommitment(ctx context.Context, tx protocol.Activ
 }
 
 // AssertionSeqNumber returns the sequence number of the assertion that created the challenge.
-func (c *Challenge) AssertionSeqNumber(ctx context.Context, tx protocol.ActiveTx) (AssertionSequenceNumber, error) {
+func (c *Challenge) AssertionSeqNumber(ctx context.Context, tx protocol.ActiveTx) (protocol.AssertionSequenceNumber, error) {
 	return c.rootAssertion.Unwrap().SequenceNum, nil
 }
 
@@ -719,7 +769,7 @@ func (c *Challenge) WinningClaim() util.Option[protocol.AssertionHash] {
 // AddLeaf adds a new leaf to the challenge.
 func (c *Challenge) AddLeaf(
 	ctx context.Context,
-	tx *ActiveTx,
+	tx protocol.ActiveTx,
 	assertion *Assertion,
 	history util.HistoryCommitment,
 	validator common.Address,
@@ -888,7 +938,7 @@ func (c *Challenge) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveT
 		return false, nil
 	}
 	parentStateCommitment, _ := c.ParentStateCommitment(ctx, tx)
-	vertices, ok := c.rootAssertion.Unwrap().challengeManager.GetChallengeVerticesByCommitHashmap()[ChallengeCommitHash(parentStateCommitment.Hash())]
+	vertices, ok := c.rootAssertion.Unwrap().challengeManager.GetChallengeVerticesByCommitHashmap()[protocol.ChallengeHash(parentStateCommitment.Hash())]
 	if !ok {
 		return false, nil
 	}
@@ -926,7 +976,7 @@ func (c *Challenge) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveT
 type ChallengeVertex struct {
 	Commitment           util.HistoryCommitment
 	Challenge            util.Option[protocol.Challenge]
-	SequenceNum          VertexSequenceNumber // unique within the challenge
+	SequenceNum          protocol.VertexSequenceNumber // unique within the challenge
 	Validator            common.Address
 	isLeaf               bool
 	Status               AssertionState
@@ -1197,7 +1247,7 @@ func (v *ChallengeVertex) GetCommitment(ctx context.Context, tx protocol.ActiveT
 func (v *ChallengeVertex) GetValidator(ctx context.Context, tx protocol.ActiveTx) (common.Address, error) {
 	return v.Validator, nil
 }
-func (v *ChallengeVertex) GetSequenceNum(ctx context.Context, tx protocol.ActiveTx) (VertexSequenceNumber, error) {
+func (v *ChallengeVertex) GetSequenceNum(ctx context.Context, tx protocol.ActiveTx) (protocol.VertexSequenceNumber, error) {
 	return v.SequenceNum, nil
 }
 func (v *ChallengeVertex) GetPresumptiveSuccessor(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.ChallengeVertex], error) {
