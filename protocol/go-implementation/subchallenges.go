@@ -18,6 +18,10 @@ var (
 	ErrNotEnoughValidChildren    = errors.New("vertex needs at least two unexpired children")
 )
 
+func (v *ChallengeVertex) CreateSubChallenge(ctx context.Context, tx protocol.ActiveTx) (protocol.Challenge, error) {
+	return nil, nil
+}
+
 // CreateBigStepChallenge creates a BigStep subchallenge on a vertex.
 func (v *ChallengeVertex) CreateBigStepChallenge(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
@@ -164,7 +168,7 @@ func hasUnexpiredChildren(ctx context.Context, tx protocol.ActiveTx, challengeMa
 
 // Checks if a challenge is still ongoing by making sure the current
 // timestamp is within the challenge's creation time + challenge period.
-func (c *Challenge) HasEnded(ctx context.Context, tx *ActiveTx, challengeManager *AssertionChain) (bool, error) {
+func (c *Challenge) HasEnded(ctx context.Context, tx protocol.ActiveTx, challengeManager *AssertionChain) (bool, error) {
 	challengeEndTime := c.creationTime.Add(challengeManager.challengePeriod).Unix()
 	now := challengeManager.timeReference.Get().Unix()
 	return now > challengeEndTime, nil
@@ -172,6 +176,6 @@ func (c *Challenge) HasEnded(ctx context.Context, tx *ActiveTx, challengeManager
 
 // Checks if a vertex's chess-clock has expired according
 // to the challenge period length.
-func (v *ChallengeVertex) ChessClockExpired(ctx context.Context, tx *ActiveTx, challengePeriod time.Duration) (bool, error) {
+func (v *ChallengeVertex) ChessClockExpired(ctx context.Context, tx protocol.ActiveTx, challengePeriod time.Duration) (bool, error) {
 	return v.PsTimer.Get() > challengePeriod, nil
 }

@@ -14,8 +14,10 @@ import (
 
 var (
 	_ = protocol.AssertionChain(&AssertionChain{})
-	_ = protocol.Challenge(&Challenge{})
 	_ = protocol.ChallengeManager(&AssertionChain{})
+	_ = protocol.Assertion(&Assertion{})
+	_ = protocol.Challenge(&Challenge{})
+	_ = protocol.ChallengeVertex(&ChallengeVertex{})
 )
 
 const testChallengePeriod = 100 * time.Second
@@ -30,10 +32,11 @@ func TestAssertionChain_ConfirmAndRefund(t *testing.T) {
 
 	assertionsChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
 	require.Equal(t, 1, len(assertionsChain.assertions))
-	require.Equal(t, AssertionSequenceNumber(0), assertionsChain.latestConfirmed)
-	err := assertionsChain.Tx(func(tx *ActiveTx) error {
+	require.Equal(t, protocol.AssertionSequenceNumber(0), assertionsChain.latestConfirmed)
+	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 		assertionsChain.SetBalance(tx, staker, AssertionStake)
-		genesis := assertionsChain.LatestConfirmed(tx)
+		genesis, err := assertionsChain.LatestConfirmed(ctx, tx)
+		require.NoError(t, err)
 		comm := util.StateCommitment{Height: 1, StateRoot: correctBlockHashes[99]}
 		a1, err := assertionsChain.CreateLeaf(tx, genesis, comm, staker)
 		require.NoError(t, err)

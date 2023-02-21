@@ -338,15 +338,9 @@ func (chain *AssertionChain) GetChallenge(
 	return util.None[protocol.Challenge](), nil
 }
 
-// IsAtOneStepFork when given a challenge vertex's history commitment
-// along with its parent's, will check other challenge vertices in that challenge
-// to verify there are > 1 vertices that are one height away from their parent.
-func (chain *AssertionChain) IsAtOneStepFork(
+func (v *ChallengeVertex) ChildrenAreAtOneStepFork(
 	ctx context.Context,
 	tx protocol.ActiveTx,
-	challengeCommitHash protocol.ChallengeHash,
-	vertexCommit util.HistoryCommitment,
-	vertexParentCommit util.HistoryCommitment,
 ) (bool, error) {
 	tx.VerifyRead()
 	if vertexCommit.Height != vertexParentCommit.Height+1 {
@@ -931,7 +925,7 @@ func (c *Challenge) Winner(ctx context.Context, tx *ActiveTx) (*Assertion, error
 }
 
 // HasConfirmedSibling returns true if another sibling vertex is confirmed.
-func (c *Challenge) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveTx, vertex protocol.ChallengeVertex) (bool, error) {
+func (v *ChallengeVertex) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveTx) (bool, error) {
 	tx.verifyRead()
 
 	if c.rootAssertion.IsNone() {
@@ -974,17 +968,49 @@ func (c *Challenge) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveT
 }
 
 type ChallengeVertex struct {
-	Commitment           util.HistoryCommitment
-	Challenge            util.Option[protocol.Challenge]
-	SequenceNum          protocol.VertexSequenceNumber // unique within the challenge
-	Validator            common.Address
-	isLeaf               bool
-	Status               AssertionState
-	Prev                 util.Option[protocol.ChallengeVertex]
-	PresumptiveSuccessor util.Option[protocol.ChallengeVertex]
-	PsTimer              *util.CountUpTimer
-	SubChallenge         util.Option[protocol.Challenge]
-	winnerIfConfirmed    util.Option[*Assertion]
+	Commitment            util.HistoryCommitment
+	Challenge             util.Option[protocol.Challenge]
+	SequenceNumV          protocol.VertexSequenceNumber // unique within the challenge
+	Validator             common.Address
+	isLeaf                bool
+	StatusV               protocol.AssertionState
+	PrevV                 util.Option[protocol.ChallengeVertex]
+	PresumptiveSuccessorV util.Option[protocol.ChallengeVertex]
+	PsTimerV              *util.CountUpTimer
+	SubChallenge          util.Option[protocol.Challenge]
+	winnerIfConfirmed     util.Option[*Assertion]
+}
+
+func (v *ChallengeVertex) Id() [32]byte {
+	return protocol.VertexHash{}
+}
+
+func (v *ChallengeVertex) SequenceNum(ctx context.Context, tx protocol.ActiveTx) (protocol.VertexSequenceNumber, error) {
+	return v.SequenceNumV, nil
+}
+
+func (v *ChallengeVertex) Status(ctx context.Context, tx protocol.ActiveTx) (protocol.AssertionState, error) {
+	return v.StatusV, nil
+}
+
+func (v *ChallengeVertex) Prev(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.ChallengeVertex], error) {
+	return v.PrevV, nil
+}
+
+func (v *ChallengeVertex) PsTimer(ctx context.Context, tx protocol.ActiveTx) (uint64, error) {
+	return uint64(v.PsTimerV.Get().Seconds()), nil
+}
+
+func (v *ChallengeVertex) MiniStaker(ctx context.Context, tx protocol.ActiveTx) (common.Address, error) {
+	return v.Validator, nil
+}
+
+func (v *ChallengeVertex) HistoryCommitment(ctx context.Context, tx protocol.ActiveTx) (util.HistoryCommitment, error) {
+	return v.Commitment, nil
+}
+
+func (v *ChallengeVertex) PresumptiveSuccessor(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.ChallengeVertex], error) {
+	return v.PresumptiveSuccessorV, nil
 }
 
 // EligibleForNewSuccessor returns true if the vertex is eligible to have a new successor.
@@ -1031,7 +1057,12 @@ func (v *ChallengeVertex) requiredBisectionHeight(ctx context.Context, tx protoc
 	return util.BisectionPoint(prevCommitment.Height, v.Commitment.Height)
 }
 
-func (v *ChallengeVertex) Bisect(ctx context.Context, tx protocol.ActiveTx, history util.HistoryCommitment, proof []common.Hash, validator common.Address) (protocol.ChallengeVertex, error) {
+func (v *ChallengeVertex) Bisect(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	history util.HistoryCommitment,
+	proof []common.Hash,
+) (protocol.ChallengeVertex, error) {
 	tx.VerifyReadWrite()
 	isPresumptiveSuccessor, _ := v.IsPresumptiveSuccessor(ctx, tx)
 	if isPresumptiveSuccessor {
@@ -1095,7 +1126,12 @@ func (v *ChallengeVertex) Bisect(ctx context.Context, tx protocol.ActiveTx, hist
 }
 
 // Merge merges the vertex with its presumptive successor.
-func (v *ChallengeVertex) Merge(ctx context.Context, tx protocol.ActiveTx, mergingTo protocol.ChallengeVertex, proof []common.Hash, validator common.Address) error {
+func (v *ChallengeVertex) Merge(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	mergingTo util.HistoryCommitment,
+	proof []common.Hash,
+) (protocol.ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	eligibleForNewSuccessor, _ := mergingTo.EligibleForNewSuccessor(ctx, tx)
 	if !eligibleForNewSuccessor {
