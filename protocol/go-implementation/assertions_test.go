@@ -374,9 +374,9 @@ func TestIsAtOneStepFork(t *testing.T) {
 			want:         false,
 			vertices: map[protocol.VertexHash]*ChallengeVertex{
 				protocol.VertexHash{1}: &ChallengeVertex{
-					PrevV: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 1,
 						Merkle: common.BytesToHash([]byte{1}),
@@ -391,12 +391,12 @@ func TestIsAtOneStepFork(t *testing.T) {
 			want:         false,
 			vertices: map[protocol.VertexHash]*ChallengeVertex{
 				protocol.VertexHash{1}: &ChallengeVertex{
-					Prev: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{
 							Height: 5,
 							Merkle: common.BytesToHash([]byte{5}),
 						},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 6,
 						Merkle: common.BytesToHash([]byte{6}),
@@ -411,18 +411,18 @@ func TestIsAtOneStepFork(t *testing.T) {
 			want:         false,
 			vertices: map[protocol.VertexHash]*ChallengeVertex{
 				protocol.VertexHash{1}: &ChallengeVertex{
-					Prev: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 1,
 						Merkle: common.BytesToHash([]byte{1}),
 					},
 				},
 				protocol.VertexHash{2}: &ChallengeVertex{
-					Prev: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 2,
 						Merkle: common.BytesToHash([]byte{1}),
@@ -437,7 +437,7 @@ func TestIsAtOneStepFork(t *testing.T) {
 			want:         true,
 			vertices: map[protocol.VertexHash]*ChallengeVertex{
 				protocol.VertexHash{1}: &ChallengeVertex{
-					Prev: util.Some(ChallengeVertexInterface(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
 					})),
 					Commitment: util.HistoryCommitment{
@@ -446,7 +446,7 @@ func TestIsAtOneStepFork(t *testing.T) {
 					},
 				},
 				protocol.VertexHash{2}: &ChallengeVertex{
-					Prev: util.Some(ChallengeVertexInterface(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
 					})),
 					Commitment: util.HistoryCommitment{
@@ -463,27 +463,27 @@ func TestIsAtOneStepFork(t *testing.T) {
 			want:         false,
 			vertices: map[protocol.VertexHash]*ChallengeVertex{
 				protocol.VertexHash{1}: &ChallengeVertex{
-					Prev: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 1,
 						Merkle: common.BytesToHash([]byte{1}),
 					},
 				},
 				protocol.VertexHash{2}: &ChallengeVertex{
-					Prev: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 1,
 						Merkle: common.BytesToHash([]byte{2}),
 					},
 				},
 				protocol.VertexHash{3}: &ChallengeVertex{
-					Prev: util.Some(&ChallengeVertex{
+					PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 						Commitment: util.HistoryCommitment{},
-					}),
+					})),
 					Commitment: util.HistoryCommitment{
 						Height: 2,
 						Merkle: common.BytesToHash([]byte{3}),
@@ -650,10 +650,10 @@ func TestAssertionChain_BlockChallenge_CreateLeafInvariants(t *testing.T) {
 		timer := util.NewCountUpTimer(ref)
 		timer.Add(2 * time.Minute)
 		rootVertex := &ChallengeVertex{
-			PresumptiveSuccessor: util.Some(&ChallengeVertex{
-				PsTimer: timer,
-			}),
-			Challenge: util.Some(c),
+			PresumptiveSuccessorV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
+				PsTimerV: timer,
+			})),
+			Challenge: util.Some(protocol.Challenge(c)),
 		}
 		c.rootVertex = util.Some(rootVertex)
 		assertion := &Assertion{
@@ -1065,12 +1065,16 @@ func TestAssertionChain_Bisect(t *testing.T) {
 		assertionsChain.SetBalance(tx, staker1, bigBalance)
 		assertionsChain.SetBalance(tx, staker2, bigBalance)
 
-		correctBranch, err := assertionsChain.CreateLeaf(tx, genesis, util.StateCommitment{Height: 6, StateRoot: correctBlockHashes[6]}, staker1)
+		// correctBranch, err := assertionsChain.CreateLeaf(tx, genesis, util.StateCommitment{Height: 6, StateRoot: correctBlockHashes[6]}, staker1)
+		// require.NoError(t, err)
+		correctBranch, err := assertionsChain.CreateAssertion(ctx, tx, 6, 0, nil, nil, nil)
 		require.NoError(t, err)
-		wrongBranch, err := assertionsChain.CreateLeaf(tx, genesis, util.StateCommitment{Height: 6, StateRoot: wrongBlockHashes[6]}, staker2)
+		// wrongBranch, err := assertionsChain.CreateLeaf(tx, genesis, util.StateCommitment{Height: 6, StateRoot: wrongBlockHashes[6]}, staker2)
+		wrongBranch, err := assertionsChain.CreateAssertion(ctx, tx, 6, 0, nil, nil, nil)
 		require.NoError(t, err)
 
-		challenge, err := genesis.CreateChallenge(tx, ctx, staker2)
+		// TODO: Staker 2.
+		challenge, err := assertionsChain.CreateSuccessionChallenge(tx, ctx)
 		require.NoError(t, err)
 
 		// Add some leaves to the mix...
@@ -1455,19 +1459,19 @@ func TestAssertion_HasConfirmedSibling(t *testing.T) {
 	tx := &ActiveTx{TxStatus: ReadOnlyTxStatus}
 	a := util.Some(&Assertion{
 		challengeManager: &AssertionChain{
-			challengeVerticesByCommitHash: make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface),
+			challengeVerticesByCommitHash: make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex),
 		}})
 	c.rootAssertion = a
 
 	parentStateCommitment, _ := c.ParentStateCommitment(ctx, tx)
 	h := parentStateCommitment.Hash()
 	parent := &ChallengeVertex{}
-	c.rootAssertion.Unwrap().challengeManager.(*AssertionChain).challengeVerticesByCommitHash[ChallengeCommitHash(h)] = map[VertexCommitHash]ChallengeVertexInterface{
-		VertexCommitHash(h): &ChallengeVertex{SequenceNum: 100, Status: ConfirmedAssertionState, Prev: util.Some(ChallengeVertexInterface(parent))},
+	c.rootAssertion.Unwrap().challengeManager.challengeVerticesByCommitHash[protocol.ChallengeHash(h)] = map[protocol.VertexHash]*ChallengeVertex{
+		protocol.VertexHash(h): &ChallengeVertex{SequenceNumV: 100, StatusV: protocol.AssertionConfirmed, PrevV: util.Some(protocol.ChallengeVertex(parent))},
 	}
 
-	child := &ChallengeVertex{SequenceNum: 101, Prev: util.Some(ChallengeVertexInterface(parent))}
+	child := &ChallengeVertex{SequenceNumV: 101, PrevV: util.Some(protocol.ChallengeVertex(parent))}
 
-	hasConfirmedSibling, _ := c.HasConfirmedSibling(ctx, tx, child)
+	hasConfirmedSibling, _ := child.HasConfirmedSibling(ctx, tx)
 	require.True(t, hasConfirmedSibling)
 }
