@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	_ = OnChainProtocol(&AssertionChain{})
 	_ = protocol.AssertionChain(&AssertionChain{})
 	_ = protocol.Challenge(&Challenge{})
 	_ = protocol.ChallengeManager(&AssertionChain{})

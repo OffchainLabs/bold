@@ -73,8 +73,8 @@ type AssertionChain struct {
 	latestConfirmed               protocol.AssertionSequenceNumber
 	assertions                    []*Assertion
 	assertionsBySeqNum            map[common.Hash]protocol.AssertionSequenceNumber
-	challengeVerticesByCommitHash map[protocol.ChallengeHash]map[protocol.VertexHash]protocol.ChallengeVertex
-	challengesByCommitHash        map[protocol.ChallengeHash]protocol.Challenge
+	challengeVerticesByCommitHash map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex
+	challengesByCommitHash        map[protocol.ChallengeHash]*Challenge
 	balances                      *util.MapWithDefault[common.Address, *big.Int]
 	feed                          *EventFeed[AssertionChainEvent]
 	challengesFeed                *EventFeed[ChallengeEvent]
@@ -128,11 +128,11 @@ func (chain *AssertionChain) Call(clo func(tx *ActiveTx) error) error {
 	return err
 }
 
-func (chain *AssertionChain) GetChallengeVerticesByCommitHashmap() map[protocol.ChallengeHash]map[protocol.VertexHash]protocol.ChallengeVertex {
+func (chain *AssertionChain) GetChallengeVerticesByCommitHashmap() map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex {
 	return chain.challengeVerticesByCommitHash
 }
 
-func (chain *AssertionChain) GetChallengesByCommitHash() map[protocol.ChallengeHash]protocol.Challenge {
+func (chain *AssertionChain) GetChallengesByCommitHash() map[protocol.ChallengeHash]*Challenge {
 	return chain.challengesByCommitHash
 }
 
@@ -218,8 +218,8 @@ func NewAssertionChainWithChainId(ctx context.Context, timeRef util.TimeReferenc
 		mutex:                         sync.RWMutex{},
 		timeReference:                 timeRef,
 		challengePeriod:               challengePeriod,
-		challengesByCommitHash:        make(map[protocol.ChallengeHash]protocol.Challenge),
-		challengeVerticesByCommitHash: make(map[protocol.ChallengeHash]map[protocol.VertexHash]protocol.ChallengeVertex),
+		challengesByCommitHash:        make(map[protocol.ChallengeHash]*Challenge),
+		challengeVerticesByCommitHash: make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex),
 		latestConfirmed:               0,
 		assertions:                    []*Assertion{genesis},
 		balances:                      util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
@@ -348,7 +348,7 @@ func (chain *AssertionChain) IsAtOneStepFork(
 	vertexCommit util.HistoryCommitment,
 	vertexParentCommit util.HistoryCommitment,
 ) (bool, error) {
-	tx.verifyRead()
+	tx.VerifyRead()
 	if vertexCommit.Height != vertexParentCommit.Height+1 {
 		return false, nil
 	}

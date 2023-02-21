@@ -3,6 +3,7 @@ package goimpl
 import (
 	"math/big"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -17,26 +18,26 @@ func (ev *genericAssertionChainEvent) IsAssertionChainEvent() bool { return true
 
 type CreateLeafEvent struct {
 	genericAssertionChainEvent
-	PrevSeqNum          AssertionSequenceNumber
+	PrevSeqNum          protocol.AssertionSequenceNumber
 	PrevStateCommitment util.StateCommitment
-	SeqNum              AssertionSequenceNumber
+	SeqNum              protocol.AssertionSequenceNumber
 	StateCommitment     util.StateCommitment
 	Validator           common.Address
 }
 
 type ConfirmEvent struct {
 	genericAssertionChainEvent
-	SeqNum AssertionSequenceNumber
+	SeqNum protocol.AssertionSequenceNumber
 }
 
 type RejectEvent struct {
 	genericAssertionChainEvent
-	SeqNum AssertionSequenceNumber
+	SeqNum protocol.AssertionSequenceNumber
 }
 
 type StartChallengeEvent struct {
 	genericAssertionChainEvent
-	ParentSeqNum          AssertionSequenceNumber
+	ParentSeqNum          protocol.AssertionSequenceNumber
 	ParentStateCommitment util.StateCommitment
 	ParentStaker          common.Address
 	Validator             common.Address
@@ -61,9 +62,9 @@ func (ev *genericChallengeEvent) IsChallengeEvent() bool { return true }
 
 type ChallengeLeafEvent struct {
 	genericChallengeEvent
-	ParentSeqNum      VertexSequenceNumber
-	SequenceNum       VertexSequenceNumber
-	WinnerIfConfirmed AssertionSequenceNumber
+	ParentSeqNum      protocol.VertexSequenceNumber
+	SequenceNum       protocol.VertexSequenceNumber
+	WinnerIfConfirmed protocol.AssertionSequenceNumber
 	ParentStateCommit util.StateCommitment
 	History           util.HistoryCommitment
 	BecomesPS         bool
@@ -72,8 +73,8 @@ type ChallengeLeafEvent struct {
 
 type ChallengeBisectEvent struct {
 	genericChallengeEvent
-	FromSequenceNum   VertexSequenceNumber // previously existing vertex
-	SequenceNum       VertexSequenceNumber // newly created vertex
+	FromSequenceNum   protocol.VertexSequenceNumber // previously existing vertex
+	SequenceNum       protocol.VertexSequenceNumber // newly created vertex
 	ParentStateCommit util.StateCommitment
 	ToHistory         util.HistoryCommitment
 	FromHistory       util.HistoryCommitment
@@ -86,8 +87,8 @@ type ChallengeMergeEvent struct {
 	ToHistory            util.HistoryCommitment
 	FromHistory          util.HistoryCommitment
 	ParentStateCommit    util.StateCommitment
-	DeeperSequenceNum    VertexSequenceNumber
-	ShallowerSequenceNum VertexSequenceNumber
+	DeeperSequenceNum    protocol.VertexSequenceNumber
+	ShallowerSequenceNum protocol.VertexSequenceNumber
 	BecomesPS            bool
 	Validator            common.Address
 }

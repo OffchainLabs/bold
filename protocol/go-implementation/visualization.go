@@ -75,8 +75,8 @@ func (chain *AssertionChain) visualizeAssertionChain() string {
 }
 
 type challengeVertexNode struct {
-	parent  util.Option[ChallengeVertexInterface]
-	vertex  ChallengeVertexInterface
+	parent  util.Option[*ChallengeVertex]
+	vertex  *ChallengeVertex
 	dotNode dot.Node
 }
 
@@ -105,7 +105,7 @@ func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *Active
 		m := make(map[[32]byte]*challengeVertexNode)
 		vertices := chain.challengeVerticesByCommitHash[cHash]
 
-		childCount := make(map[VertexCommitHash]uint64)
+		childCount := make(map[protocol.VertexCommitHash]uint64)
 		for _, v := range vertices {
 			commit, _ := v.GetCommitment(ctx, tx)
 			validator, _ := v.GetValidator(ctx, tx)
@@ -122,7 +122,7 @@ func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *Active
 
 			if !prev.IsNone() {
 				prevCommitment, _ := prev.Unwrap().GetCommitment(ctx, tx)
-				childCount[VertexCommitHash(prevCommitment.Hash())]++
+				childCount[protocol.VertexCommitHash(prevCommitment.Hash())]++
 			}
 
 			dotN := graph.Node(rStr).Box().Attr("label", label)
