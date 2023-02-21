@@ -1088,10 +1088,10 @@ func TestAssertionChain_Bisect(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		badLeaf, err := challenge.AddLeaf(
+		badLeaf, err := challenge.(*Challenge).AddLeaf(
 			ctx,
 			tx,
-			wrongBranch,
+			wrongBranch.(*Assertion),
 			badCommit,
 			staker1,
 		)
@@ -1103,10 +1103,10 @@ func TestAssertionChain_Bisect(t *testing.T) {
 			util.WithLastElementProof(correctBlockHashes[:hi+1]),
 		)
 		require.NoError(t, err)
-		goodLeaf, err := challenge.AddLeaf(
+		goodLeaf, err := challenge.(*Challenge).AddLeaf(
 			ctx,
 			tx,
-			correctBranch,
+			correctBranch.(*Assertion),
 			goodCommit,
 			staker2,
 		)
@@ -1126,13 +1126,12 @@ func TestAssertionChain_Bisect(t *testing.T) {
 		proof := util.GeneratePrefixProof(lo, loExp, wrongBlockHashes[lo:6])
 		_, err = badLeaf.Bisect(
 			ctx,
-			tx,
+			tx, // TODO: Add staker 1
 			util.HistoryCommitment{
 				Height: lo,
 				Merkle: loExp.Root(),
 			},
 			proof,
-			staker1,
 		)
 		require.ErrorIs(t, err, ErrWrongState)
 
@@ -1142,24 +1141,23 @@ func TestAssertionChain_Bisect(t *testing.T) {
 		proof = util.GeneratePrefixProof(lo, loExp, correctBlockHashes[lo:hi])
 		bisection, err := goodLeaf.Bisect(
 			ctx,
-			tx,
+			tx, // TODO: Add staker 2
 			util.HistoryCommitment{
 				Height: lo,
 				Merkle: loExp.Root(),
 			},
 			proof,
-			staker2,
 		)
 		require.NoError(t, err)
 
 		// Ensure the prev value of cl2 is set to the vertex we just bisected to.
-		goodLeafPrev, _ := goodLeaf.GetPrev(ctx, tx)
+		goodLeafPrev, _ := goodLeaf.Prev(ctx, tx)
 		require.Equal(t, bisection, goodLeafPrev.Unwrap())
 
 		// The rootAssertion of the bisectoin should be the rootVertex of this challenge and the bisection
 		// should be the new presumptive successor.
-		bisectionPrev, _ := bisection.GetPrev(ctx, tx)
-		bisectionPrevCommitment, _ := bisectionPrev.Unwrap().GetCommitment(ctx, tx)
+		bisectionPrev, _ := bisection.Prev(ctx, tx)
+		bisectionPrevCommitment, _ := bisectionPrev.Unwrap().HistoryCommitment(ctx, tx)
 		require.Equal(t, challenge.(*Challenge).rootVertex.Unwrap().Commitment.Merkle, bisectionPrevCommitment.Merkle)
 		bisectionPrevPresumptiveSuccessor, _ := bisectionPrev.Unwrap().IsPresumptiveSuccessor(ctx, tx)
 		require.Equal(t, true, bisectionPrevPresumptiveSuccessor)
@@ -1194,7 +1192,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 			PresumptiveSuccessorV: ps,
 		}
 		mergingFrom := &ChallengeVertex{}
-		err := mergingFrom.Merge(
+		_, err := mergingFrom.Merge(
 			ctx,
 			tx,
 			mergingTo.Commitment,
@@ -1214,7 +1212,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 				Height: 4,
 			},
 		}
-		err := mergingFrom.Merge(
+		_, err := mergingFrom.Merge(
 			ctx,
 			tx,
 			mergingTo.Commitment,
@@ -1238,7 +1236,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 				Height: 4,
 			},
 		}
-		err := mergingFrom.Merge(
+		_, err := mergingFrom.Merge(
 			ctx,
 			tx,
 			mergingTo.Commitment,
@@ -1253,7 +1251,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 			},
 		}
 		mergingFrom := &ChallengeVertex{
-			Prev: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
+			PrevV: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
 				Commitment: util.HistoryCommitment{
 					Height: 2,
 				},
@@ -1262,7 +1260,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 				Height: 4,
 			},
 		}
-		err := mergingFrom.Merge(
+		_, err := mergingFrom.Merge(
 			ctx,
 			tx,
 			mergingTo.Commitment,
@@ -1306,14 +1304,14 @@ func TestAssertionChain_Merge(t *testing.T) {
 					},
 				}),
 			}),
-			Prev: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
+			PrevV: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
 				Commitment: util.HistoryCommitment{
 					Height: 2,
 				},
 			}),
 			Commitment: mergingFromCommit,
 		}
-		err := mergingFrom.Merge(
+		_, err := mergingFrom.Merge(
 			ctx,
 			tx,
 			mergingTo.Commitment,
@@ -1375,7 +1373,7 @@ func TestAssertionChain_RetrieveAssertions(t *testing.T) {
 	chain.SetBalance(tx, staker, bigBalance)
 	p, err := chain.LatestConfirmed(ctx, tx)
 	require.NoError(t, err)
-	a, err := chain.CreateLeaf(tx, p, util.StateCommitment{Height: 1}, staker)
+	a, err := chain.CreateAssertion(ctx, tx, 1, 0, nil, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(chain.assertions), 2)
 	got, err := chain.AssertionBySequenceNum(ctx, tx, 0)
@@ -1391,11 +1389,11 @@ func TestAssertionChain_LeafCreationErrors(t *testing.T) {
 	chain := NewAssertionChainWithChainId(ctx, util.NewArtificialTimeReference(), testChallengePeriod, 0)
 	badChain := NewAssertionChainWithChainId(ctx, util.NewArtificialTimeReference(), testChallengePeriod+1, 1)
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
-	lc, err := chain.LatestConfirmed(ctx, tx)
+	_, err := chain.LatestConfirmed(ctx, tx)
 	require.NoError(t, err)
-	_, err = badChain.CreateLeaf(tx, lc, util.StateCommitment{}, common.BytesToAddress([]byte{}))
+	_, err = badChain.CreateAssertion(ctx, tx, 0, 0, nil, nil, nil)
 	require.ErrorIs(t, err, ErrWrongChain)
-	_, err = chain.CreateLeaf(tx, lc, util.StateCommitment{}, common.BytesToAddress([]byte{}))
+	_, err = badChain.CreateAssertion(ctx, tx, 0, 0, nil, nil, nil)
 	require.ErrorIs(t, err, ErrInvalidOp)
 }
 
@@ -1418,8 +1416,9 @@ func TestAssertion_ErrWrongPredecessorState(t *testing.T) {
 	bigBalance := new(big.Int).Mul(AssertionStake, big.NewInt(1000))
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	chain.SetBalance(tx, staker, bigBalance)
-	newA, err := chain.CreateLeaf(tx, chain.LatestConfirmed(tx), util.StateCommitment{Height: 1}, staker)
+	newAs, err := chain.CreateAssertion(ctx, tx, 1, 0, nil, nil, nil)
 	require.NoError(t, err)
+	newA := newAs.(*Assertion)
 	require.ErrorIs(t, newA.RejectForPrev(tx), ErrWrongPredecessorState)
 	require.ErrorIs(t, newA.ConfirmForWin(ctx, tx), ErrWrongPredecessorState)
 }
@@ -1431,8 +1430,9 @@ func TestAssertion_ErrNotYet(t *testing.T) {
 	bigBalance := new(big.Int).Mul(AssertionStake, big.NewInt(1000))
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	chain.SetBalance(tx, staker, bigBalance)
-	newA, err := chain.CreateLeaf(tx, chain.LatestConfirmed(tx), util.StateCommitment{Height: 1}, staker)
+	newAs, err := chain.CreateAssertion(ctx, tx, 1, 0, nil, nil, nil)
 	require.NoError(t, err)
+	newA := newAs.(*Assertion)
 	require.ErrorIs(t, newA.ConfirmNoRival(tx), ErrNotYet)
 }
 
@@ -1443,8 +1443,9 @@ func TestAssertion_ErrInvalid(t *testing.T) {
 	bigBalance := new(big.Int).Mul(AssertionStake, big.NewInt(1000))
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	chain.SetBalance(tx, staker, bigBalance)
-	newA, err := chain.CreateLeaf(tx, chain.LatestConfirmed(tx), util.StateCommitment{Height: 1}, staker)
+	newAs, err := chain.CreateAssertion(ctx, tx, 1, 0, nil, nil, nil)
 	require.NoError(t, err)
+	newA := newAs.(*Assertion)
 	newA.Prev = util.None[*Assertion]()
 	require.ErrorIs(t, newA.RejectForPrev(tx), ErrInvalidOp)
 	require.ErrorIs(t, newA.RejectForLoss(ctx, tx), ErrInvalidOp)

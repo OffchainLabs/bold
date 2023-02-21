@@ -1211,7 +1211,7 @@ func (v *ChallengeVertex) Merge(
 func (v *ChallengeVertex) ConfirmForSubChallengeWin(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.VerifyReadWrite()
 	if v.StatusV != protocol.AssertionPending {
-		return errors.Wrapf(ErrWrongState, fmt.Sprintf("Status: %d", v.Status))
+		return errors.Wrapf(ErrWrongState, "Status: %d", v.StatusV)
 	}
 	prevStatus, _ := v.PrevV.Unwrap().Status(ctx, tx)
 	if prevStatus != protocol.AssertionConfirmed {
@@ -1265,13 +1265,13 @@ func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context, tx protocol.Act
 func (v *ChallengeVertex) ConfirmForChallengeDeadline(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.VerifyReadWrite()
 	if v.StatusV != protocol.AssertionPending {
-		return errors.Wrapf(ErrWrongState, fmt.Sprintf("Status: %d", v.Status))
+		return errors.Wrapf(ErrWrongState, fmt.Sprintf("Status: %d", v.StatusV))
 	}
 	if !v.PrevV.Unwrap().(*ChallengeVertex).SubChallenge.IsNone() {
 		return errors.Wrap(ErrInvalidOp, "predecessor contains sub-challenge")
 	}
 	if v.PrevV.Unwrap().(*ChallengeVertex).StatusV != protocol.AssertionConfirmed {
-		return errors.Wrapf(ErrWrongPredecessorState, fmt.Sprintf("State: %d", v.PrevV.Unwrap().(*ChallengeVertex).Status))
+		return errors.Wrapf(ErrWrongPredecessorState, fmt.Sprintf("State: %d", v.PrevV.Unwrap().(*ChallengeVertex).StatusV))
 	}
 	if v != v.PrevV.Unwrap().(*ChallengeVertex).PresumptiveSuccessorV.Unwrap() {
 		return errors.Wrap(ErrInvalidOp, "Vertex is not the presumptive successor")
