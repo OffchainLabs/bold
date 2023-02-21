@@ -36,13 +36,24 @@ func TestAssertionChain_ConfirmAndRefund(t *testing.T) {
 	require.Equal(t, protocol.AssertionSequenceNumber(0), assertionsChain.latestConfirmed)
 	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 		assertionsChain.SetBalance(tx, staker, AssertionStake)
+		tx.(*ActiveTx).Sender = staker
 		comm := util.StateCommitment{Height: 1, StateRoot: correctBlockHashes[99]}
-		a1, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, nil, big.NewInt(0))
+		a1, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, &protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: comm.StateRoot,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}, big.NewInt(0))
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), assertionsChain.GetBalance(tx, staker).Uint64())
 
 		comm = util.StateCommitment{Height: 2, StateRoot: correctBlockHashes[199]}
-		a2, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 1, nil, nil, big.NewInt(0))
+		a2, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 1, nil, &protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: comm.StateRoot,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}, big.NewInt(0))
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), assertionsChain.GetBalance(tx, staker).Uint64())
 		timeRef.Add(testChallengePeriod + time.Second)
@@ -83,10 +94,7 @@ func TestAssertionChain(t *testing.T) {
 	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 		genesis, err := assertionsChain.LatestConfirmed(ctx, tx)
 		require.NoError(t, err)
-		require.Equal(t, util.StateCommitment{
-			Height:    0,
-			StateRoot: common.Hash{},
-		}, genesis.StateHash())
+		require.Equal(t, common.Hash{}, genesis.StateHash())
 		assertionsChain.SetBalance(tx, staker1, big.NewInt(0).Add(AssertionStake, ChallengeVertexStake))
 		assertionsChain.SetBalance(tx, staker2, big.NewInt(0).Add(AssertionStake, ChallengeVertexStake))
 
@@ -101,7 +109,13 @@ func TestAssertionChain(t *testing.T) {
 
 		// add an assertion, then confirm it
 		comm := util.StateCommitment{Height: 1, StateRoot: correctBlockHashes[0]}
-		newAssertion, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, nil, nil)
+		tx.(*ActiveTx).Sender = staker1
+		newAssertion, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, &protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: comm.StateRoot,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(assertionsChain.assertions))
 		confirmed, err := assertionsChain.LatestConfirmed(ctx, tx)
@@ -117,22 +131,37 @@ func TestAssertionChain(t *testing.T) {
 		confirmed, err = assertionsChain.LatestConfirmed(ctx, tx)
 		require.NoError(t, err)
 		require.Equal(t, newAssertion, confirmed)
-		require.Equal(t, protocol.AssertionConfirmed, int(newAssertion.(*Assertion).status))
+		require.Equal(t, protocol.AssertionConfirmed, newAssertion.(*Assertion).status)
 		verifyConfirmEventInFeed(t, eventChan, protocol.AssertionSequenceNumber(1))
 
 		// try to create a duplicate assertion
-		_, err = assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, nil, nil)
-		require.ErrorIs(t, err, ErrVertexAlreadyExists)
+		_, err = assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, &protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: comm.StateRoot,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}, nil)
+		require.ErrorIs(t, err, ErrVertexAlreadyExists, "FAILS")
 
 		// create a fork, let first branch win by timeout
 		comm = util.StateCommitment{Height: 4, StateRoot: correctBlockHashes[3]}
-		branch1, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, uint64(newAssertion.SeqNum()), nil, nil, nil)
+		branch1, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, uint64(newAssertion.SeqNum()), nil, &protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: comm.StateRoot,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}, nil)
 		require.NoError(t, err)
 
 		timeRef.Add(5 * time.Second)
 		verifyCreateLeafEventInFeed(t, eventChan, 2, 1, staker1, comm)
 		comm = util.StateCommitment{Height: 4, StateRoot: wrongBlockHashes[3]}
-		branch2, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, uint64(newAssertion.SeqNum()), nil, nil, nil)
+		branch2, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, uint64(newAssertion.SeqNum()), nil, &protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: comm.StateRoot,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}, nil)
 		require.NoError(t, err)
 
 		// Assert the creation event.
@@ -298,6 +327,7 @@ func verifyCreateLeafEventInFeed(t *testing.T, c <-chan AssertionChainEvent, seq
 	switch e := ev.(type) {
 	case *CreateLeafEvent:
 		if e.SeqNum != seqNum || e.PrevSeqNum != prevSeqNum || e.Validator != staker || e.StateCommitment != comm {
+			t.Logf("%+v", e)
 			t.Fatal(e)
 		}
 	default:

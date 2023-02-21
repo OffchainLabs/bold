@@ -170,7 +170,8 @@ func (chain *AssertionChain) SetLatestConfirmed(assertionSequenceNumber protocol
 // Assertion represents an assertion in the goimpl.
 type Assertion struct {
 	SequenceNum             protocol.AssertionSequenceNumber `json:"sequence_num"`
-	StateCommitment         util.StateCommitment             `json:"state_commitment"`
+	CommitmentHeight        uint64
+	PostState               *protocol.ExecutionState `json:"state_commitment"`
 	Staker                  util.Option[common.Address]
 	Prev                    util.Option[*Assertion]
 	challengeManager        *AssertionChain
@@ -182,7 +183,7 @@ type Assertion struct {
 }
 
 func (a *Assertion) Height() uint64 {
-	return a.StateCommitment.Height
+	return a.CommitmentHeight
 }
 
 func (a *Assertion) SeqNum() protocol.AssertionSequenceNumber {
@@ -194,19 +195,17 @@ func (a *Assertion) PrevSeqNum() protocol.AssertionSequenceNumber {
 }
 
 func (a *Assertion) StateHash() common.Hash {
-	return a.StateCommitment.StateRoot
+	return a.PostState.BlockStateHash()
 }
 
 // NewAssertionChainWithChainId creates a new AssertionChain with specified chainId.
 func NewAssertionChainWithChainId(ctx context.Context, timeRef util.TimeReference, challengePeriod time.Duration, chainId uint64) *AssertionChain {
 	genesis := &Assertion{
-		challengeManager: nil,
-		status:           protocol.AssertionConfirmed,
-		SequenceNum:      0,
-		StateCommitment: util.StateCommitment{
-			Height:    0,
-			StateRoot: common.Hash{},
-		},
+		challengeManager:        nil,
+		status:                  protocol.AssertionConfirmed,
+		SequenceNum:             0,
+		CommitmentHeight:        0,
+		PostState:               &protocol.ExecutionState{},
 		Prev:                    util.None[*Assertion](),
 		isFirstChild:            false,
 		firstChildCreationTime:  util.None[time.Time](),
@@ -217,7 +216,7 @@ func NewAssertionChainWithChainId(ctx context.Context, timeRef util.TimeReferenc
 
 	genesisKey := crypto.Keccak256Hash(
 		binary.BigEndian.AppendUint64(
-			genesis.StateCommitment.Hash().Bytes(),
+			genesis.PostState.BlockStateHash().Bytes(),
 			math.MaxUint64,
 		),
 	)
@@ -483,7 +482,7 @@ func (chain *AssertionChain) CreateAssertion(
 	}
 
 	// Ensure the assertion being created is not a duplicate.
-	if _, ok := chain.assertionsBySeqNum[postState.BlockStateHash()]; ok {
+	if _, ok := chain.assertionsBySeqNum[postState.GlobalState.BlockHash]; ok {
 		return nil, ErrVertexAlreadyExists
 	}
 
@@ -522,13 +521,11 @@ func (chain *AssertionChain) CreateAssertion(
 	}
 
 	leaf := &Assertion{
-		challengeManager: chain,
-		status:           protocol.AssertionPending,
-		SequenceNum:      protocol.AssertionSequenceNumber(len(chain.assertions)),
-		StateCommitment: util.StateCommitment{
-			Height:    height,
-			StateRoot: postState.BlockStateHash(),
-		},
+		challengeManager:        chain,
+		status:                  protocol.AssertionPending,
+		SequenceNum:             protocol.AssertionSequenceNumber(len(chain.assertions)),
+		CommitmentHeight:        height,
+		PostState:               postState,
 		Prev:                    util.Some(prev),
 		isFirstChild:            prev.firstChildCreationTime.IsNone(),
 		firstChildCreationTime:  util.None[time.Time](),
@@ -542,7 +539,7 @@ func (chain *AssertionChain) CreateAssertion(
 		prev.secondChildCreationTime = util.Some(chain.timeReference.Get())
 	}
 	chain.assertions = append(chain.assertions, leaf)
-	chain.assertionsBySeqNum[leaf.StateCommitment.Hash()] = leaf.SequenceNum
+	chain.assertionsBySeqNum[postState.GlobalState.BlockHash] = leaf.SequenceNum
 	chain.feed.Append(&CreateLeafEvent{
 		PrevStateCommitment: prev.StateCommitment,
 		PrevSeqNum:          prev.SequenceNum,
