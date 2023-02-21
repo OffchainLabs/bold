@@ -12,7 +12,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
@@ -88,246 +87,6 @@ type EventProvider interface {
 	SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent)
 	SubscribeChallengeEvents(ctx context.Context, ch chan<- ChallengeEvent)
 }
-type (
-	// AssertionManager allows the creation of new leaves for a Staker with a State Commitment
-	// and a previous assertion.
-	AssertionManager interface {
-		Inbox() *Inbox
-		NumAssertions(tx *ActiveTx) uint64
-		AssertionBySequenceNum(tx *ActiveTx, seqNum AssertionSequenceNumber) (*Assertion, error)
-		ChallengeByCommitHash(tx *ActiveTx, commitHash ChallengeCommitHash) (protocol.Challenge, error)
-		ChallengeVertexByCommitHash(tx *ActiveTx, challenge ChallengeCommitHash, vertex VertexCommitHash) (*ChallengeVertex, error)
-		IsAtOneStepFork(
-			ctx context.Context,
-			tx *ActiveTx,
-			challengeCommitHash ChallengeCommitHash,
-			vertexCommit util.HistoryCommitment,
-			vertexParentCommit util.HistoryCommitment,
-		) (bool, error)
-		ChallengePeriodLength(tx *ActiveTx) time.Duration
-		LatestConfirmed(*ActiveTx) *Assertion
-		CreateLeaf(tx *ActiveTx, prev *Assertion, commitment util.StateCommitment, staker common.Address) (*Assertion, error)
-		TimeReference() util.TimeReference
-	}
-)
-
-type ChallengeVertexInterface interface {
-	ConfirmForPsTimer(ctx context.Context, tx *ActiveTx) error
-	ConfirmForChallengeDeadline(ctx context.Context, tx *ActiveTx) error
-	ConfirmForSubChallengeWin(ctx context.Context, tx *ActiveTx) error
-	IsPresumptiveSuccessor(ctx context.Context, tx *ActiveTx) (bool, error)
-	Bisect(ctx context.Context, tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash, validator common.Address) (ChallengeVertexInterface, error)
-	Merge(ctx context.Context, tx *ActiveTx, mergingTo ChallengeVertexInterface, proof []common.Hash, validator common.Address) error
-	EligibleForNewSuccessor(ctx context.Context, tx *ActiveTx) (bool, error)
-	GetPrev(ctx context.Context, tx *ActiveTx) (util.Option[ChallengeVertexInterface], error)
-	GetStatus(ctx context.Context, tx *ActiveTx) (AssertionState, error)
-	GetSubChallenge(ctx context.Context, tx *ActiveTx) (util.Option[protocol.Challenge], error)
-	GetPsTimer(ctx context.Context, tx *ActiveTx) (*util.CountUpTimer, error)
-	GetCommitment(ctx context.Context, tx *ActiveTx) (util.HistoryCommitment, error)
-	GetValidator(ctx context.Context, tx *ActiveTx) (common.Address, error)
-	GetSequenceNum(ctx context.Context, tx *ActiveTx) (VertexSequenceNumber, error)
-	GetPresumptiveSuccessor(ctx context.Context, tx *ActiveTx) (util.Option[ChallengeVertexInterface], error)
-	ChessClockExpired(ctx context.Context, tx *ActiveTx, challengePeriod time.Duration) (bool, error)
-}
-
-type ChallengeManagerInterface interface {
-	GetChallengeVerticesByCommitHashmap() map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface
-	GetChallengesByCommitHash() map[ChallengeCommitHash]protocol.Challenge
-	ChallengePeriodLength(tx *ActiveTx) time.Duration
-	AddToBalance(tx *ActiveTx, addr common.Address, amount *big.Int)
-	TimeReference() util.TimeReference
-	GetChallengesFeed() *EventFeed[ChallengeEvent]
-	DeductFromBalance(tx *ActiveTx, addr common.Address, amount *big.Int) error
-	GetFeed() *EventFeed[AssertionChainEvent]
-	SetLatestConfirmed(assertionSequenceNumber AssertionSequenceNumber)
-	LatestConfirmed(tx *ActiveTx) *Assertion
-	SubscribeChallengeEvents(ctx context.Context, ch chan<- ChallengeEvent)
-	SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent)
-	Visualize(ctx context.Context, tx *ActiveTx) *Visualization
-	ChainId() uint64
-}
-
-type ChallengeVertexImpl struct {
-	//nolint:unused
-}
-
-//nolint:unused
-func newChallengeVertexImpl(
-	ctx context.Context,
-	contractAddr common.Address,
-	txOpts *bind.TransactOpts,
-	callOpts *bind.CallOpts,
-	stakerAddr common.Address,
-	backend bind.ContractBackend,
-	vertexId common.Hash,
-) (ChallengeVertexInterface, error) {
-	return &ChallengeVertexImpl{}, nil
-}
-
-func (c *ChallengeVertexImpl) ConfirmForPsTimer(ctx context.Context, tx *ActiveTx) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) ConfirmForChallengeDeadline(ctx context.Context, tx *ActiveTx) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) ConfirmForSubChallengeWin(ctx context.Context, tx *ActiveTx) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) IsPresumptiveSuccessor(ctx context.Context, tx *ActiveTx) (bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) Bisect(ctx context.Context, tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash, validator common.Address) (ChallengeVertexInterface, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) Merge(ctx context.Context, tx *ActiveTx, mergingTo ChallengeVertexInterface, proof []common.Hash, validator common.Address) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) EligibleForNewSuccessor(ctx context.Context, tx *ActiveTx) (bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetPrev(ctx context.Context, tx *ActiveTx) (util.Option[ChallengeVertexInterface], error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetStatus(ctx context.Context, tx *ActiveTx) (AssertionState, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetSubChallenge(ctx context.Context, tx *ActiveTx) (util.Option[protocol.Challenge], error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetPsTimer(ctx context.Context, tx *ActiveTx) (*util.CountUpTimer, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetCommitment(ctx context.Context, tx *ActiveTx) (util.HistoryCommitment, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetValidator(ctx context.Context, tx *ActiveTx) (common.Address, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetSequenceNum(ctx context.Context, tx *ActiveTx) (VertexSequenceNumber, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) GetPresumptiveSuccessor(ctx context.Context, tx *ActiveTx) (util.Option[ChallengeVertexInterface], error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeVertexImpl) ChessClockExpired(ctx context.Context, tx *ActiveTx, challengePeriod time.Duration) (bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-type ChallengeManagerImpl struct {
-}
-
-//nolint:unused
-func newChallengeManagerImpl(
-	ctx context.Context,
-	contractAddr common.Address,
-	txOpts *bind.TransactOpts,
-	callOpts *bind.CallOpts,
-	stakerAddr common.Address,
-	backend bind.ContractBackend,
-) (ChallengeManagerInterface, error) {
-	return &ChallengeManagerImpl{}, nil
-}
-
-func (c *ChallengeManagerImpl) GetChallengeVerticesByCommitHashmap() map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) GetChallengesByCommitHash() map[ChallengeCommitHash]protocol.Challenge {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) ChallengePeriodLength(tx *ActiveTx) time.Duration {
-	tx.verifyRead()
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) AddToBalance(tx *ActiveTx, addr common.Address, amount *big.Int) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) TimeReference() util.TimeReference {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) GetChallengesFeed() *EventFeed[ChallengeEvent] {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) DeductFromBalance(tx *ActiveTx, addr common.Address, amount *big.Int) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) GetFeed() *EventFeed[AssertionChainEvent] {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) SetLatestConfirmed(assertionSequenceNumber AssertionSequenceNumber) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) LatestConfirmed(tx *ActiveTx) *Assertion {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) SubscribeChallengeEvents(ctx context.Context, ch chan<- ChallengeEvent) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) SubscribeChainEvents(ctx context.Context, ch chan<- AssertionChainEvent) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) Visualize(ctx context.Context, tx *ActiveTx) *Visualization {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *ChallengeManagerImpl) ChainId() uint64 {
-	//TODO implement me
-	panic("implement me")
-}
 
 type AssertionChain struct {
 	mutex                         sync.RWMutex
@@ -358,14 +117,14 @@ type ActiveTx struct {
 }
 
 // verifyRead is a helper function to verify that the transaction is read-only.
-func (tx *ActiveTx) verifyRead() {
+func (tx *ActiveTx) VerifyRead() {
 	if tx.TxStatus == DeadTxStatus {
 		panic("tried to read chain after call ended")
 	}
 }
 
 // verifyReadWrite is a helper function to verify that the transaction is read-write.
-func (tx *ActiveTx) verifyReadWrite() {
+func (tx *ActiveTx) VerifyReadWrite() {
 	if tx.TxStatus != ReadWriteTxStatus {
 		panic("tried to modify chain in read-only call")
 	}
@@ -391,7 +150,7 @@ func (chain *AssertionChain) Call(clo func(tx *ActiveTx) error) error {
 	return err
 }
 
-func (chain *AssertionChain) GetChallengeVerticesByCommitHashmap() map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface {
+func (chain *AssertionChain) GetChallengeVerticesByCommitHashmap() map[ChallengeCommitHash]map[VertexCommitHash]protocol.ChallengeVertex {
 	return chain.challengeVerticesByCommitHash
 }
 
@@ -426,7 +185,7 @@ type Assertion struct {
 	StateCommitment         util.StateCommitment    `json:"state_commitment"`
 	Staker                  util.Option[common.Address]
 	Prev                    util.Option[*Assertion]
-	challengeManager        ChallengeManagerInterface
+	challengeManager        protocol.ChallengeManager
 	status                  AssertionState
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
@@ -466,7 +225,7 @@ func NewAssertionChainWithChainId(ctx context.Context, timeRef util.TimeReferenc
 		timeReference:                 timeRef,
 		challengePeriod:               challengePeriod,
 		challengesByCommitHash:        make(map[ChallengeCommitHash]protocol.Challenge),
-		challengeVerticesByCommitHash: make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface),
+		challengeVerticesByCommitHash: make(map[ChallengeCommitHash]map[VertexCommitHash]protocol.ChallengeVertex),
 		latestConfirmed:               0,
 		assertions:                    []*Assertion{genesis},
 		balances:                      util.NewMapWithDefaultAdvanced[common.Address, *big.Int](common.Big0, func(x *big.Int) bool { return x.Sign() == 0 }),
@@ -501,13 +260,13 @@ func (chain *AssertionChain) ChainId() uint64 {
 }
 
 // GetBalance returns the balance of the given address.
-func (chain *AssertionChain) GetBalance(tx *ActiveTx, addr common.Address) *big.Int {
+func (chain *AssertionChain) GetBalance(tx protocol.ActiveTx, addr common.Address) *big.Int {
 	tx.verifyRead()
 	return chain.balances.Get(addr)
 }
 
 // SetBalance sets the balance of the given address.
-func (chain *AssertionChain) SetBalance(tx *ActiveTx, addr common.Address, balance *big.Int) {
+func (chain *AssertionChain) SetBalance(tx protocol.ActiveTx, addr common.Address, balance *big.Int) {
 	tx.verifyReadWrite()
 	oldBalance := chain.balances.Get(addr)
 	chain.balances.Set(addr, balance)
@@ -515,13 +274,13 @@ func (chain *AssertionChain) SetBalance(tx *ActiveTx, addr common.Address, balan
 }
 
 // AddToBalance adds the given amount to the balance of the given address.
-func (chain *AssertionChain) AddToBalance(tx *ActiveTx, addr common.Address, amount *big.Int) {
+func (chain *AssertionChain) AddToBalance(tx protocol.ActiveTx, addr common.Address, amount *big.Int) {
 	tx.verifyReadWrite()
 	chain.SetBalance(tx, addr, new(big.Int).Add(chain.GetBalance(tx, addr), amount))
 }
 
 // DeductFromBalance deducts the given amount from the balance of the given address.
-func (chain *AssertionChain) DeductFromBalance(tx *ActiveTx, addr common.Address, amount *big.Int) error {
+func (chain *AssertionChain) DeductFromBalance(tx protocol.ActiveTx, addr common.Address, amount *big.Int) error {
 	tx.verifyReadWrite()
 	balance := chain.GetBalance(tx, addr)
 	if balance.Cmp(amount) < 0 {
@@ -532,25 +291,25 @@ func (chain *AssertionChain) DeductFromBalance(tx *ActiveTx, addr common.Address
 }
 
 // ChallengePeriodLength returns the length of the challenge period.
-func (chain *AssertionChain) ChallengePeriodLength(tx *ActiveTx) time.Duration {
+func (chain *AssertionChain) ChallengePeriodLength(tx protocol.ActiveTx) time.Duration {
 	tx.verifyRead()
 	return chain.challengePeriod
 }
 
 // LatestConfirmed returns the latest confirmed assertion.
-func (chain *AssertionChain) LatestConfirmed(tx *ActiveTx) *Assertion {
+func (chain *AssertionChain) LatestConfirmed(tx protocol.ActiveTx) *Assertion {
 	tx.verifyRead()
 	return chain.assertions[chain.latestConfirmed]
 }
 
 // NumAssertions returns the number of assertions in the chain.
-func (chain *AssertionChain) NumAssertions(tx *ActiveTx) uint64 {
+func (chain *AssertionChain) NumAssertions(tx protocol.ActiveTx) uint64 {
 	tx.verifyRead()
 	return uint64(len(chain.assertions))
 }
 
 // AssertionBySequenceNum returns the assertion with the given sequence number.
-func (chain *AssertionChain) AssertionBySequenceNum(tx *ActiveTx, seqNum AssertionSequenceNumber) (*Assertion, error) {
+func (chain *AssertionChain) AssertionBySequenceNum(tx protocol.ActiveTx, seqNum AssertionSequenceNumber) (*Assertion, error) {
 	tx.verifyRead()
 	if seqNum >= AssertionSequenceNumber(len(chain.assertions)) {
 		return nil, fmt.Errorf("assertion sequence out of range %d >= %d", seqNum, len(chain.assertions))
@@ -563,7 +322,7 @@ func (chain *AssertionChain) AssertionBySequenceNum(tx *ActiveTx, seqNum Asserti
 // to verify there are > 1 vertices that are one height away from their parent.
 func (chain *AssertionChain) IsAtOneStepFork(
 	ctx context.Context,
-	tx *ActiveTx,
+	tx protocol.ActiveTx,
 	challengeCommitHash ChallengeCommitHash,
 	vertexCommit util.HistoryCommitment,
 	vertexParentCommit util.HistoryCommitment,
@@ -583,11 +342,11 @@ func (chain *AssertionChain) IsAtOneStepFork(
 // Check if a vertices with a matching parent commitment hash are at a one-step-fork from their parent.
 // First, we filter out vertices with the specified parent commit hash, then check that all of the
 // matching vertices are one-step away from their parent.
-func verticesContainOneStepFork(ctx context.Context, tx *ActiveTx, vertices map[VertexCommitHash]ChallengeVertexInterface, parentCommitHash VertexCommitHash) bool {
+func verticesContainOneStepFork(ctx context.Context, tx protocol.ActiveTx, vertices map[VertexCommitHash]protocol.ChallengeVertex, parentCommitHash VertexCommitHash) bool {
 	if len(vertices) < 2 {
 		return false
 	}
-	childVertices := make([]ChallengeVertexInterface, 0)
+	childVertices := make([]protocol.ChallengeVertex, 0)
 	for _, v := range vertices {
 		prev, _ := v.GetPrev(ctx, tx)
 		if prev.IsNone() {
@@ -611,7 +370,7 @@ func verticesContainOneStepFork(ctx context.Context, tx *ActiveTx, vertices map[
 	return true
 }
 
-func isOneStepAwayFromParent(ctx context.Context, tx *ActiveTx, vertex ChallengeVertexInterface) bool {
+func isOneStepAwayFromParent(ctx context.Context, tx protocol.ActiveTx, vertex protocol.ChallengeVertex) bool {
 	prev, _ := vertex.GetPrev(ctx, tx)
 	if prev.IsNone() {
 		return false
@@ -638,7 +397,7 @@ func (chain *AssertionChain) ChallengeVertexByCommitHash(
 }
 
 // ChallengeByCommitHash returns the challenge with the given commit hash.
-func (chain *AssertionChain) ChallengeByCommitHash(tx *ActiveTx, commitHash ChallengeCommitHash) (protocol.Challenge, error) {
+func (chain *AssertionChain) ChallengeByCommitHash(tx protocol.ActiveTx, commitHash ChallengeCommitHash) (protocol.Challenge, error) {
 	tx.verifyRead()
 	chal, ok := chain.challengesByCommitHash[commitHash]
 	if !ok {
@@ -658,7 +417,7 @@ func (chain *AssertionChain) SubscribeChallengeEvents(ctx context.Context, ch ch
 }
 
 // CreateLeaf creates a new leaf assertion.
-func (chain *AssertionChain) CreateLeaf(tx *ActiveTx, prev *Assertion, commitment util.StateCommitment, staker common.Address) (*Assertion, error) {
+func (chain *AssertionChain) CreateLeaf(tx protocol.ActiveTx, prev *Assertion, commitment util.StateCommitment, staker common.Address) (*Assertion, error) {
 	tx.verifyReadWrite()
 	if prev.challengeManager.ChainId() != chain.ChainId() {
 		return nil, ErrWrongChain
@@ -736,7 +495,7 @@ func (chain *AssertionChain) CreateLeaf(tx *ActiveTx, prev *Assertion, commitmen
 }
 
 // RejectForPrev rejects the assertion and emits the information through feed. It moves assertion to `RejectedAssertionState` state.
-func (a *Assertion) RejectForPrev(tx *ActiveTx) error {
+func (a *Assertion) RejectForPrev(tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
@@ -755,7 +514,7 @@ func (a *Assertion) RejectForPrev(tx *ActiveTx) error {
 }
 
 // RejectForLoss rejects the assertion and emits the information through feed. It moves assertion to `RejectedAssertionState` state.
-func (a *Assertion) RejectForLoss(ctx context.Context, tx *ActiveTx) error {
+func (a *Assertion) RejectForLoss(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
@@ -782,7 +541,7 @@ func (a *Assertion) RejectForLoss(ctx context.Context, tx *ActiveTx) error {
 }
 
 // ConfirmNoRival confirms that there is no rival for the assertion and moves the assertion to `ConfirmedAssertionState` state.
-func (a *Assertion) ConfirmNoRival(tx *ActiveTx) error {
+func (a *Assertion) ConfirmNoRival(tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
@@ -814,7 +573,7 @@ func (a *Assertion) ConfirmNoRival(tx *ActiveTx) error {
 }
 
 // ConfirmForWin confirms that the assertion is the WinnerAssertion of the challenge and moves the assertion to `ConfirmedAssertionState` state.
-func (a *Assertion) ConfirmForWin(ctx context.Context, tx *ActiveTx) error {
+func (a *Assertion) ConfirmForWin(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
@@ -868,7 +627,7 @@ type Challenge struct {
 }
 
 // CreateChallenge creates a challenge for the assertion and moves the assertion to `ChallengedAssertionState` state.
-func (a *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, validator common.Address) (protocol.Challenge, error) {
+func (a *Assertion) CreateChallenge(ctx context.Context, tx protocol.ActiveTx, validator common.Address) (protocol.Challenge, error) {
 	tx.verifyReadWrite()
 	if a.status != PendingAssertionState && a.challengeManager.LatestConfirmed(tx) != a {
 		return nil, errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d, Confirmed status: %v", a.status, a.challengeManager.LatestConfirmed(tx) != a))
@@ -889,8 +648,8 @@ func (a *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, validator
 			Height: 0,
 			Merkle: common.Hash{},
 		},
-		Prev:                 util.None[ChallengeVertexInterface](),
-		PresumptiveSuccessor: util.None[ChallengeVertexInterface](),
+		Prev:                 util.None[protocol.ChallengeVertex](),
+		PresumptiveSuccessor: util.None[protocol.ChallengeVertex](),
 		PsTimer:              util.NewCountUpTimer(a.challengeManager.TimeReference()),
 		SubChallenge:         util.None[protocol.Challenge](),
 	}
@@ -921,7 +680,7 @@ func (a *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, validator
 
 	challengeID := ChallengeCommitHash(a.StateCommitment.Hash())
 	a.challengeManager.GetChallengesByCommitHash()[challengeID] = chal
-	a.challengeManager.GetChallengeVerticesByCommitHashmap()[challengeID] = map[VertexCommitHash]ChallengeVertexInterface{VertexCommitHash(rootVertex.Commitment.Hash()): rootVertex}
+	a.challengeManager.GetChallengeVerticesByCommitHashmap()[challengeID] = map[VertexCommitHash]protocol.ChallengeVertex{VertexCommitHash(rootVertex.Commitment.Hash()): rootVertex}
 
 	return chal, nil
 }
@@ -935,7 +694,7 @@ func (c *Challenge) ParentStateCommitment(ctx context.Context, tx protocol.Activ
 }
 
 // AssertionSeqNumber returns the sequence number of the assertion that created the challenge.
-func (c *Challenge) AssertionSeqNumber(ctx context.Context, tx *ActiveTx) (AssertionSequenceNumber, error) {
+func (c *Challenge) AssertionSeqNumber(ctx context.Context, tx protocol.ActiveTx) (AssertionSequenceNumber, error) {
 	return c.rootAssertion.Unwrap().SequenceNum, nil
 }
 
@@ -964,7 +723,7 @@ func (c *Challenge) AddLeaf(
 	assertion *Assertion,
 	history util.HistoryCommitment,
 	validator common.Address,
-) (ChallengeVertexInterface, error) {
+) (protocol.ChallengeVertex, error) {
 	tx.verifyReadWrite()
 	if assertion.Prev.IsNone() {
 		return nil, ErrInvalidOp
@@ -1048,7 +807,7 @@ func (c *Challenge) AddLeaf(
 		Status:               PendingAssertionState,
 		Commitment:           history,
 		Prev:                 c.rootVertex,
-		PresumptiveSuccessor: util.None[ChallengeVertexInterface](),
+		PresumptiveSuccessor: util.None[protocol.ChallengeVertex](),
 		PsTimer:              timer,
 		SubChallenge:         util.None[protocol.Challenge](),
 		winnerIfConfirmed:    util.Some(assertion),
@@ -1122,7 +881,7 @@ func (c *Challenge) Winner(ctx context.Context, tx *ActiveTx) (*Assertion, error
 }
 
 // HasConfirmedSibling returns true if another sibling vertex is confirmed.
-func (c *Challenge) HasConfirmedSibling(ctx context.Context, tx *ActiveTx, vertex ChallengeVertexInterface) (bool, error) {
+func (c *Challenge) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveTx, vertex protocol.ChallengeVertex) (bool, error) {
 	tx.verifyRead()
 
 	if c.rootAssertion.IsNone() {
@@ -1171,15 +930,15 @@ type ChallengeVertex struct {
 	Validator            common.Address
 	isLeaf               bool
 	Status               AssertionState
-	Prev                 util.Option[ChallengeVertexInterface]
-	PresumptiveSuccessor util.Option[ChallengeVertexInterface]
+	Prev                 util.Option[protocol.ChallengeVertex]
+	PresumptiveSuccessor util.Option[protocol.ChallengeVertex]
 	PsTimer              *util.CountUpTimer
 	SubChallenge         util.Option[protocol.Challenge]
 	winnerIfConfirmed    util.Option[*Assertion]
 }
 
 // EligibleForNewSuccessor returns true if the vertex is eligible to have a new successor.
-func (v *ChallengeVertex) EligibleForNewSuccessor(ctx context.Context, tx *ActiveTx) (bool, error) {
+func (v *ChallengeVertex) EligibleForNewSuccessor(ctx context.Context, tx protocol.ActiveTx) (bool, error) {
 	if v.PresumptiveSuccessor.IsNone() {
 		return true, nil
 	}
@@ -1188,14 +947,14 @@ func (v *ChallengeVertex) EligibleForNewSuccessor(ctx context.Context, tx *Activ
 }
 
 // maybeNewPresumptiveSuccessor updates the presumptive successor if the given vertex is eligible.
-func (v *ChallengeVertex) maybeNewPresumptiveSuccessor(ctx context.Context, tx *ActiveTx, succ ChallengeVertexInterface) error {
+func (v *ChallengeVertex) maybeNewPresumptiveSuccessor(ctx context.Context, tx protocol.ActiveTx, succ protocol.ChallengeVertex) error {
 	successorCommitment, _ := succ.GetCommitment(ctx, tx)
 	if !v.PresumptiveSuccessor.IsNone() {
 		presumptiveSuccessorCommitment, _ := v.PresumptiveSuccessor.Unwrap().GetCommitment(ctx, tx)
 		if successorCommitment.Height < presumptiveSuccessorCommitment.Height {
 			presumptiveSuccessorPsTimer, _ := v.PresumptiveSuccessor.Unwrap().GetPsTimer(ctx, tx)
 			presumptiveSuccessorPsTimer.Stop()
-			v.PresumptiveSuccessor = util.None[ChallengeVertexInterface]()
+			v.PresumptiveSuccessor = util.None[protocol.ChallengeVertex]()
 		}
 	}
 
@@ -1208,7 +967,7 @@ func (v *ChallengeVertex) maybeNewPresumptiveSuccessor(ctx context.Context, tx *
 }
 
 // IsPresumptiveSuccessor returns true if the vertex is the presumptive successor of its parent.
-func (v *ChallengeVertex) IsPresumptiveSuccessor(ctx context.Context, tx *ActiveTx) (bool, error) {
+func (v *ChallengeVertex) IsPresumptiveSuccessor(ctx context.Context, tx protocol.ActiveTx) (bool, error) {
 	if v.Prev.IsNone() {
 		return true, nil
 	}
@@ -1217,13 +976,13 @@ func (v *ChallengeVertex) IsPresumptiveSuccessor(ctx context.Context, tx *Active
 }
 
 // requiredBisectionHeight returns the height of the history commitment that must be bisectioned to prove the vertex.
-func (v *ChallengeVertex) requiredBisectionHeight(ctx context.Context, tx *ActiveTx) (uint64, error) {
+func (v *ChallengeVertex) requiredBisectionHeight(ctx context.Context, tx protocol.ActiveTx) (uint64, error) {
 	prevCommitment, _ := v.Prev.Unwrap().GetCommitment(ctx, tx)
 	return util.BisectionPoint(prevCommitment.Height, v.Commitment.Height)
 }
 
-func (v *ChallengeVertex) Bisect(ctx context.Context, tx *ActiveTx, history util.HistoryCommitment, proof []common.Hash, validator common.Address) (ChallengeVertexInterface, error) {
-	tx.verifyReadWrite()
+func (v *ChallengeVertex) Bisect(ctx context.Context, tx protocol.ActiveTx, history util.HistoryCommitment, proof []common.Hash, validator common.Address) (protocol.ChallengeVertex, error) {
+	tx.VerifyReadWrite()
 	isPresumptiveSuccessor, _ := v.IsPresumptiveSuccessor(ctx, tx)
 	if isPresumptiveSuccessor {
 		return nil, ErrWrongState
@@ -1255,7 +1014,7 @@ func (v *ChallengeVertex) Bisect(ctx context.Context, tx *ActiveTx, history util
 		isLeaf:               false,
 		Commitment:           history,
 		Prev:                 v.Prev,
-		PresumptiveSuccessor: util.None[ChallengeVertexInterface](),
+		PresumptiveSuccessor: util.None[protocol.ChallengeVertex](),
 		PsTimer:              v.PsTimer.Clone(),
 	}
 	v.SequenceNum = nextSeqNum
@@ -1269,7 +1028,7 @@ func (v *ChallengeVertex) Bisect(ctx context.Context, tx *ActiveTx, history util
 	}
 	newVertex.Challenge.Unwrap().(*Challenge).includedHistories[history.Hash()] = true
 
-	v.Prev = util.Some[ChallengeVertexInterface](newVertex)
+	v.Prev = util.Some[protocol.ChallengeVertex](newVertex)
 
 	newVertex.Challenge.Unwrap().(*Challenge).rootAssertion.Unwrap().challengeManager.GetChallengesFeed().Append(&ChallengeBisectEvent{
 		FromSequenceNum: v.SequenceNum,
@@ -1286,7 +1045,7 @@ func (v *ChallengeVertex) Bisect(ctx context.Context, tx *ActiveTx, history util
 }
 
 // Merge merges the vertex with its presumptive successor.
-func (v *ChallengeVertex) Merge(ctx context.Context, tx *ActiveTx, mergingTo ChallengeVertexInterface, proof []common.Hash, validator common.Address) error {
+func (v *ChallengeVertex) Merge(ctx context.Context, tx protocol.ActiveTx, mergingTo protocol.ChallengeVertex, proof []common.Hash, validator common.Address) error {
 	tx.verifyReadWrite()
 	eligibleForNewSuccessor, _ := mergingTo.EligibleForNewSuccessor(ctx, tx)
 	if !eligibleForNewSuccessor {
@@ -1326,7 +1085,7 @@ func (v *ChallengeVertex) Merge(ctx context.Context, tx *ActiveTx, mergingTo Cha
 }
 
 // ConfirmForSubChallengeWin confirms the vertex as the winner of a sub-challenge.
-func (v *ChallengeVertex) ConfirmForSubChallengeWin(ctx context.Context, tx *ActiveTx) error {
+func (v *ChallengeVertex) ConfirmForSubChallengeWin(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if v.Status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("Status: %d", v.Status))
@@ -1352,7 +1111,7 @@ func (v *ChallengeVertex) ConfirmForSubChallengeWin(ctx context.Context, tx *Act
 }
 
 // ConfirmForPsTimer confirms the vertex as the Winner of a PsTimer.
-func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context, tx *ActiveTx) error {
+func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if v.Status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("Status: %d", v.Status))
@@ -1379,7 +1138,7 @@ func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context, tx *ActiveTx) e
 }
 
 // ConfirmForChallengeDeadline confirms the vertex as the winner of a challenge deadline.
-func (v *ChallengeVertex) ConfirmForChallengeDeadline(ctx context.Context, tx *ActiveTx) error {
+func (v *ChallengeVertex) ConfirmForChallengeDeadline(ctx context.Context, tx protocol.ActiveTx) error {
 	tx.verifyReadWrite()
 	if v.Status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("Status: %d", v.Status))
@@ -1420,28 +1179,28 @@ func (v *ChallengeVertex) _confirm(tx *ActiveTx) {
 	}
 }
 
-func (v *ChallengeVertex) GetPrev(ctx context.Context, tx *ActiveTx) (util.Option[ChallengeVertexInterface], error) {
+func (v *ChallengeVertex) GetPrev(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.ChallengeVertex], error) {
 	return v.Prev, nil
 }
-func (v *ChallengeVertex) GetStatus(ctx context.Context, tx *ActiveTx) (AssertionState, error) {
+func (v *ChallengeVertex) GetStatus(ctx context.Context, tx protocol.ActiveTx) (AssertionState, error) {
 	return v.Status, nil
 }
-func (v *ChallengeVertex) GetSubChallenge(ctx context.Context, tx *ActiveTx) (util.Option[protocol.Challenge], error) {
+func (v *ChallengeVertex) GetSubChallenge(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.Challenge], error) {
 	return v.SubChallenge, nil
 }
-func (v *ChallengeVertex) GetPsTimer(ctx context.Context, tx *ActiveTx) (*util.CountUpTimer, error) {
+func (v *ChallengeVertex) GetPsTimer(ctx context.Context, tx protocol.ActiveTx) (*util.CountUpTimer, error) {
 	return v.PsTimer, nil
 }
-func (v *ChallengeVertex) GetCommitment(ctx context.Context, tx *ActiveTx) (util.HistoryCommitment, error) {
+func (v *ChallengeVertex) GetCommitment(ctx context.Context, tx protocol.ActiveTx) (util.HistoryCommitment, error) {
 	return v.Commitment, nil
 }
-func (v *ChallengeVertex) GetValidator(ctx context.Context, tx *ActiveTx) (common.Address, error) {
+func (v *ChallengeVertex) GetValidator(ctx context.Context, tx protocol.ActiveTx) (common.Address, error) {
 	return v.Validator, nil
 }
-func (v *ChallengeVertex) GetSequenceNum(ctx context.Context, tx *ActiveTx) (VertexSequenceNumber, error) {
+func (v *ChallengeVertex) GetSequenceNum(ctx context.Context, tx protocol.ActiveTx) (VertexSequenceNumber, error) {
 	return v.SequenceNum, nil
 }
-func (v *ChallengeVertex) GetPresumptiveSuccessor(ctx context.Context, tx *ActiveTx) (util.Option[ChallengeVertexInterface], error) {
+func (v *ChallengeVertex) GetPresumptiveSuccessor(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.ChallengeVertex], error) {
 	return v.PresumptiveSuccessor, nil
 }
 

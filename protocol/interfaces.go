@@ -34,6 +34,7 @@ type ActiveTx interface {
 	HeadBlockNumber() *big.Int      // If nil, uses the latest block in the chain.
 	ReadOnly() bool                 // Checks if a transaction is read-only.
 	VerifyRead() bool
+	VerifyReadWrite() bool
 }
 
 // ChainReader can only make non-mutating calls to a backing blockchain.
