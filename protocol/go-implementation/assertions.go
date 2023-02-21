@@ -95,17 +95,31 @@ type ActiveTx struct {
 }
 
 // verifyRead is a helper function to verify that the transaction is read-only.
-func (tx *ActiveTx) VerifyRead() {
+func (tx *ActiveTx) VerifyRead() bool {
 	if tx.TxStatus == DeadTxStatus {
 		panic("tried to read chain after call ended")
 	}
+	return true
 }
 
 // verifyReadWrite is a helper function to verify that the transaction is read-write.
-func (tx *ActiveTx) VerifyReadWrite() {
+func (tx *ActiveTx) VerifyReadWrite() bool {
 	if tx.TxStatus != ReadWriteTxStatus {
 		panic("tried to modify chain in read-only call")
 	}
+	return true
+}
+
+func (tx *ActiveTx) FinalizedBlockNumber() *big.Int {
+	return nil
+}
+
+func (tx *ActiveTx) HeadBlockNumber() *big.Int {
+	return nil
+}
+
+func (tx *ActiveTx) ReadOnly() bool {
+	return false
 }
 
 // Tx enables a mutating call to the on-chain goimpl.
