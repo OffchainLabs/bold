@@ -898,8 +898,8 @@ func (a *Assertion) CreateChallenge(tx *ActiveTx, ctx context.Context, validator
 	chal := &Challenge{
 		rootAssertion:     util.Some(a),
 		WinnerAssertion:   util.None[*Assertion](),
-		WinnerVertex:      util.None[ChallengeVertexInterface](),
-		rootVertex:        util.Some(ChallengeVertexInterface(rootVertex)),
+		WinnerV:           util.None[*ChallengeVertex](),
+		rootVertex:        util.Some(rootVertex),
 		creationTime:      a.challengeManager.TimeReference().Get(),
 		includedHistories: make(map[common.Hash]bool),
 		challengePeriod:   a.challengeManager.ChallengePeriodLength(tx),
