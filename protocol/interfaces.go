@@ -35,6 +35,7 @@ type ActiveTx interface {
 	ReadOnly() bool                 // Checks if a transaction is read-only.
 	VerifyRead() bool
 	VerifyReadWrite() bool
+	From() common.Address
 }
 
 // ChainReader can only make non-mutating calls to a backing blockchain.

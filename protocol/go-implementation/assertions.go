@@ -92,6 +92,7 @@ const (
 type ActiveTx struct {
 	TxStatus    int
 	BlockNumber *big.Int // If nil, uses the latest block in the chain.
+	Sender      common.Address
 }
 
 // verifyRead is a helper function to verify that the transaction is read-only.
@@ -120,6 +121,10 @@ func (tx *ActiveTx) HeadBlockNumber() *big.Int {
 
 func (tx *ActiveTx) ReadOnly() bool {
 	return false
+}
+
+func (tx *ActiveTx) From() common.Address {
+	return tx.Sender
 }
 
 // Tx enables a mutating call to the on-chain goimpl.
@@ -177,7 +182,7 @@ type Assertion struct {
 	StateCommitment         util.StateCommitment             `json:"state_commitment"`
 	Staker                  util.Option[common.Address]
 	Prev                    util.Option[*Assertion]
-	challengeManager        protocol.ChallengeManager
+	challengeManager        *AssertionChain
 	status                  AssertionState
 	isFirstChild            bool
 	firstChildCreationTime  util.Option[time.Time]
@@ -356,16 +361,17 @@ func (v *ChallengeVertex) ChildrenAreAtOneStepFork(
 	ctx context.Context,
 	tx protocol.ActiveTx,
 ) (bool, error) {
-	tx.VerifyRead()
-	if vertexCommit.Height != vertexParentCommit.Height+1 {
-		return false, nil
-	}
-	vertices, ok := chain.challengeVerticesByCommitHash[challengeCommitHash]
-	if !ok {
-		return false, fmt.Errorf("challenge vertices not found for assertion with state commit hash %#x", challengeCommitHash)
-	}
-	parentCommitHash := protocol.VertexHash(vertexParentCommit.Hash())
-	return verticesContainOneStepFork(ctx, tx, vertices, parentCommitHash), nil
+	// tx.VerifyRead()
+	// if v.Commitment.Height != vertexParentCommit.Height+1 {
+	// 	return false, nil
+	// }
+	// vertices, ok := chain.challengeVerticesByCommitHash[challengeCommitHash]
+	// if !ok {
+	// 	return false, fmt.Errorf("challenge vertices not found for assertion with state commit hash %#x", challengeCommitHash)
+	// }
+	// parentCommitHash := protocol.VertexHash(vertexParentCommit.Hash())
+	// return verticesContainOneStepFork(ctx, tx, vertices, parentCommitHash), nil
+	return false, nil
 }
 
 // Check if a vertices with a matching parent commitment hash are at a one-step-fork from their parent.
@@ -377,12 +383,12 @@ func verticesContainOneStepFork(ctx context.Context, tx protocol.ActiveTx, verti
 	}
 	childVertices := make([]protocol.ChallengeVertex, 0)
 	for _, v := range vertices {
-		prev, _ := v.GetPrev(ctx, tx)
+		prev, _ := v.Prev(ctx, tx)
 		if prev.IsNone() {
 			continue
 		}
 		// We only check vertices that have a matching parent commit hash.
-		commitment, _ := prev.Unwrap().GetCommitment(ctx, tx)
+		commitment, _ := prev.Unwrap().HistoryCommitment(ctx, tx)
 		vParentHash := protocol.VertexHash(commitment.Hash())
 		if vParentHash == parentCommitHash {
 			childVertices = append(childVertices, v)
@@ -400,12 +406,12 @@ func verticesContainOneStepFork(ctx context.Context, tx protocol.ActiveTx, verti
 }
 
 func isOneStepAwayFromParent(ctx context.Context, tx protocol.ActiveTx, vertex protocol.ChallengeVertex) bool {
-	prev, _ := vertex.GetPrev(ctx, tx)
+	prev, _ := vertex.Prev(ctx, tx)
 	if prev.IsNone() {
 		return false
 	}
-	prevCommitment, _ := prev.Unwrap().GetCommitment(ctx, tx)
-	commitment, _ := vertex.GetCommitment(ctx, tx)
+	prevCommitment, _ := prev.Unwrap().HistoryCommitment(ctx, tx)
+	commitment, _ := vertex.HistoryCommitment(ctx, tx)
 	return commitment.Height == prevCommitment.Height+1
 }
 
@@ -413,7 +419,7 @@ func isOneStepAwayFromParent(ctx context.Context, tx protocol.ActiveTx, vertex p
 func (chain *AssertionChain) ChallengeVertexByCommitHash(
 	tx *ActiveTx, challengeHash protocol.ChallengeHash, vertexHash protocol.VertexHash,
 ) (protocol.ChallengeVertex, error) {
-	tx.verifyRead()
+	tx.VerifyRead()
 	vertices, ok := chain.challengeVerticesByCommitHash[challengeHash]
 	if !ok {
 		return nil, fmt.Errorf("challenge vertices not found for assertion with state commit hash %#x", challengeHash)
@@ -427,7 +433,7 @@ func (chain *AssertionChain) ChallengeVertexByCommitHash(
 
 // ChallengeByCommitHash returns the challenge with the given commit hash.
 func (chain *AssertionChain) ChallengeByCommitHash(tx protocol.ActiveTx, commitHash protocol.ChallengeHash) (protocol.Challenge, error) {
-	tx.verifyRead()
+	tx.VerifyRead()
 	chal, ok := chain.challengesByCommitHash[commitHash]
 	if !ok {
 		return nil, errors.Wrapf(ErrVertexAlreadyExists, fmt.Sprintf("Hash: %s", commitHash))
@@ -473,15 +479,20 @@ func (chain *AssertionChain) CreateAssertion(
 	prevInboxMaxCount *big.Int,
 ) (protocol.Assertion, error) {
 	tx.VerifyReadWrite()
+	prevV, err := chain.AssertionBySequenceNum(ctx, tx, protocol.AssertionSequenceNumber(prevAssertionId))
+	if err != nil {
+		return nil, err
+	}
+	prev := prevV.(*Assertion)
 	if prev.challengeManager.ChainId() != chain.ChainId() {
 		return nil, ErrWrongChain
 	}
-	if prev.StateCommitment.Height >= commitment.Height {
+	if prev.StateCommitment.Height >= height {
 		return nil, ErrInvalidOp
 	}
 
 	// Ensure the assertion being created is not a duplicate.
-	if _, ok := chain.assertionsBySeqNum[commitment.Hash()]; ok {
+	if _, ok := chain.assertionsBySeqNum[postState.BlockStateHash()]; ok {
 		return nil, ErrVertexAlreadyExists
 	}
 
@@ -492,15 +503,15 @@ func (chain *AssertionChain) CreateAssertion(
 			return nil, ErrParentDoesNotExist
 		}
 		// Parent sequence number must be < the new assertion's assigned sequence number.
-		if prevSeqNum >= AssertionSequenceNumber(uint64(len(chain.assertions))) {
+		if prevSeqNum >= protocol.AssertionSequenceNumber(uint64(len(chain.assertions))) {
 			return nil, ErrParentDoesNotExist
 		}
 	}
 
 	if err := prev.Staker.IfLet(
 		func(oldStaker common.Address) error {
-			if staker != oldStaker {
-				if err := chain.DeductFromBalance(tx, staker, AssertionStake); err != nil {
+			if tx.From() != oldStaker {
+				if err := chain.DeductFromBalance(tx, tx.From(), AssertionStake); err != nil {
 					return err
 				}
 				chain.AddToBalance(tx, oldStaker, AssertionStake)
@@ -509,7 +520,7 @@ func (chain *AssertionChain) CreateAssertion(
 			return nil
 		},
 		func() error {
-			if err := chain.DeductFromBalance(tx, staker, AssertionStake); err != nil {
+			if err := chain.DeductFromBalance(tx, tx.From(), AssertionStake); err != nil {
 				return err
 			}
 			return nil
@@ -520,16 +531,19 @@ func (chain *AssertionChain) CreateAssertion(
 	}
 
 	leaf := &Assertion{
-		challengeManager:        chain,
-		status:                  PendingAssertionState,
-		SequenceNum:             protocol.AssertionSequenceNumber(len(chain.assertions)),
-		StateCommitment:         commitment,
+		challengeManager: chain,
+		status:           PendingAssertionState,
+		SequenceNum:      protocol.AssertionSequenceNumber(len(chain.assertions)),
+		StateCommitment: util.StateCommitment{
+			Height:    height,
+			StateRoot: postState.BlockStateHash(),
+		},
 		Prev:                    util.Some(prev),
 		isFirstChild:            prev.firstChildCreationTime.IsNone(),
 		firstChildCreationTime:  util.None[time.Time](),
 		secondChildCreationTime: util.None[time.Time](),
 		challenge:               util.None[*Challenge](),
-		Staker:                  util.Some(staker),
+		Staker:                  util.Some(tx.From()),
 	}
 	if prev.firstChildCreationTime.IsNone() {
 		prev.firstChildCreationTime = util.Some(chain.timeReference.Get())
@@ -537,20 +551,20 @@ func (chain *AssertionChain) CreateAssertion(
 		prev.secondChildCreationTime = util.Some(chain.timeReference.Get())
 	}
 	chain.assertions = append(chain.assertions, leaf)
-	chain.assertionsBySeqNum[commitment.Hash()] = leaf.SequenceNum
+	chain.assertionsBySeqNum[leaf.StateCommitment.Hash()] = leaf.SequenceNum
 	chain.feed.Append(&CreateLeafEvent{
 		PrevStateCommitment: prev.StateCommitment,
 		PrevSeqNum:          prev.SequenceNum,
 		SeqNum:              leaf.SequenceNum,
 		StateCommitment:     leaf.StateCommitment,
-		Validator:           staker,
+		Validator:           tx.From(),
 	})
 	return leaf, nil
 }
 
 // RejectForPrev rejects the assertion and emits the information through feed. It moves assertion to `RejectedAssertionState` state.
 func (a *Assertion) RejectForPrev(tx protocol.ActiveTx) error {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
 	}
@@ -569,7 +583,7 @@ func (a *Assertion) RejectForPrev(tx protocol.ActiveTx) error {
 
 // RejectForLoss rejects the assertion and emits the information through feed. It moves assertion to `RejectedAssertionState` state.
 func (a *Assertion) RejectForLoss(ctx context.Context, tx protocol.ActiveTx) error {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
 	}
@@ -580,7 +594,7 @@ func (a *Assertion) RejectForLoss(ctx context.Context, tx protocol.ActiveTx) err
 	if chal.IsNone() {
 		return util.ErrOptionIsEmpty
 	}
-	winner, err := chal.Unwrap().Winner(ctx, tx)
+	winner, err := chal.Unwrap().Winner(ctx, tx.(*ActiveTx))
 	if err != nil {
 		return err
 	}
@@ -596,7 +610,7 @@ func (a *Assertion) RejectForLoss(ctx context.Context, tx protocol.ActiveTx) err
 
 // ConfirmNoRival confirms that there is no rival for the assertion and moves the assertion to `ConfirmedAssertionState` state.
 func (a *Assertion) ConfirmNoRival(tx protocol.ActiveTx) error {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
 	}
@@ -610,8 +624,15 @@ func (a *Assertion) ConfirmNoRival(tx protocol.ActiveTx) error {
 	if !prev.secondChildCreationTime.IsNone() {
 		return ErrInvalidOp
 	}
-	if !a.challengeManager.TimeReference().Get().After(prev.firstChildCreationTime.Unwrap().Add(a.challengeManager.ChallengePeriodLength(tx))) {
-		return errors.Wrapf(ErrNotYet, fmt.Sprintf("%d > %d", a.challengeManager.TimeReference().Get().Unix(), prev.firstChildCreationTime.Unwrap().Add(a.challengeManager.ChallengePeriodLength(tx)).Unix()))
+	if !a.challengeManager.TimeReference().Get().After(prev.firstChildCreationTime.Unwrap().Add(a.challengeManager.challengePeriod)) {
+		return errors.Wrapf(
+			ErrNotYet,
+			fmt.Sprintf(
+				"%d > %d",
+				a.challengeManager.TimeReference().Get().Unix(),
+				prev.firstChildCreationTime.Unwrap().Add(a.challengeManager.challengePeriod).Unix(),
+			),
+		)
 	}
 	a.status = ConfirmedAssertionState
 	a.challengeManager.SetLatestConfirmed(a.SequenceNum)
@@ -628,7 +649,7 @@ func (a *Assertion) ConfirmNoRival(tx protocol.ActiveTx) error {
 
 // ConfirmForWin confirms that the assertion is the WinnerAssertion of the challenge and moves the assertion to `ConfirmedAssertionState` state.
 func (a *Assertion) ConfirmForWin(ctx context.Context, tx protocol.ActiveTx) error {
-	tx.verifyReadWrite()
+	tx.VerifyReadWrite()
 	if a.status != PendingAssertionState {
 		return errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d", a.status))
 	}
@@ -642,7 +663,7 @@ func (a *Assertion) ConfirmForWin(ctx context.Context, tx protocol.ActiveTx) err
 	if prev.challenge.IsNone() {
 		return ErrWrongPredecessorState
 	}
-	winner, err := prev.challenge.Unwrap().Winner(ctx, tx)
+	winner, err := prev.challenge.Unwrap().Winner(ctx, tx.(*ActiveTx))
 	if err != nil {
 		return err
 	}
@@ -687,7 +708,7 @@ func (a *AssertionChain) CreateSuccessionChallenge(
 	seqNum protocol.AssertionSequenceNumber,
 ) (protocol.Challenge, error) {
 	tx.VerifyReadWrite()
-	if a.status != PendingAssertionState && a.challengeManager.LatestConfirmed(tx) != a {
+	if a.status != PendingAssertionState && a.latestConfirmed != a {
 		return nil, errors.Wrapf(ErrWrongState, fmt.Sprintf("State: %d, Confirmed status: %v", a.status, a.challengeManager.LatestConfirmed(tx) != a))
 	}
 	if !a.challenge.IsNone() {
