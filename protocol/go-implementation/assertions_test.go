@@ -35,25 +35,23 @@ func TestAssertionChain_ConfirmAndRefund(t *testing.T) {
 	require.Equal(t, protocol.AssertionSequenceNumber(0), assertionsChain.latestConfirmed)
 	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 		assertionsChain.SetBalance(tx, staker, AssertionStake)
-		genesis, err := assertionsChain.LatestConfirmed(ctx, tx)
-		require.NoError(t, err)
 		comm := util.StateCommitment{Height: 1, StateRoot: correctBlockHashes[99]}
-		a1, err := assertionsChain.CreateLeaf(tx, genesis, comm, staker)
+		a1, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 0, nil, nil, big.NewInt(0))
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), assertionsChain.GetBalance(tx, staker).Uint64())
 
 		comm = util.StateCommitment{Height: 2, StateRoot: correctBlockHashes[199]}
-		a2, err := assertionsChain.CreateLeaf(tx, a1, comm, staker)
+		a2, err := assertionsChain.CreateAssertion(ctx, tx, comm.Height, 1, nil, nil, big.NewInt(0))
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), assertionsChain.GetBalance(tx, staker).Uint64())
 		timeRef.Add(testChallengePeriod + time.Second)
 
 		// Parent is confirmed. Staker should not get a refund because it's not a leaf.
-		require.NoError(t, a1.ConfirmNoRival(tx))
+		require.NoError(t, a1.(*Assertion).ConfirmNoRival(tx))
 		require.Equal(t, uint64(0), assertionsChain.GetBalance(tx, staker).Uint64())
 
 		// Child is confirmed. Staker should get a refund because it's a leaf.
-		require.NoError(t, a2.ConfirmNoRival(tx))
+		require.NoError(t, a2.(*Assertion).ConfirmNoRival(tx))
 		require.Equal(t, AssertionStake.Uint64(), assertionsChain.GetBalance(tx, staker).Uint64())
 
 		return nil
@@ -79,14 +77,15 @@ func TestAssertionChain(t *testing.T) {
 
 	assertionsChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
 	require.Equal(t, 1, len(assertionsChain.assertions))
-	require.Equal(t, AssertionSequenceNumber(0), assertionsChain.latestConfirmed)
+	require.Equal(t, protocol.AssertionSequenceNumber(0), assertionsChain.latestConfirmed)
 	eventChan := make(chan AssertionChainEvent)
-	err := assertionsChain.Tx(func(tx *ActiveTx) error {
-		genesis := assertionsChain.LatestConfirmed(tx)
+	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
+		genesis, err := assertionsChain.LatestConfirmed(ctx, tx)
+		require.NoError(t, err)
 		require.Equal(t, util.StateCommitment{
 			Height:    0,
 			StateRoot: common.Hash{},
-		}, genesis.StateCommitment)
+		}, genesis.StateHash())
 		assertionsChain.SetBalance(tx, staker1, big.NewInt(0).Add(AssertionStake, ChallengeVertexStake))
 		assertionsChain.SetBalance(tx, staker2, big.NewInt(0).Add(AssertionStake, ChallengeVertexStake))
 
