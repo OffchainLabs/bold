@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/emicklei/dot"
 	"github.com/ethereum/go-ethereum/common"
@@ -85,11 +86,11 @@ type ChallengeVisualization struct {
 	Graph               string               `json:"graph"`
 }
 
-func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *ActiveTx) []*ChallengeVisualization {
+func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx protocol.ActiveTx) []*ChallengeVisualization {
 	res := make([]*ChallengeVisualization, 0, len(chain.challengeVerticesByCommitHash))
 	for cHash, challenge := range chain.challengesByCommitHash {
 		// Ignore challenges with no root assertion or completed status.
-		if challenge.(*Challenge).rootAssertion.IsNone() {
+		if challenge.rootAssertion.IsNone() {
 			continue
 		}
 		completed, _ := challenge.Completed(ctx, tx)
@@ -105,11 +106,11 @@ func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *Active
 		m := make(map[[32]byte]*challengeVertexNode)
 		vertices := chain.challengeVerticesByCommitHash[cHash]
 
-		childCount := make(map[protocol.VertexCommitHash]uint64)
+		childCount := make(map[protocol.VertexHash]uint64)
 		for _, v := range vertices {
 			commit, _ := v.GetCommitment(ctx, tx)
 			validator, _ := v.GetValidator(ctx, tx)
-			prev, _ := v.GetPrev(ctx, tx)
+			prev, _ := v.Prev(ctx, tx)
 			// Construct label of each node.
 			rStr := hexutil.Encode(commit.Hash().Bytes())
 			commitHash := commit.Hash()
@@ -121,14 +122,14 @@ func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *Active
 			)
 
 			if !prev.IsNone() {
-				prevCommitment, _ := prev.Unwrap().GetCommitment(ctx, tx)
-				childCount[protocol.VertexCommitHash(prevCommitment.Hash())]++
+				prevCommitment, _ := prev.Unwrap().HistoryCommitment(ctx, tx)
+				childCount[protocol.VertexHash(prevCommitment.Hash())]++
 			}
 
 			dotN := graph.Node(rStr).Box().Attr("label", label)
 
 			m[commit.Hash()] = &challengeVertexNode{
-				parent:  prev,
+				parent:  util.Some(prev.Unwrap().(*ChallengeVertex)),
 				vertex:  v,
 				dotNode: dotN,
 			}
@@ -142,7 +143,7 @@ func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *Active
 				if _, ok := m[parentHash]; ok {
 
 					vertexIsPresumptiveSuccessor, _ := n.vertex.IsPresumptiveSuccessor(ctx, tx)
-					if childCount[VertexCommitHash(parentHash)] > 1 && vertexIsPresumptiveSuccessor {
+					if childCount[protocol.VertexHash(parentHash)] > 1 && vertexIsPresumptiveSuccessor {
 						graph.Edge(n.dotNode, m[parentHash].dotNode).
 							Bold().
 							Label("ps").
@@ -154,8 +155,8 @@ func (chain *AssertionChain) visualizeChallenges(ctx context.Context, tx *Active
 			}
 		}
 		var rootAssertionCommit util.StateCommitment
-		if !challenge.(*Challenge).rootAssertion.IsNone() {
-			rootAssertionCommit = challenge.(*Challenge).rootAssertion.Unwrap().StateCommitment
+		if !challenge.rootAssertion.IsNone() {
+			rootAssertionCommit = challenge.rootAssertion.Unwrap().StateCommitment
 		}
 		res = append(res, &ChallengeVisualization{
 			RootAssertionCommit: rootAssertionCommit,

@@ -24,8 +24,8 @@ func (v *ChallengeVertex) CreateSubChallenge(ctx context.Context, tx protocol.Ac
 
 // CreateBigStepChallenge creates a BigStep subchallenge on a vertex.
 func (v *ChallengeVertex) CreateBigStepChallenge(ctx context.Context, tx protocol.ActiveTx) error {
-	tx.verifyReadWrite()
-	if err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge); err != nil {
+	tx.VerifyReadWrite()
+	if err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge); err != nil {
 		return err
 	}
 	// TODO: Add all other required challenge fields.
@@ -35,7 +35,7 @@ func (v *ChallengeVertex) CreateBigStepChallenge(ctx context.Context, tx protoco
 		// the same as the top-level challenge, as they should
 		// expire at the same timestamp.
 		creationTime:  challengeGetCreationTime,
-		challengeType: BigStepChallenge,
+		challengeType: protocol.BigStepChallenge,
 	}))
 	// TODO: Add the challenge to the chain under a key that does not
 	// collide with top-level challenges and fire events.
@@ -44,15 +44,15 @@ func (v *ChallengeVertex) CreateBigStepChallenge(ctx context.Context, tx protoco
 
 // CreateSmallStepChallenge creates a SmallStep subchallenge on a vertex.
 func (v *ChallengeVertex) CreateSmallStepChallenge(ctx context.Context, tx protocol.ActiveTx) error {
-	tx.verifyReadWrite()
-	if err := v.canCreateSubChallenge(ctx, tx, SmallStepChallenge); err != nil {
+	tx.VerifyReadWrite()
+	if err := v.canCreateSubChallenge(ctx, tx, protocol.SmallStepChallenge); err != nil {
 		return err
 	}
 	// TODO: Add all other required challenge fields.
 	challengeGetCreationTime, _ := v.Challenge.Unwrap().GetCreationTime(ctx, tx)
-	v.SubChallenge = util.Some(ChallengeInterface(&Challenge{
+	v.SubChallenge = util.Some(protocol.Challenge(&Challenge{
 		creationTime:  challengeGetCreationTime,
-		challengeType: SmallStepChallenge,
+		challengeType: protocol.SmallStepChallenge,
 	}))
 	// TODO: Add the challenge to the chain under a key that does not
 	// collide with top-level challenges and fire events.
@@ -67,32 +67,30 @@ func (v *ChallengeVertex) CreateSmallStepChallenge(ctx context.Context, tx proto
 //	  - P’s has at least two children with unexpired chess clocks
 //	The end time of the new challenge is set equal to the end time of P’s challenge.
 func (v *ChallengeVertex) canCreateSubChallenge(
-	ctx context.Context, tx protocol.ActiveTx, subChallengeType ChallengeType,
+	ctx context.Context, tx protocol.ActiveTx, subChallengeType protocol.ChallengeType,
 ) error {
 	if v.Challenge.IsNone() {
 		return ErrNoChallenge
 	}
-	chal := v.Challenge.Unwrap()
-	challengeType, _ := chal.GetChallengeType(ctx, tx)
+	chal := v.Challenge.Unwrap().(*Challenge)
+	challengeType := chal.GetType()
 	// Can only create a subchallenge if the vertex is
 	// part of a challenge of a specified kind.
 	switch subChallengeType {
-	case NoChallengeType:
+	case protocol.BlockChallenge:
 		return ErrWrongChallengeKind
-	case BlockChallenge:
-		return ErrWrongChallengeKind
-	case BigStepChallenge:
-		if challengeType != BlockChallenge {
+	case protocol.BigStepChallenge:
+		if challengeType != protocol.BlockChallenge {
 			return ErrWrongChallengeKind
 		}
-	case SmallStepChallenge:
-		if challengeType != BigStepChallenge {
+	case protocol.SmallStepChallenge:
+		if challengeType != protocol.BigStepChallenge {
 			return ErrWrongChallengeKind
 		}
 	}
 	// The challenge must be ongoing.
 	rootAssertion, _ := chal.RootAssertion(ctx, tx)
-	challengeManager := rootAssertion.challengeManager
+	challengeManager := rootAssertion.(*Assertion).challengeManager
 	hasEnded, _ := chal.HasEnded(ctx, tx, challengeManager)
 	if hasEnded {
 		return ErrChallengeNotRunning
@@ -102,7 +100,7 @@ func (v *ChallengeVertex) canCreateSubChallenge(
 		return ErrSubchallengeAlreadyExists
 	}
 	// The vertex must not be confirmed.
-	if v.Status == ConfirmedAssertionState {
+	if v.StatusV == protocol.AssertionConfirmed {
 		return errors.Wrap(ErrWrongState, "vertex already confirmed")
 	}
 	// The vertex must have at least two children with unexpired
@@ -142,7 +140,7 @@ func hasUnexpiredChildren(ctx context.Context, tx protocol.ActiveTx, challengeMa
 		if prev.IsNone() {
 			continue
 		}
-		prevCommitment, _ := prev.Unwrap().GetCommitment(ctx, tx)
+		prevCommitment, _ := prev.Unwrap().HistoryCommitment(ctx, tx)
 		parentCommitHash := prevCommitment.Hash()
 		var commitment util.HistoryCommitment
 		commitment, err = otherVertex.GetCommitment(ctx, tx)
@@ -152,7 +150,7 @@ func hasUnexpiredChildren(ctx context.Context, tx protocol.ActiveTx, challengeMa
 		isOneStepAway := commitment.Height == prevCommitment.Height+1
 		isChild := parentCommitHash == vertexCommitHash
 		var checkClockExpired bool
-		checkClockExpired, err = otherVertex.ChessClockExpired(ctx, tx, challengeManager.ChallengePeriodLength(tx))
+		checkClockExpired, err = otherVertex.ChessClockExpired(ctx, tx, challengeManager.challengePeriod)
 		if err != nil {
 			return false, err
 		}
@@ -177,5 +175,5 @@ func (c *Challenge) HasEnded(ctx context.Context, tx protocol.ActiveTx, challeng
 // Checks if a vertex's chess-clock has expired according
 // to the challenge period length.
 func (v *ChallengeVertex) ChessClockExpired(ctx context.Context, tx protocol.ActiveTx, challengePeriod time.Duration) (bool, error) {
-	return v.PsTimer.Get() > challengePeriod, nil
+	return v.PsTimerV.Get() > challengePeriod, nil
 }

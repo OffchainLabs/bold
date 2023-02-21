@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"fmt"
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -15,17 +16,17 @@ func TestChallengeVertex_CreateBigStepChallenge(t *testing.T) {
 	ctx := context.Background()
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	t.Run("top level challenge must be block challenge", func(t *testing.T) {
-		v := setupValidSubChallengeCreation(t, SmallStepChallenge)
+		v := setupValidSubChallengeCreation(t, protocol.SmallStepChallenge)
 		err := v.CreateBigStepChallenge(ctx, tx)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("OK", func(t *testing.T) {
-		v := setupValidSubChallengeCreation(t, BlockChallenge)
+		v := setupValidSubChallengeCreation(t, protocol.BlockChallenge)
 		err := v.CreateBigStepChallenge(ctx, tx)
 		require.NoError(t, err)
 		sub := v.SubChallenge.Unwrap()
-		subChallengeType, _ := sub.GetChallengeType(ctx, tx)
-		require.Equal(t, ChallengeType(BigStepChallenge), subChallengeType)
+		subChallengeType := sub.GetType()
+		require.Equal(t, protocol.ChallengeType(protocol.BigStepChallenge), subChallengeType)
 	})
 }
 
@@ -33,24 +34,24 @@ func TestChallengeVertex_CreateSmallStepChallenge(t *testing.T) {
 	ctx := context.Background()
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	t.Run("top level challenge must be big step challenge", func(t *testing.T) {
-		v := setupValidSubChallengeCreation(t, SmallStepChallenge)
+		v := setupValidSubChallengeCreation(t, protocol.SmallStepChallenge)
 		err := v.CreateSmallStepChallenge(ctx, tx)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("OK", func(t *testing.T) {
-		v := setupValidSubChallengeCreation(t, BigStepChallenge)
+		v := setupValidSubChallengeCreation(t, protocol.BigStepChallenge)
 		err := v.CreateSmallStepChallenge(ctx, tx)
 		require.NoError(t, err)
 		sub := v.SubChallenge.Unwrap()
-		subChallengeType, _ := sub.GetChallengeType(ctx, tx)
-		require.Equal(t, ChallengeType(SmallStepChallenge), subChallengeType)
+		subChallengeType := sub.GetType()
+		require.Equal(t, protocol.ChallengeType(protocol.SmallStepChallenge), subChallengeType)
 	})
 }
 
-func setupValidSubChallengeCreation(t *testing.T, topLevelType ChallengeType) *ChallengeVertex {
+func setupValidSubChallengeCreation(t *testing.T, topLevelType protocol.ChallengeType) *ChallengeVertex {
 	challengePeriod := 5 * time.Second
 	ref := util.NewRealTimeReference()
-	m := make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface)
+	m := make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex)
 	chain := &AssertionChain{
 		challengePeriod:               challengePeriod,
 		timeReference:                 ref,
@@ -67,32 +68,32 @@ func setupValidSubChallengeCreation(t *testing.T, topLevelType ChallengeType) *C
 		}),
 	}
 	v := &ChallengeVertex{
-		Challenge:    util.Some(ChallengeInterface(chal)),
-		SubChallenge: util.None[ChallengeInterface](),
-		Status:       PendingAssertionState,
+		Challenge:    util.Some(protocol.Challenge(chal)),
+		SubChallenge: util.None[protocol.Challenge](),
+		StatusV:      protocol.AssertionPending,
 		Commitment: util.HistoryCommitment{
 			Height: 0,
 			Merkle: common.BytesToHash([]byte("foo")),
 		},
 	}
 
-	challengeHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
-	vertices := make(map[VertexCommitHash]ChallengeVertexInterface, 0)
+	challengeHash := protocol.ChallengeHash((util.StateCommitment{}).Hash())
+	vertices := make(map[protocol.VertexHash]*ChallengeVertex, 0)
 
 	// Create child vertices with unexpired chess clocks.
 	for i := uint(0); i < 3; i++ {
 		timer := util.NewCountUpTimer(ref)
 		child := &ChallengeVertex{
-			Prev: util.Some(ChallengeVertexInterface(v)),
+			PrevV: util.Some(protocol.ChallengeVertex(v)),
 			Commitment: util.HistoryCommitment{
 				Height: v.Commitment.Height + 1,
 				Merkle: common.BytesToHash([]byte(fmt.Sprintf("%d", i))),
 			},
-			PsTimer: timer,
+			PsTimerV: timer,
 		}
-		vHash := VertexCommitHash(child.Commitment.Hash())
+		vHash := protocol.VertexHash(child.Commitment.Hash())
 		if i == 0 {
-			v.Prev = util.None[ChallengeVertexInterface]()
+			v.PrevV = util.None[protocol.ChallengeVertex]()
 		}
 		vertices[vHash] = child
 	}
@@ -105,34 +106,34 @@ func Test_canCreateSubChallenge(t *testing.T) {
 	tx := &ActiveTx{TxStatus: ReadOnlyTxStatus}
 	t.Run("no challenge for vertex", func(t *testing.T) {
 		v := &ChallengeVertex{
-			Challenge: util.None[ChallengeInterface](),
+			Challenge: util.None[protocol.Challenge](),
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorIs(t, err, ErrNoChallenge)
 	})
 	t.Run("block challenge cannot be a subchallenge", func(t *testing.T) {
 		v := &ChallengeVertex{
-			Challenge: util.Some(ChallengeInterface(&Challenge{})),
+			Challenge: util.Some(protocol.Challenge(&Challenge{})),
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BlockChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BlockChallenge)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("parent of big step challenge must be block challenge", func(t *testing.T) {
 		v := &ChallengeVertex{
-			Challenge: util.Some(ChallengeInterface(&Challenge{
-				challengeType: SmallStepChallenge,
+			Challenge: util.Some(protocol.Challenge(&Challenge{
+				challengeType: protocol.SmallStepChallenge,
 			})),
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("parent of small step challenge must be big step challenge", func(t *testing.T) {
 		v := &ChallengeVertex{
-			Challenge: util.Some(ChallengeInterface(&Challenge{
-				challengeType: SmallStepChallenge,
+			Challenge: util.Some(protocol.Challenge(&Challenge{
+				challengeType: protocol.SmallStepChallenge,
 			})),
 		}
-		err := v.canCreateSubChallenge(ctx, tx, SmallStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.SmallStepChallenge)
 		require.ErrorIs(t, err, ErrWrongChallengeKind)
 	})
 	t.Run("challenge must be ongoing", func(t *testing.T) {
@@ -146,15 +147,15 @@ func Test_canCreateSubChallenge(t *testing.T) {
 		creationTime := ref.Get().Add(-2 * challengePeriod)
 		chal := &Challenge{
 			creationTime:  creationTime,
-			challengeType: BlockChallenge,
+			challengeType: protocol.BlockChallenge,
 			rootAssertion: util.Some(&Assertion{
 				challengeManager: chain,
 			}),
 		}
 		v := &ChallengeVertex{
-			Challenge: util.Some(ChallengeInterface(chal)),
+			Challenge: util.Some(protocol.Challenge(chal)),
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorIs(t, err, ErrChallengeNotRunning)
 	})
 	t.Run("subchallenge already exists", func(t *testing.T) {
@@ -167,16 +168,16 @@ func Test_canCreateSubChallenge(t *testing.T) {
 		creationTime := ref.Get()
 		chal := &Challenge{
 			creationTime:  creationTime,
-			challengeType: BlockChallenge,
+			challengeType: protocol.BlockChallenge,
 			rootAssertion: util.Some(&Assertion{
 				challengeManager: chain,
 			}),
 		}
 		v := &ChallengeVertex{
-			Challenge:    util.Some(ChallengeInterface(chal)),
-			SubChallenge: util.Some(ChallengeInterface(&Challenge{})),
+			Challenge:    util.Some(protocol.Challenge(chal)),
+			SubChallenge: util.Some(protocol.Challenge(&Challenge{})),
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorIs(t, err, ErrSubchallengeAlreadyExists)
 	})
 	t.Run("vertex must not be confirmed", func(t *testing.T) {
@@ -189,23 +190,23 @@ func Test_canCreateSubChallenge(t *testing.T) {
 		creationTime := ref.Get()
 		chal := &Challenge{
 			creationTime:  creationTime,
-			challengeType: BlockChallenge,
+			challengeType: protocol.BlockChallenge,
 			rootAssertion: util.Some(&Assertion{
 				challengeManager: chain,
 			}),
 		}
 		v := &ChallengeVertex{
-			Challenge:    util.Some(ChallengeInterface(chal)),
-			SubChallenge: util.None[ChallengeInterface](),
-			Status:       ConfirmedAssertionState,
+			Challenge:    util.Some(protocol.Challenge(chal)),
+			SubChallenge: util.None[protocol.Challenge](),
+			StatusV:      protocol.AssertionConfirmed,
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorIs(t, err, ErrWrongState)
 	})
 	t.Run("checking unexpired children's existence fails", func(t *testing.T) {
 		challengePeriod := 5 * time.Second
 		ref := util.NewRealTimeReference()
-		m := make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface)
+		m := make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex)
 		chain := &AssertionChain{
 			challengePeriod:               challengePeriod,
 			timeReference:                 ref,
@@ -214,55 +215,55 @@ func Test_canCreateSubChallenge(t *testing.T) {
 		creationTime := ref.Get()
 		chal := &Challenge{
 			creationTime:  creationTime,
-			challengeType: BlockChallenge,
+			challengeType: protocol.BlockChallenge,
 			rootAssertion: util.Some(&Assertion{
 				challengeManager: chain,
 				StateCommitment:  util.StateCommitment{},
 			}),
 		}
 		v := &ChallengeVertex{
-			Challenge:    util.Some(ChallengeInterface(chal)),
-			SubChallenge: util.None[ChallengeInterface](),
-			Status:       PendingAssertionState,
+			Challenge:    util.Some(protocol.Challenge(chal)),
+			SubChallenge: util.None[protocol.Challenge](),
+			StatusV:      protocol.AssertionPending,
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorContains(t, err, "vertices not found")
 	})
 	t.Run("not enough unexpired children", func(t *testing.T) {
 		challengePeriod := 5 * time.Second
 		ref := util.NewRealTimeReference()
-		m := make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface)
+		m := make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex)
 		chain := &AssertionChain{
 			challengePeriod:               challengePeriod,
 			timeReference:                 ref,
 			challengeVerticesByCommitHash: m,
 		}
 
-		challengeHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
-		vertices := make(map[VertexCommitHash]ChallengeVertexInterface, 0)
+		challengeHash := protocol.ChallengeHash((util.StateCommitment{}).Hash())
+		vertices := make(map[protocol.VertexHash]*ChallengeVertex, 0)
 		chain.challengeVerticesByCommitHash[challengeHash] = vertices
 
 		creationTime := ref.Get()
 		chal := &Challenge{
 			creationTime:  creationTime,
-			challengeType: BlockChallenge,
+			challengeType: protocol.BlockChallenge,
 			rootAssertion: util.Some(&Assertion{
 				challengeManager: chain,
 				StateCommitment:  util.StateCommitment{},
 			}),
 		}
 		v := &ChallengeVertex{
-			Challenge:    util.Some(ChallengeInterface(chal)),
-			SubChallenge: util.None[ChallengeInterface](),
-			Status:       PendingAssertionState,
+			Challenge:    util.Some(protocol.Challenge(chal)),
+			SubChallenge: util.None[protocol.Challenge](),
+			StatusV:      protocol.AssertionPending,
 		}
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.ErrorIs(t, err, ErrNotEnoughValidChildren)
 	})
 	t.Run("OK", func(t *testing.T) {
 		challengePeriod := 5 * time.Second
 		ref := util.NewRealTimeReference()
-		m := make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface)
+		m := make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex)
 		chain := &AssertionChain{
 			challengePeriod:               challengePeriod,
 			timeReference:                 ref,
@@ -272,41 +273,41 @@ func Test_canCreateSubChallenge(t *testing.T) {
 		creationTime := ref.Get()
 		chal := &Challenge{
 			creationTime:  creationTime,
-			challengeType: BlockChallenge,
+			challengeType: protocol.BlockChallenge,
 			rootAssertion: util.Some(&Assertion{
 				challengeManager: chain,
 				StateCommitment:  util.StateCommitment{},
 			}),
 		}
 		v := &ChallengeVertex{
-			Challenge:    util.Some(ChallengeInterface(chal)),
-			SubChallenge: util.None[ChallengeInterface](),
-			Status:       PendingAssertionState,
+			Challenge:    util.Some(protocol.Challenge(chal)),
+			SubChallenge: util.None[protocol.Challenge](),
+			StatusV:      protocol.AssertionPending,
 		}
 
-		challengeHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
-		vertices := make(map[VertexCommitHash]ChallengeVertexInterface, 0)
+		challengeHash := protocol.ChallengeHash((util.StateCommitment{}).Hash())
+		vertices := make(map[protocol.VertexHash]*ChallengeVertex, 0)
 
 		// Create child vertices with unexpired chess clocks.
 		for i := uint(0); i < 3; i++ {
 			timer := util.NewCountUpTimer(ref)
 			child := &ChallengeVertex{
-				Prev: util.Some(ChallengeVertexInterface(v)),
+				PrevV: util.Some(protocol.ChallengeVertex(v)),
 				Commitment: util.HistoryCommitment{
 					Height: v.Commitment.Height + 1,
 					Merkle: common.BytesToHash([]byte(fmt.Sprintf("%d", i))),
 				},
-				PsTimer: timer,
+				PsTimerV: timer,
 			}
-			vHash := VertexCommitHash(child.Commitment.Hash())
+			vHash := protocol.VertexHash(child.Commitment.Hash())
 			if i == 0 {
-				child.Prev = util.None[ChallengeVertexInterface]()
+				child.PrevV = util.None[protocol.ChallengeVertex]()
 			}
 			vertices[vHash] = child
 		}
 		chain.challengeVerticesByCommitHash[challengeHash] = vertices
 
-		err := v.canCreateSubChallenge(ctx, tx, BigStepChallenge)
+		err := v.canCreateSubChallenge(ctx, tx, protocol.BigStepChallenge)
 		require.NoError(t, err)
 	})
 }
@@ -317,18 +318,18 @@ func TestChallengeVertex_hasUnexpiredChildren(t *testing.T) {
 	t.Run("no challenge for vertex", func(t *testing.T) {
 		chain := &AssertionChain{}
 		v := &ChallengeVertex{
-			Challenge: util.None[ChallengeInterface](),
+			Challenge: util.None[protocol.Challenge](),
 		}
 		_, err := hasUnexpiredChildren(ctx, tx, chain, v)
 		require.ErrorIs(t, err, ErrNoChallenge)
 	})
 	t.Run("vertices not found for challenge", func(t *testing.T) {
-		m := make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface)
+		m := make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex)
 		chain := &AssertionChain{
 			challengeVerticesByCommitHash: m,
 		}
 		v := &ChallengeVertex{
-			Challenge: util.Some(ChallengeInterface(&Challenge{
+			Challenge: util.Some(protocol.Challenge(&Challenge{
 				rootAssertion: util.None[*Assertion](),
 			})),
 		}
@@ -383,7 +384,7 @@ func TestChallengeVertex_hasUnexpiredChildren(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			m := make(map[ChallengeCommitHash]map[VertexCommitHash]ChallengeVertexInterface)
+			m := make(map[protocol.ChallengeHash]map[protocol.VertexHash]*ChallengeVertex)
 			timeRef := util.NewArtificialTimeReference()
 			chain := &AssertionChain{
 				challengePeriod:               5 * time.Second,
@@ -391,13 +392,13 @@ func TestChallengeVertex_hasUnexpiredChildren(t *testing.T) {
 				timeReference:                 timeRef,
 			}
 			parent := &ChallengeVertex{
-				Challenge: util.Some(ChallengeInterface(&Challenge{
+				Challenge: util.Some(protocol.Challenge(&Challenge{
 					rootAssertion: util.None[*Assertion](),
 				})),
 			}
-			challengeHash := ChallengeCommitHash((util.StateCommitment{}).Hash())
+			challengeHash := protocol.ChallengeHash((util.StateCommitment{}).Hash())
 
-			vertices := make(map[VertexCommitHash]ChallengeVertexInterface, testCase.numChildren)
+			vertices := make(map[protocol.VertexHash]*ChallengeVertex, testCase.numChildren)
 			for i := uint(0); i < testCase.numChildren; i++ {
 
 				// Children are expired by default for these tests.
@@ -405,20 +406,20 @@ func TestChallengeVertex_hasUnexpiredChildren(t *testing.T) {
 				timer.Add(2 * chain.challengePeriod)
 
 				v := &ChallengeVertex{
-					Prev: util.Some(ChallengeVertexInterface(parent)),
+					PrevV: util.Some(protocol.ChallengeVertex(parent)),
 					Commitment: util.HistoryCommitment{
 						Height: parent.Commitment.Height + 1,
 						Merkle: common.BytesToHash([]byte(fmt.Sprintf("%d", i))),
 					},
-					PsTimer: timer,
+					PsTimerV: timer,
 				}
-				vHash := VertexCommitHash(v.Commitment.Hash())
+				vHash := protocol.VertexHash(v.Commitment.Hash())
 				vertices[vHash] = v
 
 				// If we want to mark an vertex as unexpired, we give it
 				// a different ps timer.
 				if i < testCase.numUnexpired {
-					v.PsTimer = util.NewCountUpTimer(timeRef)
+					v.PsTimerV = util.NewCountUpTimer(timeRef)
 				}
 			}
 			chain.challengeVerticesByCommitHash[challengeHash] = vertices
@@ -472,7 +473,7 @@ func TestChallengeVertex_chessClockExpired(t *testing.T) {
 		timer := util.NewCountUpTimer(ref)
 		timer.Add(tt.elapsed)
 		v := &ChallengeVertex{
-			PsTimer: timer,
+			PsTimerV: timer,
 		}
 		got, err := v.ChessClockExpired(context.Background(), &ActiveTx{}, challengePeriod)
 		require.NoError(t, err)
