@@ -117,7 +117,7 @@ func TestAssertionChain(t *testing.T) {
 		confirmed, err = assertionsChain.LatestConfirmed(ctx, tx)
 		require.NoError(t, err)
 		require.Equal(t, newAssertion, confirmed)
-		require.Equal(t, ConfirmedAssertionState, int(newAssertion.(*Assertion).status))
+		require.Equal(t, protocol.AssertionConfirmed, int(newAssertion.(*Assertion).status))
 		verifyConfirmEventInFeed(t, eventChan, protocol.AssertionSequenceNumber(1))
 
 		// try to create a duplicate assertion
@@ -495,7 +495,7 @@ func TestIsAtOneStepFork(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := assertionsChain.Tx(func(tx *ActiveTx) error {
+			err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 				vertexCommit := util.HistoryCommitment{
 					Height: tt.vertexHeight,
 				}
@@ -529,14 +529,14 @@ func TestChallengeVertexByHistoryCommit(t *testing.T) {
 	timeRef := util.NewArtificialTimeReference()
 	assertionsChain := NewAssertionChain(ctx, timeRef, testChallengePeriod)
 
-	err := assertionsChain.Tx(func(tx *ActiveTx) error {
+	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 		genesisCommitHash := protocol.ChallengeHash((util.StateCommitment{}).Hash())
 		t.Run("vertices not found for challenge", func(t *testing.T) {
 			vertexCommit := util.HistoryCommitment{
 				Height: 1,
 			}
 			_, err := assertionsChain.ChallengeVertexByCommitHash(
-				tx,
+				tx.(*ActiveTx),
 				genesisCommitHash,
 				protocol.VertexHash(vertexCommit.Merkle),
 			)
@@ -549,7 +549,7 @@ func TestChallengeVertexByHistoryCommit(t *testing.T) {
 			vertices := map[protocol.VertexHash]*ChallengeVertex{}
 			assertionsChain.challengeVerticesByCommitHash[genesisCommitHash] = vertices
 			_, err := assertionsChain.ChallengeVertexByCommitHash(
-				tx,
+				tx.(*ActiveTx),
 				genesisCommitHash,
 				protocol.VertexHash(vertexCommit.Merkle),
 			)
@@ -568,7 +568,7 @@ func TestChallengeVertexByHistoryCommit(t *testing.T) {
 			}
 			assertionsChain.challengeVerticesByCommitHash[genesisCommitHash] = vertices
 			got, err := assertionsChain.ChallengeVertexByCommitHash(
-				tx,
+				tx.(*ActiveTx),
 				genesisCommitHash,
 				protocol.VertexHash(vertexCommit.Merkle),
 			)
@@ -1059,8 +1059,6 @@ func TestAssertionChain_Bisect(t *testing.T) {
 
 	err := assertionsChain.Tx(func(tx protocol.ActiveTx) error {
 		// We create a fork with genesis as the rootAssertion, where one branch is a higher depth than the other.
-		genesis, err := assertionsChain.LatestConfirmed(ctx, tx)
-		require.NoError(t, err)
 		bigBalance := new(big.Int).Mul(AssertionStake, big.NewInt(1000))
 		assertionsChain.SetBalance(tx, staker1, bigBalance)
 		assertionsChain.SetBalance(tx, staker2, bigBalance)
@@ -1074,7 +1072,7 @@ func TestAssertionChain_Bisect(t *testing.T) {
 		require.NoError(t, err)
 
 		// TODO: Staker 2.
-		challenge, err := assertionsChain.CreateSuccessionChallenge(tx, ctx)
+		challenge, err := assertionsChain.CreateSuccessionChallenge(ctx, tx, 0)
 		require.NoError(t, err)
 
 		// Add some leaves to the mix...
@@ -1162,7 +1160,7 @@ func TestAssertionChain_Bisect(t *testing.T) {
 		// should be the new presumptive successor.
 		bisectionPrev, _ := bisection.GetPrev(ctx, tx)
 		bisectionPrevCommitment, _ := bisectionPrev.Unwrap().GetCommitment(ctx, tx)
-		require.Equal(t, challenge.(*Challenge).rootVertex.Unwrap().(*ChallengeVertex).Commitment.Merkle, bisectionPrevCommitment.Merkle)
+		require.Equal(t, challenge.(*Challenge).rootVertex.Unwrap().Commitment.Merkle, bisectionPrevCommitment.Merkle)
 		bisectionPrevPresumptiveSuccessor, _ := bisectionPrev.Unwrap().IsPresumptiveSuccessor(ctx, tx)
 		require.Equal(t, true, bisectionPrevPresumptiveSuccessor)
 		return nil
@@ -1183,32 +1181,31 @@ func TestAssertionChain_Merge(t *testing.T) {
 				challengePeriod: time.Minute,
 			},
 		})
-		ps := util.Some(ChallengeVertexInterface(&ChallengeVertex{
-			PsTimer: counter,
+		ps := util.Some(protocol.ChallengeVertex(&ChallengeVertex{
+			PsTimerV: counter,
 			Commitment: util.HistoryCommitment{
 				Height: 1,
 			},
 		}))
 		mergingTo := &ChallengeVertex{
-			Challenge: util.Some(ChallengeInterface(&Challenge{
+			Challenge: util.Some(protocol.Challenge(&Challenge{
 				rootAssertion: rootAssertion,
 			})),
-			PresumptiveSuccessor: ps,
+			PresumptiveSuccessorV: ps,
 		}
 		mergingFrom := &ChallengeVertex{}
 		err := mergingFrom.Merge(
 			ctx,
 			tx,
-			mergingTo,
+			mergingTo.Commitment,
 			[]common.Hash{},
-			common.Address{},
 		)
 		require.ErrorIs(t, err, ErrPastDeadline)
 	})
 	t.Run("invalid bisection point", func(t *testing.T) {
 		mergingTo := &ChallengeVertex{}
 		mergingFrom := &ChallengeVertex{
-			Prev: util.Some(ChallengeVertexInterface(&ChallengeVertex{
+			PrevV: util.Some(protocol.ChallengeVertex(&ChallengeVertex{
 				Commitment: util.HistoryCommitment{
 					Height: 3,
 				},
@@ -1220,9 +1217,8 @@ func TestAssertionChain_Merge(t *testing.T) {
 		err := mergingFrom.Merge(
 			ctx,
 			tx,
-			mergingTo,
+			mergingTo.Commitment,
 			[]common.Hash{},
-			common.Address{},
 		)
 		require.ErrorIs(t, err, util.ErrUnableToBisect)
 	})
@@ -1233,7 +1229,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 			},
 		}
 		mergingFrom := &ChallengeVertex{
-			Prev: util.Some[ChallengeVertexInterface](&ChallengeVertex{
+			PrevV: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
 				Commitment: util.HistoryCommitment{
 					Height: 2,
 				},
@@ -1245,9 +1241,8 @@ func TestAssertionChain_Merge(t *testing.T) {
 		err := mergingFrom.Merge(
 			ctx,
 			tx,
-			mergingTo,
+			mergingTo.Commitment,
 			[]common.Hash{},
-			common.Address{},
 		)
 		require.ErrorIs(t, err, ErrInvalidHeight)
 	})
@@ -1258,7 +1253,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 			},
 		}
 		mergingFrom := &ChallengeVertex{
-			Prev: util.Some[ChallengeVertexInterface](&ChallengeVertex{
+			Prev: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
 				Commitment: util.HistoryCommitment{
 					Height: 2,
 				},
@@ -1270,9 +1265,8 @@ func TestAssertionChain_Merge(t *testing.T) {
 		err := mergingFrom.Merge(
 			ctx,
 			tx,
-			mergingTo,
+			mergingTo.Commitment,
 			[]common.Hash{},
-			common.Address{},
 		)
 		require.ErrorIs(t, err, util.ErrIncorrectProof)
 	})
@@ -1295,7 +1289,7 @@ func TestAssertionChain_Merge(t *testing.T) {
 			Merkle: exp.Root(),
 		}
 		mergingTo := &ChallengeVertex{
-			PsTimer:    counter,
+			PsTimerV:   counter,
 			Commitment: mergingToCommit,
 		}
 		exp = util.ExpansionFromLeaves(stateRoots[:4])
@@ -1304,15 +1298,15 @@ func TestAssertionChain_Merge(t *testing.T) {
 			Merkle: exp.Root(),
 		}
 		mergingFrom := &ChallengeVertex{
-			PsTimer: counter,
-			Challenge: util.Some[ChallengeInterface](&Challenge{
+			PsTimerV: counter,
+			Challenge: util.Some[protocol.Challenge](&Challenge{
 				rootAssertion: util.Some[*Assertion](&Assertion{
 					challengeManager: &AssertionChain{
 						challengesFeed: NewEventFeed[ChallengeEvent](ctx),
 					},
 				}),
 			}),
-			Prev: util.Some[ChallengeVertexInterface](&ChallengeVertex{
+			Prev: util.Some[protocol.ChallengeVertex](&ChallengeVertex{
 				Commitment: util.HistoryCommitment{
 					Height: 2,
 				},
@@ -1322,9 +1316,8 @@ func TestAssertionChain_Merge(t *testing.T) {
 		err := mergingFrom.Merge(
 			ctx,
 			tx,
-			mergingTo,
+			mergingTo.Commitment,
 			proof,
-			common.Address{},
 		)
 		require.NoError(t, err)
 	})
@@ -1361,7 +1354,9 @@ func TestAssertionChain_ChallengePeriodLength(t *testing.T) {
 	cp := 123 * time.Second
 	tx := &ActiveTx{TxStatus: ReadOnlyTxStatus}
 	chain := NewAssertionChain(ctx, util.NewArtificialTimeReference(), cp)
-	require.Equal(t, chain.ChallengePeriodLength(tx), cp)
+	resp, err := chain.ChallengePeriodSeconds(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, resp, cp)
 }
 
 func TestAssertionChain_Inbox(t *testing.T) {
@@ -1378,14 +1373,15 @@ func TestAssertionChain_RetrieveAssertions(t *testing.T) {
 	bigBalance := new(big.Int).Mul(AssertionStake, big.NewInt(1000))
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
 	chain.SetBalance(tx, staker, bigBalance)
-	p := chain.LatestConfirmed(tx)
+	p, err := chain.LatestConfirmed(ctx, tx)
+	require.NoError(t, err)
 	a, err := chain.CreateLeaf(tx, p, util.StateCommitment{Height: 1}, staker)
 	require.NoError(t, err)
-	require.Equal(t, chain.NumAssertions(tx), uint64(2))
-	got, err := chain.AssertionBySequenceNum(tx, 0)
+	require.Equal(t, len(chain.assertions), 2)
+	got, err := chain.AssertionBySequenceNum(ctx, tx, 0)
 	require.NoError(t, err)
 	require.Equal(t, got, p)
-	got, err = chain.AssertionBySequenceNum(tx, 1)
+	got, err = chain.AssertionBySequenceNum(ctx, tx, 1)
 	require.NoError(t, err)
 	require.Equal(t, got, a)
 }
@@ -1395,8 +1391,9 @@ func TestAssertionChain_LeafCreationErrors(t *testing.T) {
 	chain := NewAssertionChainWithChainId(ctx, util.NewArtificialTimeReference(), testChallengePeriod, 0)
 	badChain := NewAssertionChainWithChainId(ctx, util.NewArtificialTimeReference(), testChallengePeriod+1, 1)
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
-	lc := chain.LatestConfirmed(tx)
-	_, err := badChain.CreateLeaf(tx, lc, util.StateCommitment{}, common.BytesToAddress([]byte{}))
+	lc, err := chain.LatestConfirmed(ctx, tx)
+	require.NoError(t, err)
+	_, err = badChain.CreateLeaf(tx, lc, util.StateCommitment{}, common.BytesToAddress([]byte{}))
 	require.ErrorIs(t, err, ErrWrongChain)
 	_, err = chain.CreateLeaf(tx, lc, util.StateCommitment{}, common.BytesToAddress([]byte{}))
 	require.ErrorIs(t, err, ErrInvalidOp)
@@ -1406,7 +1403,9 @@ func TestAssertion_ErrWrongState(t *testing.T) {
 	ctx := context.Background()
 	chain := NewAssertionChain(ctx, util.NewArtificialTimeReference(), testChallengePeriod)
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
-	a := chain.LatestConfirmed(tx)
+	as, err := chain.LatestConfirmed(ctx, tx)
+	require.NoError(t, err)
+	a := as.(*Assertion)
 	require.ErrorIs(t, a.RejectForPrev(tx), ErrWrongState)
 	require.ErrorIs(t, a.RejectForLoss(ctx, tx), ErrWrongState)
 	require.ErrorIs(t, a.ConfirmForWin(ctx, tx), ErrWrongState)

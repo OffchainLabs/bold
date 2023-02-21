@@ -128,7 +128,7 @@ func (tx *ActiveTx) From() common.Address {
 }
 
 // Tx enables a mutating call to the on-chain goimpl.
-func (chain *AssertionChain) Tx(clo func(tx *ActiveTx) error) error {
+func (chain *AssertionChain) Tx(clo func(tx protocol.ActiveTx) error) error {
 	chain.mutex.Lock()
 	defer chain.mutex.Unlock()
 	tx := &ActiveTx{TxStatus: ReadWriteTxStatus}
@@ -138,7 +138,7 @@ func (chain *AssertionChain) Tx(clo func(tx *ActiveTx) error) error {
 }
 
 // Call enables a non-mutating call to the on-chain goimpl.
-func (chain *AssertionChain) Call(clo func(tx *ActiveTx) error) error {
+func (chain *AssertionChain) Call(clo func(tx protocol.ActiveTx) error) error {
 	chain.mutex.RLock()
 	defer chain.mutex.RUnlock()
 	tx := &ActiveTx{TxStatus: ReadOnlyTxStatus}
