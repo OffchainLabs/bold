@@ -6,12 +6,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
-var _ = OnChainProtocol(&AssertionChain{})
+var (
+	_ = OnChainProtocol(&AssertionChain{})
+	_ = protocol.Challenge(&Challenge{})
+)
 
 const testChallengePeriod = 100 * time.Second
 
