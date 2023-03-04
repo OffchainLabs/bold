@@ -22,17 +22,17 @@ var (
 )
 
 type vertexTracker struct {
-	actEveryNSeconds      time.Duration
-	timeRef               util.TimeReference
-	challenge             protocol.Challenge
-	challengePeriodLength time.Duration
-	challengeCreationTime time.Time
-	vertex                protocol.ChallengeVertex
-	chain                 protocol.Protocol
-	stateManager          statemanager.Manager
-	awaitingOneStepFork   bool
-	validatorName         string
-	validatorAddress      common.Address
+	actEveryNSeconds               time.Duration
+	timeRef                        util.TimeReference
+	challenge                      protocol.Challenge
+	challengePeriodLength          time.Duration
+	challengeCreationTime          time.Time
+	vertex                         protocol.ChallengeVertex
+	chain                          protocol.Protocol
+	stateManager                   statemanager.Manager
+	awaitingSubchallengeResolution bool
+	validatorName                  string
+	validatorAddress               common.Address
 }
 
 func newVertexTracker(
@@ -95,9 +95,11 @@ func (v *vertexTracker) track(ctx context.Context) {
 	}
 }
 
-// TODO: Add a condition that determines when the vertex is at a one-step-fork is resolved (can check some data from parent)
 func (v *vertexTracker) actOnBlockChallenge(ctx context.Context) error {
-	if v.awaitingOneStepFork {
+	if v.awaitingSubchallengeResolution {
+		// TODO: Check if the subchallenges are all resolved via some mechanism.
+		// Perhaps there is no need to do this if the lowest-level subchallenge can
+		// perform a confirmation action on the assertion chain itself.
 		return nil
 	}
 	// Refresh the vertex by reading it again from the protocol as some of its fields may have changed.
@@ -165,12 +167,21 @@ func (v *vertexTracker) actOnBlockChallenge(ctx context.Context) error {
 				return fetchErr
 			}
 			if atOneStepFork {
-				log.WithField("name", v.validatorName).Infof(
-					"Reached one-step-fork at %d %#x, now tracking subchallenge resolution",
-					prevCommitment.Height, prevCommitment.Merkle,
-				)
-				v.awaitingOneStepFork = true
-				// TODO: Add subchallenge resolution.
+				if v.challenge.GetType() == protocol.SmallStepChallenge {
+					log.WithField("name", v.validatorName).Infof(
+						"Reached one-step-fork at %d %#x, waiting for one-step-proof resolution",
+						prevCommitment.Height, prevCommitment.Merkle,
+					)
+				} else {
+					log.WithField("name", v.validatorName).Infof(
+						"Reached one-step-fork at %d %#x, creating subchallenge",
+						prevCommitment.Height, prevCommitment.Merkle,
+					)
+					if err := v.submitSubChallenge(ctx); err != nil {
+						return err
+					}
+				}
+				v.awaitingSubchallengeResolution = true
 				return nil
 			}
 		}
@@ -183,7 +194,7 @@ func (v *vertexTracker) actOnBlockChallenge(ctx context.Context) error {
 		return err
 	}
 
-	if v.awaitingOneStepFork {
+	if v.awaitingSubchallengeResolution {
 		return nil
 	}
 

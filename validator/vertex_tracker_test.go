@@ -25,9 +25,9 @@ func init() {
 
 func Test_actOnBlockChallenge(t *testing.T) {
 	ctx := context.Background()
-	t.Run("does nothing if awaiting one step fork", func(t *testing.T) {
+	t.Run("does nothing if awaiting subchallenge resolution", func(t *testing.T) {
 		tkr := &vertexTracker{
-			awaitingOneStepFork: true,
+			awaitingSubchallengeResolution: true,
 		}
 		err := tkr.actOnBlockChallenge(ctx)
 		require.NoError(t, err)
@@ -142,7 +142,9 @@ func Test_actOnBlockChallenge(t *testing.T) {
 			MockPrev:    util.Some(protocol.ChallengeVertex(prevV)),
 			MockStatus:  protocol.AssertionPending,
 		}
-		challenge := &mocks.MockChallenge{}
+		challenge := &mocks.MockChallenge{
+			MockType: protocol.SmallStepChallenge,
+		}
 		p.On("CurrentChallengeManager", ctx, tx).Return(
 			manager,
 			nil,
@@ -154,6 +156,7 @@ func Test_actOnBlockChallenge(t *testing.T) {
 		challenge.On("Completed", ctx, tx).Return(
 			false, nil,
 		)
+		challenge.On("GetType").Return(protocol.SmallStepChallenge)
 		vertex.On("HasConfirmedSibling", ctx, tx).Return(
 			false, nil,
 		)
@@ -166,6 +169,7 @@ func Test_actOnBlockChallenge(t *testing.T) {
 		err := tkr.actOnBlockChallenge(ctx)
 		require.NoError(t, err)
 		AssertLogsContain(t, hook, "Reached one-step-fork at 0")
+		AssertLogsContain(t, hook, "waiting for one-step-proof resolution")
 	})
 	t.Run("vertex prev is nil and returns", func(t *testing.T) {
 		tx := &mocks.MockActiveTx{ReadWriteTx: false}
