@@ -178,8 +178,9 @@ func (v *vertexTracker) actOnBlockChallenge(ctx context.Context) error {
 						prevCommitment.Height, prevCommitment.Merkle,
 					)
 					if err := v.submitSubChallenge(ctx); err != nil {
-						return err
+						return errors.Wrap(err, "could not create subchallenge")
 					}
+					log.WithField("name", v.validatorName).Info("Submitted subchallenge")
 				}
 				v.awaitingSubchallengeResolution = true
 				return nil

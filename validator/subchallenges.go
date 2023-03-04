@@ -2,10 +2,12 @@ package validator
 
 import (
 	"context"
-	"errors"
 
+	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/pkg/errors"
 )
 
 func (v *vertexTracker) submitSubChallenge(ctx context.Context) error {
@@ -16,22 +18,56 @@ func (v *vertexTracker) submitSubChallenge(ctx context.Context) error {
 	var subChalLeaf protocol.ChallengeVertex
 	var subChal protocol.Challenge
 	if err := v.chain.Tx(func(tx protocol.ActiveTx) error {
-		subChalCreated, err := v.vertex.CreateSubChallenge(ctx, tx)
-		if err != nil {
-			return err
-		}
 		// TODO(RJ): What happens if subchal creation works, but the rest of this function fails?
 		// in this case, we need to make sure we keep retrying, otherwise
 		// we do not have another chance to do so.
-		prev, err := v.vertex.Prev(ctx, tx)
+		prevVertex, err := v.vertex.Prev(ctx, tx)
 		if err != nil {
 			return err
 		}
-		if prev.IsNone() {
+		if prevVertex.IsNone() {
 			return errors.New("no previous vertex found")
 		}
+		prev := prevVertex.Unwrap()
 
-		fromHeight := prev.Unwrap().HistoryCommitment().Height
+		manager, err := v.chain.CurrentChallengeManager(ctx, tx)
+		if err != nil {
+			return err
+		}
+
+		var subChalToCreate protocol.ChallengeType
+		switch v.challenge.GetType() {
+		case protocol.BlockChallenge:
+			subChalToCreate = protocol.BigStepChallenge
+		case protocol.BigStepChallenge:
+			subChalToCreate = protocol.SmallStepChallenge
+		default:
+			errors.New("unsupported challenge type to create")
+		}
+
+		var subChalCreated protocol.Challenge
+		subChalCreated, err = prev.CreateSubChallenge(ctx, tx)
+		if err != nil {
+			switch {
+			case errors.Is(err, solimpl.ErrAlreadyExists):
+				subChalHash, calcErr := manager.CalculateChallengeHash(ctx, tx, prev.Id(), subChalToCreate)
+				if calcErr != nil {
+					return calcErr
+				}
+				fetchedSubChal, fetchErr := manager.GetChallenge(ctx, tx, subChalHash)
+				if fetchErr != nil {
+					return fetchErr
+				}
+				if fetchedSubChal.IsNone() {
+					return fmt.Errorf("no subchallenge found on-chain for id %#x", subChalHash)
+				}
+				subChalCreated = fetchedSubChal.Unwrap()
+			default:
+				return errors.Wrap(err, "subchallenge creation failed")
+			}
+		}
+
+		fromHeight := prev.HistoryCommitment().Height
 		toHeight := v.vertex.HistoryCommitment().Height
 
 		// Next we ask our state manager to produce an initial leaf commitment
