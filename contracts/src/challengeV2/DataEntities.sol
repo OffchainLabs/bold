@@ -55,9 +55,9 @@ struct AddLeafArgs {
     uint256 height;
     bytes32 historyRoot;
     bytes32 firstState;
-    bytes firstStatehistoryProof;
+    bytes32[] firstStatehistoryProof;
     bytes32 lastState;
-    bytes lastStatehistoryProof;
+    bytes32[] lastStatehistoryProof;
 }
 
 struct AddLeafLibArgs {
@@ -87,7 +87,12 @@ interface IChallengeManagerExternalView {
 }
 
 interface IChallengeManagerCore {
-    function initialize(IAssertionChain _assertionChain, uint256 _miniStakeValue, uint256 _challengePeriod, IOneStepProofEntry _oneStepProofEntry) external;
+    function initialize(
+        IAssertionChain _assertionChain,
+        uint256 _miniStakeValue,
+        uint256 _challengePeriod,
+        IOneStepProofEntry _oneStepProofEntry
+    ) external;
 
     function confirmForPsTimer(bytes32 vId) external;
 
