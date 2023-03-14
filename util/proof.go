@@ -29,14 +29,20 @@ func (me MerkleExpansion) Clone() MerkleExpansion {
 func (me MerkleExpansion) Root() common.Hash {
 	accum := common.Hash{}
 	empty := true
-	for _, h := range me {
+	for i, h := range me {
 		if empty {
 			if h != (common.Hash{}) {
 				empty = false
 				accum = h
+
+				if i != (len(me) - 1) {
+					accum = crypto.Keccak256Hash(accum.Bytes(), (common.Hash{}).Bytes())
+				}
 			}
+		} else if h != (common.Hash{}) {
+			accum = crypto.Keccak256Hash(h.Bytes(), accum.Bytes())
 		} else {
-			accum = crypto.Keccak256Hash(accum.Bytes(), h.Bytes())
+			accum = crypto.Keccak256Hash(accum.Bytes(), (common.Hash{}).Bytes())
 		}
 	}
 	return accum
@@ -134,7 +140,7 @@ func VerifyPrefixProof(pre, post HistoryCommitment, proof []common.Hash) error {
 	expHeight := pre.Height
 	expansion, numRead := MerkleExpansionFromCompact(proof, expHeight)
 	proof = proof[numRead:]
-	height := post.Height + 1
+	height := post.Height
 	for expHeight < height {
 		if len(proof) == 0 {
 			return ErrIncorrectProof

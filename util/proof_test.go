@@ -68,7 +68,6 @@ func compUncompTest(t *testing.T, me MerkleExpansion) {
 }
 
 func TestMerkleProof(t *testing.T) {
-	t.Skip("Prefix proofs tested elsewhere, need to investigate off by one")
 	for _, c := range []struct {
 		lo uint64
 		hi uint64
@@ -102,7 +101,6 @@ func TestMerkleProof(t *testing.T) {
 }
 
 func TestMerkleProofBackend(t *testing.T) {
-	t.Skip("Prefix proofs tested elsewhere, need to investigate off by one")
 	for _, c := range []struct {
 		lo uint64
 		hi uint64
