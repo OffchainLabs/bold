@@ -37,7 +37,10 @@ func (v *vertexTracker) bisect(
 	var isPresumptive bool
 
 	if err := v.cfg.chain.Tx(func(tx protocol.ActiveTx) error {
-		commitment := validatorChallengeVertex.HistoryCommitment()
+		commitment, err := validatorChallengeVertex.HistoryCommitment(ctx, tx)
+		if err != nil {
+			return err
+		}
 		toHeight := commitment.Height
 		prev, err := validatorChallengeVertex.Prev(ctx, tx)
 		if err != nil {

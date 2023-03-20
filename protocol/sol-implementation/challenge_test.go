@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,9 +27,6 @@ func TestChallenge_BlockChallenge_AddLeaf(t *testing.T) {
 			&Assertion{
 				chain: chain1,
 				id:    20,
-				inner: rollupgen.AssertionNode{
-					Height: big.NewInt(1),
-				},
 			},
 			util.HistoryCommitment{
 				Height: height1,
@@ -47,9 +43,6 @@ func TestChallenge_BlockChallenge_AddLeaf(t *testing.T) {
 			&Assertion{
 				chain: chain1,
 				id:    1,
-				inner: rollupgen.AssertionNode{
-					Height: big.NewInt(0),
-				},
 			},
 			util.HistoryCommitment{
 				Height: 0,
@@ -71,35 +64,49 @@ func TestChallenge_BlockChallenge_AddLeaf(t *testing.T) {
 		t.Skip()
 	})
 	t.Run("OK", func(t *testing.T) {
-		_, err := challenge.AddBlockChallengeLeaf(
+		assertionNode, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		history := util.HistoryCommitment{
+			Height:        height1,
+			Merkle:        common.BytesToHash([]byte("nyan")),
+			LastLeaf:      assertionNode.StateHash,
+			LastLeafProof: []common.Hash{assertionNode.StateHash},
+		}
+		_, err = challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
 			a1,
-			util.HistoryCommitment{
-				Height:        height1,
-				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
-			},
+			history,
 		)
 		require.NoError(t, err)
 
 		v, err := challenge.RootVertex(ctx, tx)
 		require.NoError(t, err)
-		want, err := challenge.manager.GetVertex(ctx, tx, v.Id())
+		manager, err := a1.chain.CurrentChallengeManager(ctx, tx)
+		require.NoError(t, err)
+		caller, err := manager.GetCaller(ctx, tx)
+		require.NoError(t, err)
+		vertexId, err := caller.CalculateChallengeVertexId(
+			challenge.assertionChain.callOpts,
+			challenge.id,
+			history.Merkle,
+			big.NewInt(int64(history.Height)),
+		)
+		want, err := manager.GetVertex(ctx, tx, vertexId)
 		require.NoError(t, err)
 		require.Equal(t, want.Unwrap(), v)
 	})
 	t.Run("already exists", func(t *testing.T) {
-		_, err := challenge.AddBlockChallengeLeaf(
+		assertionNode, err := a1.fetchAssertionNode()
+		_, err = challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
 			a1,
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      assertionNode.StateHash,
+				LastLeafProof: []common.Hash{assertionNode.StateHash},
 			},
 		)
 		require.ErrorContains(t, err, "already exists")
@@ -173,7 +180,12 @@ func setupTopLevelFork(
 	)
 	require.NoError(t, err)
 
-	challenge, err := chain2.CreateSuccessionChallenge(ctx, tx, 0)
+	manager, err := chain2.CurrentChallengeManager(ctx, tx)
 	require.NoError(t, err)
-	return a1.(*Assertion), a2.(*Assertion), challenge.(*Challenge), chain1, chain2
+	assertionId, err := chain2.rollup.GetAssertionId(chain2.callOpts, 0)
+	require.NoError(t, err)
+	challengeId, err := manager.CalculateChallengeHash(ctx, tx, assertionId, protocol.BlockChallenge)
+	require.NoError(t, err)
+
+	return a1.(*Assertion), a2.(*Assertion), &Challenge{assertionChain: chain2, id: challengeId}, chain1, chain2
 }

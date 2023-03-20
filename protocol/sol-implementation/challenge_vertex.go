@@ -2,13 +2,13 @@ package solimpl
 
 import (
 	"context"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"math/big"
 	"strings"
 
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -23,37 +23,60 @@ func (v *ChallengeVertex) SequenceNum() protocol.VertexSequenceNumber {
 	return 0
 }
 
-func (v *ChallengeVertex) Prev(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.ChallengeVertex], error) {
-	// Refreshes the vertex.
-	vertex, err := v.manager.GetVertex(ctx, tx, v.id)
+func (v *ChallengeVertex) Prev(ctx context.Context, tx protocol.ActiveTx) (util.Option[*challengeV2gen.ChallengeVertex], error) {
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
 	if err != nil {
-		return util.None[protocol.ChallengeVertex](), err
+		return util.None[*challengeV2gen.ChallengeVertex](), err
+	}
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return util.None[*challengeV2gen.ChallengeVertex](), err
+	}
+	return manager.GetVertex(ctx, tx, vertex.PredecessorId)
+}
+
+// Fetches the vertex from chain.
+func (v *ChallengeVertex) fetchChallengeVertex(ctx context.Context, tx protocol.ActiveTx) (*challengeV2gen.ChallengeVertex, error) {
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	vertex, err := manager.GetVertex(ctx, tx, v.id)
+	if err != nil {
+		return nil, err
 	}
 	if vertex.IsNone() {
-		return util.None[protocol.ChallengeVertex](), ErrNotFound
+		return nil, ErrNotFound
 	}
-	innerV, ok := vertex.Unwrap().(*ChallengeVertex)
-	if !ok {
-		return util.None[protocol.ChallengeVertex](), ErrNotFound
-	}
-	v.inner = innerV.inner
-	return v.manager.GetVertex(ctx, tx, v.inner.PredecessorId)
+	return vertex.Unwrap(), nil
 }
 
-func (v *ChallengeVertex) Status() protocol.AssertionState {
+func (v *ChallengeVertex) Status(ctx context.Context, tx protocol.ActiveTx) (protocol.AssertionState, error) {
 	// TODO: Should be vertex status.
-	return protocol.AssertionState(v.inner.Status)
-}
-
-func (v *ChallengeVertex) HistoryCommitment() util.HistoryCommitment {
-	return util.HistoryCommitment{
-		Height: v.inner.Height.Uint64(),
-		Merkle: v.inner.HistoryRoot,
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return 0, err
 	}
+	return protocol.AssertionState(vertex.Status), nil
 }
 
-func (v *ChallengeVertex) MiniStaker() common.Address {
-	return v.inner.Staker
+func (v *ChallengeVertex) HistoryCommitment(ctx context.Context, tx protocol.ActiveTx) (util.HistoryCommitment, error) {
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return util.HistoryCommitment{}, err
+	}
+	return util.HistoryCommitment{
+		Height: vertex.Height.Uint64(),
+		Merkle: vertex.HistoryRoot,
+	}, nil
+}
+
+func (v *ChallengeVertex) MiniStaker(ctx context.Context, tx protocol.ActiveTx) (common.Address, error) {
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return vertex.Staker, nil
 }
 
 func (v *ChallengeVertex) GetSubChallenge(ctx context.Context, tx protocol.ActiveTx) (util.Option[protocol.Challenge], error) {
@@ -92,19 +115,43 @@ func (v *ChallengeVertex) ConfirmForSubChallengeWin(ctx context.Context, tx prot
 
 // HasConfirmedSibling checks if the vertex has a confirmed sibling in the protocol.
 func (v *ChallengeVertex) HasConfirmedSibling(ctx context.Context, tx protocol.ActiveTx) (bool, error) {
-	return v.manager.caller.HasConfirmedSibling(v.manager.assertionChain.callOpts, v.id)
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	caller, err := manager.GetCaller(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	return caller.HasConfirmedSibling(v.assertionChain.callOpts, v.id)
 }
 
 // IsPresumptiveSuccessor checks if a vertex is the presumptive successor
 // within its challenge.
 func (v *ChallengeVertex) IsPresumptiveSuccessor(ctx context.Context, tx protocol.ActiveTx) (bool, error) {
-	return v.manager.caller.IsPresumptiveSuccessor(v.manager.assertionChain.callOpts, v.id)
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	caller, err := manager.GetCaller(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	return caller.IsPresumptiveSuccessor(v.assertionChain.callOpts, v.id)
 }
 
 // ChildrenAreAtOneStepFork checks if child vertices are at a one-step-fork in the challenge
 // it is contained in.
 func (v *ChallengeVertex) ChildrenAreAtOneStepFork(ctx context.Context, tx protocol.ActiveTx) (bool, error) {
-	atFork, err := v.manager.caller.ChildrenAreAtOneStepFork(v.manager.assertionChain.callOpts, v.id)
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	caller, err := manager.GetCaller(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	atFork, err := caller.ChildrenAreAtOneStepFork(v.assertionChain.callOpts, v.id)
 	if err != nil {
 		errS := err.Error()
 		switch {
@@ -132,9 +179,17 @@ func (v *ChallengeVertex) Merge(
 	for _, h := range proof {
 		flatProof = append(flatProof, h[:]...)
 	}
-	_, err := transact(ctx, v.manager.assertionChain.backend, v.manager.assertionChain.headerReader, func() (*types.Transaction, error) {
-		return v.manager.writer.Merge(
-			v.manager.assertionChain.txOpts,
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	writer, err := manager.GetWriter(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = transact(ctx, v.assertionChain.backend, v.assertionChain.headerReader, func() (*types.Transaction, error) {
+		return writer.Merge(
+			v.assertionChain.txOpts,
 			v.id,
 			mergingToHistory.Merkle,
 			flatProof,
@@ -143,10 +198,16 @@ func (v *ChallengeVertex) Merge(
 	if err != nil {
 		return nil, err
 	}
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	return getVertexFromComponents(
-		v.manager,
-		v.manager.assertionChain.callOpts,
-		v.inner.ChallengeId,
+		ctx,
+		tx,
+		manager,
+		v.assertionChain,
+		vertex.ChallengeId,
 		mergingToHistory,
 	)
 }
@@ -163,9 +224,17 @@ func (v *ChallengeVertex) Bisect(
 	for _, h := range proof {
 		flatProof = append(flatProof, h[:]...)
 	}
-	_, err := transact(ctx, v.manager.assertionChain.backend, v.manager.assertionChain.headerReader, func() (*types.Transaction, error) {
-		return v.manager.writer.Bisect(
-			v.manager.assertionChain.txOpts,
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	writer, err := manager.GetWriter(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = transact(ctx, v.assertionChain.backend, v.assertionChain.headerReader, func() (*types.Transaction, error) {
+		return writer.Bisect(
+			v.assertionChain.txOpts,
 			v.id,
 			history.Merkle,
 			flatProof,
@@ -180,22 +249,34 @@ func (v *ChallengeVertex) Bisect(
 			return nil, err
 		}
 	}
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	return getVertexFromComponents(
-		v.manager,
-		v.manager.assertionChain.callOpts,
-		v.inner.ChallengeId,
+		ctx,
+		tx,
+		manager,
+		v.assertionChain,
+		vertex.ChallengeId,
 		history,
 	)
 }
 
 func getVertexFromComponents(
-	manager *ChallengeManager,
-	opts *bind.CallOpts,
+	ctx context.Context,
+	tx protocol.ActiveTx,
+	manager protocol.ChallengeManager,
+	assertionChain *AssertionChain,
 	challengeId [32]byte,
 	history util.HistoryCommitment,
 ) (protocol.ChallengeVertex, error) {
-	vertexId, err := manager.caller.CalculateChallengeVertexId(
-		opts,
+	caller, err := manager.GetCaller(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	vertexId, err := caller.CalculateChallengeVertexId(
+		assertionChain.callOpts,
 		challengeId,
 		history.Merkle,
 		big.NewInt(int64(history.Height)),
@@ -203,24 +284,27 @@ func getVertexFromComponents(
 	if err != nil {
 		return nil, err
 	}
-	vertex, err := manager.caller.GetVertex(
-		opts,
-		vertexId,
-	)
 	if err != nil {
 		return nil, err
 	}
 	return &ChallengeVertex{
-		id:      vertexId,
-		inner:   vertex,
-		manager: manager,
+		id:             vertexId,
+		assertionChain: assertionChain,
 	}, nil
 }
 
 func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context, tx protocol.ActiveTx) error {
-	_, err := transact(ctx, v.manager.assertionChain.backend, v.manager.assertionChain.headerReader, func() (*types.Transaction, error) {
-		return v.manager.writer.ConfirmForPsTimer(
-			v.manager.assertionChain.txOpts,
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return err
+	}
+	writer, err := manager.GetWriter(ctx, tx)
+	if err != nil {
+		return err
+	}
+	_, err = transact(ctx, v.assertionChain.backend, v.assertionChain.headerReader, func() (*types.Transaction, error) {
+		return writer.ConfirmForPsTimer(
+			v.assertionChain.txOpts,
 			v.id,
 		)
 	})
@@ -236,7 +320,15 @@ func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context, tx protocol.Act
 }
 
 func (v *ChallengeVertex) CreateSubChallenge(ctx context.Context, tx protocol.ActiveTx) (protocol.Challenge, error) {
-	currentChallenge, err := v.manager.GetChallenge(ctx, tx, v.inner.ChallengeId)
+	manager, err := v.assertionChain.CurrentChallengeManager(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	vertex, err := v.fetchChallengeVertex(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	currentChallenge, err := manager.GetChallenge(ctx, tx, vertex.ChallengeId)
 	if err != nil {
 		return nil, err
 	}
@@ -245,34 +337,42 @@ func (v *ChallengeVertex) CreateSubChallenge(ctx context.Context, tx protocol.Ac
 	}
 	challenge := currentChallenge.Unwrap()
 	var subChallengeType protocol.ChallengeType
-	switch challenge.GetType() {
+	switch protocol.ChallengeType(challenge.ChallengeType) {
 	case protocol.BlockChallenge:
 		subChallengeType = protocol.BigStepChallenge
 	case protocol.BigStepChallenge:
 		subChallengeType = protocol.SmallStepChallenge
 	default:
-		return nil, fmt.Errorf("cannot make subchallenge for challenge type %d", challenge.GetType())
+		return nil, fmt.Errorf("cannot make subchallenge for challenge type %d", challenge.ChallengeType)
 	}
 
-	if _, err = transact(ctx, v.manager.assertionChain.backend, v.manager.assertionChain.headerReader, func() (*types.Transaction, error) {
-		return v.manager.writer.CreateSubChallenge(
-			v.manager.assertionChain.txOpts,
+	writer, err := manager.GetWriter(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = transact(ctx, v.assertionChain.backend, v.assertionChain.headerReader, func() (*types.Transaction, error) {
+		return writer.CreateSubChallenge(
+			v.assertionChain.txOpts,
 			v.id,
 		)
 	}); err != nil {
 		return nil, err
 	}
 
-	challengeId, err := v.manager.CalculateChallengeHash(ctx, tx, v.id, subChallengeType)
+	challengeId, err := manager.CalculateChallengeHash(ctx, tx, v.id, subChallengeType)
 	if err != nil {
 		return nil, err
 	}
-	chal, err := v.manager.GetChallenge(ctx, tx, challengeId)
+	chal, err := manager.GetChallenge(ctx, tx, challengeId)
 	if err != nil {
 		return nil, err
 	}
 	if chal.IsNone() {
 		return nil, errors.New("no challenge found after subchallenge creation")
 	}
-	return chal.Unwrap(), nil
+	return &Challenge{
+		id:             challengeId,
+		assertionChain: v.assertionChain,
+	}, nil
 }

@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
@@ -96,7 +97,7 @@ type AssertionChain interface {
 	) (Assertion, error)
 	CreateSuccessionChallenge(
 		ctx context.Context, tx ActiveTx, seqNum AssertionSequenceNumber,
-	) (Challenge, error)
+	) (*challengeV2gen.Challenge, error)
 	Confirm(
 		ctx context.Context, tx ActiveTx, blockHash, sendRoot common.Hash,
 	) error
@@ -128,22 +129,30 @@ type ChallengeManager interface {
 		ctx context.Context,
 		tx ActiveTx,
 		vertexId VertexHash,
-	) (util.Option[ChallengeVertex], error)
+	) (util.Option[*challengeV2gen.ChallengeVertex], error)
 	GetChallenge(
 		ctx context.Context,
 		tx ActiveTx,
 		challengeId ChallengeHash,
-	) (util.Option[Challenge], error)
+	) (util.Option[*challengeV2gen.Challenge], error)
+	GetCaller(
+		ctx context.Context,
+		tx ActiveTx,
+	) (*challengeV2gen.ChallengeManagerImplCaller, error)
+	GetWriter(
+		ctx context.Context,
+		tx ActiveTx,
+	) (*challengeV2gen.ChallengeManagerImplTransactor, error)
 }
 
 // Assertion represents a top-level claim in the protocol about the
 // chain state created by a validator that stakes on their claim.
 // Assertions can be challenged.
 type Assertion interface {
-	Height() uint64
+	Height() (uint64, error)
 	SeqNum() AssertionSequenceNumber
-	PrevSeqNum() AssertionSequenceNumber
-	StateHash() common.Hash
+	PrevSeqNum() (AssertionSequenceNumber, error)
+	StateHash() (common.Hash, error)
 }
 
 // ChallengeType represents the enum with the same name
@@ -173,15 +182,15 @@ const (
 type Challenge interface {
 	// Getters.
 	Id() ChallengeHash
-	GetType() ChallengeType
-	WinningClaim() util.Option[AssertionHash]
+	GetType(ctx context.Context, tx ActiveTx) (util.Option[ChallengeType], error)
+	WinningClaim(ctx context.Context, tx ActiveTx) (util.Option[AssertionHash], error)
 	RootAssertion(ctx context.Context, tx ActiveTx) (Assertion, error)
 	RootVertex(ctx context.Context, tx ActiveTx) (ChallengeVertex, error)
 	GetCreationTime(ctx context.Context, tx ActiveTx) (time.Time, error)
 	ParentStateCommitment(ctx context.Context, tx ActiveTx) (util.StateCommitment, error)
 	WinnerVertex(ctx context.Context, tx ActiveTx) (util.Option[ChallengeVertex], error)
 	Completed(ctx context.Context, tx ActiveTx) (bool, error)
-	Challenger() common.Address
+	Challenger(ctx context.Context, tx ActiveTx) (common.Address, error)
 
 	// Mutating calls.
 	AddBlockChallengeLeaf(
@@ -205,10 +214,10 @@ type ChallengeVertex interface {
 	// Getters.
 	Id() [32]byte
 	SequenceNum() VertexSequenceNumber
-	Status() AssertionState
-	HistoryCommitment() util.HistoryCommitment
-	MiniStaker() common.Address
-	Prev(ctx context.Context, tx ActiveTx) (util.Option[ChallengeVertex], error)
+	Status(ctx context.Context, tx ActiveTx) (AssertionState, error)
+	HistoryCommitment(ctx context.Context, tx ActiveTx) (util.HistoryCommitment, error)
+	MiniStaker(ctx context.Context, tx ActiveTx) (common.Address, error)
+	Prev(ctx context.Context, tx ActiveTx) (util.Option[*challengeV2gen.ChallengeVertex], error)
 	GetSubChallenge(ctx context.Context, tx ActiveTx) (util.Option[Challenge], error)
 	HasConfirmedSibling(
 		ctx context.Context,

@@ -79,7 +79,7 @@ func (v *Validator) onChallengeStarted(
 	if err != nil {
 		return err
 	}
-	go tracker.spawn(ctx)
+	go tracker.spawn(ctx, tx)
 	return nil
 }
 

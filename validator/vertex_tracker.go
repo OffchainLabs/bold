@@ -55,8 +55,11 @@ func newVertexTracker(
 	}, nil
 }
 
-func (v *vertexTracker) spawn(ctx context.Context) {
-	commitment := v.vertex.HistoryCommitment()
+func (v *vertexTracker) spawn(ctx context.Context, tx protocol.ActiveTx) {
+	commitment, err := v.vertex.HistoryCommitment(ctx, tx)
+	if err != nil {
+		return
+	}
 	log.WithFields(logrus.Fields{
 		"height":        commitment.Height,
 		"merkle":        util.Trunc(commitment.Merkle[:]),

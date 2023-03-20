@@ -98,16 +98,12 @@ func (cm *ChallengeManager) GetVertex(
 	ctx context.Context,
 	tx protocol.ActiveTx,
 	vertexId protocol.VertexHash,
-) (util.Option[protocol.ChallengeVertex], error) {
+) (util.Option[*challengeV2gen.ChallengeVertex], error) {
 	vertex, err := cm.caller.GetVertex(cm.assertionChain.callOpts, vertexId)
 	if err != nil {
-		return util.None[protocol.ChallengeVertex](), err
+		return util.None[*challengeV2gen.ChallengeVertex](), err
 	}
-	return util.Some[protocol.ChallengeVertex](&ChallengeVertex{
-		manager: cm,
-		id:      vertexId,
-		inner:   vertex,
-	}), nil
+	return util.Some[*challengeV2gen.ChallengeVertex](&vertex), nil
 }
 
 // GetChallenge returns the challenge for the given challengeId.
@@ -115,16 +111,26 @@ func (cm *ChallengeManager) GetChallenge(
 	ctx context.Context,
 	tx protocol.ActiveTx,
 	challengeId protocol.ChallengeHash,
-) (util.Option[protocol.Challenge], error) {
+) (util.Option[*challengeV2gen.Challenge], error) {
 	challenge, err := cm.caller.GetChallenge(cm.assertionChain.callOpts, challengeId)
 	if err != nil {
-		return util.None[protocol.Challenge](), err
+		return util.None[*challengeV2gen.Challenge](), err
 	}
-	return util.Some[protocol.Challenge](&Challenge{
-		manager: cm,
-		id:      challengeId,
-		inner:   challenge,
-	}), nil
+	return util.Some[*challengeV2gen.Challenge](&challenge), nil
+}
+
+func (cm *ChallengeManager) GetCaller(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+) (*challengeV2gen.ChallengeManagerImplCaller, error) {
+	return cm.caller, nil
+}
+
+func (cm *ChallengeManager) GetWriter(
+	ctx context.Context,
+	tx protocol.ActiveTx,
+) (*challengeV2gen.ChallengeManagerImplTransactor, error) {
+	return cm.writer, nil
 }
 
 //nolint:unused

@@ -24,6 +24,12 @@ func TestChallengeVertex_ConfirmPsTimer(t *testing.T) {
 	require.NoError(t, err)
 	genesis := genesisAssertion.(*Assertion)
 
+	genesisNode, err := genesis.fetchAssertionNode()
+	require.NoError(t, err)
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
 	// We add two leaves to the challenge.
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
@@ -32,9 +38,9 @@ func TestChallengeVertex_ConfirmPsTimer(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			FirstLeaf:     genesis.inner.StateHash,
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			FirstLeaf:     genesisNode.StateHash,
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -45,9 +51,9 @@ func TestChallengeVertex_ConfirmPsTimer(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			FirstLeaf:     genesis.inner.StateHash,
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			FirstLeaf:     genesisNode.StateHash,
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -76,6 +82,13 @@ func TestChallengeVertex_HasConfirmedSibling(t *testing.T) {
 	require.NoError(t, err)
 	genesis := genesisAssertion.(*Assertion)
 
+	genesisNode, err := genesis.fetchAssertionNode()
+	require.NoError(t, err)
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
+
 	// We add two leaves to the challenge.
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
@@ -84,9 +97,9 @@ func TestChallengeVertex_HasConfirmedSibling(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			FirstLeaf:     genesis.inner.StateHash,
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			FirstLeaf:     genesisNode.StateHash,
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -97,9 +110,9 @@ func TestChallengeVertex_HasConfirmedSibling(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			FirstLeaf:     genesis.inner.StateHash,
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			FirstLeaf:     genesisNode.StateHash,
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -127,6 +140,13 @@ func TestChallengeVertex_IsPresumptiveSuccessor(t *testing.T) {
 	require.NoError(t, err)
 	genesis := genesisAssertion.(*Assertion)
 
+	genesisNode, err := genesis.fetchAssertionNode()
+	require.NoError(t, err)
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
+
 	// We add two leaves to the challenge.
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
@@ -135,9 +155,9 @@ func TestChallengeVertex_IsPresumptiveSuccessor(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			FirstLeaf:     genesis.inner.StateHash,
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			FirstLeaf:     genesisNode.StateHash,
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -148,9 +168,9 @@ func TestChallengeVertex_IsPresumptiveSuccessor(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			FirstLeaf:     genesis.inner.StateHash,
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			FirstLeaf:     genesisNode.StateHash,
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -172,14 +192,17 @@ func TestChallengeVertex_IsPresumptiveSuccessor(t *testing.T) {
 			util.HistoryCommitment{
 				Height:    4,
 				Merkle:    wantCommit,
-				FirstLeaf: genesis.inner.StateHash,
+				FirstLeaf: genesisNode.StateHash,
 			},
 			make([]common.Hash, 0),
 		)
 		require.NoError(t, err)
 		bisectedTo := bisectedToV.(*ChallengeVertex)
 
-		require.Equal(t, uint64(4), bisectedTo.inner.Height.Uint64())
+		bisectedToVertex, err := bisectedTo.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+
+		require.Equal(t, uint64(4), bisectedToVertex.Height.Uint64())
 
 		// V1 should no longer be presumptive.
 		isPs, err := v1.IsPresumptiveSuccessor(ctx, tx)
@@ -205,6 +228,13 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 		require.NoError(t, err)
 		genesis := genesisAssertion.(*Assertion)
 
+		genesisNode, err := genesis.fetchAssertionNode()
+		require.NoError(t, err)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
+
 		// We add two leaves to the challenge.
 		_, err = challenge.AddBlockChallengeLeaf(
 			ctx,
@@ -213,9 +243,9 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				FirstLeaf:     genesis.inner.StateHash,
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				FirstLeaf:     genesisNode.StateHash,
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -226,19 +256,17 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				FirstLeaf:     genesis.inner.StateHash,
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				FirstLeaf:     genesisNode.StateHash,
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
 
-		manager, err := chain.CurrentChallengeManager(ctx, tx)
+		innerChallenge, err := challenge.fetchChallenge(ctx, tx)
 		require.NoError(t, err)
-		rootV, err := manager.GetVertex(ctx, tx, challenge.inner.RootId)
-		require.NoError(t, err)
-
-		atOSF, err := rootV.Unwrap().ChildrenAreAtOneStepFork(ctx, tx)
+		rootV := &ChallengeVertex{id: innerChallenge.RootId, assertionChain: chain}
+		atOSF, err := rootV.ChildrenAreAtOneStepFork(ctx, tx)
 		require.NoError(t, err)
 		require.Equal(t, true, atOSF)
 	})
@@ -251,6 +279,13 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 		require.NoError(t, err)
 		genesis := genesisAssertion.(*Assertion)
 
+		genesisNode, err := genesis.fetchAssertionNode()
+		require.NoError(t, err)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
+
 		// We add two leaves to the challenge.
 		_, err = challenge.AddBlockChallengeLeaf(
 			ctx,
@@ -259,9 +294,9 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				FirstLeaf:     genesis.inner.StateHash,
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				FirstLeaf:     genesisNode.StateHash,
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -272,19 +307,17 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				FirstLeaf:     genesis.inner.StateHash,
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				FirstLeaf:     genesisNode.StateHash,
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
 
-		manager, err := chain.CurrentChallengeManager(ctx, tx)
+		innerChallenge, err := challenge.fetchChallenge(ctx, tx)
 		require.NoError(t, err)
-		rootV, err := manager.GetVertex(ctx, tx, challenge.inner.RootId)
-		require.NoError(t, err)
-
-		atOSF, err := rootV.Unwrap().ChildrenAreAtOneStepFork(ctx, tx)
+		rootV := &ChallengeVertex{id: innerChallenge.RootId, assertionChain: chain}
+		atOSF, err := rootV.ChildrenAreAtOneStepFork(ctx, tx)
 		require.NoError(t, err)
 		require.Equal(t, false, atOSF)
 	})
@@ -296,6 +329,14 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 		genesisAssertion, err := chain.AssertionBySequenceNum(ctx, tx, 0)
 		require.NoError(t, err)
 		genesis := genesisAssertion.(*Assertion)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
+		genesisNode, err := genesis.fetchAssertionNode()
+		require.NoError(t, err)
+		challengeInner, err := challenge.fetchChallenge(ctx, tx)
+		require.NoError(t, err)
 
 		// We add two leaves to the challenge.
 		v1, err := challenge.AddBlockChallengeLeaf(
@@ -305,9 +346,9 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				FirstLeaf:     genesis.inner.StateHash,
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				FirstLeaf:     genesisNode.StateHash,
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -318,19 +359,15 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				FirstLeaf:     genesis.inner.StateHash,
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				FirstLeaf:     genesisNode.StateHash,
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
 
-		manager, err := chain.CurrentChallengeManager(ctx, tx)
-		require.NoError(t, err)
-		rootV, err := manager.GetVertex(ctx, tx, challenge.inner.RootId)
-		require.NoError(t, err)
-
-		atOSF, err := rootV.Unwrap().ChildrenAreAtOneStepFork(ctx, tx)
+		rootV := &ChallengeVertex{id: challengeInner.RootId, assertionChain: chain}
+		atOSF, err := rootV.ChildrenAreAtOneStepFork(ctx, tx)
 		require.NoError(t, err)
 		require.Equal(t, false, atOSF)
 
@@ -344,13 +381,15 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:    1,
 				Merkle:    commit,
-				FirstLeaf: genesis.inner.StateHash,
+				FirstLeaf: genesisNode.StateHash,
 			},
 			make([]common.Hash, 0),
 		)
 		require.NoError(t, err)
 		bisectedTo2 := bisectedTo2V.(*ChallengeVertex)
-		require.Equal(t, uint64(1), bisectedTo2.inner.Height.Uint64())
+		bisectedTo2Vertex, err := bisectedTo2.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), bisectedTo2Vertex.Height.Uint64())
 
 		commit = common.BytesToHash([]byte("nyan2fork"))
 		bisectedTo1V, err := v1.Bisect(
@@ -359,18 +398,18 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 			util.HistoryCommitment{
 				Height:    1,
 				Merkle:    commit,
-				FirstLeaf: genesis.inner.StateHash,
+				FirstLeaf: genesisNode.StateHash,
 			},
 			make([]common.Hash, 0),
 		)
 		require.NoError(t, err)
 		bisectedTo1 := bisectedTo1V.(*ChallengeVertex)
-		require.Equal(t, uint64(1), bisectedTo1.inner.Height.Uint64())
-
-		rootV, err = manager.GetVertex(ctx, tx, challenge.inner.RootId)
+		bisectedTo1Vertex, err := bisectedTo1.fetchChallengeVertex(ctx, tx)
 		require.NoError(t, err)
+		require.Equal(t, uint64(1), bisectedTo1Vertex.Height.Uint64())
 
-		atOSF, err = rootV.Unwrap().ChildrenAreAtOneStepFork(ctx, tx)
+		rootV = &ChallengeVertex{id: challengeInner.RootId, assertionChain: chain}
+		atOSF, err = rootV.ChildrenAreAtOneStepFork(ctx, tx)
 		require.NoError(t, err)
 		require.Equal(t, true, atOSF)
 	})
@@ -382,11 +421,13 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 	height1 := uint64(6)
 	height2 := uint64(7)
 	a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
 
 	// We add two leaves to the challenge.
-	manager, err := chain1.CurrentChallengeManager(ctx, tx)
-	require.NoError(t, err)
-	challenge.manager = manager.(*ChallengeManager)
+	challenge.assertionChain = chain1
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
 		tx,
@@ -394,15 +435,12 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
-
-	manager, err = chain2.CurrentChallengeManager(ctx, tx)
-	require.NoError(t, err)
-	challenge.manager = manager.(*ChallengeManager)
+	challenge.assertionChain = chain2
 	v2, err := challenge.AddBlockChallengeLeaf(
 		ctx,
 		tx,
@@ -410,16 +448,16 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
 
 	t.Run("vertex does not exist", func(t *testing.T) {
 		vertex := &ChallengeVertex{
-			id:      common.BytesToHash([]byte("junk")),
-			manager: challenge.manager,
+			id:             common.BytesToHash([]byte("junk")),
+			assertionChain: challenge.assertionChain,
 		}
 		_, err = vertex.Bisect(
 			ctx,
@@ -449,7 +487,7 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		require.ErrorContains(t, err, "Cannot bisect presumptive")
 	})
 	t.Run("presumptive successor already confirmable", func(t *testing.T) {
-		manager, err = chain1.CurrentChallengeManager(ctx, tx)
+		manager, err := chain1.CurrentChallengeManager(ctx, tx)
 		require.NoError(t, err)
 		chalPeriod, err := manager.ChallengePeriodSeconds(ctx, tx)
 		require.NoError(t, err)
@@ -477,11 +515,13 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		height1 := uint64(6)
 		height2 := uint64(7)
 		a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
 
 		// We add two leaves to the challenge.
-		manager, err := chain1.CurrentChallengeManager(ctx, tx)
-		require.NoError(t, err)
-		challenge.manager = manager.(*ChallengeManager)
+		challenge.assertionChain = chain1
 		v1, err := challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
@@ -489,15 +529,13 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
 
-		manager, err = chain2.CurrentChallengeManager(ctx, tx)
-		require.NoError(t, err)
-		challenge.manager = manager.(*ChallengeManager)
+		challenge.assertionChain = chain2
 		v2, err := challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
@@ -505,8 +543,8 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -523,8 +561,10 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		)
 		require.NoError(t, err)
 		bisectedTo := bisectedToV.(*ChallengeVertex)
-		require.Equal(t, uint64(4), bisectedTo.inner.Height.Uint64())
-		require.Equal(t, wantCommit[:], bisectedTo.inner.HistoryRoot[:])
+		bisectedToVertex, err := bisectedTo.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), bisectedToVertex.Height.Uint64())
+		require.Equal(t, wantCommit[:], bisectedToVertex.HistoryRoot[:])
 
 		_, err = v1.Bisect(
 			ctx,
@@ -544,12 +584,14 @@ func TestChallengeVertex_Merge(t *testing.T) {
 	height1 := uint64(6)
 	height2 := uint64(7)
 	a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
 	tx := &activeTx{readWriteTx: true}
 
 	// We add two leaves to the challenge.
-	manager, err := chain1.CurrentChallengeManager(ctx, tx)
-	require.NoError(t, err)
-	challenge.manager = manager.(*ChallengeManager)
+	challenge.assertionChain = chain1
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
 		tx,
@@ -557,15 +599,13 @@ func TestChallengeVertex_Merge(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
 
-	manager, err = chain2.CurrentChallengeManager(ctx, tx)
-	require.NoError(t, err)
-	challenge.manager = manager.(*ChallengeManager)
+	challenge.assertionChain = chain2
 	v2, err := challenge.AddBlockChallengeLeaf(
 		ctx,
 		tx,
@@ -573,16 +613,16 @@ func TestChallengeVertex_Merge(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
 
 	t.Run("vertex does not exist", func(t *testing.T) {
 		vertex := &ChallengeVertex{
-			id:      common.BytesToHash([]byte("junk")),
-			manager: challenge.manager,
+			id:             common.BytesToHash([]byte("junk")),
+			assertionChain: challenge.assertionChain,
 		}
 		_, err = vertex.Merge(
 			ctx,
@@ -649,11 +689,13 @@ func TestChallengeVertex_Merge(t *testing.T) {
 		height1 := uint64(6)
 		height2 := uint64(7)
 		a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
 
 		// We add two leaves to the challenge.
-		manager, err := chain1.CurrentChallengeManager(ctx, tx)
-		require.NoError(t, err)
-		challenge.manager = manager.(*ChallengeManager)
+		challenge.assertionChain = chain1
 		v1, err := challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
@@ -661,15 +703,13 @@ func TestChallengeVertex_Merge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
 
-		manager, err = chain2.CurrentChallengeManager(ctx, tx)
-		require.NoError(t, err)
-		challenge.manager = manager.(*ChallengeManager)
+		challenge.assertionChain = chain2
 		v2, err := challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
@@ -677,8 +717,8 @@ func TestChallengeVertex_Merge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -695,8 +735,10 @@ func TestChallengeVertex_Merge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		bisectedTo := bisectedToV.(*ChallengeVertex)
-		require.Equal(t, uint64(4), bisectedTo.inner.Height.Uint64())
-		require.Equal(t, wantCommit[:], bisectedTo.inner.HistoryRoot[:])
+		bisectedToVertex, err := bisectedTo.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), bisectedToVertex.Height.Uint64())
+		require.Equal(t, wantCommit[:], bisectedToVertex.HistoryRoot[:])
 
 		mergedToV, err := v1.Merge(
 			ctx,
@@ -710,7 +752,9 @@ func TestChallengeVertex_Merge(t *testing.T) {
 		require.NoError(t, err)
 
 		mergedTo := mergedToV.(*ChallengeVertex)
-		require.Equal(t, bisectedTo.inner.HistoryRoot, mergedTo.inner.HistoryRoot)
+		mergedToVertex, err := mergedTo.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, bisectedToVertex.HistoryRoot, mergedToVertex.HistoryRoot)
 	})
 }
 
@@ -724,14 +768,16 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		_, _, challenge, _, _ := setupTopLevelFork(t, ctx, height1, height2)
 
 		vertex := &ChallengeVertex{
-			id:      common.BytesToHash([]byte("junk")),
-			manager: challenge.manager,
+			id:             common.BytesToHash([]byte("junk")),
+			assertionChain: challenge.assertionChain,
 		}
 		_, err := vertex.CreateSubChallenge(ctx, tx)
 		require.ErrorContains(t, err, "execution reverted: Challenge does not exist")
 	})
 	t.Run("Error: leaf can never be a fork candidate", func(t *testing.T) {
 		a1, _, challenge, _, _ := setupTopLevelFork(t, ctx, height1, height2)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
 
 		v1, err := challenge.AddBlockChallengeLeaf(
 			ctx,
@@ -740,8 +786,8 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -750,17 +796,21 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 	})
 	t.Run("Error: lowest height not one above the current height", func(t *testing.T) {
 		a1, a2, challenge, _, _ := setupTopLevelFork(t, ctx, height1, height2)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
 
 		// We add two leaves to the challenge.
-		_, err := challenge.AddBlockChallengeLeaf(
+		_, err = challenge.AddBlockChallengeLeaf(
 			ctx,
 			tx,
 			a1,
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -771,8 +821,8 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -788,16 +838,26 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		bisectedTo := bisectedToV.(*ChallengeVertex)
-		require.Equal(t, uint64(4), bisectedTo.inner.Height.Uint64())
-		require.Equal(t, wantCommit[:], bisectedTo.inner.HistoryRoot[:])
+		bisectedToVertex, err := bisectedTo.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), bisectedToVertex.Height.Uint64())
+		require.Equal(t, wantCommit[:], bisectedToVertex.HistoryRoot[:])
 		// Vertex must be in the protocol.
-		_, err = challenge.manager.caller.GetVertex(challenge.manager.assertionChain.callOpts, bisectedTo.id)
+		manager, err := challenge.assertionChain.CurrentChallengeManager(ctx, tx)
+		require.NoError(t, err)
+		caller, err := manager.GetCaller(ctx, tx)
+		require.NoError(t, err)
+		_, err = caller.GetVertex(challenge.assertionChain.callOpts, bisectedTo.id)
 		require.NoError(t, err)
 		_, err = bisectedTo.CreateSubChallenge(ctx, tx)
 		require.ErrorContains(t, err, "execution reverted: Lowest height not one above the current height")
 	})
 	t.Run("Error: has presumptive successor", func(t *testing.T) {
 		a1, a2, challenge, _, _ := setupTopLevelFork(t, ctx, height1, height2)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
 
 		// We add two leaves to the challenge.
 		v1, err := challenge.AddBlockChallengeLeaf(
@@ -807,8 +867,8 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -820,8 +880,8 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -840,8 +900,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		require.NoError(t, err)
 
 		v2Height4 := v2Height4V.(*ChallengeVertex)
-		require.Equal(t, uint64(4), v2Height4.inner.Height.Uint64())
-		require.Equal(t, v2Commit[:], v2Height4.inner.HistoryRoot[:])
+		v2Height4Inner, err := v2Height4.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), v2Height4Inner.Height.Uint64())
+		require.Equal(t, v2Commit[:], v2Height4Inner.HistoryRoot[:])
 
 		v1Height4V, err := v1.Bisect(
 			ctx,
@@ -854,8 +916,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v1Height4 := v1Height4V.(*ChallengeVertex)
-		require.Equal(t, uint64(4), v1Height4.inner.Height.Uint64())
-		require.Equal(t, v1Commit[:], v1Height4.inner.HistoryRoot[:])
+		v1Height4Inner, err := v1Height4.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), v1Height4Inner.Height.Uint64())
+		require.Equal(t, v1Commit[:], v1Height4Inner.HistoryRoot[:])
 
 		v2Height2V, err := v2Height4.Bisect(
 			ctx,
@@ -868,8 +932,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v2Height2 := v2Height2V.(*ChallengeVertex)
-		require.Equal(t, uint64(2), v2Height2.inner.Height.Uint64())
-		require.Equal(t, v2Commit[:], v2Height2.inner.HistoryRoot[:])
+		v2Height2Inner, err := v2Height2.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), v2Height2Inner.Height.Uint64())
+		require.Equal(t, v2Commit[:], v2Height2Inner.HistoryRoot[:])
 
 		v1Height2V, err := v1Height4.Bisect(
 			ctx,
@@ -882,8 +948,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v1Height2 := v1Height2V.(*ChallengeVertex)
-		require.Equal(t, uint64(2), v1Height2.inner.Height.Uint64())
-		require.Equal(t, v1Commit[:], v1Height2.inner.HistoryRoot[:])
+		v1Height2Inner, err := v1Height2.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), v1Height2Inner.Height.Uint64())
+		require.Equal(t, v1Commit[:], v1Height2Inner.HistoryRoot[:])
 
 		v1Height1V, err := v1Height2.Bisect(
 			ctx,
@@ -896,14 +964,20 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v1Height1 := v1Height1V.(*ChallengeVertex)
-		require.Equal(t, uint64(1), v1Height1.inner.Height.Uint64())
-		require.Equal(t, v1Commit[:], v1Height1.inner.HistoryRoot[:])
+		v1Height1Inner, err := v1Height1.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), v1Height1Inner.Height.Uint64())
+		require.Equal(t, v1Commit[:], v1Height1Inner.HistoryRoot[:])
 
 		_, err = v1Height1.CreateSubChallenge(ctx, tx)
 		require.ErrorContains(t, err, "execution reverted: Has presumptive successor")
 	})
 	t.Run("Can create succession challenge", func(t *testing.T) {
 		a1, a2, challenge, _, _ := setupTopLevelFork(t, ctx, height1, height2)
+		a1Node, err := a1.fetchAssertionNode()
+		require.NoError(t, err)
+		a2Node, err := a2.fetchAssertionNode()
+		require.NoError(t, err)
 
 		// We add two leaves to the challenge.
 		v1, err := challenge.AddBlockChallengeLeaf(
@@ -913,8 +987,8 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height1,
 				Merkle:        common.BytesToHash([]byte("nyan")),
-				LastLeaf:      a1.inner.StateHash,
-				LastLeafProof: []common.Hash{a1.inner.StateHash},
+				LastLeaf:      a1Node.StateHash,
+				LastLeafProof: []common.Hash{a1Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -926,8 +1000,8 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 			util.HistoryCommitment{
 				Height:        height2,
 				Merkle:        common.BytesToHash([]byte("nyan2")),
-				LastLeaf:      a2.inner.StateHash,
-				LastLeafProof: []common.Hash{a2.inner.StateHash},
+				LastLeaf:      a2Node.StateHash,
+				LastLeafProof: []common.Hash{a2Node.StateHash},
 			},
 		)
 		require.NoError(t, err)
@@ -945,8 +1019,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v2Height4 := v2Height4V.(*ChallengeVertex)
-		require.Equal(t, uint64(4), v2Height4.inner.Height.Uint64())
-		require.Equal(t, v2Commit[:], v2Height4.inner.HistoryRoot[:])
+		v2Height4Inner, err := v2Height4.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), v2Height4Inner.Height.Uint64())
+		require.Equal(t, v2Commit[:], v2Height4Inner.HistoryRoot[:])
 
 		v1Height4V, err := v1.Bisect(
 			ctx,
@@ -959,8 +1035,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v1Height4 := v1Height4V.(*ChallengeVertex)
-		require.Equal(t, uint64(4), v1Height4.inner.Height.Uint64())
-		require.Equal(t, v1Commit[:], v1Height4.inner.HistoryRoot[:])
+		v1Height4Inner, err := v1Height4.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(4), v1Height4Inner.Height.Uint64())
+		require.Equal(t, v1Commit[:], v1Height4Inner.HistoryRoot[:])
 
 		v2Height2V, err := v2Height4.Bisect(
 			ctx,
@@ -973,8 +1051,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v2Height2 := v2Height2V.(*ChallengeVertex)
-		require.Equal(t, uint64(2), v2Height2.inner.Height.Uint64())
-		require.Equal(t, v2Commit[:], v2Height2.inner.HistoryRoot[:])
+		v2Height2Inner, err := v2Height2.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), v2Height2Inner.Height.Uint64())
+		require.Equal(t, v2Commit[:], v2Height2Inner.HistoryRoot[:])
 
 		v1Height2V, err := v1Height4.Bisect(
 			ctx,
@@ -987,8 +1067,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v1Height2 := v1Height2V.(*ChallengeVertex)
-		require.Equal(t, uint64(2), v1Height2.inner.Height.Uint64())
-		require.Equal(t, v1Commit[:], v1Height2.inner.HistoryRoot[:])
+		v1Height2Inner, err := v1Height2.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), v1Height2Inner.Height.Uint64())
+		require.Equal(t, v1Commit[:], v1Height2Inner.HistoryRoot[:])
 
 		v1Height1V, err := v1Height2.Bisect(
 			ctx,
@@ -1001,8 +1083,10 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v1Height1 := v1Height1V.(*ChallengeVertex)
-		require.Equal(t, uint64(1), v1Height1.inner.Height.Uint64())
-		require.Equal(t, v1Commit[:], v1Height1.inner.HistoryRoot[:])
+		v1Height1Inner, err := v1Height1.fetchChallengeVertex(ctx, tx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), v1Height1Inner.Height.Uint64())
+		require.Equal(t, v1Commit[:], v1Height1Inner.HistoryRoot[:])
 
 		v2Height1V, err := v2Height2.Bisect(
 			ctx,
@@ -1015,15 +1099,14 @@ func TestChallengeVertex_CreateSubChallenge(t *testing.T) {
 		)
 		require.NoError(t, err)
 		v2Height1 := v2Height1V.(*ChallengeVertex)
-		require.Equal(t, uint64(1), v2Height1.inner.Height.Uint64())
-		require.Equal(t, v2Commit[:], v2Height1.inner.HistoryRoot[:])
-
-		genesisVertex, err := challenge.manager.caller.GetVertex(challenge.manager.assertionChain.callOpts, v2Height1.inner.PredecessorId)
+		v2Height1Inner, err := v2Height1.fetchChallengeVertex(ctx, tx)
 		require.NoError(t, err)
+		require.Equal(t, uint64(1), v2Height1Inner.Height.Uint64())
+		require.Equal(t, v2Commit[:], v2Height1Inner.HistoryRoot[:])
+
 		genesis := &ChallengeVertex{
-			inner:   genesisVertex,
-			id:      v2Height1.inner.PredecessorId,
-			manager: challenge.manager,
+			id:             v2Height1Inner.PredecessorId,
+			assertionChain: challenge.assertionChain,
 		}
 		_, err = genesis.CreateSubChallenge(context.Background(), tx)
 		require.NoError(t, err)
@@ -1036,6 +1119,10 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	height1 := uint64(6)
 	height2 := uint64(7)
 	a1, a2, challenge, _, _ := setupTopLevelFork(t, ctx, height1, height2)
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
 
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
@@ -1044,8 +1131,8 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -1057,8 +1144,8 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -1076,8 +1163,10 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v2Height4 := v2Height4V.(*ChallengeVertex)
-	require.Equal(t, uint64(4), v2Height4.inner.Height.Uint64())
-	require.Equal(t, v2Commit[:], v2Height4.inner.HistoryRoot[:])
+	v2Height4Inner, err := v2Height4.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(4), v2Height4Inner.Height.Uint64())
+	require.Equal(t, v2Commit[:], v2Height4Inner.HistoryRoot[:])
 
 	v1Height4V, err := v1.Bisect(
 		ctx,
@@ -1090,8 +1179,10 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v1Height4 := v1Height4V.(*ChallengeVertex)
-	require.Equal(t, uint64(4), v1Height4.inner.Height.Uint64())
-	require.Equal(t, v1Commit[:], v1Height4.inner.HistoryRoot[:])
+	v1Height4Inner, err := v1Height4.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(4), v1Height4Inner.Height.Uint64())
+	require.Equal(t, v1Commit[:], v1Height4Inner.HistoryRoot[:])
 
 	v2Height2V, err := v2Height4.Bisect(
 		ctx,
@@ -1104,8 +1195,10 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v2Height2 := v2Height2V.(*ChallengeVertex)
-	require.Equal(t, uint64(2), v2Height2.inner.Height.Uint64())
-	require.Equal(t, v2Commit[:], v2Height2.inner.HistoryRoot[:])
+	v2Height2Inner, err := v2Height2.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), v2Height2Inner.Height.Uint64())
+	require.Equal(t, v2Commit[:], v2Height2Inner.HistoryRoot[:])
 
 	v1Height2V, err := v1Height4.Bisect(
 		ctx,
@@ -1118,8 +1211,10 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v1Height2 := v1Height2V.(*ChallengeVertex)
-	require.Equal(t, uint64(2), v1Height2.inner.Height.Uint64())
-	require.Equal(t, v1Commit[:], v1Height2.inner.HistoryRoot[:])
+	v1Height2Inner, err := v1Height2.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), v1Height2Inner.Height.Uint64())
+	require.Equal(t, v1Commit[:], v1Height2Inner.HistoryRoot[:])
 
 	v1Height1V, err := v1Height2.Bisect(
 		ctx,
@@ -1132,8 +1227,10 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v1Height1 := v1Height1V.(*ChallengeVertex)
-	require.Equal(t, uint64(1), v1Height1.inner.Height.Uint64())
-	require.Equal(t, v1Commit[:], v1Height1.inner.HistoryRoot[:])
+	v1Height1Inner, err := v1Height1.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), v1Height1Inner.Height.Uint64())
+	require.Equal(t, v1Commit[:], v1Height1Inner.HistoryRoot[:])
 
 	v2Height1V, err := v2Height2.Bisect(
 		ctx,
@@ -1146,15 +1243,14 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v2Height1 := v2Height1V.(*ChallengeVertex)
-	require.Equal(t, uint64(1), v2Height1.inner.Height.Uint64())
-	require.Equal(t, v2Commit[:], v2Height1.inner.HistoryRoot[:])
-
-	genesisVertex, err := challenge.manager.caller.GetVertex(challenge.manager.assertionChain.callOpts, v2Height1.inner.PredecessorId)
+	v2Height1Inner, err := v2Height1.fetchChallengeVertex(ctx, tx)
 	require.NoError(t, err)
+	require.Equal(t, uint64(1), v2Height1Inner.Height.Uint64())
+	require.Equal(t, v2Commit[:], v2Height1Inner.HistoryRoot[:])
+
 	genesis := &ChallengeVertex{
-		inner:   genesisVertex,
-		id:      v2Height1.inner.PredecessorId,
-		manager: challenge.manager,
+		id:             v2Height1Inner.PredecessorId,
+		assertionChain: challenge.assertionChain,
 	}
 	bigStepChal, err := genesis.CreateSubChallenge(context.Background(), tx)
 	require.NoError(t, err)
@@ -1165,8 +1261,8 @@ func TestChallengeVertex_AddSubChallengeLeaf(t *testing.T) {
 	})
 	t.Run("vertex does not exist", func(t *testing.T) {
 		_, err = bigStepChal.AddSubChallengeLeaf(ctx, tx, &ChallengeVertex{
-			id:      [32]byte{},
-			manager: challenge.manager,
+			id:             [32]byte{},
+			assertionChain: challenge.assertionChain,
 		}, util.HistoryCommitment{
 			Height: 2,
 			Merkle: v1Commit,
@@ -1205,6 +1301,11 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	height2 := uint64(7)
 	a1, a2, challenge, chain, _ := setupTopLevelFork(t, ctx, height1, height2)
 
+	a1Node, err := a1.fetchAssertionNode()
+	require.NoError(t, err)
+	a2Node, err := a2.fetchAssertionNode()
+	require.NoError(t, err)
+
 	v1, err := challenge.AddBlockChallengeLeaf(
 		ctx,
 		tx,
@@ -1212,8 +1313,8 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height1,
 			Merkle:        common.BytesToHash([]byte("nyan")),
-			LastLeaf:      a1.inner.StateHash,
-			LastLeafProof: []common.Hash{a1.inner.StateHash},
+			LastLeaf:      a1Node.StateHash,
+			LastLeafProof: []common.Hash{a1Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -1225,8 +1326,8 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 		util.HistoryCommitment{
 			Height:        height2,
 			Merkle:        common.BytesToHash([]byte("nyan2")),
-			LastLeaf:      a2.inner.StateHash,
-			LastLeafProof: []common.Hash{a2.inner.StateHash},
+			LastLeaf:      a2Node.StateHash,
+			LastLeafProof: []common.Hash{a2Node.StateHash},
 		},
 	)
 	require.NoError(t, err)
@@ -1244,8 +1345,10 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v2Height4 := v2Height4V.(*ChallengeVertex)
-	require.Equal(t, uint64(4), v2Height4.inner.Height.Uint64())
-	require.Equal(t, v2Commit[:], v2Height4.inner.HistoryRoot[:])
+	v2Height4Inner, err := v2Height4.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(4), v2Height4Inner.Height.Uint64())
+	require.Equal(t, v2Commit[:], v2Height4Inner.HistoryRoot[:])
 
 	v1Height4V, err := v1.Bisect(
 		ctx,
@@ -1258,8 +1361,10 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v1Height4 := v1Height4V.(*ChallengeVertex)
-	require.Equal(t, uint64(4), v1Height4.inner.Height.Uint64())
-	require.Equal(t, v1Commit[:], v1Height4.inner.HistoryRoot[:])
+	v1Height4Inner, err := v1Height4.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(4), v1Height4Inner.Height.Uint64())
+	require.Equal(t, v1Commit[:], v1Height4Inner.HistoryRoot[:])
 
 	v2Height2V, err := v2Height4.Bisect(
 		ctx,
@@ -1272,8 +1377,10 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v2Height2 := v2Height2V.(*ChallengeVertex)
-	require.Equal(t, uint64(2), v2Height2.inner.Height.Uint64())
-	require.Equal(t, v2Commit[:], v2Height2.inner.HistoryRoot[:])
+	v2Height2Inner, err := v2Height2.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), v2Height2Inner.Height.Uint64())
+	require.Equal(t, v2Commit[:], v2Height2Inner.HistoryRoot[:])
 
 	v1Height2V, err := v1Height4.Bisect(
 		ctx,
@@ -1286,8 +1393,10 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v1Height2 := v1Height2V.(*ChallengeVertex)
-	require.Equal(t, uint64(2), v1Height2.inner.Height.Uint64())
-	require.Equal(t, v1Commit[:], v1Height2.inner.HistoryRoot[:])
+	v1Height2Inner, err := v1Height2.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), v1Height2Inner.Height.Uint64())
+	require.Equal(t, v1Commit[:], v1Height2Inner.HistoryRoot[:])
 
 	v1Height1V, err := v1Height2.Bisect(
 		ctx,
@@ -1300,8 +1409,10 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v1Height1 := v1Height1V.(*ChallengeVertex)
-	require.Equal(t, uint64(1), v1Height1.inner.Height.Uint64())
-	require.Equal(t, v1Commit[:], v1Height1.inner.HistoryRoot[:])
+	v1Height1Inner, err := v1Height1.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), v1Height1Inner.Height.Uint64())
+	require.Equal(t, v1Commit[:], v1Height1Inner.HistoryRoot[:])
 
 	v2Height1V, err := v2Height2.Bisect(
 		ctx,
@@ -1314,15 +1425,15 @@ func TestChallengeVertex_CanConfirmSubChallenge(t *testing.T) {
 	)
 	require.NoError(t, err)
 	v2Height1 := v2Height1V.(*ChallengeVertex)
-	require.Equal(t, uint64(1), v2Height1.inner.Height.Uint64())
-	require.Equal(t, v2Commit[:], v2Height1.inner.HistoryRoot[:])
+	v2Height1Inner, err := v2Height1.fetchChallengeVertex(ctx, tx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), v2Height1Inner.Height.Uint64())
+	require.Equal(t, v2Commit[:], v2Height1Inner.HistoryRoot[:])
 
-	genesisVertex, err := challenge.manager.caller.GetVertex(challenge.manager.assertionChain.callOpts, v2Height1.inner.PredecessorId)
 	require.NoError(t, err)
 	genesis := &ChallengeVertex{
-		inner:   genesisVertex,
-		id:      v2Height1.inner.PredecessorId,
-		manager: challenge.manager,
+		assertionChain: challenge.assertionChain,
+		id:             v2Height1Inner.PredecessorId,
 	}
 	bigStepChal, err := genesis.CreateSubChallenge(context.Background(), tx)
 	require.NoError(t, err)

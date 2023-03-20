@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"math/big"
 	"strings"
 
@@ -201,7 +202,6 @@ func (ac *AssertionChain) AssertionBySequenceNum(
 	return &Assertion{
 		id:    uint64(assertionNum),
 		chain: ac,
-		inner: res,
 		StateCommitment: util.StateCommitment{
 			Height:    res.Height.Uint64(),
 			StateRoot: res.StateHash,
@@ -232,7 +232,10 @@ func (ac *AssertionChain) CreateAssertion(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get prev assertion with id: %d", prevAssertionId)
 	}
-	prevHeight := prev.Height()
+	prevHeight, err := prev.Height()
+	if err != nil {
+		return nil, err
+	}
 	if prevHeight >= height {
 		return nil, errors.Wrapf(ErrInvalidHeight, "prev height %d was >= incoming %d", prevHeight, height)
 	}
@@ -293,7 +296,7 @@ func (ac *AssertionChain) CreateSuccessionChallenge(
 	ctx context.Context,
 	tx protocol.ActiveTx,
 	seqNum protocol.AssertionSequenceNumber,
-) (protocol.Challenge, error) {
+) (*challengeV2gen.Challenge, error) {
 	_, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
 		return ac.userLogic.CreateChallenge(
 			ac.txOpts,

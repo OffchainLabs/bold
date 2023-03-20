@@ -31,12 +31,12 @@ func (m *MockChallengeVertex) SequenceNum() protocol.VertexSequenceNumber {
 	return m.MockSeqNum
 }
 
-func (m *MockChallengeVertex) Status() protocol.AssertionState {
-	return m.MockStatus
+func (m *MockChallengeVertex) Status(ctx context.Context, tx protocol.ActiveTx) (protocol.AssertionState, error) {
+	return m.MockStatus, nil
 }
 
-func (m *MockChallengeVertex) HistoryCommitment() util.HistoryCommitment {
-	return m.MockHistory
+func (m *MockChallengeVertex) HistoryCommitment(ctx context.Context, tx protocol.ActiveTx) (util.HistoryCommitment, error) {
+	return m.MockHistory, nil
 }
 
 func (m *MockChallengeVertex) MiniStaker() common.Address {
