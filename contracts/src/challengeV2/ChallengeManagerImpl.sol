@@ -105,7 +105,7 @@ library ChallengeManagerLib {
 
         // CHRIS: TODO: we should check this in every move?
         // CHRIS: TODO: in every move we should check confirmable behaviour - not just ps
-        require(!vertices.psExceedsChallengePeriod(vId, challengePeriodSec), "Presumptive successor confirmable");
+        require(!vertices.psExceedsPsThreshold(vId, challengePeriodSec), "Presumptive successor confirmable");
         require(vertices[vId].successionChallenge == 0, "Challenge already exists");
 
         bytes32 challengeId = vertices[vId].challengeId;
@@ -488,10 +488,17 @@ contract ChallengeManagerImpl is IChallengeManager {
     function merge(bytes32 vId, bytes32 prefixHistoryRoot, bytes memory prefixProof) external returns (bytes32) {
         (bytes32 bVId,) = ChallengeManagerLib.checkMerge(vertices, challenges, vId, prefixHistoryRoot, prefixProof);
 
-        vertices.connect(bVId, vId, challengePeriodSec);
+        uint256 cps = challengePeriodSec;
+        vertices.connect(bVId, vId, cps);
+
         // flush the ps time on the merged vertex, and increase it if has a time lower
         // than the vertex we're merging from
-        vertices.flushPs(vertices[bVId].predecessorId, vertices[vId].flushedPsTimeSec);
+        vertices.flushPs(vertices[bVId].predecessorId);
+        uint256 vIdPsTime = vertices[vId].flushedPsTimeSec;
+        if (vertices[bVId].flushedPsTimeSec < vIdPsTime) {
+            vertices.overrideFlushedPsTime(bVId, vIdPsTime, cps);
+        }
+
         emit Merged(vId, bVId);
         return bVId;
     }

@@ -154,7 +154,7 @@ contract PsVerticesLibTest is Test {
 
         vm.warp(block.timestamp + challengePeriodSec + 1);
 
-        assertTrue(vertices.psExceedsChallengePeriod(vId, challengePeriodSec), "Ps did not exceed");
+        assertTrue(vertices.psExceedsPsThreshold(vId, challengePeriodSec), "Ps did not exceed");
     }
 
     function testPsExceedsChallengePeriodFalse() public {
@@ -170,7 +170,7 @@ contract PsVerticesLibTest is Test {
         // CHRIS: TODO: could fuzz on this?
         vm.warp(block.timestamp + challengePeriodSec);
 
-        assertFalse(vertices.psExceedsChallengePeriod(vId, challengePeriodSec), "Ps did exceed");
+        assertFalse(vertices.psExceedsPsThreshold(vId, challengePeriodSec), "Ps did exceed");
     }
 
     function testPsExceedsChallengePeriodFalseNoPs() public {
@@ -178,7 +178,7 @@ contract PsVerticesLibTest is Test {
 
         vm.warp(block.timestamp + challengePeriodSec + 1);
 
-        assertFalse(vertices.psExceedsChallengePeriod(vId, challengePeriodSec), "Ps did exceed");
+        assertFalse(vertices.psExceedsPsThreshold(vId, challengePeriodSec), "Ps did exceed");
     }
 
     function testPsExceedsChallengePeriodFailNotExists() public {
@@ -188,7 +188,7 @@ contract PsVerticesLibTest is Test {
         ChallengeVertex memory v0 = ChallengeVertexLib.newVertex(challengeId, rand.hash(), height, 0);
 
         vm.expectRevert("Predecessor vertex does not exist");
-        vertices.psExceedsChallengePeriod(v0.id(), challengePeriodSec);
+        vertices.psExceedsPsThreshold(v0.id(), challengePeriodSec);
     }
 
     function testPsExceedsChallengePeriodFalseSameHeight() public {
@@ -202,7 +202,7 @@ contract PsVerticesLibTest is Test {
 
         vm.warp(block.timestamp + challengePeriodSec + 1);
 
-        assertFalse(vertices.psExceedsChallengePeriod(vId, challengePeriodSec), "Ps did exceed");
+        assertFalse(vertices.psExceedsPsThreshold(vId, challengePeriodSec), "Ps did exceed");
     }
 
     // getCurrentPsTimer
@@ -243,7 +243,7 @@ contract PsVerticesLibTest is Test {
 
         vm.warp(block.timestamp + challengePeriodSec / 2);
 
-        vertices.flushPs(vId, 0);
+        vertices.flushPs(vId);
         assertEq(vertices.getCurrentPsTimer(v1Id), 2 * challengePeriodSec / 4);
 
         vm.warp(block.timestamp + challengePeriodSec / 4);
@@ -288,7 +288,7 @@ contract PsVerticesLibTest is Test {
         assertEq(vertices[vId].psId, v1Id, "Invalid last ps id before");
         assertEq(vertices[vId].lowestHeightSuccessorId, v1Id, "Invalid lowest height id before");
 
-        vertices.flushPs(vId, 0);
+        vertices.flushPs(vId);
 
         assertEq(vertices[vId].psLastUpdatedTimestamp, block.timestamp, "Invalid last updated time");
         assertEq(vertices[v1Id].flushedPsTimeSec, challengePeriodSec / 2, "Invalid flushed ps time");
@@ -304,31 +304,11 @@ contract PsVerticesLibTest is Test {
         assertEq(vertices[vId].psId, 0, "Invalid last ps id before");
         assertEq(vertices[vId].lowestHeightSuccessorId, 0, "Invalid lowest height id before");
 
-        vertices.flushPs(vId, 0);
+        vertices.flushPs(vId);
 
         assertEq(vertices[vId].psLastUpdatedTimestamp, block.timestamp, "Invalid last updated time");
         assertEq(vertices[vId].psId, 0, "Invalid last ps id after");
         assertEq(vertices[vId].lowestHeightSuccessorId, 0, "Invalid lowest height id after");
-    }
-
-    function testFlushPsWithMin() public {
-        (bytes32 cId, bytes32 vId, uint256 height) = createPredecessorVertex();
-
-        ChallengeVertex memory v1 = ChallengeVertexLib.newVertex(cId, rand.hash(), height + 2, 0);
-        bytes32 v1Id = v1.id();
-        vertices.addVertex(v1, vId, challengePeriodSec);
-
-        vm.warp(block.timestamp + challengePeriodSec / 2);
-
-        assertEq(vertices[vId].psId, v1Id, "Invalid last ps id before");
-        assertEq(vertices[vId].lowestHeightSuccessorId, v1Id, "Invalid lowest height id before");
-
-        vertices.flushPs(vId, 3 * challengePeriodSec / 4);
-
-        assertEq(vertices[vId].psLastUpdatedTimestamp, block.timestamp, "Invalid last updated time");
-        assertEq(vertices[v1Id].flushedPsTimeSec, 3 * challengePeriodSec / 4, "Invalid flushed ps time");
-        assertEq(vertices[vId].psId, v1Id, "Invalid last ps id after");
-        assertEq(vertices[vId].lowestHeightSuccessorId, v1Id, "Invalid lowest height id after");
     }
 
     function testFlushPsFailNotExist() public {
@@ -338,7 +318,7 @@ contract PsVerticesLibTest is Test {
         vm.warp(block.timestamp + challengePeriodSec / 2);
 
         vm.expectRevert("Vertex does not exist");
-        vertices.flushPs(v1.id(), 0);
+        vertices.flushPs(v1.id());
     }
 
     function testFlushPsFailIsLeaf() public {
@@ -350,7 +330,7 @@ contract PsVerticesLibTest is Test {
         vm.warp(block.timestamp + challengePeriodSec / 2);
 
         vm.expectRevert("Cannot flush leaf as it will never have a PS");
-        vertices.flushPs(v1.id(), 0);
+        vertices.flushPs(v1.id());
     }
 
     // connect
@@ -408,7 +388,7 @@ contract PsVerticesLibTest is Test {
 
         vm.warp(block.timestamp + challengePeriodSec + 1);
 
-        vm.expectRevert("Start vertex has ps with timer greater than challenge period, cannot set same height ps");
+        vm.expectRevert("Start vertex has ps with timer greater than ps threshold, cannot connect");
         vertices.connect(v1Id, v3Id, challengePeriodSec);
     }
 
@@ -423,29 +403,20 @@ contract PsVerticesLibTest is Test {
         assertEq(vertices[v3Id].predecessorId, v1Id, "Invalid predecessor v3");
         assertEq(vertices[v1Id].psId, v2Id, "Ps id");
         assertEq(vertices[v1Id].lowestHeightSuccessorId, v2Id, "LHS");
-        assertEq(vertices[v1Id].psLastUpdatedTimestamp, block.timestamp - challengePeriodSec / 2, "Last updated");
-        assertEq(vertices[v2Id].flushedPsTimeSec, 0, "V2 flushed");
+        assertEq(vertices[v1Id].psLastUpdatedTimestamp, block.timestamp, "Last updated");
+        assertEq(vertices[v2Id].flushedPsTimeSec, challengePeriodSec / 2, "V2 flushed");
         assertEq(vertices.getCurrentPsTimer(v2Id), challengePeriodSec / 2, "Current ps v2");
         assertEq(vertices[v3Id].flushedPsTimeSec, 0, "V3 flushed");
         assertEq(vertices.getCurrentPsTimer(v3Id), 0, "Current ps v3");
     }
 
     function testConnectGreaterHeightChallengePeriodExceeded() public {
-        (, bytes32 v1Id, bytes32 v2Id, bytes32 v3Id,) = createTwoOneVertices(1);
+        (, bytes32 v1Id,, bytes32 v3Id,) = createTwoOneVertices(1);
 
         vm.warp(block.timestamp + challengePeriodSec + 1);
 
+        vm.expectRevert("Start vertex has ps with timer greater than ps threshold, cannot connect");
         vertices.connect(v1Id, v3Id, challengePeriodSec);
-
-        assertEq(vertices[v2Id].predecessorId, v1Id, "Invalid predecessor v2");
-        assertEq(vertices[v3Id].predecessorId, v1Id, "Invalid predecessor v3");
-        assertEq(vertices[v1Id].psId, v2Id, "Ps id");
-        assertEq(vertices[v1Id].lowestHeightSuccessorId, v2Id, "LHS");
-        assertEq(vertices[v1Id].psLastUpdatedTimestamp, block.timestamp - (challengePeriodSec + 1), "Last updated");
-        assertEq(vertices[v2Id].flushedPsTimeSec, 0, "V2 flushed");
-        assertEq(vertices.getCurrentPsTimer(v2Id), challengePeriodSec + 1, "Current ps v2");
-        assertEq(vertices[v3Id].flushedPsTimeSec, 0, "V3 flushed");
-        assertEq(vertices.getCurrentPsTimer(v3Id), 0, "Current ps v3");
     }
 
     function testConnectLowerHeight() public {
@@ -471,7 +442,7 @@ contract PsVerticesLibTest is Test {
 
         vm.warp(block.timestamp + challengePeriodSec + 1);
 
-        vm.expectRevert("Start vertex has ps with timer greater than challenge period, cannot set lower ps");
+        vm.expectRevert("Start vertex has ps with timer greater than ps threshold, cannot connect");
         vertices.connect(v1Id, v3Id, challengePeriodSec);
     }
 
@@ -508,7 +479,7 @@ contract PsVerticesLibTest is Test {
         assertEq(vertices[v4Id].predecessorId, v1Id, "Invalid predecessor v3");
         assertEq(vertices[v1Id].psId, 0, "Ps id v1");
         assertEq(vertices[v1Id].lowestHeightSuccessorId, v2Id, "LHS v2");
-        assertEq(vertices[v1Id].psLastUpdatedTimestamp, block.timestamp - challengePeriodSec / 2, "Last updated v1");
+        assertEq(vertices[v1Id].psLastUpdatedTimestamp, block.timestamp, "Last updated v1");
         assertEq(vertices[v2Id].flushedPsTimeSec, 0, "V2 flushed");
         assertEq(vertices.getCurrentPsTimer(v2Id), 0, "Current ps v2");
         assertEq(vertices[v3Id].flushedPsTimeSec, 0, "V3 flushed");
@@ -569,7 +540,7 @@ contract PsVerticesLibTest is Test {
     }
 
     function testConnectFailDifferentChallengeId() public {
-        (, bytes32 v1Id, bytes32 v2Id,,) = createTwoOneVertices(0);
+        (, bytes32 v1Id,,,) = createTwoOneVertices(0);
 
         bytes32 cId = rand.hash();
         uint256 height = 100;
@@ -680,5 +651,38 @@ contract PsVerticesLibTest is Test {
 
         vm.expectRevert("Vertex already exists");
         vertices.addVertex(v, v2Id, challengePeriodSec);
+    }
+
+    // override flushed ps time
+
+    function testOverrideFlushedPsTime() public {
+        (, bytes32 v1Id,,,) = createTwoOneVertices(0);
+
+        vertices.overrideFlushedPsTime(v1Id, 100, 110);
+
+        assertEq(vertices[v1Id].flushedPsTimeSec, 100);
+    }
+
+    function testOverrideFlushedPsTimeFailsRoot() public {
+        ChallengeVertex memory root = ChallengeVertexLib.newRoot(rand.hash(), rand.hash(), rand.hash());
+        vertices[root.id()] = root;
+
+        vm.expectRevert("Root must always have zero flushed ps time");
+        vertices.overrideFlushedPsTime(root.id(), 100, 110);
+
+        assertEq(vertices[root.id()].flushedPsTimeSec, 100);
+    }
+
+    function testOverrideFlushedPsTimeFailsNotExists() public {
+        bytes32 randId = rand.hash();
+        vm.expectRevert("Vertex does not exist");
+        vertices.overrideFlushedPsTime(randId, 100, 110);
+    }
+
+    function testOverrideFlushedPsTimeFailsThresholdCrossed() public {
+        (, bytes32 v1Id,,,) = createTwoOneVertices(0);
+
+        vm.expectRevert("Override crossed threshold");
+        vertices.overrideFlushedPsTime(v1Id, 100, 100);
     }
 }

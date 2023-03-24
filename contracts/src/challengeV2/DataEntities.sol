@@ -15,10 +15,6 @@ import "./libraries/ChallengeVertexLib.sol";
 // vertex
 // confirmation
 
-// CHRIS: TODO: invariant: once a ps timer goes above challenge period, it will always remain ps
-// CHRIS: TODO: invariant: once a vertex is no longer the ps, it can never be ps again
-// CHRIS: TODO: invariant: all the things stated in the challenge vertex struct eg lowest height = ps if ps != 0, or ps = 0 if lowest heigh == 0
-
 enum Status {
     Pending,
     Confirmed,
