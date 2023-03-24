@@ -8,10 +8,11 @@ import (
 	"math/big"
 
 	"fmt"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
+	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,8 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager := statemanager.New(hashes)
+	manager, err := statemanager.New(hashes)
+	require.NoError(t, err)
 
 	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
 	require.NoError(t, err)
@@ -90,7 +92,8 @@ func FuzzVerifyPrefixProof_Go(f *testing.F) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager := statemanager.New(hashes)
+	manager, err := statemanager.New(hashes)
+	require.NoError(f, err)
 
 	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
 	require.NoError(f, err)

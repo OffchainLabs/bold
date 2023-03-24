@@ -1,16 +1,16 @@
+// Package protocol
 // From: Nitro validator/execution_state.go
 package protocol
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math/big"
 )
 
 type GoGlobalState struct {
@@ -90,18 +90,6 @@ func (s *ExecutionState) AsSolidityStruct() rollupgen.ExecutionState {
 	return rollupgen.ExecutionState{
 		GlobalState:   rollupgen.GlobalState(s.GlobalState.AsSolidityStruct()),
 		MachineStatus: uint8(s.MachineStatus),
-	}
-}
-
-func (s *ExecutionState) BlockStateHash() common.Hash {
-	if s.MachineStatus == MachineStatusFinished {
-		return crypto.Keccak256Hash([]byte("Block state:"), s.GlobalState.Hash().Bytes())
-	} else if s.MachineStatus == MachineStatusErrored {
-		return crypto.Keccak256Hash([]byte("Block state, errored:"), s.GlobalState.Hash().Bytes())
-	} else if s.MachineStatus == MachineStatusTooFar {
-		return crypto.Keccak256Hash([]byte("Block state, too far:"))
-	} else {
-		panic(fmt.Sprintf("invalid machine status %v", s.MachineStatus))
 	}
 }
 

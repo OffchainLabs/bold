@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
+	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -22,11 +22,11 @@ type SimulatedManagerBackend struct {
 	stateRoots []common.Hash
 }
 
-func NewSimulatedManagerBackend(stateRoots []common.Hash) *SimulatedManagerBackend {
+func NewSimulatedManagerBackend(stateRoots []common.Hash) (*SimulatedManagerBackend, error) {
 	if len(stateRoots) == 0 {
-		panic("must have state roots")
+		return nil, errors.New("no state roots provided")
 	}
-	return &SimulatedManagerBackend{stateRoots}
+	return &SimulatedManagerBackend{stateRoots}, nil
 }
 
 // GetMerkleRoot gets merkle root from start to end state passed as arguments from our local list of state roots.

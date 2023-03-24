@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
-	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -24,7 +24,6 @@ import (
 
 func Test_onLeafCreation(t *testing.T) {
 	ctx := context.Background()
-	_ = ctx
 	t.Run("no fork detected", func(t *testing.T) {
 		logsHook := test.NewGlobal()
 		v, _, s := setupValidator(t)
@@ -44,8 +43,8 @@ func Test_onLeafCreation(t *testing.T) {
 
 		p := &mocks.MockProtocol{}
 		s.On("HasStateCommitment", ctx, util.StateCommitment{}).Return(false)
-		p.On("CurrentChallengeManager", ctx, &mocks.MockActiveTx{}).Return(&mocks.MockChallengeManager{}, nil)
-		p.On("AssertionBySequenceNum", ctx, &mocks.MockActiveTx{}, prev.SeqNum()).Return(prev, nil)
+		p.On("CurrentChallengeManager", ctx).Return(&mocks.MockChallengeManager{}, nil)
+		p.On("AssertionBySequenceNum", ctx, prev.SeqNum()).Return(prev, nil)
 		v.chain = p
 
 		err := v.onLeafCreated(ctx, ev)
@@ -61,7 +60,8 @@ func Test_onLeafCreation(t *testing.T) {
 			numBlocks:     100,
 		})
 
-		manager := statemanager.New(createdData.honestValidatorStateRoots)
+		manager, err := statemanager.New(createdData.honestValidatorStateRoots)
+		require.NoError(t, err)
 
 		validator, err := New(
 			ctx,
@@ -94,7 +94,8 @@ func Test_onChallengeStarted(t *testing.T) {
 		divergeHeight: 10,
 		numBlocks:     100,
 	})
-	manager := statemanager.New(createdData.honestValidatorStateRoots)
+	manager, err := statemanager.New(createdData.honestValidatorStateRoots)
+	require.NoError(t, err)
 
 	validator, err := New(
 		ctx,
@@ -122,15 +123,7 @@ func Test_submitAndFetchProtocolChallenge(t *testing.T) {
 		numBlocks:     100,
 	})
 
-	var genesis protocol.Assertion
-	err := createdData.assertionChains[1].Call(func(tx protocol.ActiveTx) error {
-		conf, err := createdData.assertionChains[1].LatestConfirmed(ctx, tx)
-		if err != nil {
-			return err
-		}
-		genesis = conf
-		return nil
-	})
+	genesis, err := createdData.assertionChains[1].LatestConfirmed(ctx)
 	require.NoError(t, err)
 
 	// Setup our mock state manager to agree on leaf1 but disagree on leaf2.
@@ -184,17 +177,7 @@ func createTwoValidatorFork(
 		backend.Commit()
 	}
 
-	var genesis protocol.Assertion
-	var assertion protocol.Assertion
-	var forkedAssertion protocol.Assertion
-	err := chains[1].Call(func(tx protocol.ActiveTx) error {
-		genesisAssertion, err := chains[1].AssertionBySequenceNum(ctx, tx, 0)
-		if err != nil {
-			return err
-		}
-		genesis = genesisAssertion
-		return nil
-	})
+	genesis, err := chains[1].AssertionBySequenceNum(ctx, 0)
 	require.NoError(t, err)
 
 	genesisState := &protocol.ExecutionState{
@@ -205,7 +188,9 @@ func createTwoValidatorFork(
 	}
 	genesisStateHash := protocol.ComputeStateHash(genesisState, big.NewInt(1))
 
-	require.Equal(t, genesisStateHash, genesis.StateHash(), "Genesis state hash unequal")
+	actualGenesisStateHash, err := genesis.StateHash()
+	require.NoError(t, err)
+	require.Equal(t, genesisStateHash, actualGenesisStateHash, "Genesis state hash unequal")
 
 	height := uint64(0)
 	honestValidatorStateRoots := make([]common.Hash, 0)
@@ -213,7 +198,7 @@ func createTwoValidatorFork(
 	honestValidatorStateRoots = append(honestValidatorStateRoots, genesisStateHash)
 	evilValidatorStateRoots = append(evilValidatorStateRoots, genesisStateHash)
 
-	honestBlockHash := common.Hash{}
+	var honestBlockHash common.Hash
 	for i := uint64(1); i < numBlocks; i++ {
 		height += 1
 		honestBlockHash = backend.Commit()
@@ -229,7 +214,7 @@ func createTwoValidatorFork(
 		honestValidatorStateRoots = append(honestValidatorStateRoots, protocol.ComputeStateHash(state, big.NewInt(1)))
 
 		// Before the divergence height, the evil validator agrees.
-		if uint64(i) < divergenceHeight {
+		if i < divergenceHeight {
 			evilValidatorStateRoots = append(evilValidatorStateRoots, protocol.ComputeStateHash(state, big.NewInt(1)))
 		} else {
 			junkRoot := make([]byte, 32)
@@ -244,30 +229,25 @@ func createTwoValidatorFork(
 
 	height += 1
 	honestBlockHash = backend.Commit()
-	err = chains[1].Tx(func(tx protocol.ActiveTx) error {
-		assertion, err = chains[1].CreateAssertion(
-			ctx,
-			tx,
-			height, // Height.
-			genesis.SeqNum(),
-			genesisState,
-			&protocol.ExecutionState{
-				GlobalState: protocol.GoGlobalState{
-					BlockHash: honestBlockHash,
-					Batch:     1,
-				},
-				MachineStatus: protocol.MachineStatusFinished,
+	assertion, err := chains[1].CreateAssertion(
+		ctx,
+		height,
+		genesis.SeqNum(),
+		genesisState,
+		&protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash: honestBlockHash,
+				Batch:     1,
 			},
-			prevInboxMaxCount,
-		)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+			MachineStatus: protocol.MachineStatusFinished,
+		},
+		prevInboxMaxCount,
+	)
 	require.NoError(t, err)
 
-	honestValidatorStateRoots = append(honestValidatorStateRoots, assertion.StateHash())
+	assertionStateHash, err := assertion.StateHash()
+	require.NoError(t, err)
+	honestValidatorStateRoots = append(honestValidatorStateRoots, assertionStateHash)
 
 	evilPostState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
@@ -276,24 +256,19 @@ func createTwoValidatorFork(
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	err = chains[2].Tx(func(tx protocol.ActiveTx) error {
-		forkedAssertion, err = chains[2].CreateAssertion(
-			ctx,
-			tx,
-			height, // Height.
-			genesis.SeqNum(),
-			genesisState,
-			evilPostState,
-			prevInboxMaxCount,
-		)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	forkedAssertion, err := chains[2].CreateAssertion(
+		ctx,
+		height,
+		genesis.SeqNum(),
+		genesisState,
+		evilPostState,
+		prevInboxMaxCount,
+	)
 	require.NoError(t, err)
 
-	evilValidatorStateRoots = append(evilValidatorStateRoots, forkedAssertion.StateHash())
+	forkedAssertionStateHash, err := forkedAssertion.StateHash()
+	require.NoError(t, err)
+	evilValidatorStateRoots = append(evilValidatorStateRoots, forkedAssertionStateHash)
 
 	return &createdValidatorFork{
 		leaf1:                     assertion,
@@ -309,7 +284,6 @@ func createTwoValidatorFork(
 
 func Test_findLatestValidAssertion(t *testing.T) {
 	ctx := context.Background()
-	tx := &mocks.MockActiveTx{}
 	t.Run("only valid latest assertion is genesis", func(t *testing.T) {
 		v, p, _ := setupValidator(t)
 		genesis := &mocks.MockAssertion{
@@ -318,8 +292,8 @@ func Test_findLatestValidAssertion(t *testing.T) {
 			MockStateHash: common.Hash{},
 			Prev:          util.None[*mocks.MockAssertion](),
 		}
-		p.On("LatestConfirmed", ctx, tx).Return(genesis, nil)
-		p.On("NumAssertions", ctx, tx).Return(uint64(100), nil)
+		p.On("LatestConfirmed", ctx).Return(genesis, nil)
+		p.On("NumAssertions", ctx).Return(uint64(100), nil)
 		latestValid, err := v.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, genesis.SeqNum(), latestValid)
@@ -329,13 +303,17 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		assertions := setupAssertions(10)
 		for _, a := range assertions {
 			v.assertions[a.SeqNum()] = a
+			height, err := a.Height()
+			require.NoError(t, err)
+			stateHash, err := a.StateHash()
+			require.NoError(t, err)
 			s.On("HasStateCommitment", ctx, util.StateCommitment{
-				Height:    a.Height(),
-				StateRoot: a.StateHash(),
+				Height:    height,
+				StateRoot: stateHash,
 			}).Return(true)
 		}
-		p.On("LatestConfirmed", ctx, tx).Return(assertions[0], nil)
-		p.On("NumAssertions", ctx, tx).Return(uint64(len(assertions)), nil)
+		p.On("LatestConfirmed", ctx).Return(assertions[0], nil)
+		p.On("NumAssertions", ctx).Return(uint64(len(assertions)), nil)
 
 		latestValid, err := v.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
@@ -346,20 +324,24 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		assertions := setupAssertions(10)
 		for i, a := range assertions {
 			v.assertions[a.SeqNum()] = a
+			height, err := a.Height()
+			require.NoError(t, err)
+			stateHash, err := a.StateHash()
+			require.NoError(t, err)
 			if i <= 5 {
 				s.On("HasStateCommitment", ctx, util.StateCommitment{
-					Height:    a.Height(),
-					StateRoot: a.StateHash(),
+					Height:    height,
+					StateRoot: stateHash,
 				}).Return(true)
 			} else {
 				s.On("HasStateCommitment", ctx, util.StateCommitment{
-					Height:    a.Height(),
-					StateRoot: a.StateHash(),
+					Height:    height,
+					StateRoot: stateHash,
 				}).Return(false)
 			}
 		}
-		p.On("LatestConfirmed", ctx, tx).Return(assertions[0], nil)
-		p.On("NumAssertions", ctx, tx).Return(uint64(len(assertions)), nil)
+		p.On("LatestConfirmed", ctx).Return(assertions[0], nil)
+		p.On("NumAssertions", ctx).Return(uint64(len(assertions)), nil)
 		latestValid, err := v.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, assertions[5].SeqNum(), latestValid)
@@ -394,10 +376,9 @@ func setupValidator(t testing.TB) (*Validator, *mocks.MockProtocol, *mocks.MockS
 	p.On(
 		"AssertionBySequenceNum",
 		ctx,
-		&mocks.MockActiveTx{},
 		protocol.AssertionSequenceNumber(0),
 	).Return(&mocks.MockAssertion{}, nil)
-	p.On("CurrentChallengeManager", ctx, &mocks.MockActiveTx{}).Return(&mocks.MockChallengeManager{}, nil)
+	p.On("CurrentChallengeManager", ctx).Return(&mocks.MockChallengeManager{}, nil)
 	s := &mocks.MockStateManager{}
 	_, _, addrs, backend := setupAssertionChains(t, 3)
 	v, err := New(context.Background(), p, backend, s, addrs.Rollup)

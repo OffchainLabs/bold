@@ -3,28 +3,25 @@ package validator
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
-	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 var (
-	ErrConfirmed          = errors.New("vertex has been confirmed")
-	ErrSiblingConfirmed   = errors.New("vertex sibling has been confirmed")
-	ErrPrevNone           = errors.New("vertex parent is none")
-	ErrChallengeCompleted = errors.New("challenge has been completed")
+	ErrPrevNone = errors.New("vertex parent is none")
 )
 
 type vertexTrackerConfig struct {
 	actEveryNSeconds      time.Duration
 	timeRef               util.TimeReference
 	challengePeriodLength time.Duration
-	challengeCreationTime time.Time
 	chain                 protocol.Protocol
 	stateManager          statemanager.Manager
 	validatorName         string
@@ -44,7 +41,7 @@ func newVertexTracker(
 	vertex protocol.ChallengeVertex,
 	fsmOpts ...util.FsmOpt[vertexTrackerAction, vertexTrackerState],
 ) (*vertexTracker, error) {
-	fsm, err := newVertexTrackerFsm(trackerStarted, fsmOpts...)
+	fsm, err := newVertexTrackerFsm(trackerStarted, util.WithTrackedTransitions[vertexTrackerAction, vertexTrackerState]())
 	if err != nil {
 		return nil, err
 	}
@@ -58,11 +55,14 @@ func newVertexTracker(
 
 func (v *vertexTracker) spawn(ctx context.Context) {
 	commitment := v.vertex.HistoryCommitment()
-	log.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"height":        commitment.Height,
 		"merkle":        util.Trunc(commitment.Merkle[:]),
 		"validatorName": v.cfg.validatorName,
-	}).Info("Tracking challenge vertex")
+		"challengeType": v.challenge.GetType(),
+		"address":       util.Trunc(v.cfg.validatorAddress.Bytes()),
+	}
+	log.WithFields(fields).Info("Tracking challenge vertex")
 
 	t := v.cfg.timeRef.NewTicker(v.cfg.actEveryNSeconds)
 	defer t.Stop()
@@ -73,46 +73,31 @@ func (v *vertexTracker) spawn(ctx context.Context) {
 			// or if a rival vertex exists that has been confirmed before acting.
 			shouldComplete, err := v.trackerShouldComplete(ctx)
 			if err != nil {
-				log.Error(err)
+				log.WithError(err).WithFields(fields).Error("Could not check if vertex tracker should complete")
 				continue
 			}
 			if shouldComplete {
-				log.WithFields(logrus.Fields{
-					"height":        commitment.Height,
-					"merkle":        util.Trunc(commitment.Merkle[:]),
-					"validatorName": v.cfg.validatorName,
-				}).Debug("Vertex tracker received notice of a confirmation, exiting")
+				log.WithFields(fields).Debug("Vertex tracker received notice of a confirmation, exiting")
 				return
 			}
 			if err := v.act(ctx); err != nil {
 				log.Error(err)
 			}
 		case <-ctx.Done():
-			log.WithFields(logrus.Fields{
-				"height": commitment.Height,
-				"merkle": util.Trunc(commitment.Merkle[:]),
-			}).Debug("Challenge goroutine exiting")
+			log.WithFields(fields).Debug("Challenge goroutine exiting")
 			return
 		}
 	}
 }
 
 func (vt *vertexTracker) trackerShouldComplete(ctx context.Context) (bool, error) {
-	var challengeCompleted bool
-	var siblingConfirmed bool
-	var err error
-	if err = vt.cfg.chain.Call(func(tx protocol.ActiveTx) error {
-		challengeCompleted, err = vt.challenge.Completed(ctx, tx)
-		if err != nil {
-			return nil
-		}
-		siblingConfirmed, err = vt.vertex.HasConfirmedSibling(ctx, tx)
-		if err != nil {
-			return nil
-		}
-		return nil
-	}); err != nil {
-		return false, err
+	challengeCompleted, err := vt.challenge.Completed(ctx)
+	if err != nil {
+		return false, nil
+	}
+	siblingConfirmed, err := vt.vertex.HasConfirmedSibling(ctx)
+	if err != nil {
+		return false, nil
 	}
 	return challengeCompleted || siblingConfirmed, nil
 }
@@ -123,15 +108,15 @@ func (vt *vertexTracker) act(ctx context.Context) error {
 	case trackerStarted:
 		prevVertex, err := vt.prevVertex(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not get prev")
 		}
 		atOneStepFork, err := vt.checkOneStepFork(ctx, prevVertex)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not check one step fork")
 		}
 		isPresumptive, err := vt.isPresumptive(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not check presumptive")
 		}
 		if atOneStepFork {
 			return vt.fsm.Do(actOneStepFork{
@@ -147,32 +132,64 @@ func (vt *vertexTracker) act(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("bad source event: %s", event)
 		}
-		log.WithField("name", vt.cfg.validatorName).Infof(
+		forkPointVertexHistoryCommitment := event.forkPointVertex.HistoryCommitment()
+		log.WithFields(logrus.Fields{
+			"name": vt.cfg.validatorName,
+		}).Infof(
 			"Reached one-step-fork at %d and commitment %s",
-			event.forkPointVertex.HistoryCommitment().Height,
-			util.Trunc(event.forkPointVertex.HistoryCommitment().Merkle.Bytes()),
+			forkPointVertexHistoryCommitment.Height,
+			util.Trunc(forkPointVertexHistoryCommitment.Merkle.Bytes()),
 		)
-		if vt.challenge.GetType() == protocol.SmallStepChallenge {
+		challengeType := vt.challenge.GetType()
+		if challengeType == protocol.SmallStepChallenge {
 			return vt.fsm.Do(actOneStepProof{})
 		}
-		return vt.fsm.Do(openSubchallenge{})
+		return vt.fsm.Do(openSubchallenge{
+			challengeForkVertex: event.forkPointVertex,
+		})
 	case trackerAtOneStepProof:
-		log.Info("Checking one-step-proof against protocol")
+		log.WithFields(logrus.Fields{
+			"name": vt.cfg.validatorName,
+		}).Info("Checking one-step-proof against protocol")
 		return vt.fsm.Do(actOneStepProof{})
 	case trackerOpeningSubchallenge:
-		// TODO: Implement.
-		return vt.fsm.Do(openSubchallenge{})
+		event, ok := current.SourceEvent.(openSubchallenge)
+		if !ok {
+			return fmt.Errorf("bad source event: %s", event)
+		}
+		subChallenge, err := vt.openSubchallenge(ctx, event.challengeForkVertex)
+		if err != nil {
+			return err
+		}
+		return vt.fsm.Do(openSubchallengeLeaf{
+			subChallenge:    subChallenge,
+			forkPointVertex: event.challengeForkVertex,
+		})
 	case trackerAddingSubchallengeLeaf:
-		// TODO: Implement.
-		return vt.fsm.Do(openSubchallengeLeaf{})
+		event, ok := current.SourceEvent.(openSubchallengeLeaf)
+		if !ok {
+			return fmt.Errorf("bad source event: %s", event)
+		}
+		if err := vt.openSubchallengeLeaf(
+			ctx, event.forkPointVertex, event.subChallenge,
+		); err != nil {
+			return errors.Wrap(err, "could not open subchallenge leaf")
+		}
+		return vt.fsm.Do(awaitSubchallengeResolution{})
 	case trackerBisecting:
-		// TODO: Seems to allow for double bisections?
 		bisectedTo, err := vt.bisect(ctx, vt.vertex)
 		if err != nil {
 			if errors.Is(err, solimpl.ErrAlreadyExists) {
 				return vt.fsm.Do(merge{})
 			}
-			return err
+			log.WithError(err).WithFields(logrus.Fields{
+				"height":        vt.vertex.HistoryCommitment().Height,
+				"merkle":        util.Trunc(vt.vertex.HistoryCommitment().Merkle.Bytes()),
+				"validatorName": vt.cfg.validatorName,
+				"challengeType": vt.challenge.GetType(),
+				"address":       util.Trunc(vt.cfg.validatorAddress.Bytes()),
+			}).Error("could not bisect")
+			return vt.fsm.Do(backToStart{})
 		}
 		tracker, err := newVertexTracker(
 			vt.cfg,
@@ -180,14 +197,21 @@ func (vt *vertexTracker) act(ctx context.Context) error {
 			bisectedTo,
 		)
 		if err != nil {
-			return err
+			log.WithError(err).WithFields(logrus.Fields{
+				"height":        vt.vertex.HistoryCommitment().Height,
+				"merkle":        util.Trunc(vt.vertex.HistoryCommitment().Merkle.Bytes()),
+				"validatorName": vt.cfg.validatorName,
+				"challengeType": vt.challenge.GetType(),
+				"address":       util.Trunc(vt.cfg.validatorAddress.Bytes()),
+			}).Error("could not create new vertex tracker")
+			return vt.fsm.Do(backToStart{})
 		}
 		go tracker.spawn(ctx)
 		return vt.fsm.Do(backToStart{})
 	case trackerMerging:
 		mergedTo, err := vt.mergeToExistingVertex(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not merge")
 		}
 		tracker, err := newVertexTracker(
 			vt.cfg,
@@ -195,11 +219,9 @@ func (vt *vertexTracker) act(ctx context.Context) error {
 			mergedTo,
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not create new vertex tracker")
 		}
 		go tracker.spawn(ctx)
-
-		// TODO: This seems wrong...what to do?
 		return vt.fsm.Do(backToStart{})
 	case trackerConfirming:
 		// TODO: Implement.
@@ -208,7 +230,7 @@ func (vt *vertexTracker) act(ctx context.Context) error {
 		// Terminal state does nothing. The vertex tracker will end next time it acts.
 		isPs, err := vt.isPresumptive(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not check if presumptive")
 		}
 		if !isPs {
 			return vt.fsm.Do(backToStart{})
@@ -223,15 +245,8 @@ func (vt *vertexTracker) act(ctx context.Context) error {
 }
 
 func (vt *vertexTracker) isPresumptive(ctx context.Context) (bool, error) {
-	var isPresumptive bool
-	if err := vt.cfg.chain.Call(func(tx protocol.ActiveTx) error {
-		ps, fetchErr := vt.vertex.IsPresumptiveSuccessor(ctx, tx)
-		if fetchErr != nil {
-			return fetchErr
-		}
-		isPresumptive = ps
-		return nil
-	}); err != nil {
+	isPresumptive, err := vt.vertex.IsPresumptiveSuccessor(ctx)
+	if err != nil {
 		return false, err
 	}
 	return isPresumptive, nil
@@ -243,98 +258,168 @@ func (vt *vertexTracker) checkOneStepFork(ctx context.Context, prevVertex protoc
 	if commitment.Height != prevCommitment.Height+1 {
 		return false, nil
 	}
-	var oneStepFork bool
-	if err := vt.cfg.chain.Call(func(tx protocol.ActiveTx) error {
-		atOneStepFork, fetchErr := prevVertex.ChildrenAreAtOneStepFork(ctx, tx)
-		if fetchErr != nil {
-			return fetchErr
-		}
-		oneStepFork = atOneStepFork
-		return nil
-	}); err != nil {
+	oneStepFork, err := prevVertex.ChildrenAreAtOneStepFork(ctx)
+	if err != nil {
 		return false, err
 	}
 	return oneStepFork, nil
 }
 
 func (vt *vertexTracker) prevVertex(ctx context.Context) (protocol.ChallengeVertex, error) {
-	var prev protocol.ChallengeVertex
-	if err := vt.cfg.chain.Call(func(tx protocol.ActiveTx) error {
-		prevV, err := vt.vertex.Prev(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if prevV.IsNone() {
-			return errors.Wrapf(ErrPrevNone, "vertex with id: %#x", vt.vertex.Id())
-		}
-		prev = prevV.Unwrap()
-		return nil
-	}); err != nil {
+	prevV, err := vt.vertex.Prev(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return prev, nil
+	if prevV.IsNone() {
+		return nil, errors.Wrapf(ErrPrevNone, "vertex with id: %#x", vt.vertex.Id())
+	}
+	return prevV.Unwrap(), nil
 }
 
 // Merges to a vertex that already exists in the protocol by fetching its history commit
 // from our state manager and then performing a merge transaction in the chain. Then,
 // this method returns the vertex it merged to.
 func (v *vertexTracker) mergeToExistingVertex(ctx context.Context) (protocol.ChallengeVertex, error) {
-	var prev protocol.ChallengeVertex
-	var mergingInto protocol.ChallengeVertex
-	var parentCommit util.StateCommitment
-	if err := v.cfg.chain.Call(func(tx protocol.ActiveTx) error {
-		prevV, err := v.vertex.Prev(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if prevV.IsNone() {
-			return errors.New("no prev vertex found")
-		}
-		prev = prevV.Unwrap()
-		parentStateCommitment, err := v.challenge.ParentStateCommitment(ctx, tx)
-		if err != nil {
-			return err
-		}
-		prevCommitment := prev.HistoryCommitment()
-		commitment := v.vertex.HistoryCommitment()
-		parentHeight := prevCommitment.Height
-		toHeight := commitment.Height
-
-		mergingToHistory, err := v.determineBisectionPointWithHistory(
-			ctx,
-			parentHeight,
-			toHeight,
-		)
-		if err != nil {
-			return err
-		}
-		manager, err := v.cfg.chain.CurrentChallengeManager(ctx, tx)
-		if err != nil {
-			return err
-		}
-		vertexId, err := manager.CalculateChallengeVertexId(ctx, tx, v.challenge.Id(), mergingToHistory)
-		if err != nil {
-			return err
-		}
-		vertex, err := manager.GetVertex(ctx, tx, vertexId)
-		if err != nil {
-			return err
-		}
-		if vertex.IsNone() {
-			return errors.New("no vertex found to merge into")
-		}
-		mergingInto = vertex.Unwrap()
-		parentCommit = parentStateCommitment
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	mergingFrom := v.vertex
-	mergedTo, err := v.merge(ctx, protocol.ChallengeHash(parentCommit.Hash()), mergingInto, mergingFrom)
+	prev, err := v.vertex.Prev(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return mergedTo, nil
+	if prev.IsNone() {
+		return nil, errors.New("no prev vertex found")
+	}
+	prevCommitment := prev.Unwrap().HistoryCommitment()
+	commitment := v.vertex.HistoryCommitment()
+	parentHeight := prevCommitment.Height
+	toHeight := commitment.Height
+
+	mergeHistory, prefixProof, err := v.determineBisectionHistoryWithProof(
+		ctx,
+		parentHeight,
+		toHeight,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return v.merge(ctx, mergeHistory, prefixProof)
+}
+
+// Opens a subchallenge on a parent vertex. This function determines the type of subchallenge
+// that should be opened, and then the tracker attempts to submit a subchallenge creation
+// on-chain and return its value. If the subchallenge already exists, it will instead fetch
+// the challenge and return its value.
+func (v *vertexTracker) openSubchallenge(
+	ctx context.Context,
+	prevVertex protocol.ChallengeVertex,
+) (protocol.Challenge, error) {
+	if v.challenge.GetType() == protocol.SmallStepChallenge {
+		return nil, errors.New("cannot create subchallenge on small step challenge")
+	}
+	manager, err := v.cfg.chain.CurrentChallengeManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var subChalToCreate protocol.ChallengeType
+	switch v.challenge.GetType() {
+	case protocol.BlockChallenge:
+		subChalToCreate = protocol.BigStepChallenge
+	case protocol.BigStepChallenge:
+		subChalToCreate = protocol.SmallStepChallenge
+	default:
+		return nil, errors.New("unsupported challenge type to create")
+	}
+	subChal, err := prevVertex.CreateSubChallenge(ctx)
+	if err != nil {
+		switch {
+		case errors.Is(err, solimpl.ErrAlreadyExists):
+			subChalHash, calcErr := manager.CalculateChallengeHash(ctx, prevVertex.Id(), subChalToCreate)
+			if calcErr != nil {
+				return nil, calcErr
+			}
+			fetchedSubChal, fetcherErr := manager.GetChallenge(ctx, subChalHash)
+			if fetcherErr != nil {
+				return nil, fetcherErr
+			}
+			if fetchedSubChal.IsNone() {
+				return nil, fmt.Errorf("no subchallenge found on-chain for id %#x", subChalHash)
+			}
+			subChal = fetchedSubChal.Unwrap()
+		default:
+			return nil, errors.Wrap(err, "subchallenge creation failed")
+		}
+	}
+	log.WithFields(logrus.Fields{
+		"name":   v.cfg.validatorName,
+		"height": prevVertex.HistoryCommitment().Height,
+		"merkle": util.Trunc(prevVertex.HistoryCommitment().Merkle.Bytes()),
+	}).Infof("Opened %s subchallenge", subChal.GetType())
+	return subChal, nil
+}
+
+func (vt *vertexTracker) openSubchallengeLeaf(
+	ctx context.Context,
+	prevVertex protocol.ChallengeVertex,
+	subChallenge protocol.Challenge,
+) error {
+	fromVertexHeight := prevVertex.HistoryCommitment().Height
+	toVertexHeight := vt.vertex.HistoryCommitment().Height
+
+	topLevelClaimVertex, err := subChallenge.TopLevelClaimVertex(ctx)
+	if err != nil {
+		return err
+	}
+
+	fromAssertionHeight := topLevelClaimVertex.HistoryCommitment().Height
+	toAssertionHeight := fromAssertionHeight + 1
+
+	var history util.HistoryCommitment
+	switch subChallenge.GetType() {
+	case protocol.BigStepChallenge:
+		log.WithFields(logrus.Fields{
+			"name":                vt.cfg.validatorName,
+			"fromVertexHeight":    fromVertexHeight,
+			"toVertexHeight":      toVertexHeight,
+			"fromAssertionHeight": fromAssertionHeight,
+			"toAssertionHeight":   toAssertionHeight,
+		}).Info("Big step leaf commit")
+		history, err = vt.cfg.stateManager.BigStepLeafCommitment(ctx, fromAssertionHeight, toAssertionHeight)
+	case protocol.SmallStepChallenge:
+		log.WithFields(logrus.Fields{
+			"name":                vt.cfg.validatorName,
+			"fromVertexHeight":    fromVertexHeight,
+			"toVertexHeight":      toVertexHeight,
+			"fromAssertionHeight": fromAssertionHeight,
+			"toAssertionHeight":   toAssertionHeight,
+		}).Info("Small step leaf commit")
+		history, err = vt.cfg.stateManager.SmallStepLeafCommitment(ctx, fromAssertionHeight, toAssertionHeight)
+	default:
+		return errors.New("unsupported subchallenge type for creating leaf commitment")
+	}
+	if err != nil {
+		return err
+	}
+	addedLeaf, err := subChallenge.AddSubChallengeLeaf(ctx, vt.vertex, history)
+	if err != nil {
+		return err
+	}
+	log.WithFields(logrus.Fields{
+		"name":                      vt.cfg.validatorName,
+		"upperLevelForkPoint":       prevVertex.HistoryCommitment().Height,
+		"upperLevelForkPointMerkle": util.Trunc(prevVertex.HistoryCommitment().Merkle.Bytes()),
+		"height":                    addedLeaf.HistoryCommitment().Height,
+		"leafFirstState":            util.Trunc(history.FirstLeaf.Bytes()),
+		"leafCommitment":            util.Trunc(addedLeaf.HistoryCommitment().Merkle.Bytes()),
+		"subChallengeType":          subChallenge.GetType(),
+	}).Info("Added subchallenge leaf, now tracking its vertex")
+	tracker, err := newVertexTracker(
+		vt.cfg,
+		subChallenge,
+		addedLeaf,
+	)
+	if err != nil {
+		return err
+	}
+	go tracker.spawn(ctx)
+	return nil
 }
 
 // TODO: Unused - need to refactor into something more manageable.
@@ -343,74 +428,64 @@ func (v *vertexTracker) mergeToExistingVertex(ctx context.Context) (protocol.Cha
 // nolint:unused
 func (v *vertexTracker) confirmed(ctx context.Context) (bool, error) {
 	// Can't confirm if the vertex is not in correct state.
-	status := v.vertex.Status()
+	status, err := v.vertex.Status(ctx)
+	if err != nil {
+		return false, err
+	}
 	if status != protocol.AssertionPending {
 		return false, nil
 	}
 
-	var gotConfirmed bool
-
-	if err := v.cfg.chain.Tx(func(tx protocol.ActiveTx) error {
-		// Can't confirm if parent isn't confirmed, exit early.
-		prev, err := v.vertex.Prev(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if prev.IsNone() {
-			return errors.New("no prev vertex")
-		}
-		prevStatus := prev.Unwrap().Status()
-		// TODO: Vertex status different from assertion status.
-		if prevStatus != protocol.AssertionConfirmed {
-			return nil
-		}
-
-		// Can confirm if vertex's parent has a sub-challenge, and the sub-challenge has reported vertex as its winner.
-		subChallenge, err := prev.Unwrap().GetSubChallenge(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if !subChallenge.IsNone() {
-			var subChallengeWinnerVertex util.Option[protocol.ChallengeVertex]
-			subChallengeWinnerVertex, err = subChallenge.Unwrap().WinnerVertex(ctx, tx)
-			if err != nil {
-				return err
-			}
-			if !subChallengeWinnerVertex.IsNone() {
-				winner := subChallengeWinnerVertex.Unwrap()
-				if winner == v.vertex {
-					if confirmErr := v.vertex.ConfirmForSubChallengeWin(ctx, tx); confirmErr != nil {
-						return confirmErr
-					}
-					gotConfirmed = true
-				}
-				return nil
-			}
-		}
-
-		// Can confirm if vertex's presumptive successor timer is greater than one challenge period.
-		psTimer, err := v.vertex.PsTimer(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if time.Duration(psTimer)*time.Second > v.cfg.challengePeriodLength {
-			if confirmErr := v.vertex.ConfirmForPsTimer(ctx, tx); confirmErr != nil {
-				return err
-			}
-			gotConfirmed = true
-			return nil
-		}
-
-		// Can confirm if the challenge’s end time has been reached, and vertex is the presumptive successor of parent.
-		if v.cfg.timeRef.Get().After(v.cfg.challengeCreationTime.Add(2 * v.cfg.challengePeriodLength)) {
-			if confirmErr := v.vertex.ConfirmForChallengeDeadline(ctx, tx); confirmErr != nil {
-				return err
-			}
-			gotConfirmed = true
-		}
-		return nil
-	}); err != nil {
+	// Can't confirm if parent isn't confirmed, exit early.
+	prev, err := v.vertex.Prev(ctx)
+	if err != nil {
 		return false, err
 	}
-	return gotConfirmed, nil
+	if prev.IsNone() {
+		return false, errors.New("no prev vertex")
+	}
+	prevStatus, err := prev.Unwrap().Status(ctx)
+	if err != nil {
+		return false, err
+	}
+	// TODO: Vertex status different from assertion status.
+	if prevStatus != protocol.AssertionConfirmed {
+		return false, nil
+	}
+
+	// Can confirm if vertex's parent has a sub-challenge, and the sub-challenge has reported vertex as its winner.
+	subChallenge, err := prev.Unwrap().GetSubChallenge(ctx)
+	if err != nil {
+		return false, err
+	}
+	if !subChallenge.IsNone() {
+		var subChallengeWinnerVertex util.Option[protocol.ChallengeVertex]
+		subChallengeWinnerVertex, err = subChallenge.Unwrap().WinnerVertex(ctx)
+		if err != nil {
+			return false, err
+		}
+		if !subChallengeWinnerVertex.IsNone() {
+			winner := subChallengeWinnerVertex.Unwrap()
+			if winner == v.vertex {
+				if confirmErr := v.vertex.ConfirmForSubChallengeWin(ctx); confirmErr != nil {
+					return false, confirmErr
+				}
+				return true, nil
+			}
+			return false, nil
+		}
+	}
+
+	// Can confirm if vertex's presumptive successor timer is greater than one challenge period.
+	psTimer, err := v.vertex.PsTimer(ctx)
+	if err != nil {
+		return false, err
+	}
+	if time.Duration(psTimer)*time.Second > v.cfg.challengePeriodLength {
+		if confirmErr := v.vertex.ConfirmForPsTimer(ctx); confirmErr != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
 }

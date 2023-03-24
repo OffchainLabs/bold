@@ -51,14 +51,6 @@ func DefaultMachineConfig() *MachineConfig {
 	}
 }
 
-// BigStepHeight computes the big step an opcode index is in, 1-indexed.
-func BigStepHeight(bigStepSize uint64, opcodeIndex uint64) uint64 {
-	if opcodeIndex < bigStepSize {
-		return 1
-	}
-	return opcodeIndex / bigStepSize
-}
-
 // Engine can provide an execution engine for a specific pre-state of an L2 block,
 // giving access to a state iterator to advance opcode-by-opcode and fetch one-step-proofs.
 type Engine struct {
@@ -96,9 +88,20 @@ func (engine *Engine) LastState() common.Hash {
 
 // Serialize an execution engine.
 func (engine *Engine) Serialize() []byte {
-	ret := []byte{}
+	var ret []byte
 	ret = append(ret, engine.startStateRoot.Bytes()...)
 	ret = append(ret, engine.endStateRoot.Bytes()...)
+	ret = append(ret, binary.BigEndian.AppendUint64([]byte{}, engine.numSteps)...)
+	return ret
+}
+
+// SerializeForHash prepares a machine serialization that helps with determining
+// intermediate hashes is comprised of keccak(serializeForHash(machine), stepNum).
+// We want validators to agree up to a certain height in subchallenges, and by encoding only
+// the start state root and num steps in the machine serialization we achieve that.
+func (engine *Engine) SerializeForHash() []byte {
+	ret := []byte{}
+	ret = append(ret, engine.startStateRoot.Bytes()...)
 	ret = append(ret, binary.BigEndian.AppendUint64([]byte{}, engine.numSteps)...)
 	return ret
 }
@@ -115,7 +118,7 @@ func deserializeExecutionEngine(buf []byte) (*Engine, error) {
 }
 
 func (engine *Engine) internalHash() common.Hash {
-	return crypto.Keccak256Hash(engine.Serialize())
+	return crypto.Keccak256Hash(engine.SerializeForHash())
 }
 
 // NumOpcodes in the engine at the block height.
