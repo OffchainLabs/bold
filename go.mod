@@ -1,6 +1,6 @@
 module github.com/OffchainLabs/challenge-protocol-v2
 
-go 1.19
+go 1.20
 
 require (
 	github.com/ethereum/go-ethereum v1.10.26
