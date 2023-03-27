@@ -9,6 +9,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
@@ -86,6 +87,59 @@ func (cm *ChallengeManager) CalculateChallengeVertexId(
 		return protocol.VertexHash{}, err
 	}
 	return vertexId, nil
+}
+
+type OneStepData struct {
+	BridgeAddr           common.Address
+	MaxInboxMessagesRead uint64
+	MachineStep          uint64
+	BeforeHash           common.Hash
+	Proof                []byte
+}
+
+// ExecuteOneStepProof checks a one step proof for a tentative winner vertex id
+// which will mark it as the winning claim of its associated challenge if correct.
+// The winning vertices and corresponding assertion then need to be confirmed
+// through separate transactions. If this succeeds.
+func (cm *ChallengeManager) ExecuteOneStepProof(
+	ctx context.Context,
+	tentativeWinnerVertexId protocol.VertexHash,
+	oneStepData *OneStepData,
+	preHistoryInclusionProof []common.Hash,
+	postHistoryInclusionProof []common.Hash,
+) error {
+	pre := make([][32]byte, len(preHistoryInclusionProof))
+	for i, r := range preHistoryInclusionProof {
+		pre[i] = r
+	}
+	post := make([][32]byte, len(postHistoryInclusionProof))
+	for i, r := range postHistoryInclusionProof {
+		post[i] = r
+	}
+
+	_, err := transact(
+		ctx,
+		cm.assertionChain.backend,
+		cm.assertionChain.headerReader,
+		func() (*types.Transaction, error) {
+			return cm.writer.ExecuteOneStep(
+				cm.assertionChain.txOpts,
+				tentativeWinnerVertexId,
+				challengeV2gen.OneStepData{
+					ExecCtx: challengeV2gen.ExecutionContext{
+						MaxInboxMessagesRead: big.NewInt(int64(oneStepData.MaxInboxMessagesRead)),
+						Bridge:               oneStepData.BridgeAddr,
+					},
+					MachineStep: big.NewInt(int64(oneStepData.MachineStep)),
+					BeforeHash:  oneStepData.BeforeHash,
+					Proof:       oneStepData.Proof,
+				},
+				pre,
+				post,
+			)
+		})
+	// TODO: Handle receipt.
+	return err
 }
 
 // GetVertex returns the challenge vertex for the given vertexId.
