@@ -17,6 +17,10 @@ import (
 
 var _ = protocol.Challenge(&Challenge{})
 
+func TestTimeoutExample(t *testing.T) {
+	setupAssertionChainWithChallengeManager(t)
+}
+
 func TestChallenge_BlockChallenge_AddLeaf(t *testing.T) {
 	ctx := context.Background()
 	height := uint64(3)
@@ -93,8 +97,10 @@ func setupTopLevelFork(
 	height2 uint64,
 ) (*Assertion, *Assertion, *Challenge, *AssertionChain, *AssertionChain) {
 	t.Helper()
+	fmt.Println("in setup, pre assertion chain setup with backend")
 	chain1, accs, addresses, backend, headerReader := setupAssertionChainWithChallengeManager(t)
 	prev := uint64(0)
+	fmt.Println("in setup, post assertion chain setup")
 
 	minAssertionPeriod, err := chain1.userLogic.MinimumAssertionPeriod(chain1.callOpts)
 	require.NoError(t, err)

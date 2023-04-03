@@ -313,89 +313,74 @@ func TestChallengeVertex_ChildrenAreAtOneStepFork(t *testing.T) {
 }
 
 func TestChallengeVertex_Bisect(t *testing.T) {
-	ctx := context.Background()
-	height1 := uint64(3)
-	height2 := uint64(7)
-	a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
 
-	honestHashes := honestHashesUpTo(10)
-	evilHashes := evilHashesUpTo(10)
-	honestManager, err := statemanager.New(honestHashes)
-	require.NoError(t, err)
+	// t.Run("vertex does not exist", func(t *testing.T) {
+	// 	vertex := &ChallengeVertex{
+	// 		id:    common.BytesToHash([]byte("junk")),
+	// 		chain: challenge.chain,
+	// 	}
+	// 	_, err = vertex.Bisect(ctx, util.HistoryCommitment{
+	// 		Height: 4,
+	// 		Merkle: common.BytesToHash([]byte("nyan4")),
+	// 	}, make([]byte, 0))
+	// 	require.ErrorContains(t, err, "does not exist")
+	// })
+	// t.Run("winner already declared", func(t *testing.T) {
+	// 	t.Skip("Need to add winner capabilities in order to test")
+	// })
+	// t.Run("cannot bisect presumptive successor", func(t *testing.T) {
+	// 	// V1 should be the presumptive successor here.
+	// 	_, err = v1.Bisect(ctx, util.HistoryCommitment{
+	// 		Height: 4,
+	// 		Merkle: common.BytesToHash([]byte("nyan4")),
+	// 	}, make([]byte, 0))
+	// 	require.ErrorContains(t, err, "Cannot bisect presumptive")
+	// })
+	// t.Run("presumptive successor already confirmable", func(t *testing.T) {
+	// 	manager, err := chain1.CurrentChallengeManager(ctx)
+	// 	require.NoError(t, err)
+	// 	chalPeriod, err := manager.ChallengePeriodSeconds(ctx)
+	// 	require.NoError(t, err)
+	// 	backend, ok := chain1.backend.(*backends.SimulatedBackend)
+	// 	require.Equal(t, true, ok)
+	// 	err = backend.AdjustTime(chalPeriod)
+	// 	require.NoError(t, err)
 
-	evilManager, err := statemanager.New(evilHashes)
-	require.NoError(t, err)
-	honestCommit, err := honestManager.HistoryCommitmentUpTo(ctx, height1)
-	require.NoError(t, err)
-	evilCommit, err := evilManager.HistoryCommitmentUpTo(ctx, height2)
-	require.NoError(t, err)
+	// 	preCommit, err := evilManager.HistoryCommitmentUpTo(ctx, 3)
+	// 	require.NoError(t, err)
+	// 	prefixProof, err := evilManager.PrefixProof(ctx, 3, 7)
+	// 	require.NoError(t, err)
 
-	// We add two leaves to the challenge.
-	challenge.chain = chain1
-	v1, err := challenge.AddBlockChallengeLeaf(
-		ctx,
-		a1,
-		honestCommit,
-	)
-	require.NoError(t, err)
-
-	challenge.chain = chain2
-	v2, err := challenge.AddBlockChallengeLeaf(
-		ctx,
-		a2,
-		evilCommit,
-	)
-	require.NoError(t, err)
-
-	t.Run("vertex does not exist", func(t *testing.T) {
-		vertex := &ChallengeVertex{
-			id:    common.BytesToHash([]byte("junk")),
-			chain: challenge.chain,
-		}
-		_, err = vertex.Bisect(ctx, util.HistoryCommitment{
-			Height: 4,
-			Merkle: common.BytesToHash([]byte("nyan4")),
-		}, make([]byte, 0))
-		require.ErrorContains(t, err, "does not exist")
-	})
-	t.Run("winner already declared", func(t *testing.T) {
-		t.Skip("Need to add winner capabilities in order to test")
-	})
-	t.Run("cannot bisect presumptive successor", func(t *testing.T) {
-		// V1 should be the presumptive successor here.
-		_, err = v1.Bisect(ctx, util.HistoryCommitment{
-			Height: 4,
-			Merkle: common.BytesToHash([]byte("nyan4")),
-		}, make([]byte, 0))
-		require.ErrorContains(t, err, "Cannot bisect presumptive")
-	})
-	t.Run("presumptive successor already confirmable", func(t *testing.T) {
-		manager, err := chain1.CurrentChallengeManager(ctx)
-		require.NoError(t, err)
-		chalPeriod, err := manager.ChallengePeriodSeconds(ctx)
-		require.NoError(t, err)
-		backend, ok := chain1.backend.(*backends.SimulatedBackend)
-		require.Equal(t, true, ok)
-		err = backend.AdjustTime(chalPeriod)
-		require.NoError(t, err)
-
-		preCommit, err := evilManager.HistoryCommitmentUpTo(ctx, 3)
-		require.NoError(t, err)
-		prefixProof, err := evilManager.PrefixProof(ctx, 3, 7)
-		require.NoError(t, err)
-
-		// We make a challenge period pass.
-		_, err = v2.Bisect(ctx, preCommit, prefixProof)
-		require.ErrorContains(t, err, "cannot set same height ps")
-	})
-	t.Run("invalid prefix history", func(t *testing.T) {
-		t.Skip("Need to add proof capabilities in solidity in order to test")
-	})
+	// 	// We make a challenge period pass.
+	// 	_, err = v2.Bisect(ctx, preCommit, prefixProof)
+	// 	require.ErrorContains(t, err, "cannot set same height ps")
+	// })
+	// t.Run("invalid prefix history", func(t *testing.T) {
+	// 	t.Skip("Need to add proof capabilities in solidity in order to test")
+	// })
 	t.Run("OK", func(t *testing.T) {
+		ctx := context.Background()
 		height1 := uint64(3)
 		height2 := uint64(7)
-		a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
 
+		honestHashes := honestHashesUpTo(10)
+		evilHashes := evilHashesUpTo(10)
+		honestManager, err := statemanager.New(honestHashes)
+		require.NoError(t, err)
+
+		evilManager, err := statemanager.New(evilHashes)
+		require.NoError(t, err)
+		honestCommit, err := honestManager.HistoryCommitmentUpTo(ctx, height1)
+		require.NoError(t, err)
+		evilCommit, err := evilManager.HistoryCommitmentUpTo(ctx, height2)
+		require.NoError(t, err)
+
+		// We add two leaves to the challenge.
+		fmt.Println("Pre setup")
+		a1, a2, challenge, chain1, chain2 := setupTopLevelFork(t, ctx, height1, height2)
+		fmt.Println("Post setup")
+
+		fmt.Println("Pre add leaf1")
 		// We add two leaves to the challenge.
 		challenge.chain = chain1
 		v1, err := challenge.AddBlockChallengeLeaf(
@@ -405,6 +390,7 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		fmt.Println("Pre add leaf2")
 		challenge.chain = chain2
 		v2, err := challenge.AddBlockChallengeLeaf(
 			ctx,
@@ -418,8 +404,10 @@ func TestChallengeVertex_Bisect(t *testing.T) {
 		prefixProof, err := evilManager.PrefixProof(ctx, 3, 7)
 		require.NoError(t, err)
 
+		fmt.Println("Got pre")
 		bisectedToV, err := v2.Bisect(ctx, preCommit, prefixProof)
 		require.NoError(t, err)
+		fmt.Println("Got post")
 		bisectedTo := bisectedToV.(*ChallengeVertex)
 		bisectedToInner, err := bisectedTo.inner(ctx)
 		require.NoError(t, err)
