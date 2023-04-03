@@ -72,7 +72,7 @@ func (e *SpecEdge) Bisect(
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
 ) (protocol.SpecEdge, protocol.SpecEdge, error) {
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.BisectEdge(e.manager.txOpts, e.id, prefixHistoryRoot, prefixProof)
 	})
 	if err != nil {
@@ -110,14 +110,14 @@ func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	for i, r := range ancestorIds {
 		ancestors[i] = r
 	}
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByTimer(e.manager.txOpts, e.id, ancestors)
 	})
 	return err
 }
 
 func (e *SpecEdge) ConfirmByChildren(ctx context.Context) error {
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByChildren(e.manager.txOpts, e.id)
 	})
 	return err
@@ -125,7 +125,7 @@ func (e *SpecEdge) ConfirmByChildren(ctx context.Context) error {
 
 func (e *SpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId) error {
 	// TODO: Add in fields.
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByClaim(e.manager.txOpts, e.id, claimId)
 	})
 	return err
@@ -136,7 +136,7 @@ func (e *SpecEdge) OriginCommitment(ctx context.Context) (protocol.Height, commo
 }
 
 func (e *SpecEdge) ConfirmByOneStepProof(ctx context.Context) error {
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByOneStepProof(
 			e.manager.txOpts,
 			e.id,
@@ -323,7 +323,7 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 			assertion.SeqNum(),
 		)
 	}
-	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, cm.backend, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
@@ -380,7 +380,7 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	default:
 		return nil, fmt.Errorf("cannot open level zero edge beneath small step challenge: %s", challengedEdge.GetType())
 	}
-	_, err := transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, cm.backend, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{

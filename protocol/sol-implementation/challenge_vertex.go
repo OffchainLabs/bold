@@ -128,7 +128,6 @@ func (v *ChallengeVertex) Bisect(ctx context.Context, history util.HistoryCommit
 	receipt, err := transact(
 		ctx,
 		v.chain.backend,
-		v.chain.headerReader,
 		func() (*types.Transaction, error) {
 			return manager.writer.Bisect(
 				v.chain.txOpts,
@@ -168,7 +167,7 @@ func (v *ChallengeVertex) ConfirmForPsTimer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = transact(ctx, v.chain.backend, v.chain.headerReader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, v.chain.backend, func() (*types.Transaction, error) {
 		return manager.writer.ConfirmForPsTimer(
 			v.chain.txOpts,
 			v.id,
@@ -212,7 +211,7 @@ func (v *ChallengeVertex) CreateSubChallenge(ctx context.Context) (protocol.Chal
 		return nil, fmt.Errorf("cannot make subchallenge for challenge type %d", challenge.GetType())
 	}
 
-	if _, err = transact(ctx, v.chain.backend, v.chain.headerReader, func() (*types.Transaction, error) {
+	if _, err = transact(ctx, v.chain.backend, func() (*types.Transaction, error) {
 		return manager.writer.CreateSubChallenge(
 			v.chain.txOpts,
 			v.id,

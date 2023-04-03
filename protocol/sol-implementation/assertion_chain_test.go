@@ -7,13 +7,10 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
-
-	"github.com/offchainlabs/nitro/util/headerreader"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/stretchr/testify/require"
 )
 
@@ -396,6 +393,10 @@ func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*
 	t.Helper()
 	ctx := context.Background()
 	accs, backend := setupAccounts(t, 3)
+	t.Cleanup(func() {
+		t.Log("Closing backend")
+		require.NoError(t, backend.Close())
+	})
 	prod := false
 	wasmModuleRoot := common.Hash{}
 	rollupOwner := accs[0].accountAddr
@@ -412,8 +413,8 @@ func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*
 		common.Address{}, // Sequencer addr.
 		cfg,
 	)
-	headerReader := headerreader.New(util.SimulatedBackendWrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
-	headerReader.Start(ctx)
+	// headerReader := headerreader.New(util.SimulatedBackendWrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
+	// headerReader.Start(ctx)
 	chain, err := NewAssertionChain(
 		ctx,
 		addresses.Rollup,
@@ -421,11 +422,11 @@ func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*
 		&bind.CallOpts{},
 		accs[1].accountAddr,
 		backend,
-		headerReader,
+		nil,
 		common.Address{},
 	)
 	require.NoError(t, err)
-	return chain, accs, addresses, backend, headerReader
+	return chain, accs, addresses, backend, nil
 }
 
 func TestCopyTxOpts(t *testing.T) {

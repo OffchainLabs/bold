@@ -175,7 +175,7 @@ func (ac *AssertionChain) CreateAssertion(
 	newOpts := copyTxOpts(ac.txOpts)
 	newOpts.Value = stake
 
-	receipt, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
+	receipt, err := transact(ctx, ac.backend, func() (*types.Transaction, error) {
 		return ac.userLogic.NewStakeOnNewAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
@@ -240,7 +240,7 @@ func (ac *AssertionChain) BlockChallenge(ctx context.Context, assertionSeqNum pr
 
 // CreateSuccessionChallenge creates a succession challenge
 func (ac *AssertionChain) CreateSuccessionChallenge(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.Challenge, error) {
-	_, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, ac.backend, func() (*types.Transaction, error) {
 		return ac.userLogic.CreateChallenge(
 			ac.txOpts,
 			uint64(seqNum),
@@ -270,7 +270,7 @@ func (ac *AssertionChain) CreateSuccessionChallenge(ctx context.Context, seqNum 
 
 // Confirm creates a confirmation for an assertion at the block hash and send root.
 func (ac *AssertionChain) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
-	receipt, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
+	receipt, err := transact(ctx, ac.backend, func() (*types.Transaction, error) {
 		return ac.userLogic.ConfirmNextAssertion(ac.txOpts, blockHash, sendRoot)
 	})
 	if err != nil {
@@ -313,7 +313,7 @@ func (ac *AssertionChain) Confirm(ctx context.Context, blockHash, sendRoot commo
 
 // Reject creates a rejection for the given assertion.
 func (ac *AssertionChain) Reject(ctx context.Context, staker common.Address) error {
-	_, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
+	_, err := transact(ctx, ac.backend, func() (*types.Transaction, error) {
 		return ac.userLogic.RejectNextAssertion(ac.txOpts, staker)
 	})
 	switch {
@@ -386,7 +386,7 @@ func handleCreateAssertionError(err error, height uint64, blockHash common.Hash)
 // an optional transaction receipt. It returns an error if the
 // transaction had a failed status on-chain, or if the execution of the callback
 // failed directly.
-func transact(ctx context.Context, backend ChainBackend, l1Reader *headerreader.HeaderReader, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
+func transact(ctx context.Context, backend ChainBackend, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
 	tx, err := fn()
 	if err != nil {
 		return nil, err

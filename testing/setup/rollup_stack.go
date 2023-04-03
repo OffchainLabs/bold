@@ -13,7 +13,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/ospgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -222,8 +221,8 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 
-	headerReader := headerreader.New(util.SimulatedBackendWrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
-	headerReader.Start(ctx)
+	// headerReader := headerreader.New(util.SimulatedBackendWrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
+	// headerReader.Start(ctx)
 	chains := make([]*solimpl.AssertionChain, 2)
 	chain1, err := solimpl.NewAssertionChain(
 		ctx,
@@ -232,7 +231,7 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		&bind.CallOpts{},
 		accs[1].AccountAddr,
 		backend,
-		headerReader,
+		nil,
 		addresses.EdgeChallengeManager,
 	)
 	if err != nil {
@@ -246,7 +245,7 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		&bind.CallOpts{},
 		accs[2].AccountAddr,
 		backend,
-		headerReader,
+		nil,
 		addresses.EdgeChallengeManager,
 	)
 	if err != nil {
@@ -257,7 +256,7 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		Chains:   chains,
 		Accounts: accs,
 		Addrs:    addresses,
-		L1Reader: headerReader,
+		L1Reader: nil,
 		Backend:  backend,
 	}, nil
 }
