@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -392,7 +393,9 @@ func TestCreateSuccessionChallenge(t *testing.T) {
 func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*testAccount, *rollupAddresses, *backends.SimulatedBackend, *headerreader.HeaderReader) {
 	t.Helper()
 	ctx := context.Background()
+	fmt.Println("Pre account setup")
 	accs, backend := setupAccounts(t, 3)
+	fmt.Println("Post account setup")
 	t.Cleanup(func() {
 		t.Log("Closing backend")
 		require.NoError(t, backend.Close())
@@ -405,6 +408,7 @@ func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*
 	challengePeriodSeconds := big.NewInt(100)
 	miniStake := big.NewInt(1)
 	cfg := generateRollupConfig(prod, wasmModuleRoot, rollupOwner, chainId, loserStakeEscrow, challengePeriodSeconds, miniStake)
+	fmt.Println("Pre deploy rollup stack")
 	addresses := deployFullRollupStack(
 		t,
 		ctx,
@@ -413,8 +417,10 @@ func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*
 		common.Address{}, // Sequencer addr.
 		cfg,
 	)
+	fmt.Println("Post deploy rollup stack")
 	// headerReader := headerreader.New(util.SimulatedBackendWrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
 	// headerReader.Start(ctx)
+	fmt.Println("Pre assertion chain")
 	chain, err := NewAssertionChain(
 		ctx,
 		addresses.Rollup,
@@ -426,6 +432,7 @@ func setupAssertionChainWithChallengeManager(t *testing.T) (*AssertionChain, []*
 		common.Address{},
 	)
 	require.NoError(t, err)
+	fmt.Println("Post assertion chain")
 	return chain, accs, addresses, backend, nil
 }
 

@@ -62,20 +62,28 @@ func deployFullRollupStack(
 	config rollupgen.Config,
 ) *rollupAddresses {
 	t.Helper()
-	rollupCreator, rollupUserAddr, rollupCreatorAddress, validatorUtils, validatorWalletCreator, edgeChallengeManagerAddr := deployRollupCreator(t, ctx, backend, deployAuth)
 
+	fmt.Println("Pre creator deploy")
+	rollupCreator, rollupUserAddr, rollupCreatorAddress, validatorUtils, validatorWalletCreator, edgeChallengeManagerAddr := deployRollupCreator(t, ctx, backend, deployAuth)
+	fmt.Println("Post creator deploy")
+
+	fmt.Println("Pre nonce")
 	nonce, err := backend.PendingNonceAt(ctx, rollupCreatorAddress)
 	require.NoError(t, err)
+	fmt.Println("Post nonce")
 
 	expectedRollupAddr := crypto.CreateAddress(rollupCreatorAddress, nonce+2)
 
+	fmt.Println("Pre create rollup")
 	tx, err := rollupCreator.CreateRollup(
 		deployAuth,
 		config,
 		expectedRollupAddr,
 	)
 	require.NoError(t, err)
+	fmt.Println("Post create rollup, committing")
 	backend.Commit()
+	fmt.Println("Pre seq inbox")
 
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
 	require.NoError(t, err)
@@ -86,6 +94,7 @@ func deployFullRollupStack(
 
 	sequencerInbox, err := bridgegen.NewSequencerInbox(info.SequencerInbox, backend)
 	require.NoError(t, err)
+	fmt.Println("Pre batch poster")
 
 	// if a zero sequencer address is specified, don't authorize any sequencers
 	if sequencer != (common.Address{}) {
@@ -97,10 +106,12 @@ func deployFullRollupStack(
 		require.NoError(t, err2)
 		require.Equal(t, uint64(1), receipt2.Status)
 	}
+	fmt.Println("Pre admin logic")
 
 	rollup, err := rollupgen.NewRollupAdminLogic(info.RollupAddress, backend)
 	require.NoError(t, err)
 
+	fmt.Println("Pre whitelist")
 	tx, err = rollup.SetValidatorWhitelistDisabled(deployAuth, true)
 	backend.Commit()
 	require.NoError(t, err)
@@ -108,6 +119,7 @@ func deployFullRollupStack(
 	receipt2, err := backend.TransactionReceipt(ctx, tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), receipt2.Status)
+	fmt.Println("Post whitelist")
 
 	return &rollupAddresses{
 		Bridge:                 info.Bridge,
