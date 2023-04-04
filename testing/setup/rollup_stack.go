@@ -60,7 +60,7 @@ func CreateTwoValidatorFork(
 		setup.Backend.Commit()
 	}
 
-	genesis, err := setup.Chains[0].AssertionBySequenceNum(ctx, 0)
+	genesis, err := setup.Chains[0].AssertionBySequenceNum(ctx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func CreateTwoValidatorFork(
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
 		height,
-		genesis.SeqNum(),
+		1,
 		genesisState,
 		&protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
@@ -154,7 +154,7 @@ func CreateTwoValidatorFork(
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
 		height,
-		genesis.SeqNum(),
+		1,
 		genesisState,
 		evilPostState,
 		prevInboxMaxCount,

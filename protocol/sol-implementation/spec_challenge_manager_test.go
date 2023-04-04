@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"fmt"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
@@ -48,24 +49,25 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	genesis, err := createdData.Chains[0].AssertionBySequenceNum(ctx, 0)
-	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(endCommit util.HistoryCommitment) protocol.SpecEdge {
-		leaf, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
-			genesis,
-			util.HistoryCommitment{Merkle: common.Hash{}},
+			leaf,
+			startCommit,
 			endCommit,
 		)
 		require.NoError(t, err)
-		return leaf
+		return edge
 	}
+
+	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
 
-	honestEdge := leafAdder(honestEndCommit)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
@@ -74,10 +76,12 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		require.Equal(t, true, !hasRival)
 	})
 
+	evilStartCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
 
-	evilEdge := leafAdder(evilEndCommit)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
@@ -91,10 +95,11 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	})
 
 	t.Run("bisected children are presumptive", func(t *testing.T) {
-		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 2)
 		require.NoError(t, err)
-		honestProof, err := honestStateManager.PrefixProof(ctx, 1, 3)
+		honestProof, err := honestStateManager.PrefixProof(ctx, 2, 3)
 		require.NoError(t, err)
+
 		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
@@ -115,7 +120,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	})
 }
 
-func TestSpecChallengeManager_HasLengthOneRival(t *testing.T) {
+func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 	ctx := context.Background()
 	height := protocol.Height(3)
 
@@ -143,24 +148,24 @@ func TestSpecChallengeManager_HasLengthOneRival(t *testing.T) {
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	genesis, err := createdData.Chains[0].AssertionBySequenceNum(ctx, 0)
-	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(endCommit util.HistoryCommitment) protocol.SpecEdge {
-		leaf, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
-			genesis,
-			util.HistoryCommitment{Merkle: common.Hash{}},
+			leaf,
+			startCommit,
 			endCommit,
 		)
 		require.NoError(t, err)
-		return leaf
+		return edge
 	}
+	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
 
-	honestEdge := leafAdder(honestEndCommit)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("lone level zero edge is not one step fork source", func(t *testing.T) {
@@ -169,9 +174,11 @@ func TestSpecChallengeManager_HasLengthOneRival(t *testing.T) {
 		require.Equal(t, false, isOSF)
 	})
 
+	evilStartCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
-	evilEdge := leafAdder(evilEndCommit)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("level zero edge with rivals is not one step fork source", func(t *testing.T) {
@@ -182,30 +189,43 @@ func TestSpecChallengeManager_HasLengthOneRival(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
 	})
-	t.Run("single bisected edge is not one step fork source", func(t *testing.T) {
-		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+	t.Run("post bisection, mutual edge is one step fork source", func(t *testing.T) {
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 2)
 		require.NoError(t, err)
-		honestProof, err := honestStateManager.PrefixProof(ctx, 1, 3)
+		honestProof, err := honestStateManager.PrefixProof(ctx, 2, 3)
 		require.NoError(t, err)
-		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		lowerHonest, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
-		isOSF, err := lower.HasLengthOneRival(ctx)
+		isOSF, err := lowerHonest.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
 		isOSF, err = upper.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
-	})
-	t.Run("post bisection, mutual edge is one step fork source", func(t *testing.T) {
-		evilBisectCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 1)
+
+		evilBisectCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 2)
 		require.NoError(t, err)
-		evilProof, err := evilStateManager.PrefixProof(ctx, 1, 3)
+		evilProof, err := evilStateManager.PrefixProof(ctx, 2, 3)
 		require.NoError(t, err)
-		lower, upper, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
+		lower, _, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 		require.NoError(t, err)
 
-		isOSF, err := lower.HasLengthOneRival(ctx)
+		evilBisectCommit, err = evilStateManager.HistoryCommitmentUpTo(ctx, 1)
+		require.NoError(t, err)
+		evilProof, err = evilStateManager.PrefixProof(ctx, 1, 2)
+		require.NoError(t, err)
+		lower, _, err = lower.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
+		require.NoError(t, err)
+
+		honestBisectCommit, err = honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+		require.NoError(t, err)
+		honestProof, err = honestStateManager.PrefixProof(ctx, 1, 2)
+		require.NoError(t, err)
+		lower, upper, err = lowerHonest.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		require.NoError(t, err)
+
+		isOSF, err = lower.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, true, isOSF)
 
