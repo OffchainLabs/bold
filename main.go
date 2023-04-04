@@ -23,17 +23,28 @@ import (
 )
 
 var (
-	log                        = logrus.WithField("prefix", "main")
-	chainId                    = big.NewInt(1337)
-	challengePeriodSeconds     = big.NewInt(100)
-	miniStakeSize              = big.NewInt(1)
-	currentChainHeight         = uint64(7)
-	maxWavmOpcodesPerBlock     = uint64(49)
-	numOpcodesPerBigStep       = uint64(7)
-	divergenceHeight           = uint64(3)
-	edgeTrackerWakeInterval    = 100 * time.Millisecond
+	log = logrus.WithField("prefix", "main")
+	// The chain id for the backend.
+	chainId = big.NewInt(1337)
+	// The number of seconds in a challenge period.
+	challengePeriodSeconds = big.NewInt(100)
+	// The size of a mini stake that is posted when creating leaf edges in
+	// challenges (clarify if gwei?).
+	miniStakeSize = big.NewInt(1)
+	// The current chain height for this simulation.
+	currentChainHeight = uint64(7)
+	// The number of wavm opcodes per block (all blocks are equal in this sim, but not IRL).
+	maxWavmOpcodesPerBlock = uint64(49)
+	// Number of opcodes in a big step within a big step subchallenge.
+	numOpcodesPerBigStep = uint64(7)
+	// The heights at which Alice and Bob diverge at each challenge level.
+	divergenceHeight = uint64(3)
+	// How often an edge tracker needs to wake and perform its responsibilities.
+	edgeTrackerWakeInterval = 100 * time.Millisecond
+	// How often the validator polls the chain to see if challenges have been created.
 	checkForChallengesInterval = 100 * time.Millisecond
-	checkForAssertionsInteral  = 100 * time.Millisecond
+	// How often the validator polls the chain to see if new assertions have been posted.
+	checkForAssertionsInteral = 100 * time.Millisecond
 )
 
 func main() {
@@ -66,6 +77,7 @@ func main() {
 	honestHashes := honestHashesForUints(0, currentChainHeight+1)
 	evilHashes := evilHashesForUints(0, currentChainHeight+1)
 
+	// Creates honest and evil states. These will be equal up to a divergence height.
 	honestStates, honestInboxCounts := prepareHonestStates(
 		ctx,
 		aliceChain,
@@ -74,7 +86,7 @@ func main() {
 		currentChainHeight,
 	)
 
-	maliciousStates, maliciousInboxCounts := prepareMaliciousStates(
+	evilStates, evilInboxCounts := prepareMaliciousStates(
 		divergenceHeight,
 		evilHashes,
 		honestStates,
@@ -95,14 +107,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Bob diverges from Alice's history at the specified divergence height.
 	managerOpts = append(
 		managerOpts,
 		statemanager.WithBigStepStateDivergenceHeight(divergenceHeight),
 		statemanager.WithSmallStepStateDivergenceHeight(divergenceHeight),
 	)
 	bobStateManager, err := statemanager.NewWithAssertionStates(
-		maliciousStates,
-		maliciousInboxCounts,
+		evilStates,
+		evilInboxCounts,
 		managerOpts...,
 	)
 	if err != nil {
@@ -120,6 +133,8 @@ func main() {
 		validator.WithName("alice"),
 		validator.WithAddress(accs[1].AccountAddr),
 	}
+
+	// Sets up Alice and Bob validators.
 	alice, err := validator.New(
 		ctx,
 		aliceChain,
@@ -148,6 +163,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Spawns the validators, which should have them post assertions, challenge each other,
+	// and have the honest party win.
 	go alice.Start(ctx)
 	go bob.Start(ctx)
 
