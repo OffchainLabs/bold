@@ -27,7 +27,7 @@ func Test_onLeafCreation(t *testing.T) {
 		parentSeqNum := protocol.AssertionSequenceNumber(1)
 		seqNum := parentSeqNum + 1
 		prev := &mocks.MockAssertion{
-			MockPrevSeqNum: 0,
+			MockPrevSeqNum: 1,
 			MockSeqNum:     parentSeqNum,
 			MockStateHash:  common.Hash{},
 		}

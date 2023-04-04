@@ -165,12 +165,12 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 
 	honestValidator.assertions[createdData.Leaf1.SeqNum()] = createdData.Leaf1
 	honestValidator.assertions[createdData.Leaf2.SeqNum()] = createdData.Leaf2
-	honestEdge, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, 0)
+	honestEdge, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, 1)
 	require.NoError(t, err)
 
 	evilValidator.assertions[createdData.Leaf1.SeqNum()] = createdData.Leaf1
 	evilValidator.assertions[createdData.Leaf2.SeqNum()] = createdData.Leaf2
-	evilEdge, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, 0)
+	evilEdge, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, 1)
 	require.NoError(t, err)
 
 	// Check presumptive statuses.
