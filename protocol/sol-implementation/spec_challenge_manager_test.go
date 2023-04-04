@@ -20,7 +20,7 @@ var (
 	_ = protocol.SpecChallengeManager(&solimpl.SpecChallengeManager{})
 )
 
-func TestEdgeChallengeManager_IsPresumptive(t *testing.T) {
+func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
 	height := protocol.Height(3)
 
@@ -69,9 +69,9 @@ func TestEdgeChallengeManager_IsPresumptive(t *testing.T) {
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
-		isPs, err := honestEdge.IsPresumptive(ctx)
+		hasRival, err := honestEdge.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, true, isPs)
+		require.Equal(t, true, !hasRival)
 	})
 
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
@@ -81,13 +81,13 @@ func TestEdgeChallengeManager_IsPresumptive(t *testing.T) {
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
-		isPs, err := honestEdge.IsPresumptive(ctx)
+		hasRival, err := honestEdge.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, false, isPs)
+		require.Equal(t, false, !hasRival)
 
-		isPs, err = evilEdge.IsPresumptive(ctx)
+		hasRival, err = evilEdge.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, false, isPs)
+		require.Equal(t, false, !hasRival)
 	})
 
 	t.Run("bisected children are presumptive", func(t *testing.T) {
@@ -98,24 +98,24 @@ func TestEdgeChallengeManager_IsPresumptive(t *testing.T) {
 		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
-		isPs, err := lower.IsPresumptive(ctx)
+		hasRival, err := lower.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, true, isPs)
-		isPs, err = upper.IsPresumptive(ctx)
+		require.Equal(t, true, !hasRival)
+		hasRival, err = upper.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, true, isPs)
+		require.Equal(t, true, !hasRival)
 
-		isPs, err = honestEdge.IsPresumptive(ctx)
+		hasRival, err = honestEdge.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, false, isPs)
+		require.Equal(t, false, !hasRival)
 
-		isPs, err = evilEdge.IsPresumptive(ctx)
+		hasRival, err = evilEdge.HasRival(ctx)
 		require.NoError(t, err)
-		require.Equal(t, false, isPs)
+		require.Equal(t, false, !hasRival)
 	})
 }
 
-func TestSpecChallengeManager_IsOneStepForkSource(t *testing.T) {
+func TestSpecChallengeManager_HasLengthOneRival(t *testing.T) {
 	ctx := context.Background()
 	height := protocol.Height(3)
 
@@ -164,7 +164,7 @@ func TestSpecChallengeManager_IsOneStepForkSource(t *testing.T) {
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("lone level zero edge is not one step fork source", func(t *testing.T) {
-		isOSF, err := honestEdge.IsOneStepForkSource(ctx)
+		isOSF, err := honestEdge.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
 	})
@@ -175,10 +175,10 @@ func TestSpecChallengeManager_IsOneStepForkSource(t *testing.T) {
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("level zero edge with rivals is not one step fork source", func(t *testing.T) {
-		isOSF, err := honestEdge.IsOneStepForkSource(ctx)
+		isOSF, err := honestEdge.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
-		isOSF, err = evilEdge.IsOneStepForkSource(ctx)
+		isOSF, err = evilEdge.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
 	})
@@ -190,10 +190,10 @@ func TestSpecChallengeManager_IsOneStepForkSource(t *testing.T) {
 		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
-		isOSF, err := lower.IsOneStepForkSource(ctx)
+		isOSF, err := lower.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
-		isOSF, err = upper.IsOneStepForkSource(ctx)
+		isOSF, err = upper.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
 	})
@@ -205,11 +205,11 @@ func TestSpecChallengeManager_IsOneStepForkSource(t *testing.T) {
 		lower, upper, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 		require.NoError(t, err)
 
-		isOSF, err := lower.IsOneStepForkSource(ctx)
+		isOSF, err := lower.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, true, isOSF)
 
-		isOSF, err = upper.IsOneStepForkSource(ctx)
+		isOSF, err = upper.HasLengthOneRival(ctx)
 		require.NoError(t, err)
 		require.Equal(t, false, isOSF)
 	})
@@ -540,9 +540,9 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 
 	honestEdge := leafAdder(honestEndCommit)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
-	isPs, err := honestEdge.IsPresumptive(ctx)
+	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, isPs)
+	require.Equal(t, true, !hasRival)
 
 	t.Run("confirmed by timer", func(t *testing.T) {
 		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{protocol.EdgeId(common.Hash{1})}), "execution reverted: Edge does not exist")
@@ -616,9 +616,9 @@ func TestEdgeChallengeManager(t *testing.T) {
 	t.Log("Alice creates level zero block edge")
 	honestEdge := leafAdder(honestEndCommit)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
-	isPs, err := honestEdge.IsPresumptive(ctx)
+	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, isPs)
+	require.Equal(t, true, !hasRival)
 	t.Log("Alice is presumptive")
 
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
@@ -629,13 +629,13 @@ func TestEdgeChallengeManager(t *testing.T) {
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	// Honest and evil edge are rivals, neither is presumptive.
-	isPs, err = honestEdge.IsPresumptive(ctx)
+	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
+	require.Equal(t, false, !hasRival)
 
-	isPs, err = evilEdge.IsPresumptive(ctx)
+	hasRival, err = evilEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
+	require.Equal(t, false, !hasRival)
 	t.Log("Neither is presumptive")
 
 	// Attempt bisections down to one step fork.
@@ -657,7 +657,7 @@ func TestEdgeChallengeManager(t *testing.T) {
 	oneStepForkSourceEdge, _, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 	require.NoError(t, err)
 
-	isAtOneStepFork, err := oneStepForkSourceEdge.IsOneStepForkSource(ctx)
+	isAtOneStepFork, err := oneStepForkSourceEdge.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
 
@@ -683,9 +683,9 @@ func TestEdgeChallengeManager(t *testing.T) {
 	t.Log("Alice creates level zero big step challenge edge")
 	honestEdge = bigStepAdder(honestBigStepCommit)
 	require.Equal(t, protocol.BigStepChallengeEdge, honestEdge.GetType())
-	isPs, err = honestEdge.IsPresumptive(ctx)
+	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, isPs)
+	require.Equal(t, true, !hasRival)
 
 	t.Log("Alice is presumptive")
 
@@ -698,16 +698,16 @@ func TestEdgeChallengeManager(t *testing.T) {
 	evilEdge = bigStepAdder(evilBigStepCommit)
 	require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
 
-	isPs, err = honestEdge.IsPresumptive(ctx)
+	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
-	isPs, err = evilEdge.IsPresumptive(ctx)
+	require.Equal(t, false, !hasRival)
+	hasRival, err = evilEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
+	require.Equal(t, false, !hasRival)
 
 	t.Log("Neither is presumptive")
 
-	isAtOneStepFork, err = honestEdge.IsOneStepForkSource(ctx)
+	isAtOneStepFork, err = honestEdge.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
 
@@ -737,9 +737,9 @@ func TestEdgeChallengeManager(t *testing.T) {
 	t.Log("Alice creates level zero small step challenge edge")
 	smallStepHonest := smallStepAdder(honestSmallStepCommit)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
-	isPs, err = smallStepHonest.IsPresumptive(ctx)
+	hasRival, err = smallStepHonest.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, isPs)
+	require.Equal(t, true, !hasRival)
 
 	t.Log("Alice is presumptive")
 
@@ -752,12 +752,12 @@ func TestEdgeChallengeManager(t *testing.T) {
 	smallStepEvil := smallStepAdder(evilSmallStepCommit)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepEvil.GetType())
 
-	isPs, err = smallStepHonest.IsPresumptive(ctx)
+	hasRival, err = smallStepHonest.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
-	isPs, err = smallStepEvil.IsPresumptive(ctx)
+	require.Equal(t, false, !hasRival)
+	hasRival, err = smallStepEvil.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
+	require.Equal(t, false, !hasRival)
 
 	t.Log("Neither is presumptive")
 
@@ -768,7 +768,7 @@ func TestEdgeChallengeManager(t *testing.T) {
 	// Get the lower-level edge of either vertex we just bisected.
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 
-	isAtOneStepFork, err = smallStepHonest.IsOneStepForkSource(ctx)
+	isAtOneStepFork, err = smallStepHonest.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
 

@@ -407,9 +407,9 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	honestEdge := leafAdder(honestEndCommit)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
-	isPs, err := honestEdge.IsPresumptive(ctx)
+	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, isPs)
+	require.Equal(t, true, !hasRival)
 
 	evilEndCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, uint64(latestEvil.Height))
 	require.NoError(t, err)

@@ -236,7 +236,7 @@ func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Sp
 // Confirm creates a confirmation for an assertion at the block hash and send root.
 func (ac *AssertionChain) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
 	receipt, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
-		return ac.userLogic.ConfirmNextAssertion(ac.txOpts, blockHash, sendRoot)
+		return ac.userLogic.ConfirmNextAssertion(ac.txOpts, blockHash, sendRoot, [32]byte{}) // TODO(RJ): Add winning edge.
 	})
 	if err != nil {
 		switch {

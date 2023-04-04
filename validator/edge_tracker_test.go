@@ -38,16 +38,16 @@ func Test_act(t *testing.T) {
 		edge.On("Id").Return(protocol.EdgeId([32]byte{}))
 		edge.On("GetType").Return(protocol.BlockChallengeEdge)
 		edge.On(
-			"IsOneStepForkSource",
+			"HasLengthOneRival",
 			ctx,
 		).Return(
 			true, nil,
 		)
 		edge.On(
-			"IsPresumptive",
+			"HasRival",
 			ctx,
 		).Return(
-			false, nil,
+			true, nil,
 		)
 		p.On("SpecChallengeManager", ctx).Return(
 			manager,
@@ -87,16 +87,16 @@ func Test_act(t *testing.T) {
 		edge.On("Id").Return(protocol.EdgeId([32]byte{}))
 		edge.On("GetType").Return(protocol.BlockChallengeEdge)
 		edge.On(
-			"IsOneStepForkSource",
+			"HasLengthOneRival",
 			ctx,
 		).Return(
 			false, nil,
 		)
 		edge.On(
-			"IsPresumptive",
+			"HasRival",
 			ctx,
 		).Return(
-			true, nil,
+			false, nil,
 		)
 		p.On("SpecChallengeManager", ctx).Return(
 			manager,
@@ -174,9 +174,9 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 	require.NoError(t, err)
 
 	// Check presumptive statuses.
-	isPs, err := honestEdge.IsPresumptive(ctx)
+	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, false, isPs)
+	require.Equal(t, false, !hasRival)
 	tracker1, err := newEdgeTracker(
 		&edgeTrackerConfig{
 			timeRef:          util.NewArtificialTimeReference(),
