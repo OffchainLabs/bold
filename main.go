@@ -31,14 +31,14 @@ var (
 	// The size of a mini stake that is posted when creating leaf edges in
 	// challenges (clarify if gwei?).
 	miniStakeSize = big.NewInt(1)
-	// The current chain height for this simulation.
-	currentChainHeight = uint64(7)
+	// The current L2 chain height for this simulation.
+	currentL2ChainHeight = uint64(7)
 	// The number of wavm opcodes per block (all blocks are equal in this sim, but not IRL).
 	maxWavmOpcodesPerBlock = uint64(49)
 	// Number of opcodes in a big step within a big step subchallenge.
 	numOpcodesPerBigStep = uint64(7)
 	// The heights at which Alice and Bob diverge at each challenge level.
-	divergenceHeight = uint64(3)
+	divergeHeightAtL2 = uint64(3)
 	// How often an edge tracker needs to wake and perform its responsibilities.
 	edgeTrackerWakeInterval = time.Second
 	// How often the validator polls the chain to see if new assertions have been posted.
@@ -65,40 +65,42 @@ func main() {
 	headerReader.Start(ctx)
 
 	// Setup the chain abstractions for Alice and Bob.
-	aliceChain := setupChainAbstraction(ctx, headerReader, backend, accs[1], addresses)
-	bobChain := setupChainAbstraction(ctx, headerReader, backend, accs[2], addresses)
+	aliceL1ChainWrapper := setupChainAbstraction(ctx, headerReader, backend, accs[1], addresses)
+	bobL1ChainWrapper := setupChainAbstraction(ctx, headerReader, backend, accs[2], addresses)
 
-	// Advance the chain by 100 blocks as there needs to be a minimum period of time
-	// before any assertions can be made on-chain.
+	// Advance the L1 chain by 100 blocks as there needs to be a minimum period of time
+	// before any assertions can be submitted to L1.
 	for i := 0; i < 100; i++ {
 		backend.Commit()
 	}
 
-	honestHashes := honestHashesForUints(0, currentChainHeight+1)
-	evilHashes := evilHashesForUints(0, currentChainHeight+1)
+	honestL2StateHashes := honestL2StateHashesForUints(0, currentL2ChainHeight+1)
+	evilL2StateHashes := evilL2StateHashesForUints(0, currentL2ChainHeight+1)
 
-	// Creates honest and evil states. These will be equal up to a divergence height.
-	honestStates, honestInboxCounts := prepareHonestL2States(
+	// Creates honest and evil L2 states. These will be equal up to a divergence height.
+	// These are toy hashes because this is a simulation and the L1 chain knows nothing about
+	// the real L2 state hashes except for what validators claim.
+	honestL2States, honestInboxCounts := prepareHonestL2States(
 		ctx,
-		aliceChain,
-		honestHashes,
-		currentChainHeight,
+		aliceL1ChainWrapper,
+		honestL2StateHashes,
+		currentL2ChainHeight,
 	)
 
-	evilStates, evilInboxCounts := prepareMaliciousL2States(
-		divergenceHeight,
-		evilHashes,
-		honestStates,
+	evilL2States, evilInboxCounts := prepareMaliciousL2States(
+		divergeHeightAtL2,
+		evilL2StateHashes,
+		honestL2States,
 		honestInboxCounts,
 	)
 
-	// Initialize Alice and Bob's respective state managers.
+	// Initialize Alice and Bob's respective L2 state managers.
 	managerOpts := []statemanager.Opt{
 		statemanager.WithMaxWavmOpcodesPerBlock(maxWavmOpcodesPerBlock),
 		statemanager.WithNumOpcodesPerBigStep(numOpcodesPerBigStep),
 	}
-	aliceStateManager, err := statemanager.NewWithAssertionStates(
-		honestStates,
+	aliceL2StateManager, err := statemanager.NewWithAssertionStates(
+		honestL2States,
 		honestInboxCounts,
 		managerOpts...,
 	)
@@ -106,14 +108,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Bob diverges from Alice's history at the specified divergence height.
+	// Bob diverges from Alice's L2 history at the specified divergence height.
 	managerOpts = append(
 		managerOpts,
-		statemanager.WithBigStepStateDivergenceHeight(divergenceHeight),
-		statemanager.WithSmallStepStateDivergenceHeight(divergenceHeight),
+		statemanager.WithBigStepStateDivergenceHeight(divergeHeightAtL2),
+		statemanager.WithSmallStepStateDivergenceHeight(divergeHeightAtL2),
 	)
-	bobStateManager, err := statemanager.NewWithAssertionStates(
-		evilStates,
+	bobL2StateManager, err := statemanager.NewWithAssertionStates(
+		evilL2States,
 		evilInboxCounts,
 		managerOpts...,
 	)
@@ -136,9 +138,9 @@ func main() {
 	// Sets up Alice and Bob validators.
 	alice, err := validator.New(
 		ctx,
-		aliceChain,
+		aliceL1ChainWrapper,
 		backend,
-		aliceStateManager,
+		aliceL2StateManager,
 		addresses.Rollup,
 		append(aliceOpts, commonValidatorOpts...)...,
 	)
@@ -152,9 +154,9 @@ func main() {
 	}
 	bob, err := validator.New(
 		ctx,
-		bobChain,
+		bobL1ChainWrapper,
 		backend,
-		bobStateManager,
+		bobL2StateManager,
 		addresses.Rollup,
 		append(bobOpts, commonValidatorOpts...)...,
 	)
@@ -266,7 +268,7 @@ func prepareMaliciousL2States(
 	honestInboxCounts []*big.Int,
 ) ([]*protocol.ExecutionState, []*big.Int) {
 	divergenceHeight := assertionDivergenceHeight
-	numRoots := currentChainHeight + 1
+	numRoots := currentL2ChainHeight + 1
 	states := make([]*protocol.ExecutionState, numRoots)
 	inboxCounts := make([]*big.Int, numRoots)
 
@@ -289,7 +291,7 @@ func prepareMaliciousL2States(
 	return states, inboxCounts
 }
 
-func evilHashesForUints(lo, hi uint64) []common.Hash {
+func evilL2StateHashesForUints(lo, hi uint64) []common.Hash {
 	ret := []common.Hash{}
 	for i := lo; i < hi; i++ {
 		ret = append(ret, hashForUint(math.MaxUint64-i))
@@ -297,7 +299,7 @@ func evilHashesForUints(lo, hi uint64) []common.Hash {
 	return ret
 }
 
-func honestHashesForUints(lo, hi uint64) []common.Hash {
+func honestL2StateHashesForUints(lo, hi uint64) []common.Hash {
 	ret := []common.Hash{}
 	for i := lo; i < hi; i++ {
 		ret = append(ret, hashForUint(i))
