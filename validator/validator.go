@@ -218,7 +218,7 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
-	assrtionState, err := assertion.StateHash()
+	assertionState, err := assertion.StateHash()
 	if err != nil {
 		return nil, err
 	}
@@ -228,10 +228,10 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	}
 	logFields := logrus.Fields{
 		"name":               v.name,
-		"parentHeight":       fmt.Sprintf("%+v", parentAssertionHeight),
-		"parentStateHash":    fmt.Sprintf("%#x", parentAssertionStateHash),
+		"parentHeight":       parentAssertionHeight,
+		"parentStateHash":    util.Trunc(parentAssertionStateHash.Bytes()),
 		"assertionHeight":    assertionHeight,
-		"assertionStateHash": fmt.Sprintf("%#x", assrtionState),
+		"assertionStateHash": util.Trunc(assertionState.Bytes()),
 	}
 	log.WithFields(logFields).Info("Submitted latest L2 state claim as an assertion to L1")
 
