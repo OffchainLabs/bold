@@ -127,7 +127,7 @@ func main() {
 		validator.WithTimeReference(timeReference),
 		validator.WithChallengeVertexWakeInterval(edgeTrackerWakeInterval),
 		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
-		validator.WithNewChallengeCheckInterval(checkForAssertionsInteral),
+		validator.WithNewChallengeCheckInterval(checkForChallengesInterval),
 	}
 	aliceOpts := []validator.Opt{
 		validator.WithName("alice"),
