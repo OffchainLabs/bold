@@ -40,11 +40,11 @@ var (
 	// The heights at which Alice and Bob diverge at each challenge level.
 	divergenceHeight = uint64(3)
 	// How often an edge tracker needs to wake and perform its responsibilities.
-	edgeTrackerWakeInterval = 100 * time.Millisecond
-	// How often the validator polls the chain to see if challenges have been created.
-	checkForChallengesInterval = 100 * time.Millisecond
+	edgeTrackerWakeInterval = time.Second
 	// How often the validator polls the chain to see if new assertions have been posted.
-	checkForAssertionsInteral = 100 * time.Millisecond
+	checkForAssertionsInteral = time.Second
+	// How often the validator will post its latest assertion to the chain.
+	postNewAssertionInterval = time.Hour
 )
 
 func main() {
@@ -125,8 +125,8 @@ func main() {
 	commonValidatorOpts := []validator.Opt{
 		validator.WithTimeReference(timeReference),
 		validator.WithChallengeVertexWakeInterval(edgeTrackerWakeInterval),
+		validator.WithPostAssertionsInterval(postNewAssertionInterval),
 		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
-		validator.WithNewChallengeCheckInterval(checkForChallengesInterval),
 	}
 	aliceOpts := []validator.Opt{
 		validator.WithName("alice"),

@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
-
-const defaultCreateLeafInterval = time.Second * 5
 
 var log = logrus.WithField("prefix", "validator")
 
@@ -42,11 +42,10 @@ type Validator struct {
 	assertions                             map[protocol.AssertionSequenceNumber]protocol.Assertion
 	challengesLock                         sync.RWMutex
 	challenges                             map[protocol.ChallengeHash]protocol.Challenge
-	createLeafInterval                     time.Duration
+	postAssertionsInterval                 time.Duration
 	timeRef                                util.TimeReference
 	challengeVertexWakeInterval            time.Duration
 	newAssertionCheckInterval              time.Duration
-	newChallengeCheckInterval              time.Duration
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -70,6 +69,13 @@ func WithTimeReference(ref util.TimeReference) Opt {
 	}
 }
 
+// WithPostAssertionsInterval specifies how often the validator should try to post assertions.
+func WithPostAssertionsInterval(d time.Duration) Opt {
+	return func(val *Validator) {
+		val.postAssertionsInterval = d
+	}
+}
+
 // WithChallengeVertexWakeInterval specifies how often each challenge vertex goroutine will
 // act on its responsibilities.
 func WithChallengeVertexWakeInterval(d time.Duration) Opt {
@@ -83,14 +89,6 @@ func WithChallengeVertexWakeInterval(d time.Duration) Opt {
 func WithNewAssertionCheckInterval(d time.Duration) Opt {
 	return func(val *Validator) {
 		val.newAssertionCheckInterval = d
-	}
-}
-
-// WithNewChallengeCheckInterval specifies how often handle challenge goroutine will
-// act on its responsibilities.
-func WithNewChallengeCheckInterval(d time.Duration) Opt {
-	return func(val *Validator) {
-		val.newChallengeCheckInterval = d
 	}
 }
 
@@ -109,7 +107,7 @@ func New(
 		chain:                                  chain,
 		stateManager:                           stateManager,
 		address:                                common.Address{},
-		createLeafInterval:                     defaultCreateLeafInterval,
+		postAssertionsInterval:                 time.Second * 5,
 		createdAssertions:                      make(map[common.Hash]protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]protocol.AssertionSequenceNumber),
 		assertions:                             make(map[protocol.AssertionSequenceNumber]protocol.Assertion),
@@ -117,7 +115,6 @@ func New(
 		rollupAddr:                             rollupAddr,
 		challengeVertexWakeInterval:            time.Millisecond * 100,
 		newAssertionCheckInterval:              time.Second,
-		newChallengeCheckInterval:              time.Second,
 	}
 	for _, o := range opts {
 		o(v)
@@ -153,12 +150,100 @@ func New(
 }
 
 func (v *Validator) Start(ctx context.Context) {
-	go v.pollForChallenges(ctx)
 	go v.pollForAssertions(ctx)
+	go v.postAssertionsPeriodically(ctx)
 	log.WithField(
 		"address",
 		v.address.Hex(),
 	).Info("Started validator client")
+}
+
+func (v *Validator) postAssertionsPeriodically(ctx context.Context) {
+	if _, err := v.postLatestAssertion(ctx); err != nil {
+		log.WithError(err).Error("Could not submit latest assertion to L1")
+	}
+	ticker := time.NewTicker(v.postAssertionsInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if _, err := v.postLatestAssertion(ctx); err != nil {
+				log.WithError(err).Error("Could not submit latest assertion to L1")
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// Posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
+// TODO: Include leaf creation validity conditions which are more complex than this.
+// For example, a validator must include messages from the inbox that were not included
+// by the last validator in the last leaf's creation.
+func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion, error) {
+	// Ensure that we only build on a valid parent from this validator's perspective.
+	// the validator should also have ready access to historical commitments to make sure it can select
+	// the valid parent based on its commitment state root.
+	parentAssertionSeq, err := v.findLatestValidAssertion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	parentAssertion, err := v.chain.AssertionBySequenceNum(ctx, parentAssertionSeq)
+	if err != nil {
+		return nil, err
+	}
+	parentAssertionHeight, err := parentAssertion.Height()
+	if err != nil {
+		return nil, err
+	}
+	assertionToCreate, err := v.stateManager.LatestAssertionCreationData(ctx, parentAssertionHeight)
+	if err != nil {
+		return nil, err
+	}
+	assertion, err := v.chain.CreateAssertion(
+		ctx,
+		assertionToCreate.Height,
+		parentAssertionSeq,
+		assertionToCreate.PreState,
+		assertionToCreate.PostState,
+		assertionToCreate.InboxMaxCount,
+	)
+	switch {
+	case errors.Is(err, solimpl.ErrAlreadyExists):
+		return nil, errors.Wrap(err, "assertion already exists, was unable to post")
+	case err != nil:
+		return nil, err
+	}
+	parentAssertionStateHash, err := parentAssertion.StateHash()
+	if err != nil {
+		return nil, err
+	}
+	assrtionState, err := assertion.StateHash()
+	if err != nil {
+		return nil, err
+	}
+	assertionHeight, err := assertion.Height()
+	if err != nil {
+		return nil, err
+	}
+	logFields := logrus.Fields{
+		"name":               v.name,
+		"parentHeight":       fmt.Sprintf("%+v", parentAssertionHeight),
+		"parentStateHash":    fmt.Sprintf("%#x", parentAssertionStateHash),
+		"assertionHeight":    assertionHeight,
+		"assertionStateHash": fmt.Sprintf("%#x", assrtionState),
+	}
+	log.WithFields(logFields).Info("Submitted latest L2 state claim as an assertion to L1")
+
+	// Keep track of the created assertion locally.
+	v.assertionsLock.Lock()
+	v.assertions[assertion.SeqNum()] = assertion
+	v.sequenceNumbersByParentStateCommitment[parentAssertionStateHash] = append(
+		v.sequenceNumbersByParentStateCommitment[parentAssertionStateHash],
+		assertion.SeqNum(),
+	)
+	v.assertionsLock.Unlock()
+	return assertion, nil
 }
 
 // Finds the latest valid assertion sequence num a validator should build their new leaves upon. This walks
