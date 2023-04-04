@@ -78,15 +78,14 @@ func main() {
 	evilHashes := evilHashesForUints(0, currentChainHeight+1)
 
 	// Creates honest and evil states. These will be equal up to a divergence height.
-	honestStates, honestInboxCounts := prepareHonestStates(
+	honestStates, honestInboxCounts := prepareHonestL2States(
 		ctx,
 		aliceChain,
-		backend,
 		honestHashes,
 		currentChainHeight,
 	)
 
-	evilStates, evilInboxCounts := prepareMaliciousStates(
+	evilStates, evilInboxCounts := prepareMaliciousL2States(
 		divergenceHeight,
 		evilHashes,
 		honestStates,
@@ -225,10 +224,9 @@ func deployStack(
 	return addrs
 }
 
-func prepareHonestStates(
+func prepareHonestL2States(
 	ctx context.Context,
 	chain protocol.Protocol,
-	backend *backends.SimulatedBackend,
 	honestHashes []common.Hash,
 	chainHeight uint64,
 ) ([]*protocol.ExecutionState, []*big.Int) {
@@ -247,7 +245,6 @@ func prepareHonestStates(
 	honestInboxCounts[0] = big.NewInt(1)
 
 	for i := uint64(1); i <= chainHeight; i++ {
-		backend.Commit()
 		state := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash: honestHashes[i],
@@ -262,7 +259,7 @@ func prepareHonestStates(
 	return honestStates, honestInboxCounts
 }
 
-func prepareMaliciousStates(
+func prepareMaliciousL2States(
 	assertionDivergenceHeight uint64,
 	evilHashes []common.Hash,
 	honestStates []*protocol.ExecutionState,
