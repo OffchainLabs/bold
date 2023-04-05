@@ -225,7 +225,6 @@ func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Sp
 		ac,
 		ac.backend,
 		ac.headerReader,
-		nil,
 		ac.txOpts,
 	)
 }

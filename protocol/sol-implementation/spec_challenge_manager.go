@@ -238,7 +238,6 @@ func NewSpecChallengeManager(
 	assertionChain *AssertionChain,
 	backend ChainBackend,
 	reader *headerreader.HeaderReader,
-	callOpts *bind.CallOpts,
 	txOpts *bind.TransactOpts,
 ) (protocol.SpecChallengeManager, error) {
 	managerBinding, err := challengeV2gen.NewEdgeChallengeManager(addr, backend)
