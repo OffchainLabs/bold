@@ -18,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/pkg/errors"
@@ -27,20 +26,18 @@ import (
 var (
 	ErrUnconfirmedParent = errors.New("parent assertion is not confirmed")
 	ErrNoUnresolved      = errors.New("no assertion to resolve")
-	ErrRejectedAssertion = errors.New("assertion already rejected")
-	ErrInvalidChildren   = errors.New("invalid children")
-	ErrNotFound          = errors.New("item not found on-chain")
-	ErrAlreadyExists     = errors.New("item already exists on-chain")
-	ErrPrevDoesNotExist  = errors.New("assertion predecessor does not exist")
-	ErrTooLate           = errors.New("too late to create assertion sibling")
-	ErrTooSoon           = errors.New("too soon to confirm assertion")
-	ErrInvalidHeight     = errors.New("invalid assertion height")
+
+	ErrNotFound         = errors.New("item not found on-chain")
+	ErrAlreadyExists    = errors.New("item already exists on-chain")
+	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
+	ErrTooLate          = errors.New("too late to create assertion sibling")
+	ErrTooSoon          = errors.New("too soon to confirm assertion")
+	ErrInvalidHeight    = errors.New("invalid assertion height")
 )
 
 // ChainBackend to interact with the underlying blockchain.
 type ChainBackend interface {
 	bind.ContractBackend
-	BlockchainReader
 	ReceiptFetcher
 }
 
@@ -56,20 +53,13 @@ type ReceiptFetcher interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
-// BlockchainReader --
-type BlockchainReader interface {
-	Blockchain() *core.BlockChain
-}
-
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
 	backend      ChainBackend
 	rollup       *rollupgen.RollupCore
 	userLogic    *rollupgen.RollupUserLogic
-	callOpts     *bind.CallOpts
 	txOpts       *bind.TransactOpts
-	stakerAddr   common.Address
 	headerReader *headerreader.HeaderReader
 }
 
@@ -79,16 +69,12 @@ func NewAssertionChain(
 	ctx context.Context,
 	rollupAddr common.Address,
 	txOpts *bind.TransactOpts,
-	callOpts *bind.CallOpts,
-	stakerAddr common.Address,
 	backend ChainBackend,
 	headerReader *headerreader.HeaderReader,
 ) (*AssertionChain, error) {
 	chain := &AssertionChain{
 		backend:      backend,
-		callOpts:     callOpts,
 		txOpts:       txOpts,
-		stakerAddr:   stakerAddr,
 		headerReader: headerReader,
 	}
 	coreBinding, err := rollupgen.NewRollupCore(
@@ -109,12 +95,12 @@ func NewAssertionChain(
 }
 
 func (ac *AssertionChain) NumAssertions(ctx context.Context) (uint64, error) {
-	return ac.rollup.NumAssertions(ac.callOpts)
+	return ac.rollup.NumAssertions(&bind.CallOpts{Context: ctx})
 }
 
 // AssertionBySequenceNum --
 func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.Assertion, error) {
-	res, err := ac.userLogic.GetAssertion(ac.callOpts, uint64(seqNum))
+	res, err := ac.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +122,7 @@ func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum pro
 }
 
 func (ac *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	res, err := ac.rollup.LatestConfirmed(ac.callOpts)
+	res, err := ac.rollup.LatestConfirmed(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +150,7 @@ func (ac *AssertionChain) CreateAssertion(
 	if prevHeight >= height {
 		return nil, errors.Wrapf(ErrInvalidHeight, "prev height %d was >= incoming %d", prevHeight, height)
 	}
-	stake, err := ac.userLogic.CurrentRequiredStake(ac.callOpts)
+	stake, err := ac.userLogic.CurrentRequiredStake(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get current required stake")
 	}
@@ -197,11 +183,11 @@ func (ac *AssertionChain) CreateAssertion(
 }
 
 func (ac *AssertionChain) GetAssertionId(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.AssertionHash, error) {
-	return ac.userLogic.GetAssertionId(ac.callOpts, uint64(seqNum))
+	return ac.userLogic.GetAssertionId(&bind.CallOpts{Context: ctx}, uint64(seqNum))
 }
 
 func (ac *AssertionChain) GetAssertionNum(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.AssertionSequenceNumber, error) {
-	res, err := ac.userLogic.GetAssertionNum(ac.callOpts, assertionHash)
+	res, err := ac.userLogic.GetAssertionNum(&bind.CallOpts{Context: ctx}, assertionHash)
 	if err != nil {
 		return 0, err
 	}
@@ -216,7 +202,7 @@ func (ac *AssertionChain) CreateSuccessionChallenge(_ context.Context, _ protoco
 	return nil, errors.New("unimplemented")
 }
 
-// CreateSuccessionChallenge creates a succession challenge
+// SpecChallengeManager creates a new spec challenge manager
 func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
 	challengeManagerAddr, err := ac.userLogic.RollupUserLogicCaller.ChallengeManager(ac.callOpts)
 	if err != nil {
@@ -228,7 +214,6 @@ func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Sp
 		ac,
 		ac.backend,
 		ac.headerReader,
-		ac.callOpts,
 		ac.txOpts,
 	)
 }

@@ -2,10 +2,9 @@ package setup
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"math/big"
-
-	"crypto/ecdsa"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
@@ -230,8 +229,6 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		ctx,
 		addresses.Rollup,
 		accs[1].TxOpts,
-		&bind.CallOpts{},
-		accs[1].AccountAddr,
 		backend,
 		headerReader,
 	)
@@ -243,8 +240,6 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		ctx,
 		addresses.Rollup,
 		accs[2].TxOpts,
-		&bind.CallOpts{},
-		accs[2].AccountAddr,
 		backend,
 		headerReader,
 	)
