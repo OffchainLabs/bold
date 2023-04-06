@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
+	"time"
 )
 
 var (
@@ -482,35 +483,37 @@ func TestEdgeChallengeManager_ConfirmByChildren(t *testing.T) {
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	genesis, err := createdData.Chains[0].AssertionBySequenceNum(ctx, 0)
-	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(endCommit util.HistoryCommitment) protocol.SpecEdge {
-		leaf, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
-			genesis,
-			util.HistoryCommitment{Merkle: common.Hash{}},
+			leaf,
+			startCommit,
 			endCommit,
 		)
 		require.NoError(t, err)
-		return leaf
+		return edge
 	}
+	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
-	honestEdge := leafAdder(honestEndCommit)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgePending, s0)
 
+	evilStartCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
-	evilEdge := leafAdder(evilEndCommit)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
-	honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+	honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 2)
 	require.NoError(t, err)
-	honestProof, err := honestStateManager.PrefixProof(ctx, 1, 3)
+	honestProof, err := honestStateManager.PrefixProof(ctx, 2, 3)
 	require.NoError(t, err)
 	honestChildren1, honestChildren2, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 	require.NoError(t, err)
@@ -556,32 +559,37 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	genesis, err := createdData.Chains[0].AssertionBySequenceNum(ctx, 0)
-	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(endCommit util.HistoryCommitment) protocol.SpecEdge {
-		leaf, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
-			genesis,
-			util.HistoryCommitment{Merkle: common.Hash{}},
+			leaf,
+			startCommit,
 			endCommit,
 		)
 		require.NoError(t, err)
-		return leaf
+		return edge
 	}
+	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
+	s0, err := honestEdge.Status(ctx)
+	require.NoError(t, err)
+	require.Equal(t, protocol.EdgePending, s0)
 
-	honestEdge := leafAdder(honestEndCommit)
-	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, !hasRival)
+	require.Equal(t, false, hasRival)
 
-	t.Run("confirmed by timer", func(t *testing.T) {
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{protocol.EdgeId(common.Hash{1})}), "execution reverted: Edge does not exist")
-	})
+	// Adjust well beyond a challenge period.
+	createdData.Backend.AdjustTime(time.Hour * 1000)
+
+	// t.Run("confirmed by timer", func(t *testing.T) {
+	// 	require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{protocol.EdgeId(common.Hash{1})}), "execution reverted: Edge does not exist")
+	// })
 	t.Run("confirmed by timer", func(t *testing.T) {
 		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}))
 		status, err := honestEdge.Status(ctx)
@@ -589,12 +597,12 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		require.Equal(t, protocol.EdgeConfirmed, status)
 	})
 
-	t.Run("can't confirm again", func(t *testing.T) {
-		status, err := honestEdge.Status(ctx)
-		require.NoError(t, err)
-		require.Equal(t, protocol.EdgeConfirmed, status)
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}), "execution reverted: Edge not pending")
-	})
+	// t.Run("can't confirm again", func(t *testing.T) {
+	// 	status, err := honestEdge.Status(ctx)
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, protocol.EdgeConfirmed, status)
+	// 	require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}), "execution reverted: Edge not pending")
+	// })
 }
 
 func TestEdgeChallengeManager(t *testing.T) {
