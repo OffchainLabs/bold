@@ -204,7 +204,9 @@ func (ac *AssertionChain) CreateSuccessionChallenge(_ context.Context, _ protoco
 
 // SpecChallengeManager creates a new spec challenge manager
 func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
-	challengeManagerAddr, err := ac.userLogic.RollupUserLogicCaller.ChallengeManager(ac.callOpts)
+	challengeManagerAddr, err := ac.userLogic.RollupUserLogicCaller.ChallengeManager(
+		&bind.CallOpts{Context: ctx},
+	)
 	if err != nil {
 		return nil, err
 	}
