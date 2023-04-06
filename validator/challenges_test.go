@@ -152,7 +152,7 @@ func prepareHonestStates(
 ) ([]*protocol.ExecutionState, []*big.Int) {
 	t.Helper()
 	// Initialize each validator's associated state roots which diverge
-	genesis, err := chain.AssertionBySequenceNum(ctx, 0)
+	genesis, err := chain.AssertionBySequenceNum(ctx, 1)
 	require.NoError(t, err)
 
 	genesisState := &protocol.ExecutionState{
@@ -358,10 +358,10 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	// Submit leaf creation manually for each validator.
 	latestHonest, err := honestManager.LatestAssertionCreationData(ctx, 0)
 	require.NoError(t, err)
-	_, err = alice.chain.CreateAssertion(
+	leaf1, err := alice.chain.CreateAssertion(
 		ctx,
 		latestHonest.Height,
-		0,
+		1,
 		latestHonest.PreState,
 		latestHonest.PostState,
 		latestHonest.InboxMaxCount,
@@ -370,53 +370,50 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 
 	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx, 0)
 	require.NoError(t, err)
-	_, err = bob.chain.CreateAssertion(
+	leaf2, err := bob.chain.CreateAssertion(
 		ctx,
 		latestEvil.Height,
-		0,
+		1,
 		latestEvil.PreState,
 		latestEvil.PostState,
 		latestEvil.InboxMaxCount,
 	)
 	require.NoError(t, err)
 
-	genesis, err := alice.chain.AssertionBySequenceNum(ctx, 0)
-	require.NoError(t, err)
-
 	// Honest assertion being added.
-	startCommit := util.HistoryCommitment{
-		Height: 0,
-		Merkle: common.Hash{},
-	}
-	leafAdder := func(endCommit util.HistoryCommitment) protocol.SpecEdge {
-		leaf, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
-			genesis,
+			leaf,
 			startCommit,
 			endCommit,
 		)
 		require.NoError(t, err)
-		return leaf
+		return edge
 	}
 
+	honestStartCommit, err := honestManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	honestEndCommit, err := honestManager.HistoryCommitmentUpTo(ctx, latestHonest.Height)
 	require.NoError(t, err)
 
 	t.Log("Alice creates level zero block edge")
 
-	honestEdge := leafAdder(honestEndCommit)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
+	evilStartCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, 0)
+	require.NoError(t, err)
 	evilEndCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, uint64(latestEvil.Height))
 	require.NoError(t, err)
 
 	t.Log("Bob creates level zero block edge")
 
-	evilEdge := leafAdder(evilEndCommit)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	aliceTracker, err := newEdgeTracker(

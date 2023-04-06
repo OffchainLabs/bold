@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 )
 
@@ -326,7 +327,18 @@ func transact(ctx context.Context, backend ChainBackend, l1Reader *headerreader.
 		return nil, err
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return nil, fmt.Errorf("receipt status shows failing transaction: %+v", receipt)
+		callMsg := ethereum.CallMsg{
+			From:       common.Address{},
+			To:         tx.To(),
+			Gas:        0,
+			GasPrice:   nil,
+			Value:      tx.Value(),
+			Data:       tx.Data(),
+			AccessList: tx.AccessList(),
+		}
+		if _, err := backend.CallContract(ctx, callMsg, nil); err != nil {
+			return nil, errors.Wrap(err, "failed transaction")
+		}
 	}
 	return receipt, nil
 }
