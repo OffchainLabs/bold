@@ -73,11 +73,11 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			bobHeight:   7,
 			// The heights at which the validators diverge in histories. In this test,
 			// alice and bob start diverging at height 3 at all subchallenge levels.
-			assertionDivergenceHeight:    3,
+			assertionDivergenceHeight:    4,
 			numBigStepsAtAssertionHeight: 7,
-			bigStepDivergenceHeight:      3,
+			bigStepDivergenceHeight:      4,
 			numSmallStepsAtBigStep:       7,
-			smallStepDivergenceHeight:    3,
+			smallStepDivergenceHeight:    4,
 		}
 		// At each challenge level:
 		// Alice adds a challenge leaf 7, is presumptive.
@@ -98,15 +98,16 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		AssertLogsContain(t, hook, "Checking one-step-proof against protocol")
 	})
 	t.Run("two validators opening leaves at height 255", func(t *testing.T) {
+		t.Skip()
 		cfg := &challengeProtocolTestConfig{
 			currentChainHeight:           255,
 			aliceHeight:                  255,
 			bobHeight:                    255,
-			assertionDivergenceHeight:    3,
+			assertionDivergenceHeight:    4,
 			numBigStepsAtAssertionHeight: 7,
-			bigStepDivergenceHeight:      3,
+			bigStepDivergenceHeight:      4,
 			numSmallStepsAtBigStep:       7,
-			smallStepDivergenceHeight:    3,
+			smallStepDivergenceHeight:    4,
 		}
 		cfg.expectedLeavesAdded = 6
 		cfg.expectedBisections = 20

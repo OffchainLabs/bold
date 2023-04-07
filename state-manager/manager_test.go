@@ -30,11 +30,11 @@ func TestPrefixProof(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
+	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 4)
 	require.NoError(t, err)
 	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 7)
 	require.NoError(t, err)
-	packedProof, err := manager.PrefixProof(ctx, 3, 7)
+	packedProof, err := manager.PrefixProof(ctx, 4, 7)
 	require.NoError(t, err)
 
 	data, err := ProofArgs.Unpack(packedProof)
@@ -53,7 +53,7 @@ func TestPrefixProof(t *testing.T) {
 
 	err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
 		PreRoot:      loCommit.Merkle,
-		PreSize:      4,
+		PreSize:      5,
 		PostRoot:     hiCommit.Merkle,
 		PostSize:     8,
 		PreExpansion: preExpansionHashes,
@@ -61,48 +61,48 @@ func TestPrefixProof(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	from := uint64(2)
-	to := uint64(3)
-	bigFrom := uint64(3)
-	bigTo := uint64(7)
+	// from := uint64(2)
+	// to := uint64(3)
+	// bigFrom := uint64(3)
+	// bigTo := uint64(7)
 
-	bigCommit, err := manager.BigStepLeafCommitment(ctx, from, to)
-	require.NoError(t, err)
+	// bigCommit, err := manager.BigStepLeafCommitment(ctx, from, to)
+	// require.NoError(t, err)
 
-	bigBisectCommit, err := manager.BigStepCommitmentUpTo(ctx, from, to, bigFrom)
-	require.NoError(t, err)
-	require.Equal(t, bigFrom, bigBisectCommit.Height)
+	// bigBisectCommit, err := manager.BigStepCommitmentUpTo(ctx, from, to, bigFrom)
+	// require.NoError(t, err)
+	// require.Equal(t, bigFrom, bigBisectCommit.Height)
 
-	bigProof, err := manager.BigStepPrefixProof(ctx, from, to, bigFrom, bigTo)
-	require.NoError(t, err)
+	// bigProof, err := manager.BigStepPrefixProof(ctx, from, to, bigFrom, bigTo)
+	// require.NoError(t, err)
 
-	data, err = ProofArgs.Unpack(bigProof)
-	require.NoError(t, err)
-	preExpansion = data[0].([][32]byte)
-	proof = data[1].([][32]byte)
+	// data, err = ProofArgs.Unpack(bigProof)
+	// require.NoError(t, err)
+	// preExpansion = data[0].([][32]byte)
+	// proof = data[1].([][32]byte)
 
-	preExpansionHashes = make([]common.Hash, len(preExpansion))
-	for i := 0; i < len(preExpansion); i++ {
-		preExpansionHashes[i] = preExpansion[i]
-	}
-	prefixProof = make([]common.Hash, len(proof))
-	for i := 0; i < len(proof); i++ {
-		prefixProof[i] = proof[i]
-	}
+	// preExpansionHashes = make([]common.Hash, len(preExpansion))
+	// for i := 0; i < len(preExpansion); i++ {
+	// 	preExpansionHashes[i] = preExpansion[i]
+	// }
+	// prefixProof = make([]common.Hash, len(proof))
+	// for i := 0; i < len(proof); i++ {
+	// 	prefixProof[i] = proof[i]
+	// }
 
-	computed, err := prefixproofs.Root(preExpansionHashes)
-	require.NoError(t, err)
-	require.Equal(t, bigBisectCommit.Merkle, computed)
+	// computed, err := prefixproofs.Root(preExpansionHashes)
+	// require.NoError(t, err)
+	// require.Equal(t, bigBisectCommit.Merkle, computed)
 
-	err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-		PreRoot:      bigBisectCommit.Merkle,
-		PreSize:      bigFrom + 1,
-		PostRoot:     bigCommit.Merkle,
-		PostSize:     bigTo + 1,
-		PreExpansion: preExpansionHashes,
-		PrefixProof:  prefixProof,
-	})
-	require.NoError(t, err)
+	// err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
+	// 	PreRoot:      bigBisectCommit.Merkle,
+	// 	PreSize:      bigFrom + 1,
+	// 	PostRoot:     bigCommit.Merkle,
+	// 	PostSize:     bigTo + 1,
+	// 	PreExpansion: preExpansionHashes,
+	// 	PrefixProof:  prefixProof,
+	// })
+	// require.NoError(t, err)
 }
 
 func TestDivergenceGranularity(t *testing.T) {

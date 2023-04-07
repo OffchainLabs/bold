@@ -138,7 +138,6 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 	if err != nil {
 		return util.HistoryCommitment{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
-
 	if et.edge.GetType() == protocol.BlockChallengeEdge {
 		historyCommit, commitErr := et.cfg.stateManager.HistoryCommitmentUpTo(ctx, bisectTo)
 		if commitErr != nil {

@@ -133,7 +133,7 @@ func Test_act(t *testing.T) {
 func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTracker) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
 		DivergeHeight: 0,
-		NumBlocks:     3,
+		NumBlocks:     7,
 	})
 	require.NoError(t, err)
 
