@@ -214,7 +214,7 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 		require.NoError(t, err)
 		evilProof, err = evilStateManager.PrefixProof(ctx, 1, 2)
 		require.NoError(t, err)
-		lower, _, err = lower.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
+		_, _, err = lower.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 		require.NoError(t, err)
 
 		honestBisectCommit, err = honestStateManager.HistoryCommitmentUpTo(ctx, 1)
