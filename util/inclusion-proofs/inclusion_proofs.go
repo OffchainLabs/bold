@@ -52,20 +52,24 @@ func FullTree(leaves []common.Hash) ([][]common.Hash, error) {
 // GenerateInclusionProof from a list of Merkle leaves at a specified index.
 func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, error) {
 	if len(leaves) < 0 {
-		return nil, errors.New("no leaves")
+		return nil, ErrInvalidLeaves
 	}
 	if idx >= uint64(len(leaves)) {
-		return nil, errors.New("index too high")
+		return nil, ErrInvalidLeaves
 	}
 	if len(leaves) == 1 {
 		return make([]common.Hash, 0), nil
 	}
+	rehashed := make([]common.Hash, len(leaves))
+	for i, r := range leaves {
+		rehashed[i] = crypto.Keccak256Hash(r.Bytes())
+	}
 
-	fullT, err := FullTree(leaves)
+	fullT, err := FullTree(rehashed)
 	if err != nil {
 		return nil, err
 	}
-	maxLevel, err := prefixproofs.MostSignificantBit(uint64(len(leaves)) - 1)
+	maxLevel, err := prefixproofs.MostSignificantBit(uint64(len(rehashed)) - 1)
 	if err != nil {
 		return nil, err
 	}

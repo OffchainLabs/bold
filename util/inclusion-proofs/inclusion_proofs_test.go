@@ -14,7 +14,7 @@ func TestInclusionProof(t *testing.T) {
 	for i := 0; i < len(leaves); i++ {
 		leaves[i] = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
 	}
-	index := uint64(3)
+	index := uint64(0)
 	proof, err := GenerateInclusionProof(leaves, index)
 	require.NoError(t, err)
 	require.Equal(t, true, len(proof) > 0)
@@ -55,7 +55,7 @@ func TestInclusionProof(t *testing.T) {
 	t.Run("Invalid inputs", func(t *testing.T) {
 		// Empty tree should fail to generate a proof.
 		_, err := GenerateInclusionProof([]common.Hash{}, 0)
-		require.Equal(t, ErrInvalidTree, err)
+		require.Equal(t, ErrInvalidLeaves, err)
 
 		// Index greater than the number of leaves should fail to generate a proof.
 		_, err = GenerateInclusionProof(leaves, uint64(len(leaves)))
