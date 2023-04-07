@@ -27,9 +27,8 @@ import (
 )
 
 var (
-	// TODO: These are brittle and could break if the event sigs change in Solidity.
-	bisectEventSig    = hexutil.MustDecode("0xaab36db1c086a1a8a2a953ec2a3f131e133f7be8e6e1970f8fd79a2ab341c001")
-	leafAddedEventSig = hexutil.MustDecode("0x102ba5fcc71c9f7d7075d3f9cc9cb52fe4feb2cb843bef52f5f9fe9825b539e5")
+	bisectEventSig    = hexutil.MustDecode("0xddd14992ee7cd971b2a5cc510ebc7a33a1a7bd11dd74c3c5a83000328a0d5906")
+	leafAddedEventSig = hexutil.MustDecode("0x7340510d24b7ec9b5c100f5500d93429d80d00d46f0d18e4e85d0c4cc22b9924")
 )
 
 func TestChallengeProtocol_AliceAndBob(t *testing.T) {
@@ -89,16 +88,14 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		// Bob bisects from 3 to 2, is presumptive.
 		// Alice merges from 3 to 2.
 		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
-		cfg.expectedLeavesAdded = 6
-		cfg.expectedBisections = 10
+		cfg.expectedLeavesAdded = 10
+		cfg.expectedBisections = 24
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
-		AssertLogsContain(t, hook, "Reached one-step-fork at start height 2")
-		AssertLogsContain(t, hook, "Reached one-step-fork at start height 2")
+		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
 		AssertLogsContain(t, hook, "Checking one-step-proof against protocol")
 	})
 	t.Run("two validators opening leaves at height 255", func(t *testing.T) {
-		t.Skip()
 		cfg := &challengeProtocolTestConfig{
 			currentChainHeight:           255,
 			aliceHeight:                  255,
@@ -109,12 +106,11 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			numSmallStepsAtBigStep:       7,
 			smallStepDivergenceHeight:    4,
 		}
-		cfg.expectedLeavesAdded = 6
-		cfg.expectedBisections = 20
+		cfg.expectedLeavesAdded = 20
+		cfg.expectedBisections = 44
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
-		AssertLogsContain(t, hook, "Reached one-step-fork at start height 2")
-		AssertLogsContain(t, hook, "Reached one-step-fork at start height 2")
+		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
 		AssertLogsContain(t, hook, "Checking one-step-proof against protocol")
 	})
 }

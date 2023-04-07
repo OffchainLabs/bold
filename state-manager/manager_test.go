@@ -30,11 +30,14 @@ func TestPrefixProof(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 4)
+	startHeight := uint64(4)
+	endHeight := uint64(7)
+
+	loCommit, err := manager.HistoryCommitmentUpTo(ctx, startHeight)
 	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 7)
+	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, endHeight)
 	require.NoError(t, err)
-	packedProof, err := manager.PrefixProof(ctx, 4, 7)
+	packedProof, err := manager.PrefixProof(ctx, startHeight, endHeight)
 	require.NoError(t, err)
 
 	data, err := ProofArgs.Unpack(packedProof)
@@ -53,9 +56,9 @@ func TestPrefixProof(t *testing.T) {
 
 	err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
 		PreRoot:      loCommit.Merkle,
-		PreSize:      5,
+		PreSize:      startHeight + 1,
 		PostRoot:     hiCommit.Merkle,
-		PostSize:     8,
+		PostSize:     endHeight + 1,
 		PreExpansion: preExpansionHashes,
 		PrefixProof:  prefixProof,
 	})
