@@ -51,7 +51,7 @@ func FullTree(leaves []common.Hash) ([][]common.Hash, error) {
 
 // GenerateInclusionProof from a list of Merkle leaves at a specified index.
 func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, error) {
-	if len(leaves) < 0 {
+	if len(leaves) == 0 {
 		return nil, ErrInvalidLeaves
 	}
 	if idx >= uint64(len(leaves)) {
