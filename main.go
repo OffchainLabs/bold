@@ -12,7 +12,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/validator"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -126,7 +125,7 @@ func main() {
 	timeReference := util.NewRealTimeReference()
 	commonValidatorOpts := []validator.Opt{
 		validator.WithTimeReference(timeReference),
-		validator.WithChallengeVertexWakeInterval(edgeTrackerWakeInterval),
+		validator.WithEdgeTrackerWakeInterval(edgeTrackerWakeInterval),
 		validator.WithPostAssertionsInterval(postNewAssertionInterval),
 		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
 	}
@@ -183,11 +182,8 @@ func setupChainAbstraction(
 		ctx,
 		addrs.Rollup,
 		account.TxOpts,
-		&bind.CallOpts{},
-		account.AccountAddr,
 		backend,
 		headerReader,
-		addrs.EdgeChallengeManager,
 	)
 	if err != nil {
 		log.Fatal(err)

@@ -35,16 +35,13 @@ type Validator struct {
 	stateManager                           statemanager.Manager
 	address                                common.Address
 	name                                   string
-	knownValidatorNames                    map[common.Address]string
 	createdAssertions                      map[common.Hash]protocol.Assertion
 	assertionsLock                         sync.RWMutex
 	sequenceNumbersByParentStateCommitment map[common.Hash][]protocol.AssertionSequenceNumber
 	assertions                             map[protocol.AssertionSequenceNumber]protocol.Assertion
-	challengesLock                         sync.RWMutex
-	challenges                             map[protocol.ChallengeHash]protocol.Challenge
 	postAssertionsInterval                 time.Duration
 	timeRef                                util.TimeReference
-	challengeVertexWakeInterval            time.Duration
+	edgeTrackerWakeInterval                time.Duration
 	newAssertionCheckInterval              time.Duration
 }
 
@@ -76,11 +73,11 @@ func WithPostAssertionsInterval(d time.Duration) Opt {
 	}
 }
 
-// WithChallengeVertexWakeInterval specifies how often each challenge vertex goroutine will
+// WithEdgeTrackerWakeInterval specifies how often each edge tracker goroutine will
 // act on its responsibilities.
-func WithChallengeVertexWakeInterval(d time.Duration) Opt {
+func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
 	return func(val *Validator) {
-		val.challengeVertexWakeInterval = d
+		val.edgeTrackerWakeInterval = d
 	}
 }
 
@@ -113,7 +110,7 @@ func New(
 		assertions:                             make(map[protocol.AssertionSequenceNumber]protocol.Assertion),
 		timeRef:                                util.NewRealTimeReference(),
 		rollupAddr:                             rollupAddr,
-		challengeVertexWakeInterval:            time.Millisecond * 100,
+		edgeTrackerWakeInterval:                time.Millisecond * 100,
 		newAssertionCheckInterval:              time.Second,
 	}
 	for _, o := range opts {
@@ -338,8 +335,4 @@ func (v *Validator) onLeafCreated(
 	}
 
 	return v.challengeAssertion(ctx, assertion)
-}
-
-func isFromSelf(self, staker common.Address) bool {
-	return self == staker
 }
