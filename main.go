@@ -22,7 +22,6 @@ import (
 )
 
 var (
-	log = logrus.WithField("prefix", "main")
 	// The chain id for the backend.
 	chainId = big.NewInt(1337)
 	// The number of seconds in a challenge period.
@@ -189,22 +188,6 @@ func main() {
 	go bob.Start(ctx)
 
 	<-ctx.Done()
-}
-
-func setupChainAbstraction(
-	ctx context.Context,
-	headerReader *headerreader.HeaderReader,
-	backend *backends.SimulatedBackend,
-	account *setup.TestAccount,
-	addrs *setup.RollupAddresses,
-) (*solimpl.AssertionChain, error) {
-	return solimpl.NewAssertionChain(
-		ctx,
-		addrs.Rollup,
-		account.TxOpts,
-		backend,
-		headerReader,
-	)
 }
 
 func deployStack(
