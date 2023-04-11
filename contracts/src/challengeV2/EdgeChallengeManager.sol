@@ -90,7 +90,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
     using ChallengeEdgeLib for ChallengeEdge;
 
     event Bisected(bytes32 bisectedEdgeId);
-    event LevelZeroEdgeAdded(bytes32 edgeId);
+    event LayerZeroEdgeAdded(bytes32 edgeId);
 
     EdgeStore internal store;
 
@@ -128,11 +128,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
     ) external payable returns (bytes32) {
         bytes32 originId;
         if (args.edgeType == EdgeType.Block) {
-            // CHRIS: TODO: check that the assertion chain is in a fork
-
             // challenge id is the assertion which is the root of challenge
             originId = assertionChain.getPredecessorId(args.claimId);
-            // CHRIS: TODO: add a check that there is a fork in the assertion chain
+            require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
         } else if (args.edgeType == EdgeType.BigStep) {
             require(store.get(args.claimId).eType == EdgeType.Block, "Claim challenge type is not Block");
 
@@ -169,7 +167,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
         store.add(ce);
 
-        emit LevelZeroEdgeAdded(ce.idMem());
+        emit LayerZeroEdgeAdded(ce.idMem());
 
         return ce.idMem();
     }
