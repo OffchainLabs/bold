@@ -384,6 +384,12 @@ func TestEdgeChallengeManager_SubChallenges(t *testing.T) {
 	})
 }
 
+func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
+	topLevelHeight := protocol.Height(2)
+	scenario := setupOneStepProofScenario(t, topLevelHeight)
+	_ = scenario
+}
+
 func TestEdgeChallengeManager_ConfirmByClaim(t *testing.T) {
 	ctx := context.Background()
 	height := protocol.Height(3)
@@ -615,12 +621,31 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	})
 }
 
-func TestEdgeChallengeManager(t *testing.T) {
-	ctx := context.Background()
-	height := protocol.Height(2)
+func TestEdgeChallengeManager_ReachesOneStepProof(t *testing.T) {
+	setupOneStepProofScenario(t, protocol.Height(2))
+}
 
+// Returns a snapshot of the data for a one-step-proof scenario in which
+// an evil validator has reached a one step fork against an honest validator
+// in a small step subchallenge. Their disagreement must then be resolved via
+// a one-step-proof to declare a winner.
+type oneStepProofScenario struct {
+	topLevelFork        *setup.CreatedValidatorFork
+	honestStateManager  statemanager.Manager
+	evilStateManager    statemanager.Manager
+	smallStepHonestEdge protocol.SpecEdge
+	smallStepEvilEdge   protocol.SpecEdge
+}
+
+// Sets up a challenge between two validators in which they make challenge moves
+// to reach a one-step-proof in a small step subchallenge. It returns the data needed
+// to then confirm the winner by one-step-proof execution.
+func setupOneStepProofScenario(
+	t *testing.T, topLevelAssertionChainHeight protocol.Height,
+) *oneStepProofScenario {
+	ctx := context.Background()
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     uint64(height),
+		NumBlocks:     uint64(topLevelAssertionChainHeight),
 		DivergeHeight: 0,
 	})
 	require.NoError(t, err)
@@ -658,23 +683,20 @@ func TestEdgeChallengeManager(t *testing.T) {
 
 	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(0))
 	require.NoError(t, err)
-	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
+	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(topLevelAssertionChainHeight))
 	require.NoError(t, err)
 
-	t.Log("Alice creates level zero block edge")
 	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
-	t.Log("Alice is presumptive")
 
 	evilStartCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(0))
 	require.NoError(t, err)
-	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
+	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(topLevelAssertionChainHeight))
 	require.NoError(t, err)
 
-	t.Log("Bob creates level zero block edge")
 	evilEdge := leafAdder(evilStartCommit, evilEndCommit, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
@@ -686,7 +708,6 @@ func TestEdgeChallengeManager(t *testing.T) {
 	hasRival, err = evilEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, false, !hasRival)
-	t.Log("Neither is presumptive")
 
 	// Attempt bisections down to one step fork.
 	honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
@@ -694,7 +715,6 @@ func TestEdgeChallengeManager(t *testing.T) {
 	honestProof, err := honestStateManager.PrefixProof(ctx, 1, 2)
 	require.NoError(t, err)
 
-	t.Log("Alice bisects")
 	_, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 	require.NoError(t, err)
 
@@ -703,15 +723,12 @@ func TestEdgeChallengeManager(t *testing.T) {
 	evilProof, err := evilStateManager.PrefixProof(ctx, 1, 2)
 	require.NoError(t, err)
 
-	t.Log("Bob bisects")
 	oneStepForkSourceEdge, _, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 	require.NoError(t, err)
 
 	isAtOneStepFork, err := oneStepForkSourceEdge.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
-
-	t.Log("Lower child of bisection is at one step fork")
 
 	// Now opening big step level zero leaves
 	bigStepAdder := func(startCommit, endCommit util.HistoryCommitment) protocol.SpecEdge {
@@ -730,21 +747,17 @@ func TestEdgeChallengeManager(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	t.Log("Alice creates level zero big step challenge edge")
 	honestEdge = bigStepAdder(honestStartCommit, honestBigStepCommit)
 	require.Equal(t, protocol.BigStepChallengeEdge, honestEdge.GetType())
 	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	t.Log("Alice is presumptive")
-
 	evilBigStepCommit, err := evilStateManager.BigStepCommitmentUpTo(
 		ctx, 0 /* from assertion */, 1 /* to assertion */, 1, /* to big step */
 	)
 	require.NoError(t, err)
 
-	t.Log("Bob creates level zero big step challenge edge")
 	evilEdge = bigStepAdder(evilStartCommit, evilBigStepCommit)
 	require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
 
@@ -755,17 +768,9 @@ func TestEdgeChallengeManager(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, false, !hasRival)
 
-	t.Log("Neither is presumptive")
-
 	isAtOneStepFork, err = honestEdge.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
-
-	t.Log("Reached one step fork at big step challenge level")
-
-	claimHeight, err := evilEdge.TopLevelClaimHeight(ctx)
-	require.NoError(t, err)
-	t.Logf("Got top level claim height %d", claimHeight)
 
 	// Now opening small step level zero leaves
 	smallStepAdder := func(startCommit, endCommit util.HistoryCommitment) protocol.SpecEdge {
@@ -784,21 +789,17 @@ func TestEdgeChallengeManager(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	t.Log("Alice creates level zero small step challenge edge")
 	smallStepHonest := smallStepAdder(honestStartCommit, honestSmallStepCommit)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 	hasRival, err = smallStepHonest.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	t.Log("Alice is presumptive")
-
 	evilSmallStepCommit, err := evilStateManager.SmallStepCommitmentUpTo(
 		ctx, 0 /* from assertion */, 1 /* to assertion */, 1, /* to pc */
 	)
 	require.NoError(t, err)
 
-	t.Log("Bob creates level zero small step challenge edge")
 	smallStepEvil := smallStepAdder(evilStartCommit, evilSmallStepCommit)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepEvil.GetType())
 
@@ -809,18 +810,17 @@ func TestEdgeChallengeManager(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, false, !hasRival)
 
-	t.Log("Neither is presumptive")
-
-	claimHeight, err = smallStepEvil.TopLevelClaimHeight(ctx)
-	require.NoError(t, err)
-	t.Logf("Got top level claim height %d", claimHeight)
-
 	// Get the lower-level edge of either vertex we just bisected.
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 
 	isAtOneStepFork, err = smallStepHonest.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
-
-	t.Log("Reached one step proof")
+	return &oneStepProofScenario{
+		topLevelFork:        createdData,
+		honestStateManager:  honestStateManager,
+		evilStateManager:    evilStateManager,
+		smallStepHonestEdge: smallStepHonest,
+		smallStepEvilEdge:   smallStepEvil,
+	}
 }
