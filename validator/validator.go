@@ -35,12 +35,10 @@ type Validator struct {
 	stateManager                           statemanager.Manager
 	address                                common.Address
 	name                                   string
-	knownValidatorNames                    map[common.Address]string
 	createdAssertions                      map[common.Hash]protocol.Assertion
 	assertionsLock                         sync.RWMutex
 	sequenceNumbersByParentStateCommitment map[common.Hash][]protocol.AssertionSequenceNumber
 	assertions                             map[protocol.AssertionSequenceNumber]protocol.Assertion
-	challengesLock                         sync.RWMutex
 	createLeafInterval                     time.Duration
 	timeRef                                util.TimeReference
 	challengeVertexWakeInterval            time.Duration
@@ -251,8 +249,4 @@ func (v *Validator) onLeafCreated(
 	}
 
 	return v.challengeAssertion(ctx, assertion)
-}
-
-func isFromSelf(self, staker common.Address) bool {
-	return self == staker
 }
