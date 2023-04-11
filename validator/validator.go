@@ -41,7 +41,6 @@ type Validator struct {
 	sequenceNumbersByParentStateCommitment map[common.Hash][]protocol.AssertionSequenceNumber
 	assertions                             map[protocol.AssertionSequenceNumber]protocol.Assertion
 	challengesLock                         sync.RWMutex
-	challenges                             map[protocol.ChallengeHash]protocol.Challenge
 	createLeafInterval                     time.Duration
 	timeRef                                util.TimeReference
 	challengeVertexWakeInterval            time.Duration
@@ -153,7 +152,6 @@ func New(
 }
 
 func (v *Validator) Start(ctx context.Context) {
-	go v.pollForChallenges(ctx)
 	go v.pollForAssertions(ctx)
 	log.WithField(
 		"address",
