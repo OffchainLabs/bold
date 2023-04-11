@@ -319,7 +319,7 @@ func (cm *SpecChallengeManager) CalculateEdgeId(
 // through separate transactions, if this succeeds.
 func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 	ctx context.Context,
-	tentativeWinnerClaimId protocol.ClaimId,
+	tentativeWinnerId protocol.EdgeId,
 	oneStepData *protocol.OneStepData,
 	preHistoryInclusionProof []common.Hash,
 	postHistoryInclusionProof []common.Hash,
@@ -339,7 +339,7 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 		func() (*types.Transaction, error) {
 			return cm.writer.ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
-				tentativeWinnerClaimId,
+				tentativeWinnerId,
 				challengeV2gen.OneStepData{
 					ExecCtx: challengeV2gen.ExecutionContext{
 						MaxInboxMessagesRead: big.NewInt(int64(oneStepData.MaxInboxMessagesRead)),

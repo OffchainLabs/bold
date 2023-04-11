@@ -289,9 +289,214 @@ func TestEdgeChallengeManager_SubChallenges(t *testing.T) {
 }
 
 func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
+	ctx := context.Background()
 	topLevelHeight := protocol.Height(2)
-	scenario := setupOneStepProofScenario(t, topLevelHeight)
-	_ = scenario
+	t.Run("edge does not exist", func(t *testing.T) {
+		bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			protocol.EdgeId(common.BytesToHash([]byte("foo"))),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           common.Hash{},
+				Proof:                make([]byte, 0),
+			},
+			make([]common.Hash, 0),
+			make([]common.Hash, 0),
+		)
+		require.ErrorContains(t, err, "Edge does not exist")
+	})
+	t.Run("edge not pending", func(t *testing.T) {
+		bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+		honestStateManager := bisectionScenario.honestStateManager
+		honestEdge := bisectionScenario.honestLevelZeroEdge
+		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+		require.NoError(t, err)
+		honestProof, err := honestStateManager.PrefixProof(ctx, 1, 2)
+		require.NoError(t, err)
+		honestChildren1, honestChildren2, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		require.NoError(t, err)
+
+		s1, err := honestChildren1.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgePending, s1)
+		s2, err := honestChildren2.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgePending, s2)
+
+		// Adjust well beyond a challenge period.
+		for i := 0; i < 100; i++ {
+			bisectionScenario.topLevelFork.Backend.Commit()
+		}
+
+		require.NoError(t, honestChildren1.ConfirmByTimer(ctx, []protocol.EdgeId{}))
+		require.NoError(t, honestChildren2.ConfirmByTimer(ctx, []protocol.EdgeId{}))
+		s1, err = honestChildren1.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgeConfirmed, s1)
+		s2, err = honestChildren2.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgeConfirmed, s2)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestChildren1.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           common.Hash{},
+				Proof:                make([]byte, 0),
+			},
+			make([]common.Hash, 0),
+			make([]common.Hash, 0),
+		)
+		require.ErrorContains(t, err, "Edge not pending")
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestChildren2.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           common.Hash{},
+				Proof:                make([]byte, 0),
+			},
+			make([]common.Hash, 0),
+			make([]common.Hash, 0),
+		)
+		require.ErrorContains(t, err, "Edge not pending")
+	})
+	t.Run("edge not small step type", func(t *testing.T) {
+		bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+		honestStateManager := bisectionScenario.honestStateManager
+		honestEdge := bisectionScenario.honestLevelZeroEdge
+		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+		require.NoError(t, err)
+		honestProof, err := honestStateManager.PrefixProof(ctx, 1, 2)
+		require.NoError(t, err)
+		honestChildren1, honestChildren2, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		require.NoError(t, err)
+
+		s1, err := honestChildren1.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgePending, s1)
+		s2, err := honestChildren2.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgePending, s2)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestChildren1.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           common.Hash{},
+				Proof:                make([]byte, 0),
+			},
+			make([]common.Hash, 0),
+			make([]common.Hash, 0),
+		)
+		require.ErrorContains(t, err, "Edge is not a small step")
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestChildren2.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           common.Hash{},
+				Proof:                make([]byte, 0),
+			},
+			make([]common.Hash, 0),
+			make([]common.Hash, 0),
+		)
+		require.ErrorContains(t, err, "Edge is not a small step")
+	})
+	t.Run("edge does not have a single step rival", func(t *testing.T) {
+		t.Skip()
+	})
+	t.Run("before state not in history", func(t *testing.T) {
+		scenario := setupOneStepProofScenario(t, topLevelHeight)
+		honestEdge := scenario.smallStepHonestEdge
+
+		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+
+		honestStateManager := scenario.honestStateManager
+		fromAssertion := uint64(0)
+		toAssertion := uint64(1)
+		honestCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+			ctx,
+			fromAssertion,
+			toAssertion,
+			1,
+		)
+		require.NoError(t, err)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestEdge.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           honestCommit.FirstLeaf,
+				Proof:                honestCommit.LastLeaf[:],
+			},
+			honestCommit.FirstLeafProof,
+			honestCommit.LastLeafProof,
+		)
+		require.ErrorContains(t, err, "Before state not in history")
+	})
+	t.Run("one step proof fails", func(t *testing.T) {
+		t.Skip()
+	})
+	t.Run("OK", func(t *testing.T) {
+		t.Skip()
+		scenario := setupOneStepProofScenario(t, topLevelHeight)
+		honestEdge := scenario.smallStepHonestEdge
+
+		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+
+		honestStateManager := scenario.honestStateManager
+		fromAssertion := uint64(0)
+		toAssertion := uint64(1)
+		honestCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+			ctx,
+			fromAssertion,
+			toAssertion,
+			1,
+		)
+		require.NoError(t, err)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestEdge.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           honestCommit.FirstLeaf,
+				Proof:                honestCommit.LastLeaf[:],
+			},
+			honestCommit.FirstLeafProof,
+			honestCommit.LastLeafProof,
+		)
+		require.NoError(t, err)
+	})
 }
 
 func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
@@ -393,7 +598,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
 	})
-	t.Run("can't confirm again", func(t *testing.T) {
+	t.Run("cannot confirm again", func(t *testing.T) {
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)

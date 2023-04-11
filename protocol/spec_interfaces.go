@@ -153,7 +153,7 @@ type SpecChallengeManager interface {
 	) (SpecEdge, error)
 	ConfirmEdgeByOneStepProof(
 		ctx context.Context,
-		tentativeWinnerClaimId ClaimId,
+		tentativeWinnerId EdgeId,
 		oneStepData *OneStepData,
 		preHistoryInclusionProof []common.Hash,
 		postHistoryInclusionProof []common.Hash,
