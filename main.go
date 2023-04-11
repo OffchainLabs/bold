@@ -52,9 +52,12 @@ func main() {
 	// Setup an admin account, Alice and Bob.
 	accs, backend, err := setup.SetupAccounts(3)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	addresses := deployStack(ctx, accs[0], backend)
+	addresses, err := deployStack(ctx, accs[0], backend)
+	if err != nil {
+		panic(err)
+	}
 
 	headerReader := headerreader.New(util.SimulatedBackendWrapper{
 		SimulatedBackend: backend,
@@ -64,8 +67,27 @@ func main() {
 	headerReader.Start(ctx)
 
 	// Setup the chain abstractions for Alice and Bob.
-	aliceL1ChainWrapper := setupChainAbstraction(ctx, headerReader, backend, accs[1], addresses)
-	bobL1ChainWrapper := setupChainAbstraction(ctx, headerReader, backend, accs[2], addresses)
+	aliceL1ChainWrapper, err := solimpl.NewAssertionChain(
+		ctx,
+		addresses.Rollup,
+		accs[1].TxOpts,
+		backend,
+		headerReader,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	bobL1ChainWrapper, err := solimpl.NewAssertionChain(
+		ctx,
+		addresses.Rollup,
+		accs[2].TxOpts,
+		backend,
+		headerReader,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	// Advance the L1 chain by 100 blocks as there needs to be a minimum period of time
 	// before any assertions can be submitted to L1.
@@ -80,8 +102,6 @@ func main() {
 	// These are toy hashes because this is a simulation and the L1 chain knows nothing about
 	// the real L2 state hashes except for what validators claim.
 	honestL2States, honestInboxCounts := prepareHonestL2States(
-		ctx,
-		aliceL1ChainWrapper,
 		honestL2StateHashes,
 		currentL2ChainHeight,
 	)
@@ -104,7 +124,7 @@ func main() {
 		managerOpts...,
 	)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Bob diverges from Alice's L2 history at the specified divergence height.
@@ -119,7 +139,7 @@ func main() {
 		managerOpts...,
 	)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	timeReference := util.NewRealTimeReference()
@@ -144,7 +164,7 @@ func main() {
 		append(aliceOpts, commonValidatorOpts...)...,
 	)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	bobOpts := []validator.Opt{
@@ -160,7 +180,7 @@ func main() {
 		append(bobOpts, commonValidatorOpts...)...,
 	)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Spawns the validators, which should have them post assertions, challenge each other,
@@ -177,25 +197,21 @@ func setupChainAbstraction(
 	backend *backends.SimulatedBackend,
 	account *setup.TestAccount,
 	addrs *setup.RollupAddresses,
-) *solimpl.AssertionChain {
-	chain, err := solimpl.NewAssertionChain(
+) (*solimpl.AssertionChain, error) {
+	return solimpl.NewAssertionChain(
 		ctx,
 		addrs.Rollup,
 		account.TxOpts,
 		backend,
 		headerReader,
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return chain
 }
 
 func deployStack(
 	ctx context.Context,
 	adminAccount *setup.TestAccount,
 	backend *backends.SimulatedBackend,
-) *setup.RollupAddresses {
+) (*setup.RollupAddresses, error) {
 	prod := false
 	wasmModuleRoot := common.Hash{}
 	rollupOwner := adminAccount
@@ -209,22 +225,16 @@ func deployStack(
 		challengePeriodSeconds,
 		miniStakeSize,
 	)
-	addrs, err := setup.DeployFullRollupStack(
+	return setup.DeployFullRollupStack(
 		ctx,
 		backend,
 		adminAccount.TxOpts,
 		common.Address{}, // Sequencer addr.
 		cfg,
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return addrs
 }
 
 func prepareHonestL2States(
-	ctx context.Context,
-	chain protocol.Protocol,
 	honestHashes []common.Hash,
 	chainHeight uint64,
 ) ([]*protocol.ExecutionState, []*big.Int) {
