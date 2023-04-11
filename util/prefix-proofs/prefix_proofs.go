@@ -367,7 +367,7 @@ func GeneratePrefixProof(
 			leaves = leaves[numLeaves:]
 			height += numLeaves
 		} else if zzz != 0 {
-			highBit, err := MostSignificantBit(yyy)
+			highBit, err := MostSignificantBit(zzz)
 			if err != nil {
 				return nil, err
 			}
