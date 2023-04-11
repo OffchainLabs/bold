@@ -313,6 +313,50 @@ func (cm *SpecChallengeManager) CalculateEdgeId(
 	)
 }
 
+// ConfirmEdgeByOneStepProof checks a one step proof for a tentative winner vertex id
+// which will mark it as the winning claim of its associated challenge if correct.
+// The edges along the winning branch and the corresponding assertion then need to be confirmed
+// through separate transactions, if this succeeds.
+func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
+	ctx context.Context,
+	tentativeWinnerClaimId protocol.ClaimId,
+	oneStepData *protocol.OneStepData,
+	preHistoryInclusionProof []common.Hash,
+	postHistoryInclusionProof []common.Hash,
+) error {
+	pre := make([][32]byte, len(preHistoryInclusionProof))
+	for i, r := range preHistoryInclusionProof {
+		pre[i] = r
+	}
+	post := make([][32]byte, len(postHistoryInclusionProof))
+	for i, r := range postHistoryInclusionProof {
+		post[i] = r
+	}
+	_, err := transact(
+		ctx,
+		cm.assertionChain.backend,
+		cm.assertionChain.headerReader,
+		func() (*types.Transaction, error) {
+			return cm.writer.ConfirmEdgeByOneStepProof(
+				cm.assertionChain.txOpts,
+				tentativeWinnerClaimId,
+				challengeV2gen.OneStepData{
+					ExecCtx: challengeV2gen.ExecutionContext{
+						MaxInboxMessagesRead: big.NewInt(int64(oneStepData.MaxInboxMessagesRead)),
+						Bridge:               oneStepData.BridgeAddr,
+					},
+					MachineStep: big.NewInt(int64(oneStepData.MachineStep)),
+					BeforeHash:  oneStepData.BeforeHash,
+					Proof:       oneStepData.Proof,
+				},
+				pre,
+				post,
+			)
+		})
+	// TODO: Handle receipt.
+	return err
+}
+
 func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
