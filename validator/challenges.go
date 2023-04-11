@@ -35,7 +35,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 	tracker, err := newEdgeTracker(
 		&edgeTrackerConfig{
 			timeRef:          v.timeRef,
-			actEveryNSeconds: v.challengeVertexWakeInterval,
+			actEveryNSeconds: v.edgeTrackerWakeInterval,
 			chain:            v.chain,
 			stateManager:     v.stateManager,
 			validatorName:    v.name,
