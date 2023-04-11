@@ -2,14 +2,10 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "../../src/challengeV2/DataEntities.sol";
 import "./Utils.sol";
 import "../MockAssertionChain.sol";
 import "../../src/challengeV2/EdgeChallengeManager.sol";
-// import "../src/osp/IOneStepProofEntry.sol";
 import "./StateTools.sol";
-// import "../src/state/GlobalState.sol";
-// import "../src/state/Machine.sol";
 
 contract MockOneStepProofEntry is IOneStepProofEntry {
     function proveOneStep(ExecutionContext calldata, uint256, bytes32, bytes calldata proof)
@@ -563,7 +559,7 @@ contract EdgeChallengeManagerTest is Test {
         );
         bytes32[] memory above = getAncestorsAbove(allWinners, 0);
         ei.challengeManager.confirmEdgeByTime(allWinners[0].upperChildId, above);
-        
+
         ei.challengeManager.confirmEdgeByChildren(allWinners[1].lowerChildId);
         ei.challengeManager.confirmEdgeByTime(allWinners[1].upperChildId, getAncestorsAbove(allWinners, 1));
 

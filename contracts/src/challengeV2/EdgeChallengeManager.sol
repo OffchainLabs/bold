@@ -3,18 +3,16 @@ pragma solidity ^0.8.17;
 
 import "./libraries/UintUtilsLib.sol";
 import "./DataEntities.sol";
-// import "./libraries/MerkleTreeLib.sol";
-import "../osp/IOneStepProofEntry.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
 
 interface IEdgeChallengeManager {
+    // Checks if an edge by ID exists.
+    function edgeExists(bytes32 eId) external view returns (bool);
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodSec,
         IOneStepProofEntry _oneStepProofEntry
     ) external;
-    // // Gets the winning claim ID for a challenge. TODO: Needs more thinking.
-    // function winningClaim(bytes32 challengeId) external view returns (bytes32);
     // // Checks if an edge by ID exists.
     // function edgeExists(bytes32 eId) external view returns (bool);
     // Gets an edge by ID.
@@ -47,8 +45,6 @@ interface IEdgeChallengeManager {
         external
         payable
         returns (bytes32);
-    // // Creates a subchallenge on an edge. Emits the challenge ID in an event.
-    // function createSubChallenge(bytes32 eId) external returns (bytes32);
     // Bisects an edge. Emits both children's edge IDs in an event.
     function bisectEdge(bytes32 eId, bytes32 prefixHistoryRoot, bytes memory prefixProof)
         external
@@ -136,14 +132,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
             // challenge id is the assertion which is the root of challenge
             originId = assertionChain.getPredecessorId(args.claimId);
+            // CHRIS: TODO: add a check that there is a fork in the assertion chain
         } else if (args.edgeType == EdgeType.BigStep) {
             require(store.get(args.claimId).eType == EdgeType.Block, "Claim challenge type is not Block");
 
             originId = store.get(args.claimId).mutualId();
+            require(store.hasRival(args.claimId), "Claim does not have rival");
         } else if (args.edgeType == EdgeType.SmallStep) {
             require(store.get(args.claimId).eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
 
             originId = store.get(args.claimId).mutualId();
+            require(store.hasRival(args.claimId), "Claim does not have rival");
         } else {
             revert("Unexpected challenge type");
         }
@@ -152,6 +151,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         // CHRIS: TODO: check the ministake was provided
         // CHRIS: TODO: also prove that the the start root is a prefix of the end root
         // CHRIS: TODO: we had inclusion proofs before?
+
+        // CHRIS: TODO: currently the claim id is not part of the edge id hash, this means that two edges with the same id cannot have a different claim id
+        // CHRIS: TODO: this method needs to enforce that this is not possible by tying the end state to the claim id somehow, to ensure that it's not logically
+        // CHRIS: TODO: possible to have the same endHistoryRoot but a different claim id. This needs to be done for all edge types
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
             originId,
@@ -166,84 +169,21 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
         store.add(ce);
 
-        emit LevelZeroEdgeAdded(ce.id());
+        emit LevelZeroEdgeAdded(ce.idMem());
 
-        return ce.id();
+        return ce.idMem();
     }
 
     function confirmEdgeByChildren(bytes32 edgeId) public {
-        require(store.edges[edgeId].exists(), "Edge does not exist");
-        require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
-
-        bytes32 lowerChildId = store.edges[edgeId].lowerChildId;
-        require(store.edges[lowerChildId].exists(), "Lower child does not exist");
-
-        bytes32 upperChildId = store.edges[edgeId].upperChildId;
-        require(store.edges[upperChildId].exists(), "Upper child does not exist");
-
-        require(store.edges[lowerChildId].status == EdgeStatus.Confirmed, "Lower child not confirmed");
-        require(store.edges[upperChildId].status == EdgeStatus.Confirmed, "Upper child not confirmed");
-
-        store.edges[edgeId].setConfirmed();
-    }
-
-    function nextEdgeType(EdgeType eType) internal pure returns (EdgeType) {
-        if (eType == EdgeType.Block) {
-            return EdgeType.BigStep;
-        } else if (eType == EdgeType.BigStep) {
-            return EdgeType.SmallStep;
-        } else if (eType == EdgeType.SmallStep) {
-            revert("No next type after SmallStep");
-        } else {
-            revert("Unexpected edge type");
-        }
+        store.confirmEdgeByChildren(edgeId);
     }
 
     function confirmEdgeByClaim(bytes32 edgeId, bytes32 claimingEdgeId) public {
-        require(store.edges[edgeId].exists(), "Edge does not exist");
-        require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
-        require(store.edges[claimingEdgeId].exists(), "Claiming edge does not exist");
-
-        // CHRIS: TODO: this may not be necessary if we have the correct checks in add zero layer edge
-        // CHRIS: TODO: infact it wont be an exact equality like this - we're probably going to wrap this up together
-        require(store.edges[edgeId].mutualId() == store.edges[claimingEdgeId].originId, "Origin id-mutual id mismatch");
-        // CHRIS: TODO: this also may be unnecessary
-        require(
-            nextEdgeType(store.edges[edgeId].eType) == store.edges[claimingEdgeId].eType,
-            "Edge type does not match claiming edge type"
-        );
-
-        require(edgeId == store.edges[claimingEdgeId].claimId, "Claim does not match edge");
-
-        require(store.edges[claimingEdgeId].status == EdgeStatus.Confirmed, "Claiming edge not confirmed");
-
-        store.edges[edgeId].setConfirmed();
+        store.confirmEdgeByClaim(edgeId, claimingEdgeId);
     }
 
     function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdges) public {
-        require(store.edges[edgeId].exists(), "Edge does not exist");
-        require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
-
-        // loop through the ancestors and calculate the cumulative unrivaled time
-        bytes32 currentEdge = edgeId;
-        uint256 totalTimeUnrivaled = store.timeUnrivaled(edgeId);
-        for (uint256 i = 0; i < ancestorEdges.length; i++) {
-            ChallengeEdge storage e = store.get(ancestorEdges[i]);
-            require(
-                // direct child check
-                e.lowerChildId == currentEdge || e.upperChildId == currentEdge
-                // check accross sub challenge boundary
-                || store.edges[currentEdge].claimId == ancestorEdges[i],
-                "Current is not a child of ancestor"
-            );
-
-            totalTimeUnrivaled += store.timeUnrivaled(e.id());
-            currentEdge = ancestorEdges[i];
-        }
-
-        require(totalTimeUnrivaled > challengePeriodSec, "Total time unrivaled not greater than challenge period");
-
-        store.edges[edgeId].setConfirmed();
+        store.confirmEdgeByTime(edgeId, ancestorEdges, challengePeriodSec);
     }
 
     function confirmEdgeByOneStepProof(
@@ -252,34 +192,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
-        require(store.edges[edgeId].exists(), "Edge does not exist");
-        require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
-
-        require(store.edges[edgeId].eType == EdgeType.SmallStep, "Edge is not a small step");
-        require(store.hasLengthOneRival(edgeId), "Edge does not have single step rival");
-
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                store.edges[edgeId].startHistoryRoot,
-                oneStepData.beforeHash,
-                oneStepData.machineStep,
-                beforeHistoryInclusionProof
-            ),
-            "Before state not in history"
+        store.confirmEdgeByOneStepProof(
+            edgeId, oneStepProofEntry, oneStepData, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
-
-        bytes32 afterHash = oneStepProofEntry.proveOneStep(
-            oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
-        );
-
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                store.edges[edgeId].endHistoryRoot, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof
-            ),
-            "After state not in history"
-        );
-
-        store.edges[edgeId].setConfirmed();
     }
 
     // CHRIS: TODO: remove these?
@@ -318,6 +233,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         uint256 endHeight
     ) public pure returns (bytes32) {
         return ChallengeEdgeLib.mutualIdComponent(edgeType, originId, startHeight, startHistoryRoot, endHeight);
+    }
+
+    function edgeExists(bytes32 edgeId) public view returns (bool) {
+        return store.edges[edgeId].exists();
     }
 
     function getEdge(bytes32 edgeId) public view returns (ChallengeEdge memory) {

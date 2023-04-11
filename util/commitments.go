@@ -2,10 +2,10 @@ package util
 
 import (
 	"encoding/binary"
-
 	"errors"
 
 	inclusionproofs "github.com/OffchainLabs/challenge-protocol-v2/util/inclusion-proofs"
+	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -58,16 +58,25 @@ func NewHistoryCommitment(
 	if len(leaves) == 0 {
 		return emptyCommit, errors.New("must commit to at least one leaf")
 	}
-	tree := inclusionproofs.ComputeMerkleTree(leaves)
-	firstLeafProof, err := inclusionproofs.GenerateMerkleProof(0, tree)
+	if height != uint64(len(leaves))-1 {
+		return emptyCommit, errors.New("height must be equal to number of leaves - 1")
+	}
+	firstLeafProof, err := inclusionproofs.GenerateInclusionProof(leaves, 0)
 	if err != nil {
 		return emptyCommit, err
 	}
-	lastLeafProof, err := inclusionproofs.GenerateMerkleProof(uint64(len(leaves))-1, tree)
+	lastLeafProof, err := inclusionproofs.GenerateInclusionProof(leaves, uint64(len(leaves))-1)
 	if err != nil {
 		return emptyCommit, err
 	}
-	root, err := inclusionproofs.MerkleRoot(tree)
+	exp := prefixproofs.NewEmptyMerkleExpansion()
+	for _, r := range leaves {
+		exp, err = prefixproofs.AppendLeaf(exp, r)
+		if err != nil {
+			return emptyCommit, err
+		}
+	}
+	root, err := prefixproofs.Root(exp)
 	if err != nil {
 		return emptyCommit, err
 	}

@@ -2,12 +2,45 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "../../src/challengeV2/DataEntities.sol";
 import "../MockAssertionChain.sol";
 import "../../src/challengeV2/EdgeChallengeManager.sol";
-// import "../src/osp/IOneStepProofEntry.sol";
 import "./Utils.sol";
-// import "./StateTools.sol";
+
+contract MockOneStepProofEntry is IOneStepProofEntry {
+    function proveOneStep(ExecutionContext calldata, uint256, bytes32, bytes calldata proof)
+        external
+        view
+        returns (bytes32 afterHash)
+    {
+        return bytes32(proof);
+    }
+}
+
+contract EdgeChallengeManagerLibAccess {
+    using EdgeChallengeManagerLib for EdgeStore;
+
+    EdgeStore private store;
+
+    function add(ChallengeEdge memory edge) public {
+        store.add(edge);
+    }
+
+    function getEdge(bytes32 id) public view returns (ChallengeEdge memory) {
+        return store.get(id);
+    }
+
+    function confirmEdgeByOneStepProof(
+        bytes32 edgeId,
+        IOneStepProofEntry oneStepProofEntry,
+        OneStepData memory oneStepData,
+        bytes32[] memory beforeHistoryInclusionProof,
+        bytes32[] memory afterHistoryInclusionProof
+    ) public {
+        store.confirmEdgeByOneStepProof(
+            edgeId, oneStepProofEntry, oneStepData, beforeHistoryInclusionProof, afterHistoryInclusionProof
+        );
+    }
+}
 
 contract EdgeChallengeManagerLibTest is Test {
     using ChallengeEdgeLib for ChallengeEdge;
@@ -39,14 +72,26 @@ contract EdgeChallengeManagerLibTest is Test {
         return (edge1, edge2);
     }
 
+    function addEdgeEmitted(ChallengeEdge memory edge, bool hasRival) internal {
+        bytes32 id = edge.idMem();
+        bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
+            edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EdgeChallengeManagerLib.EdgeAdded(
+            id, mutualId, edge.originId, hasRival, edge.endHeight - edge.startHeight, edge.eType, false
+        );
+    }
+
     function testAdd() public {
         (ChallengeEdge memory edge,) = twoNonRivals();
 
+        addEdgeEmitted(edge, false);
         store.add(edge);
 
-        ChallengeEdge storage se = store.edges[edge.id()];
+        ChallengeEdge storage se = store.edges[edge.idMem()];
         assertTrue(se.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se.mutualId()] == EdgeChallengeManagerLib.NO_RIVAL, "NO_RIVAL first rival");
+        assertTrue(store.firstRivals[se.mutualId()] == EdgeChallengeManagerLib.UNRIVALED, "NO_RIVAL first rival");
     }
 
     function testGet() public {
@@ -54,14 +99,14 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(edge);
 
-        ChallengeEdge storage se = store.get(edge.id());
-        assertEq(edge.id(), se.id(), "Id's are equal");
+        ChallengeEdge storage se = store.get(edge.idMem());
+        assertEq(edge.idMem(), se.idMem(), "Id's are equal");
     }
 
     function testGetNotExist() public {
         (ChallengeEdge memory edge,) = twoNonRivals();
 
-        bytes32 edgeId = edge.id();
+        bytes32 edgeId = edge.idMem();
 
         vm.expectRevert("Edge does not exist");
         store.get(edgeId);
@@ -70,14 +115,17 @@ contract EdgeChallengeManagerLibTest is Test {
     function testAddRivals() public {
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2) = twoRivals();
 
+        addEdgeEmitted(edge1, false);
         store.add(edge1);
+
+        addEdgeEmitted(edge2, true);
         store.add(edge2);
 
-        ChallengeEdge storage se = store.edges[edge1.id()];
-        ChallengeEdge storage se2 = store.edges[edge2.id()];
+        ChallengeEdge storage se = store.edges[edge1.idMem()];
+        ChallengeEdge storage se2 = store.edges[edge2.idMem()];
         assertTrue(se2.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se2.mutualId()] == edge2.id(), "First rival1");
-        assertTrue(store.firstRivals[se.mutualId()] == edge2.id(), "First rival2");
+        assertTrue(store.firstRivals[se2.mutualId()] == edge2.idMem(), "First rival1");
+        assertTrue(store.firstRivals[se.mutualId()] == edge2.idMem(), "First rival2");
     }
 
     function testAddMoreRivals() public {
@@ -90,13 +138,13 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
         store.add(edge3);
 
-        ChallengeEdge storage se = store.edges[edge1.id()];
-        ChallengeEdge storage se2 = store.edges[edge2.id()];
-        ChallengeEdge storage se3 = store.edges[edge3.id()];
+        ChallengeEdge storage se = store.edges[edge1.idMem()];
+        ChallengeEdge storage se2 = store.edges[edge2.idMem()];
+        ChallengeEdge storage se3 = store.edges[edge3.idMem()];
         assertTrue(se3.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se.mutualId()] == edge2.id(), "First rival1");
-        assertTrue(store.firstRivals[se2.mutualId()] == edge2.id(), "First rival2");
-        assertTrue(store.firstRivals[se3.mutualId()] == edge2.id(), "First rival3");
+        assertTrue(store.firstRivals[se.mutualId()] == edge2.idMem(), "First rival1");
+        assertTrue(store.firstRivals[se2.mutualId()] == edge2.idMem(), "First rival2");
+        assertTrue(store.firstRivals[se3.mutualId()] == edge2.idMem(), "First rival3");
     }
 
     function testAddNonRivals() public {
@@ -105,11 +153,11 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        ChallengeEdge storage se = store.edges[edge1.id()];
-        ChallengeEdge storage se2 = store.edges[edge2.id()];
+        ChallengeEdge storage se = store.edges[edge1.idMem()];
+        ChallengeEdge storage se2 = store.edges[edge2.idMem()];
         assertTrue(se2.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se.mutualId()] == EdgeChallengeManagerLib.NO_RIVAL, "First rival1");
-        assertTrue(store.firstRivals[se2.mutualId()] == EdgeChallengeManagerLib.NO_RIVAL, "First rival2");
+        assertTrue(store.firstRivals[se.mutualId()] == EdgeChallengeManagerLib.UNRIVALED, "First rival1");
+        assertTrue(store.firstRivals[se2.mutualId()] == EdgeChallengeManagerLib.UNRIVALED, "First rival2");
     }
 
     function testCannotAddSameEdgeTwice() public {
@@ -127,8 +175,8 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        assertTrue(store.hasRival(edge1.id()), "Edge1 rival");
-        assertTrue(store.hasRival(edge2.id()), "Edge2 rival");
+        assertTrue(store.hasRival(edge1.idMem()), "Edge1 rival");
+        assertTrue(store.hasRival(edge2.idMem()), "Edge2 rival");
     }
 
     function testHasRivalMore() public {
@@ -141,9 +189,9 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
         store.add(edge3);
 
-        assertTrue(store.hasRival(edge1.id()), "Edge1 rival");
-        assertTrue(store.hasRival(edge2.id()), "Edge2 rival");
-        assertTrue(store.hasRival(edge3.id()), "Edge2 rival");
+        assertTrue(store.hasRival(edge1.idMem()), "Edge1 rival");
+        assertTrue(store.hasRival(edge2.idMem()), "Edge2 rival");
+        assertTrue(store.hasRival(edge3.idMem()), "Edge2 rival");
     }
 
     function testNoRival() public {
@@ -152,8 +200,8 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        assertFalse(store.hasRival(edge1.id()), "Edge1 rival");
-        assertFalse(store.hasRival(edge2.id()), "Edge2 rival");
+        assertFalse(store.hasRival(edge1.idMem()), "Edge1 rival");
+        assertFalse(store.hasRival(edge2.idMem()), "Edge2 rival");
     }
 
     function testRivalNotExist() public {
@@ -161,7 +209,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(edge1);
 
-        bytes32 edge2Id = edge2.id();
+        bytes32 edge2Id = edge2.idMem();
         vm.expectRevert("Edge does not exist");
         store.hasRival(edge2Id);
     }
@@ -176,8 +224,8 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        assertFalse(store.hasLengthOneRival(edge1.id()));
-        assertFalse(store.hasLengthOneRival(edge2.id()));
+        assertFalse(store.hasLengthOneRival(edge1.idMem()));
+        assertFalse(store.hasLengthOneRival(edge2.idMem()));
     }
 
     function testSingleStepRivalNotHeight() public {
@@ -191,8 +239,8 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        assertFalse(store.hasLengthOneRival(edge1.id()));
-        assertFalse(store.hasLengthOneRival(edge2.id()));
+        assertFalse(store.hasLengthOneRival(edge1.idMem()));
+        assertFalse(store.hasLengthOneRival(edge2.idMem()));
     }
 
     function testSingleStepRival() public {
@@ -206,8 +254,8 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        assertTrue(store.hasLengthOneRival(edge1.id()));
-        assertTrue(store.hasLengthOneRival(edge2.id()));
+        assertTrue(store.hasLengthOneRival(edge1.idMem()));
+        assertTrue(store.hasLengthOneRival(edge2.idMem()));
     }
 
     function testSingleStepRivalNotExist() public {
@@ -220,7 +268,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(edge1);
 
-        bytes32 edge2Id = edge2.id();
+        bytes32 edge2Id = edge2.idMem();
         vm.expectRevert("Edge does not exist");
         store.hasLengthOneRival(edge2Id);
     }
@@ -231,7 +279,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         vm.warp(block.timestamp + 3);
 
-        assertEq(store.timeUnrivaled(edge1.id()), 3, "Time unrivaled");
+        assertEq(store.timeUnrivaled(edge1.idMem()), 3, "Time unrivaled");
     }
 
     function testTimeUnrivaledNotExist() public {
@@ -239,7 +287,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         vm.warp(block.timestamp + 3);
 
-        bytes32 id1 = edge1.id();
+        bytes32 id1 = edge1.idMem();
         vm.expectRevert("Edge does not exist");
         assertEq(store.timeUnrivaled(id1), 3, "Time unrivaled");
     }
@@ -271,10 +319,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
         vm.warp(block.timestamp + 7);
 
-        assertEq(store.timeUnrivaled(edge1.id()), 4, "Time unrivaled 1");
-        assertEq(store.timeUnrivaled(edge2.id()), 0, "Time unrivaled 2");
-        assertEq(store.timeUnrivaled(edge3.id()), 0, "Time unrivaled 3");
-        assertEq(store.timeUnrivaled(edge4.id()), 7, "Time unrivaled 4");
+        assertEq(store.timeUnrivaled(edge1.idMem()), 4, "Time unrivaled 1");
+        assertEq(store.timeUnrivaled(edge2.idMem()), 0, "Time unrivaled 2");
+        assertEq(store.timeUnrivaled(edge3.idMem()), 0, "Time unrivaled 3");
+        assertEq(store.timeUnrivaled(edge4.idMem()), 7, "Time unrivaled 4");
     }
 
     function testMandatoryBisectHeightSizeOne() public {
@@ -390,6 +438,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function edgeFromStates(bytes32 originId, uint256 start, uint256 end, bytes32[] memory states)
         internal
+        view
         returns (ChallengeEdge memory)
     {
         bytes32 startRoot = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, start + 1));
@@ -414,11 +463,38 @@ contract EdgeChallengeManagerLibTest is Test {
         return (edge1, edge2, states1, states2);
     }
 
+    function bisectEdgeEmitted(
+        ChallengeEdge memory edge,
+        bytes32 bisectionRoot,
+        uint256 bisectionHeight,
+        bool lowerChildExists,
+        bool lowerChildHasRival,
+        bool upperChildHasRival
+    ) internal {
+        ChallengeEdge memory lowerChild = ChallengeEdgeLib.newChildEdge(
+            edge.originId, edge.startHistoryRoot, edge.startHeight, bisectionRoot, bisectionHeight, edge.eType
+        );
+        ChallengeEdge memory upperChild = ChallengeEdgeLib.newChildEdge(
+            edge.originId, bisectionRoot, bisectionHeight, edge.endHistoryRoot, edge.endHeight, edge.eType
+        );
+
+        if (!lowerChildExists) {
+            addEdgeEmitted(lowerChild, lowerChildHasRival);
+        }
+        addEdgeEmitted(upperChild, upperChildHasRival);
+
+        bytes32 id = edge.idMem();
+        bytes32 lowerId = lowerChild.idMem();
+        bytes32 upperId = upperChild.idMem();
+        vm.expectEmit(true, true, true, true);
+        emit EdgeChallengeManagerLib.EdgeBisected(id, lowerId, upperId, lowerChildExists);
+    }
+
     function testBisectEdge() public {
         uint256 start = 3;
         uint256 agree = 5; // agree point is below the bisection point of 8
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 11);
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
             twoRivalsFromLeaves(start, agree, end);
@@ -427,8 +503,9 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
 
         bytes32 bisectionRoot1 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1));
+        bisectEdgeEmitted(edge1, bisectionRoot1, bisectionPoint, false, false, false);
         store.bisectEdge(
-            edge1.id(),
+            edge1.idMem(),
             bisectionRoot1,
             abi.encode(
                 ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1),
@@ -439,7 +516,7 @@ contract EdgeChallengeManagerLibTest is Test {
         );
 
         assertEq(
-            store.get(edge1.id()).lowerChildId,
+            store.get(edge1.idMem()).lowerChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge1.originId,
@@ -449,26 +526,27 @@ contract EdgeChallengeManagerLibTest is Test {
                     bisectionPoint,
                     edge1.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
         assertEq(
-            store.get(edge1.id()).upperChildId,
+            store.get(edge1.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge1.originId, bisectionRoot1, bisectionPoint, edge1.endHistoryRoot, edge1.endHeight, edge1.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
-        assertFalse(store.hasRival(store.get(edge1.id()).lowerChildId), "Lower child rival");
-        assertFalse(store.hasRival(store.get(edge1.id()).upperChildId), "Upper child rival");
+        assertFalse(store.hasRival(store.get(edge1.idMem()).lowerChildId), "Lower child rival");
+        assertFalse(store.hasRival(store.get(edge1.idMem()).upperChildId), "Upper child rival");
 
         bytes32 bisectionRoot2 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, bisectionPoint + 1));
+        bisectEdgeEmitted(edge2, bisectionRoot2, bisectionPoint, false, true, false);
         store.bisectEdge(
-            edge2.id(),
+            edge2.idMem(),
             bisectionRoot2,
             abi.encode(
                 ProofUtils.expansionFromLeaves(states2, 0, bisectionPoint + 1),
@@ -479,7 +557,7 @@ contract EdgeChallengeManagerLibTest is Test {
         );
 
         assertEq(
-            store.get(edge2.id()).lowerChildId,
+            store.get(edge2.idMem()).lowerChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge2.originId,
@@ -489,28 +567,28 @@ contract EdgeChallengeManagerLibTest is Test {
                     bisectionPoint,
                     edge2.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
         assertEq(
-            store.get(edge2.id()).upperChildId,
+            store.get(edge2.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge2.originId, bisectionRoot2, bisectionPoint, edge2.endHistoryRoot, edge2.endHeight, edge2.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
-        assertTrue(store.hasRival(store.get(edge2.id()).lowerChildId), "Lower child rival");
-        assertFalse(store.hasRival(store.get(edge2.id()).upperChildId), "Upper child rival");
+        assertTrue(store.hasRival(store.get(edge2.idMem()).lowerChildId), "Lower child rival");
+        assertFalse(store.hasRival(store.get(edge2.idMem()).upperChildId), "Upper child rival");
     }
 
     function bisectMergeEdge(uint256 agree) internal {
         uint256 start = 3;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 11);
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
             twoRivalsFromLeaves(start, agree, end);
@@ -519,8 +597,9 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
 
         bytes32 bisectionRoot1 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1));
+        bisectEdgeEmitted(edge1, bisectionRoot1, bisectionPoint, false, false, false);
         store.bisectEdge(
-            edge1.id(),
+            edge1.idMem(),
             bisectionRoot1,
             abi.encode(
                 ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1),
@@ -531,7 +610,7 @@ contract EdgeChallengeManagerLibTest is Test {
         );
 
         assertEq(
-            store.get(edge1.id()).lowerChildId,
+            store.get(edge1.idMem()).lowerChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge1.originId,
@@ -541,26 +620,27 @@ contract EdgeChallengeManagerLibTest is Test {
                     bisectionPoint,
                     edge1.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
         assertEq(
-            store.get(edge1.id()).upperChildId,
+            store.get(edge1.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge1.originId, bisectionRoot1, bisectionPoint, edge1.endHistoryRoot, edge1.endHeight, edge1.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
-        assertFalse(store.hasRival(store.get(edge1.id()).lowerChildId), "Lower child rival");
-        assertFalse(store.hasRival(store.get(edge1.id()).upperChildId), "Upper child rival");
+        assertFalse(store.hasRival(store.get(edge1.idMem()).lowerChildId), "Lower child rival");
+        assertFalse(store.hasRival(store.get(edge1.idMem()).upperChildId), "Upper child rival");
 
         bytes32 bisectionRoot2 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, bisectionPoint + 1));
+        bisectEdgeEmitted(edge2, bisectionRoot2, bisectionPoint, true, true, true);
         store.bisectEdge(
-            edge2.id(),
+            edge2.idMem(),
             bisectionRoot2,
             abi.encode(
                 ProofUtils.expansionFromLeaves(states2, 0, bisectionPoint + 1),
@@ -571,7 +651,7 @@ contract EdgeChallengeManagerLibTest is Test {
         );
 
         assertEq(
-            store.get(edge2.id()).lowerChildId,
+            store.get(edge2.idMem()).lowerChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge2.originId,
@@ -581,26 +661,26 @@ contract EdgeChallengeManagerLibTest is Test {
                     bisectionPoint,
                     edge2.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
         assertEq(
-            store.get(edge2.id()).upperChildId,
+            store.get(edge2.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
                     edge2.originId, bisectionRoot2, bisectionPoint, edge2.endHistoryRoot, edge2.endHeight, edge2.eType
                 )
-            ).id(),
+            ).idMem(),
             "Lower child id"
         );
 
-        assertFalse(store.hasRival(store.get(edge2.id()).lowerChildId), "Lower child rival");
-        assertTrue(store.hasRival(store.get(edge2.id()).upperChildId), "Upper child rival");
+        assertFalse(store.hasRival(store.get(edge2.idMem()).lowerChildId), "Lower child rival");
+        assertTrue(store.hasRival(store.get(edge2.idMem()).upperChildId), "Upper child rival");
 
         assertEq(
-            store.hasRival(store.get(edge1.id()).lowerChildId),
-            store.hasRival(store.get(edge2.id()).lowerChildId),
+            store.hasRival(store.get(edge1.idMem()).lowerChildId),
+            store.hasRival(store.get(edge2.idMem()).lowerChildId),
             "Lower children equal"
         );
     }
@@ -617,14 +697,14 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 11);
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1,, bytes32[] memory states1,) = twoRivalsFromLeaves(start, agree, end);
 
         store.add(edge1);
 
         bytes32 bisectionRoot1 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1));
-        bytes32 edgeId = edge1.id();
+        bytes32 edgeId = edge1.idMem();
         bytes memory proof = abi.encode(
             ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1),
             ProofUtils.generatePrefixProof(
@@ -639,7 +719,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 11);
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
             twoRivalsFromLeaves(start, agree, end);
@@ -648,7 +728,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
 
         bytes32 bisectionRoot1 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1));
-        bytes32 edgeId = edge1.id();
+        bytes32 edgeId = edge1.idMem();
         bytes memory proof = abi.encode(
             ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1),
             ProofUtils.generatePrefixProof(
@@ -665,7 +745,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 11);
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
             twoRivalsFromLeaves(start, agree, end);
@@ -674,7 +754,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
 
         bytes32 bisectionRoot1 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1));
-        bytes32 edgeId = edge1.id();
+        bytes32 edgeId = edge1.idMem();
         bytes memory proof = abi.encode(
             ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint),
             ProofUtils.generatePrefixProof(
@@ -683,5 +763,623 @@ contract EdgeChallengeManagerLibTest is Test {
         );
         vm.expectRevert("Pre expansion root mismatch");
         store.bisectEdge(edgeId, bisectionRoot1, proof);
+    }
+
+    function testBisectEdgeConfirmed() public {
+        uint256 start = 3;
+        uint256 agree = 5; // agree point is below the bisection point of 8
+        uint256 end = 11;
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+
+        (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
+            twoRivalsFromLeaves(start, agree, end);
+
+        edge1.status = EdgeStatus.Confirmed;
+
+        store.add(edge1);
+        store.add(edge2);
+
+        bytes32 bisectionRoot1 = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1));
+        bytes memory proof = abi.encode(
+            ProofUtils.expansionFromLeaves(states1, 0, bisectionPoint + 1),
+            ProofUtils.generatePrefixProof(
+                bisectionPoint + 1, ArrayUtilsLib.slice(states1, bisectionPoint + 1, states1.length)
+            )
+        );
+        bytes32 edgeId = edge1.idMem();
+        vm.expectRevert("Edge not pending");
+        store.bisectEdge(edgeId, bisectionRoot1, proof);
+    }
+
+    function testBisectEdgeLengthOne() public {
+        uint256 start = 0;
+        uint256 end = 1;
+
+        bytes32[] memory states1 = new bytes32[](2);
+        states1[0] = rand.hash();
+        states1[1] = rand.hash();
+        bytes32[] memory states2 = new bytes32[](2);
+        states2[0] = states1[0];
+        states2[1] = rand.hash();
+        ChallengeEdge memory edge1 = edgeFromStates(rand.hash(), start, end, states1);
+        ChallengeEdge memory edge2 = edgeFromStates(edge1.originId, start, end, states2);
+
+        store.add(edge1);
+        store.add(edge2);
+
+        bytes32 edgeId = edge1.idMem();
+        vm.expectRevert("Height difference not two or more");
+        store.bisectEdge(edgeId, edge1.endHistoryRoot, "");
+    }
+
+    function bisectArgs(bytes32[] memory states, uint256 start, uint256 end)
+        internal
+        pure
+        returns (uint256, bytes32, bytes memory)
+    {
+        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        bytes32 bisectionRoot = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1));
+        bytes memory proof = abi.encode(
+            ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1),
+            ProofUtils.generatePrefixProof(bisectionPoint + 1, ArrayUtilsLib.slice(states, bisectionPoint + 1, end + 1))
+        );
+
+        return (bisectionPoint, bisectionRoot, proof);
+    }
+
+    function addParentAndChildren(uint256 start, uint256 agree, uint256 end)
+        internal
+        returns (bytes32, bytes32, bytes32)
+    {
+        (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
+            twoRivalsFromLeaves(start, agree, end);
+        store.add(edge1);
+        store.add(edge2);
+
+        (, bytes32 bisectionRoot, bytes memory bisectionProof) = bisectArgs(states1, start, end);
+
+        (bytes32 lowerChildId, bytes32 upperChildId) = store.bisectEdge(edge1.idMem(), bisectionRoot, bisectionProof);
+
+        return (edge1.idMem(), lowerChildId, upperChildId);
+    }
+
+    function confirmByChildrenEmitted(ChallengeEdge memory edge) internal {
+        bytes32 edgeId = edge.idMem();
+        bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
+            edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EdgeChallengeManagerLib.EdgeConfirmedByChildren(edgeId, mutualId);
+    }
+
+    function testConfirmEdgeByChildren() public {
+        (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
+
+        store.edges[lowerChildId].setConfirmed();
+        store.edges[upperChildId].setConfirmed();
+
+        confirmByChildrenEmitted(store.edges[parentEdgeId]);
+        store.confirmEdgeByChildren(parentEdgeId);
+        assertTrue(store.get(parentEdgeId).status == EdgeStatus.Confirmed);
+    }
+
+    function testConfirmEdgeByChildrenAlreadyConfirmed() public {
+        (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
+
+        store.edges[lowerChildId].setConfirmed();
+        store.edges[upperChildId].setConfirmed();
+
+        store.confirmEdgeByChildren(parentEdgeId);
+        vm.expectRevert("Edge not pending");
+        store.confirmEdgeByChildren(parentEdgeId);
+    }
+
+    function testConfirmEdgeByChildrenNotExist() public {
+        bytes32 randId = rand.hash();
+
+        vm.expectRevert("Edge does not exist");
+        store.confirmEdgeByChildren(randId);
+    }
+
+    function testConfirmEdgeByChildrenLowerChildNotExist() public {
+        (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
+
+        store.edges[lowerChildId].setConfirmed();
+        store.edges[upperChildId].setConfirmed();
+
+        delete store.edges[lowerChildId];
+        vm.expectRevert("Lower child does not exist");
+        store.confirmEdgeByChildren(parentEdgeId);
+    }
+
+    function testConfirmEdgeByChildrenUpperChildNotExist() public {
+        (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
+
+        store.edges[lowerChildId].setConfirmed();
+        store.edges[upperChildId].setConfirmed();
+
+        delete store.edges[upperChildId];
+        vm.expectRevert("Upper child does not exist");
+        store.confirmEdgeByChildren(parentEdgeId);
+    }
+
+    function testConfirmEdgeByChildrenLowerChildPending() public {
+        (bytes32 parentEdgeId,, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
+
+        store.edges[upperChildId].setConfirmed();
+
+        vm.expectRevert("Lower child not confirmed");
+        store.confirmEdgeByChildren(parentEdgeId);
+    }
+
+    function testConfirmEdgeByChildrenUpperChildPending() public {
+        (bytes32 parentEdgeId, bytes32 lowerChildId,) = addParentAndChildren(3, 5, 11);
+
+        store.edges[lowerChildId].setConfirmed();
+
+        vm.expectRevert("Upper child not confirmed");
+        store.confirmEdgeByChildren(parentEdgeId);
+    }
+
+    function testNextEdgeType() public {
+        assertTrue(EdgeChallengeManagerLib.nextEdgeType(EdgeType.Block) == EdgeType.BigStep);
+        assertTrue(EdgeChallengeManagerLib.nextEdgeType(EdgeType.BigStep) == EdgeType.SmallStep);
+        vm.expectRevert("No next type after SmallStep");
+        EdgeChallengeManagerLib.nextEdgeType(EdgeType.SmallStep);
+    }
+
+    function confirmByClaimEmitted(ChallengeEdge memory edge, ChallengeEdge memory claimingEdge) internal {
+        bytes32 edgeId = edge.idMem();
+        bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
+            edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
+        );
+        bytes32 claimingEdgeId = claimingEdge.idMem();
+        vm.expectEmit(true, true, true, true);
+        emit EdgeChallengeManagerLib.EdgeConfirmedByClaim(edgeId, mutualId, claimingEdgeId);
+    }
+
+    function testConfirmClaim() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            EdgeType.BigStep
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        store.edges[eid].setConfirmed();
+
+        confirmByClaimEmitted(store.edges[bargs.upperChildId1], ce);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+
+        assertTrue(store.edges[bargs.upperChildId1].status == EdgeStatus.Confirmed, "Edge confirmed");
+    }
+
+    function testCheckClaimIdLinkOrigin() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            rand.hash(), rand.hash(), 3, rand.hash(), 4, bargs.upperChildId1, rand.addr(), EdgeType.BigStep
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        store.edges[eid].setConfirmed();
+        vm.expectRevert("Origin id-mutual id mismatch");
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+    }
+
+    function testCheckClaimIdLinkEdgeType() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            EdgeType.Block
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        store.edges[eid].setConfirmed();
+        vm.expectRevert("Edge type does not match claiming edge type");
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+    }
+
+    function testConfirmClaimWrongClaimId() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            rand.hash(),
+            rand.addr(),
+            EdgeType.BigStep
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        store.edges[eid].setConfirmed();
+        vm.expectRevert("Claim does not match edge");
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+    }
+
+    function testConfirmClaimNotExist() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            EdgeType.BigStep
+        );
+
+        bytes32 eid = ce.idMem();
+        bytes32 randId = rand.hash();
+        vm.expectRevert("Edge does not exist");
+        store.confirmEdgeByClaim(randId, eid);
+    }
+
+    function testConfirmClaimNotPending() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            EdgeType.BigStep
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        store.edges[eid].setConfirmed();
+        store.edges[bargs.upperChildId1].setConfirmed();
+        vm.expectRevert("Edge not pending");
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+    }
+
+    function testConfirmClaimClaimerNotExist() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            EdgeType.BigStep
+        );
+
+        bytes32 eid = ce.idMem();
+        vm.expectRevert("Claiming edge does not exist");
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+    }
+
+    function testConfirmClaimClaimerNotConfirmed() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            EdgeType.BigStep
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        vm.expectRevert("Claiming edge not confirmed");
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+    }
+
+    function bisect(ChallengeEdge memory edge, bytes32[] memory states, uint256 start, uint256 end)
+        internal
+        returns (bytes32, bytes32)
+    {
+        (, bytes32 bisectionRoot, bytes memory bisectionProof) = bisectArgs(states, start, end);
+        return store.bisectEdge(edge.idMem(), bisectionRoot, bisectionProof);
+    }
+
+    struct BArgs {
+        bytes32 edge1Id;
+        bytes32 lowerChildId1;
+        bytes32 upperChildId1;
+        bytes32 lowerChildId2;
+        bytes32 upperChildId2;
+        bytes32[] states1;
+        bytes32[] states2;
+    }
+
+    function addParentsAndChildren(uint256 start, uint256 agree, uint256 end) internal returns (BArgs memory) {
+        (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
+            twoRivalsFromLeaves(start, agree, end);
+
+        store.add(edge1);
+        store.add(edge2);
+
+        (bytes32 lowerChildId1, bytes32 upperChildId1) = bisect(edge1, states1, start, end);
+        (bytes32 lowerChildId2, bytes32 upperChildId2) = bisect(edge2, states2, start, end);
+
+        return BArgs(edge1.idMem(), lowerChildId1, upperChildId1, lowerChildId2, upperChildId2, states1, states2);
+    }
+
+    function confirmByTimeEmitted(ChallengeEdge memory edge, uint256 timeUnrivaled) internal {
+        bytes32 edgeId = edge.idMem();
+        bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
+            edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EdgeChallengeManagerLib.EdgeConfirmedByTime(edgeId, mutualId, timeUnrivaled);
+    }
+
+    function claimWithMixedAncestors(
+        uint256 challengePeriodSec,
+        uint256 timeAfterParent1,
+        uint256 timeAfterParent2,
+        uint256 timeAfterZeroLayer,
+        string memory revertArg
+    ) internal {
+        BArgs memory pc = addParentsAndChildren(2, 5, 8);
+        (, bytes32 bisectionRoot, bytes memory bisectionProof) = bisectArgs(pc.states1, 4, 8);
+        (bytes32 lowerChildId148,) = store.bisectEdge(pc.upperChildId1, bisectionRoot, bisectionProof);
+        vm.warp(block.timestamp + timeAfterParent1);
+
+        bytes32 upperChildId146;
+        {
+            (, bytes32 bisectionRoot2, bytes memory bisectionProof2) = bisectArgs(pc.states2, 4, 8);
+            (bytes32 lowerChildId248,) = store.bisectEdge(pc.upperChildId2, bisectionRoot2, bisectionProof2);
+
+            (, bytes32 bisectionRoot3, bytes memory bisectionProof3) = bisectArgs(pc.states1, 4, 6);
+            (, bytes32 upperChildId146X) = store.bisectEdge(lowerChildId148, bisectionRoot3, bisectionProof3);
+            upperChildId146 = upperChildId146X;
+            vm.warp(block.timestamp + timeAfterParent2);
+
+            (, bytes32 bisectionRoot4, bytes memory bisectionProof4) = bisectArgs(pc.states2, 4, 6);
+            store.bisectEdge(lowerChildId248, bisectionRoot4, bisectionProof4);
+        }
+
+        ChallengeEdge memory bigStepZero = ChallengeEdgeLib.newLayerZeroEdge(
+            store.edges[upperChildId146].mutualId(),
+            store.edges[upperChildId146].startHistoryRoot,
+            store.edges[upperChildId146].startHeight,
+            rand.hash(),
+            100,
+            upperChildId146,
+            rand.addr(),
+            EdgeType.BigStep
+        );
+        if (timeAfterParent1 != 139) {
+            store.add(bigStepZero);
+        }
+        bytes32 bsId = bigStepZero.idMem();
+
+        vm.warp(block.timestamp + timeAfterZeroLayer);
+
+        bytes32[] memory ancestorIds = new bytes32[](3);
+        ancestorIds[0] = upperChildId146;
+        ancestorIds[1] = lowerChildId148;
+        ancestorIds[2] = pc.upperChildId1;
+
+        if (timeAfterParent1 == 137) {
+            ChallengeEdge memory childE1 =
+                ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), 10, rand.hash(), 100, EdgeType.Block);
+
+            store.add(childE1);
+
+            ancestorIds[1] = childE1.idMem();
+        }
+
+        if (timeAfterParent1 == 138) {
+            store.edges[bsId].claimId = rand.hash();
+        }
+
+        if (timeAfterParent1 == 140) {
+            store.edges[bsId].setConfirmed();
+        }
+
+        if (bytes(revertArg).length == 0) {
+            confirmByTimeEmitted(bigStepZero, timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer);
+        } else {
+            vm.expectRevert(bytes(revertArg));
+        }
+        store.confirmEdgeByTime(bsId, ancestorIds, challengePeriodSec);
+
+        assertTrue(store.edges[bsId].status == EdgeStatus.Confirmed, "Edge confirmed");
+    }
+
+    function testConfirmByTimeGrandParent() public {
+        claimWithMixedAncestors(10, 11, 0, 0, "");
+    }
+
+    function testConfirmByTimeParent() public {
+        claimWithMixedAncestors(10, 0, 11, 0, "");
+    }
+
+    function testConfirmByTimeSelf() public {
+        claimWithMixedAncestors(10, 0, 0, 11, "");
+    }
+
+    function testConfirmByTimeCombined() public {
+        claimWithMixedAncestors(10, 5, 6, 0, "");
+    }
+
+    function testConfirmByTimeCombinedClaimAll() public {
+        claimWithMixedAncestors(10, 3, 5, 3, "");
+    }
+
+    function testConfirmByTimeNoTime() public {
+        claimWithMixedAncestors(10, 1, 1, 1, "Total time unrivaled not greater than confirmation threshold");
+    }
+
+    function testConfirmByTimeBrokenAncestor() public {
+        claimWithMixedAncestors(10, 137, 1, 1, "Current is not a child of ancestor");
+    }
+
+    function testConfirmByTimeBrokenClaim() public {
+        claimWithMixedAncestors(10, 138, 1, 1, "Current is not a child of ancestor");
+    }
+
+    function testConfirmByTimeEdgeNotExist() public {
+        claimWithMixedAncestors(10, 139, 1, 1, "Edge does not exist");
+    }
+
+    function testConfirmByTimeEdgeNotPending() public {
+        claimWithMixedAncestors(10, 140, 1, 1, "Edge not pending");
+    }
+
+    function confirmByOneStep(ChallengeEdge memory edge) internal {
+        bytes32 edgeId = edge.idMem();
+        bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
+            edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
+        );
+        vm.expectEmit(true, true, true, true);
+        emit EdgeChallengeManagerLib.EdgeConfirmedByOneStepProof(edgeId, mutualId);
+    }
+
+    function confirmByOneStep(uint256 flag, string memory revertArg) internal {
+        uint256 startHeight = 5;
+        (bytes32[] memory states1, bytes32[] memory states2) = rivalStates(startHeight, startHeight, startHeight + 1);
+
+        ChallengeEdge memory e1 = ChallengeEdgeLib.newChildEdge(
+            rand.hash(),
+            MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, startHeight + 1)),
+            startHeight,
+            MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, startHeight + 2)),
+            startHeight + 1,
+            EdgeType.SmallStep
+        );
+        ChallengeEdge memory e2 = ChallengeEdgeLib.newChildEdge(
+            e1.originId,
+            MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, startHeight + 1)),
+            startHeight,
+            MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, startHeight + 2)),
+            startHeight + 1,
+            EdgeType.SmallStep
+        );
+        if (flag == 2) {
+            e1.status = EdgeStatus.Confirmed;
+        }
+        if (flag == 3) {
+            e1.eType = EdgeType.BigStep;
+        }
+        if (flag == 5) {
+            e1.endHeight = e1.endHeight + 1;
+        }
+        bytes32 eid = e1.idMem();
+
+        MockOneStepProofEntry entry = new MockOneStepProofEntry();
+        // confirm by one step makes external calls to the mock one step proof entry
+        // since the edgechallengemanager lib is internal these calls will be the ones
+        // that trigger the expectRevert behaviour - so we have a problem if we expect
+        // a revert after this call. Instead we use this access contract to ensure that
+        // just calling the lib creates an external call
+        EdgeChallengeManagerLibAccess a = new EdgeChallengeManagerLibAccess();
+
+        if (flag != 1) {
+            a.add(e1);
+        }
+        if (flag != 4) {
+            a.add(e2);
+        }
+
+        OneStepData memory d = OneStepData({
+            execCtx: ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0))}),
+            machineStep: e1.startHeight,
+            beforeHash: states1[startHeight],
+            proof: abi.encodePacked(states1[startHeight + 1])
+        });
+        bytes32[] memory beforeProof = ProofUtils.generateInclusionProof(
+            ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, startHeight + 1)), startHeight
+        );
+        if (flag == 6) {
+            beforeProof[0] = rand.hash();
+        }
+        bytes32[] memory afterProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), startHeight + 1);
+        if (flag == 7) {
+            afterProof[0] = rand.hash();
+        }
+        if (flag == 8) {
+            d.proof = abi.encodePacked(rand.hash());
+        }
+
+        if (bytes(revertArg).length != 0) {
+            vm.expectRevert(bytes(revertArg));
+        } else {
+            confirmByOneStep(e1);
+        }
+        a.confirmEdgeByOneStepProof(eid, entry, d, beforeProof, afterProof);
+
+        if (bytes(revertArg).length != 0) {
+            // for flag one the edge does not exist
+            // for flag two we set the status to confirmed anyway
+            if (flag != 1 && flag != 2) {
+                assertTrue(a.getEdge(eid).status == EdgeStatus.Pending, "Edge pending");
+            }
+        } else {
+            assertTrue(a.getEdge(eid).status == EdgeStatus.Confirmed, "Edge confirmed");
+        }
+    }
+
+    function testConfirmByOneStep() public {
+        confirmByOneStep(0, "");
+    }
+
+    function testConfirmByOneStepNotExist() public {
+        confirmByOneStep(1, "Edge does not exist");
+    }
+
+    function testConfirmByOneStepNotPending() public {
+        confirmByOneStep(2, "Edge not pending");
+    }
+
+    function testConfirmByOneStepNotSmallStep() public {
+        confirmByOneStep(3, "Edge is not a small step");
+    }
+
+    function testConfirmByOneStepNoRival() public {
+        confirmByOneStep(4, "Edge does not have single step rival");
+    }
+
+    function testConfirmByOneStepNotLengthOne() public {
+        confirmByOneStep(5, "Edge does not have single step rival");
+    }
+
+    function testConfirmByOneStepBadStartProof() public {
+        confirmByOneStep(6, "Before state not in history");
+    }
+
+    function testConfirmByOneStepBadAfterProof() public {
+        confirmByOneStep(7, "After state not in history");
+    }
+
+    function testConfirmByOneStepBadOneStepReturn() public {
+        confirmByOneStep(8, "After state not in history");
     }
 }

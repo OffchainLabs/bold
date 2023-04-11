@@ -27,7 +27,7 @@ func Test_onLeafCreation(t *testing.T) {
 		parentSeqNum := protocol.AssertionSequenceNumber(1)
 		seqNum := parentSeqNum + 1
 		prev := &mocks.MockAssertion{
-			MockPrevSeqNum: 0,
+			MockPrevSeqNum: 1,
 			MockSeqNum:     parentSeqNum,
 			MockStateHash:  common.Hash{},
 		}
@@ -178,7 +178,7 @@ func setupValidator(t *testing.T) (*Validator, *mocks.MockProtocol, *mocks.MockS
 	p.On(
 		"AssertionBySequenceNum",
 		ctx,
-		protocol.AssertionSequenceNumber(0),
+		protocol.AssertionSequenceNumber(1),
 	).Return(&mocks.MockAssertion{}, nil)
 	p.On("CurrentChallengeManager", ctx).Return(&mocks.MockChallengeManager{}, nil)
 	p.On("SpecChallengeManager", ctx).Return(&mocks.MockSpecChallengeManager{}, nil)
@@ -196,9 +196,6 @@ func AssertLogsContain(tb testing.TB, hook *test.Hook, want string, msg ...inter
 }
 
 // AssertLogsDoNotContain is the inverse check of LogsContain.
-func AssertLogsDoNotContain(tb testing.TB, hook *test.Hook, want string, msg ...interface{}) {
-	checkLogs(tb, hook, want, false, msg...)
-}
 
 // LogsContain checks whether a given substring is a part of logs. If flag=false, inverse is checked.
 func checkLogs(tb testing.TB, hook *test.Hook, want string, flag bool, msg ...interface{}) {
