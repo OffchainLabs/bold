@@ -344,13 +344,13 @@ func GeneratePrefixProof(
 	postHeight := height + uint64(len(leaves))
 	proof, _ := prefixExpansion.Compact()
 	for height < postHeight {
-		// extHeight looks like   xxxxxxx0yyy
-		// post.height looks like xxxxxxx1zzz
+		// extHeight looks like   xxxxxxxyyy
+		// post.height looks like xxxxxxxzzz
 		firstDiffBit, err := MostSignificantBit(height ^ postHeight)
 		if err != nil {
 			return nil, err
 		}
-		mask := (uint64(1) << firstDiffBit) - 1
+		mask := (uint64(1) << (firstDiffBit + 1)) - 1
 		yyy := height & mask
 		zzz := postHeight & mask
 		if yyy != 0 {
@@ -367,7 +367,7 @@ func GeneratePrefixProof(
 			leaves = leaves[numLeaves:]
 			height += numLeaves
 		} else if zzz != 0 {
-			highBit, err := MostSignificantBit(yyy)
+			highBit, err := MostSignificantBit(zzz)
 			if err != nil {
 				return nil, err
 			}
@@ -379,13 +379,6 @@ func GeneratePrefixProof(
 			proof = append(proof, root)
 			leaves = leaves[numLeaves:]
 			height += numLeaves
-		} else {
-			root, err := rootFetcher(leaves, uint64(len(leaves)))
-			if err != nil {
-				return nil, err
-			}
-			proof = append(proof, root)
-			height = postHeight
 		}
 	}
 	return proof, nil
