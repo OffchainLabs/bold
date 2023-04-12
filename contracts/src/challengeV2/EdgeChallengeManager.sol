@@ -155,7 +155,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         } else {
             // common checks for sub-challenges with a higher level claim
             ChallengeEdge storage claimEdge = store.get(args.claimId);
-            require(claimEdge.length() == 1, "Claim edge must be 1 step");
+            require(store.hasLengthOneRival(args.claimId), "Claim does not have length 1 rival");
 
             // check that the start history root match the mutual startHistoryRoot
             require(args.startHistoryRoot == claimEdge.startHistoryRoot, "Start history root does not match mutual startHistoryRoot");
@@ -186,18 +186,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 "End state does not consistent with endHistoryRoot"
             );
 
+            originId = claimEdge.mutualId();
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
-
-                originId = store.get(args.claimId).mutualId();
-                require(store.hasRival(args.claimId), "Claim does not have rival");
             } else if (args.edgeType == EdgeType.SmallStep) {
                 require(claimEdge.eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
                 require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
-
-                originId = claimEdge.mutualId();
-                require(store.hasRival(args.claimId), "Claim does not have rival");
             } else {
                 revert("Unexpected challenge type");
             }
