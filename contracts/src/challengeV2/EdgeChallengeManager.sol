@@ -124,13 +124,30 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
     function createLayerZeroEdge(
         CreateEdgeArgs memory args,
-        bytes calldata, // CHRIS: TODO: not yet implemented
-        bytes calldata
+        bytes calldata prefixProof,
+        bytes calldata proof
     ) external payable returns (bytes32) {
         bytes32 originId;
         require(args.startHeight == 0, "Start height is not 0");
         if (args.edgeType == EdgeType.Block) {
             require(args.endHeight == LAYERZERO_BLOCKEDGE_HEIGHT, "Invalid block edge end height");
+
+            // check that the start history root is the hash of the previous assertion
+            bytes32 prev = assertionChain.getPredecessorId(args.claimId);
+            require(args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getStateHash(prev))), "Start history root does not match previous assertion");
+
+            // check that the end history root is consistent with the claim
+            require(proof.length > 0, "Block edge specific proof is empty");
+            (bytes32[] memory inclusionProof) = abi.decode(proof, (bytes32[]));
+            require(
+                MerkleTreeLib.verifyInclusionProof(
+                    args.endHistoryRoot,
+                    assertionChain.getStateHash(args.claimId),
+                    LAYERZERO_BLOCKEDGE_HEIGHT,
+                    inclusionProof
+                ),
+                "End history root does not include claim"
+            );
 
             // challenge id is the assertion which is the root of challenge
             originId = assertionChain.getPredecessorId(args.claimId);

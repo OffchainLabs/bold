@@ -355,8 +355,8 @@ contract RollupTest is Test {
         bytes32[] memory states0 = new bytes32[](1);
         states0[0] = h0;
 
-        bytes32[] memory states = fillStatesInBetween(h0, h1, 9);
-        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, 9));
+        bytes32[] memory states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
+        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
         bytes32 e1Id = challengeManager.createLayerZeroEdge{value: 1}(
             CreateEdgeArgs({
@@ -368,7 +368,7 @@ contract RollupTest is Test {
                 claimId: userRollup.getAssertionId(2)
             }),
             "",
-            ""
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
         return e1Id;
@@ -383,8 +383,8 @@ contract RollupTest is Test {
         bytes32[] memory states0 = new bytes32[](1);
         states0[0] = h0;
 
-        bytes32[] memory states = fillStatesInBetween(h0, h1, 9);
-        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, 9));
+        bytes32[] memory states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
+        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
         bytes32 e2Id = challengeManager.createLayerZeroEdge{value: 1}(
             CreateEdgeArgs({
@@ -396,7 +396,7 @@ contract RollupTest is Test {
                 claimId: userRollup.getAssertionId(3)
             }),
             "",
-            ""
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
         return (e1Id, e2Id);
