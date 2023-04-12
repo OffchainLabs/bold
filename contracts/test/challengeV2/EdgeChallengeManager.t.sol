@@ -113,7 +113,7 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            "",
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
@@ -139,7 +139,7 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            "",
+            abi.encode(ProofUtils.expansionFromLeaves(states1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1))
         );
 
@@ -157,7 +157,7 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: ei.a2
                 }),
-                "",
+                abi.encode(ProofUtils.expansionFromLeaves(states2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))),
                 abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1))
             );
 
@@ -326,7 +326,7 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            "",
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
             abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
         );
 
@@ -388,7 +388,7 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: args.claim1Id
                 }),
-                "",
+                abi.encode(ProofUtils.expansionFromLeaves(states1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))),
                 typeSpecificProof1
             );
         }
@@ -418,7 +418,7 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: args.claim2Id
                 }),
-                "",
+                abi.encode(ProofUtils.expansionFromLeaves(states2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))),
                 typeSpecificProof2
             );
         }

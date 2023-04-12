@@ -202,9 +202,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             }
         }
 
+        // prove that the start root is a prefix of the end root
+        {
+            require(prefixProof.length > 0, "Prefix proof is empty");
+            (bytes32[] memory preExpansion, bytes32[] memory preProof) = abi.decode(prefixProof, (bytes32[], bytes32[]));
+            MerkleTreeLib.verifyPrefixProof(
+                args.startHistoryRoot, args.startHeight + 1, args.endHistoryRoot, args.endHeight + 1, preExpansion, preProof
+            );
+        }
+
         // CHRIS: TODO: sub challenge specific checks, also start and end consistency checks, and claim consistency checks
         // CHRIS: TODO: check the ministake was provided
-        // CHRIS: TODO: also prove that the the start root is a prefix of the end root
         // CHRIS: TODO: we had inclusion proofs before?
 
         // CHRIS: TODO: currently the claim id is not part of the edge id hash, this means that two edges with the same id cannot have a different claim id
