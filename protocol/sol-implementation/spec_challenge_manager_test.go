@@ -838,8 +838,8 @@ func TestEdgeChallengeManager_ReachesOneStepProof(t *testing.T) {
 	setupOneStepProofScenario(
 		t,
 		protocol.Height(2),
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
+		statemanager.WithNumOpcodesPerBigStep(4),
+		statemanager.WithMaxWavmOpcodesPerBlock(4),
 	)
 }
 
