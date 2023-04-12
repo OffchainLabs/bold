@@ -80,7 +80,7 @@ type Manager interface {
 		fromAssertionHeight,
 		toAssertionHeight,
 		pc uint64,
-	) (*protocol.OneStepData, error)
+	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
@@ -349,16 +349,18 @@ func (s *Simulated) OneStepProofData(
 	fromAssertionHeight,
 	toAssertionHeight,
 	pc uint64,
-) (*protocol.OneStepData, error) {
-	startCommit, err := s.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, pc)
-	if err != nil {
-		return nil, err
+) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
+	startCommit, commitErr := s.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, pc)
+	if commitErr != nil {
+		err = commitErr
+		return
 	}
-	endCommit, err := s.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, pc+1)
-	if err != nil {
-		return nil, err
+	endCommit, commitErr := s.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, pc+1)
+	if commitErr != nil {
+		err = commitErr
+		return
 	}
-	data := &protocol.OneStepData{
+	data = &protocol.OneStepData{
 		BridgeAddr:           common.Address{},
 		MaxInboxMessagesRead: 2,
 		MachineStep:          pc,
@@ -369,7 +371,9 @@ func (s *Simulated) OneStepProofData(
 		// Only honest validators can produce a valid one step proof.
 		data.Proof = endCommit.LastLeaf[:]
 	}
-	return data, nil
+	startLeafInclusionProof = startCommit.LastLeafProof
+	endLeafInclusionProof = endCommit.LastLeafProof
+	return
 }
 
 // Generates the intermediate machine hashes up to a certain step from a given engine.

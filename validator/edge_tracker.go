@@ -3,6 +3,8 @@ package validator
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
@@ -10,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
@@ -296,30 +297,7 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	fromAssertionHeight := assertionHeight
 	toAssertionHeight := fromAssertionHeight + 1
 	pc, _ := et.edge.StartCommitment()
-
-	log.Infof("PREPARING FROM A%d to A%d and PC %d", fromAssertionHeight, toAssertionHeight, pc)
-
-	startCommit, err := et.cfg.stateManager.SmallStepCommitmentUpTo(
-		ctx,
-		uint64(fromAssertionHeight),
-		uint64(toAssertionHeight),
-		uint64(pc),
-	)
-	if err != nil {
-		return err
-	}
-
-	endCommit, err := et.cfg.stateManager.SmallStepCommitmentUpTo(
-		ctx,
-		uint64(fromAssertionHeight),
-		uint64(toAssertionHeight),
-		uint64(pc)+1,
-	)
-	if err != nil {
-		return err
-	}
-
-	data, err := et.cfg.stateManager.OneStepProofData(
+	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
 		uint64(fromAssertionHeight),
 		uint64(toAssertionHeight),
@@ -337,8 +315,8 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 		ctx,
 		et.edge.Id(),
 		data,
-		startCommit.FirstLeafProof,
-		endCommit.LastLeafProof,
+		beforeStateInclusionProof,
+		afterStateInclusionProof,
 	); err != nil {
 		return errors.Wrap(err, "could not confirm one step proof against protocol")
 	}

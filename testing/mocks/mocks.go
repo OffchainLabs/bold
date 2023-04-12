@@ -134,9 +134,9 @@ func (m *MockStateManager) OneStepProofData(
 	fromAssertionHeight,
 	toAssertionHeight,
 	pc uint64,
-) (*protocol.OneStepData, error) {
+) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
 	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, pc)
-	return args.Get(0).(*protocol.OneStepData), args.Error(1)
+	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
 type MockChallengeManager struct {

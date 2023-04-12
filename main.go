@@ -37,7 +37,7 @@ var (
 	// The heights at which Alice and Bob diverge at each challenge level.
 	divergeHeightAtL2 = uint64(3)
 	// How often an edge tracker needs to wake and perform its responsibilities.
-	edgeTrackerWakeInterval = time.Millisecond * 100
+	edgeTrackerWakeInterval = time.Millisecond * 500
 	// How often the validator polls the chain to see if new assertions have been posted.
 	checkForAssertionsInteral = time.Second
 	// How often the validator will post its latest assertion to the chain.
