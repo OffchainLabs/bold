@@ -37,7 +37,7 @@ contract EdgeChallengeManagerTest is Test {
 
     bytes32 h1 = rand.hash();
     bytes32 h2 = rand.hash();
-    uint256 height1 = 18;
+    uint256 height1 = 32;
 
     uint256 miniStakeVal = 1 ether;
     uint256 challengePeriodSec = 1000;

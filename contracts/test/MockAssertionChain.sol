@@ -44,7 +44,7 @@ contract MockAssertionChain is IAssertionChain {
 
     function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        return assertions[assertionId].successionChallenge;
+        return assertionId; // TODO: track 2nd child in case need to return 0
     }
 
     function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256) {

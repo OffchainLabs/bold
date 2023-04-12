@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "./libraries/UintUtilsLib.sol";
 import "./DataEntities.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
+import "../libraries/Constants.sol";
 
 interface IEdgeChallengeManager {
     // Checks if an edge by ID exists.
@@ -127,17 +128,22 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes calldata
     ) external payable returns (bytes32) {
         bytes32 originId;
+        require(args.startHeight == 0, "Start height is not 0");
         if (args.edgeType == EdgeType.Block) {
+            require(args.endHeight == LAYERZERO_BLOCKEDGE_HEIGHT, "Invalid block edge end height");
+
             // challenge id is the assertion which is the root of challenge
             originId = assertionChain.getPredecessorId(args.claimId);
             require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
         } else if (args.edgeType == EdgeType.BigStep) {
             require(store.get(args.claimId).eType == EdgeType.Block, "Claim challenge type is not Block");
+            require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
 
             originId = store.get(args.claimId).mutualId();
             require(store.hasRival(args.claimId), "Claim does not have rival");
         } else if (args.edgeType == EdgeType.SmallStep) {
             require(store.get(args.claimId).eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
+            require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
 
             originId = store.get(args.claimId).mutualId();
             require(store.hasRival(args.claimId), "Claim does not have rival");
