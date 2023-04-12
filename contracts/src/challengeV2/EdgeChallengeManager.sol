@@ -155,6 +155,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         } else {
             // common checks for sub-challenges with a higher level claim
             ChallengeEdge storage claimEdge = store.get(args.claimId);
+            require(claimEdge.length() == 1, "Claim edge must be 1 step");
 
             // check that the start history root match the mutual startHistoryRoot
             require(args.startHistoryRoot == claimEdge.startHistoryRoot, "Start history root does not match mutual startHistoryRoot");
