@@ -299,10 +299,24 @@ contract EdgeChallengeManagerTest is Test {
         EdgeInitData memory ei = deployAndInit();
 
         (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
-            CreateEdgesBisectArgs(ei.challengeManager, EdgeType.Block, ei.a1, ei.a2, StateToolsLib.hash(ei.a1State), StateToolsLib.hash(ei.a2State), false)
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
         );
 
-        (, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
@@ -313,7 +327,7 @@ contract EdgeChallengeManagerTest is Test {
                 claimId: edges1[0].lowerChildId
             }),
             "",
-            ""
+            abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
         );
 
         vm.warp(challengePeriodSec + 5);
@@ -345,6 +359,8 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 endState1;
         bytes32 endState2;
         bool skipLast;
+        bytes32[] forkStates1;
+        bytes32[] forkStates2;
     }
 
     function createEdgesAndBisectToFork(CreateEdgesBisectArgs memory args)
@@ -353,18 +369,29 @@ contract EdgeChallengeManagerTest is Test {
     {
         (bytes32[] memory states1, bytes32[] memory exp1) =
             appendRandomStatesBetween(genesisStates(), args.endState1, height1);
-        bytes32 edge1Id = args.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: args.eType,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(exp1),
-                endHeight: height1,
-                claimId: args.claim1Id
-            }),
-            "",
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1))
-        );
+        bytes32 edge1Id;
+        {
+            bytes memory typeSpecificProof1;
+            if (args.eType == EdgeType.Block) {
+                typeSpecificProof1 = abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1));
+            } else {
+                bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(args.forkStates1), 1);
+                bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1);
+                typeSpecificProof1 = abi.encode(args.endState1, claimInclusionProof, edgeInclusionProof);
+            }
+            edge1Id = args.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: args.eType,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(exp1),
+                    endHeight: height1,
+                    claimId: args.claim1Id
+                }),
+                "",
+                typeSpecificProof1
+            );
+        }
 
         vm.warp(block.timestamp + 1);
 
@@ -372,18 +399,29 @@ contract EdgeChallengeManagerTest is Test {
 
         (bytes32[] memory states2, bytes32[] memory exp2) =
             appendRandomStatesBetween(genesisStates(), args.endState2, height1);
-        bytes32 edge2Id = args.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: args.eType,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(exp2),
-                endHeight: height1,
-                claimId: args.claim2Id
-            }),
-            "",
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1))
-        );
+        bytes32 edge2Id;
+        {
+            bytes memory typeSpecificProof2;
+            if (args.eType == EdgeType.Block) {
+                typeSpecificProof2 = abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1));
+            } else {
+                bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(args.forkStates2), 1);
+                bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1);
+                typeSpecificProof2 = abi.encode(args.endState2, claimInclusionProof, edgeInclusionProof);
+            }
+            edge2Id = args.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: args.eType,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(exp2),
+                    endHeight: height1,
+                    claimId: args.claim2Id
+                }),
+                "",
+                typeSpecificProof2
+            );
+        }
 
         vm.warp(block.timestamp + 2);
 
@@ -403,7 +441,17 @@ contract EdgeChallengeManagerTest is Test {
             BisectionChildren[6] memory blockEdges1,
             BisectionChildren[6] memory blockEdges2
         ) = createEdgesAndBisectToFork(
-            CreateEdgesBisectArgs(ei.challengeManager, EdgeType.Block, ei.a1, ei.a2, StateToolsLib.hash(ei.a1State), StateToolsLib.hash(ei.a2State), false)
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false, 
+                new bytes32[](0), 
+                new bytes32[](0)
+            )
         );
 
         (
@@ -419,7 +467,9 @@ contract EdgeChallengeManagerTest is Test {
                 blockEdges2[0].lowerChildId,
                 blockStates1[1],
                 blockStates2[1],
-                false
+                false,
+                ArrayUtilsLib.slice(blockStates1, 0, 2),
+                ArrayUtilsLib.slice(blockStates2, 0, 2)
             )
         );
 
@@ -431,7 +481,9 @@ contract EdgeChallengeManagerTest is Test {
                 bigStepEdges2[0].lowerChildId,
                 bigStepStates1[1],
                 bigStepStates2[1],
-                true
+                true,
+                ArrayUtilsLib.slice(bigStepStates1, 0, 2),
+                ArrayUtilsLib.slice(bigStepStates2, 0, 2)
             )
         );
 
@@ -505,7 +557,17 @@ contract EdgeChallengeManagerTest is Test {
             BisectionChildren[6] memory blockEdges1,
             BisectionChildren[6] memory blockEdges2
         ) = createEdgesAndBisectToFork(
-            CreateEdgesBisectArgs(ei.challengeManager, EdgeType.Block, ei.a1, ei.a2, StateToolsLib.hash(ei.a1State), StateToolsLib.hash(ei.a2State), false)
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
         );
 
         (
@@ -521,7 +583,9 @@ contract EdgeChallengeManagerTest is Test {
                 blockEdges2[0].lowerChildId,
                 blockStates1[1],
                 blockStates2[1],
-                false
+                false,
+                ArrayUtilsLib.slice(blockStates1, 0, 2),
+                ArrayUtilsLib.slice(blockStates2, 0, 2)
             )
         );
 
@@ -533,7 +597,9 @@ contract EdgeChallengeManagerTest is Test {
                 bigStepEdges2[0].lowerChildId,
                 bigStepStates1[1],
                 bigStepStates2[1],
-                false
+                false,
+                ArrayUtilsLib.slice(bigStepStates1, 0, 2),
+                ArrayUtilsLib.slice(bigStepStates2, 0, 2)
             )
         );
 

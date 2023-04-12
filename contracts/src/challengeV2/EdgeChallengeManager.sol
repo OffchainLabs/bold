@@ -152,20 +152,54 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             // challenge id is the assertion which is the root of challenge
             originId = assertionChain.getPredecessorId(args.claimId);
             require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
-        } else if (args.edgeType == EdgeType.BigStep) {
-            require(store.get(args.claimId).eType == EdgeType.Block, "Claim challenge type is not Block");
-            require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
-
-            originId = store.get(args.claimId).mutualId();
-            require(store.hasRival(args.claimId), "Claim does not have rival");
-        } else if (args.edgeType == EdgeType.SmallStep) {
-            require(store.get(args.claimId).eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
-            require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
-
-            originId = store.get(args.claimId).mutualId();
-            require(store.hasRival(args.claimId), "Claim does not have rival");
         } else {
-            revert("Unexpected challenge type");
+            // common checks for sub-challenges with a higher level claim
+            ChallengeEdge storage claimEdge = store.get(args.claimId);
+
+            // check that the start history root match the mutual startHistoryRoot
+            require(args.startHistoryRoot == claimEdge.startHistoryRoot, "Start history root does not match mutual startHistoryRoot");
+
+            require(proof.length > 0, "Edge type specific proof is empty");
+            (bytes32 endState, bytes32[] memory claimInclusionProof, bytes32[] memory edgeInclusionProof) = abi.decode(proof, (bytes32, bytes32[], bytes32[]));
+
+            // if endState is consistent with the claim and endHistoryRoot, then endHistoryRoot is consistent with the claim
+            // check the endState is consistent with the claim
+            require(
+                MerkleTreeLib.verifyInclusionProof(
+                    claimEdge.endHistoryRoot,
+                    endState,
+                    1,
+                    claimInclusionProof
+                ),
+                "End state does not consistent with the claim"
+            );
+
+            // check the endState is consistent with the endHistoryRoot
+            require(
+                MerkleTreeLib.verifyInclusionProof(
+                    args.endHistoryRoot,
+                    endState,
+                    LAYERZERO_BIGSTEPEDGE_HEIGHT,
+                    edgeInclusionProof
+                ),
+                "End state does not consistent with endHistoryRoot"
+            );
+
+            if (args.edgeType == EdgeType.BigStep) {
+                require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
+                require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
+
+                originId = store.get(args.claimId).mutualId();
+                require(store.hasRival(args.claimId), "Claim does not have rival");
+            } else if (args.edgeType == EdgeType.SmallStep) {
+                require(claimEdge.eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
+                require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
+
+                originId = claimEdge.mutualId();
+                require(store.hasRival(args.claimId), "Claim does not have rival");
+            } else {
+                revert("Unexpected challenge type");
+            }
         }
 
         // CHRIS: TODO: sub challenge specific checks, also start and end consistency checks, and claim consistency checks
