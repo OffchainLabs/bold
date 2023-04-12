@@ -210,6 +210,16 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	args := m.Called(ctx, challengedEdge, startCommit, endCommit)
 	return args.Get(0).(protocol.SpecEdge), args.Error(1)
 }
+func (m *MockSpecChallengeManager) ConfirmEdgeByOneStepProof(
+	ctx context.Context,
+	tentativeWinnerId protocol.EdgeId,
+	oneStepData *protocol.OneStepData,
+	preHistoryInclusionProof []common.Hash,
+	postHistoryInclusionProof []common.Hash,
+) error {
+	args := m.Called(ctx, tentativeWinnerId, oneStepData, preHistoryInclusionProof, postHistoryInclusionProof)
+	return args.Error(0)
+}
 
 // MockSpecEdge is a mock implementation of the SpecEdge interface.
 type MockSpecEdge struct {
