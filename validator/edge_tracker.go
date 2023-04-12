@@ -67,8 +67,10 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
-		log.WithFields(fields).Info("Checking one-step-proof against protocol")
-		return et.fsm.Do(edgeHandleOneStepProof{})
+		if err := et.submitOneStepProof(ctx); err != nil {
+			return errors.Wrap(err, "could not submit one step proof")
+		}
+		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		event, ok := current.SourceEvent.(edgeOpenSubchallengeLeaf)
@@ -281,6 +283,64 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		return err
 	}
 	go tracker.spawn(ctx)
+	return nil
+}
+
+func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
+	fields := et.uniqueTrackerLogFields()
+	log.WithFields(fields).Info("Submitting one-step-proof to protocol")
+	assertionHeight, err := et.edge.TopLevelClaimHeight(ctx)
+	if err != nil {
+		return errors.Wrap(err, "could not get top level claim height")
+	}
+	fromAssertionHeight := assertionHeight
+	toAssertionHeight := fromAssertionHeight + 1
+	pc, _ := et.edge.StartCommitment()
+
+	startCommit, err := et.cfg.stateManager.SmallStepCommitmentUpTo(
+		ctx,
+		uint64(fromAssertionHeight),
+		uint64(toAssertionHeight),
+		uint64(pc),
+	)
+	if err != nil {
+		return err
+	}
+
+	endCommit, err := et.cfg.stateManager.SmallStepCommitmentUpTo(
+		ctx,
+		uint64(fromAssertionHeight),
+		uint64(toAssertionHeight),
+		uint64(pc)+1,
+	)
+	if err != nil {
+		return err
+	}
+
+	data, err := et.cfg.stateManager.OneStepProofData(
+		ctx,
+		uint64(fromAssertionHeight),
+		uint64(toAssertionHeight),
+		uint64(pc),
+	)
+	if err != nil {
+		return err
+	}
+
+	manager, err := et.cfg.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return err
+	}
+	if err = manager.ConfirmEdgeByOneStepProof(
+		ctx,
+		et.edge.Id(),
+		data,
+		startCommit.FirstLeafProof,
+		endCommit.LastLeafProof,
+	); err != nil {
+		return errors.Wrap(err, "could not confirm one step proof against protocol")
+	}
+	log.WithFields(fields).Info("Succeeded one-step-proof for edge and confirmed it as winner")
 	return nil
 }
 

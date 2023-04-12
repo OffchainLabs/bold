@@ -37,7 +37,7 @@ var (
 	// The heights at which Alice and Bob diverge at each challenge level.
 	divergeHeightAtL2 = uint64(3)
 	// How often an edge tracker needs to wake and perform its responsibilities.
-	edgeTrackerWakeInterval = time.Second
+	edgeTrackerWakeInterval = time.Millisecond * 100
 	// How often the validator polls the chain to see if new assertions have been posted.
 	checkForAssertionsInteral = time.Second
 	// How often the validator will post its latest assertion to the chain.
@@ -128,6 +128,7 @@ func main() {
 	// Bob diverges from Alice's L2 history at the specified divergence height.
 	managerOpts = append(
 		managerOpts,
+		statemanager.WithMaliciousIntent(),
 		statemanager.WithBigStepStateDivergenceHeight(divergeHeightAtL2),
 		statemanager.WithSmallStepStateDivergenceHeight(divergeHeightAtL2),
 	)

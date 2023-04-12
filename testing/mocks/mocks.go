@@ -129,6 +129,16 @@ func (m *MockStateManager) SmallStepCommitmentUpTo(
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
+func (m *MockStateManager) OneStepProofData(
+	ctx context.Context,
+	fromAssertionHeight,
+	toAssertionHeight,
+	pc uint64,
+) (*protocol.OneStepData, error) {
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, pc)
+	return args.Get(0).(*protocol.OneStepData), args.Error(1)
+}
+
 type MockChallengeManager struct {
 	mock.Mock
 	MockAddr common.Address

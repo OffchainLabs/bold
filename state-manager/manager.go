@@ -75,6 +75,12 @@ type Manager interface {
 		lo,
 		hi uint64,
 	) ([]byte, error)
+	OneStepProofData(
+		ctx context.Context,
+		fromAssertionHeight,
+		toAssertionHeight,
+		pc uint64,
+	) (*protocol.OneStepData, error)
 }
 
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
@@ -87,6 +93,7 @@ type Simulated struct {
 	numOpcodesPerBigStep      uint64
 	bigStepDivergenceHeight   uint64
 	smallStepDivergenceHeight uint64
+	malicious                 bool
 }
 
 // New simulated manager from a list of predefined state roots, useful for tests and simulations.
@@ -124,6 +131,12 @@ func WithBigStepStateDivergenceHeight(divergenceHeight uint64) Opt {
 func WithSmallStepStateDivergenceHeight(divergenceHeight uint64) Opt {
 	return func(s *Simulated) {
 		s.smallStepDivergenceHeight = divergenceHeight
+	}
+}
+
+func WithMaliciousIntent() Opt {
+	return func(s *Simulated) {
+		s.malicious = true
 	}
 }
 
@@ -329,6 +342,34 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 		return util.HistoryCommitment{}, err
 	}
 	return util.NewHistoryCommitment(toPc, leaves)
+}
+
+func (s *Simulated) OneStepProofData(
+	ctx context.Context,
+	fromAssertionHeight,
+	toAssertionHeight,
+	pc uint64,
+) (*protocol.OneStepData, error) {
+	startCommit, err := s.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, pc)
+	if err != nil {
+		return nil, err
+	}
+	endCommit, err := s.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, pc+1)
+	if err != nil {
+		return nil, err
+	}
+	data := &protocol.OneStepData{
+		BridgeAddr:           common.Address{},
+		MaxInboxMessagesRead: 2,
+		MachineStep:          0,
+		BeforeHash:           startCommit.FirstLeaf,
+		Proof:                make([]byte, 0),
+	}
+	if !s.malicious {
+		// Only honest validators can produce a valid one step proof.
+		data.Proof = endCommit.LastLeaf[:]
+	}
+	return data, nil
 }
 
 // Generates the intermediate machine hashes up to a certain step from a given engine.
