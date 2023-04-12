@@ -875,14 +875,14 @@ func setupBisectionScenario(
 	)
 	require.NoError(t, err)
 
-	opts := append(
+	commonStateManagerOpts = append(
 		commonStateManagerOpts,
 		statemanager.WithBigStepStateDivergenceHeight(1),
 		statemanager.WithSmallStepStateDivergenceHeight(1),
 	)
 	evilStateManager, err := statemanager.New(
 		createdData.EvilValidatorStateRoots,
-		opts...,
+		commonStateManagerOpts...,
 	)
 	require.NoError(t, err)
 
