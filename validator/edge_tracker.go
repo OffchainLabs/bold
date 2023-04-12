@@ -297,6 +297,8 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	toAssertionHeight := fromAssertionHeight + 1
 	pc, _ := et.edge.StartCommitment()
 
+	log.Infof("PREPARING FROM A%d to A%d and PC %d", fromAssertionHeight, toAssertionHeight, pc)
+
 	startCommit, err := et.cfg.stateManager.SmallStepCommitmentUpTo(
 		ctx,
 		uint64(fromAssertionHeight),
