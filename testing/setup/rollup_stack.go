@@ -10,7 +10,7 @@ import (
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/bridgegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/ospgen"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -430,35 +430,7 @@ func deployChallengeFactory(
 	auth *bind.TransactOpts,
 	backend *backends.SimulatedBackend,
 ) (common.Address, common.Address, error) {
-	osp0, tx, _, err := ospgen.DeployOneStepProver0(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, osp0, backend, err)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-
-	ospMem, _, _, err := ospgen.DeployOneStepProverMemory(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, ospMem, backend, err)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-
-	ospMath, _, _, err := ospgen.DeployOneStepProverMath(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, ospMath, backend, err)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-
-	ospHostIo, _, _, err := ospgen.DeployOneStepProverHostIo(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, ospHostIo, backend, err)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-
-	ospEntryAddr, tx, _, err := ospgen.DeployOneStepProofEntry(auth, backend, osp0, ospMem, ospMath, ospHostIo)
+	ospEntryAddr, tx, _, err := mocksgen.DeployMockOneStepProofEntry(auth, backend)
 	backend.Commit()
 	err = challenge_testing.TxSucceeded(ctx, tx, ospEntryAddr, backend, err)
 	if err != nil {

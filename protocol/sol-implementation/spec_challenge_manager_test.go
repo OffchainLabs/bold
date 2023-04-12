@@ -122,7 +122,12 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 	ctx := context.Background()
 	topLevelHeight := protocol.Height(3)
-	bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+	bisectionScenario := setupBisectionScenario(
+		t,
+		topLevelHeight,
+		statemanager.WithNumOpcodesPerBigStep(1),
+		statemanager.WithMaxWavmOpcodesPerBlock(1),
+	)
 	honestStateManager := bisectionScenario.honestStateManager
 	evilStateManager := bisectionScenario.evilStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
@@ -247,7 +252,12 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 func TestEdgeChallengeManager_Bisect(t *testing.T) {
 	ctx := context.Background()
 	topLevelHeight := protocol.Height(3)
-	bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+	bisectionScenario := setupBisectionScenario(
+		t,
+		topLevelHeight,
+		statemanager.WithNumOpcodesPerBigStep(1),
+		statemanager.WithMaxWavmOpcodesPerBlock(1),
+	)
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 
@@ -292,7 +302,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	ctx := context.Background()
 	topLevelHeight := protocol.Height(2)
 	t.Run("edge does not exist", func(t *testing.T) {
-		bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+		bisectionScenario := setupBisectionScenario(
+			t,
+			topLevelHeight,
+			statemanager.WithNumOpcodesPerBigStep(1),
+			statemanager.WithMaxWavmOpcodesPerBlock(1),
+		)
 		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
 		require.NoError(t, err)
 		err = challengeManager.ConfirmEdgeByOneStepProof(
@@ -311,7 +326,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Edge does not exist")
 	})
 	t.Run("edge not pending", func(t *testing.T) {
-		bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+		bisectionScenario := setupBisectionScenario(
+			t,
+			topLevelHeight,
+			statemanager.WithNumOpcodesPerBigStep(1),
+			statemanager.WithMaxWavmOpcodesPerBlock(1),
+		)
 		honestStateManager := bisectionScenario.honestStateManager
 		honestEdge := bisectionScenario.honestLevelZeroEdge
 		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
@@ -375,7 +395,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Edge not pending")
 	})
 	t.Run("edge not small step type", func(t *testing.T) {
-		bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+		bisectionScenario := setupBisectionScenario(
+			t,
+			topLevelHeight,
+			statemanager.WithNumOpcodesPerBigStep(1),
+			statemanager.WithMaxWavmOpcodesPerBlock(1),
+		)
 		honestStateManager := bisectionScenario.honestStateManager
 		honestEdge := bisectionScenario.honestLevelZeroEdge
 		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
@@ -425,10 +450,152 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Edge is not a small step")
 	})
 	t.Run("edge does not have a single step rival", func(t *testing.T) {
-		t.Skip()
+		ctx := context.Background()
+		bisectionScenario := setupBisectionScenario(
+			t,
+			topLevelHeight,
+			// We want four opcodes per big step.
+			statemanager.WithNumOpcodesPerBigStep(4),
+			// We want a total of one big step.
+			statemanager.WithMaxWavmOpcodesPerBlock(4),
+		)
+		honestStateManager := bisectionScenario.honestStateManager
+		evilStateManager := bisectionScenario.evilStateManager
+		honestEdge := bisectionScenario.honestLevelZeroEdge
+		evilEdge := bisectionScenario.evilLevelZeroEdge
+		honestStartCommit := bisectionScenario.honestStartCommit
+		evilStartCommit := bisectionScenario.evilStartCommit
+
+		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+
+		// Attempt bisections down to one step fork.
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 1)
+		require.NoError(t, err)
+		honestProof, err := honestStateManager.PrefixProof(ctx, 1, 2)
+		require.NoError(t, err)
+
+		_, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		require.NoError(t, err)
+
+		evilBisectCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 1)
+		require.NoError(t, err)
+		evilProof, err := evilStateManager.PrefixProof(ctx, 1, 2)
+		require.NoError(t, err)
+
+		oneStepForkSourceEdge, _, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
+		require.NoError(t, err)
+
+		isAtOneStepFork, err := oneStepForkSourceEdge.HasLengthOneRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, true, isAtOneStepFork)
+
+		// Now opening big step level zero leaves
+		bigStepAdder := func(startCommit, endCommit util.HistoryCommitment) protocol.SpecEdge {
+			leaf, err := challengeManager.AddSubChallengeLevelZeroEdge(
+				ctx,
+				oneStepForkSourceEdge,
+				startCommit,
+				endCommit,
+			)
+			require.NoError(t, err)
+			return leaf
+		}
+
+		honestBigStepCommit, err := honestStateManager.BigStepCommitmentUpTo(
+			ctx, 0 /* from assertion */, 1 /* to assertion */, 1, /* to big step */
+		)
+		require.NoError(t, err)
+
+		honestEdge = bigStepAdder(honestStartCommit, honestBigStepCommit)
+		require.Equal(t, protocol.BigStepChallengeEdge, honestEdge.GetType())
+		hasRival, err := honestEdge.HasRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, true, !hasRival)
+
+		evilBigStepCommit, err := evilStateManager.BigStepCommitmentUpTo(
+			ctx, 0 /* from assertion */, 1 /* to assertion */, 1, /* to big step */
+		)
+		require.NoError(t, err)
+
+		evilEdge = bigStepAdder(evilStartCommit, evilBigStepCommit)
+		require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
+
+		hasRival, err = honestEdge.HasRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, false, !hasRival)
+		hasRival, err = evilEdge.HasRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, false, !hasRival)
+
+		isAtOneStepFork, err = honestEdge.HasLengthOneRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, true, isAtOneStepFork)
+
+		// Now opening small step level zero leaves
+		smallStepAdder := func(startCommit, endCommit util.HistoryCommitment) protocol.SpecEdge {
+			leaf, err := challengeManager.AddSubChallengeLevelZeroEdge(
+				ctx,
+				honestEdge,
+				startCommit,
+				endCommit,
+			)
+			require.NoError(t, err)
+			return leaf
+		}
+
+		honestSmallStepCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+			ctx, 0 /* from assertion */, 1 /* to assertion */, 3, /* to pc */
+		)
+		require.NoError(t, err)
+
+		smallStepHonest := smallStepAdder(honestStartCommit, honestSmallStepCommit)
+		require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
+		hasRival, err = smallStepHonest.HasRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, true, !hasRival)
+
+		evilSmallStepCommit, err := evilStateManager.SmallStepCommitmentUpTo(
+			ctx, 0 /* from assertion */, 1 /* to assertion */, 3, /* to pc */
+		)
+		require.NoError(t, err)
+
+		smallStepEvil := smallStepAdder(evilStartCommit, evilSmallStepCommit)
+		require.Equal(t, protocol.SmallStepChallengeEdge, smallStepEvil.GetType())
+
+		hasRival, err = smallStepHonest.HasRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, false, !hasRival)
+		hasRival, err = smallStepEvil.HasRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, false, !hasRival)
+
+		isAtOneStepFork, err = smallStepHonest.HasLengthOneRival(ctx)
+		require.NoError(t, err)
+		require.Equal(t, false, isAtOneStepFork)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestEdge.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           honestSmallStepCommit.FirstLeaf,
+				Proof:                honestSmallStepCommit.LastLeaf[:],
+			},
+			honestSmallStepCommit.FirstLeafProof,
+			honestSmallStepCommit.LastLeafProof,
+		)
+		require.ErrorContains(t, err, "Edge is not a small step")
 	})
 	t.Run("before state not in history", func(t *testing.T) {
-		scenario := setupOneStepProofScenario(t, topLevelHeight)
+		scenario := setupOneStepProofScenario(
+			t,
+			topLevelHeight,
+			statemanager.WithNumOpcodesPerBigStep(1),
+			statemanager.WithMaxWavmOpcodesPerBlock(1),
+		)
 		honestEdge := scenario.smallStepHonestEdge
 
 		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
@@ -461,11 +628,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Before state not in history")
 	})
 	t.Run("one step proof fails", func(t *testing.T) {
-		t.Skip()
-	})
-	t.Run("OK", func(t *testing.T) {
-		t.Skip()
-		scenario := setupOneStepProofScenario(t, topLevelHeight)
+		scenario := setupOneStepProofScenario(
+			t,
+			topLevelHeight,
+			statemanager.WithNumOpcodesPerBigStep(1),
+			statemanager.WithMaxWavmOpcodesPerBlock(1),
+		)
 		honestEdge := scenario.smallStepHonestEdge
 
 		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
@@ -474,7 +642,14 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		honestStateManager := scenario.honestStateManager
 		fromAssertion := uint64(0)
 		toAssertion := uint64(1)
-		honestCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+		honestStartCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+			ctx,
+			fromAssertion,
+			toAssertion,
+			0,
+		)
+		require.NoError(t, err)
+		honestEndCommit, err := honestStateManager.SmallStepCommitmentUpTo(
 			ctx,
 			fromAssertion,
 			toAssertion,
@@ -489,20 +664,73 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 				BridgeAddr:           common.Address{},
 				MaxInboxMessagesRead: 2,
 				MachineStep:          0,
-				BeforeHash:           honestCommit.FirstLeaf,
-				Proof:                honestCommit.LastLeaf[:],
+				BeforeHash:           honestStartCommit.FirstLeaf,
+				Proof:                make([]byte, 0),
 			},
-			honestCommit.FirstLeafProof,
-			honestCommit.LastLeafProof,
+			honestStartCommit.FirstLeafProof,
+			honestEndCommit.LastLeafProof,
+		)
+		require.ErrorContains(t, err, "After state not in history")
+	})
+	t.Run("OK", func(t *testing.T) {
+		scenario := setupOneStepProofScenario(
+			t,
+			topLevelHeight,
+			statemanager.WithNumOpcodesPerBigStep(1),
+			statemanager.WithMaxWavmOpcodesPerBlock(1),
+		)
+		honestEdge := scenario.smallStepHonestEdge
+
+		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+
+		honestStateManager := scenario.honestStateManager
+		fromAssertion := uint64(0)
+		toAssertion := uint64(1)
+		honestStartCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+			ctx,
+			fromAssertion,
+			toAssertion,
+			0,
 		)
 		require.NoError(t, err)
+		honestEndCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+			ctx,
+			fromAssertion,
+			toAssertion,
+			1,
+		)
+		require.NoError(t, err)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestEdge.Id(),
+			&protocol.OneStepData{
+				BridgeAddr:           common.Address{},
+				MaxInboxMessagesRead: 2,
+				MachineStep:          0,
+				BeforeHash:           honestStartCommit.FirstLeaf,
+				Proof:                honestEndCommit.LastLeaf[:],
+			},
+			honestStartCommit.FirstLeafProof,
+			honestEndCommit.LastLeafProof,
+		)
+		require.NoError(t, err)
+		edgeStatus, err := honestEdge.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgeConfirmed, edgeStatus)
 	})
 }
 
 func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	ctx := context.Background()
 	topLevelHeight := protocol.Height(3)
-	bisectionScenario := setupBisectionScenario(t, topLevelHeight)
+	bisectionScenario := setupBisectionScenario(
+		t,
+		topLevelHeight,
+		statemanager.WithNumOpcodesPerBigStep(1),
+		statemanager.WithMaxWavmOpcodesPerBlock(1),
+	)
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 
@@ -607,7 +835,12 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 }
 
 func TestEdgeChallengeManager_ReachesOneStepProof(t *testing.T) {
-	setupOneStepProofScenario(t, protocol.Height(2))
+	setupOneStepProofScenario(
+		t,
+		protocol.Height(2),
+		statemanager.WithNumOpcodesPerBigStep(1),
+		statemanager.WithMaxWavmOpcodesPerBlock(1),
+	)
 }
 
 // Returns a snapshot of the data for a scenario in which both honest
@@ -623,7 +856,11 @@ type bisectionScenario struct {
 	evilStartCommit     util.HistoryCommitment
 }
 
-func setupBisectionScenario(t *testing.T, topLevelHeight protocol.Height) *bisectionScenario {
+func setupBisectionScenario(
+	t *testing.T,
+	topLevelHeight protocol.Height,
+	commonStateManagerOpts ...statemanager.Opt,
+) *bisectionScenario {
 	ctx := context.Background()
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
@@ -632,18 +869,14 @@ func setupBisectionScenario(t *testing.T, topLevelHeight protocol.Height) *bisec
 	})
 	require.NoError(t, err)
 
-	opts := []statemanager.Opt{
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	}
 	honestStateManager, err := statemanager.New(
 		createdData.HonestValidatorStateRoots,
-		opts...,
+		commonStateManagerOpts...,
 	)
 	require.NoError(t, err)
 
-	opts = append(
-		opts,
+	opts := append(
+		commonStateManagerOpts,
 		statemanager.WithBigStepStateDivergenceHeight(1),
 		statemanager.WithSmallStepStateDivergenceHeight(1),
 	)
@@ -728,10 +961,12 @@ type oneStepProofScenario struct {
 // to reach a one-step-proof in a small step subchallenge. It returns the data needed
 // to then confirm the winner by one-step-proof execution.
 func setupOneStepProofScenario(
-	t *testing.T, topLevelAssertionChainHeight protocol.Height,
+	t *testing.T,
+	topLevelAssertionChainHeight protocol.Height,
+	commonStateManagerOpts ...statemanager.Opt,
 ) *oneStepProofScenario {
 	ctx := context.Background()
-	bisectionScenario := setupBisectionScenario(t, topLevelAssertionChainHeight)
+	bisectionScenario := setupBisectionScenario(t, topLevelAssertionChainHeight, commonStateManagerOpts...)
 	honestStateManager := bisectionScenario.honestStateManager
 	evilStateManager := bisectionScenario.evilStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
