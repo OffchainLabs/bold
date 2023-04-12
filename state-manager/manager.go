@@ -361,8 +361,8 @@ func (s *Simulated) OneStepProofData(
 	data := &protocol.OneStepData{
 		BridgeAddr:           common.Address{},
 		MaxInboxMessagesRead: 2,
-		MachineStep:          0,
-		BeforeHash:           startCommit.FirstLeaf,
+		MachineStep:          pc,
+		BeforeHash:           startCommit.LastLeaf,
 		Proof:                make([]byte, 0),
 	}
 	if !s.malicious {
