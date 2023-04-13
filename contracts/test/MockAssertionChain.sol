@@ -12,6 +12,7 @@ struct MockAssertion {
     bytes32 stateHash;
     bytes32 successionChallenge;
     uint256 firstChildCreationTime;
+    uint256 secondChildCreationTime;
     bool isFirstChild;
 }
 
@@ -44,7 +45,11 @@ contract MockAssertionChain is IAssertionChain {
 
     function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        return assertionId; // TODO: track 2nd child in case need to return 0
+        if(assertions[assertionId].secondChildCreationTime > 0){
+            return assertionId;
+        } else {
+            return bytes32(0);
+        }
     }
 
     function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256) {
@@ -65,6 +70,14 @@ contract MockAssertionChain is IAssertionChain {
         return keccak256(abi.encodePacked(predecessorId, height, stateHash));
     }
 
+    function childCreated(bytes32 assertionId) internal {
+        if (assertions[assertionId].firstChildCreationTime == 0) {
+            assertions[assertionId].firstChildCreationTime = block.timestamp;
+        } else if (assertions[assertionId].secondChildCreationTime == 0) {
+            assertions[assertionId].secondChildCreationTime = block.timestamp;
+        }
+    }
+
     function addAssertionUnsafe(
         bytes32 predecessorId,
         uint256 height,
@@ -80,8 +93,10 @@ contract MockAssertionChain is IAssertionChain {
             stateHash: stateHash,
             successionChallenge: successionChallenge,
             firstChildCreationTime: 0,
+            secondChildCreationTime: 0,
             isFirstChild: assertions[predecessorId].firstChildCreationTime != 0
         });
+        childCreated(predecessorId);
         return assertionId;
     }
 

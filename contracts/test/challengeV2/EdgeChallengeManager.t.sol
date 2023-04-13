@@ -119,6 +119,33 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
+    function testRevertBlockNoFork() public {
+        (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
+
+        State memory a1State =
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.gs), h1, MachineStatus.RUNNING);
+
+        bytes32 a1 = assertionChain.addAssertion(
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a1State), 0
+        );
+
+        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(a1State), height1);
+
+        vm.expectRevert("Assertion is not in a fork");
+        bytes32 edgeId = challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.Block,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: a1
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
+        );
+    }
+
     function testRevertBlockInvalidHeight() public {
         EdgeInitData memory ei = deployAndInit();
 
