@@ -55,6 +55,7 @@ type Manager interface {
 		ctx context.Context,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
+		fromBigStep,
 		toBigStep uint64,
 	) (util.HistoryCommitment, error)
 	// Produces a small step history commitment for all small steps between
@@ -104,9 +105,12 @@ type Manager interface {
 	) ([]byte, error)
 	OneStepProofData(
 		ctx context.Context,
-		fromAssertionHeight,
-		toAssertionHeight,
-		pc uint64,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		fromSmallStep,
+		toSmallStep uint64,
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 
@@ -581,15 +585,14 @@ func (s *Simulated) SmallStepPrefixProof(
 	if engine.NumOpcodes() < toSmallStep {
 		return nil, errors.New("wrong number of opcodes")
 	}
-	return s.subchallengePrefixProof(
+	return s.smallStepPrefixProofCalculation(
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		fromSmallStep,
+		toSmallStep,
 		engine,
-		fromAssertionHeight,
-		toAssertionHeight,
-		protocol.SmallStepChallengeEdge,
-		s.smallStepDivergenceHeight,
-		lo,
-		hi,
-		engine.StateAfterSmallSteps,
 	)
 }
 
@@ -607,30 +610,29 @@ func (s *Simulated) setupEngine(fromHeight, toHeight uint64) (*execution.Engine,
 	)
 }
 
-func (s *Simulated) subchallengePrefixProof(
+func (s *Simulated) smallStepPrefixProofCalculation(
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep uint64,
+	fromSmallStep,
+	toSmallStep uint64,
 	engine execution.EngineAtBlock,
-	fromAssertionHeight,
-	toAssertionHeight uint64,
-	challengeType protocol.EdgeType,
-	divergenceHeight uint64,
-	lo,
-	hi uint64,
-	stepperFn func(n uint64) (execution.IntermediateStateIterator, error),
 ) ([]byte, error) {
-	loSize := lo + 1
-	hiSize := hi + 1
-	prefixLeaves, err := s.intermediateLeavesFromEngineSteps(
-		hiSize,
-		fromAssertionHeight,
-		toAssertionHeight,
-		challengeType,
-		divergenceHeight,
+	fromSmall := (fromBigStep + s.numOpcodesPerBigStep) + fromSmallStep
+	toSmall := (fromBigStep + s.numOpcodesPerBigStep) + toSmallStep
+	prefixLeaves, err := s.intermediateSmallStepLeaves(
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromSmall,
+		toSmall,
 		engine,
-		stepperFn,
 	)
 	if err != nil {
 		return nil, err
 	}
+	loSize := fromSmallStep + 1
+	hiSize := toSmallStep + 1
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
 	if err != nil {
 		return nil, err
@@ -647,39 +649,4 @@ func (s *Simulated) subchallengePrefixProof(
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
 	onlyProof := prefixProof[numRead:]
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
-}
-
-func (s *Simulated) intermediateLeavesFromEngineSteps(
-	toStep,
-	fromAssertionHeight,
-	toAssertionHeight uint64,
-	chalType protocol.EdgeType,
-	divergenceHeight uint64,
-	engine execution.EngineAtBlock,
-	stepperFn func(n uint64) (execution.IntermediateStateIterator, error),
-) ([]common.Hash, error) {
-	leaves := make([]common.Hash, 0)
-	leaves = append(leaves, engine.FirstState())
-	// Up to and including the specified step.
-	for i := uint64(0); i < toStep; i++ {
-		start, err := stepperFn(i)
-		if err != nil {
-			return nil, err
-		}
-		intermediateState, err := start.NextState()
-		if err != nil {
-			return nil, err
-		}
-		var hash common.Hash
-
-		// For testing purposes, if we want to diverge from the honest
-		// hashes starting at a specified hash.
-		if divergenceHeight == 0 || i+1 < divergenceHeight {
-			hash = intermediateState.Hash()
-		} else {
-			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d:%d", i, fromAssertionHeight, toAssertionHeight, chalType)))
-		}
-		leaves = append(leaves, hash)
-	}
-	return leaves, nil
 }
