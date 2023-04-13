@@ -99,6 +99,106 @@ contract EdgeChallengeManagerTest is Test {
         });
     }
 
+    function testRevertNonZeroStartHeight() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+
+        vm.expectRevert("Start height is not 0");
+        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.Block,
+                startHistoryRoot: genesisRoot,
+                startHeight: 1,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
+        );
+    }
+
+    function testRevertBlockInvalidHeight() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+
+        vm.expectRevert("Invalid block edge end height");
+        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.Block,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: 1,
+                claimId: ei.a1
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
+        );
+    }
+
+    function testRevertBlockInvalidHistroy() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+
+        vm.expectRevert("Start history root does not match previous assertion");
+        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.Block,
+                startHistoryRoot: keccak256(abi.encodePacked("bad root")),
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
+        );
+    }
+
+    function testRevertBlockNoProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+
+        vm.expectRevert("Block edge specific proof is empty");
+        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.Block,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            ""
+        );
+    }
+
+    function testRevertBlockInvalidProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+
+        vm.expectRevert("End history root does not include claim");
+        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.Block,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), 0))
+        );
+    }
+
     function testCanConfirmPs() public {
         EdgeInitData memory ei = deployAndInit();
 
@@ -293,6 +393,528 @@ contract EdgeChallengeManagerTest is Test {
             ancestors[i] = layers[i + layer + 1].lowerChildId;
         }
         return ancestors;
+    }
+
+    function testRevertEmptyPrefixProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("Prefix proof is empty");
+        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            "",
+            abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+        );
+    }
+
+    function testRevertInvalidPrefixProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("Post expansion root not equal post");
+        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(states1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))),
+            abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+        );
+    }
+
+    function testRevertSubChallengeNotOneStepFork() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                true, // skipLast
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("Claim does not have length 1 rival");
+        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+        );
+    }
+
+    function testRevertSubChallengeBadHistory() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("Start history root does not match mutual startHistoryRoot");
+        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: keccak256(abi.encodePacked("bad root")),
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+        );
+    }
+
+    function testRevertSubChallengeNoProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("Edge type specific proof is empty");
+        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            ""
+        );
+    }
+
+    function testRevertSubChallengeInvalidClaimProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("End state does not consistent with the claim");
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(states1[1], edgeInclusionProof, edgeInclusionProof)
+        );
+    }
+
+    function testRevertSubChallengeInvalidEdgeProof() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("End state does not consistent with endHistoryRoot");
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: height1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(states1[1], claimInclusionProof, claimInclusionProof)
+        );
+    }
+
+    function testRevertBigStepInvalidHeight() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+        bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+
+        vm.expectRevert("Invalid bigstep edge end height");
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: EdgeType.BigStep,
+                startHistoryRoot: genesisRoot,
+                startHeight: 0,
+                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
+                endHeight: 1,
+                claimId: edges1[0].lowerChildId
+            }),
+            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+        );
+    }
+
+    function testRevertBigStepInvalidClaimType() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1, bytes32[] memory states2, BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        bytes32[] memory bigStepStates1;
+        bytes32 edge1BigStepId;
+        {
+            bytes32[] memory bigStepExp1;
+            (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates1), bigStepStates1.length - 1);
+
+            edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.BigStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
+                    endHeight: height1,
+                    claimId: edges1[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))),
+                abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
+
+        bytes32[] memory bigStepStates2;
+        bytes32 edge2BigStepId;
+        {
+            bytes32[] memory bigStepExp2;
+            (bigStepStates2, bigStepExp2) = appendRandomStatesBetween(genesisStates(), states2[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states2, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates2), bigStepStates2.length - 1);
+
+            edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.BigStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
+                    endHeight: height1,
+                    claimId: edges2[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))),
+                abi.encode(states2[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
+
+        (BisectionChildren[6] memory bigstepedges1, BisectionChildren[6] memory bigstepedges2) = bisectToForkOnly(
+            BisectToForkOnlyArgs(ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false)
+        );
+
+        bytes32[] memory smallStepStates1;
+        bytes32 edge1SmallStepId;
+        {
+            bytes32[] memory smallStepExp1;
+            (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(bigStepStates1, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(smallStepStates1), smallStepStates1.length - 1);
+
+            vm.expectRevert("Claim challenge type is not Block");
+            edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.BigStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
+                    endHeight: 1,
+                    claimId: bigstepedges1[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))),
+                abi.encode(bigStepStates1[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
+    }
+
+    function testRevertSmallStepInvalidClaimType() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        bytes32[] memory bigStepStates1;
+        bytes32 edge1BigStepId;
+        {
+            bytes32[] memory bigStepExp1;
+            (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates1), bigStepStates1.length - 1);
+
+            vm.expectRevert("Claim challenge type is not BigStep");
+            edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.SmallStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
+                    endHeight: height1,
+                    claimId: edges1[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))),
+                abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
+    }
+
+    function testRevertSmallStepInvalidHeight() public {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states1, bytes32[] memory states2, BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = createEdgesAndBisectToFork(
+            CreateEdgesBisectArgs(
+                ei.challengeManager, 
+                EdgeType.Block, 
+                ei.a1, 
+                ei.a2, 
+                StateToolsLib.hash(ei.a1State), 
+                StateToolsLib.hash(ei.a2State), 
+                false,
+                new bytes32[](0),
+                new bytes32[](0)
+            )
+        );
+
+        bytes32[] memory bigStepStates1;
+        bytes32 edge1BigStepId;
+        {
+            bytes32[] memory bigStepExp1;
+            (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates1), bigStepStates1.length - 1);
+
+            edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.BigStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
+                    endHeight: height1,
+                    claimId: edges1[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))),
+                abi.encode(states1[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
+
+        bytes32[] memory bigStepStates2;
+        bytes32 edge2BigStepId;
+        {
+            bytes32[] memory bigStepExp2;
+            (bigStepStates2, bigStepExp2) = appendRandomStatesBetween(genesisStates(), states2[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states2, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates2), bigStepStates2.length - 1);
+
+            edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.BigStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
+                    endHeight: height1,
+                    claimId: edges2[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))),
+                abi.encode(states2[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
+
+        (BisectionChildren[6] memory bigstepedges1, BisectionChildren[6] memory bigstepedges2) = bisectToForkOnly(
+            BisectToForkOnlyArgs(ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false)
+        );
+
+        bytes32[] memory smallStepStates1;
+        bytes32 edge1SmallStepId;
+        {
+            bytes32[] memory smallStepExp1;
+            (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
+
+            bytes32[] memory claimInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(bigStepStates1, 0, 2)), 1);
+            bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(smallStepStates1), smallStepStates1.length - 1);
+
+            vm.expectRevert("Invalid smallstep edge end height");
+            edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
+                CreateEdgeArgs({
+                    edgeType: EdgeType.SmallStep,
+                    startHistoryRoot: genesisRoot,
+                    startHeight: 0,
+                    endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
+                    endHeight: 1,
+                    claimId: bigstepedges1[0].lowerChildId
+                }),
+                abi.encode(ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))),
+                abi.encode(bigStepStates1[1], claimInclusionProof, edgeInclusionProof)
+            );
+        }
     }
 
     function testCanConfirmByClaim() public {
