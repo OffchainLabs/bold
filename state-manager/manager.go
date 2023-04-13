@@ -470,72 +470,6 @@ func (s *Simulated) OneStepProofData(
 	return
 }
 
-func (s *Simulated) BigStepPrefixProof(
-	ctx context.Context,
-	fromAssertionHeight,
-	toAssertionHeight,
-	lo,
-	hi uint64,
-) ([]byte, error) {
-	if fromAssertionHeight+1 != toAssertionHeight {
-		return nil, fmt.Errorf(
-			"fromAssertionHeight=%d is not 1 height apart from toAssertionHeight=%d",
-			fromAssertionHeight,
-			toAssertionHeight,
-		)
-	}
-	engine, err := s.setupEngine(fromAssertionHeight, toAssertionHeight)
-	if err != nil {
-		return nil, err
-	}
-	if engine.NumOpcodes() < hi {
-		return nil, err
-	}
-	return s.subchallengePrefixProof(
-		engine,
-		fromAssertionHeight,
-		toAssertionHeight,
-		protocol.BigStepChallengeEdge,
-		s.bigStepDivergenceHeight,
-		lo,
-		hi,
-		engine.StateAfterBigSteps,
-	)
-}
-
-func (s *Simulated) SmallStepPrefixProof(
-	ctx context.Context,
-	fromAssertionHeight,
-	toAssertionHeight,
-	lo,
-	hi uint64,
-) ([]byte, error) {
-	if fromAssertionHeight+1 != toAssertionHeight {
-		return nil, fmt.Errorf(
-			"fromAssertionHeight=%d is not 1 height apart from toAssertionHeight=%d",
-			fromAssertionHeight,
-			toAssertionHeight,
-		)
-	}
-	engine, err := s.setupEngine(fromAssertionHeight, toAssertionHeight)
-	if err != nil {
-		return nil, err
-	}
-	if engine.NumOpcodes() < hi {
-		return nil, err
-	}
-	return s.subchallengePrefixProof(
-		engine,
-		fromAssertionHeight,
-		toAssertionHeight,
-		protocol.SmallStepChallengeEdge,
-		s.smallStepDivergenceHeight,
-		lo,
-		hi,
-		engine.StateAfterSmallSteps,
-	)
-}
-
 func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, error) {
 	loSize := lo + 1
 	hiSize := hi + 1
@@ -555,6 +489,108 @@ func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, err
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
 	onlyProof := prefixProof[numRead:]
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
+}
+
+func (s *Simulated) BigStepPrefixProof(
+	ctx context.Context,
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep uint64,
+) ([]byte, error) {
+	if fromBlockChallengeHeight+1 != toBlockChallengeHeight {
+		return nil, fmt.Errorf(
+			"fromAssertionHeight=%d is not 1 height apart from toAssertionHeight=%d",
+			fromBlockChallengeHeight,
+			toBlockChallengeHeight,
+		)
+	}
+	engine, err := s.setupEngine(fromBlockChallengeHeight, toBlockChallengeHeight)
+	if err != nil {
+		return nil, err
+	}
+	if engine.NumBigSteps() < toBigStep {
+		return nil, errors.New("wrong number of big steps")
+	}
+	return s.bigStepPrefixProofCalculation(
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		engine,
+	)
+}
+
+func (s *Simulated) bigStepPrefixProofCalculation(
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep uint64,
+	engine execution.EngineAtBlock,
+) ([]byte, error) {
+	loSize := fromBigStep + 1
+	hiSize := toBigStep + 1
+	prefixLeaves, err := s.intermediateBigStepLeaves(
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		loSize,
+		hiSize,
+		engine,
+	)
+	if err != nil {
+		return nil, err
+	}
+	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
+	if err != nil {
+		return nil, err
+	}
+	prefixProof, err := prefixproofs.GeneratePrefixProof(
+		loSize,
+		prefixExpansion,
+		prefixLeaves[loSize:hiSize],
+		prefixproofs.RootFetcherFromExpansion,
+	)
+	if err != nil {
+		return nil, err
+	}
+	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
+	onlyProof := prefixProof[numRead:]
+	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
+}
+
+func (s *Simulated) SmallStepPrefixProof(
+	ctx context.Context,
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep,
+	fromSmallStep,
+	toSmallStep uint64,
+) ([]byte, error) {
+	if fromBlockChallengeHeight+1 != toBlockChallengeHeight {
+		return nil, fmt.Errorf(
+			"fromAssertionHeight=%d is not 1 height apart from toAssertionHeight=%d",
+			fromBlockChallengeHeight,
+			toBlockChallengeHeight,
+		)
+	}
+	engine, err := s.setupEngine(fromBlockChallengeHeight, toBlockChallengeHeight)
+	if err != nil {
+		return nil, err
+	}
+	if engine.NumOpcodes() < toSmallStep {
+		return nil, errors.New("wrong number of opcodes")
+	}
+	return s.subchallengePrefixProof(
+		engine,
+		fromAssertionHeight,
+		toAssertionHeight,
+		protocol.SmallStepChallengeEdge,
+		s.smallStepDivergenceHeight,
+		lo,
+		hi,
+		engine.StateAfterSmallSteps,
+	)
 }
 
 func (s *Simulated) setupEngine(fromHeight, toHeight uint64) (*execution.Engine, error) {
