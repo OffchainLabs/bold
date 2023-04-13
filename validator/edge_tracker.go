@@ -248,7 +248,8 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		history, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
 	case protocol.BigStepChallengeEdge:
 		log.WithFields(fields).Info("Small step leaf commit")
-		history, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
+		fromBigStep := uint64(startHeight)
+		history, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), fromBigStep)
 	default:
 		return errors.New("unsupported subchallenge type for creating leaf commitment")
 	}
