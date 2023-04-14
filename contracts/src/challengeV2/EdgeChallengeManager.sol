@@ -195,27 +195,25 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 "End state does not consistent with endHistoryRoot"
             );
 
-            bytes32 assertionOrigin;
+            ChallengeEdge storage topLevelEdge;
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
 
-                // origin of a block edge is the assertion
-                assertionOrigin = claimEdge.originId;
+                topLevelEdge = claimEdge;
             } else if (args.edgeType == EdgeType.SmallStep) {
                 require(claimEdge.eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
                 require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
 
                 // origin of the smallstep edge is the mutual id of block edge
-                // origin of the block edge is the assertion
                 // TODO: make a getter in EdgeChallengeManagerLib instead of reading store.firstRivals directly
-                assertionOrigin = store.get(store.firstRivals[claimEdge.originId]).originId;
+                topLevelEdge = store.get(store.firstRivals[claimEdge.originId]);
             } else {
                 revert("Unexpected challenge type");
             }
 
             // check if the top level challenge has reached the end time
-            require(block.timestamp - assertionChain.getFirstChildCreationTime(assertionOrigin) < challengePeriodSec, "Challenge period has expired");
+            require(block.timestamp - topLevelEdge.createdWhen < challengePeriodSec, "Challenge period has expired");
         }
 
         // prove that the start root is a prefix of the end root
