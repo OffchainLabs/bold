@@ -1038,7 +1038,7 @@ func setupOneStepProofScenario(
 	}
 
 	honestSmallStepCommit, err := honestStateManager.SmallStepCommitmentUpTo(
-		ctx, 0 /* from assertion */, 1 /* to assertion */, 3, /* to pc */
+		ctx, 0 /* from assertion */, 1 /* to assertion */, 0 /* from big step */, 1 /* to big step */, 1, /* to pc */
 	)
 	require.NoError(t, err)
 	require.Equal(t, honestStartCommit.LastLeaf, honestSmallStepCommit.FirstLeaf)
@@ -1050,7 +1050,7 @@ func setupOneStepProofScenario(
 	require.Equal(t, true, !hasRival)
 
 	evilSmallStepCommit, err := evilStateManager.SmallStepCommitmentUpTo(
-		ctx, 0 /* from assertion */, 1 /* to assertion */, 3, /* to pc */
+		ctx, 0 /* from assertion */, 1 /* to assertion */, 0 /* from big step */, 1 /* to big step */, 1, /* to pc */
 	)
 	require.NoError(t, err)
 	require.Equal(t, evilStartCommit.LastLeaf, evilSmallStepCommit.FirstLeaf)
@@ -1069,21 +1069,21 @@ func setupOneStepProofScenario(
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 
 	// Attempt bisections down to one step fork.
-	honestBisectCommit, err = honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 2)
+	honestBisectCommit, err = honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
 	require.NoError(t, err)
 	require.Equal(t, honestStartCommit.LastLeaf, honestBisectCommit.FirstLeaf)
 
-	honestProof, err = honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 2, 3)
+	honestProof, err = honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
 	require.NoError(t, err)
 
 	_, oneStepForkHonestEdge, err := smallStepHonest.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 	require.NoError(t, err)
 
-	evilBisectCommit, err = evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 2)
+	evilBisectCommit, err = evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
 	require.NoError(t, err)
 	require.Equal(t, evilStartCommit.LastLeaf, evilBisectCommit.FirstLeaf)
 
-	evilProof, err = evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 2, 3)
+	evilProof, err = evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
 	require.NoError(t, err)
 
 	_, oneStepForkEvilEdge, err := smallStepEvil.Bisect(ctx, evilBisectCommit.Merkle, evilProof)

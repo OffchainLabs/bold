@@ -172,6 +172,11 @@ const (
 	EdgeConfirmed
 )
 
+type OriginHeights struct {
+	BlockChallengeOriginHeight   Height
+	BigStepChallengeOriginHeight Height
+}
+
 // SpecEdge according to the protocol specification.
 type SpecEdge interface {
 	// The unique identifier for an edge.
@@ -207,5 +212,5 @@ type SpecEdge interface {
 	ConfirmByChildren(ctx context.Context) error
 	// The history commitment for the top-level edge the current edge's challenge is made upon.
 	// This is used at subchallenge creation boundaries.
-	TopLevelClaimHeight(ctx context.Context) (Height, error)
+	TopLevelClaimHeight(ctx context.Context) (*OriginHeights, error)
 }
