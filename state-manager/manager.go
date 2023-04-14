@@ -334,7 +334,7 @@ func (s *Simulated) SmallStepLeafCommitment(
 		toAssertionHeight,
 		fromBigStep,
 		toBigStep,
-		s.numOpcodesPerBigStep,
+		s.numOpcodesPerBigStep-1,
 	)
 }
 
@@ -393,6 +393,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	leaves := make([]common.Hash, 0)
 	leaves = append(leaves, engine.FirstState())
 	// Up to and including the specified step.
+	divergingAt := fromSmallStep + s.smallStepDivergenceHeight
 	for i := fromSmallStep; i < toSmallStep; i++ {
 		start, err := engine.StateAfterSmallSteps(i)
 		if err != nil {
@@ -406,7 +407,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
-		if s.smallStepDivergenceHeight == 0 || i+1 < s.smallStepDivergenceHeight {
+		if s.smallStepDivergenceHeight == 0 || i+1 < divergingAt {
 			hash = intermediateState.Hash()
 		} else {
 			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d:%d", i, fromBlockChallengeHeight, toBlockChallengeHeight, protocol.SmallStepChallengeEdge)))
@@ -480,7 +481,7 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		0,
-		hiSize,
+		toBigStep,
 		engine,
 	)
 	if err != nil {
@@ -568,20 +569,20 @@ func (s *Simulated) smallStepPrefixProofCalculation(
 	toSmallStep uint64,
 	engine execution.EngineAtBlock,
 ) ([]byte, error) {
-	fromSmall := (fromBigStep + s.numOpcodesPerBigStep)
+	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
 	toSmall := fromSmall + toSmallStep
-	loSize := fromSmallStep + 1
-	hiSize := toSmallStep + 1
 	prefixLeaves, err := s.intermediateSmallStepLeaves(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromSmall,
-		toSmall+1,
+		toSmall,
 		engine,
 	)
 	if err != nil {
 		return nil, err
 	}
+	loSize := fromSmallStep + 1
+	hiSize := toSmallStep + 1
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
 	if err != nil {
 		return nil, err
