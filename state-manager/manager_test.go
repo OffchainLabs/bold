@@ -45,7 +45,6 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		ctx,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
-		0, // from big step
 		toBigStep,
 	)
 	require.NoError(t, err)
@@ -55,7 +54,7 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		toBlockChallengeHeight,
 	)
 	require.NoError(t, err)
-	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
+	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
 	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
 	require.NotEqual(t, start.Merkle, end.Merkle)
 
@@ -79,7 +78,78 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		toBigStep,
 	)
 	require.NoError(t, err)
+	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
 	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
+	require.NotEqual(t, start.Merkle, end.Merkle)
+}
+
+func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
+	ctx := context.Background()
+	hashes := make([]common.Hash, 10)
+	for i := 0; i < len(hashes); i++ {
+		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
+	}
+	_ = ctx
+	manager, err := New(
+		hashes,
+		WithMaxWavmOpcodesPerBlock(56),
+		WithNumOpcodesPerBigStep(8),
+	)
+	require.NoError(t, err)
+
+	// Generating top-level, block challenge commitments.
+	fromBlockChallengeHeight := uint64(4)
+	toBlockChallengeHeight := uint64(7)
+	start, err := manager.HistoryCommitmentUpTo(ctx, fromBlockChallengeHeight)
+	require.NoError(t, err)
+	end, err := manager.HistoryCommitmentUpTo(ctx, toBlockChallengeHeight)
+	require.NoError(t, err)
+	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
+	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
+	require.NotEqual(t, start.Merkle, end.Merkle)
+
+	// Generating a big step challenge commitment
+	// for all big WAVM steps between blocks 4 to 5.
+	toBlockChallengeHeight = fromBlockChallengeHeight + 1
+	fromBigStep := uint64(2)
+	toBigStep := fromBigStep + 1
+
+	start, err = manager.BigStepCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		toBigStep,
+	)
+	require.NoError(t, err)
+	end, err = manager.BigStepLeafCommitment(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+	)
+	require.NoError(t, err)
+	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
+	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
+	require.NotEqual(t, start.Merkle, end.Merkle)
+
+	toSmallStep := uint64(6)
+	start, err = manager.SmallStepCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		toSmallStep,
+	)
+	require.NoError(t, err)
+	end, err = manager.SmallStepLeafCommitment(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+	)
+	require.NoError(t, err)
+	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
 	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
 	require.NotEqual(t, start.Merkle, end.Merkle)
 }

@@ -55,7 +55,6 @@ type Manager interface {
 		ctx context.Context,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
-		fromBigStep,
 		toBigStep uint64,
 	) (util.HistoryCommitment, error)
 	// Produces a small step history commitment for all small steps between
@@ -103,15 +102,6 @@ type Manager interface {
 		fromSmallStep,
 		toSmallStep uint64,
 	) ([]byte, error)
-	OneStepProofData(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
-		fromSmallStep,
-		toSmallStep uint64,
-	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
@@ -261,7 +251,6 @@ func (s *Simulated) BigStepLeafCommitment(
 		ctx,
 		fromAssertionHeight,
 		toAssertionHeight,
-		0, // From big step 0 within the block.
 		numBigSteps,
 	)
 }
@@ -270,7 +259,6 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	ctx context.Context,
 	fromAssertionHeight,
 	toAssertionHeight,
-	fromBigStep,
 	toBigStep uint64,
 ) (util.HistoryCommitment, error) {
 	if fromAssertionHeight+1 != toAssertionHeight {
@@ -290,7 +278,7 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	leaves, err := s.intermediateBigStepLeaves(
 		fromAssertionHeight,
 		toAssertionHeight,
-		fromBigStep,
+		0, // from big step.
 		toBigStep,
 		engine,
 	)
@@ -428,55 +416,6 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	return leaves, nil
 }
 
-func (s *Simulated) OneStepProofData(
-	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep,
-	fromSmallStep,
-	toSmallStep uint64,
-) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	startCommit, commitErr := s.SmallStepCommitmentUpTo(
-		ctx,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
-		toSmallStep,
-	)
-	if commitErr != nil {
-		err = commitErr
-		return
-	}
-	endCommit, commitErr := s.SmallStepCommitmentUpTo(
-		ctx,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
-		toSmallStep+1,
-	)
-	if commitErr != nil {
-		err = commitErr
-		return
-	}
-	data = &protocol.OneStepData{
-		BridgeAddr:           common.Address{},
-		MaxInboxMessagesRead: 2,
-		MachineStep:          toSmallStep,
-		BeforeHash:           startCommit.LastLeaf,
-		Proof:                make([]byte, 0),
-	}
-	if !s.malicious {
-		// Only honest validators can produce a valid one step proof.
-		data.Proof = endCommit.LastLeaf[:]
-	}
-	startLeafInclusionProof = startCommit.LastLeafProof
-	endLeafInclusionProof = endCommit.LastLeafProof
-	return
-}
-
 func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, error) {
 	loSize := lo + 1
 	hiSize := hi + 1
@@ -540,8 +479,8 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 	prefixLeaves, err := s.intermediateBigStepLeaves(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
-		loSize,
-		hiSize,
+		fromBigStep,
+		toBigStep,
 		engine,
 	)
 	if err != nil {
