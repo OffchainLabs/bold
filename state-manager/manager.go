@@ -260,7 +260,6 @@ func (s *Simulated) BigStepLeafCommitment(
 		ctx,
 		fromAssertionHeight,
 		toAssertionHeight,
-		0, // From big step 0 within the block.
 		numBigSteps,
 	)
 }
@@ -269,7 +268,6 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	ctx context.Context,
 	fromAssertionHeight,
 	toAssertionHeight,
-	fromBigStep,
 	toBigStep uint64,
 ) (util.HistoryCommitment, error) {
 	if fromAssertionHeight+1 != toAssertionHeight {

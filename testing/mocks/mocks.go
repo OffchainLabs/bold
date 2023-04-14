@@ -137,11 +137,14 @@ func (m *MockStateManager) SmallStepCommitmentUpTo(
 
 func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
-	fromAssertionHeight,
-	toAssertionHeight,
-	pc uint64,
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep,
+	fromSmallStep,
+	toSmallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, pc)
+	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 

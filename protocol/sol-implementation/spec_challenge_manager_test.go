@@ -687,7 +687,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		honestStateManager := scenario.honestStateManager
 		fromAssertion := uint64(0)
 		toAssertion := uint64(1)
-		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(ctx, fromAssertion, toAssertion, 2)
+		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(ctx, fromAssertion, toAssertion, 0, 1, 2, 3)
 		require.NoError(t, err)
 
 		err = challengeManager.ConfirmEdgeByOneStepProof(

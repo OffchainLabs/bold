@@ -250,12 +250,7 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		history, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
 	case protocol.BigStepChallengeEdge:
 		log.WithFields(fields).Info("Small step leaf commit")
-<<<<<<< HEAD
-		fromBigStep := uint64(startHeight)
-		history, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), fromBigStep)
-=======
 		history, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight), uint64(endHeight))
->>>>>>> fix-state-manager
 	default:
 		return errors.New("unsupported subchallenge type for creating leaf commitment")
 	}
@@ -297,18 +292,23 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	fields := et.uniqueTrackerLogFields()
 	log.WithFields(fields).Info("Submitting one-step-proof to protocol")
-	assertionHeight, err := et.edge.TopLevelClaimHeight(ctx)
+	originHeights, err := et.edge.TopLevelClaimHeight(ctx)
 	if err != nil {
 		return errors.Wrap(err, "could not get top level claim height")
 	}
-	fromAssertionHeight := assertionHeight
+	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
 	toAssertionHeight := fromAssertionHeight + 1
+	fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
+	toBigStep := fromBigStep + 1
 	pc, _ := et.edge.StartCommitment()
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
-		uint64(fromAssertionHeight),
-		uint64(toAssertionHeight),
+		fromAssertionHeight,
+		toAssertionHeight,
+		fromBigStep,
+		toBigStep,
 		uint64(pc),
+		uint64(pc)+1,
 	)
 	if err != nil {
 		return err
