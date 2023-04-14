@@ -713,6 +713,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable, IAssertionChai
         return getAssertionStorage(getAssertionNum(assertionId)).isFirstChild;
     }
 
+    function isPending(bytes32 assertionId) external view returns (bool){
+        return getAssertionNum(assertionId) >= _firstUnresolvedAssertion;
+    }
+
     // HN: TODO: decide to keep using index or hash
     function getAssertionNum(bytes32 id) public view returns(uint64){
         uint64 num = _assertionHashToNum[id];

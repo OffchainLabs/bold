@@ -131,10 +131,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         require(args.startHeight == 0, "Start height is not 0");
         if (args.edgeType == EdgeType.Block) {
             require(args.endHeight == LAYERZERO_BLOCKEDGE_HEIGHT, "Invalid block edge end height");
-
+            require(assertionChain.isPending(args.claimId), "Claim assertion is not pending");
+            // challenge id is the assertion which is the root of challenge
+            originId = assertionChain.getPredecessorId(args.claimId);
+            require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
             // check that the start history root is the hash of the previous assertion
-            bytes32 prev = assertionChain.getPredecessorId(args.claimId);
-            require(args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getStateHash(prev))), "Start history root does not match previous assertion");
+            require(args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getStateHash(originId))), "Start history root does not match previous assertion");
 
             // check that the end history root is consistent with the claim
             require(proof.length > 0, "Block edge specific proof is empty");
@@ -147,15 +149,16 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                     inclusionProof
                 ),
                 "End history root does not include claim"
-            );
+            );          
 
-            // challenge id is the assertion which is the root of challenge
-            originId = assertionChain.getPredecessorId(args.claimId);
-            require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
+            // HN: TODO: do we want to enforce this here? if no block edge is created 
+            // check if the top level challenge has reached the end time
+            require(block.timestamp - assertionChain.getFirstChildCreationTime(originId) < challengePeriodSec, "Challenge period has expired");
         } else {
             // common checks for sub-challenges with a higher level claim
             ChallengeEdge storage claimEdge = store.get(args.claimId);
             require(store.hasLengthOneRival(args.claimId), "Claim does not have length 1 rival");
+            require(claimEdge.status == EdgeStatus.Pending, "Claim is not pending");
 
             // check that the start history root match the mutual startHistoryRoot
             require(args.startHistoryRoot == claimEdge.startHistoryRoot, "Start history root does not match mutual startHistoryRoot");
@@ -186,16 +189,28 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 "End state does not consistent with endHistoryRoot"
             );
 
+            bytes32 assertionOrigin;
             originId = claimEdge.mutualId();
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
+
+                // origin of a block edge is the assertion
+                assertionOrigin = claimEdge.originId;
             } else if (args.edgeType == EdgeType.SmallStep) {
                 require(claimEdge.eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
                 require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
+
+                // origin of the smallstep edge is the mutual id of block edge
+                // origin of the block edge is the assertion
+                // TODO: make a getter in EdgeChallengeManagerLib instead of reading store.firstRivals directly
+                assertionOrigin = store.get(store.firstRivals[claimEdge.originId]).originId;
             } else {
                 revert("Unexpected challenge type");
             }
+
+            // check if the top level challenge has reached the end time
+            require(block.timestamp - assertionChain.getFirstChildCreationTime(assertionOrigin) < challengePeriodSec, "Challenge period has expired");
         }
 
         // prove that the start root is a prefix of the end root

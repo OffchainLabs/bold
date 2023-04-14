@@ -14,6 +14,7 @@ struct MockAssertion {
     uint256 firstChildCreationTime;
     uint256 secondChildCreationTime;
     bool isFirstChild;
+    bool isPending;
 }
 
 contract MockAssertionChain is IAssertionChain {
@@ -62,6 +63,11 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].isFirstChild;
     }
 
+    function isPending(bytes32 assertionId) external view returns (bool) {
+        require(assertionExists(assertionId), "Assertion does not exist");
+        return assertions[assertionId].isPending;
+    }
+
     function calculateAssertionId(bytes32 predecessorId, uint256 height, bytes32 stateHash)
         public
         pure
@@ -94,7 +100,8 @@ contract MockAssertionChain is IAssertionChain {
             successionChallenge: successionChallenge,
             firstChildCreationTime: 0,
             secondChildCreationTime: 0,
-            isFirstChild: assertions[predecessorId].firstChildCreationTime != 0
+            isFirstChild: assertions[predecessorId].firstChildCreationTime != 0,
+            isPending: true
         });
         childCreated(predecessorId);
         return assertionId;
