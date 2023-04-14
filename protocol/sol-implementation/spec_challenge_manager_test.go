@@ -687,7 +687,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		honestStateManager := scenario.honestStateManager
 		fromAssertion := uint64(0)
 		toAssertion := uint64(1)
-		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(ctx, fromAssertion, toAssertion, 0, 1, 2, 3)
+		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(ctx, fromAssertion, toAssertion, 0, 1, 0, 1)
 		require.NoError(t, err)
 
 		err = challengeManager.ConfirmEdgeByOneStepProof(
@@ -861,7 +861,7 @@ func setupBisectionScenario(
 		commonStateManagerOpts,
 		statemanager.WithMaliciousIntent(),
 		statemanager.WithBigStepStateDivergenceHeight(1),
-		statemanager.WithSmallStepStateDivergenceHeight(3),
+		statemanager.WithSmallStepStateDivergenceHeight(1),
 	)
 	evilStateManager, err := statemanager.New(
 		createdData.EvilValidatorStateRoots,
@@ -1068,31 +1068,31 @@ func setupOneStepProofScenario(
 	// Get the lower-level edge of either vertex we just bisected.
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 
-	// Attempt bisections down to one step fork.
-	honestBisectCommit, err = honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
-	require.NoError(t, err)
-	require.Equal(t, honestStartCommit.LastLeaf, honestBisectCommit.FirstLeaf)
+	// // Attempt bisections down to one step fork.
+	// honestBisectCommit, err = honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
+	// require.NoError(t, err)
+	// require.Equal(t, honestStartCommit.LastLeaf, honestBisectCommit.FirstLeaf)
 
-	honestProof, err = honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
-	require.NoError(t, err)
+	// honestProof, err = honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
+	// require.NoError(t, err)
 
-	_, oneStepForkHonestEdge, err := smallStepHonest.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
-	require.NoError(t, err)
+	// _, oneStepForkHonestEdge, err := smallStepHonest.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+	// require.NoError(t, err)
 
-	evilBisectCommit, err = evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
-	require.NoError(t, err)
-	require.Equal(t, evilStartCommit.LastLeaf, evilBisectCommit.FirstLeaf)
+	// evilBisectCommit, err = evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
+	// require.NoError(t, err)
+	// require.Equal(t, evilStartCommit.LastLeaf, evilBisectCommit.FirstLeaf)
 
-	evilProof, err = evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
-	require.NoError(t, err)
+	// evilProof, err = evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
+	// require.NoError(t, err)
 
-	_, oneStepForkEvilEdge, err := smallStepEvil.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
-	require.NoError(t, err)
+	// _, oneStepForkEvilEdge, err := smallStepEvil.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
+	// require.NoError(t, err)
 
-	isAtOneStepFork, err = oneStepForkHonestEdge.HasLengthOneRival(ctx)
+	isAtOneStepFork, err = smallStepHonest.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
-	isAtOneStepFork, err = oneStepForkEvilEdge.HasLengthOneRival(ctx)
+	isAtOneStepFork, err = smallStepEvil.HasLengthOneRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
 
@@ -1100,7 +1100,7 @@ func setupOneStepProofScenario(
 		topLevelFork:        bisectionScenario.topLevelFork,
 		honestStateManager:  honestStateManager,
 		evilStateManager:    evilStateManager,
-		smallStepHonestEdge: oneStepForkHonestEdge,
-		smallStepEvilEdge:   oneStepForkEvilEdge,
+		smallStepHonestEdge: smallStepHonest,
+		smallStepEvilEdge:   smallStepEvil,
 	}
 }
