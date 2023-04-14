@@ -130,11 +130,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32 originId;
         require(args.startHeight == 0, "Start height is not 0");
         if (args.edgeType == EdgeType.Block) {
-            require(args.endHeight == LAYERZERO_BLOCKEDGE_HEIGHT, "Invalid block edge end height");
-            require(assertionChain.isPending(args.claimId), "Claim assertion is not pending");
-            // challenge id is the assertion which is the root of challenge
+            // origin id is the assertion which is the root of challenge
             originId = assertionChain.getPredecessorId(args.claimId);
+            // HN: TODO: check if prev is rejected
+            require(assertionChain.isPending(args.claimId), "Claim assertion is not pending");
             require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
+
+            require(args.endHeight == LAYERZERO_BLOCKEDGE_HEIGHT, "Invalid block edge end height");
+
             // check that the start history root is the hash of the previous assertion
             require(args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getStateHash(originId))), "Start history root does not match previous assertion");
 
@@ -151,14 +154,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 "End history root does not include claim"
             );          
 
-            // HN: TODO: do we want to enforce this here? if no block edge is created 
+            // HN: TODO: do we want to enforce this here? if no block edge is created the rollup cannot confirm by timer on its own
+            // HN: TODO: spec said 2 challenge period, should we change it to 1?
             // check if the top level challenge has reached the end time
-            require(block.timestamp - assertionChain.getFirstChildCreationTime(originId) < challengePeriodSec, "Challenge period has expired");
+            require(block.timestamp - assertionChain.getFirstChildCreationTime(originId) < 2 * challengePeriodSec, "Challenge period has expired");
         } else {
-            // common checks for sub-challenges with a higher level claim
+            // common logics for sub-challenges with a higher level claim
             ChallengeEdge storage claimEdge = store.get(args.claimId);
-            require(store.hasLengthOneRival(args.claimId), "Claim does not have length 1 rival");
+            // origin id is the mutual id of the claim
+            originId = claimEdge.mutualId();
             require(claimEdge.status == EdgeStatus.Pending, "Claim is not pending");
+            require(store.hasLengthOneRival(args.claimId), "Claim does not have length 1 rival");
 
             // check that the start history root match the mutual startHistoryRoot
             require(args.startHistoryRoot == claimEdge.startHistoryRoot, "Start history root does not match mutual startHistoryRoot");
@@ -190,7 +196,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             );
 
             bytes32 assertionOrigin;
-            originId = claimEdge.mutualId();
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");

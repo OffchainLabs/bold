@@ -124,7 +124,7 @@ contract EdgeChallengeManagerTest is Test {
 
         (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
-        vm.warp(block.timestamp + challengePeriodSec);
+        vm.warp(block.timestamp + 2 * challengePeriodSec);
         vm.expectRevert("Challenge period has expired");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
