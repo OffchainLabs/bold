@@ -417,7 +417,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	return leaves, nil
 }
 
-func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, error) {
+func (s *Simulated) PrefixProof(_ context.Context, lo, hi uint64) ([]byte, error) {
 	loSize := lo + 1
 	hiSize := hi + 1
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(s.stateRoots[:loSize])
@@ -439,7 +439,7 @@ func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, err
 }
 
 func (s *Simulated) BigStepPrefixProof(
-	ctx context.Context,
+	_ context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -506,7 +506,7 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 }
 
 func (s *Simulated) SmallStepPrefixProof(
-	ctx context.Context,
+	_ context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -539,7 +539,6 @@ func (s *Simulated) SmallStepPrefixProof(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
-		toBigStep,
 		fromSmallStep,
 		toSmallStep,
 		engine,
@@ -564,7 +563,6 @@ func (s *Simulated) smallStepPrefixProofCalculation(
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
-	toBigStep uint64,
 	fromSmallStep,
 	toSmallStep uint64,
 	engine execution.EngineAtBlock,

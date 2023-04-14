@@ -119,7 +119,7 @@ func (m *MockStateManager) SmallStepLeafCommitment(
 	fromBigStep,
 	toBigStep uint64,
 ) (util.HistoryCommitment, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight)
+	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
