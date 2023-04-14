@@ -288,10 +288,10 @@ func (s *Simulated) BigStepCommitmentUpTo(
 		return util.HistoryCommitment{}, errors.New("not enough big steps")
 	}
 	leaves, err := s.intermediateBigStepLeaves(
-		fromBigStep,
-		toBigStep,
 		fromAssertionHeight,
 		toAssertionHeight,
+		fromBigStep,
+		toBigStep,
 		engine,
 	)
 	if err != nil {
@@ -379,11 +379,14 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 	if engine.NumOpcodes() < toSmallStep {
 		return util.HistoryCommitment{}, errors.New("not enough small steps")
 	}
+
+	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
+	toSmall := fromSmall + toSmallStep
 	leaves, err := s.intermediateSmallStepLeaves(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
-		fromBigStep*s.numOpcodesPerBigStep,
-		toBigStep*s.numOpcodesPerBigStep,
+		fromSmall,
+		toSmall,
 		engine,
 	)
 	if err != nil {
