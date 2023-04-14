@@ -249,6 +249,49 @@ func TestAllPrefixProofs(t *testing.T) {
 		PrefixProof:  prefixProof,
 	})
 	require.NoError(t, err)
+
+	smallFrom := uint64(3)
+
+	smallCommit, err := manager.SmallStepLeafCommitment(ctx, from, to, bigFrom, bigFrom+1)
+	require.NoError(t, err)
+
+	smallBisectCommit, err := manager.SmallStepCommitmentUpTo(ctx, from, to, bigFrom, bigFrom+1, smallFrom)
+	require.NoError(t, err)
+	require.Equal(t, smallFrom, smallBisectCommit.Height)
+	require.Equal(t, smallCommit.FirstLeaf, smallBisectCommit.FirstLeaf)
+
+	t.Log(smallBisectCommit.Height, smallCommit.Height)
+
+	smallProof, err := manager.SmallStepPrefixProof(ctx, from, to, bigFrom, bigFrom+1, smallFrom, smallCommit.Height)
+	require.NoError(t, err)
+
+	data, err = ProofArgs.Unpack(smallProof)
+	require.NoError(t, err)
+	preExpansion = data[0].([][32]byte)
+	proof = data[1].([][32]byte)
+
+	preExpansionHashes = make([]common.Hash, len(preExpansion))
+	for i := 0; i < len(preExpansion); i++ {
+		preExpansionHashes[i] = preExpansion[i]
+	}
+	prefixProof = make([]common.Hash, len(proof))
+	for i := 0; i < len(proof); i++ {
+		prefixProof[i] = proof[i]
+	}
+
+	computed, err = prefixproofs.Root(preExpansionHashes)
+	require.NoError(t, err)
+	require.Equal(t, smallBisectCommit.Merkle, computed)
+
+	err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
+		PreRoot:      smallBisectCommit.Merkle,
+		PreSize:      smallFrom + 1,
+		PostRoot:     smallCommit.Merkle,
+		PostSize:     smallCommit.Height + 1,
+		PreExpansion: preExpansionHashes,
+		PrefixProof:  prefixProof,
+	})
+	require.NoError(t, err)
 }
 
 func TestDivergenceGranularity(t *testing.T) {

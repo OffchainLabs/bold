@@ -479,8 +479,8 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 	prefixLeaves, err := s.intermediateBigStepLeaves(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
+		0,
+		hiSize,
 		engine,
 	)
 	if err != nil {
@@ -518,6 +518,13 @@ func (s *Simulated) SmallStepPrefixProof(
 			"fromAssertionHeight=%d is not 1 height apart from toAssertionHeight=%d",
 			fromBlockChallengeHeight,
 			toBlockChallengeHeight,
+		)
+	}
+	if fromBigStep+1 != toBigStep {
+		return nil, fmt.Errorf(
+			"fromBigStep=%d is not 1 height apart from toBigStep=%d",
+			fromBigStep,
+			toBigStep,
 		)
 	}
 	engine, err := s.setupEngine(fromBlockChallengeHeight, toBlockChallengeHeight)
@@ -561,20 +568,20 @@ func (s *Simulated) smallStepPrefixProofCalculation(
 	toSmallStep uint64,
 	engine execution.EngineAtBlock,
 ) ([]byte, error) {
-	fromSmall := (fromBigStep + s.numOpcodesPerBigStep) + fromSmallStep
-	toSmall := (fromBigStep + s.numOpcodesPerBigStep) + toSmallStep
+	fromSmall := (fromBigStep + s.numOpcodesPerBigStep)
+	toSmall := fromSmall + toSmallStep
+	loSize := fromSmallStep + 1
+	hiSize := toSmallStep + 1
 	prefixLeaves, err := s.intermediateSmallStepLeaves(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromSmall,
-		toSmall,
+		toSmall+1,
 		engine,
 	)
 	if err != nil {
 		return nil, err
 	}
-	loSize := fromSmallStep + 1
-	hiSize := toSmallStep + 1
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
 	if err != nil {
 		return nil, err
