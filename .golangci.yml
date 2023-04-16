@@ -1,0 +1,28 @@
+run:
+  skip-dirs:
+    - contract
+    - solgen
+  timeout: 5m
+  go: '1.19'
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - goimports
+    - unused
+    - errcheck
+    - gosimple
+    - gocognit
+    - nilerr
+    - misspell
+    - dupword
+    - whitespace
+
+linters-settings:
+  gocognit:
+    min-complexity: 50
+
+output:
+  print-issued-lines: true
+  sort-results: true
