@@ -29,7 +29,6 @@ type MockAssertion struct {
 
 func (m *MockAssertion) Height() (uint64, error) {
 	return m.MockHeight, nil
-
 }
 
 func (m *MockAssertion) SeqNum() protocol.AssertionSequenceNumber {
@@ -54,7 +53,6 @@ func (m *MockStateManager) LatestAssertionCreationData(ctx context.Context, prev
 }
 
 func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
-
 	args := m.Called(ctx, height)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
