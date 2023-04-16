@@ -95,6 +95,8 @@
 //
 // root of ABCD =hash(AB, CD)
 // --------------------------------------------------------------------------------------------
+//
+//nolint:dupword
 package prefixproofs
 
 import (
