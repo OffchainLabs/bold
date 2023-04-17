@@ -102,6 +102,15 @@ type Manager interface {
 		fromSmallStep,
 		toSmallStep uint64,
 	) ([]byte, error)
+	OneStepProofData(
+		ctx context.Context,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		fromSmallStep,
+		toSmallStep uint64,
+	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
@@ -365,7 +374,7 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 		return util.HistoryCommitment{}, err
 	}
 	if engine.NumOpcodes() < toSmallStep {
-		return util.HistoryCommitment{}, errors.New("not enough small steps")
+		return util.HistoryCommitment{}, fmt.Errorf("not enough small steps: %d < %d", engine.NumOpcodes(), toSmallStep)
 	}
 
 	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
@@ -415,6 +424,55 @@ func (s *Simulated) intermediateSmallStepLeaves(
 		leaves = append(leaves, hash)
 	}
 	return leaves, nil
+}
+
+func (s *Simulated) OneStepProofData(
+	ctx context.Context,
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep,
+	fromSmallStep,
+	toSmallStep uint64,
+) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
+	startCommit, commitErr := s.SmallStepCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		fromSmallStep,
+	)
+	if commitErr != nil {
+		err = commitErr
+		return
+	}
+	endCommit, commitErr := s.SmallStepCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		toSmallStep,
+	)
+	if commitErr != nil {
+		err = commitErr
+		return
+	}
+	data = &protocol.OneStepData{
+		BridgeAddr:           common.Address{},
+		MaxInboxMessagesRead: 2,
+		MachineStep:          fromSmallStep,
+		BeforeHash:           startCommit.LastLeaf,
+		Proof:                make([]byte, 0),
+	}
+	if !s.malicious {
+		// Only honest validators can produce a valid one step proof.
+		data.Proof = endCommit.LastLeaf[:]
+	}
+	startLeafInclusionProof = startCommit.LastLeafProof
+	endLeafInclusionProof = endCommit.LastLeafProof
+	return
 }
 
 func (s *Simulated) PrefixProof(_ context.Context, lo, hi uint64) ([]byte, error) {
