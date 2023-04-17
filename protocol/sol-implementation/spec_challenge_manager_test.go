@@ -10,6 +10,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	inclusionproofs "github.com/OffchainLabs/challenge-protocol-v2/util/inclusion-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -1124,4 +1125,75 @@ func setupOneStepProofScenario(
 		smallStepHonestEdge: smallStepHonest,
 		smallStepEvilEdge:   smallStepEvil,
 	}
+}
+
+func TestItem(t *testing.T) {
+	topLevelHeight := protocol.Height(2)
+	ctx := context.Background()
+	scenario := setupOneStepProofScenario(
+		t,
+		topLevelHeight,
+		statemanager.WithNumOpcodesPerBigStep(2),
+		statemanager.WithMaxWavmOpcodesPerBlock(1),
+	)
+	honestEdge := scenario.smallStepHonestEdge
+
+	// challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+	// require.NoError(t, err)
+
+	honestStateManager := scenario.honestStateManager
+	fromBlockChallengeHeight := uint64(0)
+	toBlockChallengeHeight := uint64(1)
+	fromBigStep := uint64(0)
+	toBigStep := uint64(1)
+	//fromSmallStep := uint64(0)
+	toSmallStep := uint64(1)
+
+	// require(
+	//     MerkleTreeLib.verifyInclusionProof(
+	//         store.edges[edgeId].startHistoryRoot,
+	//         oneStepData.beforeHash,
+	//         oneStepData.machineStep,
+	//         beforeHistoryInclusionProof
+	//     ),
+	//     "Before state not in history"
+	// );
+
+	// _, startInclusionProof, _, err := honestStateManager.OneStepProofData(
+	// 	ctx,
+	// 	fromBlockChallengeHeight,
+	// 	toBlockChallengeHeight,
+	// 	fromBigStep,
+	// 	toBigStep,
+	// 	fromSmallStep,
+	// 	toSmallStep,
+	// )
+	// require.NoError(t, err)
+
+	_, startHistory := honestEdge.StartCommitment()
+
+	t.Logf("Producing small step a=%d,%d, bs=%d,%d, ss=0,%d", fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, toSmallStep)
+	beforeCommit, err := honestStateManager.HistoryCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+	)
+	require.NoError(t, err)
+	t.Logf("%+v", beforeCommit)
+	startInclusionProof := beforeCommit.LastLeafProof
+	beforeHash := beforeCommit.LastLeaf
+	computed, err := inclusionproofs.CalculateRootFromProof(startInclusionProof, 1, beforeHash)
+	require.NoError(t, err)
+	require.Equal(t, startHistory, computed)
+
+	// err = challengeManager.ConfirmEdgeByOneStepProof(
+	// 	ctx,
+	// 	honestEdge.Id(),
+	// 	data,
+	// 	startInclusionProof,
+	// 	endInclusionProof,
+	// )
+	// require.NoError(t, err)
+	// edgeStatus, err := honestEdge.Status(ctx)
+	// require.NoError(t, err)
+	// require.Equal(t, protocol.EdgeConfirmed, edgeStatus)
 }
