@@ -374,7 +374,7 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 		return util.HistoryCommitment{}, err
 	}
 	if engine.NumOpcodes() < toSmallStep {
-		return util.HistoryCommitment{}, errors.New("not enough small steps")
+		return util.HistoryCommitment{}, fmt.Errorf("not enough small steps: %d < %d", engine.NumOpcodes(), toSmallStep)
 	}
 
 	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
@@ -441,7 +441,7 @@ func (s *Simulated) OneStepProofData(
 		toBlockChallengeHeight,
 		fromBigStep,
 		toBigStep,
-		toSmallStep,
+		fromSmallStep,
 	)
 	if commitErr != nil {
 		err = commitErr
@@ -453,7 +453,7 @@ func (s *Simulated) OneStepProofData(
 		toBlockChallengeHeight,
 		fromBigStep,
 		toBigStep,
-		toSmallStep+1,
+		toSmallStep,
 	)
 	if commitErr != nil {
 		err = commitErr
@@ -462,7 +462,7 @@ func (s *Simulated) OneStepProofData(
 	data = &protocol.OneStepData{
 		BridgeAddr:           common.Address{},
 		MaxInboxMessagesRead: 2,
-		MachineStep:          toSmallStep,
+		MachineStep:          fromSmallStep,
 		BeforeHash:           startCommit.LastLeaf,
 		Proof:                make([]byte, 0),
 	}
