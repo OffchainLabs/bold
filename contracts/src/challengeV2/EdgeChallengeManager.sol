@@ -183,6 +183,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 ),
                 "End state does not consistent with the claim"
             );
+            // we check the endState is consistent with the endHistoryRoot within the below block
 
             ChallengeEdge storage topLevelEdge;
             if (args.edgeType == EdgeType.BigStep) {
