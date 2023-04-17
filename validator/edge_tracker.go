@@ -232,7 +232,7 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
 	toAssertionHeight := fromAssertionHeight + 1
 
-	startHeight, startCommit := et.edge.StartCommitment()
+	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
 
 	fields := logrus.Fields{
@@ -243,19 +243,31 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		"toAssertionHeight":   toAssertionHeight,
 	}
 
-	var history util.HistoryCommitment
+	var startHistory util.HistoryCommitment
+	var endHistory util.HistoryCommitment
 	switch et.edge.GetType() {
 	case protocol.BlockChallengeEdge:
 		log.WithFields(fields).Info("Big step leaf commit")
-		history, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
+		startHistory, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, 0)
+		if err != nil {
+			return err
+		}
+		endHistory, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
+		if err != nil {
+			return err
+		}
 	case protocol.BigStepChallengeEdge:
 		log.WithFields(fields).Info("Small step leaf commit")
-		history, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight), uint64(endHeight))
+		startHistory, err = et.cfg.stateManager.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, uint64(startHeight), uint64(endHeight), 0)
+		if err != nil {
+			return err
+		}
+		endHistory, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight), uint64(endHeight))
+		if err != nil {
+			return err
+		}
 	default:
 		return errors.New("unsupported subchallenge type for creating leaf commitment")
-	}
-	if err != nil {
-		return err
 	}
 	manager, err := et.cfg.chain.SpecChallengeManager(ctx)
 	if err != nil {
@@ -264,18 +276,15 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 	addedLeaf, err := manager.AddSubChallengeLevelZeroEdge(
 		ctx,
 		et.edge,
-		util.HistoryCommitment{
-			Height: uint64(startHeight),
-			Merkle: startCommit,
-		},
-		history,
+		startHistory,
+		endHistory,
 	)
 	if err != nil {
 		return err
 	}
-	fields["leafFirstState"] = util.Trunc(history.FirstLeaf.Bytes())
-	fields["leafHeight"] = history.Height
-	fields["leafCommitment"] = util.Trunc(history.Merkle.Bytes())
+	fields["firstLeaf"] = util.Trunc(startHistory.FirstLeaf.Bytes())
+	fields["endHeight"] = endHistory.Height
+	fields["startCommitment"] = util.Trunc(startHistory.Merkle.Bytes())
 	fields["subChallengeType"] = addedLeaf.GetType()
 	log.WithFields(fields).Info("Added subchallenge leaf, now tracking its vertex")
 	tracker, err := newEdgeTracker(
@@ -300,7 +309,9 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	toAssertionHeight := fromAssertionHeight + 1
 	fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
 	toBigStep := fromBigStep + 1
-	pc, _ := et.edge.StartCommitment()
+	pc, pcCommit := et.edge.StartCommitment()
+
+	log.Infof("Producing osp for a=%d,%d, bs=%d,%d, ss=%d,%d, startCommit=%d,%#x", fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, pc, pc+1, pc, pcCommit)
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
 		fromAssertionHeight,
