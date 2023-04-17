@@ -78,22 +78,12 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			numSmallStepsAtBigStep:       7,
 			smallStepDivergenceHeight:    4,
 		}
-		// At each challenge level:
-		// Alice adds a challenge leaf 7, is presumptive.
-		// Bob adds leaf 7.
-		// Bob bisects to 3, is presumptive.
-		// Alice bisects to 3.
-		// Alice bisects to 1, is presumptive.
-		// Bob merges to 1.
-		// Bob bisects from 3 to 2, is presumptive.
-		// Alice merges from 3 to 2.
-		// Both challengers are now at a one-step fork, we now await subchallenge resolution.
-		cfg.expectedLeavesAdded = 10
-		cfg.expectedBisections = 24
+		cfg.expectedLeavesAdded = 18
+		cfg.expectedBisections = 36
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
-		AssertLogsContain(t, hook, "Checking one-step-proof against protocol")
+		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
 	t.Run("two validators opening leaves at height 255", func(t *testing.T) {
 		cfg := &challengeProtocolTestConfig{
@@ -106,12 +96,12 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			numSmallStepsAtBigStep:       7,
 			smallStepDivergenceHeight:    4,
 		}
-		cfg.expectedLeavesAdded = 20
-		cfg.expectedBisections = 44
+		cfg.expectedLeavesAdded = 28
+		cfg.expectedBisections = 56
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
-		AssertLogsContain(t, hook, "Checking one-step-proof against protocol")
+		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
 }
 
