@@ -184,26 +184,37 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 "End state does not consistent with the claim"
             );
 
-            // check the endState is consistent with the endHistoryRoot
-            require(
-                MerkleTreeLib.verifyInclusionProof(
-                    args.endHistoryRoot,
-                    endState,
-                    LAYERZERO_BIGSTEPEDGE_HEIGHT,
-                    edgeInclusionProof
-                ),
-                "End state does not consistent with endHistoryRoot"
-            );
-
             ChallengeEdge storage topLevelEdge;
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
 
+                // check the endState is consistent with the endHistoryRoot
+                require(
+                    MerkleTreeLib.verifyInclusionProof(
+                        args.endHistoryRoot,
+                        endState,
+                        LAYERZERO_BIGSTEPEDGE_HEIGHT,
+                        edgeInclusionProof
+                    ),
+                    "End state does not consistent with endHistoryRoot"
+                );
+
                 topLevelEdge = claimEdge;
             } else if (args.edgeType == EdgeType.SmallStep) {
                 require(claimEdge.eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
                 require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
+
+                // check the endState is consistent with the endHistoryRoot
+                require(
+                    MerkleTreeLib.verifyInclusionProof(
+                        args.endHistoryRoot,
+                        endState,
+                        LAYERZERO_SMALLSTEPEDGE_HEIGHT,
+                        edgeInclusionProof
+                    ),
+                    "End state does not consistent with endHistoryRoot"
+                );
 
                 // origin of the smallstep edge is the mutual id of block edge
                 // TODO: make a getter in EdgeChallengeManagerLib instead of reading store.firstRivals directly
