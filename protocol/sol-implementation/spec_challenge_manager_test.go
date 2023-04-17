@@ -816,13 +816,6 @@ type oneStepProofScenario struct {
 	smallStepEvilEdge   protocol.SpecEdge
 }
 
-type ospScenarioConfig struct {
-	fromBigStep   uint64
-	toBigStep     uint64
-	fromSmallStep uint64
-	toSmallStep   uint64
-}
-
 // Sets up a challenge between two validators in which they make challenge moves
 // to reach a one-step-proof in a small step subchallenge. It returns the data needed
 // to then confirm the winner by one-step-proof execution.
