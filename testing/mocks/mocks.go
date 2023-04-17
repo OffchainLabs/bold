@@ -64,25 +64,23 @@ func (m *MockStateManager) PrefixProof(ctx context.Context, from, to uint64) ([]
 
 func (m *MockStateManager) BigStepPrefixProof(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep uint64,
+	fromAssertionHeight,
+	toAssertionHeight,
+	lo,
+	hi uint64,
 ) ([]byte, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep)
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, lo, hi)
 	return args.Get(0).([]byte), args.Error(1)
 }
 
 func (m *MockStateManager) SmallStepPrefixProof(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep,
-	fromSmallStep,
-	toSmallStep uint64,
+	fromAssertionHeight,
+	toAssertionHeight,
+	lo,
+	hi uint64,
 ) ([]byte, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, lo, hi)
 	return args.Get(0).([]byte), args.Error(1)
 }
 
@@ -93,43 +91,39 @@ func (m *MockStateManager) HasStateCommitment(ctx context.Context, commit util.S
 
 func (m *MockStateManager) BigStepLeafCommitment(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight uint64,
+	fromAssertionHeight,
+	toAssertionHeight uint64,
 ) (util.HistoryCommitment, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight)
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
 func (m *MockStateManager) BigStepCommitmentUpTo(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
+	fromAssertionHeight,
+	toAssertionHeight,
 	toBigStep uint64,
 ) (util.HistoryCommitment, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, toBigStep)
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, toBigStep)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
 func (m *MockStateManager) SmallStepLeafCommitment(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep uint64,
+	fromAssertionHeight,
+	toAssertionHeight uint64,
 ) (util.HistoryCommitment, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep)
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
 func (m *MockStateManager) SmallStepCommitmentUpTo(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep,
-	toSmallStep uint64,
+	fromAssertionHeight,
+	toAssertionHeight,
+	toStep uint64,
 ) (util.HistoryCommitment, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, toSmallStep)
+	args := m.Called(ctx, fromAssertionHeight, toAssertionHeight, toStep)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
@@ -226,16 +220,6 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 ) (protocol.SpecEdge, error) {
 	args := m.Called(ctx, challengedEdge, startCommit, endCommit)
 	return args.Get(0).(protocol.SpecEdge), args.Error(1)
-}
-func (m *MockSpecChallengeManager) ConfirmEdgeByOneStepProof(
-	ctx context.Context,
-	tentativeWinnerId protocol.EdgeId,
-	oneStepData *protocol.OneStepData,
-	preHistoryInclusionProof []common.Hash,
-	postHistoryInclusionProof []common.Hash,
-) error {
-	args := m.Called(ctx, tentativeWinnerId, oneStepData, preHistoryInclusionProof, postHistoryInclusionProof)
-	return args.Error(0)
 }
 
 // MockSpecEdge is a mock implementation of the SpecEdge interface.
