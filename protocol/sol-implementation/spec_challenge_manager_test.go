@@ -974,8 +974,6 @@ func setupOneStepProofScenario(
 	evilStateManager := bisectionScenario.evilStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 	evilEdge := bisectionScenario.evilLevelZeroEdge
-	honestStartCommit := bisectionScenario.honestStartCommit
-	evilStartCommit := bisectionScenario.evilStartCommit
 
 	challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
 	require.NoError(t, err)
@@ -1013,25 +1011,38 @@ func setupOneStepProofScenario(
 		return leaf
 	}
 
-	honestBigStepCommit, err := honestStateManager.BigStepCommitmentUpTo(
-		ctx, 0 /* from assertion */, 1 /* to assertion */, 1, /* to big step */
+	fromAssertionHeight := uint64(0)
+	toAssertionHeight := fromAssertionHeight + 1
+	fromBigStep := uint64(0)
+	toBigStep := fromBigStep + 1
+
+	honestBigStepStartCommit, err := honestStateManager.BigStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, 0,
 	)
 	require.NoError(t, err)
-	require.Equal(t, honestStartCommit.LastLeaf, honestBigStepCommit.FirstLeaf)
+	honestBigStepEndCommit, err := honestStateManager.BigStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, toBigStep,
+	)
+	require.NoError(t, err)
+	require.Equal(t, honestBigStepStartCommit.LastLeaf, honestBigStepEndCommit.FirstLeaf)
 
-	honestEdge = bigStepAdder(honestStartCommit, honestBigStepCommit)
+	honestEdge = bigStepAdder(honestBigStepStartCommit, honestBigStepEndCommit)
 	require.Equal(t, protocol.BigStepChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	evilBigStepCommit, err := evilStateManager.BigStepCommitmentUpTo(
-		ctx, 0 /* from assertion */, 1 /* to assertion */, 1, /* to big step */
+	evilBigStepStartCommit, err := evilStateManager.BigStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, 0,
 	)
 	require.NoError(t, err)
-	require.Equal(t, evilStartCommit.LastLeaf, evilBigStepCommit.FirstLeaf)
+	evilBigStepEndCommit, err := evilStateManager.BigStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, toBigStep,
+	)
+	require.NoError(t, err)
+	require.Equal(t, evilBigStepStartCommit.LastLeaf, evilBigStepEndCommit.FirstLeaf)
 
-	evilEdge = bigStepAdder(evilStartCommit, evilBigStepCommit)
+	evilEdge = bigStepAdder(evilBigStepStartCommit, evilBigStepEndCommit)
 	require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
 
 	hasRival, err = honestEdge.HasRival(ctx)
@@ -1057,27 +1068,33 @@ func setupOneStepProofScenario(
 		return leaf
 	}
 
-	honestSmallStepCommit, err := honestStateManager.SmallStepLeafCommitment(
-		ctx, 0 /* from assertion */, 1 /* to assertion */, 0 /* from big step */, 1, /* to big step */
+	fromSmallStep := uint64(0)
+	toSmallStep := uint64(1)
+	honestSmallStartCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, fromSmallStep,
 	)
 	require.NoError(t, err)
-	require.Equal(t, honestStartCommit.LastLeaf, honestSmallStepCommit.FirstLeaf)
+	honestSmallEndCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, toSmallStep,
+	)
+	require.NoError(t, err)
 
-	t.Log(honestStartCommit.Height, honestSmallStepCommit.Height)
-
-	smallStepHonest := smallStepAdder(honestStartCommit, honestSmallStepCommit)
+	smallStepHonest := smallStepAdder(honestSmallStartCommit, honestSmallEndCommit)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 	hasRival, err = smallStepHonest.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	evilSmallStepCommit, err := evilStateManager.SmallStepLeafCommitment(
-		ctx, 0 /* from assertion */, 1 /* to assertion */, 0 /* from big step */, 1, /* to big step */
+	evilSmallStartCommit, err := evilStateManager.SmallStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, fromSmallStep,
 	)
 	require.NoError(t, err)
-	require.Equal(t, evilStartCommit.LastLeaf, evilSmallStepCommit.FirstLeaf)
+	evilSmallEndCommit, err := evilStateManager.SmallStepCommitmentUpTo(
+		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, toSmallStep,
+	)
+	require.NoError(t, err)
 
-	smallStepEvil := smallStepAdder(evilStartCommit, evilSmallStepCommit)
+	smallStepEvil := smallStepAdder(evilSmallStartCommit, evilSmallEndCommit)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepEvil.GetType())
 
 	hasRival, err = smallStepHonest.HasRival(ctx)
@@ -1089,27 +1106,6 @@ func setupOneStepProofScenario(
 
 	// Get the lower-level edge of either vertex we just bisected.
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
-
-	// // Attempt bisections down to one step fork.
-	// honestBisectCommit, err = honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
-	// require.NoError(t, err)
-	// require.Equal(t, honestStartCommit.LastLeaf, honestBisectCommit.FirstLeaf)
-
-	// honestProof, err = honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
-	// require.NoError(t, err)
-
-	// _, oneStepForkHonestEdge, err := smallStepHonest.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
-	// require.NoError(t, err)
-
-	// evilBisectCommit, err = evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 2)
-	// require.NoError(t, err)
-	// require.Equal(t, evilStartCommit.LastLeaf, evilBisectCommit.FirstLeaf)
-
-	// evilProof, err = evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 2, 3)
-	// require.NoError(t, err)
-
-	// _, oneStepForkEvilEdge, err := smallStepEvil.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
-	// require.NoError(t, err)
 
 	isAtOneStepFork, err = smallStepHonest.HasLengthOneRival(ctx)
 	require.NoError(t, err)
@@ -1146,44 +1142,52 @@ func TestItem(t *testing.T) {
 	toBlockChallengeHeight := uint64(1)
 	fromBigStep := uint64(0)
 	toBigStep := uint64(1)
-	//fromSmallStep := uint64(0)
+	fromSmallStep := uint64(0)
 	toSmallStep := uint64(1)
 
-	// require(
-	//     MerkleTreeLib.verifyInclusionProof(
-	//         store.edges[edgeId].startHistoryRoot,
-	//         oneStepData.beforeHash,
-	//         oneStepData.machineStep,
-	//         beforeHistoryInclusionProof
-	//     ),
-	//     "Before state not in history"
-	// );
-
-	// _, startInclusionProof, _, err := honestStateManager.OneStepProofData(
-	// 	ctx,
-	// 	fromBlockChallengeHeight,
-	// 	toBlockChallengeHeight,
-	// 	fromBigStep,
-	// 	toBigStep,
-	// 	fromSmallStep,
-	// 	toSmallStep,
-	// )
-	// require.NoError(t, err)
-
-	_, startHistory := honestEdge.StartCommitment()
-
-	t.Logf("Producing small step a=%d,%d, bs=%d,%d, ss=0,%d", fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, toSmallStep)
-	beforeCommit, err := honestStateManager.HistoryCommitmentUpTo(
+	_, startInclusionProof, _, err := honestStateManager.OneStepProofData(
 		ctx,
 		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		fromSmallStep,
+		toSmallStep,
 	)
 	require.NoError(t, err)
-	t.Logf("%+v", beforeCommit)
-	startInclusionProof := beforeCommit.LastLeafProof
-	beforeHash := beforeCommit.LastLeaf
-	computed, err := inclusionproofs.CalculateRootFromProof(startInclusionProof, 1, beforeHash)
+
+	//_, startHistory := honestEdge.StartCommitment()
+	_ = honestEdge
+
+	beforeCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		fromSmallStep,
+	)
 	require.NoError(t, err)
-	require.Equal(t, startHistory, computed)
+	startInclusionProof := beforeCommit.FirstLeafProof
+	beforeHash := beforeCommit.FirstLeaf
+	computed, err := inclusionproofs.CalculateRootFromProof(startInclusionProof, 0, beforeHash)
+	require.NoError(t, err)
+	require.Equal(t, beforeCommit.Merkle, computed)
+
+	postCommit, err := honestStateManager.SmallStepCommitmentUpTo(
+		ctx,
+		fromBlockChallengeHeight,
+		toBlockChallengeHeight,
+		fromBigStep,
+		toBigStep,
+		toSmallStep,
+	)
+	require.NoError(t, err)
+	endInclusionProof := postCommit.LastLeafProof
+	afterHash := postCommit.LastLeaf
+	computed, err = inclusionproofs.CalculateRootFromProof(endInclusionProof, 1, afterHash)
+	require.NoError(t, err)
+	require.Equal(t, postCommit.Merkle, computed)
 
 	// err = challengeManager.ConfirmEdgeByOneStepProof(
 	// 	ctx,
