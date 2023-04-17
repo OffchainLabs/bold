@@ -16,6 +16,48 @@ import (
 
 var _ = Manager(&Simulated{})
 
+func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing.T) {
+	ctx := context.Background()
+	hashes := make([]common.Hash, 10)
+	for i := 0; i < len(hashes); i++ {
+		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
+	}
+	_ = ctx
+	manager, err := New(
+		hashes,
+		WithMaxWavmOpcodesPerBlock(8),
+		WithNumOpcodesPerBigStep(8),
+	)
+	require.NoError(t, err)
+	blockChalCommit, err := manager.HistoryCommitmentUpTo(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, hashes[0], blockChalCommit.FirstLeaf)
+
+	fromAssertionHeight := uint64(0)
+	toAssertionHeight := fromAssertionHeight + 1
+	bigStep, err := manager.BigStepLeafCommitment(
+		ctx,
+		fromAssertionHeight,
+		toAssertionHeight,
+	)
+	require.NoError(t, err)
+	require.NotEqual(t, hashes[0], bigStep.FirstLeaf)
+
+	fromBigStep := uint64(0)
+	toBigStep := fromBigStep + 1
+	smallStep, err := manager.SmallStepLeafCommitment(
+		ctx,
+		fromAssertionHeight,
+		toAssertionHeight,
+		fromBigStep,
+		toBigStep,
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), bigStep.Height)
+	require.Equal(t, uint64(7), smallStep.Height)
+	require.Equal(t, bigStep.FirstLeaf, smallStep.FirstLeaf)
+}
+
 func TestGranularCommitments_SameStartHistory(t *testing.T) {
 	ctx := context.Background()
 	hashes := make([]common.Hash, 10)
