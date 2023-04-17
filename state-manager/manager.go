@@ -305,14 +305,14 @@ func (s *Simulated) intermediateBigStepLeaves(
 	engine execution.EngineAtBlock,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
-	leaves = append(leaves, engine.FirstState())
+	leaves = append(leaves, engine.FirstMachineState().Hash())
 	// Up to and including the specified step.
 	for i := fromBigStep; i < toBigStep; i++ {
 		start, err := engine.StateAfterBigSteps(i)
 		if err != nil {
 			return nil, err
 		}
-		intermediateState, err := start.NextState()
+		intermediateState, err := start.NextMachineState()
 		if err != nil {
 			return nil, err
 		}
@@ -400,7 +400,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	engine execution.EngineAtBlock,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
-	leaves = append(leaves, engine.FirstState())
+	leaves = append(leaves, engine.FirstMachineState().Hash())
 	// Up to and including the specified step.
 	divergingAt := fromSmallStep + s.smallStepDivergenceHeight
 	for i := fromSmallStep; i < toSmallStep; i++ {
@@ -408,7 +408,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 		if err != nil {
 			return nil, err
 		}
-		intermediateState, err := start.NextState()
+		intermediateState, err := start.NextMachineState()
 		if err != nil {
 			return nil, err
 		}
@@ -613,7 +613,8 @@ func (s *Simulated) setupEngine(fromHeight, toHeight uint64) (*execution.Engine,
 	}
 	return execution.NewExecutionEngine(
 		machineCfg,
-		s.stateRoots[fromHeight:toHeight+1],
+		s.stateRoots[fromHeight],
+		s.stateRoots[fromHeight+1],
 	)
 }
 
