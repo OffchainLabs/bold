@@ -28,6 +28,12 @@ var (
 	_ = event.NewSubscription
 )
 
+// ExecutionContext is an auto generated low-level Go binding around an user-defined struct.
+type ExecutionContext struct {
+	MaxInboxMessagesRead *big.Int
+	Bridge               common.Address
+}
+
 // GlobalState is an auto generated low-level Go binding around an user-defined struct.
 type GlobalState struct {
 	Bytes32Vals [2][32]byte
@@ -4442,6 +4448,210 @@ func (_MerkleTreeAccess *MerkleTreeAccessSession) VerifyPrefixProof(preRoot [32]
 // Solidity: function verifyPrefixProof(bytes32 preRoot, uint256 preSize, bytes32 postRoot, uint256 postSize, bytes32[] preExpansion, bytes32[] proof) pure returns()
 func (_MerkleTreeAccess *MerkleTreeAccessCallerSession) VerifyPrefixProof(preRoot [32]byte, preSize *big.Int, postRoot [32]byte, postSize *big.Int, preExpansion [][32]byte, proof [][32]byte) error {
 	return _MerkleTreeAccess.Contract.VerifyPrefixProof(&_MerkleTreeAccess.CallOpts, preRoot, preSize, postRoot, postSize, preExpansion, proof)
+}
+
+// MockOneStepProofEntryMetaData contains all meta data concerning the MockOneStepProofEntry contract.
+var MockOneStepProofEntryMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"maxInboxMessagesRead\",\"type\":\"uint256\"},{\"internalType\":\"contractIBridge\",\"name\":\"bridge\",\"type\":\"address\"}],\"internalType\":\"structExecutionContext\",\"name\":\"\",\"type\":\"tuple\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"proveOneStep\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"afterHash\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b5061015c806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c80635d3adcfb14610030575b600080fd5b61004361003e36600461006b565b610055565b60405190815260200160405180910390f35b60006100618284610107565b9695505050505050565b600080600080600085870360a081121561008457600080fd5b604081121561009257600080fd5b508594506040860135935060608601359250608086013567ffffffffffffffff808211156100bf57600080fd5b818801915088601f8301126100d357600080fd5b8135818111156100e257600080fd5b8960208285010111156100f457600080fd5b9699959850939650602001949392505050565b8035602083101561012057600019602084900360031b1b165b9291505056fea2646970667358221220acb0155c228c56b12ccfaebe88a378747be9d158a80d8419530c7321b922b52964736f6c63430008110033",
+}
+
+// MockOneStepProofEntryABI is the input ABI used to generate the binding from.
+// Deprecated: Use MockOneStepProofEntryMetaData.ABI instead.
+var MockOneStepProofEntryABI = MockOneStepProofEntryMetaData.ABI
+
+// MockOneStepProofEntryBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use MockOneStepProofEntryMetaData.Bin instead.
+var MockOneStepProofEntryBin = MockOneStepProofEntryMetaData.Bin
+
+// DeployMockOneStepProofEntry deploys a new Ethereum contract, binding an instance of MockOneStepProofEntry to it.
+func DeployMockOneStepProofEntry(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *MockOneStepProofEntry, error) {
+	parsed, err := MockOneStepProofEntryMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(MockOneStepProofEntryBin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &MockOneStepProofEntry{MockOneStepProofEntryCaller: MockOneStepProofEntryCaller{contract: contract}, MockOneStepProofEntryTransactor: MockOneStepProofEntryTransactor{contract: contract}, MockOneStepProofEntryFilterer: MockOneStepProofEntryFilterer{contract: contract}}, nil
+}
+
+// MockOneStepProofEntry is an auto generated Go binding around an Ethereum contract.
+type MockOneStepProofEntry struct {
+	MockOneStepProofEntryCaller     // Read-only binding to the contract
+	MockOneStepProofEntryTransactor // Write-only binding to the contract
+	MockOneStepProofEntryFilterer   // Log filterer for contract events
+}
+
+// MockOneStepProofEntryCaller is an auto generated read-only Go binding around an Ethereum contract.
+type MockOneStepProofEntryCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// MockOneStepProofEntryTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type MockOneStepProofEntryTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// MockOneStepProofEntryFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type MockOneStepProofEntryFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// MockOneStepProofEntrySession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type MockOneStepProofEntrySession struct {
+	Contract     *MockOneStepProofEntry // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts          // Call options to use throughout this session
+	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
+}
+
+// MockOneStepProofEntryCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type MockOneStepProofEntryCallerSession struct {
+	Contract *MockOneStepProofEntryCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts                // Call options to use throughout this session
+}
+
+// MockOneStepProofEntryTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type MockOneStepProofEntryTransactorSession struct {
+	Contract     *MockOneStepProofEntryTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts                // Transaction auth options to use throughout this session
+}
+
+// MockOneStepProofEntryRaw is an auto generated low-level Go binding around an Ethereum contract.
+type MockOneStepProofEntryRaw struct {
+	Contract *MockOneStepProofEntry // Generic contract binding to access the raw methods on
+}
+
+// MockOneStepProofEntryCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type MockOneStepProofEntryCallerRaw struct {
+	Contract *MockOneStepProofEntryCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// MockOneStepProofEntryTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type MockOneStepProofEntryTransactorRaw struct {
+	Contract *MockOneStepProofEntryTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewMockOneStepProofEntry creates a new instance of MockOneStepProofEntry, bound to a specific deployed contract.
+func NewMockOneStepProofEntry(address common.Address, backend bind.ContractBackend) (*MockOneStepProofEntry, error) {
+	contract, err := bindMockOneStepProofEntry(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &MockOneStepProofEntry{MockOneStepProofEntryCaller: MockOneStepProofEntryCaller{contract: contract}, MockOneStepProofEntryTransactor: MockOneStepProofEntryTransactor{contract: contract}, MockOneStepProofEntryFilterer: MockOneStepProofEntryFilterer{contract: contract}}, nil
+}
+
+// NewMockOneStepProofEntryCaller creates a new read-only instance of MockOneStepProofEntry, bound to a specific deployed contract.
+func NewMockOneStepProofEntryCaller(address common.Address, caller bind.ContractCaller) (*MockOneStepProofEntryCaller, error) {
+	contract, err := bindMockOneStepProofEntry(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &MockOneStepProofEntryCaller{contract: contract}, nil
+}
+
+// NewMockOneStepProofEntryTransactor creates a new write-only instance of MockOneStepProofEntry, bound to a specific deployed contract.
+func NewMockOneStepProofEntryTransactor(address common.Address, transactor bind.ContractTransactor) (*MockOneStepProofEntryTransactor, error) {
+	contract, err := bindMockOneStepProofEntry(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &MockOneStepProofEntryTransactor{contract: contract}, nil
+}
+
+// NewMockOneStepProofEntryFilterer creates a new log filterer instance of MockOneStepProofEntry, bound to a specific deployed contract.
+func NewMockOneStepProofEntryFilterer(address common.Address, filterer bind.ContractFilterer) (*MockOneStepProofEntryFilterer, error) {
+	contract, err := bindMockOneStepProofEntry(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &MockOneStepProofEntryFilterer{contract: contract}, nil
+}
+
+// bindMockOneStepProofEntry binds a generic wrapper to an already deployed contract.
+func bindMockOneStepProofEntry(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(MockOneStepProofEntryABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_MockOneStepProofEntry *MockOneStepProofEntryRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _MockOneStepProofEntry.Contract.MockOneStepProofEntryCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_MockOneStepProofEntry *MockOneStepProofEntryRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _MockOneStepProofEntry.Contract.MockOneStepProofEntryTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_MockOneStepProofEntry *MockOneStepProofEntryRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _MockOneStepProofEntry.Contract.MockOneStepProofEntryTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_MockOneStepProofEntry *MockOneStepProofEntryCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _MockOneStepProofEntry.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_MockOneStepProofEntry *MockOneStepProofEntryTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _MockOneStepProofEntry.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_MockOneStepProofEntry *MockOneStepProofEntryTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _MockOneStepProofEntry.Contract.contract.Transact(opts, method, params...)
+}
+
+// ProveOneStep is a free data retrieval call binding the contract method 0x5d3adcfb.
+//
+// Solidity: function proveOneStep((uint256,address) , uint256 , bytes32 , bytes proof) view returns(bytes32 afterHash)
+func (_MockOneStepProofEntry *MockOneStepProofEntryCaller) ProveOneStep(opts *bind.CallOpts, arg0 ExecutionContext, arg1 *big.Int, arg2 [32]byte, proof []byte) ([32]byte, error) {
+	var out []interface{}
+	err := _MockOneStepProofEntry.contract.Call(opts, &out, "proveOneStep", arg0, arg1, arg2, proof)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// ProveOneStep is a free data retrieval call binding the contract method 0x5d3adcfb.
+//
+// Solidity: function proveOneStep((uint256,address) , uint256 , bytes32 , bytes proof) view returns(bytes32 afterHash)
+func (_MockOneStepProofEntry *MockOneStepProofEntrySession) ProveOneStep(arg0 ExecutionContext, arg1 *big.Int, arg2 [32]byte, proof []byte) ([32]byte, error) {
+	return _MockOneStepProofEntry.Contract.ProveOneStep(&_MockOneStepProofEntry.CallOpts, arg0, arg1, arg2, proof)
+}
+
+// ProveOneStep is a free data retrieval call binding the contract method 0x5d3adcfb.
+//
+// Solidity: function proveOneStep((uint256,address) , uint256 , bytes32 , bytes proof) view returns(bytes32 afterHash)
+func (_MockOneStepProofEntry *MockOneStepProofEntryCallerSession) ProveOneStep(arg0 ExecutionContext, arg1 *big.Int, arg2 [32]byte, proof []byte) ([32]byte, error) {
+	return _MockOneStepProofEntry.Contract.ProveOneStep(&_MockOneStepProofEntry.CallOpts, arg0, arg1, arg2, proof)
 }
 
 // MockResultReceiverMetaData contains all meta data concerning the MockResultReceiver contract.

@@ -133,6 +133,19 @@ func (m *MockStateManager) SmallStepCommitmentUpTo(
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
+func (m *MockStateManager) OneStepProofData(
+	ctx context.Context,
+	fromBlockChallengeHeight,
+	toBlockChallengeHeight,
+	fromBigStep,
+	toBigStep,
+	fromSmallStep,
+	toSmallStep uint64,
+) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
+	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
+	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
+}
+
 type MockChallengeManager struct {
 	mock.Mock
 	MockAddr common.Address
@@ -213,6 +226,16 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 ) (protocol.SpecEdge, error) {
 	args := m.Called(ctx, challengedEdge, startCommit, endCommit)
 	return args.Get(0).(protocol.SpecEdge), args.Error(1)
+}
+func (m *MockSpecChallengeManager) ConfirmEdgeByOneStepProof(
+	ctx context.Context,
+	tentativeWinnerId protocol.EdgeId,
+	oneStepData *protocol.OneStepData,
+	preHistoryInclusionProof []common.Hash,
+	postHistoryInclusionProof []common.Hash,
+) error {
+	args := m.Called(ctx, tentativeWinnerId, oneStepData, preHistoryInclusionProof, postHistoryInclusionProof)
+	return args.Error(0)
 }
 
 // MockSpecEdge is a mock implementation of the SpecEdge interface.
