@@ -172,8 +172,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -187,8 +186,7 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeState: afterState,
-                afterState: afterState2,
-                numBlocks: 8
+                afterState: afterState2
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: inboxcount
@@ -210,8 +208,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -222,8 +219,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -245,8 +241,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -259,8 +254,7 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -293,8 +287,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -311,8 +304,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState2,
-                numBlocks: 8
+                afterState: afterState2
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
