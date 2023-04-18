@@ -1324,7 +1324,7 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.confirmEdgeByOneStepProof(
             allWinners[0].lowerChildId,
             OneStepData({
-                execCtx: ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)}),
+                execCtx: ExecutionContext({maxInboxMessagesRead: 7, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)}),
                 machineStep: 0,
                 beforeHash: firstStates[0],
                 proof: abi.encodePacked(firstStates[1])

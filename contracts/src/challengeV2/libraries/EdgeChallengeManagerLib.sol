@@ -456,6 +456,8 @@ library EdgeChallengeManagerLib {
         bytes32[] memory beforeHistoryInclusionProof,
         bytes32[] memory afterHistoryInclusionProof
     ) internal {
+        require(oneStepData.machineStep == get(store, edgeId).startHeight, "Machine step does not match edge start height");
+
         require(store.edges[edgeId].exists(), "Edge does not exist");
         require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
 
