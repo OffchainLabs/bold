@@ -456,14 +456,11 @@ library EdgeChallengeManagerLib {
         uint256 machineStep = get(store, edgeId).startHeight;
 
         // the state in the onestep data must be committed to by the startHistoryRoot
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                store.edges[edgeId].startHistoryRoot,
-                oneStepData.beforeHash,
-                machineStep,
-                beforeHistoryInclusionProof
-            ),
-            "Before state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            store.edges[edgeId].startHistoryRoot,
+            oneStepData.beforeHash,
+            machineStep,
+            beforeHistoryInclusionProof
         );
 
         // execute the single step to produce the after state
@@ -472,11 +469,8 @@ library EdgeChallengeManagerLib {
         );
 
         // check that the after state was indeed committed to by the endHistoryRoot
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                store.edges[edgeId].endHistoryRoot, afterHash, machineStep + 1, afterHistoryInclusionProof
-            ),
-            "After state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            store.edges[edgeId].endHistoryRoot, afterHash, machineStep + 1, afterHistoryInclusionProof
         );
 
         store.edges[edgeId].setConfirmed();
