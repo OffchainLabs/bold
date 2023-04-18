@@ -30,6 +30,7 @@ type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)
+	InboxMsgCountSeen() (uint64, error)
 }
 
 // AssertionChain can manage assertions in the protocol and retrieve

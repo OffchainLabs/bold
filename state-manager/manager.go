@@ -43,8 +43,8 @@ type Manager interface {
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
 	// Produces a block challenge history commitment up to and including a certain height.
 	HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error)
-	// Produces a block challenge history commitment up to and including a certain height, but padding states with duplicates after the first state with a batch count of at least the specified max.
-	HistoryCommitmentUpToBatch(ctx context.Context, blockChallengeHeight uint64, batchCount uint64) (util.HistoryCommitment, error)
+	// Produces a block challenge history commitment in a certain inclusive block range, but padding states with duplicates after the first state with a batch count of at least the specified max.
+	HistoryCommitmentUpToBatch(ctx context.Context, blockStart, blockEnd, batchCount uint64) (util.HistoryCommitment, error)
 	// Produces a big step history commitment for all big steps within block
 	// challenge heights H to H+1.
 	BigStepLeafCommitment(
@@ -88,6 +88,7 @@ type Manager interface {
 	// Produces a prefix proof in a block challenge from height A to B, but padding states with duplicates after the first state with a batch count of at least the specified max.
 	PrefixProofUpToBatch(
 		ctx context.Context,
+		startHeight,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		batchCount uint64,
@@ -200,8 +201,16 @@ func NewWithAssertionStates(
 		)
 	}
 	stateRoots := make([]common.Hash, len(assertionChainExecutionStates))
+	var lastBatch uint64 = math.MaxUint64
+	var lastPosInBatch uint64 = math.MaxUint64
 	for i := 0; i < len(stateRoots); i++ {
-		stateRoots[i] = protocol.ComputeStateHash(assertionChainExecutionStates[i], inboxMaxCounts[i])
+		state := assertionChainExecutionStates[i]
+		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
+			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
+		}
+		lastBatch = state.GlobalState.Batch
+		lastPosInBatch = state.GlobalState.PosInBatch
+		stateRoots[i] = protocol.ComputeStateHash(state, inboxMaxCounts[i])
 	}
 	s := &Simulated{
 		stateRoots:      stateRoots,
@@ -257,20 +266,24 @@ func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, blockChallengeHei
 	)
 }
 
-func (s *Simulated) statesUpTo(height uint64, nextBatchCount uint64) []common.Hash {
+func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) []common.Hash {
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
-	desiredStatesLen := int(height + 1)
+	desiredStatesLen := int(blockEnd - blockStart + 1)
 	var states []common.Hash
 	var lastState common.Hash
-	for i, state := range s.executionStates {
-		if len(states) >= desiredStatesLen {
+	for i := blockStart; i <= blockEnd; i++ {
+		if i >= uint64(len(s.stateRoots)) {
 			break
 		}
-		leaf := s.stateRoots[i]
-		states = append(states, leaf)
-		lastState = leaf
-		if state.GlobalState.Batch >= nextBatchCount {
+		state := s.stateRoots[i]
+		states = append(states, state)
+		lastState = state
+		if len(s.executionStates) == 0 {
+			// should only happen in tests
+			continue
+		}
+		if s.executionStates[i].GlobalState.Batch >= nextBatchCount {
 			break
 		}
 	}
@@ -280,10 +293,10 @@ func (s *Simulated) statesUpTo(height uint64, nextBatchCount uint64) []common.Ha
 	return states
 }
 
-func (s *Simulated) HistoryCommitmentUpToBatch(ctx context.Context, blockChallengeHeight uint64, nextBatchCount uint64) (util.HistoryCommitment, error) {
+func (s *Simulated) HistoryCommitmentUpToBatch(ctx context.Context, blockStart, blockEnd, nextBatchCount uint64) (util.HistoryCommitment, error) {
 	return util.NewHistoryCommitment(
-		blockChallengeHeight,
-		s.statesUpTo(blockChallengeHeight, nextBatchCount),
+		blockEnd-blockStart,
+		s.statesUpTo(blockStart, blockEnd, nextBatchCount),
 	)
 }
 
@@ -505,10 +518,10 @@ func (s *Simulated) OneStepProofData(
 	return
 }
 
-func (s *Simulated) prefixProofImpl(_ context.Context, lo uint64, hi uint64, batchCount uint64) ([]byte, error) {
-	states := s.statesUpTo(hi, batchCount)
-	loSize := lo + 1
-	hiSize := hi + 1
+func (s *Simulated) prefixProofImpl(_ context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
+	states := s.statesUpTo(start, hi, batchCount)
+	loSize := lo + 1 - start
+	hiSize := hi + 1 - start
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(states[:loSize])
 	if err != nil {
 		return nil, err
@@ -528,11 +541,11 @@ func (s *Simulated) prefixProofImpl(_ context.Context, lo uint64, hi uint64, bat
 }
 
 func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, error) {
-	return s.prefixProofImpl(ctx, lo, hi, math.MaxUint64)
+	return s.prefixProofImpl(ctx, 0, lo, hi, math.MaxUint64)
 }
 
-func (s *Simulated) PrefixProofUpToBatch(ctx context.Context, lo, hi, batchCount uint64) ([]byte, error) {
-	return s.prefixProofImpl(ctx, lo, hi, batchCount)
+func (s *Simulated) PrefixProofUpToBatch(ctx context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
+	return s.prefixProofImpl(ctx, start, lo, hi, batchCount)
 }
 
 func (s *Simulated) BigStepPrefixProof(

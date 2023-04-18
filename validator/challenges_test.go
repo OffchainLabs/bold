@@ -416,9 +416,9 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 
 	honestStartCommit, err := honestManager.HistoryCommitmentUpTo(ctx, 0)
 	require.NoError(t, err)
-	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, protocol.LayerZeroBlockEdgeHeight, 1)
+	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
-	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Log("Alice creates level zero block edge")
@@ -432,9 +432,9 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 
 	evilStartCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, 0)
 	require.NoError(t, err)
-	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, protocol.LayerZeroBlockEdgeHeight, 1)
+	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
-	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Log("Bob creates level zero block edge")
@@ -453,6 +453,7 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 			validatorAddress: alice.address,
 		},
 		honestEdge,
+		0,
 	)
 	require.NoError(t, err)
 
@@ -467,6 +468,7 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 			validatorAddress: bob.address,
 		},
 		evilEdge,
+		0,
 	)
 	require.NoError(t, err)
 

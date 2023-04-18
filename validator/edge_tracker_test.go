@@ -49,6 +49,12 @@ func Test_act(t *testing.T) {
 		).Return(
 			true, nil,
 		)
+		edge.On(
+			"TopLevelClaimEndBatchCount",
+			ctx,
+		).Return(
+			uint64(1), nil,
+		)
 		p.On("SpecChallengeManager", ctx).Return(
 			manager,
 			nil,
@@ -63,6 +69,7 @@ func Test_act(t *testing.T) {
 				chain: p,
 			},
 			edge,
+			0,
 		)
 		require.NoError(t, err)
 		err = tkr.act(ctx)
@@ -99,6 +106,12 @@ func Test_act(t *testing.T) {
 		).Return(
 			false, nil,
 		)
+		edge.On(
+			"TopLevelClaimEndBatchCount",
+			ctx,
+		).Return(
+			uint64(1), nil,
+		)
 		p.On("SpecChallengeManager", ctx).Return(
 			manager,
 			nil,
@@ -114,6 +127,7 @@ func Test_act(t *testing.T) {
 				chain: p,
 			},
 			edge,
+			0,
 		)
 		require.NoError(t, err)
 		err = tkr.act(ctx)
@@ -139,7 +153,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 	})
 	require.NoError(t, err)
 
-	honestManager, err := statemanager.New(createdData.HonestValidatorStateRoots)
+	honestManager, err := statemanager.NewWithAssertionStates(createdData.HonestValidatorStates, createdData.HonestValidatorInboxCounts)
 	require.NoError(t, err)
 
 	honestValidator, err := New(
@@ -152,7 +166,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 	)
 	require.NoError(t, err)
 
-	evilManager, err := statemanager.New(createdData.EvilValidatorStateRoots)
+	evilManager, err := statemanager.NewWithAssertionStates(createdData.EvilValidatorStates, createdData.EvilValidatorInboxCounts)
 	require.NoError(t, err)
 
 	evilValidator, err := New(
@@ -189,6 +203,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 			validatorAddress: honestValidator.address,
 		},
 		honestEdge,
+		0,
 	)
 	require.NoError(t, err)
 
@@ -202,6 +217,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 			validatorAddress: evilValidator.address,
 		},
 		evilEdge,
+		0,
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)

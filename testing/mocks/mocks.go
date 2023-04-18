@@ -20,11 +20,12 @@ var (
 )
 
 type MockAssertion struct {
-	Prev           util.Option[*MockAssertion]
-	MockHeight     uint64
-	MockSeqNum     protocol.AssertionSequenceNumber
-	MockPrevSeqNum protocol.AssertionSequenceNumber
-	MockStateHash  common.Hash
+	Prev                  util.Option[*MockAssertion]
+	MockHeight            uint64
+	MockSeqNum            protocol.AssertionSequenceNumber
+	MockPrevSeqNum        protocol.AssertionSequenceNumber
+	MockStateHash         common.Hash
+	MockInboxMsgCountSeen uint64
 }
 
 func (m *MockAssertion) Height() (uint64, error) {
@@ -43,6 +44,10 @@ func (m *MockAssertion) StateHash() (common.Hash, error) {
 	return m.MockStateHash, nil
 }
 
+func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {
+	return m.MockInboxMsgCountSeen, nil
+}
+
 type MockStateManager struct {
 	mock.Mock
 }
@@ -57,8 +62,8 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uin
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
-func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, height uint64, batchCount uint64) (util.HistoryCommitment, error) {
-	args := m.Called(ctx, height, batchCount)
+func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, startBlock, endBlock, batchCount uint64) (util.HistoryCommitment, error) {
+	args := m.Called(ctx, startBlock, endBlock, batchCount)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
@@ -67,8 +72,8 @@ func (m *MockStateManager) PrefixProof(ctx context.Context, from, to uint64) ([]
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, from, to, batchCount uint64) ([]byte, error) {
-	args := m.Called(ctx, from, to, batchCount)
+func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, start, from, to, batchCount uint64) ([]byte, error) {
+	args := m.Called(ctx, start, from, to, batchCount)
 	return args.Get(0).([]byte), args.Error(1)
 }
 

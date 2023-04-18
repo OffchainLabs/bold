@@ -96,6 +96,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			ctx,
 			et.cfg,
 			firstChild,
+			et.startBlockHeight,
 		)
 		if err != nil {
 			log.WithError(err).WithFields(fields).Error("Could not create new vertex tracker")
@@ -105,6 +106,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			ctx,
 			et.cfg,
 			secondChild,
+			et.startBlockHeight,
 		)
 		if err != nil {
 			log.WithError(err).WithFields(fields).Error("Could not create new vertex tracker")
@@ -144,11 +146,11 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 		return util.HistoryCommitment{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
 	if et.edge.GetType() == protocol.BlockChallengeEdge {
-		historyCommit, commitErr := et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, bisectTo, et.topLevelClaimEndBatchCount)
+		historyCommit, commitErr := et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, et.startBlockHeight+bisectTo, et.topLevelClaimEndBatchCount)
 		if commitErr != nil {
 			return util.HistoryCommitment{}, nil, commitErr
 		}
-		proof, proofErr := et.cfg.stateManager.PrefixProof(ctx, bisectTo, uint64(endHeight))
+		proof, proofErr := et.cfg.stateManager.PrefixProofUpToBatch(ctx, et.startBlockHeight, bisectTo, uint64(endHeight), et.topLevelClaimEndBatchCount)
 		if proofErr != nil {
 			return util.HistoryCommitment{}, nil, proofErr
 		}
@@ -253,45 +255,49 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 	switch et.edge.GetType() {
 	case protocol.BlockChallengeEdge:
 		log.WithFields(fields).Info("Big step leaf commit")
-		startHistory, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, 0)
+		fromBlock := fromAssertionHeight + et.startBlockHeight
+		toBlock := toAssertionHeight + et.startBlockHeight
+		startHistory, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromBlock, toBlock, 0)
 		if err != nil {
 			return err
 		}
-		endHistory, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
+		endHistory, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, fromBlock, toBlock)
 		if err != nil {
 			return err
 		}
-		startParentCommitment, err = et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, uint64(fromAssertionHeight), et.topLevelClaimEndBatchCount)
+		startParentCommitment, err = et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, fromBlock, et.topLevelClaimEndBatchCount)
 		if err != nil {
 			return err
 		}
-		endParentCommitment, err = et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, uint64(toAssertionHeight), et.topLevelClaimEndBatchCount)
+		endParentCommitment, err = et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, toBlock, et.topLevelClaimEndBatchCount)
 		if err != nil {
 			return err
 		}
-		startEndPrefixProof, err = et.cfg.stateManager.BigStepPrefixProof(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), 0, endHistory.Height)
+		startEndPrefixProof, err = et.cfg.stateManager.BigStepPrefixProof(ctx, fromBlock, toBlock, 0, endHistory.Height)
 		if err != nil {
 			return err
 		}
 	case protocol.BigStepChallengeEdge:
 		log.WithFields(fields).Info("Small step leaf commit")
-		startHistory, err = et.cfg.stateManager.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, uint64(startHeight), uint64(endHeight), 0)
+		fromBlock := fromAssertionHeight + et.startBlockHeight
+		toBlock := toAssertionHeight + et.startBlockHeight
+		startHistory, err = et.cfg.stateManager.SmallStepCommitmentUpTo(ctx, fromBlock, toBlock, uint64(startHeight), uint64(endHeight), 0)
 		if err != nil {
 			return err
 		}
-		endHistory, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight), uint64(endHeight))
+		endHistory, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, fromBlock, toBlock, uint64(startHeight), uint64(endHeight))
 		if err != nil {
 			return err
 		}
-		startParentCommitment, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight))
+		startParentCommitment, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromBlock, toBlock, uint64(startHeight))
 		if err != nil {
 			return err
 		}
-		endParentCommitment, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(endHeight))
+		endParentCommitment, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromBlock, toBlock, uint64(endHeight))
 		if err != nil {
 			return err
 		}
-		startEndPrefixProof, err = et.cfg.stateManager.SmallStepPrefixProof(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight), uint64(endHeight), 0, endHistory.Height)
+		startEndPrefixProof, err = et.cfg.stateManager.SmallStepPrefixProof(ctx, fromBlock, toBlock, uint64(startHeight), uint64(endHeight), 0, endHistory.Height)
 		if err != nil {
 			return err
 		}
@@ -323,6 +329,7 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		ctx,
 		et.cfg,
 		addedLeaf,
+		et.startBlockHeight,
 	)
 	if err != nil {
 		return err
@@ -387,6 +394,7 @@ type edgeTracker struct {
 	cfg                        *edgeTrackerConfig
 	edge                       protocol.SpecEdge
 	fsm                        *util.Fsm[edgeTrackerAction, edgeTrackerState]
+	startBlockHeight           uint64
 	topLevelClaimEndBatchCount uint64
 }
 
@@ -394,6 +402,7 @@ func newEdgeTracker(
 	ctx context.Context,
 	cfg *edgeTrackerConfig,
 	edge protocol.SpecEdge,
+	startHeightOffset uint64,
 	fsmOpts ...util.FsmOpt[edgeTrackerAction, edgeTrackerState],
 ) (*edgeTracker, error) {
 	fsm, err := newEdgeTrackerFsm(
@@ -411,6 +420,7 @@ func newEdgeTracker(
 		cfg:                        cfg,
 		edge:                       edge,
 		fsm:                        fsm,
+		startBlockHeight:           startHeightOffset,
 		topLevelClaimEndBatchCount: topLevelClaimEndBatchCount,
 	}, nil
 }
