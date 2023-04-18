@@ -190,33 +190,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 ),
                 "End state is not consistent with the claim"
             );
-            // we check that the states are consistent with the roots in the arguments below
+            // check that the start state is consistent with the root in the argument
+            require(args.startHistoryRoot == keccak256(abi.encodePacked(startState)), "Start history root does not match mutual startHistoryRoot");
+            // we check that the end state is consistent with the roots in the arguments below
 
             ChallengeEdge storage topLevelEdge;
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
-
-                // we've already checked that the startState and endState are consistent with the claim
-                // before we check if they're consistent with the new roots in the args,
-                // we need to transform the state hashes from global state hashes (used by block challenges)
-                // into machine hashes (used by big & small step execution challenges)
-
-                {
-                    // Use prev wasmModuleRoot for all its succession challenges
-                    bytes32 wasmModuleRoot = assertionChain.getWasmModuleRoot(claimEdge.originId);
-
-                    // TODO: In the old rollup, we allowed proving that the machine entered the ERRORED state.
-                    // That effectively paused the rollup until the security council took action to upgrade it.
-                    // It added additional complexity, but I think it's worth implementing.
-                    // Without it, if the machine enters the ERRORED state, it's hard to dispute a false assertion
-                    // that it successfully reaches some other outcome.
-                    // We'd need some mechanism for that regardless.
-                    MachineStatus endMachineStatus = MachineStatus.FINISHED;
-
-                    startState = oneStepProofEntry.getStartMachineHash(startState, wasmModuleRoot);
-                    endState = oneStepProofEntry.getEndMachineHash(MachineStatus.FINISHED, endState);
-                }
 
                 // check the endState is consistent with the endHistoryRoot
                 require(
@@ -251,9 +232,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             } else {
                 revert("Unexpected challenge type");
             }
-
-            // check that the start state is consistent with the root in the argument
-            require(args.startHistoryRoot == keccak256(abi.encodePacked(startState)), "Start history root does not match mutual startHistoryRoot");
 
             // check if the top level challenge has reached the end time
             require(block.timestamp - topLevelEdge.createdWhen < challengePeriodSec, "Challenge period has expired");

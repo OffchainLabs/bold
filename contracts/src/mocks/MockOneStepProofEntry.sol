@@ -12,18 +12,4 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
     ) external view returns (bytes32 afterHash) {
         return bytes32(proof);
     }
-
-    function getStartMachineHash(
-        bytes32 globalStateHash,
-        bytes32 wasmModuleRoot
-    ) external pure returns (bytes32) {
-        return globalStateHash;
-    }
-
-    function getEndMachineHash(
-        MachineStatus status,
-        bytes32 globalStateHash
-    ) external pure returns (bytes32) {
-        return globalStateHash;
-    }
 }

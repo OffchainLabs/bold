@@ -15,20 +15,6 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
     {
         return bytes32(proof);
     }
-
-    function getStartMachineHash(
-        bytes32 globalStateHash,
-        bytes32 wasmModuleRoot
-    ) external pure returns (bytes32) {
-        return globalStateHash;
-    }
-
-    function getEndMachineHash(
-        MachineStatus status,
-        bytes32 globalStateHash
-    ) external pure returns (bytes32) {
-        return globalStateHash;
-    }
 }
 
 contract EdgeChallengeManagerTest is Test {
