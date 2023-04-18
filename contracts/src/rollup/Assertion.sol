@@ -36,7 +36,6 @@ struct AssertionNode {
     // HN: TODO: Add new fields below
     uint64 secondChildBlock;
     // HN: TODO: Adding these for simplier getter, but these should be proved from the hashes
-    uint256 height; // in stateHash // TODO: This can be removed as block edge height is constant
     bool isFirstChild; // in assertionHash
     // HN: TODO: Pick block or timestamp
     uint256 firstChildTime;
@@ -73,7 +72,6 @@ library AssertionNodeLib {
         uint64 _prevNum,
         uint64 _deadlineBlock,
         bytes32 _assertionHash,
-        uint256 _height,
         bool _isFirstChild
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
@@ -85,7 +83,6 @@ library AssertionNodeLib {
         assertion.noChildConfirmedBeforeBlock = _deadlineBlock;
         assertion.createdAtBlock = uint64(block.number);
         assertion.assertionHash = _assertionHash;
-        assertion.height = _height;
         assertion.isFirstChild = _isFirstChild;
         return assertion;
     }

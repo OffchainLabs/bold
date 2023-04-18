@@ -640,7 +640,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
                 newAssertionHash,
-                assertion.numBlocks + memoryFrame.prevAssertion.height,
                 !memoryFrame.hasSibling
             );
         }
@@ -659,7 +658,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         emit AssertionCreated(
             latestAssertionCreated(),
-            assertion.numBlocks + memoryFrame.prevAssertion.height,
             memoryFrame.prevAssertion.assertionHash,
             newAssertionHash,
             memoryFrame.executionHash,
@@ -678,7 +676,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function getHeight(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).height;
+        revert("DEPRECATED");
     }
 
     function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256){
