@@ -642,7 +642,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable, IAssertionChai
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
                 newAssertionHash,
-                assertion.numBlocks + memoryFrame.prevAssertion.height,
                 memoryFrame.currentInboxSize,
                 !memoryFrame.hasSibling
             );
@@ -662,7 +661,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable, IAssertionChai
 
         emit AssertionCreated(
             latestAssertionCreated(),
-            assertion.numBlocks + memoryFrame.prevAssertion.height,
             memoryFrame.prevAssertion.assertionHash,
             newAssertionHash,
             memoryFrame.executionHash,
@@ -681,7 +679,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable, IAssertionChai
     }
 
     function getHeight(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).height;
+        revert("DEPRECATED");
     }
 
     function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256){
