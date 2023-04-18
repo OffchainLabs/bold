@@ -201,14 +201,11 @@ library ChallengeManagerLib {
             "Challenge is not at one step execution point"
         );
 
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                vertices[predecessorId].historyRoot,
-                oneStepData.beforeHash,
-                oneStepData.machineStep,
-                beforeHistoryInclusionProof
-            ),
-            "Before state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            vertices[predecessorId].historyRoot,
+            oneStepData.beforeHash,
+            oneStepData.machineStep,
+            beforeHistoryInclusionProof
         );
 
         // CHRIS: TODO: validate the execCtx?
@@ -216,11 +213,8 @@ library ChallengeManagerLib {
             oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
         );
 
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                vertices[winnerVId].historyRoot, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof
-            ),
-            "After state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            vertices[winnerVId].historyRoot, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof
         );
 
         return challengeId;
