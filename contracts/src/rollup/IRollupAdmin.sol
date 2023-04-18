@@ -8,7 +8,7 @@ import "./IRollupCore.sol";
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IOutbox.sol";
 import "../bridge/IOwnable.sol";
-import "./ContractDependencies.sol";
+import "./Config.sol";
 
 interface IRollupAdmin {
     event OwnerFunctionCalled(uint256 indexed id);

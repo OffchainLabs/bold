@@ -12,7 +12,6 @@ import "../bridge/IOutbox.sol";
 import "../bridge/IInbox.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupLogic.sol";
-import "./IRollupAdmin.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
 
 struct Config {
@@ -37,7 +36,7 @@ struct ContractDependencies {
     IOutbox outbox;
     IRollupEventInbox rollupEventInbox;
     IEdgeChallengeManager challengeManager;
-    IRollupAdmin rollupAdminLogic;
+    address rollupAdminLogic; // this cannot be IRollupAdmin because of circular dependencies
     IRollupUser rollupUserLogic;
     // misc contracts that are useful when interacting with the rollup
     address validatorUtils;
