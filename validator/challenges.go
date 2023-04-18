@@ -33,6 +33,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 
 	// Start tracking the challenge.
 	tracker, err := newEdgeTracker(
+		ctx,
 		&edgeTrackerConfig{
 			timeRef:          v.timeRef,
 			actEveryNSeconds: v.edgeTrackerWakeInterval,
@@ -90,9 +91,13 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+	startEndPrefixProof, err := v.stateManager.PrefixProof(ctx, prevHeight, assertionHeight)
+	if err != nil {
+		return nil, err
+	}
 	manager, err := v.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit)
+	return manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
 }

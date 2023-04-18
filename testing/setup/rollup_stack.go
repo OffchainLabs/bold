@@ -199,7 +199,7 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	challengePeriodSeconds := big.NewInt(100)
+	challengePeriodSeconds := big.NewInt(200)
 	miniStake := big.NewInt(1)
 	cfg := challenge_testing.GenerateRollupConfig(
 		prod,
@@ -449,7 +449,7 @@ func deployChallengeFactory(
 		auth,
 		backend,
 		assertionChainAddr,
-		big.NewInt(1), // TODO: Challenge period length.
+		big.NewInt(10), // TODO: Challenge period length.
 		ospEntryAddr,
 	)
 	backend.Commit()

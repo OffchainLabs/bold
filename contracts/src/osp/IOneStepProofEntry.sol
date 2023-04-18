@@ -17,4 +17,14 @@ interface IOneStepProofEntry {
         bytes32 beforeHash,
         bytes calldata proof
     ) external view returns (bytes32 afterHash);
+
+    function getStartMachineHash(
+        bytes32 globalStateHash,
+        bytes32 wasmModuleRoot
+    ) external pure returns (bytes32);
+
+    function getEndMachineHash(
+        MachineStatus status,
+        bytes32 globalStateHash
+    ) external pure returns (bytes32);
 }

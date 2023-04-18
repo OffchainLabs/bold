@@ -58,6 +58,7 @@ func Test_act(t *testing.T) {
 			nil,
 		)
 		tkr, err := newEdgeTracker(
+			ctx,
 			&edgeTrackerConfig{
 				chain: p,
 			},
@@ -108,6 +109,7 @@ func Test_act(t *testing.T) {
 		)
 
 		tkr, err := newEdgeTracker(
+			ctx,
 			&edgeTrackerConfig{
 				chain: p,
 			},
@@ -178,6 +180,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 	require.NoError(t, err)
 	require.Equal(t, false, !hasRival)
 	tracker1, err := newEdgeTracker(
+		ctx,
 		&edgeTrackerConfig{
 			timeRef:          util.NewArtificialTimeReference(),
 			chain:            honestValidator.chain,
@@ -190,6 +193,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 	require.NoError(t, err)
 
 	tracker2, err := newEdgeTracker(
+		ctx,
 		&edgeTrackerConfig{
 			timeRef:          util.NewArtificialTimeReference(),
 			chain:            evilValidator.chain,

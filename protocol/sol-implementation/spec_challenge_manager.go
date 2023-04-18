@@ -9,13 +9,29 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
+
+var rollupAssertionCreatedId common.Hash
+
+func init() {
+	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
+	if err != nil {
+		panic(err)
+	}
+	event, ok := abi.Events["AssertionCreated"]
+	if !ok {
+		panic("Didn't find AssertionCreated event")
+	}
+	rollupAssertionCreatedId = event.ID
+}
 
 func (e *SpecEdge) Id() protocol.EdgeId {
 	return e.id
@@ -226,6 +242,51 @@ func (e *SpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHei
 	}
 }
 
+func (e *SpecEdge) TopLevelClaimEndBatchCount(ctx context.Context) (uint64, error) {
+	// TODO: presumably, this should be stored with the edge in Solidity. I think it'll be needed there anyways.
+	// I think we could also in Go pass it down from parent to child but I don't want to refactor that right now.
+	callOpts := &bind.CallOpts{Context: ctx}
+	// Find the parent assertion of this challenge
+	parentId := e.inner.OriginId
+	for {
+		exists, err := e.manager.caller.EdgeExists(callOpts, parentId)
+		if err != nil {
+			return 0, err
+		}
+		if !exists {
+			rival, err := e.manager.caller.FirstRival(callOpts, parentId)
+			if err != nil {
+				return 0, err
+			}
+			if rival != (common.Hash{}) {
+				parentId = rival
+				exists = true
+			}
+		}
+		if !exists {
+			break
+		}
+		edge, err := e.manager.caller.GetEdge(callOpts, parentId)
+		if err != nil {
+			return 0, err
+		}
+		parentId = edge.OriginId
+	}
+	rollup := e.manager.assertionChain.rollup
+	assertionNum, err := rollup.GetAssertionNum(callOpts, parentId)
+	if err != nil {
+		return 0, err
+	}
+	assertion, err := rollup.GetAssertion(callOpts, assertionNum)
+	if err != nil {
+		return 0, err
+	}
+	if !assertion.InboxMsgCountSeen.IsUint64() {
+		return 0, fmt.Errorf("assertion %v inbox max count seen %v is not a uint64", assertionNum, assertion.InboxMsgCountSeen)
+	}
+	return assertion.InboxMsgCountSeen.Uint64(), nil
+}
+
 // SpecChallengeManager is a wrapper around the challenge manager contract.
 type SpecChallengeManager struct {
 	addr           common.Address
@@ -365,11 +426,29 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 	return err
 }
 
+// Like abi.NewType but panics if it fails for use in constants
+func newStaticType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
+	ty, err := abi.NewType(t, internalType, components)
+	if err != nil {
+		panic(err)
+	}
+	return ty
+}
+
+var bytes32Type = newStaticType("bytes32", "", nil)
+var bytes32ArrayType = newStaticType("bytes32[]", "", []abi.ArgumentMarshaling{{Type: "bytes32"}})
+
+var blockEdgeProofAbi = abi.Arguments{{
+	Name: "inclusionProof",
+	Type: bytes32ArrayType,
+}}
+
 func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
 	startCommit util.HistoryCommitment,
 	endCommit util.HistoryCommitment,
+	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
 	assertionId, err := cm.assertionChain.GetAssertionId(ctx, assertion.SeqNum())
 	if err != nil {
@@ -387,6 +466,31 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+	if startCommit.Height != 0 {
+		return nil, fmt.Errorf("start commit has unexpected height %v (expected 0)", startCommit.Height)
+	}
+	if endCommit.Height != protocol.LayerZeroBlockEdgeHeight {
+		return nil, fmt.Errorf("end commit has unexpected height %v (expected %v)", startCommit.Height, protocol.LayerZeroBlockEdgeHeight)
+	}
+	if startCommit.FirstLeaf != endCommit.FirstLeaf {
+		return nil, fmt.Errorf("start commit first leaf %v didn't match end commit first leaf %v", startCommit.FirstLeaf, endCommit.FirstLeaf)
+	}
+	blockEdgeProof, err := blockEdgeProofAbi.Pack(endCommit.LastLeafProof)
+	if err != nil {
+		return nil, err
+	}
+	if true { // Lee TODO: remove (this was just for debugging)
+		h, err := cm.assertionChain.rollup.GetStateHash(&bind.CallOpts{}, prevAssertionId)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("before hash: %v vs %v\n", common.Hash(h), startCommit.FirstLeaf)
+		h, err = cm.assertionChain.rollup.GetStateHash(&bind.CallOpts{}, assertionId)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("end hash: %v vs %v\n", common.Hash(h), endCommit.LastLeaf)
+	}
 	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
@@ -398,9 +502,8 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 				EndHeight:        big.NewInt(int64(endCommit.Height)),
 				ClaimId:          assertionId,
 			},
-			// TODO: Add inclusion proofs.
-			make([]byte, 0),
-			make([]byte, 0),
+			startEndPrefixProof,
+			blockEdgeProof,
 		)
 	})
 	if err != nil {
@@ -429,11 +532,37 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	return someLevelZeroEdge.Unwrap(), nil
 }
 
+var subchallengeEdgeProofAbi = abi.Arguments{
+	{
+		Name: "startState",
+		Type: bytes32Type,
+	},
+	{
+		Name: "endState",
+		Type: bytes32Type,
+	},
+	{
+		Name: "claimStartInclusionProof",
+		Type: bytes32ArrayType,
+	},
+	{
+		Name: "claimEndInclusionProof",
+		Type: bytes32ArrayType,
+	},
+	{
+		Name: "edgeInclusionProof",
+		Type: bytes32ArrayType,
+	},
+}
+
 func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	ctx context.Context,
 	challengedEdge protocol.SpecEdge,
 	startCommit util.HistoryCommitment,
 	endCommit util.HistoryCommitment,
+	startParentInclusionProof []common.Hash,
+	endParentInclusionProof []common.Hash,
+	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
 	var subChalTyp protocol.EdgeType
 	switch challengedEdge.GetType() {
@@ -444,7 +573,11 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	default:
 		return nil, fmt.Errorf("cannot open level zero edge beneath small step challenge: %s", challengedEdge.GetType())
 	}
-	_, err := transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
+	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(startCommit.FirstLeaf, endCommit.LastLeaf, startParentInclusionProof, endParentInclusionProof, endCommit.LastLeafProof)
+	if err != nil {
+		return nil, err
+	}
+	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
@@ -455,9 +588,8 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 				EndHeight:        big.NewInt(int64(endCommit.Height)),
 				ClaimId:          challengedEdge.Id(),
 			},
-			// TODO: Add inclusion proofs.
-			make([]byte, 0),
-			make([]byte, 0),
+			startEndPrefixProof,
+			subchallengeEdgeProof,
 		)
 	})
 	if err != nil {

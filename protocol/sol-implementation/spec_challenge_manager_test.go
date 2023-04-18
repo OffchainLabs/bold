@@ -50,12 +50,13 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
 			startCommit,
 			endCommit,
+			prefixProof,
 		)
 		require.NoError(t, err)
 		return edge
@@ -65,8 +66,10 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
+	honestPrefixProof, err := honestStateManager.PrefixProof(ctx, 0, uint64(height))
+	require.NoError(t, err)
 
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
@@ -79,8 +82,10 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.NoError(t, err)
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
+	evilPrefixProof, err := evilStateManager.PrefixProof(ctx, 0, uint64(height))
+	require.NoError(t, err)
 
-	evilEdge := leafAdder(evilStartCommit, evilEndCommit, createdData.Leaf2)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
@@ -238,13 +243,15 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	require.NoError(t, err)
 	end, err := honestStateManager.HistoryCommitmentUpTo(ctx, height)
 	require.NoError(t, err)
+	prefixProof, err := honestStateManager.PrefixProof(ctx, 0, height)
+	require.NoError(t, err)
 
 	t.Run("OK", func(t *testing.T) {
-		_, err = challengeManager.AddBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1, start, end)
+		_, err = challengeManager.AddBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1, start, end, prefixProof)
 		require.NoError(t, err)
 	})
 	t.Run("already exists", func(t *testing.T) {
-		_, err = challengeManager.AddBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1, start, end)
+		_, err = challengeManager.AddBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1, start, end, prefixProof)
 		require.ErrorContains(t, err, "already exists")
 	})
 }
@@ -656,12 +663,13 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
 			startCommit,
 			endCommit,
+			prefixProof,
 		)
 		require.NoError(t, err)
 		return edge
@@ -670,7 +678,9 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
 	require.NoError(t, err)
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
+	honestPrefixProof, err := honestStateManager.PrefixProof(ctx, 0, uint64(height))
+	require.NoError(t, err)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, createdData.Leaf1)
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgePending, s0)
@@ -749,12 +759,13 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
 			startCommit,
 			endCommit,
+			prefixProof,
 		)
 		require.NoError(t, err)
 		return edge
@@ -763,8 +774,10 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(topLevelHeight))
 	require.NoError(t, err)
+	honestPrefixProof, err := honestStateManager.PrefixProof(ctx, 0, uint64(topLevelHeight))
+	require.NoError(t, err)
 
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, createdData.Leaf1)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -780,8 +793,10 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(topLevelHeight))
 	require.NoError(t, err)
+	evilPrefixProof, err := evilStateManager.PrefixProof(ctx, 0, uint64(topLevelHeight))
+	require.NoError(t, err)
 
-	evilEdge := leafAdder(evilStartCommit, evilEndCommit, createdData.Leaf2)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	// Honest and evil edge are rivals, neither is presumptive.

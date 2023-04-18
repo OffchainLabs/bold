@@ -57,8 +57,18 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uin
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
 }
 
+func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, height uint64, batchCount uint64) (util.HistoryCommitment, error) {
+	args := m.Called(ctx, height, batchCount)
+	return args.Get(0).(util.HistoryCommitment), args.Error(1)
+}
+
 func (m *MockStateManager) PrefixProof(ctx context.Context, from, to uint64) ([]byte, error) {
 	args := m.Called(ctx, from, to)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, from, to, batchCount uint64) ([]byte, error) {
+	args := m.Called(ctx, from, to, batchCount)
 	return args.Get(0).([]byte), args.Error(1)
 }
 
@@ -213,8 +223,9 @@ func (m *MockSpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	assertion protocol.Assertion,
 	startCommit util.HistoryCommitment,
 	endCommit util.HistoryCommitment,
+	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
-	args := m.Called(ctx, assertion, startCommit, endCommit)
+	args := m.Called(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
 	return args.Get(0).(protocol.SpecEdge), args.Error(1)
 }
 
@@ -223,6 +234,9 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	challengedEdge protocol.SpecEdge,
 	startCommit util.HistoryCommitment,
 	endCommit util.HistoryCommitment,
+	startParentInclusionProof []common.Hash,
+	endParentInclusionProof []common.Hash,
+	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
 	args := m.Called(ctx, challengedEdge, startCommit, endCommit)
 	return args.Get(0).(protocol.SpecEdge), args.Error(1)
@@ -266,6 +280,10 @@ func (m *MockSpecEdge) EndCommitment() (protocol.Height, common.Hash) {
 func (m *MockSpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHeights, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
+}
+func (m *MockSpecEdge) TopLevelClaimEndBatchCount(ctx context.Context) (uint64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(uint64), args.Error(1)
 }
 func (m *MockSpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	args := m.Called(ctx)

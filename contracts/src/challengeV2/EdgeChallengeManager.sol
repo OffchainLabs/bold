@@ -70,7 +70,7 @@ interface IEdgeChallengeManager {
 struct CreateEdgeArgs {
     EdgeType edgeType;
     bytes32 startHistoryRoot;
-    uint256 startHeight;
+    uint256 startHeight; // TODO: This isn't necessary because it's always 0. Do we want it?
     bytes32 endHistoryRoot;
     uint256 endHeight;
     bytes32 claimId;
@@ -152,7 +152,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                     inclusionProof
                 ),
                 "End history root does not include claim"
-            );          
+            );
 
             // HN: TODO: do we want to enforce this here? if no block edge is created the rollup cannot confirm by timer on its own
             // HN: TODO: spec said 2 challenge period, should we change it to 1?
@@ -166,29 +166,60 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             require(claimEdge.status == EdgeStatus.Pending, "Claim is not pending");
             require(store.hasLengthOneRival(args.claimId), "Claim does not have length 1 rival");
 
-            // check that the start history root match the mutual startHistoryRoot
-            require(args.startHistoryRoot == claimEdge.startHistoryRoot, "Start history root does not match mutual startHistoryRoot");
-
             require(proof.length > 0, "Edge type specific proof is empty");
-            (bytes32 endState, bytes32[] memory claimInclusionProof, bytes32[] memory edgeInclusionProof) = abi.decode(proof, (bytes32, bytes32[], bytes32[]));
+            (bytes32 startState, bytes32 endState, bytes32[] memory claimStartInclusionProof, bytes32[] memory claimEndInclusionProof, bytes32[] memory edgeInclusionProof) =
+                abi.decode(proof, (bytes32, bytes32, bytes32[], bytes32[], bytes32[]));
 
-            // if endState is consistent with the claim and endHistoryRoot, then endHistoryRoot is consistent with the claim
-            // check the endState is consistent with the claim
+            // if the start and end states are consistent with both the claim the roots in the arguments, then the roots in the arguments are consistent with the claim
+            // check the states are consistent with the claims
+            require(
+                MerkleTreeLib.verifyInclusionProof(
+                    claimEdge.startHistoryRoot,
+                    startState,
+                    claimEdge.startHeight,
+                    claimStartInclusionProof
+                ),
+                "Start state is not consistent with the claim"
+            );
             require(
                 MerkleTreeLib.verifyInclusionProof(
                     claimEdge.endHistoryRoot,
                     endState,
-                    1,
-                    claimInclusionProof
+                    claimEdge.endHeight,
+                    claimEndInclusionProof
                 ),
-                "End state does not consistent with the claim"
+                "End state is not consistent with the claim"
             );
-            // we check the endState is consistent with the endHistoryRoot within the below block
+            // we check that the states are consistent with the roots in the arguments below
 
             ChallengeEdge storage topLevelEdge;
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
                 require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
+
+                // we've already checked that the startState and endState are consistent with the claim
+                // before we check if they're consistent with the new roots in the args,
+                // we need to transform the state hashes from global state hashes (used by block challenges)
+                // into machine hashes (used by big & small step execution challenges)
+
+                {
+                    // TODO: This determines what code we're executing to determine the correct block.
+                    // In the old rollup, each assertion stored the current wasmModuleRoot of the rollup,
+                    // so that if the wasmModuleRoot was upgraded it could never invalidate old assertions.
+                    // I'd recommend keeping this paradigm, but it seems out of scope for the change I'm writing.
+                    bytes32 wasmModuleRoot;
+
+                    // TODO: In the old rollup, we allowed proving that the machine entered the ERRORED state.
+                    // That effectively paused the rollup until the security council took action to upgrade it.
+                    // It added additional complexity, but I think it's worth implementing.
+                    // Without it, if the machine enters the ERRORED state, it's hard to dispute a false assertion
+                    // that it successfully reaches some other outcome.
+                    // We'd need some mechanism for that regardless.
+                    MachineStatus endMachineStatus = MachineStatus.FINISHED;
+
+                    startState = oneStepProofEntry.getStartMachineHash(startState, wasmModuleRoot);
+                    endState = oneStepProofEntry.getEndMachineHash(MachineStatus.FINISHED, endState);
+                }
 
                 // check the endState is consistent with the endHistoryRoot
                 require(
@@ -223,6 +254,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             } else {
                 revert("Unexpected challenge type");
             }
+
+            // check that the start state is consistent with the root in the argument
+            require(args.startHistoryRoot == keccak256(abi.encodePacked(startState)), "Start history root does not match mutual startHistoryRoot");
 
             // check if the top level challenge has reached the end time
             require(block.timestamp - topLevelEdge.createdWhen < challengePeriodSec, "Challenge period has expired");

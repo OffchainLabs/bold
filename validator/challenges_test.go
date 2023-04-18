@@ -78,26 +78,27 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			numSmallStepsAtBigStep:       7,
 			smallStepDivergenceHeight:    4,
 		}
-		cfg.expectedLeavesAdded = 18
-		cfg.expectedBisections = 36
+		cfg.expectedLeavesAdded = 30
+		cfg.expectedBisections = 60
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
 		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
-	t.Run("two validators opening leaves at height 255", func(t *testing.T) {
+	t.Run("two validators opening leaves at height 31", func(t *testing.T) {
+		// TODO: we would use a larger height here but we're limited by protocol.LayerZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
-			currentChainHeight:           255,
-			aliceHeight:                  255,
-			bobHeight:                    255,
+			currentChainHeight:           31,
+			aliceHeight:                  31,
+			bobHeight:                    31,
 			assertionDivergenceHeight:    4,
 			numBigStepsAtAssertionHeight: 7,
 			bigStepDivergenceHeight:      4,
 			numSmallStepsAtBigStep:       7,
 			smallStepDivergenceHeight:    4,
 		}
-		cfg.expectedLeavesAdded = 28
-		cfg.expectedBisections = 56
+		cfg.expectedLeavesAdded = 30
+		cfg.expectedBisections = 60
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
@@ -165,14 +166,19 @@ func prepareHonestStates(
 		backend.Commit()
 		state := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
-				BlockHash: honestHashes[i],
-				Batch:     1,
+				BlockHash:  honestHashes[i],
+				Batch:      0,
+				PosInBatch: i,
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
+		if i == chainHeight {
+			state.GlobalState.Batch = 1
+			state.GlobalState.PosInBatch = 0
+		}
 
 		honestStates[i] = state
-		honestInboxCounts[i] = big.NewInt(1)
+		honestInboxCounts[i] = big.NewInt(2)
 	}
 	return honestStates, honestInboxCounts
 }
@@ -197,13 +203,14 @@ func prepareMaliciousStates(
 		} else {
 			evilState := &protocol.ExecutionState{
 				GlobalState: protocol.GoGlobalState{
-					BlockHash: evilHashes[j],
-					Batch:     1,
+					BlockHash:  evilHashes[j],
+					Batch:      honestStates[j].GlobalState.Batch,
+					PosInBatch: honestStates[j].GlobalState.PosInBatch,
 				},
 				MachineStatus: protocol.MachineStatusFinished,
 			}
 			states[j] = evilState
-			inboxCounts[j] = big.NewInt(1)
+			inboxCounts[j] = big.NewInt(2)
 		}
 	}
 	return states, inboxCounts
@@ -254,8 +261,8 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	honestManager, err := statemanager.NewWithAssertionStates(
 		honestStates,
 		honestInboxCounts,
-		statemanager.WithMaxWavmOpcodesPerBlock(49), // TODO(RJ): Configure.
-		statemanager.WithNumOpcodesPerBigStep(7),
+		statemanager.WithNumOpcodesPerBigStep(protocol.LayerZeroSmallStepEdgeHeight),
+		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LayerZeroBigStepEdgeHeight*protocol.LayerZeroSmallStepEdgeHeight),
 	)
 	require.NoError(t, err)
 	aliceAddr := accs[1].AccountAddr
@@ -276,8 +283,8 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	maliciousManager, err := statemanager.NewWithAssertionStates(
 		maliciousStates,
 		maliciousInboxCounts,
-		statemanager.WithMaxWavmOpcodesPerBlock(49), // TODO(RJ): Configure.
-		statemanager.WithNumOpcodesPerBigStep(7),
+		statemanager.WithNumOpcodesPerBigStep(protocol.LayerZeroSmallStepEdgeHeight),
+		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LayerZeroBigStepEdgeHeight*protocol.LayerZeroSmallStepEdgeHeight),
 		statemanager.WithBigStepStateDivergenceHeight(cfg.bigStepDivergenceHeight),
 		statemanager.WithSmallStepStateDivergenceHeight(cfg.smallStepDivergenceHeight),
 	)
@@ -343,6 +350,9 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	// Submit leaf creation manually for each validator.
 	latestHonest, err := honestManager.LatestAssertionCreationData(ctx, 0)
 	require.NoError(t, err)
+	inboxMaxCount := big.NewInt(2)
+	// TODO: this field is broken :/ see the comment in LatestAssertionCreationData
+	//assert.Equal(t, latestHonest.InboxMaxCount, inboxSize, "honest assertion has an incorrect InboxMaxCount")
 	leaf1, err := alice.chain.CreateAssertion(
 		ctx,
 		latestHonest.Height,
@@ -352,6 +362,10 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		latestHonest.InboxMaxCount,
 	)
 	require.NoError(t, err)
+	leaf1State, err := leaf1.StateHash()
+	require.NoError(t, err)
+	expectedLeaf1State := protocol.ComputeStateHash(latestHonest.PostState, inboxMaxCount)
+	assert.Equal(t, leaf1State, expectedLeaf1State, "created honest leaf1 with an unexpected state hash")
 
 	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx, 0)
 	require.NoError(t, err)
@@ -364,14 +378,19 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		latestEvil.InboxMaxCount,
 	)
 	require.NoError(t, err)
+	leaf2State, err := leaf2.StateHash()
+	require.NoError(t, err)
+	expectedLeaf2State := protocol.ComputeStateHash(latestEvil.PostState, inboxMaxCount)
+	assert.Equal(t, leaf2State, expectedLeaf2State, "created evil leaf2 with an unexpected state hash")
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
 			startCommit,
 			endCommit,
+			prefixProof,
 		)
 		require.NoError(t, err)
 		return edge
@@ -379,12 +398,14 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 
 	honestStartCommit, err := honestManager.HistoryCommitmentUpTo(ctx, 0)
 	require.NoError(t, err)
-	honestEndCommit, err := honestManager.HistoryCommitmentUpTo(ctx, latestHonest.Height)
+	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, protocol.LayerZeroBlockEdgeHeight, 1)
+	require.NoError(t, err)
+	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Log("Alice creates level zero block edge")
 
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, leaf1)
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	hasRival, err := honestEdge.HasRival(ctx)
@@ -393,15 +414,18 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 
 	evilStartCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, 0)
 	require.NoError(t, err)
-	evilEndCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, uint64(latestEvil.Height))
+	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, protocol.LayerZeroBlockEdgeHeight, 1)
+	require.NoError(t, err)
+	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Log("Bob creates level zero block edge")
 
-	evilEdge := leafAdder(evilStartCommit, evilEndCommit, leaf2)
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	aliceTracker, err := newEdgeTracker(
+		ctx,
 		&edgeTrackerConfig{
 			timeRef:          alice.timeRef,
 			actEveryNSeconds: alice.edgeTrackerWakeInterval,
@@ -415,6 +439,7 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	require.NoError(t, err)
 
 	bobTracker, err := newEdgeTracker(
+		ctx,
 		&edgeTrackerConfig{
 			timeRef:          bob.timeRef,
 			actEveryNSeconds: bob.edgeTrackerWakeInterval,
