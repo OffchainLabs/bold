@@ -121,10 +121,8 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 	ctx := context.Background()
-	topLevelHeight := protocol.Height(3)
 	bisectionScenario := setupBisectionScenario(
 		t,
-		topLevelHeight,
 		statemanager.WithNumOpcodesPerBigStep(1),
 		statemanager.WithMaxWavmOpcodesPerBlock(1),
 	)
@@ -142,48 +140,31 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 		require.Equal(t, false, isOSF)
 	})
 	t.Run("post bisection, mutual edge is one step fork source", func(t *testing.T) {
-		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 2)
-		require.NoError(t, err)
-		honestProof, err := honestStateManager.PrefixProof(ctx, 2, 3)
-		require.NoError(t, err)
-		lowerHonest, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
-		require.NoError(t, err)
+		var height uint64 = protocol.LayerZeroBlockEdgeHeight
+		for height > 1 {
+			honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, height/2, 1)
+			require.NoError(t, err)
+			honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, height/2, height, 1)
+			require.NoError(t, err)
+			honestEdge, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+			require.NoError(t, err)
 
-		isOSF, err := lowerHonest.HasLengthOneRival(ctx)
-		require.NoError(t, err)
-		require.Equal(t, false, isOSF)
-		isOSF, err = upper.HasLengthOneRival(ctx)
-		require.NoError(t, err)
-		require.Equal(t, false, isOSF)
+			evilBisectCommit, err := evilStateManager.HistoryCommitmentUpToBatch(ctx, 0, height/2, 1)
+			require.NoError(t, err)
+			evilProof, err := evilStateManager.PrefixProofUpToBatch(ctx, 0, height/2, height, 1)
+			require.NoError(t, err)
+			evilEdge, _, err = evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
+			require.NoError(t, err)
 
-		evilBisectCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 2)
-		require.NoError(t, err)
-		evilProof, err := evilStateManager.PrefixProof(ctx, 2, 3)
-		require.NoError(t, err)
-		lower, _, err := evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
-		require.NoError(t, err)
+			height /= 2
 
-		evilBisectCommit, err = evilStateManager.HistoryCommitmentUpTo(ctx, 1)
-		require.NoError(t, err)
-		evilProof, err = evilStateManager.PrefixProof(ctx, 1, 2)
-		require.NoError(t, err)
-		_, _, err = lower.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
-		require.NoError(t, err)
-
-		honestBisectCommit, err = honestStateManager.HistoryCommitmentUpTo(ctx, 1)
-		require.NoError(t, err)
-		honestProof, err = honestStateManager.PrefixProof(ctx, 1, 2)
-		require.NoError(t, err)
-		lower, upper, err = lowerHonest.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
-		require.NoError(t, err)
-
-		isOSF, err = lower.HasLengthOneRival(ctx)
-		require.NoError(t, err)
-		require.Equal(t, true, isOSF)
-
-		isOSF, err = upper.HasLengthOneRival(ctx)
-		require.NoError(t, err)
-		require.Equal(t, false, isOSF)
+			isOSF, err := honestEdge.HasLengthOneRival(ctx)
+			require.NoError(t, err)
+			require.Equal(t, height == 1, isOSF)
+			isOSF, err = evilEdge.HasLengthOneRival(ctx)
+			require.NoError(t, err)
+			require.Equal(t, height == 1, isOSF)
+		}
 	})
 }
 
@@ -253,10 +234,8 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 
 func TestEdgeChallengeManager_Bisect(t *testing.T) {
 	ctx := context.Background()
-	topLevelHeight := protocol.Height(3)
 	bisectionScenario := setupBisectionScenario(
 		t,
-		topLevelHeight,
 		statemanager.WithNumOpcodesPerBigStep(1),
 		statemanager.WithMaxWavmOpcodesPerBlock(1),
 	)
@@ -302,11 +281,9 @@ func TestEdgeChallengeManager_SubChallenges(t *testing.T) {
 
 func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	ctx := context.Background()
-	topLevelHeight := protocol.Height(2)
 	t.Run("edge does not exist", func(t *testing.T) {
 		bisectionScenario := setupBisectionScenario(
 			t,
-			topLevelHeight,
 			statemanager.WithNumOpcodesPerBigStep(1),
 			statemanager.WithMaxWavmOpcodesPerBlock(1),
 		)
@@ -330,7 +307,6 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	t.Run("edge not pending", func(t *testing.T) {
 		bisectionScenario := setupBisectionScenario(
 			t,
-			topLevelHeight,
 			statemanager.WithNumOpcodesPerBigStep(1),
 			statemanager.WithMaxWavmOpcodesPerBlock(1),
 		)
@@ -399,7 +375,6 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	t.Run("edge not small step type", func(t *testing.T) {
 		bisectionScenario := setupBisectionScenario(
 			t,
-			topLevelHeight,
 			statemanager.WithNumOpcodesPerBigStep(1),
 			statemanager.WithMaxWavmOpcodesPerBlock(1),
 		)
@@ -454,7 +429,6 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	t.Run("before state not in history", func(t *testing.T) {
 		scenario := setupOneStepProofScenario(
 			t,
-			topLevelHeight,
 			statemanager.WithNumOpcodesPerBigStep(4),
 			statemanager.WithMaxWavmOpcodesPerBlock(4),
 		)
@@ -497,7 +471,6 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	t.Run("one step proof fails", func(t *testing.T) {
 		scenario := setupOneStepProofScenario(
 			t,
-			topLevelHeight,
 			statemanager.WithNumOpcodesPerBigStep(4),
 			statemanager.WithMaxWavmOpcodesPerBlock(4),
 		)
@@ -549,7 +522,6 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
 		scenario := setupOneStepProofScenario(
 			t,
-			topLevelHeight,
 			statemanager.WithNumOpcodesPerBigStep(2),
 			statemanager.WithMaxWavmOpcodesPerBlock(1),
 		)
@@ -593,10 +565,8 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 
 func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	ctx := context.Background()
-	topLevelHeight := protocol.Height(3)
 	bisectionScenario := setupBisectionScenario(
 		t,
-		topLevelHeight,
 		statemanager.WithNumOpcodesPerBigStep(1),
 		statemanager.WithMaxWavmOpcodesPerBlock(1),
 	)
@@ -721,13 +691,12 @@ type bisectionScenario struct {
 
 func setupBisectionScenario(
 	t *testing.T,
-	topLevelHeight protocol.Height,
 	commonStateManagerOpts ...statemanager.Opt,
 ) *bisectionScenario {
 	ctx := context.Background()
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     uint64(topLevelHeight) + 1,
+		NumBlocks:     8,
 		DivergeHeight: 0,
 	})
 	require.NoError(t, err)
@@ -754,7 +723,14 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager statemanager.Manager, leaf protocol.Assertion) (util.HistoryCommitment, protocol.SpecEdge) {
+		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, err)
+		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+		prefixProof, err := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
@@ -763,16 +739,10 @@ func setupBisectionScenario(
 			prefixProof,
 		)
 		require.NoError(t, err)
-		return edge
+		return startCommit, edge
 	}
-	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
-	require.NoError(t, err)
-	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(topLevelHeight))
-	require.NoError(t, err)
-	honestPrefixProof, err := honestStateManager.PrefixProof(ctx, 0, uint64(topLevelHeight))
-	require.NoError(t, err)
 
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, createdData.Leaf1)
+	honestStartCommit, honestEdge := leafAdder(honestStateManager, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -784,14 +754,7 @@ func setupBisectionScenario(
 		require.Equal(t, false, isOSF)
 	})
 
-	evilStartCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 0)
-	require.NoError(t, err)
-	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(topLevelHeight))
-	require.NoError(t, err)
-	evilPrefixProof, err := evilStateManager.PrefixProof(ctx, 0, uint64(topLevelHeight))
-	require.NoError(t, err)
-
-	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, createdData.Leaf2)
+	evilStartCommit, evilEdge := leafAdder(evilStateManager, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	// Honest and evil edge are rivals, neither is presumptive.
@@ -831,11 +794,10 @@ type oneStepProofScenario struct {
 // to then confirm the winner by one-step-proof execution.
 func setupOneStepProofScenario(
 	t *testing.T,
-	topLevelAssertionChainHeight protocol.Height,
 	commonStateManagerOpts ...statemanager.Opt,
 ) *oneStepProofScenario {
 	ctx := context.Background()
-	bisectionScenario := setupBisectionScenario(t, topLevelAssertionChainHeight, commonStateManagerOpts...)
+	bisectionScenario := setupBisectionScenario(t, commonStateManagerOpts...)
 	honestStateManager := bisectionScenario.honestStateManager
 	evilStateManager := bisectionScenario.evilStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
