@@ -25,8 +25,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     using GlobalStateLib for GlobalState;
 
     // Rollup Config
-    uint64 public confirmPeriodBlocks;
-    uint64 public extraChallengeTimeBlocks;
+    uint64 public confirmPeriodSecs;
+    uint64 public extraChallengeTimeSecs;
     uint256 public chainId;
     uint256 public baseStake;
     bytes32 public wasmModuleRoot;
@@ -430,7 +430,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         require(!_assertionStakers[assertionNum][staker], "ALREADY_STAKED");
         _assertionStakers[assertionNum][staker] = true;
         AssertionNode storage assertion = getAssertionStorage(assertionNum);
-        require(assertion.deadlineBlock != 0, "NO_NODE");
+        require(assertion.deadlineSec != 0, "NO_NODE");
 
         uint64 prevCount = assertion.stakerCount;
         assertion.stakerCount = prevCount + 1;
@@ -536,7 +536,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         AssertionNode prevAssertion;
         bytes32 lastHash;
         bool hasSibling;
-        uint64 deadlineBlock;
+        uint64 deadlineSec;
         bytes32 sequencerBatchAcc;
     }
 
@@ -601,9 +601,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             memoryFrame.executionHash = RollupLib.executionHash(assertion);
 
-            memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
+            memoryFrame.deadlineSec = uint64(block.timestamp) + confirmPeriodSecs;
 
-            memoryFrame.hasSibling = memoryFrame.prevAssertion.firstChildBlock > 0;
+            memoryFrame.hasSibling = memoryFrame.prevAssertion.firstChildTime > 0;
             // here we don't use ternacy operator to remain compatible with slither
             // if (memoryFrame.hasSibling) {
             //     memoryFrame.lastHash = getAssertionStorage(memoryFrame.prevAssertion.latestChildNumber)
@@ -640,7 +640,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 ),
                 RollupLib.confirmHash(assertion),
                 prevAssertionNum,
-                memoryFrame.deadlineBlock,
+                memoryFrame.deadlineSec,
                 newAssertionHash,
                 assertion.numBlocks + memoryFrame.prevAssertion.height,
                 memoryFrame.currentInboxSize,
@@ -656,7 +656,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             // Fetch a storage reference to prevAssertion since we copied our other one into memory
             // and we don't have enough stack available to keep to keep the previous storage reference around
             AssertionNode storage prevAssertion = getAssertionStorage(prevAssertionNum);
-            prevAssertion.childCreated(assertionNum, confirmPeriodBlocks);
+            prevAssertion.childCreated(assertionNum, confirmPeriodSecs);
 
             assertionCreated(memoryFrame.assertion);
         }
@@ -694,16 +694,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32){
-        if(getAssertionStorage(getAssertionNum(assertionId)).secondChildBlock > 0){
+        if(getAssertionStorage(getAssertionNum(assertionId)).secondChildTime > 0){
             return assertionId;
         } else {
             return bytes32(0);
         }
-    }
-
-    // HN: TODO: use block or timestamp?
-    function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).firstChildBlock;
     }
 
     function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256){

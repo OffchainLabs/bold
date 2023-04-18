@@ -53,13 +53,13 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         AssertionNode memory assertion = createInitialAssertion();
         initializeCore(assertion);
 
-        confirmPeriodBlocks = config.confirmPeriodBlocks;
-        extraChallengeTimeBlocks = config.extraChallengeTimeBlocks;
+        confirmPeriodSecs = config.confirmPeriodSecs;
+        extraChallengeTimeSecs = config.extraChallengeTimeSecs;
         chainId = config.chainId;
         baseStake = config.baseStake;
         wasmModuleRoot = config.wasmModuleRoot;
-        // A little over 15 minutes
-        minimumAssertionPeriod = 75;
+        // 15 minutes
+        minimumAssertionPeriod = 900;
 
         // the owner can't access the rollup user facet where escrow is redeemable
         require(config.loserStakeEscrow != _getAdmin(), "INVALID_ESCROW_ADMIN");
@@ -85,7 +85,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
                 0, // challenge hash (not challengeable)
                 0, // confirm data
                 0, // prev assertion
-                uint64(block.number), // deadline block (not challengeable)
+                uint64(block.timestamp), // deadline sec (not challengeable)
                 GENESIS_HASH, // initial assertion has a assertion hash of 0
                 0, // initial assertion has a height of 0
                 1, // initial assertion has a inboxMsgCountSeen of 1, since we want the next assertion to consume one message
@@ -196,21 +196,21 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     }
 
     /**
-     * @notice Set number of blocks until a assertion is considered confirmed
-     * @param newConfirmPeriod new number of blocks
+     * @notice Set number of secs until a assertion is considered confirmed
+     * @param newConfirmPeriod new number of secs
      */
-    function setConfirmPeriodBlocks(uint64 newConfirmPeriod) external override {
+    function setConfirmPeriodSecs(uint64 newConfirmPeriod) external override {
         require(newConfirmPeriod > 0, "INVALID_CONFIRM_PERIOD");
-        confirmPeriodBlocks = newConfirmPeriod;
+        confirmPeriodSecs = newConfirmPeriod;
         emit OwnerFunctionCalled(9);
     }
 
     /**
-     * @notice Set number of extra blocks after a challenge
-     * @param newExtraTimeBlocks new number of blocks
+     * @notice Set number of extra secs after a challenge
+     * @param newExtraTimeSecs new number of secs
      */
-    function setExtraChallengeTimeBlocks(uint64 newExtraTimeBlocks) external override {
-        extraChallengeTimeBlocks = newExtraTimeBlocks;
+    function setExtraChallengeTimeSecs(uint64 newExtraTimeSecs) external override {
+        extraChallengeTimeSecs = newExtraTimeSecs;
         emit OwnerFunctionCalled(10);
     }
 

@@ -29,6 +29,7 @@ contract RollupTest is Test {
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
     uint256 constant CONFIRM_PERIOD_BLOCKS = 100;
+    uint256 constant CONFIRM_PERIOD_SECS = 1000;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
@@ -84,8 +85,8 @@ contract RollupTest is Test {
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
-            confirmPeriodBlocks: uint64(CONFIRM_PERIOD_BLOCKS),
-            extraChallengeTimeBlocks: 100,
+            confirmPeriodSecs: uint64(CONFIRM_PERIOD_SECS),
+            extraChallengeTimeSecs: 100,
             owner: owner,
             sequencerInboxMaxTimeVariation: ISequencerInbox.MaxTimeVariation({
                 delayBlocks: (60 * 60 * 24) / 15,
@@ -139,7 +140,7 @@ contract RollupTest is Test {
         payable(validator2).transfer(1 ether);
         payable(validator3).transfer(1 ether);
 
-        vm.roll(block.number + 75);
+        vm.warp(block.timestamp + userRollup.minimumAssertionPeriod());
     }
 
     function _createNewBatch() internal returns (uint256) {
@@ -182,7 +183,7 @@ contract RollupTest is Test {
         ExecutionState memory afterState2;
         afterState2.machineStatus = MachineStatus.FINISHED;
         afterState2.globalState.u64Vals[0] = inboxcount;
-        vm.roll(block.number + 75);
+        vm.warp(block.timestamp + userRollup.minimumAssertionPeriod());
         vm.prank(validator1);
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
@@ -252,9 +253,9 @@ contract RollupTest is Test {
             prevAssertionInboxMaxCount: 1
         });
 
-        vm.expectRevert("PREV_STATE_HASH");
         afterState.globalState.u64Vals[1] = 1; // modify the state
-        vm.roll(block.number + 75);
+        vm.warp(block.timestamp + userRollup.minimumAssertionPeriod());
+        vm.expectRevert("PREV_STATE_HASH");
         vm.prank(validator1);
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
@@ -318,14 +319,14 @@ contract RollupTest is Test {
             prevAssertionInboxMaxCount: 1
         });
 
-        assertEq(userRollup.getAssertion(1).secondChildBlock, block.number);
+        assertEq(userRollup.getAssertion(1).secondChildTime, block.timestamp);
 
         return (beforeState, afterState, afterState2, genesisInboxCount);
     }
 
     function testRevertConfirmWrongInput() public {
         testSuccessCreateAssertions();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.warp(userRollup.getAssertion(1).firstChildTime + CONFIRM_PERIOD_SECS + 1);
         vm.prank(validator1);
         vm.expectRevert("CONFIRM_DATA");
         userRollup.confirmNextAssertion(bytes32(0), bytes32(0), bytes32(0));
@@ -333,14 +334,14 @@ contract RollupTest is Test {
 
     function testSuccessConfirmUnchallengedAssertions() public {
         testSuccessCreateAssertions();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.warp(userRollup.getAssertion(1).firstChildTime + CONFIRM_PERIOD_SECS + 1);
         vm.prank(validator1);
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, bytes32(0));
     }
 
     function testRevertConfirmSiblingedAssertions() public {
         testSuccessCreateSecondChild();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.warp(userRollup.getAssertion(1).firstChildTime + CONFIRM_PERIOD_SECS + 1);
         vm.prank(validator1);
         vm.expectRevert("Edge does not exist"); // If there is a sibling, you need to supply a winning edge
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, bytes32(0));
@@ -418,7 +419,7 @@ contract RollupTest is Test {
     function testSuccessConfirmEdgeByTime() public {
         bytes32 e1Id = testSuccessCreateChallenge();
 
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.warp(userRollup.getAssertion(1).firstChildTime + CONFIRM_PERIOD_SECS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(e1Id, new bytes32[](0));
         vm.prank(validator1);

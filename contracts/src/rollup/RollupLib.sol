@@ -28,8 +28,8 @@ struct AssertionInputs {
 }
 
 struct Config {
-    uint64 confirmPeriodBlocks;
-    uint64 extraChallengeTimeBlocks;
+    uint64 confirmPeriodSecs;
+    uint64 extraChallengeTimeSecs;
     address stakeToken;
     uint256 baseStake;
     bytes32 wasmModuleRoot;

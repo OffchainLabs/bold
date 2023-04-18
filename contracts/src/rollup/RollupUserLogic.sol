@@ -35,12 +35,12 @@ abstract contract AbsRollupUserLogic is
      * @notice Extra number of blocks the validator can remain inactive before considered inactive
      *         This is 7 days assuming a 13.2 seconds block time
      */
-    uint256 public constant VALIDATOR_AFK_BLOCKS = 45818;
+    uint256 public constant VALIDATOR_AFK_SECS = 7 * 86400;
 
     function _validatorIsAfk() internal view returns (bool) {
         AssertionNode memory latestAssertion = getAssertionStorage(latestAssertionCreated());
-        if (latestAssertion.createdAtBlock == 0) return false;
-        if (latestAssertion.createdAtBlock + confirmPeriodBlocks + VALIDATOR_AFK_BLOCKS < block.number) {
+        if (latestAssertion.createdAtTime == 0) return false;
+        if (latestAssertion.createdAtTime + confirmPeriodSecs + VALIDATOR_AFK_SECS < block.timestamp) {
             return true;
         }
         return false;
@@ -148,7 +148,7 @@ abstract contract AbsRollupUserLogic is
         //     "NOT_ALL_STAKED"
         // );
         
-        if(prevAssertion.secondChildBlock > 0) {
+        if(prevAssertion.secondChildTime > 0) {
             // check if assertion is the challenge winner
             ChallengeEdge memory _winningEdge = challengeManager.getEdge(winningEdge);
             require(getAssertionNum(_winningEdge.claimId) == assertionNum, "NOT_WINNER");
@@ -208,7 +208,7 @@ abstract contract AbsRollupUserLogic is
         uint64 prevAssertion = latestStakedAssertion(msg.sender);
 
         {
-            uint256 timeSinceLastAssertion = block.number - getAssertion(prevAssertion).createdAtBlock;
+            uint256 timeSinceLastAssertion = block.timestamp - getAssertion(prevAssertion).createdAtTime;
             // Verify that assertion meets the minimum Delta time requirement
             require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
 
@@ -350,7 +350,7 @@ abstract contract AbsRollupUserLogic is
      * @return The current minimum stake requirement
      */
     function currentRequiredStake(
-        uint256 _blockNumber,
+        uint256 _timestamp,
         uint64 _firstUnresolvedAssertionNum,
         uint256 _latestCreatedAssertion
     ) internal view returns (uint256) {
@@ -358,8 +358,8 @@ abstract contract AbsRollupUserLogic is
         if (_firstUnresolvedAssertionNum - 1 == _latestCreatedAssertion) {
             return baseStake;
         }
-        uint256 firstUnresolvedDeadline = getAssertionStorage(_firstUnresolvedAssertionNum).deadlineBlock;
-        if (_blockNumber < firstUnresolvedDeadline) {
+        uint256 firstUnresolvedDeadline = getAssertionStorage(_firstUnresolvedAssertionNum).deadlineSec;
+        if (_timestamp < firstUnresolvedDeadline) {
             return baseStake;
         }
         uint24[10] memory numerators = [
@@ -386,8 +386,8 @@ abstract contract AbsRollupUserLogic is
             128977,
             86901
         ];
-        uint256 firstUnresolvedAge = _blockNumber - firstUnresolvedDeadline;
-        uint256 periodsPassed = (firstUnresolvedAge * 10) / confirmPeriodBlocks;
+        uint256 firstUnresolvedAge = _timestamp - firstUnresolvedDeadline;
+        uint256 periodsPassed = (firstUnresolvedAge * 10) / confirmPeriodSecs * ETH_POS_BLOCK_TIME;
         uint256 baseMultiplier = 2**(periodsPassed / 10);
         uint256 withNumerator = baseMultiplier * numerators[periodsPassed % 10];
         uint256 multiplier = withNumerator / denominators[periodsPassed % 10];
@@ -404,11 +404,11 @@ abstract contract AbsRollupUserLogic is
      * @return The current minimum stake requirement
      */
     function requiredStake(
-        uint256 blockNumber,
+        uint256 timestamp,
         uint64 firstUnresolvedAssertionNum,
         uint64 latestCreatedAssertion
     ) external view returns (uint256) {
-        return currentRequiredStake(blockNumber, firstUnresolvedAssertionNum, latestCreatedAssertion);
+        return currentRequiredStake(timestamp, firstUnresolvedAssertionNum, latestCreatedAssertion);
     }
 
     function owner() external view returns (address) {
@@ -418,7 +418,7 @@ abstract contract AbsRollupUserLogic is
     function currentRequiredStake() public view returns (uint256) {
         uint64 firstUnresolvedAssertionNum = firstUnresolvedAssertion();
 
-        return currentRequiredStake(block.number, firstUnresolvedAssertionNum, latestAssertionCreated());
+        return currentRequiredStake(block.timestamp, firstUnresolvedAssertionNum, latestAssertionCreated());
     }
 
     /**

@@ -62,7 +62,7 @@ contract ValidatorUtils {
         AssertionNode memory assertion = rollup.getAssertion(firstUnresolvedAssertion);
         if (assertion.prevNum == rollup.latestConfirmed()) {
             // Verify the block's deadline has passed
-            require(block.number >= assertion.deadlineBlock, "BEFORE_DEADLINE");
+            require(block.timestamp >= assertion.deadlineSec, "BEFORE_DEADLINE");
             rollup.getAssertion(assertion.prevNum).requirePastChildConfirmDeadline();
 
             // Verify that no staker is staked on this assertion
