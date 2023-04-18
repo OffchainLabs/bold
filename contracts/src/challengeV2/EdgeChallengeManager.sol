@@ -291,12 +291,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
         bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
-        require(oneStepData.execCtx.maxInboxMessagesRead == assertionChain.getInboxMsgCountSeen(prevAssertionId), "Inbox message count does not match previous assertion");
-        require(oneStepData.execCtx.bridge == assertionChain.bridge(), "Bridge does not match assertion chain");
-        require(oneStepData.execCtx.initialWasmModuleRoot == assertionChain.getWasmModuleRoot(prevAssertionId), "Wasm module root does not match previous assertion");
+        ExecutionContext memory execCtx = ExecutionContext({
+            maxInboxMessagesRead: assertionChain.getInboxMsgCountSeen(prevAssertionId),
+            bridge: assertionChain.bridge(),
+            initialWasmModuleRoot: assertionChain.getWasmModuleRoot(prevAssertionId)
+        });
 
         store.confirmEdgeByOneStepProof(
-            edgeId, oneStepProofEntry, oneStepData, beforeHistoryInclusionProof, afterHistoryInclusionProof
+            edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
     }
 
