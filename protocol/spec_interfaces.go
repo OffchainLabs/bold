@@ -224,5 +224,4 @@ type SpecEdge interface {
 	// This is used at subchallenge creation boundaries.
 	TopLevelClaimHeight(ctx context.Context) (*OriginHeights, error)
 	// The ending batch count of the corresponding top-level claim
-	TopLevelClaimEndBatchCount(ctx context.Context) (uint64, error)
 }

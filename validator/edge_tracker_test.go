@@ -49,12 +49,6 @@ func Test_act(t *testing.T) {
 		).Return(
 			true, nil,
 		)
-		edge.On(
-			"TopLevelClaimEndBatchCount",
-			ctx,
-		).Return(
-			uint64(1), nil,
-		)
 		p.On("SpecChallengeManager", ctx).Return(
 			manager,
 			nil,
@@ -70,6 +64,7 @@ func Test_act(t *testing.T) {
 			},
 			edge,
 			0,
+			1,
 		)
 		require.NoError(t, err)
 		err = tkr.act(ctx)
@@ -106,12 +101,6 @@ func Test_act(t *testing.T) {
 		).Return(
 			false, nil,
 		)
-		edge.On(
-			"TopLevelClaimEndBatchCount",
-			ctx,
-		).Return(
-			uint64(1), nil,
-		)
 		p.On("SpecChallengeManager", ctx).Return(
 			manager,
 			nil,
@@ -128,6 +117,7 @@ func Test_act(t *testing.T) {
 			},
 			edge,
 			0,
+			1,
 		)
 		require.NoError(t, err)
 		err = tkr.act(ctx)
@@ -204,6 +194,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 		},
 		honestEdge,
 		0,
+		1,
 	)
 	require.NoError(t, err)
 
@@ -218,6 +209,7 @@ func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTr
 		},
 		evilEdge,
 		0,
+		1,
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,20 +17,6 @@ import (
 	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
-
-var rollupAssertionCreatedId common.Hash
-
-func init() {
-	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
-	if err != nil {
-		panic(err)
-	}
-	event, ok := abi.Events["AssertionCreated"]
-	if !ok {
-		panic("Didn't find AssertionCreated event")
-	}
-	rollupAssertionCreatedId = event.ID
-}
 
 func (e *SpecEdge) Id() protocol.EdgeId {
 	return e.id
@@ -242,51 +227,6 @@ func (e *SpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHei
 	}
 }
 
-func (e *SpecEdge) TopLevelClaimEndBatchCount(ctx context.Context) (uint64, error) {
-	// TODO: presumably, this should be stored with the edge in Solidity. I think it'll be needed there anyways.
-	// I think we could also in Go pass it down from parent to child but I don't want to refactor that right now.
-	callOpts := &bind.CallOpts{Context: ctx}
-	// Find the parent assertion of this challenge
-	parentId := e.inner.OriginId
-	for {
-		exists, err := e.manager.caller.EdgeExists(callOpts, parentId)
-		if err != nil {
-			return 0, err
-		}
-		if !exists {
-			rival, err := e.manager.caller.FirstRival(callOpts, parentId)
-			if err != nil {
-				return 0, err
-			}
-			if rival != (common.Hash{}) {
-				parentId = rival
-				exists = true
-			}
-		}
-		if !exists {
-			break
-		}
-		edge, err := e.manager.caller.GetEdge(callOpts, parentId)
-		if err != nil {
-			return 0, err
-		}
-		parentId = edge.OriginId
-	}
-	rollup := e.manager.assertionChain.rollup
-	assertionNum, err := rollup.GetAssertionNum(callOpts, parentId)
-	if err != nil {
-		return 0, err
-	}
-	assertion, err := rollup.GetAssertion(callOpts, assertionNum)
-	if err != nil {
-		return 0, err
-	}
-	if !assertion.InboxMsgCountSeen.IsUint64() {
-		return 0, fmt.Errorf("assertion %v inbox max count seen %v is not a uint64", assertionNum, assertion.InboxMsgCountSeen)
-	}
-	return assertion.InboxMsgCountSeen.Uint64(), nil
-}
-
 // SpecChallengeManager is a wrapper around the challenge manager contract.
 type SpecChallengeManager struct {
 	addr           common.Address
@@ -470,7 +410,7 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 		return nil, fmt.Errorf("start commit has unexpected height %v (expected 0)", startCommit.Height)
 	}
 	if endCommit.Height != protocol.LayerZeroBlockEdgeHeight {
-		return nil, fmt.Errorf("end commit has unexpected height %v (expected %v)", startCommit.Height, protocol.LayerZeroBlockEdgeHeight)
+		return nil, fmt.Errorf("end commit has unexpected height %v (expected %v)", endCommit.Height, protocol.LayerZeroBlockEdgeHeight)
 	}
 	if startCommit.FirstLeaf != endCommit.FirstLeaf {
 		return nil, fmt.Errorf("start commit first leaf %v didn't match end commit first leaf %v", startCommit.FirstLeaf, endCommit.FirstLeaf)

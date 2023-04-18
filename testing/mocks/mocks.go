@@ -286,10 +286,6 @@ func (m *MockSpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.Origi
 	args := m.Called(ctx)
 	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
 }
-func (m *MockSpecEdge) TopLevelClaimEndBatchCount(ctx context.Context) (uint64, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(uint64), args.Error(1)
-}
 func (m *MockSpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(uint64), args.Error(1)

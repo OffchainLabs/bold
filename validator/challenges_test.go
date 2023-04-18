@@ -454,6 +454,7 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		},
 		honestEdge,
 		0,
+		prevInboxMaxCount.Uint64(),
 	)
 	require.NoError(t, err)
 
@@ -469,6 +470,7 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		},
 		evilEdge,
 		0,
+		prevInboxMaxCount.Uint64(),
 	)
 	require.NoError(t, err)
 

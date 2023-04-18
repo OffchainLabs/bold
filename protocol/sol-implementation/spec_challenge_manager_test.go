@@ -35,13 +35,15 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		statemanager.WithMaxWavmOpcodesPerBlock(1),
 	}
 
-	honestStateManager, err := statemanager.New(
-		createdData.HonestValidatorStateRoots,
+	honestStateManager, err := statemanager.NewWithAssertionStates(
+		createdData.HonestValidatorStates,
+		createdData.HonestValidatorInboxCounts,
 		opts...,
 	)
 	require.NoError(t, err)
-	evilStateManager, err := statemanager.New(
-		createdData.EvilValidatorStateRoots,
+	evilStateManager, err := statemanager.NewWithAssertionStates(
+		createdData.EvilValidatorStates,
+		createdData.EvilValidatorInboxCounts,
 		opts...,
 	)
 	require.NoError(t, err)
@@ -870,50 +872,43 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
 
-	// Now opening big step level zero leaves
-	bigStepAdder := func(startCommit, endCommit util.HistoryCommitment) protocol.SpecEdge {
+	// Now opening big step level zero leaves at index 0
+	bigStepAdder := func(stateManager statemanager.Manager) protocol.SpecEdge {
+		startCommit, err := honestStateManager.BigStepCommitmentUpTo(
+			ctx, 0, 1, 0,
+		)
+		require.NoError(t, err)
+		endCommit, err := honestStateManager.BigStepCommitmentUpTo(
+			ctx, 0, 1, 1,
+		)
+		require.NoError(t, err)
+		require.Equal(t, startCommit.LastLeaf, endCommit.FirstLeaf)
+		startParentCommitment, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, err)
+		endParentCommitment, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 1, 1)
+		require.NoError(t, err)
+		startEndPrefixProof, err := stateManager.BigStepPrefixProof(ctx, 0, 1, 0, endCommit.Height)
+		require.NoError(t, err)
 		leaf, err := challengeManager.AddSubChallengeLevelZeroEdge(
 			ctx,
 			oneStepForkSourceEdge,
 			startCommit,
 			endCommit,
+			startParentCommitment.LastLeafProof,
+			endParentCommitment.LastLeafProof,
+			startEndPrefixProof,
 		)
 		require.NoError(t, err)
 		return leaf
 	}
 
-	fromAssertionHeight := uint64(0)
-	toAssertionHeight := fromAssertionHeight + 1
-	fromBigStep := uint64(0)
-	toBigStep := fromBigStep + 1
-
-	honestBigStepStartCommit, err := honestStateManager.BigStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, 0,
-	)
-	require.NoError(t, err)
-	honestBigStepEndCommit, err := honestStateManager.BigStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, toBigStep,
-	)
-	require.NoError(t, err)
-	require.Equal(t, honestBigStepStartCommit.LastLeaf, honestBigStepEndCommit.FirstLeaf)
-
-	honestEdge = bigStepAdder(honestBigStepStartCommit, honestBigStepEndCommit)
+	honestEdge = bigStepAdder(honestStateManager)
 	require.Equal(t, protocol.BigStepChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	evilBigStepStartCommit, err := evilStateManager.BigStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, 0,
-	)
-	require.NoError(t, err)
-	evilBigStepEndCommit, err := evilStateManager.BigStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, toBigStep,
-	)
-	require.NoError(t, err)
-	require.Equal(t, evilBigStepStartCommit.LastLeaf, evilBigStepEndCommit.FirstLeaf)
-
-	evilEdge = bigStepAdder(evilBigStepStartCommit, evilBigStepEndCommit)
+	evilEdge = bigStepAdder(evilStateManager)
 	require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
 
 	hasRival, err = honestEdge.HasRival(ctx)
@@ -927,45 +922,38 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	require.Equal(t, true, isAtOneStepFork)
 
-	// Now opening small step level zero leaves
-	smallStepAdder := func(startCommit, endCommit util.HistoryCommitment) protocol.SpecEdge {
+	// Now opening small step level zero leaves at index 0
+	smallStepAdder := func(stateManager statemanager.Manager) protocol.SpecEdge {
+		startCommit, err := stateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 0)
+		require.NoError(t, err)
+		endCommit, err := stateManager.SmallStepLeafCommitment(ctx, 0, 1, 0, 1)
+		require.NoError(t, err)
+		startParentCommitment, err := stateManager.BigStepCommitmentUpTo(ctx, 0, 1, 0)
+		require.NoError(t, err)
+		endParentCommitment, err := stateManager.BigStepCommitmentUpTo(ctx, 0, 1, 0)
+		require.NoError(t, err)
+		startEndPrefixProof, err := stateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, 0, endCommit.Height)
+		require.NoError(t, err)
 		leaf, err := challengeManager.AddSubChallengeLevelZeroEdge(
 			ctx,
 			honestEdge,
 			startCommit,
 			endCommit,
+			startParentCommitment.LastLeafProof,
+			endParentCommitment.LastLeafProof,
+			startEndPrefixProof,
 		)
 		require.NoError(t, err)
 		return leaf
 	}
 
-	fromSmallStep := uint64(0)
-	toSmallStep := uint64(1)
-	honestSmallStartCommit, err := honestStateManager.SmallStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, fromSmallStep,
-	)
-	require.NoError(t, err)
-	honestSmallEndCommit, err := honestStateManager.SmallStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, toSmallStep,
-	)
-	require.NoError(t, err)
-
-	smallStepHonest := smallStepAdder(honestSmallStartCommit, honestSmallEndCommit)
+	smallStepHonest := smallStepAdder(honestStateManager)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepHonest.GetType())
 	hasRival, err = smallStepHonest.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	evilSmallStartCommit, err := evilStateManager.SmallStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, fromSmallStep,
-	)
-	require.NoError(t, err)
-	evilSmallEndCommit, err := evilStateManager.SmallStepCommitmentUpTo(
-		ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, toSmallStep,
-	)
-	require.NoError(t, err)
-
-	smallStepEvil := smallStepAdder(evilSmallStartCommit, evilSmallEndCommit)
+	smallStepEvil := smallStepAdder(evilStateManager)
 	require.Equal(t, protocol.SmallStepChallengeEdge, smallStepEvil.GetType())
 
 	hasRival, err = smallStepHonest.HasRival(ctx)

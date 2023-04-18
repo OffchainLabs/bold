@@ -97,6 +97,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			et.cfg,
 			firstChild,
 			et.startBlockHeight,
+			et.topLevelClaimEndBatchCount,
 		)
 		if err != nil {
 			log.WithError(err).WithFields(fields).Error("Could not create new vertex tracker")
@@ -107,6 +108,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			et.cfg,
 			secondChild,
 			et.startBlockHeight,
+			et.topLevelClaimEndBatchCount,
 		)
 		if err != nil {
 			log.WithError(err).WithFields(fields).Error("Could not create new vertex tracker")
@@ -330,6 +332,7 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		et.cfg,
 		addedLeaf,
 		et.startBlockHeight,
+		et.topLevelClaimEndBatchCount,
 	)
 	if err != nil {
 		return err
@@ -403,6 +406,7 @@ func newEdgeTracker(
 	cfg *edgeTrackerConfig,
 	edge protocol.SpecEdge,
 	startHeightOffset uint64,
+	topLevelClaimEndBatchCount uint64,
 	fsmOpts ...util.FsmOpt[edgeTrackerAction, edgeTrackerState],
 ) (*edgeTracker, error) {
 	fsm, err := newEdgeTrackerFsm(
@@ -411,10 +415,6 @@ func newEdgeTracker(
 	)
 	if err != nil {
 		return nil, err
-	}
-	topLevelClaimEndBatchCount, err := edge.TopLevelClaimEndBatchCount(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get top level claim end batch count: %w", err)
 	}
 	return &edgeTracker{
 		cfg:                        cfg,

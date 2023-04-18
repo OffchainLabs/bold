@@ -26,6 +26,10 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 	if err != nil {
 		return err
 	}
+	assertionPrevMsgCountSeen, err := assertionPrev.InboxMsgCountSeen()
+	if err != nil {
+		return err
+	}
 	// We then add a challenge vertex to the challenge.
 	levelZeroEdge, err := v.addBlockChallengeLevelZeroEdge(ctx, assertionPrevSeqNum)
 	if err != nil {
@@ -53,6 +57,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 		},
 		levelZeroEdge,
 		assertionPrevHeight,
+		assertionPrevMsgCountSeen,
 	)
 	if err != nil {
 		return err
