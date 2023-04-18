@@ -140,8 +140,8 @@ type challengeProtocolTestConfig struct {
 }
 
 func prepareHonestStates(
-	t testing.TB,
 	ctx context.Context,
+	t testing.TB,
 	chain protocol.Protocol,
 	backend *backends.SimulatedBackend,
 	honestHashes []common.Hash,
@@ -255,8 +255,8 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 	evilHashes := evilHashesForUints(0, cfg.bobHeight+1)
 
 	honestStates, honestInboxCounts := prepareHonestStates(
-		t,
 		ctx,
+		t,
 		chains[0],
 		backend,
 		honestHashes,

@@ -409,9 +409,10 @@ func newEdgeTracker(
 	topLevelClaimEndBatchCount uint64,
 	fsmOpts ...util.FsmOpt[edgeTrackerAction, edgeTrackerState],
 ) (*edgeTracker, error) {
+	fsmOpts = append(fsmOpts, util.WithTrackedTransitions[edgeTrackerAction, edgeTrackerState]())
 	fsm, err := newEdgeTrackerFsm(
 		edgeStarted,
-		util.WithTrackedTransitions[edgeTrackerAction, edgeTrackerState](),
+		fsmOpts...,
 	)
 	if err != nil {
 		return nil, err

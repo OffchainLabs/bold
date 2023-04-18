@@ -126,7 +126,7 @@ func Test_act(t *testing.T) {
 	})
 	t.Run("bisects", func(t *testing.T) {
 		hook := test.NewGlobal()
-		tkr, _ := setupNonPSTracker(t, ctx)
+		tkr, _ := setupNonPSTracker(ctx, t)
 		err := tkr.act(ctx)
 		require.NoError(t, err)
 		require.Equal(t, int(edgeBisecting), int(tkr.fsm.Current().State))
@@ -136,7 +136,7 @@ func Test_act(t *testing.T) {
 	})
 }
 
-func setupNonPSTracker(t *testing.T, ctx context.Context) (*edgeTracker, *edgeTracker) {
+func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgeTracker, *edgeTracker) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
 		DivergeHeight: 0,
 		NumBlocks:     7,
