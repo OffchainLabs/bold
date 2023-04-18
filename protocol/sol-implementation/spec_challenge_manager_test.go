@@ -22,10 +22,9 @@ var (
 
 func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
-	height := protocol.Height(3)
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     uint64(height) + 1,
+		NumBlocks:     4,
 		DivergeHeight: 0,
 	})
 	require.NoError(t, err)
@@ -52,7 +51,14 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager statemanager.Manager, leaf protocol.Assertion) protocol.SpecEdge {
+		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, err)
+		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+		prefixProof, err := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
@@ -64,14 +70,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		return edge
 	}
 
-	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
-	require.NoError(t, err)
-	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
-	require.NoError(t, err)
-	honestPrefixProof, err := honestStateManager.PrefixProof(ctx, 0, uint64(height))
-	require.NoError(t, err)
-
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, createdData.Leaf1)
+	honestEdge := leafAdder(honestStateManager, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
@@ -80,14 +79,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		require.Equal(t, true, !hasRival)
 	})
 
-	evilStartCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, 0)
-	require.NoError(t, err)
-	evilEndCommit, err := evilStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
-	require.NoError(t, err)
-	evilPrefixProof, err := evilStateManager.PrefixProof(ctx, 0, uint64(height))
-	require.NoError(t, err)
-
-	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, createdData.Leaf2)
+	evilEdge := leafAdder(evilStateManager, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
@@ -101,9 +93,10 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	})
 
 	t.Run("bisected children are presumptive", func(t *testing.T) {
-		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 2)
+		var bisectHeight uint64 = protocol.LayerZeroBlockEdgeHeight / 2
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, bisectHeight, 1)
 		require.NoError(t, err)
-		honestProof, err := honestStateManager.PrefixProof(ctx, 2, 3)
+		honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, bisectHeight, protocol.LayerZeroBlockEdgeHeight, 1)
 		require.NoError(t, err)
 
 		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
@@ -361,7 +354,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.Equal(t, protocol.EdgePending, s2)
 
 		// Adjust well beyond a challenge period.
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 200; i++ {
 			bisectionScenario.topLevelFork.Backend.Commit()
 		}
 
@@ -625,7 +618,7 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	require.Equal(t, protocol.EdgePending, s2)
 
 	// Adjust well beyond a challenge period.
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		bisectionScenario.topLevelFork.Backend.Commit()
 	}
 
@@ -692,7 +685,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	require.Equal(t, false, hasRival)
 
 	// Adjust well beyond a challenge period.
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		createdData.Backend.Commit()
 	}
 
