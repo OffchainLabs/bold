@@ -36,8 +36,8 @@ struct AssertionNode {
     uint256 inboxMsgCountSeen; // in stateHash
     bool isFirstChild; // in assertionHash
     // HN: TODO: Pick block or timestamp
-    uint256 firstChildTime;
-    uint256 secondChildTime;
+    uint64 firstChildTime;
+    uint64 secondChildTime;
     bytes32 wasmModuleRoot;
 }
 
@@ -88,10 +88,10 @@ library AssertionNodeLib {
      */
     function childCreated(AssertionNode storage self, uint64 number, uint64 confirmPeriodSecs) internal {
         if (self.firstChildTime == 0) {
-            self.firstChildTime = block.timestamp;
+            self.firstChildTime = uint64(block.timestamp);
             self.noChildConfirmedBeforeSec = uint64(block.timestamp) + confirmPeriodSecs;
         } else if (self.secondChildTime == 0) {
-            self.secondChildTime = block.timestamp;
+            self.secondChildTime = uint64(block.timestamp);
         }
     }
 
