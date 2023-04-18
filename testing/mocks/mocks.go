@@ -243,7 +243,7 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
-	args := m.Called(ctx, challengedEdge, startCommit, endCommit)
+	args := m.Called(ctx, challengedEdge, startCommit, endCommit, startParentInclusionProof, endParentInclusionProof, startEndPrefixProof)
 	return args.Get(0).(protocol.SpecEdge), args.Error(1)
 }
 func (m *MockSpecChallengeManager) ConfirmEdgeByOneStepProof(

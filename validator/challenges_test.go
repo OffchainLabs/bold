@@ -194,12 +194,10 @@ func prepareHonestStates(
 }
 
 func prepareMaliciousStates(
-	t testing.TB,
 	cfg *challengeProtocolTestConfig,
 	evilHashes []common.Hash,
 	honestStates []*protocol.ExecutionState,
 	honestInboxCounts []*big.Int,
-	prevInboxMaxCount *big.Int,
 ) ([]*protocol.ExecutionState, []*big.Int) {
 	divergenceHeight := cfg.assertionDivergenceHeight
 	numRoots := cfg.bobHeight + 1
@@ -235,7 +233,7 @@ func prepareMaliciousStates(
 	return states, inboxCounts
 }
 
-func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengeProtocolTestConfig) {
+func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProtocolTestConfig) {
 	t.Helper()
 	ctx := context.Background()
 	ref := util.NewRealTimeReference()
@@ -267,12 +265,10 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 	)
 
 	maliciousStates, maliciousInboxCounts := prepareMaliciousStates(
-		t,
 		cfg,
 		evilHashes,
 		honestStates,
 		honestInboxCounts,
-		prevInboxMaxCount,
 	)
 
 	// Initialize each validator.
@@ -346,7 +342,8 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		for {
 			select {
 			case err := <-sub.Err():
-				log.Fatal(err)
+				t.Error(err)
+				return
 			case <-ctx.Done():
 				return
 			case vLog := <-logs:

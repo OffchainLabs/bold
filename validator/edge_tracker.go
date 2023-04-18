@@ -402,7 +402,7 @@ type edgeTracker struct {
 }
 
 func newEdgeTracker(
-	ctx context.Context,
+	_ context.Context,
 	cfg *edgeTrackerConfig,
 	edge protocol.SpecEdge,
 	startHeightOffset uint64,
@@ -456,6 +456,6 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 }
 
 // TODO(RJ): Implement
-func (et *edgeTracker) shouldComplete(ctx context.Context) (bool, error) {
+func (et *edgeTracker) shouldComplete(_ context.Context) (bool, error) {
 	return false, nil
 }

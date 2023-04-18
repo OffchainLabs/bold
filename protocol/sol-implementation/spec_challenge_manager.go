@@ -242,7 +242,7 @@ type SpecChallengeManager struct {
 // NewSpecChallengeManager returns an instance of the spec challenge manager
 // used by the assertion chain.
 func NewSpecChallengeManager(
-	ctx context.Context,
+	_ context.Context,
 	addr common.Address,
 	assertionChain *AssertionChain,
 	backend ChainBackend,

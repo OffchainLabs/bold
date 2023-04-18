@@ -226,7 +226,7 @@ func NewWithAssertionStates(
 // LatestAssertionCreationData gets the state commitment corresponding to the last, local state root the manager has
 // and a pre-state based on a height of the previous assertion the validator should build upon.
 func (s *Simulated) LatestAssertionCreationData(
-	ctx context.Context,
+	_ context.Context,
 	prevHeight uint64,
 ) (*AssertionToCreate, error) {
 	if len(s.executionStates) == 0 {
@@ -249,14 +249,14 @@ func (s *Simulated) LatestAssertionCreationData(
 }
 
 // HasStateCommitment checks if a state commitment is found in our local list of state roots.
-func (s *Simulated) HasStateCommitment(ctx context.Context, commitment util.StateCommitment) bool {
+func (s *Simulated) HasStateCommitment(_ context.Context, commitment util.StateCommitment) bool {
 	if commitment.Height >= uint64(len(s.stateRoots)) {
 		return false
 	}
 	return s.stateRoots[commitment.Height] == commitment.StateRoot
 }
 
-func (s *Simulated) HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error) {
+func (s *Simulated) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error) {
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
 	size := blockChallengeHeight + 1
@@ -293,7 +293,7 @@ func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) []co
 	return states
 }
 
-func (s *Simulated) HistoryCommitmentUpToBatch(ctx context.Context, blockStart, blockEnd, nextBatchCount uint64) (util.HistoryCommitment, error) {
+func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, blockEnd, nextBatchCount uint64) (util.HistoryCommitment, error) {
 	return util.NewHistoryCommitment(
 		blockEnd-blockStart,
 		s.statesUpTo(blockStart, blockEnd, nextBatchCount),
@@ -318,7 +318,7 @@ func (s *Simulated) BigStepLeafCommitment(
 }
 
 func (s *Simulated) BigStepCommitmentUpTo(
-	ctx context.Context,
+	_ context.Context,
 	fromAssertionHeight,
 	toAssertionHeight,
 	toBigStep uint64,
@@ -396,7 +396,7 @@ func (s *Simulated) SmallStepLeafCommitment(
 }
 
 func (s *Simulated) SmallStepCommitmentUpTo(
-	ctx context.Context,
+	_ context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
