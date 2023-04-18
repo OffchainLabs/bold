@@ -644,7 +644,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable, IAssertionChai
                 newAssertionHash,
                 assertion.numBlocks + memoryFrame.prevAssertion.height,
                 memoryFrame.currentInboxSize,
-                !memoryFrame.hasSibling
+                !memoryFrame.hasSibling,
+                wasmModuleRoot
             );
         }
 
@@ -707,6 +708,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable, IAssertionChai
 
     function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256){
         return getAssertionStorage(getAssertionNum(assertionId)).firstChildTime;
+    }
+
+    function getWasmModuleRoot(bytes32 assertionId) external view returns (bytes32){
+        return getAssertionStorage(getAssertionNum(assertionId)).wasmModuleRoot;
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool){

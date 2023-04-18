@@ -58,6 +58,11 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].firstChildCreationTime;
     }
 
+    function getWasmModuleRoot(bytes32 assertionId) external view returns (bytes32) {
+        require(assertionExists(assertionId), "Assertion does not exist");
+        return bytes32(0); // TODO: Set to proper value in this mock
+    }
+
     function isFirstChild(bytes32 assertionId) external view returns (bool) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].isFirstChild;
