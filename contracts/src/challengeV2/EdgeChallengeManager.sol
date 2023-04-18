@@ -300,22 +300,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
     ///////////// VIEW FUNCS ///////////////
 
     function getPrevAssertionId(bytes32 edgeId) public view returns (bytes32) {
-        ChallengeEdge storage edge = store.get(edgeId);
-
-        if (edge.eType == EdgeType.SmallStep) {
-            bytes32 bigStepEdgeId = store.firstRivals[edge.originId];
-            edge = store.get(bigStepEdgeId);
-        }
-
-        if (edge.eType == EdgeType.BigStep) {
-            bytes32 blockEdgeId = store.firstRivals[edge.originId];
-            edge = store.get(blockEdgeId);
-        }
-
-        // Sanity Check: should never be hit for validly constructed edges
-        require(edge.eType == EdgeType.Block, "Edge not block type after traversal");
-
-        return edge.originId;
+        return store.getPrevAssertionId(edgeId);
     }
 
     function hasRival(bytes32 edgeId) public view returns (bool) {
