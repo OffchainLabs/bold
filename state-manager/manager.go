@@ -277,7 +277,7 @@ func (s *Simulated) BigStepCommitmentUpTo(
 			toAssertionHeight,
 		)
 	}
-	engine, err := s.setupEngine(fromAssertionHeight, toAssertionHeight)
+	engine, err := s.setupEngine(fromAssertionHeight)
 	if err != nil {
 		return util.HistoryCommitment{}, err
 	}
@@ -369,7 +369,7 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 			toBigStep,
 		)
 	}
-	engine, err := s.setupEngine(fromBlockChallengeHeight, toBlockChallengeHeight)
+	engine, err := s.setupEngine(fromBlockChallengeHeight)
 	if err != nil {
 		return util.HistoryCommitment{}, err
 	}
@@ -510,7 +510,7 @@ func (s *Simulated) BigStepPrefixProof(
 			toBlockChallengeHeight,
 		)
 	}
-	engine, err := s.setupEngine(fromBlockChallengeHeight, toBlockChallengeHeight)
+	engine, err := s.setupEngine(fromBlockChallengeHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -586,7 +586,7 @@ func (s *Simulated) SmallStepPrefixProof(
 			toBigStep,
 		)
 	}
-	engine, err := s.setupEngine(fromBlockChallengeHeight, toBlockChallengeHeight)
+	engine, err := s.setupEngine(fromBlockChallengeHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +603,7 @@ func (s *Simulated) SmallStepPrefixProof(
 	)
 }
 
-func (s *Simulated) setupEngine(fromHeight, toHeight uint64) (*execution.Engine, error) {
+func (s *Simulated) setupEngine(fromHeight uint64) (*execution.Engine, error) {
 	machineCfg := execution.DefaultMachineConfig()
 	if s.maxWavmOpcodes > 0 {
 		machineCfg.MaxInstructionsPerBlock = s.maxWavmOpcodes
