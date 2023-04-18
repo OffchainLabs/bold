@@ -443,7 +443,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			honestCommit.FirstLeafProof,
 			honestCommit.LastLeafProof,
 		)
-		require.ErrorContains(t, err, "Before state not in history")
+		require.ErrorContains(t, err, "Invalid inclusion proof")
 	})
 	t.Run("one step proof fails", func(t *testing.T) {
 		scenario := setupOneStepProofScenario(t)
@@ -487,7 +487,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			startCommit.LastLeafProof,
 			endCommit.LastLeafProof,
 		)
-		require.ErrorContains(t, err, "After state not in history")
+		require.ErrorContains(t, err, "Invalid inclusion proof")
 	})
 	t.Run("OK", func(t *testing.T) {
 		scenario := setupOneStepProofScenario(t)
