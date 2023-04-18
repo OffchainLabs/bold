@@ -1324,6 +1324,8 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.confirmEdgeByOneStepProof(
             allWinners[0].lowerChildId,
             OneStepData({
+                inboxMsgCountSeen: 7,
+                inboxMsgCountSeenProof: "",
                 beforeHash: firstStates[0],
                 proof: abi.encodePacked(firstStates[1])
             }),

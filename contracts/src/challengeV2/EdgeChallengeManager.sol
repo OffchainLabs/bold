@@ -326,7 +326,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
     ) public {
         bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
         ExecutionContext memory execCtx = ExecutionContext({
-            maxInboxMessagesRead: assertionChain.getInboxMsgCountSeen(prevAssertionId),
+            maxInboxMessagesRead: assertionChain.proveInboxMsgCountSeen(prevAssertionId, oneStepData.inboxMsgCountSeen, oneStepData.inboxMsgCountSeenProof),
             bridge: assertionChain.bridge(),
             initialWasmModuleRoot: assertionChain.getWasmModuleRoot(prevAssertionId)
         });
