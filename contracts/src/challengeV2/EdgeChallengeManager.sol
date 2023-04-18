@@ -203,11 +203,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
                 // into machine hashes (used by big & small step execution challenges)
 
                 {
-                    // TODO: This determines what code we're executing to determine the correct block.
-                    // In the old rollup, each assertion stored the current wasmModuleRoot of the rollup,
-                    // so that if the wasmModuleRoot was upgraded it could never invalidate old assertions.
-                    // I'd recommend keeping this paradigm, but it seems out of scope for the change I'm writing.
-                    bytes32 wasmModuleRoot;
+                    // Use prev wasmModuleRoot for all its succession challenges
+                    bytes32 wasmModuleRoot = assertionChain.getWasmModuleRoot(claimEdge.originId);
 
                     // TODO: In the old rollup, we allowed proving that the machine entered the ERRORED state.
                     // That effectively paused the rollup until the security council took action to upgrade it.
