@@ -58,7 +58,8 @@ library RollupLib {
         globalStates[0] = assertion.beforeState.globalState;
         globalStates[1] = assertion.afterState.globalState;
         // TODO: benchmark how much this abstraction adds of gas overhead
-        return executionHash(statuses, globalStates, assertion.numBlocks);
+        return executionHash(statuses, globalStates, 0); // hardcoded numBlocks to 0 
+        // TODO: remove numBlocks from executionHash as it is now a constant
     }
 
     function executionHash(

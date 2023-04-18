@@ -49,7 +49,6 @@ struct ExecutionState {
 struct AssertionInputs {
     ExecutionState beforeState;
     ExecutionState afterState;
-    uint64 numBlocks;
 }
 
 /**

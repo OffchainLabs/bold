@@ -103,8 +103,7 @@ contract MockAssertionChain is IAssertionChain {
     {
         bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
             beforeState: beforeState.es,
-            afterState: afterState.es,
-            numBlocks: 0 // moot, will remove soon
+            afterState: afterState.es
         }));
         return RollupLib.assertionHash({
             lastHash: predecessorId,

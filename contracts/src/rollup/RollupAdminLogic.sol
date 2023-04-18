@@ -86,8 +86,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         );
         bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
             beforeState: emptyExecutionState,
-            afterState: emptyExecutionState,
-            numBlocks: 0
+            afterState: emptyExecutionState
         }));
         bytes32 genesisHash = RollupLib.assertionHash({
             lastHash: bytes32(0),

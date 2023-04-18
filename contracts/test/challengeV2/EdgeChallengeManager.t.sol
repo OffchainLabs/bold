@@ -24,8 +24,7 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisStateHash = StateToolsLib.hash(genesisState);
     bytes32 genesisExecutionHash = RollupLib.executionHash(AssertionInputs({
         beforeState: genesisState.es,
-        afterState: genesisState.es,
-        numBlocks: 0 // moot, will remove soon
+        afterState: genesisState.es
     }));
 
     function genesisStates() internal view returns (bytes32[] memory) {
