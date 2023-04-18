@@ -309,9 +309,8 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	toAssertionHeight := fromAssertionHeight + 1
 	fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
 	toBigStep := fromBigStep + 1
-	pc, pcCommit := et.edge.StartCommitment()
+	pc, _ := et.edge.StartCommitment()
 
-	log.Infof("Producing osp for a=%d,%d, bs=%d,%d, ss=%d,%d, startCommit=%d,%#x", fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, pc, pc+1, pc, pcCommit)
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
 		fromAssertionHeight,
