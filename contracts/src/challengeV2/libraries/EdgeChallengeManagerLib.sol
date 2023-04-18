@@ -114,7 +114,6 @@ library EdgeChallengeManagerLib {
             edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
         );
         bytes32 firstRival = store.firstRivals[mutualId];
-        bool hasRivalVal = false;
 
         // the first time we add a mutual id we store a magic string hash against it
         // We do this to distinguish from there being no edges
@@ -125,7 +124,6 @@ library EdgeChallengeManagerLib {
             store.firstRivals[mutualId] = UNRIVALED;
         } else if (firstRival == UNRIVALED) {
             store.firstRivals[mutualId] = eId;
-            hasRivalVal = true;
         } else {
             // after we've stored the first rival we dont need to keep a record of any
             // other rival edges - they will all have a zero time unrivaled
@@ -135,7 +133,7 @@ library EdgeChallengeManagerLib {
             eId,
             mutualId,
             edge.originId,
-            hasRivalVal,
+            firstRival != 0,
             store.edges[eId].length(),
             edge.eType,
             edge.staker != address(0)
