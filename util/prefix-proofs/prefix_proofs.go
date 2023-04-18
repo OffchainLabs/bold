@@ -68,7 +68,7 @@
 //
 // Tree operations
 // --------------------------------------------------------------------------------------------
-// Binary trees are modified by adding or subtracting complete subtrees, however this libary
+// Binary trees are modified by adding or subtracting complete subtrees, however this library
 // supports additive only trees since we dont have a specific use for subtraction at the moment.
 // We call adding a complete subtree to an existing tree "appending", appending has the following
 // rules:
@@ -95,6 +95,8 @@
 //
 // root of ABCD =hash(AB, CD)
 // --------------------------------------------------------------------------------------------
+//
+//nolint:dupword
 package prefixproofs
 
 import (
@@ -147,7 +149,7 @@ func MostSignificantBit(x uint64) (uint64, error) {
 // all its subtrees. Returns error for empty tree.
 func Root(me []common.Hash) (common.Hash, error) {
 	if uint64(len(me)) > MAX_LEVEL {
-		return common.Hash{}, ErrLevelTooHigh
+		return common.Hash{}, ErrExpansionTooLarge
 	}
 	if uint64(len(me)) == 0 {
 		return common.Hash{}, ErrRootForEmpty
@@ -194,7 +196,7 @@ func TreeSize(me []common.Hash) uint64 {
 // Append a complete subtree to an existing tree
 // See above description of trees for rules on how appending can occur.
 // Briefly, appending works like binary addition only that the value being added be an
-// exact power of two (complete), and must equal to or less than the least signficant bit
+// exact power of two (complete), and must equal to or less than the least significant bit
 // in the existing tree.
 // If the me is empty, will just append directly.
 func AppendCompleteSubTree(
@@ -340,17 +342,23 @@ func GeneratePrefixProof(
 	leaves []common.Hash,
 	rootFetcher MerkleExpansionRootFetcherFunc,
 ) ([]common.Hash, error) {
+	if prefixHeight == 0 {
+		return nil, errors.Wrap(ErrCannotBeZero, "prefixHeight was 0")
+	}
+	if len(leaves) == 0 {
+		return nil, errors.Wrap(ErrCannotBeZero, "length of leaves was 0")
+	}
 	height := prefixHeight
 	postHeight := height + uint64(len(leaves))
 	proof, _ := prefixExpansion.Compact()
 	for height < postHeight {
-		// extHeight looks like   xxxxxxx0yyy
-		// post.height looks like xxxxxxx1zzz
+		// extHeight looks like   xxxxxxxyyy
+		// post.height looks like xxxxxxxzzz
 		firstDiffBit, err := MostSignificantBit(height ^ postHeight)
 		if err != nil {
 			return nil, err
 		}
-		mask := (uint64(1) << firstDiffBit) - 1
+		mask := (uint64(1) << (firstDiffBit + 1)) - 1
 		yyy := height & mask
 		zzz := postHeight & mask
 		if yyy != 0 {
@@ -367,7 +375,7 @@ func GeneratePrefixProof(
 			leaves = leaves[numLeaves:]
 			height += numLeaves
 		} else if zzz != 0 {
-			highBit, err := MostSignificantBit(yyy)
+			highBit, err := MostSignificantBit(zzz)
 			if err != nil {
 				return nil, err
 			}
@@ -379,13 +387,6 @@ func GeneratePrefixProof(
 			proof = append(proof, root)
 			leaves = leaves[numLeaves:]
 			height += numLeaves
-		} else {
-			root, err := rootFetcher(leaves, uint64(len(leaves)))
-			if err != nil {
-				return nil, err
-			}
-			proof = append(proof, root)
-			height = postHeight
 		}
 	}
 	return proof, nil

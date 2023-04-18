@@ -2,11 +2,60 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+// AssertionSequenceNumber is a monotonically increasing ID
+// for each assertion in the chain.
+type AssertionSequenceNumber uint64
+
+// AssertionId represents a unique identifier for an assertion
+// constructed as a keccak256 hash of some of its internals.
+type AssertionId common.Hash
+
+// Protocol --
+type Protocol interface {
+	AssertionChain
+}
+
+// Assertion represents a top-level claim in the protocol about the
+// chain state created by a validator that stakes on their claim.
+// Assertions can be challenged.
+type Assertion interface {
+	Height() (uint64, error)
+	SeqNum() AssertionSequenceNumber
+	PrevSeqNum() (AssertionSequenceNumber, error)
+	StateHash() (common.Hash, error)
+}
+
+// AssertionChain can manage assertions in the protocol and retrieve
+// information about them. It also has an associated challenge manager
+// which is used for all challenges in the protocol.
+type AssertionChain interface {
+	// Read-only methods.
+	NumAssertions(ctx context.Context) (uint64, error)
+	AssertionBySequenceNum(ctx context.Context, seqNum AssertionSequenceNumber) (Assertion, error)
+	LatestConfirmed(ctx context.Context) (Assertion, error)
+	GetAssertionId(ctx context.Context, seqNum AssertionSequenceNumber) (AssertionId, error)
+	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
+
+	// Mutating methods.
+	CreateAssertion(
+		ctx context.Context,
+		height uint64,
+		prevSeqNum AssertionSequenceNumber,
+		prevAssertionState *ExecutionState,
+		postState *ExecutionState,
+		prevInboxMaxCount *big.Int,
+	) (Assertion, error)
+
+	// Spec-based implementation methods.
+	SpecChallengeManager(ctx context.Context) (SpecChallengeManager, error)
+}
 
 // EdgeType corresponds to the three different challenge
 // levels in the protocol: block challenges, big step challenges,
@@ -61,6 +110,15 @@ type EdgeId common.Hash
 // level corresponding to the level zero edges in the respective subchallenge.
 type ClaimId common.Hash
 
+// OneStepData used for confirming edges by one step proofs.
+type OneStepData struct {
+	BridgeAddr           common.Address
+	MaxInboxMessagesRead uint64
+	MachineStep          uint64
+	BeforeHash           common.Hash
+	Proof                []byte
+}
+
 // SpecChallengeManager implements the research specification.
 type SpecChallengeManager interface {
 	// Address of the challenge manager contract.
@@ -107,6 +165,11 @@ const (
 	EdgeConfirmed
 )
 
+type OriginHeights struct {
+	BlockChallengeOriginHeight   Height
+	BigStepChallengeOriginHeight Height
+}
+
 // SpecEdge according to the protocol specification.
 type SpecEdge interface {
 	// The unique identifier for an edge.
@@ -138,9 +201,8 @@ type SpecEdge interface {
 	ConfirmByTimer(ctx context.Context, ancestorIds []EdgeId) error
 	// Confirms an edge with the specified claim id.
 	ConfirmByClaim(ctx context.Context, claimId ClaimId) error
-	ConfirmByOneStepProof(ctx context.Context) error
 	ConfirmByChildren(ctx context.Context) error
 	// The history commitment for the top-level edge the current edge's challenge is made upon.
 	// This is used at subchallenge creation boundaries.
-	TopLevelClaimHeight(ctx context.Context) (Height, error)
+	TopLevelClaimHeight(ctx context.Context) (*OriginHeights, error)
 }

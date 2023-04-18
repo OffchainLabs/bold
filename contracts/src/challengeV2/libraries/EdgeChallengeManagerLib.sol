@@ -133,16 +133,11 @@ library EdgeChallengeManagerLib {
             eId,
             mutualId,
             edge.originId,
-            hasRivalVal(store.firstRivals[mutualId]),
+            firstRival != 0,
             store.edges[eId].length(),
             edge.eType,
             edge.staker != address(0)
         );
-    }
-
-    /// @dev    Determines if the rival val is currently unrivaled
-    function hasRivalVal(bytes32 rivalVal) private pure returns (bool) {
-        return rivalVal != UNRIVALED;
     }
 
     /// @notice Does this edge currently have one or more rivals
@@ -160,17 +155,15 @@ library EdgeChallengeManagerLib {
         require(firstRival != 0, "Empty first rival");
 
         // can only have no rival if the firstRival is the UNRIVALED magic hash
-        return hasRivalVal(firstRival);
+        return firstRival != UNRIVALED;
     }
 
     /// @notice Is the edge a single step in length, and does it have at least one rival.
     /// @param store    The edge store containing the edge
     /// @param edgeId   The edge id to test for single step and rivaled
     function hasLengthOneRival(EdgeStore storage store, bytes32 edgeId) internal view returns (bool) {
-        require(store.edges[edgeId].exists(), "Edge does not exist");
-
         // must be length 1 and have rivals - all rivals have the same length
-        return (store.edges[edgeId].length() == 1 && hasRival(store, edgeId));
+        return (hasRival(store, edgeId) && store.edges[edgeId].length() == 1);
     }
 
     /// @notice The amount of time this edge has spent without rivals
@@ -327,7 +320,7 @@ library EdgeChallengeManagerLib {
         }
     }
 
-    /// @notice Check that the claimId of a claiming edge matched the edge id of a supplied edge
+    /// @notice Check that the originId of a claiming edge matched the mutualId() of a supplied edge
     /// @dev    Does some additional sanity checks to ensure that the claim id link is valid
     /// @param store            The store containing all edges and rivals
     /// @param edgeId           The edge being claimed
@@ -420,7 +413,7 @@ library EdgeChallengeManagerLib {
     }
 
     /// @notice Confirm an edge by executing a one step proof
-    /// @dev    One step proofs can only be executed against edges that are rivaled, length one and of type SmallStep
+    /// @dev    One step proofs can only be executed against edges that have length one and of type SmallStep
     /// @param store                        The edge store containing all edges and rival data
     /// @param edgeId                       The id of the edge to confirm
     /// @param oneStepProofEntry            The one step proof contract
@@ -438,9 +431,9 @@ library EdgeChallengeManagerLib {
         require(store.edges[edgeId].exists(), "Edge does not exist");
         require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
 
-        // edge must have rivals, be length one and be of type SmallStep
+        // edge must be length one and be of type SmallStep
         require(store.edges[edgeId].eType == EdgeType.SmallStep, "Edge is not a small step");
-        require(hasLengthOneRival(store, edgeId), "Edge does not have single step rival");
+        require(store.edges[edgeId].length() == 1, "Edge does not have single step");
 
         // the state in the onestep data must be committed to by the startHistoryRoot
         MerkleTreeLib.verifyInclusionProof(
