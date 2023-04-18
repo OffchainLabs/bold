@@ -76,7 +76,7 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
-		cfg.expectedBisections = 62
+		cfg.expectedBisections = 60
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
@@ -92,7 +92,7 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
-		cfg.expectedBisections = 62
+		cfg.expectedBisections = 60
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
@@ -108,7 +108,7 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
-		cfg.expectedBisections = 62
+		cfg.expectedBisections = 60
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")

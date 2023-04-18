@@ -169,6 +169,11 @@ func WithBigStepStateDivergenceHeight(divergenceHeight uint64) Opt {
 	}
 }
 
+// The divergence height is relative to the last non-diverging big step.
+// E.g. if the big step divergence is set to 2, there are 32 small steps per big steps,
+// and the small step divergence is set to 10, then small steps would start diverging at step 42.
+// That's because we need to make a divergence before big step 2, but after big step 1.
+// We put the divergence 10 small steps into that big step block, as specified by this parameter.
 func WithSmallStepStateDivergenceHeight(divergenceHeight uint64) Opt {
 	return func(s *Simulated) {
 		s.smallStepDivergenceHeight = divergenceHeight
@@ -468,6 +473,10 @@ func (s *Simulated) intermediateSmallStepLeaves(
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
 	// Up to and including the specified step.
+	var divergeAt uint64
+	if s.bigStepDivergenceHeight > 0 {
+		divergeAt = s.numOpcodesPerBigStep*(s.bigStepDivergenceHeight-1) + s.smallStepDivergenceHeight
+	}
 	for i := fromSmallStep; i <= toSmallStep; i++ {
 		start, err := engine.StateAfterSmallSteps(i)
 		if err != nil {
@@ -482,7 +491,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 			// If we're at a big step point, maintain compatibility so big step -> small step subchallenges work
 			shouldDiverge = s.bigStepShouldDiverge(i / s.numOpcodesPerBigStep)
 		} else {
-			shouldDiverge = s.smallStepDivergenceHeight != 0 && i >= s.smallStepDivergenceHeight
+			shouldDiverge = divergeAt != 0 && i >= divergeAt
 		}
 		if shouldDiverge {
 			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d", i, fromBlockChallengeHeight, toBlockChallengeHeight)))
