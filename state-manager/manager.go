@@ -266,7 +266,10 @@ func (s *Simulated) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeigh
 	)
 }
 
-func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) []common.Hash {
+func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
+	if blockEnd < blockStart {
+		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
+	}
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
 	desiredStatesLen := int(blockEnd - blockStart + 1)
@@ -283,20 +286,28 @@ func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) []co
 			// should only happen in tests
 			continue
 		}
-		if s.executionStates[i].GlobalState.Batch >= nextBatchCount {
+		gs := s.executionStates[i].GlobalState
+		if gs.Batch >= nextBatchCount {
+			if gs.Batch > nextBatchCount || gs.PosInBatch > 0 {
+				return nil, fmt.Errorf("overran next batch count %v with global state batch %v position %v", nextBatchCount, gs.Batch, gs.PosInBatch)
+			}
 			break
 		}
 	}
 	for len(states) < desiredStatesLen {
 		states = append(states, lastState)
 	}
-	return states
+	return states, nil
 }
 
 func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, blockEnd, nextBatchCount uint64) (util.HistoryCommitment, error) {
+	states, err := s.statesUpTo(blockStart, blockEnd, nextBatchCount)
+	if err != nil {
+		return util.HistoryCommitment{}, err
+	}
 	return util.NewHistoryCommitment(
 		blockEnd-blockStart,
-		s.statesUpTo(blockStart, blockEnd, nextBatchCount),
+		states,
 	)
 }
 
@@ -350,6 +361,14 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	return util.NewHistoryCommitment(toBigStep, leaves)
 }
 
+func (s *Simulated) bigStepShouldDiverge(step uint64) bool {
+	// Diverge if:
+	return s.bigStepDivergenceHeight != 0 && // diverging is enabled, and
+		step >= s.bigStepDivergenceHeight && // we're past the divergence point, and
+		step != 0 && // we're not at the beginning of a block (otherwise the block->big step subchallenge wouldn't work), and
+		step != s.maxWavmOpcodes/s.numOpcodesPerBigStep // we're not at the end of a block (for the same reason)
+}
+
 func (s *Simulated) intermediateBigStepLeaves(
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -368,10 +387,10 @@ func (s *Simulated) intermediateBigStepLeaves(
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
-		if s.bigStepDivergenceHeight == 0 || i < s.bigStepDivergenceHeight || i == 0 || i == s.maxWavmOpcodes/s.numOpcodesPerBigStep {
-			hash = start.Hash()
-		} else {
+		if s.bigStepShouldDiverge(i) {
 			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d", i*s.numOpcodesPerBigStep, fromBlockChallengeHeight, toBlockChallengeHeight)))
+		} else {
+			hash = start.Hash()
 		}
 		leaves = append(leaves, hash)
 	}
@@ -449,7 +468,6 @@ func (s *Simulated) intermediateSmallStepLeaves(
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
 	// Up to and including the specified step.
-	divergingAt := fromSmallStep + s.smallStepDivergenceHeight
 	for i := fromSmallStep; i <= toSmallStep; i++ {
 		start, err := engine.StateAfterSmallSteps(i)
 		if err != nil {
@@ -459,10 +477,17 @@ func (s *Simulated) intermediateSmallStepLeaves(
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
-		if s.smallStepDivergenceHeight == 0 || (i < divergingAt && i/s.numOpcodesPerBigStep < s.bigStepDivergenceHeight) || i == 0 || i == s.maxWavmOpcodes || (i%s.numOpcodesPerBigStep == 0 && i/s.numOpcodesPerBigStep < s.bigStepDivergenceHeight) {
-			hash = start.Hash()
+		var shouldDiverge bool
+		if i%s.numOpcodesPerBigStep == 0 {
+			// If we're at a big step point, maintain compatibility so big step -> small step subchallenges work
+			shouldDiverge = s.bigStepShouldDiverge(i / s.numOpcodesPerBigStep)
 		} else {
+			shouldDiverge = s.smallStepDivergenceHeight != 0 && i >= s.smallStepDivergenceHeight
+		}
+		if shouldDiverge {
 			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d", i, fromBlockChallengeHeight, toBlockChallengeHeight)))
+		} else {
+			hash = start.Hash()
 		}
 		leaves = append(leaves, hash)
 	}
@@ -516,7 +541,10 @@ func (s *Simulated) OneStepProofData(
 }
 
 func (s *Simulated) prefixProofImpl(_ context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
-	states := s.statesUpTo(start, hi, batchCount)
+	states, err := s.statesUpTo(start, hi, batchCount)
+	if err != nil {
+		return nil, err
+	}
 	loSize := lo + 1 - start
 	hiSize := hi + 1 - start
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(states[:loSize])

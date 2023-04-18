@@ -73,11 +73,10 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			// alice and bob start diverging at height 3 at all subchallenge levels.
 			assertionDivergenceHeight: 4,
 			bigStepDivergenceHeight:   4,
-			numSmallStepsAtBigStep:    7,
 			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
-		cfg.expectedBisections = 60
+		cfg.expectedBisections = 62
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
@@ -90,11 +89,10 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			bobHeight:                 31,
 			assertionDivergenceHeight: 4,
 			bigStepDivergenceHeight:   4,
-			numSmallStepsAtBigStep:    7,
 			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
-		cfg.expectedBisections = 60
+		cfg.expectedBisections = 62
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
@@ -107,11 +105,10 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 			bobHeight:                 8,
 			assertionDivergenceHeight: 8,
 			bigStepDivergenceHeight:   4,
-			numSmallStepsAtBigStep:    7,
 			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
-		cfg.expectedBisections = 60
+		cfg.expectedBisections = 62
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
@@ -128,9 +125,6 @@ type challengeProtocolTestConfig struct {
 	// The heights at which the validators diverge in histories at the big step
 	// subchallenge level.
 	bigStepDivergenceHeight uint64
-	// The number of WAVM opcodes (small steps) at the one-step-fork point of a big step
-	// subchallenge in a test.
-	numSmallStepsAtBigStep uint64
 	// The heights at which the validators diverge in histories at the small step
 	// subchallenge level.
 	smallStepDivergenceHeight uint64
