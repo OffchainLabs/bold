@@ -28,6 +28,8 @@ struct AssertionNode {
     // uint64 latestChildNumber;
     // The block number when this assertion was created
     uint64 createdAtTime;
+    uint64 firstChildTime;
+    uint64 secondChildTime;
     // A hash of all the data needed to determine this assertion's validity, to protect against reorgs
     bytes32 assertionHash;
     // HN: TODO: Add new fields below
@@ -35,9 +37,6 @@ struct AssertionNode {
     uint256 height; // in stateHash // TODO: This can be removed as block edge height is constant
     uint256 inboxMsgCountSeen; // in stateHash
     bool isFirstChild; // in assertionHash
-    // HN: TODO: Pick block or timestamp
-    uint64 firstChildTime;
-    uint64 secondChildTime;
     bytes32 wasmModuleRoot;
 }
 
