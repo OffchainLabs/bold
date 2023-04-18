@@ -66,17 +66,15 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 	//
 	t.Run("two forked assertions at the same height", func(t *testing.T) {
 		cfg := &challengeProtocolTestConfig{
-			currentChainHeight: 7,
 			// The latest assertion height each validator has seen.
 			aliceHeight: 7,
 			bobHeight:   7,
 			// The heights at which the validators diverge in histories. In this test,
 			// alice and bob start diverging at height 3 at all subchallenge levels.
-			assertionDivergenceHeight:    4,
-			numBigStepsAtAssertionHeight: 7,
-			bigStepDivergenceHeight:      4,
-			numSmallStepsAtBigStep:       7,
-			smallStepDivergenceHeight:    4,
+			assertionDivergenceHeight: 4,
+			bigStepDivergenceHeight:   4,
+			numSmallStepsAtBigStep:    7,
+			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
 		cfg.expectedBisections = 60
@@ -88,14 +86,29 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 	t.Run("two validators opening leaves at height 31", func(t *testing.T) {
 		// TODO: we would use a larger height here but we're limited by protocol.LayerZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
-			currentChainHeight:           31,
-			aliceHeight:                  31,
-			bobHeight:                    31,
-			assertionDivergenceHeight:    4,
-			numBigStepsAtAssertionHeight: 7,
-			bigStepDivergenceHeight:      4,
-			numSmallStepsAtBigStep:       7,
-			smallStepDivergenceHeight:    4,
+			aliceHeight:               31,
+			bobHeight:                 31,
+			assertionDivergenceHeight: 4,
+			bigStepDivergenceHeight:   4,
+			numSmallStepsAtBigStep:    7,
+			smallStepDivergenceHeight: 4,
+		}
+		cfg.expectedLeavesAdded = 30
+		cfg.expectedBisections = 60
+		hook := test.NewGlobal()
+		runChallengeIntegrationTest(t, hook, cfg)
+		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
+		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
+	})
+	t.Run("two validators disagreeing on the number of blocks", func(t *testing.T) {
+		// TODO: we would use a larger height here but we're limited by protocol.LayerZeroBlockEdgeHeight
+		cfg := &challengeProtocolTestConfig{
+			aliceHeight:               7,
+			bobHeight:                 8,
+			assertionDivergenceHeight: 8,
+			bigStepDivergenceHeight:   4,
+			numSmallStepsAtBigStep:    7,
+			smallStepDivergenceHeight: 4,
 		}
 		cfg.expectedLeavesAdded = 30
 		cfg.expectedBisections = 60
@@ -112,8 +125,6 @@ type challengeProtocolTestConfig struct {
 	bobHeight   uint64
 	// The height in the assertion chain at which the validators diverge.
 	assertionDivergenceHeight uint64
-	// The number of big steps of WAVM opcodes at the one-step-fork point in a test.
-	numBigStepsAtAssertionHeight uint64
 	// The heights at which the validators diverge in histories at the big step
 	// subchallenge level.
 	bigStepDivergenceHeight uint64
@@ -123,7 +134,6 @@ type challengeProtocolTestConfig struct {
 	// The heights at which the validators diverge in histories at the small step
 	// subchallenge level.
 	smallStepDivergenceHeight uint64
-	currentChainHeight        uint64
 	// Events we want to assert are fired from the goimpl.
 	expectedBisections  uint64
 	expectedLeavesAdded uint64
@@ -198,16 +208,25 @@ func prepareMaliciousStates(
 
 	for j := uint64(0); j < numRoots; j++ {
 		if divergenceHeight == 0 || j < divergenceHeight {
-			states[j] = honestStates[j]
+			evilState := *honestStates[j]
+			if j < cfg.bobHeight {
+				evilState.GlobalState.Batch = 0
+				evilState.GlobalState.PosInBatch = j
+			}
+			states[j] = &evilState
 			inboxCounts[j] = honestInboxCounts[j]
 		} else {
 			evilState := &protocol.ExecutionState{
 				GlobalState: protocol.GoGlobalState{
 					BlockHash:  evilHashes[j],
-					Batch:      honestStates[j].GlobalState.Batch,
-					PosInBatch: honestStates[j].GlobalState.PosInBatch,
+					Batch:      0,
+					PosInBatch: j,
 				},
 				MachineStatus: protocol.MachineStatusFinished,
+			}
+			if j == cfg.bobHeight {
+				evilState.GlobalState.Batch = 1
+				evilState.GlobalState.PosInBatch = 0
 			}
 			states[j] = evilState
 			inboxCounts[j] = big.NewInt(2)
@@ -234,9 +253,8 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		backend.Commit()
 	}
 
-	honestHashes := honestHashesForUints(0, cfg.currentChainHeight+1)
-	evilHashes := evilHashesForUints(0, cfg.currentChainHeight+1)
-	require.Equal(t, len(honestHashes), len(evilHashes))
+	honestHashes := honestHashesForUints(0, cfg.aliceHeight+1)
+	evilHashes := evilHashesForUints(0, cfg.bobHeight+1)
 
 	honestStates, honestInboxCounts := prepareHonestStates(
 		t,
@@ -244,7 +262,7 @@ func runChallengeIntegrationTest(t *testing.T, hook *test.Hook, cfg *challengePr
 		chains[0],
 		backend,
 		honestHashes,
-		cfg.currentChainHeight,
+		cfg.aliceHeight,
 		prevInboxMaxCount,
 	)
 
