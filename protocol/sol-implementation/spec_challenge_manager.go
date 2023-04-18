@@ -479,18 +479,6 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	if true { // Lee TODO: remove (this was just for debugging)
-		h, err := cm.assertionChain.rollup.GetStateHash(&bind.CallOpts{}, prevAssertionId)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("before hash: %v vs %v\n", common.Hash(h), startCommit.FirstLeaf)
-		h, err = cm.assertionChain.rollup.GetStateHash(&bind.CallOpts{}, assertionId)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("end hash: %v vs %v\n", common.Hash(h), endCommit.LastLeaf)
-	}
 	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,

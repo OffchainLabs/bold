@@ -1310,7 +1310,7 @@ contract EdgeChallengeManagerLibTest is Test {
         }
 
         OneStepData memory d = OneStepData({
-            execCtx: ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0))}),
+            execCtx: ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)}),
             machineStep: e1.startHeight,
             beforeHash: states1[startHeight],
             proof: abi.encodePacked(states1[startHeight + 1])
