@@ -539,9 +539,9 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 
-	honestBisectCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 2)
+	honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight/2, 1)
 	require.NoError(t, err)
-	honestProof, err := honestStateManager.PrefixProof(ctx, 2, 3)
+	honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight/2, protocol.LayerZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 	honestChildren1, honestChildren2, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 	require.NoError(t, err)
@@ -594,7 +594,14 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager statemanager.Manager, leaf protocol.Assertion) protocol.SpecEdge {
+		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, err)
+		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+		prefixProof, err := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+
 		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
@@ -605,13 +612,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		require.NoError(t, err)
 		return edge
 	}
-	honestStartCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, 0)
-	require.NoError(t, err)
-	honestEndCommit, err := honestStateManager.HistoryCommitmentUpTo(ctx, uint64(height))
-	require.NoError(t, err)
-	honestPrefixProof, err := honestStateManager.PrefixProof(ctx, 0, uint64(height))
-	require.NoError(t, err)
-	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, createdData.Leaf1)
+	honestEdge := leafAdder(honestStateManager, createdData.Leaf1)
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgePending, s0)
