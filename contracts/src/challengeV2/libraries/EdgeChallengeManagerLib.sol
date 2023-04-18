@@ -140,11 +140,6 @@ library EdgeChallengeManagerLib {
         );
     }
 
-    /// @dev    Determines if the rival val is currently rivaled
-    function hasRivalVal(bytes32 rivalVal) private pure returns (bool) {
-        return rivalVal != UNRIVALED;
-    }
-
     /// @notice Does this edge currently have one or more rivals
     ///         Rival edges share the same startHeight, startHistoryCommitment and the same endHeight,
     ///         but they have a different endHistoryRoot. Rival edges have the same mutualId
@@ -160,7 +155,7 @@ library EdgeChallengeManagerLib {
         require(firstRival != 0, "Empty first rival");
 
         // can only have no rival if the firstRival is the UNRIVALED magic hash
-        return hasRivalVal(firstRival);
+        return firstRival != UNRIVALED;
     }
 
     /// @notice Is the edge a single step in length, and does it have at least one rival.
