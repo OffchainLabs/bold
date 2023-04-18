@@ -93,16 +93,22 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		firstTracker, err := newEdgeTracker(
+			ctx,
 			et.cfg,
 			firstChild,
+			et.startBlockHeight,
+			et.topLevelClaimEndBatchCount,
 		)
 		if err != nil {
 			log.WithError(err).WithFields(fields).Error("Could not create new vertex tracker")
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		secondTracker, err := newEdgeTracker(
+			ctx,
 			et.cfg,
 			secondChild,
+			et.startBlockHeight,
+			et.topLevelClaimEndBatchCount,
 		)
 		if err != nil {
 			log.WithError(err).WithFields(fields).Error("Could not create new vertex tracker")
@@ -142,11 +148,11 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 		return util.HistoryCommitment{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
 	if et.edge.GetType() == protocol.BlockChallengeEdge {
-		historyCommit, commitErr := et.cfg.stateManager.HistoryCommitmentUpTo(ctx, bisectTo)
+		historyCommit, commitErr := et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, et.startBlockHeight+bisectTo, et.topLevelClaimEndBatchCount)
 		if commitErr != nil {
 			return util.HistoryCommitment{}, nil, commitErr
 		}
-		proof, proofErr := et.cfg.stateManager.PrefixProof(ctx, bisectTo, uint64(endHeight))
+		proof, proofErr := et.cfg.stateManager.PrefixProofUpToBatch(ctx, et.startBlockHeight, bisectTo, uint64(endHeight), et.topLevelClaimEndBatchCount)
 		if proofErr != nil {
 			return util.HistoryCommitment{}, nil, proofErr
 		}
@@ -245,24 +251,55 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 
 	var startHistory util.HistoryCommitment
 	var endHistory util.HistoryCommitment
+	var startParentCommitment util.HistoryCommitment
+	var endParentCommitment util.HistoryCommitment
+	var startEndPrefixProof []byte
 	switch et.edge.GetType() {
 	case protocol.BlockChallengeEdge:
 		log.WithFields(fields).Info("Big step leaf commit")
-		startHistory, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, 0)
+		fromBlock := fromAssertionHeight + et.startBlockHeight
+		toBlock := toAssertionHeight + et.startBlockHeight
+		startHistory, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromBlock, toBlock, 0)
 		if err != nil {
 			return err
 		}
-		endHistory, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight))
+		endHistory, err = et.cfg.stateManager.BigStepLeafCommitment(ctx, fromBlock, toBlock)
+		if err != nil {
+			return err
+		}
+		startParentCommitment, err = et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, fromBlock, et.topLevelClaimEndBatchCount)
+		if err != nil {
+			return err
+		}
+		endParentCommitment, err = et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, toBlock, et.topLevelClaimEndBatchCount)
+		if err != nil {
+			return err
+		}
+		startEndPrefixProof, err = et.cfg.stateManager.BigStepPrefixProof(ctx, fromBlock, toBlock, 0, endHistory.Height)
 		if err != nil {
 			return err
 		}
 	case protocol.BigStepChallengeEdge:
 		log.WithFields(fields).Info("Small step leaf commit")
-		startHistory, err = et.cfg.stateManager.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, uint64(startHeight), uint64(endHeight), 0)
+		fromBlock := fromAssertionHeight + et.startBlockHeight
+		toBlock := toAssertionHeight + et.startBlockHeight
+		startHistory, err = et.cfg.stateManager.SmallStepCommitmentUpTo(ctx, fromBlock, toBlock, uint64(startHeight), uint64(endHeight), 0)
 		if err != nil {
 			return err
 		}
-		endHistory, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, uint64(fromAssertionHeight), uint64(toAssertionHeight), uint64(startHeight), uint64(endHeight))
+		endHistory, err = et.cfg.stateManager.SmallStepLeafCommitment(ctx, fromBlock, toBlock, uint64(startHeight), uint64(endHeight))
+		if err != nil {
+			return err
+		}
+		startParentCommitment, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromBlock, toBlock, uint64(startHeight))
+		if err != nil {
+			return err
+		}
+		endParentCommitment, err = et.cfg.stateManager.BigStepCommitmentUpTo(ctx, fromBlock, toBlock, uint64(endHeight))
+		if err != nil {
+			return err
+		}
+		startEndPrefixProof, err = et.cfg.stateManager.SmallStepPrefixProof(ctx, fromBlock, toBlock, uint64(startHeight), uint64(endHeight), 0, endHistory.Height)
 		if err != nil {
 			return err
 		}
@@ -278,6 +315,9 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		et.edge,
 		startHistory,
 		endHistory,
+		startParentCommitment.LastLeafProof,
+		endParentCommitment.LastLeafProof,
+		startEndPrefixProof,
 	)
 	if err != nil {
 		return err
@@ -288,8 +328,11 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 	fields["subChallengeType"] = addedLeaf.GetType()
 	log.WithFields(fields).Info("Added subchallenge leaf, now tracking its vertex")
 	tracker, err := newEdgeTracker(
+		ctx,
 		et.cfg,
 		addedLeaf,
+		et.startBlockHeight,
+		et.topLevelClaimEndBatchCount,
 	)
 	if err != nil {
 		return err
@@ -351,27 +394,35 @@ type edgeTrackerConfig struct {
 }
 
 type edgeTracker struct {
-	cfg  *edgeTrackerConfig
-	edge protocol.SpecEdge
-	fsm  *util.Fsm[edgeTrackerAction, edgeTrackerState]
+	cfg                        *edgeTrackerConfig
+	edge                       protocol.SpecEdge
+	fsm                        *util.Fsm[edgeTrackerAction, edgeTrackerState]
+	startBlockHeight           uint64
+	topLevelClaimEndBatchCount uint64
 }
 
 func newEdgeTracker(
+	_ context.Context,
 	cfg *edgeTrackerConfig,
 	edge protocol.SpecEdge,
+	startHeightOffset uint64,
+	topLevelClaimEndBatchCount uint64,
 	fsmOpts ...util.FsmOpt[edgeTrackerAction, edgeTrackerState],
 ) (*edgeTracker, error) {
+	fsmOpts = append(fsmOpts, util.WithTrackedTransitions[edgeTrackerAction, edgeTrackerState]())
 	fsm, err := newEdgeTrackerFsm(
 		edgeStarted,
-		util.WithTrackedTransitions[edgeTrackerAction, edgeTrackerState](),
+		fsmOpts...,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &edgeTracker{
-		cfg:  cfg,
-		edge: edge,
-		fsm:  fsm,
+		cfg:                        cfg,
+		edge:                       edge,
+		fsm:                        fsm,
+		startBlockHeight:           startHeightOffset,
+		topLevelClaimEndBatchCount: topLevelClaimEndBatchCount,
 	}, nil
 }
 
@@ -406,6 +457,6 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 }
 
 // TODO(RJ): Implement
-func (et *edgeTracker) shouldComplete(ctx context.Context) (bool, error) {
+func (et *edgeTracker) shouldComplete(_ context.Context) (bool, error) {
 	return false, nil
 }
