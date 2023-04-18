@@ -2,11 +2,11 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
 )
 
 // AssertionSequenceNumber is a monotonically increasing ID
@@ -172,6 +172,11 @@ const (
 	EdgeConfirmed
 )
 
+type OriginHeights struct {
+	BlockChallengeOriginHeight   Height
+	BigStepChallengeOriginHeight Height
+}
+
 // SpecEdge according to the protocol specification.
 type SpecEdge interface {
 	// The unique identifier for an edge.
@@ -203,9 +208,8 @@ type SpecEdge interface {
 	ConfirmByTimer(ctx context.Context, ancestorIds []EdgeId) error
 	// Confirms an edge with the specified claim id.
 	ConfirmByClaim(ctx context.Context, claimId ClaimId) error
-	ConfirmByOneStepProof(ctx context.Context) error
 	ConfirmByChildren(ctx context.Context) error
 	// The history commitment for the top-level edge the current edge's challenge is made upon.
 	// This is used at subchallenge creation boundaries.
-	TopLevelClaimHeight(ctx context.Context) (Height, error)
+	TopLevelClaimHeight(ctx context.Context) (*OriginHeights, error)
 }
