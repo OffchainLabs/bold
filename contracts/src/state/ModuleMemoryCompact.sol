@@ -4,9 +4,6 @@
 
 pragma solidity ^0.8.0;
 
-// import "./MerkleProof.sol";
-// import "./Deserialize.sol";
-
 struct ModuleMemory {
     uint64 size;
     uint64 maxSize;
