@@ -503,11 +503,8 @@ func (s *Simulated) OneStepProofData(
 		return
 	}
 	data = &protocol.OneStepData{
-		BridgeAddr:           common.Address{},
-		MaxInboxMessagesRead: 2,
-		MachineStep:          fromSmallStep,
-		BeforeHash:           startCommit.LastLeaf,
-		Proof:                make([]byte, 0),
+		BeforeHash: startCommit.LastLeaf,
+		Proof:      make([]byte, 0),
 	}
 	if !s.malicious {
 		// Only honest validators can produce a valid one step proof.

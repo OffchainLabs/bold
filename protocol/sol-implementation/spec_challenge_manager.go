@@ -350,13 +350,8 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
 				tentativeWinnerId,
 				challengeV2gen.OneStepData{
-					ExecCtx: challengeV2gen.ExecutionContext{
-						MaxInboxMessagesRead: big.NewInt(int64(oneStepData.MaxInboxMessagesRead)),
-						Bridge:               oneStepData.BridgeAddr,
-					},
-					MachineStep: big.NewInt(int64(oneStepData.MachineStep)),
-					BeforeHash:  oneStepData.BeforeHash,
-					Proof:       oneStepData.Proof,
+					BeforeHash: oneStepData.BeforeHash,
+					Proof:      oneStepData.Proof,
 				},
 				pre,
 				post,

@@ -113,11 +113,8 @@ type ClaimId common.Hash
 
 // OneStepData used for confirming edges by one step proofs.
 type OneStepData struct {
-	BridgeAddr           common.Address
-	MaxInboxMessagesRead uint64
-	MachineStep          uint64
-	BeforeHash           common.Hash
-	Proof                []byte
+	BeforeHash common.Hash
+	Proof      []byte
 }
 
 // SpecChallengeManager implements the research specification.
