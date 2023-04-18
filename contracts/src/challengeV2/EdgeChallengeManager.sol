@@ -290,14 +290,25 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
+        bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
+        ExecutionContext memory execCtx = ExecutionContext({
+            maxInboxMessagesRead: assertionChain.getInboxMsgCountSeen(prevAssertionId),
+            bridge: assertionChain.bridge(),
+            initialWasmModuleRoot: assertionChain.getWasmModuleRoot(prevAssertionId)
+        });
+
         store.confirmEdgeByOneStepProof(
-            edgeId, oneStepProofEntry, oneStepData, beforeHistoryInclusionProof, afterHistoryInclusionProof
+            edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
     }
 
     // CHRIS: TODO: remove these?
     ///////////////////////////////////////////////
     ///////////// VIEW FUNCS ///////////////
+
+    function getPrevAssertionId(bytes32 edgeId) public view returns (bytes32) {
+        return store.getPrevAssertionId(edgeId);
+    }
 
     function hasRival(bytes32 edgeId) public view returns (bool) {
         return store.hasRival(edgeId);

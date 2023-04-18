@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import {IAssertionChain} from "../src/challengeV2/DataEntities.sol";
 import { IEdgeChallengeManager } from "../src/challengeV2/EdgeChallengeManager.sol";
+import "../src/bridge/IBridge.sol";
 
 struct MockAssertion {
     bytes32 predecessorId;
@@ -19,6 +20,7 @@ struct MockAssertion {
 
 contract MockAssertionChain is IAssertionChain {
     mapping(bytes32 => MockAssertion) assertions;
+    IBridge public bridge; // TODO: set bridge in this mock
 
     function assertionExists(bytes32 assertionId) public view returns (bool) {
         return assertions[assertionId].stateHash != 0;
