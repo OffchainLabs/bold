@@ -1312,7 +1312,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         OneStepData memory d = OneStepData({
             inboxMsgCountSeen: 7,
-            inboxMsgCountSeenProof: "",
+            prevExecutionState: "",
             beforeHash: states1[startHeight],
             proof: abi.encodePacked(states1[startHeight + 1])
         });

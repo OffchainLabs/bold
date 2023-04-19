@@ -1325,7 +1325,7 @@ contract EdgeChallengeManagerTest is Test {
             allWinners[0].lowerChildId,
             OneStepData({
                 inboxMsgCountSeen: 7,
-                inboxMsgCountSeenProof: "",
+                prevExecutionState: abi.encode(genesisState.es),
                 beforeHash: firstStates[0],
                 proof: abi.encodePacked(firstStates[1])
             }),

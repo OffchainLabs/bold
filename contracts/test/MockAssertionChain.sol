@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {IAssertionChain} from "../src/challengeV2/DataEntities.sol";
 import { IEdgeChallengeManager } from "../src/challengeV2/EdgeChallengeManager.sol";
 import "../src/bridge/IBridge.sol";
+import "../src/rollup/RollupLib.sol";
 
 struct MockAssertion {
     bytes32 predecessorId;
@@ -41,10 +42,14 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].inboxMsgCountSeen;
     }
 
-    function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory) external view returns (uint256) {
+    function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        require(inboxMsgCountSeen == assertions[assertionId].inboxMsgCountSeen, "Inbox msg count seen does not match");
-        return assertions[assertionId].inboxMsgCountSeen;
+        require(
+            RollupLib.stateHashMem(abi.decode(proof, (ExecutionState)), inboxMsgCountSeen) ==
+                assertions[assertionId].stateHash,
+            "Inbox msg count proof does not match assertion"
+        );
+        return inboxMsgCountSeen;
     }
 
     function getStateHash(bytes32 assertionId) external view returns (bytes32) {

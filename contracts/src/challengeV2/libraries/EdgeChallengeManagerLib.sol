@@ -20,7 +20,8 @@ struct EdgeStore {
 /// @notice Input data to a one step proof
 struct OneStepData {
     uint256 inboxMsgCountSeen;
-    bytes inboxMsgCountSeenProof;
+    /// @notice Used to prove the inbox message count seen
+    bytes prevExecutionState;
     /// @notice The hash of the state that's being executed from
     bytes32 beforeHash;
     /// @notice Proof data to accompany the execution context
