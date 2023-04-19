@@ -104,8 +104,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
                 uint64(block.number), // deadline block (not challengeable)
                 genesisHash,
                 0, // initial assertion has a height of 0
-                true, // initial assertion is first child
-                wasmModuleRoot
+                true // initial assertion is first child
             );
     }
 
