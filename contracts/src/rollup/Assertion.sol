@@ -4,6 +4,9 @@
 
 pragma solidity ^0.8.0;
 
+import "../state/GlobalState.sol";
+import "../state/Machine.sol";
+
 struct AssertionNode {
     // Hash of the state of the chain as of this assertion
     bytes32 stateHash;
@@ -38,6 +41,18 @@ struct AssertionNode {
     bool isFirstChild; // in assertionHash
     // HN: TODO: Pick block or timestamp
     uint256 firstChildTime;
+    bytes32 wasmModuleRoot;
+}
+
+struct ExecutionState {
+    GlobalState globalState;
+    MachineStatus machineStatus;
+}
+
+struct AssertionInputs {
+    ExecutionState beforeState;
+    ExecutionState afterState;
+    uint64 numBlocks;
 }
 
 /**
@@ -62,7 +77,8 @@ library AssertionNodeLib {
         bytes32 _assertionHash,
         uint256 _height,
         uint256 _inboxMsgCountSeen,
-        bool _isFirstChild
+        bool _isFirstChild,
+        bytes32 _wasmModuleRoot
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.stateHash = _stateHash;
@@ -76,6 +92,7 @@ library AssertionNodeLib {
         assertion.height = _height;
         assertion.inboxMsgCountSeen = _inboxMsgCountSeen;
         assertion.isFirstChild = _isFirstChild;
+        assertion.wasmModuleRoot = _wasmModuleRoot;
         return assertion;
     }
 

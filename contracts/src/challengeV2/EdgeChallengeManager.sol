@@ -50,18 +50,15 @@ interface IEdgeChallengeManager {
     function hasLengthOneRival(bytes32 eId) external view returns (bool);
 
     // Creates a layer zero edge in a challenge.
-    function createLayerZeroEdge(
-        CreateEdgeArgs memory args,
-        bytes calldata,
-        bytes calldata
-    ) external payable returns (bytes32);
+    function createLayerZeroEdge(CreateEdgeArgs memory args, bytes calldata, bytes calldata)
+        external
+        payable
+        returns (bytes32);
 
     // Bisects an edge. Emits both children's edge IDs in an event.
-    function bisectEdge(
-        bytes32 eId,
-        bytes32 prefixHistoryRoot,
-        bytes memory prefixProof
-    ) external returns (bytes32, bytes32);
+    function bisectEdge(bytes32 eId, bytes32 prefixHistoryRoot, bytes memory prefixProof)
+        external
+        returns (bytes32, bytes32);
 
     // Checks if both children of an edge are already confirmed in order to confirm the edge.
     function confirmEdgeByChildren(bytes32 eId) external;
@@ -86,7 +83,7 @@ interface IEdgeChallengeManager {
 struct CreateEdgeArgs {
     EdgeType edgeType;
     bytes32 startHistoryRoot;
-    uint256 startHeight;
+    uint256 startHeight; // TODO: This isn't necessary because it's always 0. Do we want it?
     bytes32 endHistoryRoot;
     uint256 endHeight;
     bytes32 claimId;
@@ -115,11 +112,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
     IAssertionChain internal assertionChain;
     IOneStepProofEntry oneStepProofEntry;
 
-    constructor(
-        IAssertionChain _assertionChain,
-        uint256 _challengePeriodSec,
-        IOneStepProofEntry _oneStepProofEntry
-    ) {
+    constructor(IAssertionChain _assertionChain, uint256 _challengePeriodSec, IOneStepProofEntry _oneStepProofEntry) {
         // HN: TODO: remove constructor?
         initialize(_assertionChain, _challengePeriodSec, _oneStepProofEntry);
     }
@@ -135,19 +128,18 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         oneStepProofEntry = _oneStepProofEntry;
     }
 
-    function bisectEdge(
-        bytes32 edgeId,
-        bytes32 bisectionHistoryRoot,
-        bytes memory prefixProof
-    ) external returns (bytes32, bytes32) {
+    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes memory prefixProof)
+        external
+        returns (bytes32, bytes32)
+    {
         return store.bisectEdge(edgeId, bisectionHistoryRoot, prefixProof);
     }
 
-    function createLayerZeroEdge(
-        CreateEdgeArgs memory args,
-        bytes calldata prefixProof,
-        bytes calldata proof
-    ) external payable returns (bytes32) {
+    function createLayerZeroEdge(CreateEdgeArgs memory args, bytes calldata prefixProof, bytes calldata proof)
+        external
+        payable
+        returns (bytes32)
+    {
         bytes32 originId;
         require(args.startHeight == 0, "Start height is not 0");
         if (args.edgeType == EdgeType.Block) {
@@ -155,17 +147,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             originId = assertionChain.getPredecessorId(args.claimId);
             // HN: TODO: check if prev is rejected
             require(assertionChain.isPending(args.claimId), "Claim assertion is not pending");
-            require(
-                assertionChain.getSuccessionChallenge(originId) != 0,
-                "Assertion is not in a fork"
-            );
+            require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
 
             require(args.endHeight == LAYERZERO_BLOCKEDGE_HEIGHT, "Invalid block edge end height");
 
             // check that the start history root is the hash of the previous assertion
             require(
-                args.startHistoryRoot ==
-                    keccak256(abi.encodePacked(assertionChain.getStateHash(originId))),
+                args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getStateHash(originId))),
                 "Start history root does not match previous assertion"
             );
 
@@ -183,8 +171,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             // HN: TODO: spec said 2 challenge period, should we change it to 1?
             // check if the top level challenge has reached the end time
             require(
-                block.timestamp - assertionChain.getFirstChildCreationTime(originId) <
-                    2 * challengePeriodSec,
+                block.timestamp - assertionChain.getFirstChildCreationTime(originId) < 2 * challengePeriodSec,
                 "Challenge period has expired"
             );
         } else {
@@ -195,59 +182,48 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             require(claimEdge.status == EdgeStatus.Pending, "Claim is not pending");
             require(store.hasLengthOneRival(args.claimId), "Claim does not have length 1 rival");
 
-            // check that the start history root match the mutual startHistoryRoot
-            require(
-                args.startHistoryRoot == claimEdge.startHistoryRoot,
-                "Start history root does not match mutual startHistoryRoot"
-            );
-
             require(proof.length > 0, "Edge type specific proof is empty");
             (
+                bytes32 startState,
                 bytes32 endState,
-                bytes32[] memory claimInclusionProof,
+                bytes32[] memory claimStartInclusionProof,
+                bytes32[] memory claimEndInclusionProof,
                 bytes32[] memory edgeInclusionProof
-            ) = abi.decode(proof, (bytes32, bytes32[], bytes32[]));
+            ) = abi.decode(proof, (bytes32, bytes32, bytes32[], bytes32[], bytes32[]));
 
-            // if endState is consistent with the claim and endHistoryRoot, then endHistoryRoot is consistent with the claim
-            // check the endState is consistent with the claim
+            // if the start and end states are consistent with both the claim the roots in the arguments, then the roots in the arguments are consistent with the claim
+            // check the states are consistent with the claims
             MerkleTreeLib.verifyInclusionProof(
-                claimEdge.endHistoryRoot,
-                endState,
-                1,
-                claimInclusionProof
+                claimEdge.startHistoryRoot, startState, claimEdge.startHeight, claimStartInclusionProof
             );
-            // we check the endState is consistent with the endHistoryRoot within the below block
+            MerkleTreeLib.verifyInclusionProof(
+                claimEdge.endHistoryRoot, endState, claimEdge.endHeight, claimEndInclusionProof
+            );
+            // check that the start state is consistent with the root in the argument
+            require(
+                args.startHistoryRoot == keccak256(abi.encodePacked(startState)),
+                "Start history root does not match mutual startHistoryRoot"
+            );
+            // we check that the end state is consistent with the roots in the arguments below
 
             ChallengeEdge storage topLevelEdge;
             if (args.edgeType == EdgeType.BigStep) {
                 require(claimEdge.eType == EdgeType.Block, "Claim challenge type is not Block");
-                require(
-                    args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT,
-                    "Invalid bigstep edge end height"
-                );
+                require(args.endHeight == LAYERZERO_BIGSTEPEDGE_HEIGHT, "Invalid bigstep edge end height");
 
                 // check the endState is consistent with the endHistoryRoot
                 MerkleTreeLib.verifyInclusionProof(
-                    args.endHistoryRoot,
-                    endState,
-                    LAYERZERO_BIGSTEPEDGE_HEIGHT,
-                    edgeInclusionProof
+                    args.endHistoryRoot, endState, LAYERZERO_BIGSTEPEDGE_HEIGHT, edgeInclusionProof
                 );
 
                 topLevelEdge = claimEdge;
             } else if (args.edgeType == EdgeType.SmallStep) {
                 require(claimEdge.eType == EdgeType.BigStep, "Claim challenge type is not BigStep");
-                require(
-                    args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT,
-                    "Invalid smallstep edge end height"
-                );
+                require(args.endHeight == LAYERZERO_SMALLSTEPEDGE_HEIGHT, "Invalid smallstep edge end height");
 
                 // check the endState is consistent with the endHistoryRoot
                 MerkleTreeLib.verifyInclusionProof(
-                    args.endHistoryRoot,
-                    endState,
-                    LAYERZERO_SMALLSTEPEDGE_HEIGHT,
-                    edgeInclusionProof
+                    args.endHistoryRoot, endState, LAYERZERO_SMALLSTEPEDGE_HEIGHT, edgeInclusionProof
                 );
 
                 // origin of the smallstep edge is the mutual id of block edge
@@ -258,19 +234,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             }
 
             // check if the top level challenge has reached the end time
-            require(
-                block.timestamp - topLevelEdge.createdWhen < challengePeriodSec,
-                "Challenge period has expired"
-            );
+            require(block.timestamp - topLevelEdge.createdWhen < challengePeriodSec, "Challenge period has expired");
         }
 
         // prove that the start root is a prefix of the end root
         {
             require(prefixProof.length > 0, "Prefix proof is empty");
-            (bytes32[] memory preExpansion, bytes32[] memory preProof) = abi.decode(
-                prefixProof,
-                (bytes32[], bytes32[])
-            );
+            (bytes32[] memory preExpansion, bytes32[] memory preProof) = abi.decode(prefixProof, (bytes32[], bytes32[]));
             MerkleTreeLib.verifyPrefixProof(
                 args.startHistoryRoot,
                 args.startHeight + 1,
@@ -325,12 +295,15 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
+        bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
+        ExecutionContext memory execCtx = ExecutionContext({
+            maxInboxMessagesRead: assertionChain.getInboxMsgCountSeen(prevAssertionId),
+            bridge: assertionChain.bridge(),
+            initialWasmModuleRoot: assertionChain.getWasmModuleRoot(prevAssertionId)
+        });
+
         store.confirmEdgeByOneStepProof(
-            edgeId,
-            oneStepProofEntry,
-            oneStepData,
-            beforeHistoryInclusionProof,
-            afterHistoryInclusionProof
+            edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
     }
 
@@ -363,14 +336,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32 endHistoryRoot
     ) public pure returns (bytes32) {
         return
-            ChallengeEdgeLib.idComponent(
-                edgeType,
-                originId,
-                startHeight,
-                startHistoryRoot,
-                endHeight,
-                endHistoryRoot
-            );
+            ChallengeEdgeLib.idComponent(edgeType, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot);
     }
 
     function calculateMutualId(
@@ -380,14 +346,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         bytes32 startHistoryRoot,
         uint256 endHeight
     ) public pure returns (bytes32) {
-        return
-            ChallengeEdgeLib.mutualIdComponent(
-                edgeType,
-                originId,
-                startHeight,
-                startHistoryRoot,
-                endHeight
-            );
+        return ChallengeEdgeLib.mutualIdComponent(edgeType, originId, startHeight, startHistoryRoot, endHeight);
     }
 
     function edgeExists(bytes32 edgeId) public view returns (bool) {

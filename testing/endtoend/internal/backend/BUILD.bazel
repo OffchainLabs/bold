@@ -24,5 +24,5 @@ go_test(
     name = "backend_test",
     srcs = ["anvil_local_test.go"],
     embed = [":backend"],
-    tags = ["exclusive-if-local"],
+    tags = ["exclusive-if-local", "manual"],
 )

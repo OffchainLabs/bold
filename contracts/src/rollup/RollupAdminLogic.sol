@@ -4,7 +4,8 @@
 
 pragma solidity ^0.8.0;
 
-import {IRollupAdmin, IRollupUser} from "./IRollupLogic.sol";
+import "./IRollupAdmin.sol";
+import "./IRollupLogic.sol";
 import "./RollupCore.sol";
 import "../bridge/IOutbox.sol";
 import "../bridge/ISequencerInbox.sol";
@@ -89,7 +90,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
                 GENESIS_HASH, // initial assertion has a assertion hash of 0
                 0, // initial assertion has a height of 0
                 1, // initial assertion has a inboxMsgCountSeen of 1, since we want the next assertion to consume one message
-                true // initial assertion is first child
+                true, // initial assertion is first child
+                wasmModuleRoot
             );
     }
 
