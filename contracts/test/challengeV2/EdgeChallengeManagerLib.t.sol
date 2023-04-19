@@ -33,11 +33,12 @@ contract EdgeChallengeManagerLibAccess {
         bytes32 edgeId,
         IOneStepProofEntry oneStepProofEntry,
         OneStepData memory oneStepData,
+        ExecutionContext memory execCtx,
         bytes32[] memory beforeHistoryInclusionProof,
         bytes32[] memory afterHistoryInclusionProof
     ) public {
         store.confirmEdgeByOneStepProof(
-            edgeId, oneStepProofEntry, oneStepData, beforeHistoryInclusionProof, afterHistoryInclusionProof
+            edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
     }
 }
@@ -1310,11 +1311,10 @@ contract EdgeChallengeManagerLibTest is Test {
         }
 
         OneStepData memory d = OneStepData({
-            execCtx: ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0))}),
-            machineStep: e1.startHeight,
             beforeHash: states1[startHeight],
             proof: abi.encodePacked(states1[startHeight + 1])
         });
+        ExecutionContext memory e = ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)});
         bytes32[] memory beforeProof = ProofUtils.generateInclusionProof(
             ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, startHeight + 1)), startHeight
         );
@@ -1334,7 +1334,7 @@ contract EdgeChallengeManagerLibTest is Test {
         } else {
             confirmByOneStep(e1);
         }
-        a.confirmEdgeByOneStepProof(eid, entry, d, beforeProof, afterProof);
+        a.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof);
 
         if (bytes(revertArg).length != 0) {
             // for flag one the edge does not exist
@@ -1368,14 +1368,14 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testConfirmByOneStepBadStartProof() public {
-        confirmByOneStep(6, "Before state not in history");
+        confirmByOneStep(6, "Invalid inclusion proof");
     }
 
     function testConfirmByOneStepBadAfterProof() public {
-        confirmByOneStep(7, "After state not in history");
+        confirmByOneStep(7, "Invalid inclusion proof");
     }
 
     function testConfirmByOneStepBadOneStepReturn() public {
-        confirmByOneStep(8, "After state not in history");
+        confirmByOneStep(8, "Invalid inclusion proof");
     }
 }

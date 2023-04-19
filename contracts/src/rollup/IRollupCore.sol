@@ -5,7 +5,6 @@
 pragma solidity ^0.8.0;
 
 import "./Assertion.sol";
-// import "./RollupLib.sol";
 import "../bridge/IBridge.sol";
 import "../bridge/IOutbox.sol";
 import "../bridge/IInbox.sol";
@@ -13,8 +12,7 @@ import "./IRollupEventInbox.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
 import "../challenge/IOldChallengeManager.sol";
 
-
-interface IRollupCore {
+interface IRollupCore is IAssertionChain {
     struct Staker {
         uint256 amountStaked;
         uint64 index;

@@ -41,6 +41,7 @@ struct AssertionNode {
     bool isFirstChild; // in assertionHash
     // HN: TODO: Pick block or timestamp
     uint256 firstChildTime;
+    bytes32 wasmModuleRoot;
 }
 
 struct ExecutionState {
@@ -76,7 +77,8 @@ library AssertionNodeLib {
         bytes32 _assertionHash,
         uint256 _height,
         uint256 _inboxMsgCountSeen,
-        bool _isFirstChild
+        bool _isFirstChild,
+        bytes32 _wasmModuleRoot
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.stateHash = _stateHash;
@@ -90,6 +92,7 @@ library AssertionNodeLib {
         assertion.height = _height;
         assertion.inboxMsgCountSeen = _inboxMsgCountSeen;
         assertion.isFirstChild = _isFirstChild;
+        assertion.wasmModuleRoot = _wasmModuleRoot;
         return assertion;
     }
 

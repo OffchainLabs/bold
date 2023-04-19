@@ -188,7 +188,7 @@ library ChallengeManagerLib {
         mapping(bytes32 => Challenge) storage challenges,
         IOneStepProofEntry oneStepProofEntry,
         bytes32 winnerVId,
-        OneStepData calldata oneStepData,
+        OldOneStepData calldata oneStepData,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) internal view returns (bytes32) {
@@ -203,14 +203,11 @@ library ChallengeManagerLib {
             "Challenge is not at one step execution point"
         );
 
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                vertices[predecessorId].historyRoot,
-                oneStepData.beforeHash,
-                oneStepData.machineStep,
-                beforeHistoryInclusionProof
-            ),
-            "Before state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            vertices[predecessorId].historyRoot,
+            oneStepData.beforeHash,
+            oneStepData.machineStep,
+            beforeHistoryInclusionProof
         );
 
         // CHRIS: TODO: validate the execCtx?
@@ -218,11 +215,8 @@ library ChallengeManagerLib {
             oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
         );
 
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                vertices[winnerVId].historyRoot, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof
-            ),
-            "After state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            vertices[winnerVId].historyRoot, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof
         );
 
         return challengeId;
@@ -445,7 +439,7 @@ contract ChallengeManagerImpl is IChallengeManager {
 
     function executeOneStep(
         bytes32 winnerVId,
-        OneStepData calldata oneStepData,
+        OldOneStepData calldata oneStepData,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public returns (bytes32) {
