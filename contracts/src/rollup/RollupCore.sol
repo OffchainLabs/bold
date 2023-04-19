@@ -74,7 +74,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // The assertion number of the initial assertion
     uint64 internal constant GENESIS_NODE = 1;
-    bytes32 internal constant GENESIS_HASH = keccak256(abi.encodePacked(GENESIS_NODE));
 
     bool public validatorWhitelistDisabled;
 
