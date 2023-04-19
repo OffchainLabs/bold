@@ -26,19 +26,15 @@ struct AssertionNode {
     uint64 childStakerCount;
     // This value starts at zero and is set to a value when the first child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
     uint64 firstChildBlock;
-    // The number of the latest child of this assertion to be created
-    // HN: TODO: do we need this with the new assertion protocol?
-    // uint64 latestChildNumber;
+    uint256 firstChildTime; // TODO: remove this after migrating to use block instead of timestamp
+    // This value starts at zero and is set to a value when the second child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
+    uint64 secondChildBlock;
     // The block number when this assertion was created
     uint64 createdAtBlock;
     // A hash of all the data needed to determine this assertion's validity, to protect against reorgs
     bytes32 assertionHash;
-    // HN: TODO: Add new fields below
-    uint64 secondChildBlock;
-    // HN: TODO: Adding these for simplier getter, but these should be proved from the hashes
-    bool isFirstChild; // in assertionHash
-    // HN: TODO: Pick block or timestamp
-    uint256 firstChildTime;
+
+    bool isFirstChild; // no longer in assertionHash
 }
 
 struct ExecutionState {

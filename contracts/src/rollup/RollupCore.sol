@@ -616,15 +616,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 memoryFrame.lastHash,
                 memoryFrame.executionHash,
                 memoryFrame.sequencerBatchAcc,
-                wasmModuleRoot // HN: TODO: should we include this in assertion hash? 
+                wasmModuleRoot
             );
             require(
                 newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0),
                 "UNEXPECTED_NODE_HASH"
             );
-            // HN: TODO: assertion hash include
-            //           lastHash, assertionExecHash, inboxAcc, wasmModuleRoot
-            //           if wasmModuleRoot changed then it will have different hash
+
             require(
                 _assertionHashToNum[newAssertionHash] == 0, "ASSERTION_SEEN"
             );

@@ -111,7 +111,6 @@ contract MockAssertionChain is IAssertionChain {
             inboxAcc: keccak256(abi.encode(afterState.es.globalState.u64Vals[0])), // mock accumulator based on inbox count 
             wasmModuleRoot: wasmModuleRoot
         });
-        // return keccak256(abi.encodePacked(predecessorId, height, stateHash));
     }
 
     function childCreated(bytes32 assertionId) internal {
