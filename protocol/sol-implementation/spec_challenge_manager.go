@@ -10,6 +10,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -167,54 +168,62 @@ func (e *SpecEdge) MutualId(ctx context.Context) (protocol.MutualId, error) {
 // For example, if two validators open a subchallenge S at edge A in a BlockChallenge, the TopLevelClaimHeight of S is the height of A.
 // If two validators open a subchallenge S' at edge B in BigStepChallenge, the TopLevelClaimHeight
 // is the height of A.
-func (e *SpecEdge) TopLevelClaimHeight(ctx context.Context) (protocol.Height, error) {
+func (e *SpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHeights, error) {
 	switch e.GetType() {
 	case protocol.BigStepChallengeEdge:
 		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, rivalId)
 		if err != nil {
-			return 0, errors.Wrapf(err, "block challenge one step fork source does not exist for rival id %#x", rivalId)
+			return nil, errors.Wrapf(err, "block challenge one step fork source does not exist for rival id %#x", rivalId)
 		}
 		if blockChallengeOneStepForkSource.IsNone() {
-			return 0, errors.New("source edge is none")
+			return nil, errors.New("source edge is none")
 		}
 		startHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
-		return startHeight, nil
+		return &protocol.OriginHeights{
+			BlockChallengeOriginHeight: startHeight,
+		}, nil
 	case protocol.SmallStepChallengeEdge:
 		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		bigStepChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, rivalId)
 		if err != nil {
-			return 0, errors.Wrap(err, "big step challenge one step fork source does not exist")
+			return nil, errors.Wrap(err, "big step challenge one step fork source does not exist")
 		}
 		if bigStepChallengeOneStepForkSource.IsNone() {
-			return 0, errors.New("source edge is none")
+			return nil, errors.New("source edge is none")
 		}
 		bigStepEdge, ok := bigStepChallengeOneStepForkSource.Unwrap().(*SpecEdge)
 		if !ok {
-			return 0, errors.New("not *SpecEdge")
+			return nil, errors.New("not *SpecEdge")
 		}
 		rivalId, err = e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, bigStepEdge.inner.OriginId)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, rivalId)
 		if err != nil {
-			return 0, errors.Wrap(err, "block challenge one step fork source does not exist")
+			return nil, errors.Wrap(err, "block challenge one step fork source does not exist")
 		}
 		if blockChallengeOneStepForkSource.IsNone() {
-			return 0, errors.New("source edge is none")
+			return nil, errors.New("source edge is none")
 		}
-		startHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
-		return startHeight, nil
+		bigStepStartHeight, _ := bigStepEdge.StartCommitment()
+		blockChallengeStartHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
+		return &protocol.OriginHeights{
+			BlockChallengeOriginHeight:   blockChallengeStartHeight,
+			BigStepChallengeOriginHeight: bigStepStartHeight,
+		}, nil
 	default:
 		startHeight, _ := e.StartCommitment()
-		return startHeight, nil
+		return &protocol.OriginHeights{
+			BlockChallengeOriginHeight: startHeight,
+		}, nil
 	}
 }
 
@@ -233,7 +242,7 @@ type SpecChallengeManager struct {
 // NewSpecChallengeManager returns an instance of the spec challenge manager
 // used by the assertion chain.
 func NewSpecChallengeManager(
-	ctx context.Context,
+	_ context.Context,
 	addr common.Address,
 	assertionChain *AssertionChain,
 	backend ChainBackend,
@@ -313,11 +322,68 @@ func (cm *SpecChallengeManager) CalculateEdgeId(
 	)
 }
 
+// ConfirmEdgeByOneStepProof checks a one step proof for a tentative winner vertex id
+// which will mark it as the winning claim of its associated challenge if correct.
+// The edges along the winning branch and the corresponding assertion then need to be confirmed
+// through separate transactions, if this succeeds.
+func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
+	ctx context.Context,
+	tentativeWinnerId protocol.EdgeId,
+	oneStepData *protocol.OneStepData,
+	preHistoryInclusionProof []common.Hash,
+	postHistoryInclusionProof []common.Hash,
+) error {
+	pre := make([][32]byte, len(preHistoryInclusionProof))
+	for i, r := range preHistoryInclusionProof {
+		pre[i] = r
+	}
+	post := make([][32]byte, len(postHistoryInclusionProof))
+	for i, r := range postHistoryInclusionProof {
+		post[i] = r
+	}
+	_, err := transact(
+		ctx,
+		cm.assertionChain.backend,
+		cm.assertionChain.headerReader,
+		func() (*types.Transaction, error) {
+			return cm.writer.ConfirmEdgeByOneStepProof(
+				cm.assertionChain.txOpts,
+				tentativeWinnerId,
+				challengeV2gen.OneStepData{
+					BeforeHash: oneStepData.BeforeHash,
+					Proof:      oneStepData.Proof,
+				},
+				pre,
+				post,
+			)
+		})
+	// TODO: Handle receipt.
+	return err
+}
+
+// Like abi.NewType but panics if it fails for use in constants
+func newStaticType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
+	ty, err := abi.NewType(t, internalType, components)
+	if err != nil {
+		panic(err)
+	}
+	return ty
+}
+
+var bytes32Type = newStaticType("bytes32", "", nil)
+var bytes32ArrayType = newStaticType("bytes32[]", "", []abi.ArgumentMarshaling{{Type: "bytes32"}})
+
+var blockEdgeProofAbi = abi.Arguments{{
+	Name: "inclusionProof",
+	Type: bytes32ArrayType,
+}}
+
 func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
 	startCommit util.HistoryCommitment,
 	endCommit util.HistoryCommitment,
+	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
 	assertionId, err := cm.assertionChain.GetAssertionId(ctx, assertion.SeqNum())
 	if err != nil {
@@ -335,6 +401,19 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+	if startCommit.Height != 0 {
+		return nil, fmt.Errorf("start commit has unexpected height %v (expected 0)", startCommit.Height)
+	}
+	if endCommit.Height != protocol.LayerZeroBlockEdgeHeight {
+		return nil, fmt.Errorf("end commit has unexpected height %v (expected %v)", endCommit.Height, protocol.LayerZeroBlockEdgeHeight)
+	}
+	if startCommit.FirstLeaf != endCommit.FirstLeaf {
+		return nil, fmt.Errorf("start commit first leaf %v didn't match end commit first leaf %v", startCommit.FirstLeaf, endCommit.FirstLeaf)
+	}
+	blockEdgeProof, err := blockEdgeProofAbi.Pack(endCommit.LastLeafProof)
+	if err != nil {
+		return nil, err
+	}
 	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
@@ -346,9 +425,8 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 				EndHeight:        big.NewInt(int64(endCommit.Height)),
 				ClaimId:          assertionId,
 			},
-			// TODO: Add inclusion proofs.
-			make([]byte, 0),
-			make([]byte, 0),
+			startEndPrefixProof,
+			blockEdgeProof,
 		)
 	})
 	if err != nil {
@@ -377,11 +455,37 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	return someLevelZeroEdge.Unwrap(), nil
 }
 
+var subchallengeEdgeProofAbi = abi.Arguments{
+	{
+		Name: "startState",
+		Type: bytes32Type,
+	},
+	{
+		Name: "endState",
+		Type: bytes32Type,
+	},
+	{
+		Name: "claimStartInclusionProof",
+		Type: bytes32ArrayType,
+	},
+	{
+		Name: "claimEndInclusionProof",
+		Type: bytes32ArrayType,
+	},
+	{
+		Name: "edgeInclusionProof",
+		Type: bytes32ArrayType,
+	},
+}
+
 func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	ctx context.Context,
 	challengedEdge protocol.SpecEdge,
 	startCommit util.HistoryCommitment,
 	endCommit util.HistoryCommitment,
+	startParentInclusionProof []common.Hash,
+	endParentInclusionProof []common.Hash,
+	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
 	var subChalTyp protocol.EdgeType
 	switch challengedEdge.GetType() {
@@ -392,7 +496,11 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	default:
 		return nil, fmt.Errorf("cannot open level zero edge beneath small step challenge: %s", challengedEdge.GetType())
 	}
-	_, err := transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
+	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(startCommit.FirstLeaf, endCommit.LastLeaf, startParentInclusionProof, endParentInclusionProof, endCommit.LastLeafProof)
+	if err != nil {
+		return nil, err
+	}
+	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
@@ -403,9 +511,8 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 				EndHeight:        big.NewInt(int64(endCommit.Height)),
 				ClaimId:          challengedEdge.Id(),
 			},
-			// TODO: Add inclusion proofs.
-			make([]byte, 0),
-			make([]byte, 0),
+			startEndPrefixProof,
+			subchallengeEdgeProof,
 		)
 	})
 	if err != nil {

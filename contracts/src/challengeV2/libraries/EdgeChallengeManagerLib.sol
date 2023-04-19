@@ -19,10 +19,6 @@ struct EdgeStore {
 
 /// @notice Input data to a one step proof
 struct OneStepData {
-    /// @notice The one step proof execution context
-    ExecutionContext execCtx;
-    /// @notice The machine counter of the state that's being executed from
-    uint256 machineStep;
     /// @notice The hash of the state that's being executed from
     bytes32 beforeHash;
     /// @notice Proof data to accompany the execution context
@@ -114,7 +110,6 @@ library EdgeChallengeManagerLib {
             edge.eType, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
         );
         bytes32 firstRival = store.firstRivals[mutualId];
-        bool hasRivalVal = false;
 
         // the first time we add a mutual id we store a magic string hash against it
         // We do this to distinguish from there being no edges
@@ -125,7 +120,6 @@ library EdgeChallengeManagerLib {
             store.firstRivals[mutualId] = UNRIVALED;
         } else if (firstRival == UNRIVALED) {
             store.firstRivals[mutualId] = eId;
-            hasRivalVal = true;
         } else {
             // after we've stored the first rival we dont need to keep a record of any
             // other rival edges - they will all have a zero time unrivaled
@@ -135,16 +129,32 @@ library EdgeChallengeManagerLib {
             eId,
             mutualId,
             edge.originId,
-            hasRivalVal,
+            firstRival != 0,
             store.edges[eId].length(),
             edge.eType,
             edge.staker != address(0)
         );
     }
 
-    /// @dev    Determines if the rival val is currently rivaled
-    function hasRivalVal(bytes32 rivalVal) private pure returns (bool) {
-        return rivalVal != UNRIVALED;
+    /// @notice From any given edge, get the id of the previous assertion
+    /// @param edgeId   The edge to get the prev assertion Id
+    function getPrevAssertionId(EdgeStore storage store, bytes32 edgeId) internal view returns (bytes32) {
+        ChallengeEdge storage edge = get(store, edgeId);
+
+        if (edge.eType == EdgeType.SmallStep) {
+            bytes32 bigStepEdgeId = store.firstRivals[edge.originId];
+            edge = get(store, bigStepEdgeId);
+        }
+
+        if (edge.eType == EdgeType.BigStep) {
+            bytes32 blockEdgeId = store.firstRivals[edge.originId];
+            edge = get(store, blockEdgeId);
+        }
+
+        // Sanity Check: should never be hit for validly constructed edges
+        require(edge.eType == EdgeType.Block, "Edge not block type after traversal");
+
+        return edge.originId;
     }
 
     /// @notice Does this edge currently have one or more rivals
@@ -162,7 +172,7 @@ library EdgeChallengeManagerLib {
         require(firstRival != 0, "Empty first rival");
 
         // can only have no rival if the firstRival is the UNRIVALED magic hash
-        return hasRivalVal(firstRival);
+        return firstRival != UNRIVALED;
     }
 
     /// @notice Is the edge a single step in length, and does it have at least one rival.
@@ -432,6 +442,7 @@ library EdgeChallengeManagerLib {
         bytes32 edgeId,
         IOneStepProofEntry oneStepProofEntry,
         OneStepData memory oneStepData,
+        ExecutionContext memory execCtx,
         bytes32[] memory beforeHistoryInclusionProof,
         bytes32[] memory afterHistoryInclusionProof
     ) internal {
@@ -442,28 +453,24 @@ library EdgeChallengeManagerLib {
         require(store.edges[edgeId].eType == EdgeType.SmallStep, "Edge is not a small step");
         require(store.edges[edgeId].length() == 1, "Edge does not have single step");
 
+        uint256 machineStep = get(store, edgeId).startHeight;
+
         // the state in the onestep data must be committed to by the startHistoryRoot
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                store.edges[edgeId].startHistoryRoot,
-                oneStepData.beforeHash,
-                oneStepData.machineStep,
-                beforeHistoryInclusionProof
-            ),
-            "Before state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            store.edges[edgeId].startHistoryRoot,
+            oneStepData.beforeHash,
+            machineStep,
+            beforeHistoryInclusionProof
         );
 
         // execute the single step to produce the after state
         bytes32 afterHash = oneStepProofEntry.proveOneStep(
-            oneStepData.execCtx, oneStepData.machineStep, oneStepData.beforeHash, oneStepData.proof
+            execCtx, machineStep, oneStepData.beforeHash, oneStepData.proof
         );
 
         // check that the after state was indeed committed to by the endHistoryRoot
-        require(
-            MerkleTreeLib.verifyInclusionProof(
-                store.edges[edgeId].endHistoryRoot, afterHash, oneStepData.machineStep + 1, afterHistoryInclusionProof
-            ),
-            "After state not in history"
+        MerkleTreeLib.verifyInclusionProof(
+            store.edges[edgeId].endHistoryRoot, afterHash, machineStep + 1, afterHistoryInclusionProof
         );
 
         store.edges[edgeId].setConfirmed();
