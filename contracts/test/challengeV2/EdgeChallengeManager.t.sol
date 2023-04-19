@@ -20,7 +20,7 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 contract EdgeChallengeManagerTest is Test {
     Random rand = new Random();
     bytes32 genesisBlockHash = rand.hash();
-    State genesisState = StateToolsLib.randomState(rand, 7, genesisBlockHash, MachineStatus.RUNNING);
+    State genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.RUNNING);
     bytes32 genesisStateHash = StateToolsLib.hash(genesisState);
 
     function genesisStates() internal view returns (bytes32[] memory) {
