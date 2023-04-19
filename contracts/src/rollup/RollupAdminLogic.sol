@@ -97,7 +97,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         return
             AssertionNodeLib.createAssertion(
                 state,
-                0, // challenge hash (not challengeable)
                 0, // confirm data
                 0, // prev assertion
                 uint64(block.number), // deadline block (not challengeable)

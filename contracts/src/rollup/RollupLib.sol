@@ -73,14 +73,6 @@ library RollupLib {
         return OldChallengeLib.hashChallengeState(0, numBlocks, segments);
     }
 
-    function challengeRootHash(
-        bytes32 execution,
-        uint256 proposedTime,
-        bytes32 wasmModuleRoot
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(execution, proposedTime, wasmModuleRoot));
-    }
-
     function confirmHash(AssertionInputs memory assertion) internal pure returns (bytes32) {
         return
             confirmHash(

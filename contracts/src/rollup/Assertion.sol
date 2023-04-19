@@ -10,8 +10,6 @@ import "../state/Machine.sol";
 struct AssertionNode {
     // Hash of the state of the chain as of this assertion
     bytes32 stateHash;
-    // Hash of the data that can be challenged
-    bytes32 challengeHash;
     // Hash of the data that will be committed if this assertion is confirmed
     bytes32 confirmData;
     // Index of the assertion previous to this one
@@ -54,7 +52,6 @@ library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
      * @param _stateHash Initial value of stateHash
-     * @param _challengeHash Initial value of challengeHash
      * @param _confirmData Initial value of confirmData
      * @param _prevNum Initial value of prevNum
      * @param _deadlineBlock Initial value of deadlineBlock
@@ -62,7 +59,6 @@ library AssertionNodeLib {
      */
     function createAssertion(
         bytes32 _stateHash,
-        bytes32 _challengeHash,
         bytes32 _confirmData,
         uint64 _prevNum,
         uint64 _deadlineBlock,
@@ -71,7 +67,6 @@ library AssertionNodeLib {
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.stateHash = _stateHash;
-        assertion.challengeHash = _challengeHash;
         assertion.confirmData = _confirmData;
         assertion.prevNum = _prevNum;
         assertion.deadlineBlock = _deadlineBlock;

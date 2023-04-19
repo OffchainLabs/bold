@@ -629,11 +629,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             memoryFrame.assertion = AssertionNodeLib.createAssertion(
                 RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
-                RollupLib.challengeRootHash(
-                    memoryFrame.executionHash,
-                    block.number,
-                    wasmModuleRoot
-                ),
                 RollupLib.confirmHash(assertion),
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
