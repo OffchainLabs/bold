@@ -684,10 +684,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(getAssertionNum(assertionId)).height;
     }
 
-    function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).inboxMsgCountSeen;
-    }
-
     function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256){
         require(
             RollupLib.stateHashMem(abi.decode(proof, (ExecutionState)), inboxMsgCountSeen) ==
