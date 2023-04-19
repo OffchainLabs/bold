@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "endtoend_test",
+    srcs = ["basic_local_test.go"],
+    tags = ["exclusive-if-local"],
+    deps = [
+        "//protocol/sol-implementation",
+        "//state-manager",
+        "//testing/endtoend/internal/backend",
+        "//validator",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_offchainlabs_nitro//util/headerreader",
+    ],
+)
