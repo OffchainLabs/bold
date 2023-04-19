@@ -22,6 +22,11 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisBlockHash = rand.hash();
     State genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.hash(genesisState);
+    bytes32 genesisExecutionHash = RollupLib.executionHash(AssertionInputs({
+        beforeState: genesisState.es,
+        afterState: genesisState.es,
+        numBlocks: 0 // moot, will remove soon
+    }));
 
     function genesisStates() internal view returns (bytes32[] memory) {
         bytes32[] memory genStates = new bytes32[](1);
@@ -1325,7 +1330,9 @@ contract EdgeChallengeManagerTest is Test {
             allWinners[0].lowerChildId,
             OneStepData({
                 inboxMsgCountSeen: 7,
-                prevExecutionState: abi.encode(genesisState.es),
+                inboxMsgCountSeenProof: abi.encode(genesisState.es),
+                wasmModuleRoot: bytes32(0),
+                wasmModuleRootProof: abi.encode(bytes32(0), genesisExecutionHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
                 beforeHash: firstStates[0],
                 proof: abi.encodePacked(firstStates[1])
             }),

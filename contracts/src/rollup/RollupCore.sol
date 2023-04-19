@@ -716,6 +716,20 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(getAssertionNum(assertionId)).wasmModuleRoot;
     }
 
+    function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
+        (bytes32 lastHash, bytes32 assertionExecHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        require(
+            RollupLib.assertionHash({
+                lastHash: lastHash,
+                assertionExecHash: assertionExecHash,
+                inboxAcc: inboxAcc,
+                wasmModuleRoot: root
+            }) == assertionId,
+            "BAD_WASM_MODULE_ROOT_PROOF"
+        );
+        return root;
+    }
+
     function isFirstChild(bytes32 assertionId) external view returns (bool){
         return getAssertionStorage(getAssertionNum(assertionId)).isFirstChild;
     }

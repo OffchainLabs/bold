@@ -21,7 +21,12 @@ struct EdgeStore {
 struct OneStepData {
     uint256 inboxMsgCountSeen;
     /// @notice Used to prove the inbox message count seen
-    bytes prevExecutionState;
+    bytes inboxMsgCountSeenProof;
+
+    bytes32 wasmModuleRoot;
+    /// @notice Used to prove wasm module root
+    bytes wasmModuleRootProof;
+
     /// @notice The hash of the state that's being executed from
     bytes32 beforeHash;
     /// @notice Proof data to accompany the execution context

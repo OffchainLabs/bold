@@ -73,6 +73,20 @@ contract MockAssertionChain is IAssertionChain {
         return bytes32(0); // TODO: Set to proper value in this mock
     }
 
+    function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
+        (bytes32 lastHash, bytes32 assertionExecHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        require(
+            RollupLib.assertionHash({
+                lastHash: lastHash,
+                assertionExecHash: assertionExecHash,
+                inboxAcc: inboxAcc,
+                wasmModuleRoot: root
+            }) == assertionId,
+            "Wasm module root proof does not match assertion"
+        );
+        return root;
+    }
+
     function isFirstChild(bytes32 assertionId) external view returns (bool) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].isFirstChild;
