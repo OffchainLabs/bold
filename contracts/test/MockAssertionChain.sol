@@ -6,6 +6,7 @@ import {IAssertionChain} from "../src/challengeV2/DataEntities.sol";
 import { IEdgeChallengeManager } from "../src/challengeV2/EdgeChallengeManager.sol";
 import "../src/bridge/IBridge.sol";
 import "../src/rollup/RollupLib.sol";
+import "./challengeV2/StateTools.sol";
 
 struct MockAssertion {
     bytes32 predecessorId;
@@ -22,6 +23,7 @@ struct MockAssertion {
 contract MockAssertionChain is IAssertionChain {
     mapping(bytes32 => MockAssertion) assertions;
     IBridge public bridge; // TODO: set bridge in this mock
+    bytes32 public wasmModuleRoot;
 
     function assertionExists(bytes32 assertionId) public view returns (bool) {
         return assertions[assertionId].stateHash != 0;
@@ -81,12 +83,27 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].isPending;
     }
 
-    function calculateAssertionId(bytes32 predecessorId, uint256 height, bytes32 stateHash)
+    function calculateAssertionId(
+        bytes32 predecessorId, 
+        State memory beforeState,
+        State memory afterState
+    )
         public
-        pure
+        view
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(predecessorId, height, stateHash));
+        bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
+            beforeState: beforeState.es,
+            afterState: afterState.es,
+            numBlocks: 0 // moot, will remove soon
+        }));
+        return RollupLib.assertionHash({
+            lastHash: predecessorId,
+            assertionExecHash: executionHash,
+            inboxAcc: keccak256(abi.encode(afterState.es.globalState.u64Vals[0])), // mock accumulator based on inbox count 
+            wasmModuleRoot: wasmModuleRoot
+        });
+        // return keccak256(abi.encodePacked(predecessorId, height, stateHash));
     }
 
     function childCreated(bytes32 assertionId) internal {
@@ -101,15 +118,17 @@ contract MockAssertionChain is IAssertionChain {
         bytes32 predecessorId,
         uint256 height,
         uint256 inboxMsgCountSeen,
-        bytes32 stateHash,
+        State memory beforeState,
+        State memory afterState,
         bytes32 successionChallenge
     ) public returns (bytes32) {
-        bytes32 assertionId = calculateAssertionId(predecessorId, height, stateHash);
+        bytes32 afterStateHash = StateToolsLib.hash(afterState);
+        bytes32 assertionId = calculateAssertionId(predecessorId, beforeState, afterState);
         assertions[assertionId] = MockAssertion({
             predecessorId: predecessorId,
             height: height,
             inboxMsgCountSeen: inboxMsgCountSeen,
-            stateHash: stateHash,
+            stateHash: afterStateHash,
             successionChallenge: successionChallenge,
             firstChildCreationTime: 0,
             secondChildCreationTime: 0,
@@ -124,16 +143,19 @@ contract MockAssertionChain is IAssertionChain {
         bytes32 predecessorId,
         uint256 height,
         uint256 inboxMsgCountSeen,
-        bytes32 stateHash,
+        State memory beforeState,
+        State memory afterState,
         bytes32 successionChallenge
     ) public returns (bytes32) {
-        bytes32 assertionId = calculateAssertionId(predecessorId, height, stateHash);
+        bytes32 beforeStateHash = StateToolsLib.hash(beforeState);
+        bytes32 afterStateHash = StateToolsLib.hash(afterState);
+        bytes32 assertionId = calculateAssertionId(predecessorId, beforeState, afterState);
         require(!assertionExists(assertionId), "Assertion already exists");
         require(assertionExists(predecessorId), "Predecessor does not exists");
         require(height > assertions[predecessorId].height, "Height too low");
         require(inboxMsgCountSeen >= assertions[predecessorId].inboxMsgCountSeen, "Inbox count seen too low");
-        require(stateHash != 0, "Empty state hash");
+        require(beforeStateHash == assertions[predecessorId].stateHash, "Before state hash does not match predecessor");
 
-        return addAssertionUnsafe(predecessorId, height, inboxMsgCountSeen, stateHash, successionChallenge);
+        return addAssertionUnsafe(predecessorId, height, inboxMsgCountSeen, beforeState, afterState, successionChallenge);
     }
 }

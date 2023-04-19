@@ -20,7 +20,7 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 contract EdgeChallengeManagerTest is Test {
     Random rand = new Random();
     bytes32 genesisBlockHash = rand.hash();
-    State genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.RUNNING);
+    State genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.hash(genesisState);
 
     function genesisStates() internal view returns (bytes32[] memory) {
@@ -58,7 +58,7 @@ contract EdgeChallengeManagerTest is Test {
         EdgeChallengeManager challengeManager =
             new EdgeChallengeManager(assertionChain, challengePeriodSec, new MockOneStepProofEntry());
 
-        bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisStateHash, 0);
+        bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, genesisState, 0);
         return (assertionChain, challengeManager, genesis);
     }
 
@@ -76,16 +76,16 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
         State memory a2State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.FINISHED);
 
         // add one since heights are zero indexed in the history states
         bytes32 a1 = assertionChain.addAssertion(
-            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a1State), 0
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
         );
         bytes32 a2 = assertionChain.addAssertion(
-            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a2State), 0
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a2State, 0
         );
 
         return EdgeInitData({
@@ -144,10 +144,10 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
 
         bytes32 a1 = assertionChain.addAssertion(
-            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a1State), 0
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
         );
 
         (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(a1State), height1);
