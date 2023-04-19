@@ -140,7 +140,7 @@ contract MockAssertionChain is IAssertionChain {
             successionChallenge: successionChallenge,
             firstChildCreationTime: 0,
             secondChildCreationTime: 0,
-            isFirstChild: assertions[predecessorId].firstChildCreationTime != 0,
+            isFirstChild: assertions[predecessorId].firstChildCreationTime == 0,
             isPending: true
         });
         childCreated(predecessorId);
