@@ -29,8 +29,6 @@ library StateToolsLib {
     }
 
     function hash(State memory s) internal pure returns (bytes32) {
-        // CHRIS: TODO: for some reason importing the RollupLib causes compilation failure - perhaps circular
-        // CHRIS: TODO: we should transition to the rollup lib when this is fixed though
         return RollupLib.stateHashMem(s.es, s.inboxMsgCountMax);
     }
 }
