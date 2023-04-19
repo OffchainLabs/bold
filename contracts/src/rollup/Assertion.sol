@@ -37,7 +37,6 @@ struct AssertionNode {
     uint64 secondChildBlock;
     // HN: TODO: Adding these for simplier getter, but these should be proved from the hashes
     uint256 height; // in stateHash // TODO: This can be removed as block edge height is constant
-    uint256 inboxMsgCountSeen; // in stateHash
     bool isFirstChild; // in assertionHash
     // HN: TODO: Pick block or timestamp
     uint256 firstChildTime;
@@ -76,7 +75,6 @@ library AssertionNodeLib {
         uint64 _deadlineBlock,
         bytes32 _assertionHash,
         uint256 _height,
-        uint256 _inboxMsgCountSeen,
         bool _isFirstChild,
         bytes32 _wasmModuleRoot
     ) internal view returns (AssertionNode memory) {
@@ -90,7 +88,6 @@ library AssertionNodeLib {
         assertion.createdAtBlock = uint64(block.number);
         assertion.assertionHash = _assertionHash;
         assertion.height = _height;
-        assertion.inboxMsgCountSeen = _inboxMsgCountSeen;
         assertion.isFirstChild = _isFirstChild;
         assertion.wasmModuleRoot = _wasmModuleRoot;
         return assertion;

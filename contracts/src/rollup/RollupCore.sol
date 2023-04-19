@@ -642,7 +642,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 memoryFrame.deadlineBlock,
                 newAssertionHash,
                 assertion.numBlocks + memoryFrame.prevAssertion.height,
-                memoryFrame.currentInboxSize,
                 !memoryFrame.hasSibling,
                 wasmModuleRoot
             );
