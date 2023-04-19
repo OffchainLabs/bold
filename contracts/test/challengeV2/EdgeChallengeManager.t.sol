@@ -80,9 +80,9 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
         State memory a2State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.FINISHED);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.RUNNING);
 
         // add one since heights are zero indexed in the history states
         bytes32 a1 = assertionChain.addAssertion(
@@ -106,7 +106,8 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertNonZeroStartHeight() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         vm.expectRevert("Start height is not 0");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
@@ -118,7 +119,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
     }
@@ -126,7 +130,8 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockChallengeExpired() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         vm.warp(block.timestamp + 2 * challengePeriodSec);
         vm.expectRevert("Challenge period has expired");
@@ -139,7 +144,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
     }
@@ -148,13 +156,14 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
 
         bytes32 a1 = assertionChain.addAssertion(
             genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
         );
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(a1State), height1);
 
         vm.expectRevert("Assertion is not in a fork");
         bytes32 edgeId = challengeManager.createLayerZeroEdge(
@@ -166,7 +175,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
     }
@@ -174,7 +186,8 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockInvalidHeight() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         vm.expectRevert("Invalid block edge end height");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
@@ -186,7 +199,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: 1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
     }
@@ -194,7 +210,8 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockInvalidHistroy() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         vm.expectRevert("Start history root does not match previous assertion");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
@@ -206,7 +223,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
     }
@@ -214,7 +234,8 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockNoProof() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         vm.expectRevert("Block edge specific proof is empty");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
@@ -226,7 +247,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             ""
         );
     }
@@ -234,7 +258,8 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockInvalidProof() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         vm.expectRevert("Invalid inclusion proof");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
@@ -246,7 +271,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), 0))
         );
     }
@@ -254,7 +282,8 @@ contract EdgeChallengeManagerTest is Test {
     function testCanConfirmPs() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states, bytes32[] memory exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -265,7 +294,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
@@ -280,7 +312,8 @@ contract EdgeChallengeManagerTest is Test {
     function testCanConfirmByChildren() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states1, bytes32[] memory exp1) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
+        (bytes32[] memory states1, bytes32[] memory exp1) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
         bytes32 edge1Id = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -291,7 +324,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: ei.a1
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states1, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
+            ),
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1))
         );
 
@@ -299,7 +335,8 @@ contract EdgeChallengeManagerTest is Test {
 
         assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
         {
-            (bytes32[] memory states2, bytes32[] memory exp2) = appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a2State), height1);
+            (bytes32[] memory states2, bytes32[] memory exp2) =
+                appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a2State), height1);
             bytes32 edge2Id = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.Block,
@@ -309,7 +346,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: ei.a2
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(states2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(states2, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
+                ),
                 abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1))
             );
 
@@ -447,10 +487,16 @@ contract EdgeChallengeManagerTest is Test {
         return ancestors;
     }
 
-    function generateEdgeProof(bytes32[] memory states1, bytes32[] memory bigStepStates) internal returns (bytes memory) {
-        bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 1)), 0);
-        bytes32[] memory claimEndInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
-        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+    function generateEdgeProof(bytes32[] memory states1, bytes32[] memory bigStepStates)
+        internal
+        returns (bytes memory)
+    {
+        bytes32[] memory claimStartInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 1)), 0);
+        bytes32[] memory claimEndInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
         return abi.encode(states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, edgeInclusionProof);
     }
 
@@ -471,7 +517,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Prefix proof is empty");
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
@@ -505,7 +552,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Post expansion root not equal post");
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
@@ -517,7 +565,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(states1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(states1, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
+            ),
             generateEdgeProof(states1, bigStepStates)
         );
     }
@@ -539,7 +590,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Claim does not have length 1 rival");
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
@@ -551,7 +603,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             generateEdgeProof(states1, bigStepStates)
         );
     }
@@ -573,7 +628,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Start history root does not match mutual startHistoryRoot");
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
@@ -585,7 +641,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             generateEdgeProof(states1, bigStepStates)
         );
     }
@@ -607,7 +666,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Edge type specific proof is empty");
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
@@ -619,7 +679,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             ""
         );
     }
@@ -641,10 +704,13 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        bytes32[] memory claimEndInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
-        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+        bytes32[] memory claimEndInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory edgeInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
 
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
@@ -656,7 +722,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             abi.encode(states1[0], states1[1], claimEndInclusionProof, claimEndInclusionProof, edgeInclusionProof)
         );
     }
@@ -678,10 +747,13 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 1)), 0);
-        bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
+        bytes32[] memory claimStartInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 1)), 0);
+        bytes32[] memory edgeInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(bigStepStates), bigStepStates.length - 1);
 
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
@@ -693,7 +765,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             abi.encode(states1[0], states1[1], claimStartInclusionProof, claimStartInclusionProof, edgeInclusionProof)
         );
     }
@@ -715,10 +790,13 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 1)), 0);
-        bytes32[] memory claimEndInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
+        bytes32[] memory claimStartInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 1)), 0);
+        bytes32[] memory claimEndInclusionProof =
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, 2)), 1);
 
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
@@ -730,8 +808,13 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
-            abi.encode(states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, claimStartInclusionProof)
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
+            abi.encode(
+                states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, claimStartInclusionProof
+            )
         );
     }
 
@@ -752,7 +835,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.warp(block.timestamp + challengePeriodSec);
         vm.expectRevert("Challenge period has expired");
@@ -765,7 +849,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             generateEdgeProof(states1, bigStepStates)
         );
     }
@@ -787,7 +874,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Invalid bigstep edge end height");
         ei.challengeManager.createLayerZeroEdge(
@@ -799,7 +887,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: 1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             generateEdgeProof(states1, bigStepStates)
         );
     }
@@ -807,7 +898,12 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBigStepInvalidClaimType() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states1, bytes32[] memory states2, BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = createEdgesAndBisectToFork(
+        (
+            bytes32[] memory states1,
+            bytes32[] memory states2,
+            BisectionChildren[6] memory edges1,
+            BisectionChildren[6] memory edges2
+        ) = createEdgesAndBisectToFork(
             CreateEdgesBisectArgs(
                 ei.challengeManager,
                 EdgeType.Block,
@@ -836,7 +932,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
+                ),
                 generateEdgeProof(states1, bigStepStates1)
             );
         }
@@ -856,13 +955,18 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
+                ),
                 generateEdgeProof(states2, bigStepStates2)
             );
         }
 
         (BisectionChildren[6] memory bigstepedges1, BisectionChildren[6] memory bigstepedges2) = bisectToForkOnly(
-            BisectToForkOnlyArgs(ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false)
+            BisectToForkOnlyArgs(
+                ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false
+            )
         );
 
         bytes32[] memory smallStepStates1;
@@ -881,7 +985,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
+                ),
                 generateEdgeProof(bigStepStates1, smallStepStates1)
             );
         }
@@ -920,7 +1027,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
+                ),
                 generateEdgeProof(states1, bigStepStates1)
             );
         }
@@ -929,7 +1039,12 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertSmallStepInvalidHeight() public {
         EdgeInitData memory ei = deployAndInit();
 
-        (bytes32[] memory states1, bytes32[] memory states2, BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = createEdgesAndBisectToFork(
+        (
+            bytes32[] memory states1,
+            bytes32[] memory states2,
+            BisectionChildren[6] memory edges1,
+            BisectionChildren[6] memory edges2
+        ) = createEdgesAndBisectToFork(
             CreateEdgesBisectArgs(
                 ei.challengeManager,
                 EdgeType.Block,
@@ -958,7 +1073,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
+                ),
                 generateEdgeProof(states1, bigStepStates1)
             );
         }
@@ -978,13 +1096,18 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
+                ),
                 generateEdgeProof(states2, bigStepStates2)
             );
         }
 
         (BisectionChildren[6] memory bigstepedges1, BisectionChildren[6] memory bigstepedges2) = bisectToForkOnly(
-            BisectToForkOnlyArgs(ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false)
+            BisectToForkOnlyArgs(
+                ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false
+            )
         );
 
         bytes32[] memory smallStepStates1;
@@ -1003,7 +1126,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
+                ),
                 generateEdgeProof(bigStepStates1, smallStepStates1)
             );
         }
@@ -1026,7 +1152,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
+        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
+            appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -1037,7 +1164,10 @@ contract EdgeChallengeManagerTest is Test {
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
             }),
-            abi.encode(ProofUtils.expansionFromLeaves(bigStepStates, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))),
+            abi.encode(
+                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+            ),
             generateEdgeProof(states1, bigStepStates)
         );
 
@@ -1084,12 +1214,23 @@ contract EdgeChallengeManagerTest is Test {
         {
             bytes memory typeSpecificProof1;
             if (args.eType == EdgeType.Block) {
-                typeSpecificProof1 = abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1));
+                typeSpecificProof1 =
+                    abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1));
             } else {
-                bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(args.forkStates1, 0, 1)), 0);
-                bytes32[] memory claimEndInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(args.forkStates1), 1);
-                bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1);
-                typeSpecificProof1 = abi.encode(genesisStateHash, args.endState1, claimStartInclusionProof, claimEndInclusionProof, edgeInclusionProof);
+                bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(
+                    ProofUtils.rehashed(ArrayUtilsLib.slice(args.forkStates1, 0, 1)), 0
+                );
+                bytes32[] memory claimEndInclusionProof =
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(args.forkStates1), 1);
+                bytes32[] memory edgeInclusionProof =
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1);
+                typeSpecificProof1 = abi.encode(
+                    genesisStateHash,
+                    args.endState1,
+                    claimStartInclusionProof,
+                    claimEndInclusionProof,
+                    edgeInclusionProof
+                );
             }
             edge1Id = args.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
@@ -1100,7 +1241,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: args.claim1Id
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(states1, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(states1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
+                ),
                 typeSpecificProof1
             );
         }
@@ -1115,12 +1259,23 @@ contract EdgeChallengeManagerTest is Test {
         {
             bytes memory typeSpecificProof2;
             if (args.eType == EdgeType.Block) {
-                typeSpecificProof2 = abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1));
+                typeSpecificProof2 =
+                    abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1));
             } else {
-                bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(ArrayUtilsLib.slice(args.forkStates2, 0, 1)), 0);
-                bytes32[] memory claimEndInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(args.forkStates2), 1);
-                bytes32[] memory edgeInclusionProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1);
-                typeSpecificProof2 = abi.encode(genesisStateHash, args.endState2, claimStartInclusionProof, claimEndInclusionProof, edgeInclusionProof);
+                bytes32[] memory claimStartInclusionProof = ProofUtils.generateInclusionProof(
+                    ProofUtils.rehashed(ArrayUtilsLib.slice(args.forkStates2, 0, 1)), 0
+                );
+                bytes32[] memory claimEndInclusionProof =
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(args.forkStates2), 1);
+                bytes32[] memory edgeInclusionProof =
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1);
+                typeSpecificProof2 = abi.encode(
+                    genesisStateHash,
+                    args.endState2,
+                    claimStartInclusionProof,
+                    claimEndInclusionProof,
+                    edgeInclusionProof
+                );
             }
             edge2Id = args.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
@@ -1131,7 +1286,10 @@ contract EdgeChallengeManagerTest is Test {
                     endHeight: height1,
                     claimId: args.claim2Id
                 }),
-                abi.encode(ProofUtils.expansionFromLeaves(states2, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))),
+                abi.encode(
+                    ProofUtils.expansionFromLeaves(states2, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
+                ),
                 typeSpecificProof2
             );
         }
@@ -1327,14 +1485,7 @@ contract EdgeChallengeManagerTest is Test {
 
         ei.challengeManager.confirmEdgeByOneStepProof(
             allWinners[0].lowerChildId,
-            OneStepData({
-                inboxMsgCountSeen: 7,
-                inboxMsgCountSeenProof: abi.encode(genesisState.es),
-                wasmModuleRoot: bytes32(0),
-                wasmModuleRootProof: abi.encode(bytes32(0), genesisExecutionHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
-                beforeHash: firstStates[0],
-                proof: abi.encodePacked(firstStates[1])
-            }),
+            OneStepData({beforeHash: firstStates[0], proof: abi.encodePacked(firstStates[1])}),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(genesisStates()), 0),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(firstStates), 1)
         );

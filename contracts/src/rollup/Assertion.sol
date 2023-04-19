@@ -45,6 +45,17 @@ struct AssertionInputs {
     ExecutionState afterState;
 }
 
+struct ExecutionState {
+    GlobalState globalState;
+    MachineStatus machineStatus;
+}
+
+struct AssertionInputs {
+    ExecutionState beforeState;
+    ExecutionState afterState;
+    uint64 numBlocks;
+}
+
 /**
  * @notice Utility functions for Assertion
  */

@@ -1309,16 +1309,10 @@ contract EdgeChallengeManagerLibTest is Test {
         if (flag != 4) {
             a.add(e2);
         }
-
-        OneStepData memory d = OneStepData({
-            inboxMsgCountSeen: 7,
-            inboxMsgCountSeenProof: "",
-            wasmModuleRoot: bytes32(0),
-            wasmModuleRootProof: "",
-            beforeHash: states1[startHeight],
-            proof: abi.encodePacked(states1[startHeight + 1])
-        });
-        ExecutionContext memory e = ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)});
+        OneStepData memory d =
+            OneStepData({beforeHash: states1[startHeight], proof: abi.encodePacked(states1[startHeight + 1])});
+        ExecutionContext memory e =
+            ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)});
         bytes32[] memory beforeProof = ProofUtils.generateInclusionProof(
             ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, startHeight + 1)), startHeight
         );
