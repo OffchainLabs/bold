@@ -161,13 +161,9 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	assertionInboxMaxCount, err := assertion.InboxMsgCountSeen()
-	if err != nil {
-		return nil, err
-	}
 	honestValidatorStateRoots = append(honestValidatorStateRoots, assertionStateHash)
 	honestValidatorStates = append(honestValidatorStates, honestPostState)
-	honestValidatorInboxMaxCounts = append(honestValidatorInboxMaxCounts, new(big.Int).SetUint64(assertionInboxMaxCount))
+	honestValidatorInboxMaxCounts = append(honestValidatorInboxMaxCounts, new(big.Int).SetUint64(2))
 
 	evilPostState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
@@ -192,13 +188,9 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	forkedAssertionInboxMaxCount, err := forkedAssertion.InboxMsgCountSeen()
-	if err != nil {
-		return nil, err
-	}
 	evilValidatorStateRoots = append(evilValidatorStateRoots, forkedAssertionStateHash)
 	evilValidatorStates = append(evilValidatorStates, evilPostState)
-	evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, new(big.Int).SetUint64(forkedAssertionInboxMaxCount))
+	evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, new(big.Int).SetUint64(2))
 
 	return &CreatedValidatorFork{
 		Leaf1:                      assertion,
@@ -236,7 +228,6 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	challengePeriodSeconds := big.NewInt(200)
 	miniStake := big.NewInt(1)
 	cfg := challenge_testing.GenerateRollupConfig(
 		prod,
@@ -244,7 +235,6 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		rollupOwner,
 		chainId,
 		loserStakeEscrow,
-		challengePeriodSeconds,
 		miniStake,
 	)
 	addresses, err := DeployFullRollupStack(
@@ -641,4 +631,3 @@ func SetupAccounts(numAccounts uint64) ([]*TestAccount, *backends.SimulatedBacke
 	backend := backends.NewSimulatedBackend(genesis, gasLimit)
 	return accs, backend, nil
 }
-

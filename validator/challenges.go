@@ -26,10 +26,6 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 	if err != nil {
 		return err
 	}
-	assertionPrevMsgCountSeen, err := assertionPrev.InboxMsgCountSeen()
-	if err != nil {
-		return err
-	}
 	// We then add a challenge vertex to the challenge.
 	levelZeroEdge, err := v.addBlockChallengeLevelZeroEdge(ctx, assertionPrevSeqNum)
 	if err != nil {
@@ -57,7 +53,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 		},
 		levelZeroEdge,
 		assertionPrevHeight,
-		assertionPrevMsgCountSeen,
+		uint64(2),
 	)
 	if err != nil {
 		return err
@@ -94,11 +90,8 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	inboxMaxCount, err := prevAssertion.InboxMsgCountSeen()
-	if err != nil {
-		return nil, err
-	}
-	startCommit, err := v.stateManager.HistoryCommitmentUpToBatch(ctx, prevHeight, prevHeight, inboxMaxCount)
+	// TODO: Fix
+	startCommit, err := v.stateManager.HistoryCommitmentUpToBatch(ctx, prevHeight, prevHeight, uint64(1))
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +111,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 		ctx,
 		prevHeight,
 		prevHeight+protocol.LevelZeroBlockEdgeHeight,
-		inboxMaxCount,
+		uint64(1),
 	)
 	if err != nil {
 		return nil, err
@@ -135,7 +128,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 		prevHeight,
 		prevHeight,
 		prevHeight+protocol.LevelZeroBlockEdgeHeight,
-		inboxMaxCount,
+		uint64(1),
 	)
 	if err != nil {
 		return nil, err

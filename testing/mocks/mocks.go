@@ -3,7 +3,6 @@ package mocks
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
@@ -166,9 +165,9 @@ type MockChallengeManager struct {
 	MockAddr common.Address
 }
 
-func (m *MockChallengeManager) ChallengePeriodSeconds(ctx context.Context) (time.Duration, error) {
+func (m *MockChallengeManager) ChallengePeriodBlocks(ctx context.Context) (uint64, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(time.Duration), args.Error(1)
+	return args.Get(0).(uint64), args.Error(1)
 }
 
 func (m *MockChallengeManager) Address() common.Address {
@@ -185,9 +184,9 @@ func (m *MockSpecChallengeManager) Address() common.Address {
 	return m.MockAddr
 }
 
-func (m *MockSpecChallengeManager) ChallengePeriodSeconds(ctx context.Context) (time.Duration, error) {
+func (m *MockSpecChallengeManager) ChallengePeriodBlocks(ctx context.Context) (uint64, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(time.Duration), args.Error(1)
+	return args.Get(0).(uint64), args.Error(1)
 }
 
 func (m *MockSpecChallengeManager) GetEdge(

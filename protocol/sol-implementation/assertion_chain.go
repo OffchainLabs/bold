@@ -101,6 +101,10 @@ func (ac *AssertionChain) NumAssertions(ctx context.Context) (uint64, error) {
 
 // AssertionBySequenceNum --
 func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.Assertion, error) {
+	genesis, err := ac.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(1))
+	if err != nil {
+		return nil, err
+	}
 	res, err := ac.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
 	if err != nil {
 		return nil, err
@@ -116,7 +120,7 @@ func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum pro
 		id:    uint64(seqNum),
 		chain: ac,
 		StateCommitment: util.StateCommitment{
-			Height:    res.Height.Uint64(),
+			Height:    res.CreatedAtBlock - genesis.CreatedAtBlock,
 			StateRoot: res.StateHash,
 		},
 	}, nil
@@ -164,7 +168,6 @@ func (ac *AssertionChain) CreateAssertion(
 			rollupgen.AssertionInputs{
 				BeforeState: prevAssertionState.AsSolidityStruct(),
 				AfterState:  postState.AsSolidityStruct(),
-				NumBlocks:   height - prevHeight,
 			},
 			common.Hash{}, // Expected hash. TODO: Is this fine as empty?
 			prevInboxMaxCount,

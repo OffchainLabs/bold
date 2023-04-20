@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
@@ -215,7 +214,7 @@ func TestAssertion_Reject(t *testing.T) {
 	})
 }
 
-func TestChallengePeriodSeconds(t *testing.T) {
+func TestChallengePeriodBlocks(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := setup.SetupChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
@@ -224,7 +223,7 @@ func TestChallengePeriodSeconds(t *testing.T) {
 	manager, err := chain.SpecChallengeManager(ctx)
 	require.NoError(t, err)
 
-	chalPeriod, err := manager.ChallengePeriodSeconds(ctx)
+	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 200*time.Second, chalPeriod)
+	require.Equal(t, uint64(20), chalPeriod)
 }

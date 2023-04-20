@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
@@ -269,15 +268,15 @@ func (cm *SpecChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
-// Duration of the challenge period.
-func (cm *SpecChallengeManager) ChallengePeriodSeconds(
+// Duration of the challenge period in blocks.
+func (cm *SpecChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
-) (time.Duration, error) {
-	res, err := cm.caller.ChallengePeriodSec(&bind.CallOpts{Context: ctx})
+) (uint64, error) {
+	res, err := cm.caller.ChallengePeriodBlock(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return time.Second, err
+		return 0, err
 	}
-	return time.Second * time.Duration(res.Uint64()), nil
+	return res.Uint64(), nil
 }
 
 // Gets an edge by its hash.
@@ -350,8 +349,12 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
 				tentativeWinnerId,
 				challengeV2gen.OneStepData{
-					BeforeHash: oneStepData.BeforeHash,
-					Proof:      oneStepData.Proof,
+					InboxMsgCountSeen:      big.NewInt(1),
+					InboxMsgCountSeenProof: make([]byte, 0),
+					WasmModuleRoot:         [32]byte{},
+					WasmModuleRootProof:    make([]byte, 0),
+					BeforeHash:             oneStepData.BeforeHash,
+					Proof:                  oneStepData.Proof,
 				},
 				pre,
 				post,

@@ -3,7 +3,6 @@ package protocol
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,7 +29,6 @@ type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)
-	InboxMsgCountSeen() (uint64, error)
 }
 
 // AssertionChain can manage assertions in the protocol and retrieve
@@ -121,8 +119,8 @@ type OneStepData struct {
 type SpecChallengeManager interface {
 	// Address of the challenge manager contract.
 	Address() common.Address
-	// Duration of the challenge period.
-	ChallengePeriodSeconds(ctx context.Context) (time.Duration, error)
+	// Duration of the challenge period in blocks.
+	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.
 	GetEdge(ctx context.Context, edgeId EdgeId) (util.Option[SpecEdge], error)
 	// Calculates an edge id for an edge.
