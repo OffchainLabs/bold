@@ -115,6 +115,9 @@ type Manager interface {
 	) ([]byte, error)
 	OneStepProofData(
 		ctx context.Context,
+		parentAssertionStateHash common.Hash,
+		inboxCountForAssertion *big.Int,
+		initialWasmModuleRoot common.Hash,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
@@ -503,8 +506,18 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	return leaves, nil
 }
 
+type wasmModuleRootProof struct {
+	prevAssertionHash     common.Hash
+	executionHash         common.Hash
+	inboxAcc              common.Hash
+	initialWasmModuleRoot common.Hash
+}
+
 func (s *Simulated) OneStepProofData(
 	ctx context.Context,
+	parentAssertionStateHash common.Hash,
+	inboxCountForAssertion *big.Int,
+	initialWasmModuleRoot common.Hash,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -512,6 +525,30 @@ func (s *Simulated) OneStepProofData(
 	fromSmallStep,
 	toSmallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
+	// var stateRootIndex int
+	// var found bool
+	// for i, r := range s.stateRoots {
+	// 	if r == parentAssertionStateHash {
+	// 		stateRootIndex = i
+	// 		found = true
+	// 	}
+	// }
+	// if !found {
+	// 	err = fmt.Errorf("parent assertion state hash %#x not found locally", parentAssertionStateHash)
+	// 	return
+	// }
+
+	// Produce a proof of inbox count and wasm module root from the
+	// parent assertion's state contained locally.
+	// parentAssertionState := s.executionStates[stateRootIndex]
+	// // TODO: Abi pack the whole thing as the proof
+	// wmProof := &wasmModuleRootProof{
+	// 	prevAssertionHash:     parentAssertionStateHash, // TODO: Pass it in.
+	// 	executionHash:         common.Hash{},            // TODO: Specify execution hash.
+	// 	inboxAcc:              common.Hash{},            // Compute from the states.
+	// 	initialWasmModuleRoot: initialWasmModuleRoot,
+	// }
+
 	startCommit, commitErr := s.SmallStepCommitmentUpTo(
 		ctx,
 		fromBlockChallengeHeight,
@@ -537,8 +574,10 @@ func (s *Simulated) OneStepProofData(
 		return
 	}
 	data = &protocol.OneStepData{
-		BeforeHash: startCommit.LastLeaf,
-		Proof:      make([]byte, 0),
+		BeforeHash:             startCommit.LastLeaf,
+		Proof:                  make([]byte, 0),
+		InboxMsgCountSeen:      inboxCountForAssertion,
+		InboxMsgCountSeenProof: make([]byte, 0), // TODO: abi Pack the parent assertion state
 	}
 	if !s.malicious {
 		// Only honest validators can produce a valid one step proof.

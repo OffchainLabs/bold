@@ -37,6 +37,10 @@ func (e *SpecEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.inner.EndHeight.Uint64()), e.inner.EndHistoryRoot
 }
 
+func (e *SpecEdge) PrevAssertionId(ctx context.Context) (protocol.AssertionId, error) {
+	return e.manager.caller.GetPrevAssertionId(&bind.CallOpts{Context: ctx}, e.id)
+}
+
 func (e *SpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	timer, err := e.manager.caller.TimeUnrivaled(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {

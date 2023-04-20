@@ -354,8 +354,35 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	toBigStep := fromBigStep + 1
 	pc, _ := et.edge.StartCommitment()
 
+	prevAssertionId, err := et.edge.PrevAssertionId(ctx)
+	if err != nil {
+		return err
+	}
+	assertionNum, err := et.cfg.chain.GetAssertionNum(ctx, prevAssertionId)
+	if err != nil {
+		return err
+	}
+	prevAssertion, err := et.cfg.chain.AssertionBySequenceNum(ctx, assertionNum)
+	if err != nil {
+		return err
+	}
+	parentAssertionStateHash, err := prevAssertion.StateHash()
+	if err != nil {
+		return err
+	}
+	inboxMaxCountForAssertion, err := et.cfg.chain.AssertionInboxMaxCount(ctx, assertionNum)
+	if err != nil {
+		return err
+	}
+	initialWasmModuleRoot, err := et.cfg.chain.InitialWasmModuleRoot(ctx)
+	if err != nil {
+		return err
+	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
+		parentAssertionStateHash,
+		inboxMaxCountForAssertion,
+		initialWasmModuleRoot,
 		fromAssertionHeight,
 		toAssertionHeight,
 		fromBigStep,

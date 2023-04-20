@@ -41,6 +41,8 @@ type AssertionChain interface {
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	GetAssertionId(ctx context.Context, seqNum AssertionSequenceNumber) (AssertionId, error)
 	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
+	AssertionInboxMaxCount(ctx context.Context, seqNum AssertionSequenceNumber) (*big.Int, error)
+	InitialWasmModuleRoot(ctx context.Context) (common.Hash, error)
 
 	// Mutating methods.
 	CreateAssertion(
@@ -115,7 +117,7 @@ type OneStepData struct {
 	Proof                  []byte
 	WasmModuleRoot         common.Hash
 	WasmModuleRootProof    []byte
-	InboxMsgCountSeen      uint64
+	InboxMsgCountSeen      *big.Int
 	InboxMsgCountSeenProof []byte
 }
 
@@ -198,6 +200,9 @@ type SpecEdge interface {
 	StartCommitment() (Height, common.Hash)
 	// The end height and history commitment for an edge.
 	EndCommitment() (Height, common.Hash)
+	// The assertion id of the parent assertion that originated the challenge
+	// at the top-level.
+	PrevAssertionId(ctx context.Context) (AssertionId, error)
 	// The time in seconds an edge has been unrivaled.
 	TimeUnrivaled(ctx context.Context) (uint64, error)
 	// Whether or not an edge has rivals.
