@@ -80,9 +80,9 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
         State memory a2State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.FINISHED);
 
         // add one since heights are zero indexed in the history states
         bytes32 a1 = assertionChain.addAssertion(
@@ -156,7 +156,7 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
 
         bytes32 a1 = assertionChain.addAssertion(
             genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
@@ -1485,7 +1485,14 @@ contract EdgeChallengeManagerTest is Test {
 
         ei.challengeManager.confirmEdgeByOneStepProof(
             allWinners[0].lowerChildId,
-            OneStepData({beforeHash: firstStates[0], proof: abi.encodePacked(firstStates[1])}),
+            OneStepData({
+                inboxMsgCountSeen: 7,
+                inboxMsgCountSeenProof: abi.encode(genesisState.es),
+                wasmModuleRoot: bytes32(0),
+                wasmModuleRootProof: abi.encode(bytes32(0), genesisExecutionHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
+                beforeHash: firstStates[0],
+                proof: abi.encodePacked(firstStates[1])
+            }),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(genesisStates()), 0),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(firstStates), 1)
         );
