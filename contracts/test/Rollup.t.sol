@@ -63,7 +63,7 @@ contract RollupTest is Test {
         );
         EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager({
             _assertionChain: IAssertionChain(address(0)),
-            _challengePeriodSec: 0,
+            _challengePeriodBlocks: 0,
             _oneStepProofEntry: IOneStepProofEntry(address(0))
         });
         BridgeCreator bridgeCreator = new BridgeCreator();
@@ -97,7 +97,6 @@ contract RollupTest is Test {
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: address(0),
             genesisBlockNum: 0,
-            challengePeriodSeconds: 100,
             miniStakeValue: 1
         });
 

@@ -44,7 +44,7 @@ contract EdgeChallengeManagerTest is Test {
     uint256 height1 = 32;
 
     uint256 miniStakeVal = 1 ether;
-    uint256 challengePeriodSec = 1000;
+    uint256 challengePeriodBlock = 1000;
 
     function appendRandomStates(bytes32[] memory currentStates, uint256 numStates)
         internal
@@ -60,7 +60,7 @@ contract EdgeChallengeManagerTest is Test {
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
         EdgeChallengeManager challengeManager =
-            new EdgeChallengeManager(assertionChain, challengePeriodSec, new MockOneStepProofEntry());
+            new EdgeChallengeManager(assertionChain, challengePeriodBlock, new MockOneStepProofEntry());
 
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, genesisState, 0);
         return (assertionChain, challengeManager, genesis);
@@ -133,7 +133,7 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory states, bytes32[] memory exp) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
-        vm.warp(block.timestamp + 2 * challengePeriodSec);
+        vm.roll(block.number + 2 * challengePeriodBlock);
         vm.expectRevert("Challenge period has expired");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -301,7 +301,7 @@ contract EdgeChallengeManagerTest is Test {
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
-        vm.warp(challengePeriodSec + 2);
+        vm.roll(block.number + challengePeriodBlock + 2);
 
         bytes32[] memory ancestorEdges = new bytes32[](0);
         ei.challengeManager.confirmEdgeByTime(edgeId, ancestorEdges);
@@ -331,7 +331,7 @@ contract EdgeChallengeManagerTest is Test {
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1))
         );
 
-        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
         {
@@ -353,14 +353,14 @@ contract EdgeChallengeManagerTest is Test {
                 abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1))
             );
 
-            vm.warp(block.timestamp + 2);
+            vm.roll(block.number + 2);
             assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
             assertEq(ei.challengeManager.timeUnrivaled(edge2Id), 0, "Edge2 timer");
         }
 
         BisectionChildren memory children = bisect(ei.challengeManager, edge1Id, states1, 16, states1.length - 1);
 
-        vm.warp(challengePeriodSec + 5);
+        vm.roll(block.number + challengePeriodBlock + 5);
 
         bytes32[] memory ancestors = new bytes32[](1);
         ancestors[0] = edge1Id;
@@ -838,7 +838,7 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        vm.warp(block.timestamp + challengePeriodSec);
+        vm.roll(block.number + challengePeriodBlock);
         vm.expectRevert("Challenge period has expired");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -1171,7 +1171,7 @@ contract EdgeChallengeManagerTest is Test {
             generateEdgeProof(states1, bigStepStates)
         );
 
-        vm.warp(challengePeriodSec + 5);
+        vm.roll(block.number + challengePeriodBlock + 5);
 
         ei.challengeManager.confirmEdgeByTime(edge1BigStepId, new bytes32[](0));
 
@@ -1249,7 +1249,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
 
@@ -1294,7 +1294,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        vm.warp(block.timestamp + 2);
+        vm.roll(block.number + 2);
 
         (BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = bisectToForkOnly(
             BisectToForkOnlyArgs(args.challengeManager, edge1Id, edge2Id, states1, states2, args.skipLast)
@@ -1358,7 +1358,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.warp(challengePeriodSec + 11);
+        vm.roll(block.number + challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));
@@ -1474,7 +1474,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.warp(challengePeriodSec + 11);
+        vm.roll(block.number + challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));

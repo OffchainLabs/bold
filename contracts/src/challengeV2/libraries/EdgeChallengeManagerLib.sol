@@ -206,17 +206,17 @@ library EdgeChallengeManagerLib {
         // this edge has no rivals, the time is still going up
         // we give the current amount of time unrivaled
         if (firstRival == UNRIVALED) {
-            return block.timestamp - store.edges[edgeId].createdWhen;
+            return block.number - store.edges[edgeId].createdAtBlock;
         } else {
             // Sanity check: it's not possible an edge does not exist for a first rival record
             require(store.edges[firstRival].exists(), "Rival edge does not exist");
 
             // rivals exist for this edge
-            uint256 firstRivalCreatedWhen = store.edges[firstRival].createdWhen;
-            uint256 edgeCreatedWhen = store.edges[edgeId].createdWhen;
+            uint256 firstRivalCreatedWhen = store.edges[firstRival].createdAtBlock;
+            uint256 edgeCreatedWhen = store.edges[edgeId].createdAtBlock;
             if (firstRivalCreatedWhen > edgeCreatedWhen) {
                 // if this edge was created before the first rival then we return the difference
-                // in createdWhen times
+                // in createdAtBlock number
                 return firstRivalCreatedWhen - edgeCreatedWhen;
             } else {
                 // if this was created at the same time as, or after the the first rival
@@ -392,17 +392,17 @@ library EdgeChallengeManagerLib {
     ///         Given that an edge cannot become unrivaled after becoming rivaled, once the threshold is passed
     ///         it will always remain passed. The direct ancestors of an edge are linked by parent-child links for edges
     ///         of the same edgeType, and claimId-edgeid links for zero layer edges that claim an edge in the level above.
-    /// @param store                    The edge store containing all edges and rival data
-    /// @param edgeId                   The id of the edge to confirm
-    /// @param ancestorEdgeIds          The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
-    ///                                 great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
-    /// @param confirmationThresholdSec The amount of time in seconds that the total unrivaled time of an ancestor chain needs to exceed in
-    ///                                 order to be confirmed
+    /// @param store                      The edge store containing all edges and rival data
+    /// @param edgeId                     The id of the edge to confirm
+    /// @param ancestorEdgeIds            The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
+    ///                                   great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
+    /// @param confirmationThresholdBlock The number of block that the total unrivaled time of an ancestor chain needs to exceed in
+    ///                                   order to be confirmed
     function confirmEdgeByTime(
         EdgeStore storage store,
         bytes32 edgeId,
         bytes32[] memory ancestorEdgeIds,
-        uint256 confirmationThresholdSec
+        uint256 confirmationThresholdBlock
     ) internal {
         require(store.edges[edgeId].exists(), "Edge does not exist");
         require(store.edges[edgeId].status == EdgeStatus.Pending, "Edge not pending");
@@ -428,7 +428,7 @@ library EdgeChallengeManagerLib {
         }
 
         require(
-            totalTimeUnrivaled > confirmationThresholdSec,
+            totalTimeUnrivaled > confirmationThresholdBlock,
             "Total time unrivaled not greater than confirmation threshold"
         );
 

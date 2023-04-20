@@ -12,7 +12,7 @@ interface IEdgeChallengeManager {
 
     function initialize(
         IAssertionChain _assertionChain,
-        uint256 _challengePeriodSec,
+        uint256 _challengePeriodBlocks,
         IOneStepProofEntry _oneStepProofEntry
     ) external;
 
@@ -108,23 +108,23 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
     EdgeStore internal store;
 
-    uint256 public challengePeriodSec;
+    uint256 public challengePeriodBlock;
     IAssertionChain internal assertionChain;
     IOneStepProofEntry oneStepProofEntry;
 
-    constructor(IAssertionChain _assertionChain, uint256 _challengePeriodSec, IOneStepProofEntry _oneStepProofEntry) {
+    constructor(IAssertionChain _assertionChain, uint256 _challengePeriodBlocks, IOneStepProofEntry _oneStepProofEntry) {
         // HN: TODO: remove constructor?
-        initialize(_assertionChain, _challengePeriodSec, _oneStepProofEntry);
+        initialize(_assertionChain, _challengePeriodBlocks, _oneStepProofEntry);
     }
 
     function initialize(
         IAssertionChain _assertionChain,
-        uint256 _challengePeriodSec,
+        uint256 _challengePeriodBlocks,
         IOneStepProofEntry _oneStepProofEntry
     ) public {
         require(address(assertionChain) == address(0), "ALREADY_INIT");
         assertionChain = _assertionChain;
-        challengePeriodSec = _challengePeriodSec;
+        challengePeriodBlock = _challengePeriodBlocks;
         oneStepProofEntry = _oneStepProofEntry;
     }
 
@@ -171,7 +171,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             // HN: TODO: spec said 2 challenge period, should we change it to 1?
             // check if the top level challenge has reached the end time
             require(
-                block.timestamp - assertionChain.getFirstChildCreationTime(originId) < 2 * challengePeriodSec,
+                block.number - assertionChain.getFirstChildCreationBlock(originId) < 2 * challengePeriodBlock,
                 "Challenge period has expired"
             );
         } else {
@@ -234,7 +234,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             }
 
             // check if the top level challenge has reached the end time
-            require(block.timestamp - topLevelEdge.createdWhen < challengePeriodSec, "Challenge period has expired");
+            require(block.number - topLevelEdge.createdAtBlock < challengePeriodBlock, "Challenge period has expired");
         }
 
         // prove that the start root is a prefix of the end root
@@ -286,7 +286,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
     }
 
     function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdges) public {
-        store.confirmEdgeByTime(edgeId, ancestorEdges, challengePeriodSec);
+        store.confirmEdgeByTime(edgeId, ancestorEdges, challengePeriodBlock);
     }
 
     function confirmEdgeByOneStepProof(
