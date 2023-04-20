@@ -197,6 +197,7 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Assertion to make %+v\n", assertionToCreate)
 	assertion, err := v.chain.CreateAssertion(
 		ctx,
 		assertionToCreate.Height,
