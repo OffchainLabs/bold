@@ -301,7 +301,7 @@ contract EdgeChallengeManagerTest is Test {
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
-        vm.roll(block.number + challengePeriodBlock + 2);
+        vm.roll(challengePeriodBlock + 2);
 
         bytes32[] memory ancestorEdges = new bytes32[](0);
         ei.challengeManager.confirmEdgeByTime(edgeId, ancestorEdges);
