@@ -103,55 +103,6 @@ contract EdgeChallengeManagerTest is Test {
         });
     }
 
-    function testRevertNonZeroStartHeight() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states, bytes32[] memory exp) =
-            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
-
-        vm.expectRevert("Start height is not 0");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 1,
-                endHistoryRoot: MerkleTreeLib.root(exp),
-                endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
-        );
-    }
-
-    function testRevertBlockChallengeExpired() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states, bytes32[] memory exp) =
-            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
-
-        vm.roll(block.number + 2 * challengePeriodBlock);
-        vm.expectRevert("Challenge period has expired");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(exp),
-                endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
-        );
-    }
-
     function testRevertBlockNoFork() public {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
@@ -728,48 +679,6 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
-<<<<<<< HEAD
-    function testRevertSubChallengeExpired() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
-            CreateEdgesBisectArgs(
-                ei.challengeManager,
-                EdgeType.Block,
-                ei.a1,
-                ei.a2,
-                StateToolsLib.hash(ei.a1State),
-                StateToolsLib.hash(ei.a2State),
-                false,
-                new bytes32[](0),
-                new bytes32[](0)
-            )
-        );
-
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
-            appendRandomStatesBetween(genesisStates(), states1[1], height1);
-
-        vm.roll(block.number + challengePeriodBlock);
-        vm.expectRevert("Challenge period has expired");
-        ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
-                endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
-        );
-    }
-
-=======
->>>>>>> main
     function testRevertBigStepInvalidHeight() public {
         EdgeInitData memory ei = deployAndInit();
 
