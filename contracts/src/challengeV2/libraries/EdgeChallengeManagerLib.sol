@@ -77,7 +77,7 @@ library EdgeChallengeManagerLib {
     /// @notice An edge can be confirmed if the cumulative time unrivaled of it and a direct chain of ancestors is greater than a threshold
     /// @param edgeId               The edge that was confirmed
     /// @param mutualId             The mutual id of the confirmed edge
-    /// @param totalTimeUnrivaled   The cumulative amount of time this edge spent unrivaled
+    /// @param totalTimeUnrivaled   The cumulative amount of time (in blocks) this edge spent unrivaled
     event EdgeConfirmedByTime(bytes32 indexed edgeId, bytes32 indexed mutualId, uint256 totalTimeUnrivaled);
 
     /// @notice An edge can be confirmed if a zero layer edge in the level below claims this edge
@@ -191,7 +191,7 @@ library EdgeChallengeManagerLib {
         return (hasRival(store, edgeId) && store.edges[edgeId].length() == 1);
     }
 
-    /// @notice The amount of time this edge has spent without rivals
+    /// @notice The amount of time (in blocks) this edge has spent without rivals
     ///         This value is increasing whilst an edge is unrivaled, once a rival is created
     ///         it is fixed. If an edge has rivals from the moment it is created then it will have
     ///         a zero time unrivaled
@@ -212,12 +212,12 @@ library EdgeChallengeManagerLib {
             require(store.edges[firstRival].exists(), "Rival edge does not exist");
 
             // rivals exist for this edge
-            uint256 firstRivalCreatedWhen = store.edges[firstRival].createdAtBlock;
-            uint256 edgeCreatedWhen = store.edges[edgeId].createdAtBlock;
-            if (firstRivalCreatedWhen > edgeCreatedWhen) {
+            uint256 firstRivalCreatedAtBlock = store.edges[firstRival].createdAtBlock;
+            uint256 edgeCreatedAtBlock = store.edges[edgeId].createdAtBlock;
+            if (firstRivalCreatedAtBlock > edgeCreatedAtBlock) {
                 // if this edge was created before the first rival then we return the difference
                 // in createdAtBlock number
-                return firstRivalCreatedWhen - edgeCreatedWhen;
+                return firstRivalCreatedAtBlock - edgeCreatedAtBlock;
             } else {
                 // if this was created at the same time as, or after the the first rival
                 // then we return 0
@@ -386,9 +386,9 @@ library EdgeChallengeManagerLib {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
-    /// @notice An edge can be confirmed if the total amount of time it and a single chain of its direct ancestors
+    /// @notice An edge can be confirmed if the total amount of time (in blocks) it and a single chain of its direct ancestors
     ///         has spent unrivaled is greater than the challenge period.
-    /// @dev    Edges inherit time from their parents, so the sum of unrivaled timers is compared against the threshold.
+    /// @dev    Edges inherit time from their parents, so the sum of unrivaled timer is compared against the threshold.
     ///         Given that an edge cannot become unrivaled after becoming rivaled, once the threshold is passed
     ///         it will always remain passed. The direct ancestors of an edge are linked by parent-child links for edges
     ///         of the same edgeType, and claimId-edgeid links for zero layer edges that claim an edge in the level above.
@@ -396,7 +396,7 @@ library EdgeChallengeManagerLib {
     /// @param edgeId                     The id of the edge to confirm
     /// @param ancestorEdgeIds            The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
     ///                                   great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
-    /// @param confirmationThresholdBlock The number of block that the total unrivaled time of an ancestor chain needs to exceed in
+    /// @param confirmationThresholdBlock The number of blocks that the total unrivaled time of an ancestor chain needs to exceed in
     ///                                   order to be confirmed
     function confirmEdgeByTime(
         EdgeStore storage store,
