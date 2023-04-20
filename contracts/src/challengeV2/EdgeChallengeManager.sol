@@ -8,7 +8,13 @@ import "../libraries/Constants.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IEdgeChallengeManager {
-     // Creates a layer zero edge in a challenge.
+    function initialize(
+        IAssertionChain _assertionChain,
+        uint256 _challengePeriodSec,
+        IOneStepProofEntry _oneStepProofEntry
+    ) external;
+
+    // Creates a layer zero edge in a challenge.
     function createLayerZeroEdge(CreateEdgeArgs memory args, bytes calldata, bytes calldata)
         external
         payable

@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import "./Utils.sol";
 import "../MockAssertionChain.sol";
 import "../../src/challengeV2/EdgeChallengeManager.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "./StateTools.sol";
 
 contract MockOneStepProofEntry is IOneStepProofEntry {
@@ -55,8 +57,16 @@ contract EdgeChallengeManagerTest is Test {
 
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
-        EdgeChallengeManager challengeManager =
-            new EdgeChallengeManager();
+        EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager();
+        EdgeChallengeManager challengeManager = EdgeChallengeManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(challengeManagerTemplate),
+                    address(new ProxyAdmin()),
+                    ""
+                )
+            )
+        );
         challengeManager.initialize(assertionChain, challengePeriodSec, new MockOneStepProofEntry());
 
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisStateHash, 0);
