@@ -675,46 +675,6 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
-    // CHRIS: TODO: uncomment if we decide to keep the time check
-    // function testRevertSubChallengeExpired() public {
-    //     EdgeInitData memory ei = deployAndInit();
-
-    //     (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
-    //         CreateEdgesBisectArgs(
-    //             ei.challengeManager,
-    //             EdgeType.Block,
-    //             ei.a1,
-    //             ei.a2,
-    //             StateToolsLib.hash(ei.a1State),
-    //             StateToolsLib.hash(ei.a2State),
-    //             false,
-    //             new bytes32[](0),
-    //             new bytes32[](0)
-    //         )
-    //     );
-
-    //     (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
-    //         appendRandomStatesBetween(genesisStates(), states1[1], height1);
-
-    //     vm.warp(block.timestamp + challengePeriodSec);
-    //     vm.expectRevert("Challenge period has expired");
-    //     ei.challengeManager.createLayerZeroEdge(
-    //         CreateEdgeArgs({
-    //             edgeType: EdgeType.BigStep,
-    //
-
-    //             endHistoryRoot: MerkleTreeLib.root(bigStepExp),
-    //             endHeight: height1,
-    //             claimId: edges1[0].lowerChildId
-    //         }),
-    //         abi.encode(
-    //             ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-    //             ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-    //         ),
-    //         generateEdgeProof(states1, bigStepStates)
-    //     );
-    // }
-
     function testRevertBigStepInvalidHeight() public {
         EdgeInitData memory ei = deployAndInit();
 
