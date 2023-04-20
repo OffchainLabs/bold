@@ -360,7 +360,7 @@ contract EdgeChallengeManagerTest is Test {
 
         BisectionChildren memory children = bisect(ei.challengeManager, edge1Id, states1, 16, states1.length - 1);
 
-        vm.roll(block.number + challengePeriodBlock + 5);
+        vm.roll(challengePeriodBlock + 5);
 
         bytes32[] memory ancestors = new bytes32[](1);
         ancestors[0] = edge1Id;
@@ -1171,7 +1171,7 @@ contract EdgeChallengeManagerTest is Test {
             generateEdgeProof(states1, bigStepStates)
         );
 
-        vm.roll(block.number + challengePeriodBlock + 5);
+        vm.roll(challengePeriodBlock + 5);
 
         ei.challengeManager.confirmEdgeByTime(edge1BigStepId, new bytes32[](0));
 
@@ -1358,7 +1358,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.roll(block.number + challengePeriodBlock + 11);
+        vm.roll(challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));
@@ -1474,7 +1474,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.roll(block.number + challengePeriodBlock + 11);
+        vm.roll(challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));
