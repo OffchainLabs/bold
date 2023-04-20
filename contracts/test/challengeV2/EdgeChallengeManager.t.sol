@@ -150,29 +150,6 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
-    // CHRIS: TODO: put this back in?
-    // function testRevertBlockInvalidHistroy() public {
-    //     EdgeInitData memory ei = deployAndInit();
-
-    //     (bytes32[] memory states, bytes32[] memory exp) =
-    //         appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
-
-    //     vm.expectRevert("Start history root does not match previous assertion");
-    //     bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
-    //         CreateEdgeArgs({
-    //             edgeType: EdgeType.Block,
-    //             endHistoryRoot: MerkleTreeLib.root(exp),
-    //             endHeight: height1,
-    //             claimId: ei.a1
-    //         }),
-    //         abi.encode(
-    //             ProofUtils.expansionFromLeaves(states, 0, 1),
-    //             ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-    //         ),
-    //         abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
-    //     );
-    // }
-
     function testRevertBlockNoProof() public {
         EdgeInitData memory ei = deployAndInit();
 
