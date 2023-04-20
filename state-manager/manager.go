@@ -513,6 +513,32 @@ type wasmModuleRootProof struct {
 	initialWasmModuleRoot common.Hash
 }
 
+// Like abi.NewType but panics if it fails for use in constants
+func newStaticType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
+	ty, err := abi.NewType(t, internalType, components)
+	if err != nil {
+		panic(err)
+	}
+	return ty
+}
+
+var bytes32Type = newStaticType("bytes32", "", nil)
+
+var wasmModuleProofAbi = abi.Arguments{
+	{
+		Name: "lastHash",
+		Type: bytes32Type,
+	},
+	{
+		Name: "assertionExecHash",
+		Type: bytes32Type,
+	},
+	{
+		Name: "inboxAcc",
+		Type: bytes32Type,
+	},
+}
+
 func (s *Simulated) OneStepProofData(
 	ctx context.Context,
 	parentAssertionStateHash common.Hash,
@@ -524,30 +550,38 @@ func (s *Simulated) OneStepProofData(
 	toBigStep,
 	fromSmallStep,
 	toSmallStep uint64,
+	inboxAccumulatorGetter func(idx uint64) (common.Hash, error),
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	// var stateRootIndex int
-	// var found bool
-	// for i, r := range s.stateRoots {
-	// 	if r == parentAssertionStateHash {
-	// 		stateRootIndex = i
-	// 		found = true
-	// 	}
-	// }
-	// if !found {
-	// 	err = fmt.Errorf("parent assertion state hash %#x not found locally", parentAssertionStateHash)
-	// 	return
-	// }
+	var stateRootIndex int
+	var found bool
+	for i, r := range s.stateRoots {
+		if r == parentAssertionStateHash {
+			stateRootIndex = i
+			found = true
+		}
+	}
+	if !found {
+		err = fmt.Errorf("parent assertion state hash %#x not found locally", parentAssertionStateHash)
+		return
+	}
 
 	// Produce a proof of inbox count and wasm module root from the
 	// parent assertion's state contained locally.
-	// parentAssertionState := s.executionStates[stateRootIndex]
-	// // TODO: Abi pack the whole thing as the proof
-	// wmProof := &wasmModuleRootProof{
-	// 	prevAssertionHash:     parentAssertionStateHash, // TODO: Pass it in.
-	// 	executionHash:         common.Hash{},            // TODO: Specify execution hash.
-	// 	inboxAcc:              common.Hash{},            // Compute from the states.
-	// 	initialWasmModuleRoot: initialWasmModuleRoot,
-	// }
+	parentAssertionState := s.executionStates[stateRootIndex]
+	afterInboxPosition := parentAssertionState.GlobalState.Batch
+	if parentAssertionState.MachineStatus == protocol.MachineStatusErrored || parentAssertionState.GlobalState.PosInBatch > 0 {
+		afterInboxPosition++
+	}
+	inboxAcc, getErr := inboxAccumulatorGetter(afterInboxPosition - 1)
+	if getErr != nil {
+		err = getErr
+		return
+	}
+	wasmModuleRootProof, packErr := wasmModuleProofAbi.Pack(inboxAcc, inboxAcc, inboxAcc)
+	if packErr != nil {
+		err = packErr
+		return
+	}
 
 	startCommit, commitErr := s.SmallStepCommitmentUpTo(
 		ctx,
@@ -578,6 +612,8 @@ func (s *Simulated) OneStepProofData(
 		Proof:                  make([]byte, 0),
 		InboxMsgCountSeen:      inboxCountForAssertion,
 		InboxMsgCountSeenProof: make([]byte, 0), // TODO: abi Pack the parent assertion state
+		WasmModuleRoot:         initialWasmModuleRoot,
+		WasmModuleRootProof:    wasmModuleRootProof,
 	}
 	if !s.malicious {
 		// Only honest validators can produce a valid one step proof.

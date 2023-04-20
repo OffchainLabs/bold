@@ -19,6 +19,7 @@ type AssertionId common.Hash
 // Protocol --
 type Protocol interface {
 	AssertionChain
+	Bridge
 }
 
 // Assertion represents a top-level claim in the protocol about the
@@ -29,6 +30,10 @@ type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)
+}
+
+type Bridge interface {
+	SequencerInboxAccumulator(ctx context.Context, index uint64) (common.Hash, error)
 }
 
 // AssertionChain can manage assertions in the protocol and retrieve
@@ -43,6 +48,7 @@ type AssertionChain interface {
 	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
 	AssertionInboxMaxCount(ctx context.Context, seqNum AssertionSequenceNumber) (*big.Int, error)
 	InitialWasmModuleRoot(ctx context.Context) (common.Hash, error)
+	ComputeExecutionHash(ctx context.Context, beforeState *ExecutionState, afterState *ExecutionState) (common.Hash, error)
 
 	// Mutating methods.
 	CreateAssertion(
