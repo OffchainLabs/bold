@@ -642,4 +642,3 @@ func SetupAccounts(numAccounts uint64) ([]*TestAccount, *backends.SimulatedBacke
 	return accs, backend, nil
 }
 
-// TODO: Put this inside of tx_succeeded?
