@@ -298,7 +298,6 @@ library EdgeChallengeManagerLib {
         return (startHistoryRoot);
     }
 
-    
     /// @notice Creates a new layer zero edges from edge creation args
     function toLayerZeroEdge(bytes32 originId, bytes32 startHistoryRoot, CreateEdgeArgs memory args)
         private

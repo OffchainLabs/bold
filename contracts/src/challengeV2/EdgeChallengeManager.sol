@@ -5,51 +5,10 @@ import "./libraries/UintUtilsLib.sol";
 import "./DataEntities.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
 import "../libraries/Constants.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IEdgeChallengeManager {
-    // Checks if an edge by ID exists.
-    function edgeExists(bytes32 eId) external view returns (bool);
-
-    function initialize(
-        IAssertionChain _assertionChain,
-        uint256 _challengePeriodSec,
-        IOneStepProofEntry _oneStepProofEntry
-    ) external;
-
-    // // Checks if an edge by ID exists.
-    // function edgeExists(bytes32 eId) external view returns (bool);
-    // Gets an edge by ID.
-    function getEdge(bytes32 eId) external view returns (ChallengeEdge memory);
-
-    // Gets the current time unrivaled by edge ID. TODO: Needs more thinking.
-    function timeUnrivaled(bytes32 eId) external view returns (uint256);
-
-    // We define a mutual ID as hash(EdgeType  ++ originId ++ hash(startCommit ++ startHeight)) as a way
-    // of checking if an edge has rivals. Rivals edges share the same mutual ID.
-    function calculateMutualId(
-        EdgeType edgeType,
-        bytes32 originId,
-        uint256 startHeight,
-        bytes32 startHistoryRoot,
-        uint256 endHeight
-    ) external returns (bytes32);
-
-    function calculateEdgeId(
-        EdgeType edgeType,
-        bytes32 originId,
-        uint256 startHeight,
-        bytes32 startHistoryRoot,
-        uint256 endHeight,
-        bytes32 endHistoryRoot
-    ) external returns (bytes32);
-
-    // Checks if an edge's mutual ID corresponds to multiple rivals and checks if a one step fork exists.
-    function hasRival(bytes32 eId) external view returns (bool);
-
-    // Checks if an edge's mutual ID corresponds to multiple rivals and checks if a one step fork exists.
-    function hasLengthOneRival(bytes32 eId) external view returns (bool);
-
-    // Creates a layer zero edge in a challenge.
+     // Creates a layer zero edge in a challenge.
     function createLayerZeroEdge(CreateEdgeArgs memory args, bytes calldata, bytes calldata)
         external
         payable
@@ -78,6 +37,39 @@ interface IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
+
+    function calculateEdgeId(
+        EdgeType edgeType,
+        bytes32 originId,
+        uint256 startHeight,
+        bytes32 startHistoryRoot,
+        uint256 endHeight,
+        bytes32 endHistoryRoot
+    ) external pure returns (bytes32);
+
+    function calculateMutualId(
+        EdgeType edgeType,
+        bytes32 originId,
+        uint256 startHeight,
+        bytes32 startHistoryRoot,
+        uint256 endHeight
+    ) external pure returns (bytes32);
+
+    function edgeExists(bytes32 edgeId) external view returns (bool);
+
+    function getEdge(bytes32 edgeId) external view returns (ChallengeEdge memory);
+
+    function edgeLength(bytes32 edgeId) external view returns (uint256);
+
+    function hasRival(bytes32 edgeId) external view returns (bool);
+
+    function hasLengthOneRival(bytes32 edgeId) external view returns (bool);
+
+    function timeUnrivaled(bytes32 edgeId) external view returns (uint256);
+
+    function getPrevAssertionId(bytes32 edgeId) external view returns (bytes32);
+
+    function firstRival(bytes32 edgeId) external view returns (bytes32);
 }
 
 // // CHRIS: TODO: check the ministake was provided
@@ -89,38 +81,34 @@ interface IEdgeChallengeManager {
 // // 4. all values of firstRivals are existing edges (must be in the edge mapping), or are the NO_RIVAL magic hash
 // // 5. where to check edge prefix proofs? in bisection, or in add?
 
-contract EdgeChallengeManager is IEdgeChallengeManager {
+contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     using EdgeChallengeManagerLib for EdgeStore;
     using ChallengeEdgeLib for ChallengeEdge;
 
     EdgeStore internal store;
 
     uint256 public challengePeriodSec;
-    IAssertionChain internal assertionChain;
-    IOneStepProofEntry oneStepProofEntry;
+    IAssertionChain public assertionChain;
+    IOneStepProofEntry public oneStepProofEntry;
 
-    constructor(IAssertionChain _assertionChain, uint256 _challengePeriodSec, IOneStepProofEntry _oneStepProofEntry) {
-        // HN: TODO: remove constructor?
-        initialize(_assertionChain, _challengePeriodSec, _oneStepProofEntry);
+    constructor() {
+        _disableInitializers();
     }
 
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodSec,
         IOneStepProofEntry _oneStepProofEntry
-    ) public {
+    ) public initializer {
         require(address(assertionChain) == address(0), "ALREADY_INIT");
         assertionChain = _assertionChain;
         challengePeriodSec = _challengePeriodSec;
         oneStepProofEntry = _oneStepProofEntry;
     }
 
-    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes memory prefixProof)
-        external
-        returns (bytes32, bytes32)
-    {
-        return store.bisectEdge(edgeId, bisectionHistoryRoot, prefixProof);
-    }
+    /////////////////////////////
+    // STATE MUTATING SECTIION //
+    /////////////////////////////
 
     function createLayerZeroEdge(CreateEdgeArgs memory args, bytes calldata prefixProof, bytes calldata proof)
         external
@@ -128,6 +116,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         returns (bytes32)
     {
         return store.createLayerZeroEdge(assertionChain, args, prefixProof, proof);
+    }
+
+    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes memory prefixProof)
+        external
+        returns (bytes32, bytes32)
+    {
+        return store.bisectEdge(edgeId, bisectionHistoryRoot, prefixProof);
     }
 
     function confirmEdgeByChildren(bytes32 edgeId) public {
@@ -160,25 +155,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         );
     }
 
-    // CHRIS: TODO: remove these?
-    ///////////////////////////////////////////////
-    ///////////// VIEW FUNCS ///////////////
-
-    function getPrevAssertionId(bytes32 edgeId) public view returns (bytes32) {
-        return store.getPrevAssertionId(edgeId);
-    }
-
-    function hasRival(bytes32 edgeId) public view returns (bool) {
-        return store.hasRival(edgeId);
-    }
-
-    function timeUnrivaled(bytes32 edgeId) public view returns (uint256) {
-        return store.timeUnrivaled(edgeId);
-    }
-
-    function hasLengthOneRival(bytes32 edgeId) public view returns (bool) {
-        return store.hasLengthOneRival(edgeId);
-    }
+    ///////////////////////
+    // VIEW ONLY SECTION //
+    ///////////////////////
 
     function calculateEdgeId(
         EdgeType edgeType,
@@ -210,11 +189,27 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         return store.get(edgeId);
     }
 
-    function firstRival(bytes32 edgeId) public view returns (bytes32) {
-        return store.firstRivals[edgeId];
-    }
-
     function edgeLength(bytes32 edgeId) public view returns (uint256) {
         return store.get(edgeId).length();
+    }
+
+    function hasRival(bytes32 edgeId) public view returns (bool) {
+        return store.hasRival(edgeId);
+    }
+
+    function hasLengthOneRival(bytes32 edgeId) public view returns (bool) {
+        return store.hasLengthOneRival(edgeId);
+    }
+
+    function timeUnrivaled(bytes32 edgeId) public view returns (uint256) {
+        return store.timeUnrivaled(edgeId);
+    }
+
+    function getPrevAssertionId(bytes32 edgeId) public view returns (bytes32) {
+        return store.getPrevAssertionId(edgeId);
+    }
+
+    function firstRival(bytes32 edgeId) public view returns (bytes32) {
+        return store.firstRivals[edgeId];
     }
 }

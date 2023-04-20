@@ -56,7 +56,8 @@ contract EdgeChallengeManagerTest is Test {
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
         EdgeChallengeManager challengeManager =
-            new EdgeChallengeManager(assertionChain, challengePeriodSec, new MockOneStepProofEntry());
+            new EdgeChallengeManager();
+        challengeManager.initialize(assertionChain, challengePeriodSec, new MockOneStepProofEntry());
 
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisStateHash, 0);
         return (assertionChain, challengeManager, genesis);
@@ -75,10 +76,12 @@ contract EdgeChallengeManagerTest is Test {
     function deployAndInit() internal returns (EdgeInitData memory) {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
-        State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
-        State memory a2State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.RUNNING);
+        State memory a1State = StateToolsLib.randomState(
+            rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING
+        );
+        State memory a2State = StateToolsLib.randomState(
+            rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.RUNNING
+        );
 
         // add one since heights are zero indexed in the history states
         bytes32 a1 = assertionChain.addAssertion(
@@ -102,8 +105,9 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockNoFork() public {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
-        State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+        State memory a1State = StateToolsLib.randomState(
+            rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING
+        );
 
         bytes32 a1 = assertionChain.addAssertion(
             genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a1State), 0
