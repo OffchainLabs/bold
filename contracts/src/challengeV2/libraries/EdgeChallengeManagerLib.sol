@@ -186,7 +186,7 @@ library EdgeChallengeManagerLib {
             require(assertionChain.isPending(args.claimId), "Claim assertion is not pending");
 
             // CHRIS: TODO: rename this to "getSibling"? Is it even important?
-            require(assertionChain.getSuccessionChallenge(originId) != 0, "Assertion is not in a fork");
+            require(assertionChain.hasSibling(args.claimId), "Assertion is not in a fork");
 
             // parse the inclusion proof for later use
             require(proof.length > 0, "Block edge specific proof is empty");
@@ -230,6 +230,7 @@ library EdgeChallengeManagerLib {
             MerkleTreeLib.verifyInclusionProof(
                 claimEdge.startHistoryRoot, startState, claimEdge.startHeight, claimStartInclusionProof
             );
+
             // it's doubly important to check the end state since if the end state since the claim id is
             // not part of the edge id, so we need to ensure that it's not possible to create two edges of the
             // same id, but with different claim id. Ensuring that the end state is linked to the claim,
