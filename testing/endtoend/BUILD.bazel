@@ -2,17 +2,20 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 test_suite(
     name = "endtoend",
+    tags = ["manual"],
     tests = [
         ":endtoend_test",
         "//testing/endtoend/internal/backend:backend_test",
     ],
-    tags = ["manual"],
 )
 
 go_test(
     name = "endtoend_test",
     srcs = ["basic_local_test.go"],
-    tags = ["exclusive-if-local", "manual"],
+    tags = [
+        "exclusive-if-local",
+        "manual",
+    ],
     deps = [
         "//protocol/sol-implementation",
         "//state-manager",

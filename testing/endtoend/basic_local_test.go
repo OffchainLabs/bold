@@ -32,7 +32,40 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scenarios := []*ChallengeScenario{} // TODO: Add scenarios
+	scenarios := []*ChallengeScenario{
+		{
+			AliceStateManager: func() statemanager.Manager {
+				sm, err := statemanager.New(
+					[]common.Hash{ // stateRoots
+						common.HexToHash("0x1"),
+						common.HexToHash("0x2"),
+						common.HexToHash("0x3"),
+						common.HexToHash("0x4"),
+						common.HexToHash("0x5"),
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return sm
+			}(),
+			BobStateManager: func() statemanager.Manager {
+				sm, err := statemanager.New(
+					[]common.Hash{ // stateRoots
+						common.HexToHash("0x1"),
+						common.HexToHash("0x2"),
+						common.HexToHash("0x3"),
+						common.HexToHash("0x5"),
+						common.HexToHash("0x6"),
+					},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return sm
+			}(),
+		},
+	} // TODO: Add more scenarios
 
 	for _, scenario := range scenarios {
 		testChallengeProtocol_AliceAndBob(t, be, scenario)
@@ -57,7 +90,13 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		t.Fatal(err)
 	}
 
-	_, _ = a, b // TODO: Run validators
+	a.Start(ctx)
+	b.Start(ctx)
+
+	// TODO: Wait for evaluation?
+
+	t.Log("DEBUG: Sleeping for 30s")
+	time.Sleep(30 * time.Second)
 }
 
 func setupValidator(ctx context.Context, be backend.Backend, rollup common.Address, sm statemanager.Manager, txOpts *bind.TransactOpts, name string) (*validator.Validator, error) {

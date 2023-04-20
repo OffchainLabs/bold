@@ -13,8 +13,10 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 )
 
@@ -28,6 +30,7 @@ type AnvilLocal struct {
 
 	ctx    context.Context
 	client *ethclient.Client
+	rpc    *rpc.Client
 	cmd    *exec.Cmd
 
 	deployer *bind.TransactOpts
@@ -53,11 +56,13 @@ func NewAnvilLocal(ctx context.Context) (*AnvilLocal, error) {
 		return nil, err
 	}
 
-	if ec, err := ethclient.DialContext(ctx, "http://localhost:8545"); err != nil {
+	c, err := rpc.DialContext(ctx, "http://localhost:8545")
+	if err != nil {
 		return nil, err
-	} else {
-		a.client = ec
 	}
+
+	a.rpc = c
+	a.client = ethclient.NewClient(c)
 
 	return a, nil
 }
@@ -100,6 +105,7 @@ func (a *AnvilLocal) loadAccounts() error {
 }
 
 // Start the actual backend and wait for it to be ready to serve requests.
+// This process also initializes the anvil blockchain by mining 100 blocks.
 func (a *AnvilLocal) Start() error {
 	// If the user has told us where the anvil binary is, we will use that.
 	// When using bazel, the user can provide --test_env=ANVIL=$(which anvil).
@@ -122,17 +128,22 @@ func (a *AnvilLocal) Start() error {
 
 	// Pipe stdout and stderr to test logs directory, if known.
 	if outputsDir, ok := os.LookupEnv("TEST_UNDECLARED_OUTPUTS_DIR"); ok {
-		stdout, err := os.Create(path.Join(outputsDir, "anvil_out.log"))
+		stdoutFileName := path.Join(outputsDir, "anvil_out.log")
+		stderrFileName := path.Join(outputsDir, "anvil_err.log")
+		stdout, err := os.Create(stdoutFileName)
 		if err != nil {
 			return err
 		}
-		stderr, err := os.Create(path.Join(outputsDir, "anvil_err.log"))
+		stderr, err := os.Create(stderrFileName)
 		if err != nil {
 			return err
 		}
 
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
+
+		fmt.Printf("Writing anvil stdout to %s\n", stdoutFileName)
+		fmt.Printf("Writing anvil stderr to %s\n", stderrFileName)
 	} else {
 		fmt.Println("Warning: No environment variable found for TEST_UNDECLARED_OUTPUTS_DIR. Anvil output will not be captured.")
 	}
@@ -154,7 +165,7 @@ func (a *AnvilLocal) Start() error {
 
 	a.cmd = cmd
 
-	return nil
+	return a.MineBlocks(100)
 }
 
 // Stop the backend and terminate the anvil process.
@@ -207,4 +218,9 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 	}
 
 	return result.Rollup, nil
+}
+
+// MineBlocks will call anvil to instantly mine n blocks.
+func (a *AnvilLocal) MineBlocks(n uint64) error {
+	return a.rpc.CallContext(a.ctx, nil, "anvil_mine", hexutil.EncodeUint64(n))
 }

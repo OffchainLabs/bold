@@ -35,6 +35,16 @@ func TestLocalAnvilStarts(t *testing.T) {
 	if err := a.Start(); err != nil {
 		t.Fatal(err)
 	}
+
+	// There should be at least 100 blocks
+	bn, err2 := a.Client().BlockNumber(ctx)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	if bn < 100 {
+		t.Errorf("Expected at least 100 blocks at start, but got only %d", bn)
+	}
+
 	if err := a.Stop(); err != nil {
 		t.Fatal(err)
 	}
