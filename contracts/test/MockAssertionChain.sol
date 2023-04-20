@@ -29,7 +29,7 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].stateHash != 0;
     }
 
-    function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
+    function getPredecessorId(bytes32 assertionId) public view returns (bytes32) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].predecessorId;
     }
@@ -54,13 +54,9 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].stateHash;
     }
 
-    function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
+    function hasSibling(bytes32 assertionId) external view returns (bool) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        if(assertions[assertionId].secondChildCreationBlock > 0){
-            return assertionId;
-        } else {
-            return bytes32(0);
-        }
+        return (assertions[getPredecessorId(assertionId)].secondChildCreationBlock != 0);
     }
 
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
