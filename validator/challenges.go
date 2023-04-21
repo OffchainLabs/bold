@@ -118,13 +118,13 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	// endStateHash, err := assertion.StateHash()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if endCommit.LastLeaf != endStateHash {
-	// 	return nil, fmt.Errorf("end state has hash %v locally but %v in assertion", endCommit.LastLeaf, endStateHash)
-	// }
+	endStateHash, err := assertion.StateHash()
+	if err != nil {
+		return nil, err
+	}
+	if endCommit.LastLeaf != endStateHash {
+		return nil, fmt.Errorf("end state has hash %v locally but %v in assertion", endCommit.LastLeaf, endStateHash)
+	}
 	startEndPrefixProof, err := v.stateManager.PrefixProofUpToBatch(
 		ctx,
 		0,

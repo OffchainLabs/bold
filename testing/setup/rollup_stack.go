@@ -626,3 +626,4 @@ func SetupAccounts(numAccounts uint64) ([]*TestAccount, *backends.SimulatedBacke
 	backend := backends.NewSimulatedBackend(genesis, gasLimit)
 	return accs, backend, nil
 }
+
