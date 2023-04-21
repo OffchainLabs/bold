@@ -254,24 +254,21 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return uint64(_stakerList.length);
     }
 
-    /// @return Genesis execution hash, assertion hash, and wasm module root
+    /// @return Genesis challenge hash, assertion hash, and wasm module root
     function genesisAssertionHashes() public view override returns (bytes32, bytes32, bytes32) {
         GlobalState memory emptyGlobalState;
         ExecutionState memory emptyExecutionState = ExecutionState(
             emptyGlobalState,
             MachineStatus.FINISHED
         );
-        bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
-            beforeState: emptyExecutionState,
-            afterState: emptyExecutionState
-        }));
+        bytes32 challengeHash = challengeManager.getChallengeHash(emptyExecutionState.globalState, emptyExecutionState.machineStatus);
         bytes32 genesisHash = RollupLib.assertionHash({
             lastHash: bytes32(0),
-            assertionExecHash: executionHash,
+            assertionExecHash: challengeHash,
             inboxAcc: bytes32(0),
             wasmModuleRoot: wasmModuleRoot
         });
-        return (executionHash, genesisHash, wasmModuleRoot);
+        return (challengeHash, genesisHash, wasmModuleRoot);
     }
 
     /**
@@ -649,7 +646,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             );
 
             memoryFrame.assertion = AssertionNodeLib.createAssertion(
-                RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
                 memoryFrame.challengeHash,
                 RollupLib.confirmHash(assertion),
                 prevAssertionNum,
@@ -694,6 +690,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         revert("DEPRECATED");
     }
 
+    function getChallengeHash(bytes32 assertionId) external view returns (bytes32){
+        return getAssertionStorage(getAssertionNum(assertionId)).stateHash;
+    }
+
     function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256){
         (bytes32 b1, bytes32 b2, uint64 u1, uint64 u2, uint8 status) = abi.decode(proof, (bytes32, bytes32, uint64, uint64, uint8));
         bytes32[2] memory bytes32Vals = [b1, b2];
@@ -702,14 +702,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         ExecutionState memory es = ExecutionState({globalState: gs, machineStatus: MachineStatus(status)});
         require(
             RollupLib.stateHashMem(es, inboxMsgCountSeen) ==
-                getStateHash(assertionId),
+                getAssertionStorage(getAssertionNum(assertionId)).stateHash,
             "BAD_MSG_COUNT_PROOF"
         );
         return inboxMsgCountSeen;
-    }
-
-    function getChallengeHash(bytes32 assertionId) external view returns (bytes32){
-        return getAssertionStorage(getAssertionNum(assertionId)).stateHash;
     }
 
     function hasSibling(bytes32 assertionId) external view returns (bool) {

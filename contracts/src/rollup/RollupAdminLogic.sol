@@ -84,13 +84,10 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             emptyExecutionState,
             1 // inboxMaxCount - force the first assertion to read a message
         );
-        bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
-            beforeState: emptyExecutionState,
-            afterState: emptyExecutionState
-        }));
+        bytes32 challengeHash = challengeManager.getChallengeHash(emptyExecutionState.globalState, emptyExecutionState.machineStatus);
         bytes32 genesisHash = RollupLib.assertionHash({
             lastHash: bytes32(0),
-            assertionExecHash: executionHash,
+            assertionExecHash: challengeHash,
             inboxAcc: bytes32(0),
             wasmModuleRoot: wasmModuleRoot
         });
