@@ -371,7 +371,6 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 	//assert.Equal(t, latestHonest.InboxMaxCount, inboxSize, "honest assertion has an incorrect InboxMaxCount")
 	leaf1, err := alice.chain.CreateAssertion(
 		ctx,
-		1,
 		genesisState,
 		latestHonest.State,
 		latestHonest.InboxMaxCount,
@@ -386,7 +385,6 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 	require.NoError(t, err)
 	leaf2, err := bob.chain.CreateAssertion(
 		ctx,
-		1,
 		genesisState,
 		latestEvil.State,
 		latestEvil.InboxMaxCount,

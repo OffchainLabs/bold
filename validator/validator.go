@@ -203,7 +203,6 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	}
 	assertion, err := v.chain.CreateAssertion(
 		ctx,
-		parentAssertionSeq,
 		parentAssertionState,
 		assertionToCreate.State,
 		assertionToCreate.InboxMaxCount,

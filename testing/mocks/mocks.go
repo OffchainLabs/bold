@@ -385,12 +385,11 @@ func (m *MockProtocol) ReadAssertionCreationInfo(
 // Mutating methods.
 func (m *MockProtocol) CreateAssertion(
 	ctx context.Context,
-	prevSeqNum protocol.AssertionSequenceNumber,
 	prevAssertionState *protocol.ExecutionState,
 	postState *protocol.ExecutionState,
 	prevInboxMaxCount *big.Int,
 ) (protocol.Assertion, error) {
-	args := m.Called(ctx, prevSeqNum, prevAssertionState, postState, prevInboxMaxCount)
+	args := m.Called(ctx, prevAssertionState, postState, prevInboxMaxCount)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 

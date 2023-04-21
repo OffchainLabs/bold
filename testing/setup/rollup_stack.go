@@ -146,7 +146,6 @@ func CreateTwoValidatorFork(
 	}
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
-		1,
 		genesisState,
 		honestPostState,
 		prevInboxMaxCount,
@@ -172,7 +171,6 @@ func CreateTwoValidatorFork(
 	}
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
-		1,
 		genesisState,
 		evilPostState,
 		prevInboxMaxCount,
