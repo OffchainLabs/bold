@@ -105,7 +105,7 @@ func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum pro
 	if err != nil {
 		return nil, err
 	}
-	if bytes.Equal(res.StateHash[:], make([]byte, 32)) {
+	if bytes.Equal(res.ChallengeHash[:], make([]byte, 32)) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %d",
@@ -117,7 +117,7 @@ func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum pro
 		chain: ac,
 		StateCommitment: util.StateCommitment{
 			Height:    res.Height.Uint64(),
-			StateRoot: res.StateHash,
+			StateRoot: res.ChallengeHash,
 		},
 	}, nil
 }

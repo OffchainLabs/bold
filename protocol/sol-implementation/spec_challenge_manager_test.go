@@ -36,13 +36,11 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 	honestStateManager, err := statemanager.NewWithAssertionStates(
 		createdData.HonestValidatorStates,
-		createdData.HonestValidatorInboxCounts,
 		opts...,
 	)
 	require.NoError(t, err)
 	evilStateManager, err := statemanager.NewWithAssertionStates(
 		createdData.EvilValidatorStates,
-		createdData.EvilValidatorInboxCounts,
 		opts...,
 	)
 	require.NoError(t, err)

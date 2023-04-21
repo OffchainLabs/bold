@@ -70,4 +70,7 @@ interface IOldChallengeManager {
     function clearChallenge(uint64 challengeIndex_) external;
 
     function timeout(uint64 challengeIndex_) external;
+
+    // Returns a hash representing the execution state for the purposes of the challenge.
+    function getChallengeHash(GlobalState calldata globalState, MachineStatus machineStatus) external view returns (bytes32);
 }

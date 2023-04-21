@@ -57,7 +57,7 @@ func Test_onLeafCreation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		manager, err := statemanager.NewWithAssertionStates(createdData.HonestValidatorStates, createdData.HonestValidatorInboxCounts)
+		manager, err := statemanager.NewWithAssertionStates(createdData.HonestValidatorStates)
 		require.NoError(t, err)
 
 		validator, err := New(
@@ -108,7 +108,7 @@ func Test_findLatestValidAssertion(t *testing.T) {
 			v.assertions[a.SeqNum()] = a
 			height, err := a.Height()
 			require.NoError(t, err)
-			stateHash, err := a.StateHash()
+			stateHash, err := a.ChallengeHash()
 			require.NoError(t, err)
 			s.On("HasStateCommitment", ctx, util.StateCommitment{
 				Height:    height,
@@ -129,7 +129,7 @@ func Test_findLatestValidAssertion(t *testing.T) {
 			v.assertions[a.SeqNum()] = a
 			height, err := a.Height()
 			require.NoError(t, err)
-			stateHash, err := a.StateHash()
+			stateHash, err := a.ChallengeHash()
 			require.NoError(t, err)
 			if i <= 5 {
 				s.On("HasStateCommitment", ctx, util.StateCommitment{

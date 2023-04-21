@@ -531,7 +531,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     struct StakeOnNewAssertionFrame {
         uint256 currentInboxSize;
         AssertionNode assertion;
-        bytes32 executionHash;
+        bytes32 challengeHash;
         AssertionNode prevAssertion;
         bytes32 lastHash;
         bool hasSibling;
@@ -598,7 +598,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         }
 
         {
-            memoryFrame.executionHash = RollupLib.executionHash(assertion);
+            memoryFrame.challengeHash = challengeManager.getChallengeHash(assertion.afterState.globalState, assertion.afterState.machineStatus);
 
             memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
 
@@ -615,9 +615,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             newAssertionHash = RollupLib.assertionHash(
                 memoryFrame.lastHash,
-                memoryFrame.executionHash,
+                memoryFrame.challengeHash,
                 memoryFrame.sequencerBatchAcc,
-                wasmModuleRoot // HN: TODO: should we include this in assertion hash? 
+                wasmModuleRoot // HN: TODO: should we include this in assertion hash?
             );
             require(
                 newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0),
@@ -632,11 +632,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             memoryFrame.assertion = AssertionNodeLib.createAssertion(
                 RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
-                RollupLib.challengeRootHash(
-                    memoryFrame.executionHash,
-                    block.number,
-                    wasmModuleRoot
-                ),
+                memoryFrame.challengeHash,
                 RollupLib.confirmHash(assertion),
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
@@ -665,7 +661,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             assertion.numBlocks + memoryFrame.prevAssertion.height,
             memoryFrame.prevAssertion.assertionHash,
             newAssertionHash,
-            memoryFrame.executionHash,
+            memoryFrame.challengeHash,
             assertion,
             memoryFrame.sequencerBatchAcc,
             wasmModuleRoot,
@@ -688,7 +684,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(getAssertionNum(assertionId)).inboxMsgCountSeen;
     }
 
-    function getStateHash(bytes32 assertionId) external view returns (bytes32){
+    function getChallengeHash(bytes32 assertionId) external view returns (bytes32){
         return getAssertionStorage(getAssertionNum(assertionId)).stateHash;
     }
 

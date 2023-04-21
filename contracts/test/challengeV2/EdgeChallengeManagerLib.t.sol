@@ -14,6 +14,11 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
     {
         return bytes32(proof);
     }
+
+    function getMachineHash(GlobalState calldata globalState, MachineStatus machineStatus) external pure returns (bytes32) {
+        require(machineStatus == MachineStatus.FINISHED, "BAD_MACHINE_STATUS");
+        return GlobalStateLib.hash(globalState);
+    }
 }
 
 contract EdgeChallengeManagerLibAccess {

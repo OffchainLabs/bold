@@ -50,36 +50,6 @@ library RollupLib {
             );
     }
 
-    function executionHash(AssertionInputs memory assertion) internal pure returns (bytes32) {
-        MachineStatus[2] memory statuses;
-        statuses[0] = assertion.beforeState.machineStatus;
-        statuses[1] = assertion.afterState.machineStatus;
-        GlobalState[2] memory globalStates;
-        globalStates[0] = assertion.beforeState.globalState;
-        globalStates[1] = assertion.afterState.globalState;
-        // TODO: benchmark how much this abstraction adds of gas overhead
-        return executionHash(statuses, globalStates, assertion.numBlocks);
-    }
-
-    function executionHash(
-        MachineStatus[2] memory statuses,
-        GlobalState[2] memory globalStates,
-        uint64 numBlocks
-    ) internal pure returns (bytes32) {
-        bytes32[] memory segments = new bytes32[](2);
-        segments[0] = OldChallengeLib.blockStateHash(statuses[0], globalStates[0].hash());
-        segments[1] = OldChallengeLib.blockStateHash(statuses[1], globalStates[1].hash());
-        return OldChallengeLib.hashChallengeState(0, numBlocks, segments);
-    }
-
-    function challengeRootHash(
-        bytes32 execution,
-        uint256 proposedTime,
-        bytes32 wasmModuleRoot
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(execution, proposedTime, wasmModuleRoot));
-    }
-
     function confirmHash(AssertionInputs memory assertion) internal pure returns (bytes32) {
         return
             confirmHash(

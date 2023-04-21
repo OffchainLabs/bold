@@ -349,8 +349,8 @@ contract RollupTest is Test {
     function testSuccessCreateChallenge() public returns(bytes32) {
         (,,,uint256 genesisInboxCount) = testSuccessCreateSecondChild();
 
-        bytes32 h0 = userRollup.getStateHash(userRollup.getAssertionId(1));
-        bytes32 h1 = userRollup.getStateHash(userRollup.getAssertionId(2));
+        bytes32 h0 = userRollup.getChallengeHash(userRollup.getAssertionId(1));
+        bytes32 h1 = userRollup.getChallengeHash(userRollup.getAssertionId(2));
 
         bytes32[] memory states0 = new bytes32[](1);
         states0[0] = h0;
@@ -377,8 +377,8 @@ contract RollupTest is Test {
     function testSuccessCreate2Edge() public returns(bytes32, bytes32) {
         bytes32 e1Id = testSuccessCreateChallenge();
 
-        bytes32 h0 = userRollup.getStateHash(userRollup.getAssertionId(1));
-        bytes32 h1 = userRollup.getStateHash(userRollup.getAssertionId(3));
+        bytes32 h0 = userRollup.getChallengeHash(userRollup.getAssertionId(1));
+        bytes32 h1 = userRollup.getChallengeHash(userRollup.getAssertionId(3));
 
         bytes32[] memory states0 = new bytes32[](1);
         states0[0] = h0;

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
@@ -339,10 +338,9 @@ func TestDivergenceGranularity(t *testing.T) {
 	bigStepSize := uint64(10)
 	maxOpcodesPerBlock := uint64(100)
 
-	honestStates, _, honestCounts := setupStates(t, numStates, 0 /* honest */)
+	honestStates, _ := setupStates(t, numStates, 0 /* honest */)
 	honestManager, err := NewWithAssertionStates(
 		honestStates,
-		honestCounts,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
 	)
@@ -360,11 +358,10 @@ func TestDivergenceGranularity(t *testing.T) {
 	t.Log("Big step leaf commitment height", honestCommit.Height)
 
 	divergenceHeight := uint64(3)
-	evilStates, _, evilCounts := setupStates(t, numStates, divergenceHeight)
+	evilStates, _ := setupStates(t, numStates, divergenceHeight)
 
 	evilManager, err := NewWithAssertionStates(
 		evilStates,
-		evilCounts,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
 		WithBigStepStateDivergenceHeight(divergenceHeight),   // Diverges at the 3rd big step.
@@ -476,11 +473,10 @@ func TestDivergenceGranularity(t *testing.T) {
 	require.Equal(t, honestCommit, evilCommit)
 }
 
-func setupStates(t *testing.T, numStates, divergenceHeight uint64) ([]*protocol.ExecutionState, []common.Hash, []*big.Int) {
+func setupStates(t *testing.T, numStates, divergenceHeight uint64) ([]*protocol.ExecutionState, []common.Hash) {
 	t.Helper()
 	states := make([]*protocol.ExecutionState, numStates)
 	roots := make([]common.Hash, numStates)
-	inboxCounts := make([]*big.Int, numStates)
 	for i := uint64(0); i < numStates; i++ {
 		var blockHash common.Hash
 		if divergenceHeight == 0 || i < divergenceHeight {
@@ -504,10 +500,9 @@ func setupStates(t *testing.T, numStates, divergenceHeight uint64) ([]*protocol.
 			state.GlobalState.PosInBatch = 0
 		}
 		states[i] = state
-		roots[i] = protocol.ComputeStateHash(state, big.NewInt(1))
-		inboxCounts[i] = big.NewInt(1)
+		roots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
 	}
-	return states, roots, inboxCounts
+	return states, roots
 }
 
 func TestPrefixProofs(t *testing.T) {

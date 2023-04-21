@@ -5,6 +5,7 @@ import "./libraries/UintUtilsLib.sol";
 import "./DataEntities.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
 import "../libraries/Constants.sol";
+import "../state/Machine.sol";
 
 interface IEdgeChallengeManager {
     // Checks if an edge by ID exists.
@@ -78,6 +79,9 @@ interface IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
+
+    // Returns a hash representing the execution state for the purposes of the challenge.
+    function getChallengeHash(GlobalState calldata globalState, MachineStatus machineStatus) external view returns (bytes32);
 }
 
 struct CreateEdgeArgs {
@@ -153,7 +157,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
             // check that the start history root is the hash of the previous assertion
             require(
-                args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getStateHash(originId))),
+                args.startHistoryRoot == keccak256(abi.encodePacked(assertionChain.getChallengeHash(originId))),
                 "Start history root does not match previous assertion"
             );
 
@@ -162,7 +166,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             bytes32[] memory inclusionProof = abi.decode(proof, (bytes32[]));
             MerkleTreeLib.verifyInclusionProof(
                 args.endHistoryRoot,
-                assertionChain.getStateHash(args.claimId),
+                assertionChain.getChallengeHash(args.claimId),
                 LAYERZERO_BLOCKEDGE_HEIGHT,
                 inclusionProof
             );
@@ -305,6 +309,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         store.confirmEdgeByOneStepProof(
             edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
+    }
+
+    function getChallengeHash(GlobalState calldata globalState, MachineStatus machineStatus) external view override returns (bytes32) {
+        return oneStepProofEntry.getMachineHash(globalState, machineStatus);
     }
 
     // CHRIS: TODO: remove these?

@@ -16,7 +16,7 @@ import {
 } from '../../../build/types/src/rollup/RollupUserLogic.sol/RollupUserLogic'
 type AssertionStruct = RollupLib.AssertionStruct
 type ExecutionStateStruct = RollupLib.ExecutionStateStruct
-import { blockStateHash, hashChallengeState } from './challengeLib'
+import { machineHash } from './challengeLib'
 import * as globalStateLib from './globalStateLib'
 import { constants } from 'ethers'
 import { GlobalStateStruct } from '../../../build/types/src/challenge/ChallengeManager'
@@ -100,19 +100,11 @@ export function executionStructHash(e: ExecutionStateStruct) {
   )
 }
 
-export function assertionExecutionHash(a: AssertionStruct): BytesLike {
-  const seg0 = blockStateHash(
-    BigNumber.from(a.beforeState.machineStatus),
-    globalStateLib.hash(a.beforeState.globalState)
-  )
-  const seg1 = blockStateHash(
+export function assertionChallengeHash(a: AssertionStruct): BytesLike {
+  return machineHash(
     BigNumber.from(a.afterState.machineStatus),
     globalStateLib.hash(a.afterState.globalState)
   )
-  return hashChallengeState(BigNumber.from(0), BigNumber.from(a.numBlocks), [
-    seg0,
-    seg1,
-  ])
 }
 
 async function assertionFromAssertionCreatedLog(
@@ -191,7 +183,7 @@ export class RollupContract {
     const newAssertionHash = assertionHash(
       Boolean(siblingAssertion),
       (siblingAssertion || parentAssertion).assertionHash,
-      assertionExecutionHash(assertion),
+      assertionChallengeHash(assertion),
       afterInboxAcc,
       wasmModuleRoot
     )
@@ -249,7 +241,7 @@ export class RollupContract {
         assertion1.assertion.afterState.globalState,
       ],
       assertion1.assertion.numBlocks,
-      assertionExecutionHash(assertion2.assertion),
+      assertionChallengeHash(assertion2.assertion),
       [assertion1.proposedBlock, assertion2.proposedBlock],
       [assertion1.wasmModuleRoot, assertion2.wasmModuleRoot]
     )
@@ -305,7 +297,7 @@ export async function forceCreateAssertion(
   const newAssertionHash = assertionHash(
     Boolean(siblingAssertion),
     (siblingAssertion || parentAssertion).assertionHash,
-    assertionExecutionHash(assertion),
+    assertionChallengeHash(assertion),
     afterInboxAcc,
     wasmModuleRoot
   )

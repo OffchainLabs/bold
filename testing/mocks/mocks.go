@@ -40,7 +40,7 @@ func (m *MockAssertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 	return m.MockPrevSeqNum, nil
 }
 
-func (m *MockAssertion) StateHash() (common.Hash, error) {
+func (m *MockAssertion) ChallengeHash() (common.Hash, error) {
 	return m.MockStateHash, nil
 }
 

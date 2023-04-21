@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAssertionStateHash(t *testing.T) {
+func TestAssertionChallengeHash(t *testing.T) {
 	ctx := context.Background()
 
 	cfg, err := setup.SetupChainsWithEdgeChallengeManager()
@@ -29,8 +29,8 @@ func TestAssertionStateHash(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	computed := protocol.ComputeStateHash(execState, big.NewInt(1))
-	stateHash, err := assertion.StateHash()
+	computed := protocol.ComputeSimpleMachineChallengeHash(execState)
+	stateHash, err := assertion.ChallengeHash()
 	require.NoError(t, err)
 	require.Equal(t, computed, stateHash)
 }
@@ -67,8 +67,8 @@ func TestCreateAssertion(t *testing.T) {
 		prevInboxMaxCount := big.NewInt(1)
 		created, err := chain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
-		computed := protocol.ComputeStateHash(postState, big.NewInt(2))
-		stateHash, err := created.StateHash()
+		computed := protocol.ComputeSimpleMachineChallengeHash(postState)
+		stateHash, err := created.ChallengeHash()
 		require.NoError(t, err)
 		require.Equal(t, computed, stateHash, "Unequal computed hash")
 
@@ -100,8 +100,8 @@ func TestCreateAssertion(t *testing.T) {
 		prevInboxMaxCount := big.NewInt(1)
 		forked, err := assertionChain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
-		computed := protocol.ComputeStateHash(postState, big.NewInt(2))
-		stateHash, err := forked.StateHash()
+		computed := protocol.ComputeSimpleMachineChallengeHash(postState)
+		stateHash, err := forked.ChallengeHash()
 		require.NoError(t, err)
 		require.Equal(t, computed, stateHash, "Unequal computed hash")
 	})
@@ -115,7 +115,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	resp, err := chain.AssertionBySequenceNum(ctx, 1)
 	require.NoError(t, err)
 
-	stateHash, err := resp.StateHash()
+	stateHash, err := resp.ChallengeHash()
 	require.NoError(t, err)
 	require.Equal(t, true, stateHash != [32]byte{})
 

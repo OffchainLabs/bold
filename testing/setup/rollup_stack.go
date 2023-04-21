@@ -25,18 +25,16 @@ import (
 )
 
 type CreatedValidatorFork struct {
-	Leaf1                      protocol.Assertion
-	Leaf2                      protocol.Assertion
-	Chains                     []*solimpl.AssertionChain
-	Accounts                   []*TestAccount
-	Backend                    *backends.SimulatedBackend
-	HonestValidatorStateRoots  []common.Hash
-	EvilValidatorStateRoots    []common.Hash
-	HonestValidatorStates      []*protocol.ExecutionState
-	EvilValidatorStates        []*protocol.ExecutionState
-	HonestValidatorInboxCounts []*big.Int
-	EvilValidatorInboxCounts   []*big.Int
-	Addrs                      *RollupAddresses
+	Leaf1                     protocol.Assertion
+	Leaf2                     protocol.Assertion
+	Chains                    []*solimpl.AssertionChain
+	Accounts                  []*TestAccount
+	Backend                   *backends.SimulatedBackend
+	HonestValidatorStateRoots []common.Hash
+	EvilValidatorStateRoots   []common.Hash
+	HonestValidatorStates     []*protocol.ExecutionState
+	EvilValidatorStates       []*protocol.ExecutionState
+	Addrs                     *RollupAddresses
 }
 
 type CreateForkConfig struct {
@@ -74,9 +72,9 @@ func CreateTwoValidatorFork(
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	genesisStateHash := protocol.ComputeStateHash(genesisState, big.NewInt(1))
+	genesisStateHash := protocol.ComputeSimpleMachineChallengeHash(genesisState)
 
-	actualGenesisStateHash, err := genesis.StateHash()
+	actualGenesisStateHash, err := genesis.ChallengeHash()
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +87,6 @@ func CreateTwoValidatorFork(
 	evilValidatorStateRoots := []common.Hash{genesisStateHash}
 	honestValidatorStates := []*protocol.ExecutionState{genesisState}
 	evilValidatorStates := []*protocol.ExecutionState{genesisState}
-	honestValidatorInboxMaxCounts := []*big.Int{big.NewInt(1)}
-	evilValidatorInboxMaxCounts := []*big.Int{big.NewInt(1)}
 
 	var honestBlockHash common.Hash
 	for i := uint64(1); i < numBlocks; i++ {
@@ -106,15 +102,13 @@ func CreateTwoValidatorFork(
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 
-		honestValidatorStateRoots = append(honestValidatorStateRoots, protocol.ComputeStateHash(state, big.NewInt(1)))
+		honestValidatorStateRoots = append(honestValidatorStateRoots, protocol.ComputeSimpleMachineChallengeHash(state))
 		honestValidatorStates = append(honestValidatorStates, state)
-		honestValidatorInboxMaxCounts = append(honestValidatorInboxMaxCounts, big.NewInt(1))
 
 		// Before the divergence height, the evil validator agrees.
 		if i < divergenceHeight {
-			evilValidatorStateRoots = append(evilValidatorStateRoots, protocol.ComputeStateHash(state, big.NewInt(1)))
+			evilValidatorStateRoots = append(evilValidatorStateRoots, protocol.ComputeSimpleMachineChallengeHash(state))
 			evilValidatorStates = append(evilValidatorStates, state)
-			evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, big.NewInt(1))
 		} else {
 			stateCopy := *state
 			evilState := &stateCopy
@@ -125,9 +119,8 @@ func CreateTwoValidatorFork(
 			}
 			blockHash := crypto.Keccak256Hash(junkRoot)
 			evilState.GlobalState.BlockHash = blockHash
-			evilValidatorStateRoots = append(evilValidatorStateRoots, protocol.ComputeStateHash(evilState, big.NewInt(1)))
+			evilValidatorStateRoots = append(evilValidatorStateRoots, protocol.ComputeSimpleMachineChallengeHash(evilState))
 			evilValidatorStates = append(evilValidatorStates, evilState)
-			evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, big.NewInt(1))
 		}
 	}
 
@@ -152,17 +145,12 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	assertionStateHash, err := assertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
-	assertionInboxMaxCount, err := assertion.InboxMsgCountSeen()
+	assertionStateHash, err := assertion.ChallengeHash()
 	if err != nil {
 		return nil, err
 	}
 	honestValidatorStateRoots = append(honestValidatorStateRoots, assertionStateHash)
 	honestValidatorStates = append(honestValidatorStates, honestPostState)
-	honestValidatorInboxMaxCounts = append(honestValidatorInboxMaxCounts, new(big.Int).SetUint64(assertionInboxMaxCount))
 
 	evilPostState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
@@ -183,31 +171,24 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	forkedAssertionStateHash, err := forkedAssertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
-	forkedAssertionInboxMaxCount, err := forkedAssertion.InboxMsgCountSeen()
+	forkedAssertionStateHash, err := forkedAssertion.ChallengeHash()
 	if err != nil {
 		return nil, err
 	}
 	evilValidatorStateRoots = append(evilValidatorStateRoots, forkedAssertionStateHash)
 	evilValidatorStates = append(evilValidatorStates, evilPostState)
-	evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, new(big.Int).SetUint64(forkedAssertionInboxMaxCount))
 
 	return &CreatedValidatorFork{
-		Leaf1:                      assertion,
-		Leaf2:                      forkedAssertion,
-		Chains:                     setup.Chains,
-		Accounts:                   setup.Accounts,
-		Backend:                    setup.Backend,
-		Addrs:                      setup.Addrs,
-		HonestValidatorStateRoots:  honestValidatorStateRoots,
-		EvilValidatorStateRoots:    evilValidatorStateRoots,
-		HonestValidatorStates:      honestValidatorStates,
-		EvilValidatorStates:        evilValidatorStates,
-		HonestValidatorInboxCounts: honestValidatorInboxMaxCounts,
-		EvilValidatorInboxCounts:   evilValidatorInboxMaxCounts,
+		Leaf1:                     assertion,
+		Leaf2:                     forkedAssertion,
+		Chains:                    setup.Chains,
+		Accounts:                  setup.Accounts,
+		Backend:                   setup.Backend,
+		Addrs:                     setup.Addrs,
+		HonestValidatorStateRoots: honestValidatorStateRoots,
+		EvilValidatorStateRoots:   evilValidatorStateRoots,
+		HonestValidatorStates:     honestValidatorStates,
+		EvilValidatorStates:       evilValidatorStates,
 	}, nil
 }
 
@@ -461,7 +442,7 @@ func deployChallengeFactory(
 	auth *bind.TransactOpts,
 	backend *backends.SimulatedBackend,
 ) (common.Address, common.Address, error) {
-	ospEntryAddr, tx, _, err := mocksgen.DeployMockOneStepProofEntry(auth, backend)
+	ospEntryAddr, tx, _, err := mocksgen.DeploySimpleOneStepProofEntry(auth, backend)
 	backend.Commit()
 	err = challenge_testing.TxSucceeded(ctx, tx, ospEntryAddr, backend, err)
 	if err != nil {

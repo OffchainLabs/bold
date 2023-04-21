@@ -46,12 +46,12 @@ func (a *Assertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 	return protocol.AssertionSequenceNumber(inner.PrevNum), nil
 }
 
-func (a *Assertion) StateHash() (common.Hash, error) {
+func (a *Assertion) ChallengeHash() (common.Hash, error) {
 	inner, err := a.inner()
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return inner.StateHash, nil
+	return inner.ChallengeHash, nil
 }
 
 func (a *Assertion) InboxMsgCountSeen() (uint64, error) {
@@ -70,7 +70,7 @@ func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bytes.Equal(assertionNode.StateHash[:], make([]byte, 32)) {
+	if bytes.Equal(assertionNode.ChallengeHash[:], make([]byte, 32)) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %d",

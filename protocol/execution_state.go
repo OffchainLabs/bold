@@ -5,7 +5,6 @@ package protocol
 import (
 	"encoding/binary"
 	"math"
-	"math/big"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
@@ -26,18 +25,10 @@ func u64ToBe(x uint64) []byte {
 	return data
 }
 
-func ComputeStateHash(
+func ComputeSimpleMachineChallengeHash(
 	execState *ExecutionState,
-	inboxMaxCount *big.Int,
 ) common.Hash {
-	data := make([]byte, 0)
-	globalHash := execState.GlobalState.Hash()
-	data = append(data, globalHash[:]...)
-	inboxCount := make([]byte, 32)
-	copy(inboxCount[24:32], u64ToBe(inboxMaxCount.Uint64()))
-	data = append(data, inboxCount...)
-	data = append(data, byte(execState.MachineStatus))
-	return crypto.Keccak256Hash(data)
+	return execState.GlobalState.Hash()
 }
 
 func (s GoGlobalState) Hash() common.Hash {
@@ -62,7 +53,6 @@ const (
 	MachineStatusRunning  MachineStatus = 0
 	MachineStatusFinished MachineStatus = 1
 	MachineStatusErrored  MachineStatus = 2
-	MachineStatusTooFar   MachineStatus = 3
 )
 
 type ExecutionState struct {

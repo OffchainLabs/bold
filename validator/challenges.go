@@ -102,7 +102,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	prevStateHash, err := prevAssertion.StateHash()
+	prevStateHash, err := prevAssertion.ChallengeHash()
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	endStateHash, err := assertion.StateHash()
+	endStateHash, err := assertion.ChallengeHash()
 	if err != nil {
 		return nil, err
 	}

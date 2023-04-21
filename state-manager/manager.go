@@ -13,7 +13,6 @@ import (
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Defines the ABI encoding structure for submission of prefix proofs to the protocol contracts
@@ -129,9 +128,10 @@ type Manager interface {
 type Simulated struct {
 	stateRoots                []common.Hash
 	executionStates           []*protocol.ExecutionState
-	inboxMaxCounts            []*big.Int
+	machineAtBlock            func(uint64) execution.Machine
 	maxWavmOpcodes            uint64
 	numOpcodesPerBigStep      uint64
+	blockDivergenceHeight     uint64
 	bigStepDivergenceHeight   uint64
 	smallStepDivergenceHeight uint64
 	malicious                 bool
@@ -180,6 +180,12 @@ func WithSmallStepStateDivergenceHeight(divergenceHeight uint64) Opt {
 	}
 }
 
+func WithBlockDivergenceHeight(divergenceHeight uint64) Opt {
+	return func(s *Simulated) {
+		s.blockDivergenceHeight = divergenceHeight
+	}
+}
+
 func WithMaliciousIntent() Opt {
 	return func(s *Simulated) {
 		s.malicious = true
@@ -192,18 +198,10 @@ func WithMaliciousIntent() Opt {
 // with the point at which the state manager should diverge from the honest computation.
 func NewWithAssertionStates(
 	assertionChainExecutionStates []*protocol.ExecutionState,
-	inboxMaxCounts []*big.Int,
 	opts ...Opt,
 ) (*Simulated, error) {
 	if len(assertionChainExecutionStates) == 0 {
 		return nil, errors.New("must have execution states")
-	}
-	if len(assertionChainExecutionStates) != len(inboxMaxCounts) {
-		return nil, fmt.Errorf(
-			"number of exec states %d must match number of inbox max counts %d",
-			len(assertionChainExecutionStates),
-			len(inboxMaxCounts),
-		)
 	}
 	stateRoots := make([]common.Hash, len(assertionChainExecutionStates))
 	var lastBatch uint64 = math.MaxUint64
@@ -215,15 +213,46 @@ func NewWithAssertionStates(
 		}
 		lastBatch = state.GlobalState.Batch
 		lastPosInBatch = state.GlobalState.PosInBatch
-		stateRoots[i] = protocol.ComputeStateHash(state, inboxMaxCounts[i])
+		stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
 	}
 	s := &Simulated{
 		stateRoots:      stateRoots,
 		executionStates: assertionChainExecutionStates,
-		inboxMaxCounts:  inboxMaxCounts,
 	}
+	return s, nil
+}
+
+func NewForSimpleMachine(
+	blockHeight uint64,
+	opts ...Opt,
+) (*Simulated, error) {
+	s := &Simulated{}
 	for _, o := range opts {
 		o(s)
+	}
+	s.stateRoots = make([]common.Hash, blockHeight+1)
+	machineStates := make([]*big.Int, blockHeight+1)
+	var lastBatch uint64 = math.MaxUint64
+	var lastPosInBatch uint64 = math.MaxUint64
+	nextMachineState := big.NewInt(0)
+	for i := 0; i < len(s.stateRoots); i++ {
+		machine := execution.NewSimpleMachine(nextMachineState)
+		state := assertionChainExecutionStates[i]
+		machHash := machine.Hash()
+		if !s.malicious && machHash != state.GlobalState.Hash() {
+			return nil, fmt.Errorf("machine at block %v has hash %v but we expected hash %v", i, machine.Hash(), state.GlobalState.Hash())
+		}
+		machineState := machine.GetState()
+		machine.Step(s.maxWavmOpcodes)
+		nextMachineState = machine.GetState()
+
+		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
+			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
+		}
+		lastBatch = state.GlobalState.Batch
+		lastPosInBatch = state.GlobalState.PosInBatch
+		s.stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
+		machineStates[i] = machineState
 	}
 	return s, nil
 }
@@ -346,19 +375,11 @@ func (s *Simulated) BigStepCommitmentUpTo(
 			toAssertionHeight,
 		)
 	}
-	engine, err := s.setupEngine(fromAssertionHeight)
-	if err != nil {
-		return util.HistoryCommitment{}, err
-	}
-	if engine.NumBigSteps() < toBigStep {
-		return util.HistoryCommitment{}, errors.New("not enough big steps")
-	}
 	leaves, err := s.intermediateBigStepLeaves(
 		fromAssertionHeight,
 		toAssertionHeight,
 		0, // from big step.
 		toBigStep,
-		engine,
 	)
 	if err != nil {
 		return util.HistoryCommitment{}, err
@@ -379,23 +400,18 @@ func (s *Simulated) intermediateBigStepLeaves(
 	toBlockChallengeHeight,
 	fromBigStep,
 	toBigStep uint64,
-	engine execution.EngineAtBlock,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
+	machine := s.machineAtBlock(fromBlockChallengeHeight)
 	// Up to and including the specified step.
 	for i := fromBigStep; i <= toBigStep; i++ {
-		start, err := engine.StateAfterBigSteps(i)
-		if err != nil {
-			return nil, err
-		}
-		var hash common.Hash
+		hash := machine.Hash()
+		machine.Step(protocol.LayerZeroSmallStepEdgeHeight)
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
 		if s.bigStepShouldDiverge(i) {
-			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d", i*s.numOpcodesPerBigStep, fromBlockChallengeHeight, toBlockChallengeHeight)))
-		} else {
-			hash = start.Hash()
+			hash[0] ^= 1
 		}
 		leaves = append(leaves, hash)
 	}
@@ -441,13 +457,6 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 			toBigStep,
 		)
 	}
-	engine, err := s.setupEngine(fromBlockChallengeHeight)
-	if err != nil {
-		return util.HistoryCommitment{}, err
-	}
-	if engine.NumOpcodes() < toSmallStep {
-		return util.HistoryCommitment{}, fmt.Errorf("not enough small steps: %d < %d", engine.NumOpcodes(), toSmallStep)
-	}
 
 	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
 	toSmall := fromSmall + toSmallStep
@@ -456,7 +465,6 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 		toBlockChallengeHeight,
 		fromSmall,
 		toSmall,
-		engine,
 	)
 	if err != nil {
 		return util.HistoryCommitment{}, err
@@ -469,7 +477,6 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	toBlockChallengeHeight,
 	fromSmallStep,
 	toSmallStep uint64,
-	engine execution.EngineAtBlock,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
 	// Up to and including the specified step.
@@ -477,12 +484,11 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	if s.bigStepDivergenceHeight > 0 {
 		divergeAt = s.numOpcodesPerBigStep*(s.bigStepDivergenceHeight-1) + s.smallStepDivergenceHeight
 	}
+	machine := s.machineAtBlock(fromBlockChallengeHeight)
+	machine.Step(fromSmallStep)
 	for i := fromSmallStep; i <= toSmallStep; i++ {
-		start, err := engine.StateAfterSmallSteps(i)
-		if err != nil {
-			return nil, err
-		}
-		var hash common.Hash
+		hash := machine.Hash()
+		machine.Step(1)
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
@@ -494,9 +500,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 			shouldDiverge = divergeAt != 0 && i >= divergeAt
 		}
 		if shouldDiverge {
-			hash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d:%d:%d", i, fromBlockChallengeHeight, toBlockChallengeHeight)))
-		} else {
-			hash = start.Hash()
+			hash[0] ^= 0x80
 		}
 		leaves = append(leaves, hash)
 	}
@@ -596,19 +600,11 @@ func (s *Simulated) BigStepPrefixProof(
 			toBlockChallengeHeight,
 		)
 	}
-	engine, err := s.setupEngine(fromBlockChallengeHeight)
-	if err != nil {
-		return nil, err
-	}
-	if engine.NumBigSteps() < toBigStep {
-		return nil, errors.New("wrong number of big steps")
-	}
 	return s.bigStepPrefixProofCalculation(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
 		toBigStep,
-		engine,
 	)
 }
 
@@ -617,7 +613,6 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 	toBlockChallengeHeight,
 	fromBigStep,
 	toBigStep uint64,
-	engine execution.EngineAtBlock,
 ) ([]byte, error) {
 	loSize := fromBigStep + 1
 	hiSize := toBigStep + 1
@@ -626,7 +621,6 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 		toBlockChallengeHeight,
 		0,
 		toBigStep,
-		engine,
 	)
 	if err != nil {
 		return nil, err
@@ -672,35 +666,12 @@ func (s *Simulated) SmallStepPrefixProof(
 			toBigStep,
 		)
 	}
-	engine, err := s.setupEngine(fromBlockChallengeHeight)
-	if err != nil {
-		return nil, err
-	}
-	if engine.NumOpcodes() < toSmallStep {
-		return nil, errors.New("wrong number of opcodes")
-	}
 	return s.smallStepPrefixProofCalculation(
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
 		fromSmallStep,
 		toSmallStep,
-		engine,
-	)
-}
-
-func (s *Simulated) setupEngine(fromHeight uint64) (*execution.Engine, error) {
-	machineCfg := execution.DefaultMachineConfig()
-	if s.maxWavmOpcodes > 0 {
-		machineCfg.MaxInstructionsPerBlock = s.maxWavmOpcodes
-	}
-	if s.numOpcodesPerBigStep > 0 {
-		machineCfg.BigStepSize = s.numOpcodesPerBigStep
-	}
-	return execution.NewExecutionEngine(
-		machineCfg,
-		s.stateRoots[fromHeight],
-		s.stateRoots[fromHeight+1],
 	)
 }
 
@@ -710,7 +681,6 @@ func (s *Simulated) smallStepPrefixProofCalculation(
 	fromBigStep,
 	fromSmallStep,
 	toSmallStep uint64,
-	engine execution.EngineAtBlock,
 ) ([]byte, error) {
 	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
 	toSmall := fromSmall + toSmallStep
@@ -719,7 +689,6 @@ func (s *Simulated) smallStepPrefixProofCalculation(
 		toBlockChallengeHeight,
 		fromSmall,
 		toSmall,
-		engine,
 	)
 	if err != nil {
 		return nil, err

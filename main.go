@@ -100,16 +100,15 @@ func main() {
 	// Creates honest and evil L2 states. These will be equal up to a divergence height.
 	// These are toy hashes because this is a simulation and the L1 chain knows nothing about
 	// the real L2 state hashes except for what validators claim.
-	honestL2States, honestInboxCounts := prepareHonestL2States(
+	honestL2States := prepareHonestL2States(
 		honestL2StateHashes,
 		currentL2ChainHeight,
 	)
 
-	evilL2States, evilInboxCounts := prepareMaliciousL2States(
+	evilL2States := prepareMaliciousL2States(
 		divergeHeightAtL2,
 		evilL2StateHashes,
 		honestL2States,
-		honestInboxCounts,
 	)
 
 	// Initialize Alice and Bob's respective L2 state managers.
@@ -119,7 +118,6 @@ func main() {
 	}
 	aliceL2StateManager, err := statemanager.NewWithAssertionStates(
 		honestL2States,
-		honestInboxCounts,
 		managerOpts...,
 	)
 	if err != nil {
@@ -135,7 +133,6 @@ func main() {
 	)
 	bobL2StateManager, err := statemanager.NewWithAssertionStates(
 		evilL2States,
-		evilInboxCounts,
 		managerOpts...,
 	)
 	if err != nil {
@@ -221,7 +218,7 @@ func deployStack(
 func prepareHonestL2States(
 	honestHashes []common.Hash,
 	chainHeight uint64,
-) ([]*protocol.ExecutionState, []*big.Int) {
+) []*protocol.ExecutionState {
 	genesisState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash: common.Hash{},
@@ -232,53 +229,61 @@ func prepareHonestL2States(
 	// Initialize each validator associated state roots which diverge
 	// at specified points in the test config.
 	honestStates := make([]*protocol.ExecutionState, chainHeight+1)
-	honestInboxCounts := make([]*big.Int, chainHeight+1)
 	honestStates[0] = genesisState
-	honestInboxCounts[0] = big.NewInt(1)
 
 	for i := uint64(1); i <= chainHeight; i++ {
 		state := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
-				BlockHash: honestHashes[i],
-				Batch:     1,
+				BlockHash:  honestHashes[i],
+				Batch:      0,
+				PosInBatch: i,
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
+		if i == chainHeight {
+			state.GlobalState.Batch = 1
+			state.GlobalState.PosInBatch = 0
+		}
 
 		honestStates[i] = state
-		honestInboxCounts[i] = big.NewInt(1)
 	}
-	return honestStates, honestInboxCounts
+	return honestStates
 }
 
 func prepareMaliciousL2States(
 	assertionDivergenceHeight uint64,
 	evilHashes []common.Hash,
 	honestStates []*protocol.ExecutionState,
-	honestInboxCounts []*big.Int,
-) ([]*protocol.ExecutionState, []*big.Int) {
+) []*protocol.ExecutionState {
 	divergenceHeight := assertionDivergenceHeight
 	numRoots := currentL2ChainHeight + 1
 	states := make([]*protocol.ExecutionState, numRoots)
-	inboxCounts := make([]*big.Int, numRoots)
 
 	for j := uint64(0); j < numRoots; j++ {
 		if divergenceHeight == 0 || j < divergenceHeight {
-			states[j] = honestStates[j]
-			inboxCounts[j] = honestInboxCounts[j]
+			evilState := *honestStates[j]
+			if j < numRoots {
+				evilState.GlobalState.Batch = 0
+				evilState.GlobalState.PosInBatch = j
+			}
+			states[j] = &evilState
 		} else {
 			evilState := &protocol.ExecutionState{
 				GlobalState: protocol.GoGlobalState{
-					BlockHash: evilHashes[j],
-					Batch:     1,
+					BlockHash:  evilHashes[j],
+					Batch:      0,
+					PosInBatch: j,
 				},
 				MachineStatus: protocol.MachineStatusFinished,
 			}
+			if j == numRoots {
+				evilState.GlobalState.Batch = 1
+				evilState.GlobalState.PosInBatch = 0
+			}
 			states[j] = evilState
-			inboxCounts[j] = big.NewInt(1)
 		}
 	}
-	return states, inboxCounts
+	return states
 }
 
 func evilL2StateHashesForUints(lo, hi uint64) []common.Hash {

@@ -143,7 +143,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgeTracker, *edgeTr
 	})
 	require.NoError(t, err)
 
-	honestManager, err := statemanager.NewWithAssertionStates(createdData.HonestValidatorStates, createdData.HonestValidatorInboxCounts)
+	honestManager, err := statemanager.NewWithAssertionStates(createdData.HonestValidatorStates)
 	require.NoError(t, err)
 
 	honestValidator, err := New(
@@ -156,7 +156,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgeTracker, *edgeTr
 	)
 	require.NoError(t, err)
 
-	evilManager, err := statemanager.NewWithAssertionStates(createdData.EvilValidatorStates, createdData.EvilValidatorInboxCounts)
+	evilManager, err := statemanager.NewWithAssertionStates(createdData.EvilValidatorStates)
 	require.NoError(t, err)
 
 	evilValidator, err := New(
