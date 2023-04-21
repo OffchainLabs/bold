@@ -14,8 +14,8 @@ struct MockAssertion {
     uint256 inboxMsgCountSeen;
     bytes32 stateHash;
     bytes32 successionChallenge;
-    uint256 firstChildCreationTime;
-    uint256 secondChildCreationTime;
+    uint256 firstChildCreationBlock;
+    uint256 secondChildCreationBlock;
     bool isFirstChild;
     bool isPending;
 }
@@ -29,7 +29,7 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].stateHash != 0;
     }
 
-    function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
+    function getPredecessorId(bytes32 assertionId) public view returns (bytes32) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].predecessorId;
     }
@@ -54,18 +54,14 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].stateHash;
     }
 
-    function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
+    function hasSibling(bytes32 assertionId) external view returns (bool) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        if(assertions[assertionId].secondChildCreationTime > 0){
-            return assertionId;
-        } else {
-            return bytes32(0);
-        }
+        return (assertions[getPredecessorId(assertionId)].secondChildCreationBlock != 0);
     }
 
-    function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256) {
+    function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        return assertions[assertionId].firstChildCreationTime;
+        return assertions[assertionId].firstChildCreationBlock;
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
@@ -114,10 +110,10 @@ contract MockAssertionChain is IAssertionChain {
     }
 
     function childCreated(bytes32 assertionId) internal {
-        if (assertions[assertionId].firstChildCreationTime == 0) {
-            assertions[assertionId].firstChildCreationTime = block.timestamp;
-        } else if (assertions[assertionId].secondChildCreationTime == 0) {
-            assertions[assertionId].secondChildCreationTime = block.timestamp;
+        if (assertions[assertionId].firstChildCreationBlock == 0) {
+            assertions[assertionId].firstChildCreationBlock = block.number;
+        } else if (assertions[assertionId].secondChildCreationBlock == 0) {
+            assertions[assertionId].secondChildCreationBlock = block.number;
         }
     }
 
@@ -137,9 +133,9 @@ contract MockAssertionChain is IAssertionChain {
             inboxMsgCountSeen: inboxMsgCountSeen,
             stateHash: afterStateHash,
             successionChallenge: successionChallenge,
-            firstChildCreationTime: 0,
-            secondChildCreationTime: 0,
-            isFirstChild: assertions[predecessorId].firstChildCreationTime == 0,
+            firstChildCreationBlock: 0,
+            secondChildCreationBlock: 0,
+            isFirstChild: assertions[predecessorId].firstChildCreationBlock == 0,
             isPending: true
         });
         childCreated(predecessorId);

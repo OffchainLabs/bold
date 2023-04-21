@@ -12,6 +12,7 @@ import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
 
 import "../challenge/IOldChallengeManager.sol";
+import "../state/Machine.sol";
 
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IBridge.sol";
@@ -251,6 +252,26 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     /// @return Number of active stakers currently staked
     function stakerCount() public view override returns (uint64) {
         return uint64(_stakerList.length);
+    }
+
+    /// @return Genesis execution hash, assertion hash, and wasm module root
+    function genesisAssertionHashes() public view override returns (bytes32, bytes32, bytes32) {
+        GlobalState memory emptyGlobalState;
+        ExecutionState memory emptyExecutionState = ExecutionState(
+            emptyGlobalState,
+            MachineStatus.FINISHED
+        );
+        bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
+            beforeState: emptyExecutionState,
+            afterState: emptyExecutionState
+        }));
+        bytes32 genesisHash = RollupLib.assertionHash({
+            lastHash: bytes32(0),
+            assertionExecHash: executionHash,
+            inboxAcc: bytes32(0),
+            wasmModuleRoot: wasmModuleRoot
+        });
+        return (executionHash, genesisHash, wasmModuleRoot);
     }
 
     /**
@@ -673,8 +694,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256){
+        (bytes32 b1, bytes32 b2, uint64 u1, uint64 u2, uint8 status) = abi.decode(proof, (bytes32, bytes32, uint64, uint64, uint8));
+        bytes32[2] memory bytes32Vals = [b1, b2];
+        uint64[2] memory u64Vals = [u1, u2];
+        GlobalState memory gs = GlobalState({bytes32Vals: bytes32Vals, u64Vals: u64Vals});
+        ExecutionState memory es = ExecutionState({globalState: gs, machineStatus: MachineStatus(status)});
         require(
-            RollupLib.stateHashMem(abi.decode(proof, (ExecutionState)), inboxMsgCountSeen) ==
+            RollupLib.stateHashMem(es, inboxMsgCountSeen) ==
                 getStateHash(assertionId),
             "BAD_MSG_COUNT_PROOF"
         );
@@ -685,21 +711,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(getAssertionNum(assertionId)).stateHash;
     }
 
-    function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32){
-        if(getAssertionStorage(getAssertionNum(assertionId)).secondChildBlock > 0){
-            return assertionId;
-        } else {
-            return bytes32(0);
-        }
+    function hasSibling(bytes32 assertionId) external view returns (bool) {
+        return getAssertionStorage(
+            getAssertionStorage(getAssertionNum(assertionId)).prevNum
+        ).secondChildBlock != 0;
     }
 
     // HN: TODO: use block or timestamp?
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256){
         return getAssertionStorage(getAssertionNum(assertionId)).firstChildBlock;
-    }
-
-    function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).firstChildTime;
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){

@@ -68,6 +68,8 @@ func Test_onLeafCreation(t *testing.T) {
 			createdData.Addrs.Rollup,
 		)
 		require.NoError(t, err)
+		validator.assertions[createdData.Leaf1.SeqNum()] = createdData.Leaf1
+		validator.assertions[createdData.Leaf2.SeqNum()] = createdData.Leaf2
 
 		err = validator.onLeafCreated(ctx, createdData.Leaf1)
 		require.NoError(t, err)
@@ -104,12 +106,9 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		assertions := setupAssertions(10)
 		for _, a := range assertions {
 			v.assertions[a.SeqNum()] = a
-			height, err := a.Height()
-			require.NoError(t, err)
 			stateHash, err := a.StateHash()
 			require.NoError(t, err)
 			s.On("HasStateCommitment", ctx, util.StateCommitment{
-				Height:    height,
 				StateRoot: stateHash,
 			}).Return(true)
 		}
@@ -125,18 +124,14 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		assertions := setupAssertions(10)
 		for i, a := range assertions {
 			v.assertions[a.SeqNum()] = a
-			height, err := a.Height()
-			require.NoError(t, err)
 			stateHash, err := a.StateHash()
 			require.NoError(t, err)
 			if i <= 5 {
 				s.On("HasStateCommitment", ctx, util.StateCommitment{
-					Height:    height,
 					StateRoot: stateHash,
 				}).Return(true)
 			} else {
 				s.On("HasStateCommitment", ctx, util.StateCommitment{
-					Height:    height,
 					StateRoot: stateHash,
 				}).Return(false)
 			}

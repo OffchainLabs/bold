@@ -24,6 +24,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+type SetupBackend interface {
+	bind.DeployBackend
+	bind.ContractBackend
+}
+
 type CreatedValidatorFork struct {
 	Leaf1                      protocol.Assertion
 	Leaf2                      protocol.Assertion
@@ -131,7 +136,6 @@ func CreateTwoValidatorFork(
 		}
 	}
 
-	height += 1
 	honestBlockHash = setup.Backend.Commit()
 	honestPostState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
@@ -142,8 +146,6 @@ func CreateTwoValidatorFork(
 	}
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
-		height,
-		1,
 		genesisState,
 		honestPostState,
 		prevInboxMaxCount,
@@ -156,13 +158,9 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	assertionInboxMaxCount, err := assertion.InboxMsgCountSeen()
-	if err != nil {
-		return nil, err
-	}
 	honestValidatorStateRoots = append(honestValidatorStateRoots, assertionStateHash)
 	honestValidatorStates = append(honestValidatorStates, honestPostState)
-	honestValidatorInboxMaxCounts = append(honestValidatorInboxMaxCounts, new(big.Int).SetUint64(assertionInboxMaxCount))
+	honestValidatorInboxMaxCounts = append(honestValidatorInboxMaxCounts, new(big.Int).SetUint64(2))
 
 	evilPostState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
@@ -173,8 +171,6 @@ func CreateTwoValidatorFork(
 	}
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
-		height,
-		1,
 		genesisState,
 		evilPostState,
 		prevInboxMaxCount,
@@ -187,13 +183,9 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	forkedAssertionInboxMaxCount, err := forkedAssertion.InboxMsgCountSeen()
-	if err != nil {
-		return nil, err
-	}
 	evilValidatorStateRoots = append(evilValidatorStateRoots, forkedAssertionStateHash)
 	evilValidatorStates = append(evilValidatorStates, evilPostState)
-	evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, new(big.Int).SetUint64(forkedAssertionInboxMaxCount))
+	evilValidatorInboxMaxCounts = append(evilValidatorInboxMaxCounts, new(big.Int).SetUint64(2))
 
 	return &CreatedValidatorFork{
 		Leaf1:                      assertion,
@@ -231,7 +223,6 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	challengePeriodSeconds := big.NewInt(200)
 	miniStake := big.NewInt(1)
 	cfg := challenge_testing.GenerateRollupConfig(
 		prod,
@@ -239,7 +230,6 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		rollupOwner,
 		chainId,
 		loserStakeEscrow,
-		challengePeriodSeconds,
 		miniStake,
 	)
 	addresses, err := DeployFullRollupStack(
@@ -300,7 +290,7 @@ type RollupAddresses struct {
 
 func DeployFullRollupStack(
 	ctx context.Context,
-	backend *backends.SimulatedBackend,
+	backend SetupBackend,
 	deployAuth *bind.TransactOpts,
 	sequencer common.Address,
 	config rollupgen.Config,
@@ -325,7 +315,9 @@ func DeployFullRollupStack(
 	if err != nil {
 		return nil, err
 	}
-	backend.Commit()
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for create rollup transaction")
+	}
 
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
@@ -348,11 +340,12 @@ func DeployFullRollupStack(
 	// if a zero sequencer address is specified, don't authorize any sequencers
 	if sequencer != (common.Address{}) {
 		tx, err = sequencerInbox.SetIsBatchPoster(deployAuth, sequencer, true)
-		backend.Commit()
 		if err != nil {
 			return nil, err
 		}
-
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "failed waiting for sequencerInbox.SetIsBatchPoster transaction")
+		}
 		receipt2, err2 := backend.TransactionReceipt(ctx, tx.Hash())
 		if err2 != nil {
 			return nil, err
@@ -368,11 +361,12 @@ func DeployFullRollupStack(
 	}
 
 	tx, err = rollup.SetValidatorWhitelistDisabled(deployAuth, true)
-	backend.Commit()
 	if err != nil {
 		return nil, err
 	}
-
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for rollup.SetValidatorWhitelistDisabled transaction")
+	}
 	receipt2, err := backend.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, err
@@ -396,56 +390,69 @@ func DeployFullRollupStack(
 func deployBridgeCreator(
 	ctx context.Context,
 	auth *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend SetupBackend,
 ) (common.Address, error) {
 	bridgeTemplate, tx, _, err := bridgegen.DeployBridge(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, bridgeTemplate, backend, err)
 	if err != nil {
 		return common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, bridgeTemplate, backend, err)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "bridgegen.DeployBridge")
 	}
 
 	seqInboxTemplate, tx, _, err := bridgegen.DeploySequencerInbox(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, seqInboxTemplate, backend, err)
 	if err != nil {
 		return common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, seqInboxTemplate, backend, err)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "bridgegen.DeploySequencerInbox")
 	}
 
 	inboxTemplate, tx, _, err := bridgegen.DeployInbox(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, inboxTemplate, backend, err)
 	if err != nil {
 		return common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, inboxTemplate, backend, err)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "bridgegen.DeployInbox")
 	}
 
 	rollupEventBridgeTemplate, tx, _, err := rollupgen.DeployRollupEventInbox(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, rollupEventBridgeTemplate, backend, err)
 	if err != nil {
 		return common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, rollupEventBridgeTemplate, backend, err)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "rollupgen.DeployRollupEventInbox")
 	}
 
 	outboxTemplate, tx, _, err := bridgegen.DeployOutbox(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, outboxTemplate, backend, err)
 	if err != nil {
 		return common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, outboxTemplate, backend, err)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "bridgegen.DeployOutbox")
 	}
 
 	bridgeCreatorAddr, tx, bridgeCreator, err := rollupgen.DeployBridgeCreator(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, bridgeCreatorAddr, backend, err)
 	if err != nil {
 		return common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, bridgeCreatorAddr, backend, err)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "bridgegen.DeployBridgeCreator")
 	}
 
 	tx, err = bridgeCreator.UpdateTemplates(auth, bridgeTemplate, seqInboxTemplate, inboxTemplate, rollupEventBridgeTemplate, outboxTemplate)
-	backend.Commit()
 	if err != nil {
 		return common.Address{}, err
 	}
-
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+		return common.Address{}, errors.Wrap(waitErr, "failed waiting for bridgeCreator.UpdateTemplates transaction")
+	}
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return common.Address{}, err
@@ -459,23 +466,24 @@ func deployBridgeCreator(
 func deployChallengeFactory(
 	ctx context.Context,
 	auth *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend SetupBackend,
 ) (common.Address, common.Address, error) {
 	ospEntryAddr, tx, _, err := mocksgen.DeployMockOneStepProofEntry(auth, backend)
-	backend.Commit()
 	err = challenge_testing.TxSucceeded(ctx, tx, ospEntryAddr, backend, err)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
 	}
 
 	// TODO(RJ): This assertion chain is not used, but still needed by challenge manager. Need to remove.
 	genesisStateHash := common.BytesToHash([]byte("nyan"))
 
 	assertionChainAddr, tx, _, err := challengeV2gen.DeployAssertionChain(auth, backend, genesisStateHash, big.NewInt(1))
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, assertionChainAddr, backend, err)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, assertionChainAddr, backend, err)
+	if err != nil {
+		return common.Address{}, common.Address{}, errors.Wrap(err, "challengeV2gen.DeployAssertionChain")
 	}
 	edgeChallengeManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
 		auth,
@@ -484,17 +492,19 @@ func deployChallengeFactory(
 		big.NewInt(10), // TODO: Challenge period length.
 		ospEntryAddr,
 	)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, edgeChallengeManagerAddr, backend, err)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, edgeChallengeManagerAddr, backend, err)
+	if err != nil {
+		return common.Address{}, common.Address{}, errors.Wrap(err, "challengeV2gen.DeployEdgeChallengeManager")
 	}
 	return ospEntryAddr, edgeChallengeManagerAddr, nil
 }
 
 func deployRollupCreator(
 	ctx context.Context,
-	backend *backends.SimulatedBackend,
+	backend SetupBackend,
 	auth *bind.TransactOpts,
 ) (*rollupgen.RollupCreator, common.Address, common.Address, common.Address, common.Address, error) {
 	bridgeCreator, err := deployBridgeCreator(ctx, auth, backend)
@@ -507,41 +517,51 @@ func deployRollupCreator(
 	}
 
 	rollupAdminLogic, tx, _, err := rollupgen.DeployRollupAdminLogic(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, rollupAdminLogic, backend, err)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, rollupAdminLogic, backend, err)
+	if err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployRollupAdminLogic")
 	}
 
 	rollupUserLogic, tx, _, err := rollupgen.DeployRollupUserLogic(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, rollupUserLogic, backend, err)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, rollupUserLogic, backend, err)
+	if err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployRollupUserLogic")
 	}
 
 	rollupCreatorAddress, tx, rollupCreator, err := rollupgen.DeployRollupCreator(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, rollupCreatorAddress, backend, err)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, rollupCreatorAddress, backend, err)
+	if err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployRollupCreator")
 	}
 
 	validatorUtils, tx, _, err := rollupgen.DeployValidatorUtils(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, validatorUtils, backend, err)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
+	}
+	err = challenge_testing.TxSucceeded(ctx, tx, validatorUtils, backend, err)
+	if err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployValidatorUtils")
 	}
 
 	validatorWalletCreator, tx, _, err := rollupgen.DeployValidatorWalletCreator(auth, backend)
-	backend.Commit()
-	err = challenge_testing.TxSucceeded(ctx, tx, validatorWalletCreator, backend, err)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
+	err = challenge_testing.TxSucceeded(ctx, tx, validatorWalletCreator, backend, err)
+	if err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployValidatorWalletCreator")
+	}
 
-	_, err = rollupCreator.SetTemplates(
+	tx, err = rollupCreator.SetTemplates(
 		auth,
 		bridgeCreator,
 		ospEntryAddr,
@@ -554,7 +574,9 @@ func deployRollupCreator(
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
-	backend.Commit()
+	if err := challenge_testing.WaitForTx(ctx, backend, tx); err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "failed waiting for rollupCreator.SetTemplates transaction")
+	}
 	return rollupCreator, rollupUserLogic, rollupCreatorAddress, validatorUtils, validatorWalletCreator, nil
 }
 
