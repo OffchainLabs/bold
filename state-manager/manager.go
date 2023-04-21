@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 
+	"encoding/binary"
 	"github.com/OffchainLabs/challenge-protocol-v2/execution"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -120,8 +121,7 @@ type Manager interface {
 	OneStepProofData(
 		ctx context.Context,
 		parentAssertionStateHash common.Hash,
-		inboxCountForAssertion *big.Int,
-		initialWasmModuleRoot common.Hash,
+		assertionCreationInfo *protocol.AssertionCreatedInfo,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
@@ -561,38 +561,45 @@ func (s *Simulated) AssertionExecutionState(
 	return s.executionStates[stateRootIndex], nil
 }
 
+func u64ToBe(x uint64) []byte {
+	data := make([]byte, 8)
+	binary.BigEndian.PutUint64(data, x)
+	return data
+}
+
 func (s *Simulated) OneStepProofData(
 	ctx context.Context,
-	inboxCountForAssertion *big.Int,
-	lastHash,
-	executionHash,
-	inboxAccumulator common.Hash,
+	assertionStateHash common.Hash,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
 	toBigStep,
 	fromSmallStep,
 	toSmallStep uint64,
-	inboxAccumulatorGetter func(idx uint64) (common.Hash, error),
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
+	assertionExecutionState, getErr := s.AssertionExecutionState(ctx, assertionStateHash)
+	if getErr != nil {
+		err = getErr
+		return
+	}
+	execState := assertionExecutionState.AsSolidityStruct()
+	inboxMaxCountProof := make([]byte, 0)
+	inboxMaxCountProof = append(inboxMaxCountProof, execState.GlobalState.Bytes32Vals[0][:]...)
+	inboxMaxCountProof = append(inboxMaxCountProof, execState.GlobalState.Bytes32Vals[1][:]...)
+	inboxMaxCountProof = append(inboxMaxCountProof, u64ToBe(execState.GlobalState.U64Vals[0])...)
+	inboxMaxCountProof = append(inboxMaxCountProof, u64ToBe(execState.GlobalState.U64Vals[1])...)
+	inboxMaxCountProof = append(inboxMaxCountProof, byte(execState.MachineStatus))
 
-	// Produce a proof of inbox count and wasm module root from the
-	// parent assertion's state contained locally.
-	// afterInboxPosition := parentAssertionState.GlobalState.Batch
-	// if parentAssertionState.MachineStatus == protocol.MachineStatusErrored || parentAssertionState.GlobalState.PosInBatch > 0 {
-	// 	afterInboxPosition++
-	// }
-	// inboxAcc, getErr := inboxAccumulatorGetter(afterInboxPosition - 1)
-	// if getErr != nil {
-	// 	err = getErr
-	// 	return
-	// }
-	wasmModuleRootProof, packErr := wasmModuleProofAbi.Pack(lastHash, executionHash, inboxAccumulator)
+	wasmModuleRootProof, packErr := wasmModuleProofAbi.Pack(
+		assertionCreationInfo.ParentAssertionHash,
+		assertionCreationInfo.ExecutionHash,
+		assertionCreationInfo.AfterInboxBatchAcc,
+	)
 	if packErr != nil {
 		err = packErr
 		return
 	}
-
 	startCommit, commitErr := s.SmallStepCommitmentUpTo(
 		ctx,
 		fromBlockChallengeHeight,
@@ -620,9 +627,9 @@ func (s *Simulated) OneStepProofData(
 	data = &protocol.OneStepData{
 		BeforeHash:             startCommit.LastLeaf,
 		Proof:                  make([]byte, 0),
-		InboxMsgCountSeen:      inboxCountForAssertion,
-		InboxMsgCountSeenProof: make([]byte, 0), // TODO: abi Pack the parent assertion state
-		WasmModuleRoot:         initialWasmModuleRoot,
+		InboxMsgCountSeen:      assertionCreationInfo.InboxMaxCount,
+		InboxMsgCountSeenProof: inboxMaxCountProof,
+		WasmModuleRoot:         assertionCreationInfo.WasmModuleRoot,
 		WasmModuleRootProof:    wasmModuleRootProof,
 	}
 	if !s.malicious {

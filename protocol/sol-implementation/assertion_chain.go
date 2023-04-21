@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"encoding/binary"
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 )
@@ -62,6 +63,7 @@ type AssertionChain struct {
 	userLogic    *rollupgen.RollupUserLogic
 	txOpts       *bind.TransactOpts
 	headerReader *headerreader.HeaderReader
+	rollupAddr   common.Address
 }
 
 // NewAssertionChain instantiates an assertion chain
@@ -77,6 +79,7 @@ func NewAssertionChain(
 		backend:      backend,
 		txOpts:       txOpts,
 		headerReader: headerReader,
+		rollupAddr:   rollupAddr,
 	}
 	coreBinding, err := rollupgen.NewRollupCore(
 		rollupAddr, chain.backend,
@@ -282,6 +285,50 @@ func (ac *AssertionChain) Reject(ctx context.Context, staker common.Address) err
 	default:
 		return err
 	}
+}
+
+// ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
+// event from the rollup contracts.
+func (a *AssertionChain) ReadAssertionCreationInfo(
+	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
+) (*protocol.AssertionCreatedInfo, error) {
+	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
+	if err != nil {
+		return nil, err
+	}
+	var numberAsHash common.Hash
+	binary.BigEndian.PutUint64(numberAsHash[(32-8):], uint64(seqNum))
+	var query = ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(node.CreatedAtBlock),
+		ToBlock:   new(big.Int).SetUint64(node.CreatedAtBlock),
+		Addresses: []common.Address{a.rollupAddr},
+		Topics:    [][]common.Hash{{}, {numberAsHash}},
+	}
+	logs, err := a.backend.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return nil, errors.New("couldn't find requested node")
+	}
+	if len(logs) > 1 {
+		return nil, errors.New("found multiple instances of requested node")
+	}
+	ethLog := logs[0]
+	parsedLog, err := a.rollup.ParseAssertionCreated(ethLog)
+	if err != nil {
+		return nil, err
+	}
+	return &protocol.AssertionCreatedInfo{
+		ParentAssertionHash: parsedLog.ParentAssertionHash,
+		BeforeState:         parsedLog.Assertion.BeforeState,
+		AfterState:          parsedLog.Assertion.AfterState,
+		InboxMaxCount:       parsedLog.InboxMaxCount,
+		AfterInboxBatchAcc:  parsedLog.AfterInboxBatchAcc,
+		ExecutionHash:       parsedLog.ExecutionHash,
+		AssertionHash:       parsedLog.AssertionHash,
+		WasmModuleRoot:      parsedLog.WasmModuleRoot,
+	}, nil
 }
 
 func handleCreateAssertionError(err error, height uint64, blockHash common.Hash) error {

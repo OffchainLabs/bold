@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -19,7 +20,6 @@ type AssertionId common.Hash
 // Protocol --
 type Protocol interface {
 	AssertionChain
-	Bridge
 }
 
 // Assertion represents a top-level claim in the protocol about the
@@ -32,8 +32,16 @@ type Assertion interface {
 	StateHash() (common.Hash, error)
 }
 
-type Bridge interface {
-	SequencerInboxAccumulator(ctx context.Context, index uint64) (common.Hash, error)
+// AssertionCreatedInfo from an event creation.
+type AssertionCreatedInfo struct {
+	ParentAssertionHash common.Hash
+	BeforeState         rollupgen.ExecutionState
+	AfterState          rollupgen.ExecutionState
+	InboxMaxCount       *big.Int
+	AfterInboxBatchAcc  common.Hash
+	ExecutionHash       common.Hash
+	AssertionHash       common.Hash
+	WasmModuleRoot      common.Hash
 }
 
 // AssertionChain can manage assertions in the protocol and retrieve
@@ -46,9 +54,9 @@ type AssertionChain interface {
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	GetAssertionId(ctx context.Context, seqNum AssertionSequenceNumber) (AssertionId, error)
 	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
-	AssertionInboxMaxCount(ctx context.Context, seqNum AssertionSequenceNumber) (*big.Int, error)
-	InitialWasmModuleRoot(ctx context.Context) (common.Hash, error)
-	ComputeExecutionHash(ctx context.Context, beforeState *ExecutionState, afterState *ExecutionState) (common.Hash, error)
+	ReadAssertionCreationInfo(
+		ctx context.Context, seqNum AssertionSequenceNumber,
+	) (*AssertionCreatedInfo, error)
 
 	// Mutating methods.
 	CreateAssertion(

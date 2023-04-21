@@ -370,19 +370,14 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	inboxMaxCountForAssertion, err := et.cfg.chain.AssertionInboxMaxCount(ctx, assertionNum)
-	if err != nil {
-		return err
-	}
-	initialWasmModuleRoot, err := et.cfg.chain.InitialWasmModuleRoot(ctx)
+	assertionCreationInfo, err := et.cfg.chain.ReadAssertionCreationInfo(ctx, assertionNum)
 	if err != nil {
 		return err
 	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
 		parentAssertionStateHash,
-		inboxMaxCountForAssertion,
-		initialWasmModuleRoot,
+		assertionCreationInfo,
 		fromAssertionHeight,
 		toAssertionHeight,
 		fromBigStep,

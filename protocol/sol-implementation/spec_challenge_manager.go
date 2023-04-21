@@ -353,7 +353,7 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
 				tentativeWinnerId,
 				challengeV2gen.OneStepData{
-					InboxMsgCountSeen:      new(big.Int).SetUint64(oneStepData.InboxMsgCountSeen),
+					InboxMsgCountSeen:      oneStepData.InboxMsgCountSeen,
 					InboxMsgCountSeenProof: oneStepData.InboxMsgCountSeenProof,
 					WasmModuleRoot:         oneStepData.WasmModuleRoot,
 					WasmModuleRootProof:    oneStepData.WasmModuleRootProof,
