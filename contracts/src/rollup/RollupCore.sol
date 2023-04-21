@@ -253,6 +253,26 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return uint64(_stakerList.length);
     }
 
+    /// @return Genesis execution hash, assertion hash, and wasm module root
+    function genesisAssertionHashes() public view override returns (bytes32, bytes32, bytes32) {
+        GlobalState memory emptyGlobalState;
+        ExecutionState memory emptyExecutionState = ExecutionState(
+            emptyGlobalState,
+            MachineStatus.FINISHED
+        );
+        bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
+            beforeState: emptyExecutionState,
+            afterState: emptyExecutionState
+        }));
+        bytes32 genesisHash = RollupLib.assertionHash({
+            lastHash: bytes32(0),
+            assertionExecHash: executionHash,
+            inboxAcc: bytes32(0),
+            wasmModuleRoot: wasmModuleRoot
+        });
+        return (executionHash, genesisHash, wasmModuleRoot);
+    }
+
     /**
      * @notice Initialize the core with an initial assertion
      * @param initialAssertion Initial assertion to start the chain with

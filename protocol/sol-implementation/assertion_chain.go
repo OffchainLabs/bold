@@ -18,9 +18,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"encoding/binary"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 )
@@ -292,24 +294,28 @@ func (ac *AssertionChain) Reject(ctx context.Context, staker common.Address) err
 func (a *AssertionChain) ReadAssertionCreationInfo(
 	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
 ) (*protocol.AssertionCreatedInfo, error) {
+	// TODO: Magic number.
+	if seqNum == 1 {
+	}
 	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
 	if err != nil {
 		return nil, err
 	}
+	topic := common.BytesToHash(hexutil.MustDecode("0xc9cc7aa3617dc3853c50ebf6703ec797191654dcc781255bed2057dce23b0e33"))
 	var numberAsHash common.Hash
 	binary.BigEndian.PutUint64(numberAsHash[(32-8):], uint64(seqNum))
 	var query = ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(node.CreatedAtBlock),
 		ToBlock:   new(big.Int).SetUint64(node.CreatedAtBlock),
 		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{}, {numberAsHash}},
+		Topics:    [][]common.Hash{{topic}, {numberAsHash}},
 	}
 	logs, err := a.backend.FilterLogs(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	if len(logs) == 0 {
-		return nil, errors.New("couldn't find requested node")
+		return nil, errors.New("")
 	}
 	if len(logs) > 1 {
 		return nil, errors.New("found multiple instances of requested node")
