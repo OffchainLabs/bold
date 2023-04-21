@@ -200,8 +200,8 @@ library EdgeChallengeManagerLib {
             require(proof.length > 0, "Block edge specific proof is empty");
             bytes32[] memory inclusionProof = abi.decode(proof, (bytes32[]));
 
-            bytes32 startState = assertionChain.getStateHash(originId);
-            bytes32 endState = assertionChain.getStateHash(args.claimId);
+            bytes32 startState = assertionChain.getChallengeHash(originId);
+            bytes32 endState = assertionChain.getChallengeHash(args.claimId);
             return (ProofData(startState, endState, inclusionProof), originId);
         } else {
             ChallengeEdge storage claimEdge = get(store, args.claimId);
