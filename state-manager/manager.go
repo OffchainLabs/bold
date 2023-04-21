@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/big"
 
-	"encoding/binary"
 	"github.com/OffchainLabs/challenge-protocol-v2/execution"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -526,23 +525,6 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 	return ty
 }
 
-var bytes32Type = newStaticType("bytes32", "", nil)
-
-var wasmModuleProofAbi = abi.Arguments{
-	{
-		Name: "lastHash",
-		Type: bytes32Type,
-	},
-	{
-		Name: "assertionExecHash",
-		Type: bytes32Type,
-	},
-	{
-		Name: "inboxAcc",
-		Type: bytes32Type,
-	},
-}
-
 func (s *Simulated) AssertionExecutionState(
 	ctx context.Context,
 	assertionStateHash common.Hash,
@@ -561,10 +543,46 @@ func (s *Simulated) AssertionExecutionState(
 	return s.executionStates[stateRootIndex], nil
 }
 
-func u64ToBe(x uint64) []byte {
-	data := make([]byte, 8)
-	binary.BigEndian.PutUint64(data, x)
-	return data
+var bytes32Type = newStaticType("bytes32", "", nil)
+var uint64Type = newStaticType("uint64", "", nil)
+var uint8Type = newStaticType("uint8", "", nil)
+
+var WasmModuleProofAbi = abi.Arguments{
+	{
+		Name: "lastHash",
+		Type: bytes32Type,
+	},
+	{
+		Name: "assertionExecHash",
+		Type: bytes32Type,
+	},
+	{
+		Name: "inboxAcc",
+		Type: bytes32Type,
+	},
+}
+
+var ExecutionStateAbi = abi.Arguments{
+	{
+		Name: "b1",
+		Type: bytes32Type,
+	},
+	{
+		Name: "b2",
+		Type: bytes32Type,
+	},
+	{
+		Name: "u1",
+		Type: uint64Type,
+	},
+	{
+		Name: "u2",
+		Type: uint64Type,
+	},
+	{
+		Name: "status",
+		Type: uint8Type,
+	},
 }
 
 func (s *Simulated) OneStepProofData(
@@ -584,14 +602,19 @@ func (s *Simulated) OneStepProofData(
 		return
 	}
 	execState := assertionExecutionState.AsSolidityStruct()
-	inboxMaxCountProof := make([]byte, 0)
-	inboxMaxCountProof = append(inboxMaxCountProof, execState.GlobalState.Bytes32Vals[0][:]...)
-	inboxMaxCountProof = append(inboxMaxCountProof, execState.GlobalState.Bytes32Vals[1][:]...)
-	inboxMaxCountProof = append(inboxMaxCountProof, u64ToBe(execState.GlobalState.U64Vals[0])...)
-	inboxMaxCountProof = append(inboxMaxCountProof, u64ToBe(execState.GlobalState.U64Vals[1])...)
-	inboxMaxCountProof = append(inboxMaxCountProof, byte(execState.MachineStatus))
+	inboxMaxCountProof, packErr := ExecutionStateAbi.Pack(
+		execState.GlobalState.Bytes32Vals[0],
+		execState.GlobalState.Bytes32Vals[1],
+		execState.GlobalState.U64Vals[0],
+		execState.GlobalState.U64Vals[1],
+		execState.MachineStatus,
+	)
+	if packErr != nil {
+		err = packErr
+		return
+	}
 
-	wasmModuleRootProof, packErr := wasmModuleProofAbi.Pack(
+	wasmModuleRootProof, packErr := WasmModuleProofAbi.Pack(
 		assertionCreationInfo.ParentAssertionHash,
 		assertionCreationInfo.ExecutionHash,
 		assertionCreationInfo.AfterInboxBatchAcc,

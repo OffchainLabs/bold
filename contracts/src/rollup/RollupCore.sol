@@ -12,6 +12,7 @@ import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
 
 import "../challenge/IOldChallengeManager.sol";
+import "../state/Machine.sol";
 
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IBridge.sol";
@@ -693,8 +694,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256){
+        (bytes32 b1, bytes32 b2, uint64 u1, uint64 u2, uint8 status) = abi.decode(proof, (bytes32, bytes32, uint64, uint64, uint8));
+        bytes32[2] memory bytes32Vals = [b1, b2];
+        uint64[2] memory u64Vals = [u1, u2];
+        GlobalState memory gs = GlobalState({bytes32Vals: bytes32Vals, u64Vals: u64Vals});
+        ExecutionState memory es = ExecutionState({globalState: gs, machineStatus: MachineStatus(status)});
         require(
-            RollupLib.stateHashMem(abi.decode(proof, (ExecutionState)), inboxMsgCountSeen) ==
+            RollupLib.stateHashMem(es, inboxMsgCountSeen) ==
                 getStateHash(assertionId),
             "BAD_MSG_COUNT_PROOF"
         );

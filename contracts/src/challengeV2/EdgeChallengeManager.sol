@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
+import "../rollup/Assertion.sol";
 import "./libraries/UintUtilsLib.sol";
 import "./DataEntities.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";

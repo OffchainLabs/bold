@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
+	"math/big"
 )
 
 var (
@@ -292,8 +293,9 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			protocol.EdgeId(common.BytesToHash([]byte("foo"))),
 			&protocol.OneStepData{
-				BeforeHash: common.Hash{},
-				Proof:      make([]byte, 0),
+				BeforeHash:        common.Hash{},
+				Proof:             make([]byte, 0),
+				InboxMsgCountSeen: big.NewInt(0),
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -339,12 +341,30 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, s2)
 
+		executionHash, _, wasmModuleRoot, err := bisectionScenario.topLevelFork.Chains[0].GenesisAssertionHashes(ctx)
+		require.NoError(t, err)
+		wasmModuleRootProof, err := statemanager.WasmModuleProofAbi.Pack(common.Hash{}, executionHash, common.Hash{})
+		require.NoError(t, err)
+
+		inboxMaxCountProof, err := statemanager.ExecutionStateAbi.Pack(
+			common.Hash{},
+			common.Hash{},
+			uint64(0),
+			uint64(0),
+			protocol.MachineStatusFinished,
+		)
+		require.NoError(t, err)
+
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
 			honestChildren1.Id(),
 			&protocol.OneStepData{
-				BeforeHash: common.Hash{},
-				Proof:      make([]byte, 0),
+				BeforeHash:             common.Hash{},
+				Proof:                  make([]byte, 0),
+				InboxMsgCountSeen:      big.NewInt(1),
+				InboxMsgCountSeenProof: inboxMaxCountProof,
+				WasmModuleRoot:         wasmModuleRoot,
+				WasmModuleRootProof:    wasmModuleRootProof,
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -354,8 +374,9 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			honestChildren2.Id(),
 			&protocol.OneStepData{
-				BeforeHash: common.Hash{},
-				Proof:      make([]byte, 0),
+				BeforeHash:        common.Hash{},
+				Proof:             make([]byte, 0),
+				InboxMsgCountSeen: big.NewInt(0),
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -391,8 +412,9 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			honestChildren1.Id(),
 			&protocol.OneStepData{
-				BeforeHash: common.Hash{},
-				Proof:      make([]byte, 0),
+				BeforeHash:        common.Hash{},
+				Proof:             make([]byte, 0),
+				InboxMsgCountSeen: big.NewInt(0),
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -402,8 +424,9 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			honestChildren2.Id(),
 			&protocol.OneStepData{
-				BeforeHash: common.Hash{},
-				Proof:      make([]byte, 0),
+				BeforeHash:        common.Hash{},
+				Proof:             make([]byte, 0),
+				InboxMsgCountSeen: big.NewInt(0),
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -437,8 +460,9 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			honestEdge.Id(),
 			&protocol.OneStepData{
-				BeforeHash: common.BytesToHash([]byte("foo")),
-				Proof:      honestCommit.LastLeaf[:],
+				BeforeHash:        common.BytesToHash([]byte("foo")),
+				Proof:             honestCommit.LastLeaf[:],
+				InboxMsgCountSeen: big.NewInt(0),
 			},
 			honestCommit.FirstLeafProof,
 			honestCommit.LastLeafProof,
@@ -481,8 +505,9 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			evilEdge.Id(),
 			&protocol.OneStepData{
-				BeforeHash: startCommit.LastLeaf,
-				Proof:      make([]byte, 0),
+				BeforeHash:        startCommit.LastLeaf,
+				Proof:             make([]byte, 0),
+				InboxMsgCountSeen: big.NewInt(0),
 			},
 			startCommit.LastLeafProof,
 			endCommit.LastLeafProof,
@@ -490,97 +515,57 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Invalid inclusion proof")
 	})
 	t.Run("OK", func(t *testing.T) {
-		// scenario := setupOneStepProofScenario(t)
-		// honestEdge := scenario.smallStepHonestEdge
+		scenario := setupOneStepProofScenario(t)
+		honestEdge := scenario.smallStepHonestEdge
 
-		// challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-		// require.NoError(t, err)
+		chain := scenario.topLevelFork.Chains[0]
+		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
+		require.NoError(t, err)
 
-		// honestStateManager := scenario.honestStateManager
-		// fromBlockChallengeHeight := uint64(0)
-		// toBlockChallengeHeight := uint64(1)
-		// fromBigStep := uint64(0)
-		// toBigStep := uint64(1)
-		// fromSmallStep := uint64(0)
-		// toSmallStep := uint64(1)
+		honestStateManager := scenario.honestStateManager
+		fromBlockChallengeHeight := uint64(0)
+		toBlockChallengeHeight := uint64(1)
+		fromBigStep := uint64(0)
+		toBigStep := uint64(1)
+		fromSmallStep := uint64(0)
+		toSmallStep := uint64(1)
 
-		// data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(
-		// 	ctx,
-		// 	fromBlockChallengeHeight,
-		// 	toBlockChallengeHeight,
-		// 	fromBigStep,
-		// 	toBigStep,
-		// 	fromSmallStep,
-		// 	toSmallStep,
-		// )
-		// require.NoError(t, err)
+		prevId, err := honestEdge.PrevAssertionId(ctx)
+		require.NoError(t, err)
+		assertionNum, err := chain.GetAssertionNum(ctx, prevId)
+		require.NoError(t, err)
+		prevAssertion, err := chain.AssertionBySequenceNum(ctx, assertionNum)
+		require.NoError(t, err)
+		parentAssertionStateHash, err := prevAssertion.StateHash()
+		require.NoError(t, err)
+		assertionCreationInfo, err := chain.ReadAssertionCreationInfo(ctx, assertionNum)
+		require.NoError(t, err)
 
-		// err = challengeManager.ConfirmEdgeByOneStepProof(
-		// 	ctx,
-		// 	honestEdge.Id(),
-		// 	data,
-		// 	startInclusionProof,
-		// 	endInclusionProof,
-		// )
-		// require.NoError(t, err)
-		// edgeStatus, err := honestEdge.Status(ctx)
-		// require.NoError(t, err)
-		// require.Equal(t, protocol.EdgeConfirmed, edgeStatus)
+		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(
+			ctx,
+			parentAssertionStateHash,
+			assertionCreationInfo,
+			fromBlockChallengeHeight,
+			toBlockChallengeHeight,
+			fromBigStep,
+			toBigStep,
+			fromSmallStep,
+			toSmallStep,
+		)
+		require.NoError(t, err)
+
+		err = challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestEdge.Id(),
+			data,
+			startInclusionProof,
+			endInclusionProof,
+		)
+		require.NoError(t, err)
+		edgeStatus, err := honestEdge.Status(ctx)
+		require.NoError(t, err)
+		require.Equal(t, protocol.EdgeConfirmed, edgeStatus)
 	})
-}
-
-func TestSimple(t *testing.T) {
-	ctx := context.Background()
-	scenario := setupOneStepProofScenario(t)
-	honestEdge := scenario.smallStepHonestEdge
-
-	chain := scenario.topLevelFork.Chains[0]
-	challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-	require.NoError(t, err)
-
-	honestStateManager := scenario.honestStateManager
-	fromBlockChallengeHeight := uint64(0)
-	toBlockChallengeHeight := uint64(1)
-	fromBigStep := uint64(0)
-	toBigStep := uint64(1)
-	fromSmallStep := uint64(0)
-	toSmallStep := uint64(1)
-
-	prevId, err := honestEdge.PrevAssertionId(ctx)
-	require.NoError(t, err)
-	assertionNum, err := chain.GetAssertionNum(ctx, prevId)
-	require.NoError(t, err)
-	prevAssertion, err := chain.AssertionBySequenceNum(ctx, assertionNum)
-	require.NoError(t, err)
-	parentAssertionStateHash, err := prevAssertion.StateHash()
-	require.NoError(t, err)
-	assertionCreationInfo, err := chain.ReadAssertionCreationInfo(ctx, assertionNum)
-	require.NoError(t, err)
-
-	data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(
-		ctx,
-		parentAssertionStateHash,
-		assertionCreationInfo,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
-		fromSmallStep,
-		toSmallStep,
-	)
-	require.NoError(t, err)
-
-	err = challengeManager.ConfirmEdgeByOneStepProof(
-		ctx,
-		honestEdge.Id(),
-		data,
-		startInclusionProof,
-		endInclusionProof,
-	)
-	require.NoError(t, err)
-	edgeStatus, err := honestEdge.Status(ctx)
-	require.NoError(t, err)
-	require.Equal(t, protocol.EdgeConfirmed, edgeStatus)
 }
 
 func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
@@ -722,8 +707,9 @@ func setupBisectionScenario(
 	})
 	require.NoError(t, err)
 
-	honestStateManager, err := statemanager.New(
-		createdData.HonestValidatorStateRoots,
+	honestStateManager, err := statemanager.NewWithAssertionStates(
+		createdData.HonestValidatorStates,
+		createdData.HonestValidatorInboxCounts,
 		commonStateManagerOpts...,
 	)
 	require.NoError(t, err)
@@ -734,8 +720,9 @@ func setupBisectionScenario(
 		statemanager.WithBigStepStateDivergenceHeight(1),
 		statemanager.WithSmallStepStateDivergenceHeight(1),
 	)
-	evilStateManager, err := statemanager.New(
-		createdData.EvilValidatorStateRoots,
+	evilStateManager, err := statemanager.NewWithAssertionStates(
+		createdData.EvilValidatorStates,
+		createdData.EvilValidatorInboxCounts,
 		commonStateManagerOpts...,
 	)
 	require.NoError(t, err)
@@ -769,11 +756,9 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
-	t.Run("unrivaled level zero edge is not one step fork source", func(t *testing.T) {
-		isOSF, err := honestEdge.HasLengthOneRival(ctx)
-		require.NoError(t, err)
-		require.Equal(t, false, isOSF)
-	})
+	isOSF, err := honestEdge.HasLengthOneRival(ctx)
+	require.NoError(t, err)
+	require.Equal(t, false, isOSF)
 
 	evilStartCommit, evilEdge := leafAdder(evilStateManager, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())

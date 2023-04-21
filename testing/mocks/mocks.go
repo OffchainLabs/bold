@@ -357,6 +357,12 @@ func (m *MockProtocol) GetAssertionNum(ctx context.Context, assertionHash protoc
 	args := m.Called(ctx, assertionHash)
 	return args.Get(0).(protocol.AssertionSequenceNumber), args.Error(1)
 }
+func (m *MockProtocol) GenesisAssertionHashes(
+	ctx context.Context,
+) (common.Hash, common.Hash, common.Hash, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(common.Hash), args.Get(1).(common.Hash), args.Get(2).(common.Hash), args.Error(3)
+}
 
 func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
 	args := m.Called(ctx)

@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+const GenesisAssertionSeqNum = AssertionSequenceNumber(1)
+
 // AssertionSequenceNumber is a monotonically increasing ID
 // for each assertion in the chain.
 type AssertionSequenceNumber uint64
@@ -54,6 +56,9 @@ type AssertionChain interface {
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	GetAssertionId(ctx context.Context, seqNum AssertionSequenceNumber) (AssertionId, error)
 	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
+	GenesisAssertionHashes(
+		ctx context.Context,
+	) (common.Hash, common.Hash, common.Hash, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, seqNum AssertionSequenceNumber,
 	) (*AssertionCreatedInfo, error)

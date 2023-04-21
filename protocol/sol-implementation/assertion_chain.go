@@ -10,20 +10,17 @@ import (
 	"math/big"
 	"strings"
 
+	"encoding/binary"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
-
-	"github.com/offchainlabs/nitro/util/headerreader"
-
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"encoding/binary"
-
-	"github.com/ethereum/go-ethereum"
+	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
 
@@ -289,13 +286,30 @@ func (ac *AssertionChain) Reject(ctx context.Context, staker common.Address) err
 	}
 }
 
+func (a *AssertionChain) GenesisAssertionHashes(ctx context.Context) (executionHash, assertionHash, wasmModuleRoot common.Hash, err error) {
+	return a.rollup.GenesisAssertionHashes(&bind.CallOpts{Context: ctx})
+}
+
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
 	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
 ) (*protocol.AssertionCreatedInfo, error) {
-	// TODO: Magic number.
-	if seqNum == 1 {
+	if seqNum == protocol.GenesisAssertionSeqNum {
+		executionHash, assertionHash, wasmModuleRoot, err := a.rollup.GenesisAssertionHashes(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return nil, err
+		}
+		return &protocol.AssertionCreatedInfo{
+			ParentAssertionHash: common.Hash{},
+			BeforeState:         rollupgen.ExecutionState{},
+			AfterState:          rollupgen.ExecutionState{},
+			InboxMaxCount:       big.NewInt(1),
+			AfterInboxBatchAcc:  common.Hash{},
+			ExecutionHash:       executionHash,
+			AssertionHash:       assertionHash,
+			WasmModuleRoot:      wasmModuleRoot,
+		}, nil
 	}
 	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
 	if err != nil {
