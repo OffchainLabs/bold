@@ -291,14 +291,9 @@ func (v *Validator) onLeafCreated(
 	if err != nil {
 		return err
 	}
-	assertionHeight, err := assertion.Height()
-	if err != nil {
-		return err
-	}
 	log.WithFields(logrus.Fields{
 		"name":      v.name,
 		"stateHash": fmt.Sprintf("%#x", assertionStateHash),
-		"height":    assertionHeight,
 	}).Info("New assertion appended to protocol")
 
 	// Keep track of assertions by parent state root to more easily detect forks.

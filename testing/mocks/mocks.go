@@ -157,7 +157,6 @@ func (m *MockStateManager) OneStepProofData(
 	toBigStep,
 	fromSmallStep,
 	toSmallStep uint64,
-	inboxAccumulatorGetter func(idx uint64) (common.Hash, error),
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
 	args := m.Called(ctx, assertionStateHash, assertionCreationInfo, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)

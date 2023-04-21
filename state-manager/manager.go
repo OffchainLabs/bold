@@ -39,10 +39,6 @@ type Manager interface {
 	// Produces the latest assertion data to post to L1 from the local state manager's
 	// perspective based on a parent assertion height.
 	LatestAssertionCreationData(ctx context.Context, prevHeight uint64) (*AssertionToCreate, error)
-	AssertionExecutionState(
-		ctx context.Context,
-		assertionStateHash common.Hash,
-	) (*protocol.ExecutionState, error)
 	// Checks if a state commitment corresponds to data the state manager has locally.
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
 	// Produces a block challenge history commitment up to and including a certain height.
@@ -525,7 +521,7 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 	return ty
 }
 
-func (s *Simulated) AssertionExecutionState(
+func (s *Simulated) assertionExecutionState(
 	ctx context.Context,
 	assertionStateHash common.Hash,
 ) (*protocol.ExecutionState, error) {
@@ -596,7 +592,7 @@ func (s *Simulated) OneStepProofData(
 	fromSmallStep,
 	toSmallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	assertionExecutionState, getErr := s.AssertionExecutionState(ctx, assertionStateHash)
+	assertionExecutionState, getErr := s.assertionExecutionState(ctx, assertionStateHash)
 	if getErr != nil {
 		err = getErr
 		return

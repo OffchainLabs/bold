@@ -22,6 +22,10 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 	if err != nil {
 		return err
 	}
+	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, assertionPrevSeqNum)
+	if err != nil {
+		return err
+	}
 	assertionPrevHeight, err := assertionPrev.Height()
 	if err != nil {
 		return err
@@ -53,7 +57,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 		},
 		levelZeroEdge,
 		assertionPrevHeight,
-		uint64(2),
+		prevCreationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
 		return err
@@ -90,8 +94,11 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Fix
-	startCommit, err := v.stateManager.HistoryCommitmentUpToBatch(ctx, prevHeight, prevHeight, uint64(1))
+	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, prevAssertionSeqNum)
+	if err != nil {
+		return nil, err
+	}
+	startCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -109,26 +116,26 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	}
 	endCommit, err := v.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
-		prevHeight,
-		prevHeight+protocol.LevelZeroBlockEdgeHeight,
-		uint64(1),
+		0,
+		protocol.LevelZeroBlockEdgeHeight,
+		prevCreationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
 		return nil, err
 	}
-	endStateHash, err := assertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
-	if endCommit.LastLeaf != endStateHash {
-		return nil, fmt.Errorf("end state has hash %v locally but %v in assertion", endCommit.LastLeaf, endStateHash)
-	}
+	// endStateHash, err := assertion.StateHash()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if endCommit.LastLeaf != endStateHash {
+	// 	return nil, fmt.Errorf("end state has hash %v locally but %v in assertion", endCommit.LastLeaf, endStateHash)
+	// }
 	startEndPrefixProof, err := v.stateManager.PrefixProofUpToBatch(
 		ctx,
-		prevHeight,
-		prevHeight,
-		prevHeight+protocol.LevelZeroBlockEdgeHeight,
-		uint64(1),
+		0,
+		0,
+		protocol.LevelZeroBlockEdgeHeight,
+		prevCreationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
 		return nil, err
