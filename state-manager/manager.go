@@ -245,7 +245,7 @@ func NewForSimpleMachine(
 	nextMachineState := big.NewInt(0)
 	for i := 0; i < len(s.stateRoots); i++ {
 		machine := execution.NewSimpleMachine(nextMachineState)
-		state := assertionChainExecutionStates[i]
+		state := s.executionStates[i]
 		machHash := machine.Hash()
 		if !s.malicious && machHash != state.GlobalState.Hash() {
 			return nil, fmt.Errorf("machine at block %v has hash %v but we expected hash %v", i, machine.Hash(), state.GlobalState.Hash())
@@ -401,7 +401,7 @@ func (s *Simulated) intermediateBigStepLeaves(
 	// Up to and including the specified step.
 	for i := fromBigStep; i <= toBigStep; i++ {
 		hash := machine.Hash()
-		machine.Step(protocol.LayerZeroSmallStepEdgeHeight)
+		machine.Step(protocol.LevelZeroSmallStepEdgeHeight)
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.

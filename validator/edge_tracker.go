@@ -366,7 +366,7 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	parentAssertionStateHash, err := prevAssertion.StateHash()
+	parentAssertionStateHash, err := prevAssertion.ChallengeHash()
 	if err != nil {
 		return err
 	}

@@ -54,7 +54,7 @@ func (a *Assertion) ChallengeHash() (common.Hash, error) {
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return inner.ChallengeHash, nil
+	return inner.StateHash, nil
 }
 
 func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
@@ -62,7 +62,7 @@ func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bytes.Equal(assertionNode.ChallengeHash[:], make([]byte, 32)) {
+	if bytes.Equal(assertionNode.StateHash[:], make([]byte, 32)) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %d",

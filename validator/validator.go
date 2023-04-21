@@ -189,7 +189,7 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
-	parentAssertionStateHash, err := parentAssertion.StateHash()
+	parentAssertionStateHash, err := parentAssertion.ChallengeHash()
 	if err != nil {
 		return nil, err
 	}

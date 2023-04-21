@@ -32,7 +32,6 @@ type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	ChallengeHash() (common.Hash, error)
-	InboxMsgCountSeen() (uint64, error)
 }
 
 // AssertionCreatedInfo from an event creation.
