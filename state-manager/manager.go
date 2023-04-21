@@ -37,12 +37,20 @@ type Manager interface {
 	// Produces the latest assertion data to post to L1 from the local state manager's
 	// perspective based on a parent assertion height.
 	LatestAssertionCreationData(ctx context.Context) (*AssertionToCreate, error)
+	AssertionExecutionState(ctx context.Context, assertionStateHash common.Hash) (*protocol.ExecutionState, error)
 	// Checks if a state commitment corresponds to data the state manager has locally.
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
 	// Produces a block challenge history commitment up to and including a certain height.
 	HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error)
-	// Produces a block challenge history commitment in a certain inclusive block range, but padding states with duplicates after the first state with a batch count of at least the specified max.
-	HistoryCommitmentUpToBatch(ctx context.Context, blockStart, blockEnd, batchCount uint64) (util.HistoryCommitment, error)
+	// Produces a block challenge history commitment in a certain inclusive block range,
+	// but padding states with duplicates after the first state with a
+	// batch count of at least the specified max.
+	HistoryCommitmentUpToBatch(
+		ctx context.Context,
+		blockStart,
+		blockEnd,
+		batchCount uint64,
+	) (util.HistoryCommitment, error)
 	// Produces a big step history commitment for all big steps within block
 	// challenge heights H to H+1.
 	BigStepLeafCommitment(
@@ -499,7 +507,7 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 	return ty
 }
 
-func (s *Simulated) assertionExecutionState(
+func (s *Simulated) AssertionExecutionState(
 	ctx context.Context,
 	assertionStateHash common.Hash,
 ) (*protocol.ExecutionState, error) {
@@ -570,7 +578,7 @@ func (s *Simulated) OneStepProofData(
 	fromSmallStep,
 	toSmallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	assertionExecutionState, getErr := s.assertionExecutionState(ctx, assertionStateHash)
+	assertionExecutionState, getErr := s.AssertionExecutionState(ctx, assertionStateHash)
 	if getErr != nil {
 		err = getErr
 		return

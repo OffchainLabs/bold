@@ -90,10 +90,6 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	prevHeight, err := prevAssertion.Height()
-	if err != nil {
-		return nil, err
-	}
 	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, prevAssertionSeqNum)
 	if err != nil {
 		return nil, err
@@ -108,8 +104,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	}
 	if startCommit.FirstLeaf != prevStateHash {
 		return nil, fmt.Errorf(
-			"start state at height %v has hash %v locally but %v in assertion",
-			prevHeight,
+			"start state has hash %v locally but %v in assertion",
 			startCommit.FirstLeaf,
 			prevStateHash,
 		)

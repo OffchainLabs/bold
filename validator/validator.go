@@ -189,6 +189,14 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
+	parentAssertionStateHash, err := parentAssertion.StateHash()
+	if err != nil {
+		return nil, err
+	}
+	parentAssertionState, err := v.stateManager.AssertionExecutionState(ctx, parentAssertionStateHash)
+	if err != nil {
+		return nil, err
+	}
 	assertionToCreate, err := v.stateManager.LatestAssertionCreationData(ctx)
 	if err != nil {
 		return nil, err
@@ -196,8 +204,8 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	assertion, err := v.chain.CreateAssertion(
 		ctx,
 		parentAssertionSeq,
-		assertionToCreate.PreState,
-		assertionToCreate.PostState,
+		parentAssertionState,
+		assertionToCreate.State,
 		assertionToCreate.InboxMaxCount,
 	)
 	switch {
@@ -206,23 +214,13 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	case err != nil:
 		return nil, err
 	}
-	parentAssertionStateHash, err := parentAssertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
 	assertionState, err := assertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
-	assertionHeight, err := assertion.Height()
 	if err != nil {
 		return nil, err
 	}
 	logFields := logrus.Fields{
 		"name":               v.name,
-		"parentHeight":       parentAssertionHeight,
 		"parentStateHash":    util.Trunc(parentAssertionStateHash.Bytes()),
-		"assertionHeight":    assertionHeight,
 		"assertionStateHash": util.Trunc(assertionState.Bytes()),
 	}
 	log.WithFields(logFields).Info("Submitted latest L2 state claim as an assertion to L1")

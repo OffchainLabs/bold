@@ -42,7 +42,6 @@ func TestCreateAssertion(t *testing.T) {
 	backend := cfg.Backend
 
 	t.Run("OK", func(t *testing.T) {
-		height := uint64(1)
 		prev := uint64(1)
 
 		latestBlockHash := common.Hash{}
@@ -64,19 +63,18 @@ func TestCreateAssertion(t *testing.T) {
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 		prevInboxMaxCount := big.NewInt(1)
-		created, err := chain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
+		created, err := chain.CreateAssertion(ctx, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
 		computed := protocol.ComputeStateHash(postState, big.NewInt(2))
 		stateHash, err := created.StateHash()
 		require.NoError(t, err)
 		require.Equal(t, computed, stateHash, "Unequal computed hash")
 
-		_, err = chain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
+		_, err = chain.CreateAssertion(ctx, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.ErrorContains(t, err, "ALREADY_STAKED")
 	})
 	t.Run("can create fork", func(t *testing.T) {
 		assertionChain := cfg.Chains[1]
-		height := uint64(1)
 		prev := uint64(1)
 
 		for i := uint64(0); i < 100; i++ {
@@ -97,7 +95,7 @@ func TestCreateAssertion(t *testing.T) {
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 		prevInboxMaxCount := big.NewInt(1)
-		forked, err := assertionChain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
+		forked, err := assertionChain.CreateAssertion(ctx, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
 		computed := protocol.ComputeStateHash(postState, big.NewInt(2))
 		stateHash, err := forked.StateHash()
@@ -131,7 +129,6 @@ func TestAssertion_Confirm(t *testing.T) {
 		chain := cfg.Chains[0]
 		backend := cfg.Backend
 
-		height := uint64(1)
 		prev := uint64(1)
 
 		assertionBlockHash := common.Hash{}
@@ -153,7 +150,7 @@ func TestAssertion_Confirm(t *testing.T) {
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 		prevInboxMaxCount := big.NewInt(1)
-		_, err = chain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
+		_, err = chain.CreateAssertion(ctx, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
 
 		err = chain.Confirm(ctx, assertionBlockHash, common.Hash{})
@@ -181,7 +178,6 @@ func TestAssertion_Reject(t *testing.T) {
 		chain := cfg.Chains[0]
 		backend := cfg.Backend
 
-		height := uint64(1)
 		prev := uint64(1)
 
 		assertionBlockHash := common.Hash{}
@@ -203,7 +199,7 @@ func TestAssertion_Reject(t *testing.T) {
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 		prevInboxMaxCount := big.NewInt(1)
-		_, err = chain.CreateAssertion(ctx, height, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
+		_, err = chain.CreateAssertion(ctx, protocol.AssertionSequenceNumber(prev), prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
 
 		for i := uint64(0); i < 100; i++ {
