@@ -39,6 +39,10 @@ type Manager interface {
 	// Produces the latest assertion data to post to L1 from the local state manager's
 	// perspective based on a parent assertion height.
 	LatestAssertionCreationData(ctx context.Context, prevHeight uint64) (*AssertionToCreate, error)
+	AssertionExecutionState(
+		ctx context.Context,
+		assertionStateHash common.Hash,
+	) (*protocol.ExecutionState, error)
 	// Checks if a state commitment corresponds to data the state manager has locally.
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
 	// Produces a block challenge history commitment up to and including a certain height.
@@ -539,11 +543,30 @@ var wasmModuleProofAbi = abi.Arguments{
 	},
 }
 
+func (s *Simulated) AssertionExecutionState(
+	ctx context.Context,
+	assertionStateHash common.Hash,
+) (*protocol.ExecutionState, error) {
+	var stateRootIndex int
+	var found bool
+	for i, r := range s.stateRoots {
+		if r == assertionStateHash {
+			stateRootIndex = i
+			found = true
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("assertion state hash %#x not found locally", assertionStateHash)
+	}
+	return s.executionStates[stateRootIndex], nil
+}
+
 func (s *Simulated) OneStepProofData(
 	ctx context.Context,
-	parentAssertionStateHash common.Hash,
 	inboxCountForAssertion *big.Int,
-	initialWasmModuleRoot common.Hash,
+	lastHash,
+	executionHash,
+	inboxAccumulator common.Hash,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -552,32 +575,19 @@ func (s *Simulated) OneStepProofData(
 	toSmallStep uint64,
 	inboxAccumulatorGetter func(idx uint64) (common.Hash, error),
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	var stateRootIndex int
-	var found bool
-	for i, r := range s.stateRoots {
-		if r == parentAssertionStateHash {
-			stateRootIndex = i
-			found = true
-		}
-	}
-	if !found {
-		err = fmt.Errorf("parent assertion state hash %#x not found locally", parentAssertionStateHash)
-		return
-	}
 
 	// Produce a proof of inbox count and wasm module root from the
 	// parent assertion's state contained locally.
-	parentAssertionState := s.executionStates[stateRootIndex]
-	afterInboxPosition := parentAssertionState.GlobalState.Batch
-	if parentAssertionState.MachineStatus == protocol.MachineStatusErrored || parentAssertionState.GlobalState.PosInBatch > 0 {
-		afterInboxPosition++
-	}
-	inboxAcc, getErr := inboxAccumulatorGetter(afterInboxPosition - 1)
-	if getErr != nil {
-		err = getErr
-		return
-	}
-	wasmModuleRootProof, packErr := wasmModuleProofAbi.Pack(inboxAcc, inboxAcc, inboxAcc)
+	// afterInboxPosition := parentAssertionState.GlobalState.Batch
+	// if parentAssertionState.MachineStatus == protocol.MachineStatusErrored || parentAssertionState.GlobalState.PosInBatch > 0 {
+	// 	afterInboxPosition++
+	// }
+	// inboxAcc, getErr := inboxAccumulatorGetter(afterInboxPosition - 1)
+	// if getErr != nil {
+	// 	err = getErr
+	// 	return
+	// }
+	wasmModuleRootProof, packErr := wasmModuleProofAbi.Pack(lastHash, executionHash, inboxAccumulator)
 	if packErr != nil {
 		err = packErr
 		return
