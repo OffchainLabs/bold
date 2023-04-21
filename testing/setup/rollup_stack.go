@@ -172,7 +172,6 @@ func CreateTwoValidatorFork(
 	}
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
-		height,
 		1,
 		genesisState,
 		evilPostState,

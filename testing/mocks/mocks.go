@@ -51,8 +51,8 @@ type MockStateManager struct {
 	mock.Mock
 }
 
-func (m *MockStateManager) LatestAssertionCreationData(ctx context.Context, prevHeight uint64) (*statemanager.AssertionToCreate, error) {
-	args := m.Called(ctx, prevHeight)
+func (m *MockStateManager) LatestAssertionCreationData(ctx context.Context) (*statemanager.AssertionToCreate, error) {
+	args := m.Called(ctx)
 	return args.Get(0).(*statemanager.AssertionToCreate), args.Error(1)
 }
 
@@ -376,8 +376,14 @@ func (m *MockProtocol) ReadAssertionCreationInfo(
 }
 
 // Mutating methods.
-func (m *MockProtocol) CreateAssertion(ctx context.Context, height uint64, prevSeqNum protocol.AssertionSequenceNumber, prevAssertionState *protocol.ExecutionState, postState *protocol.ExecutionState, prevInboxMaxCount *big.Int) (protocol.Assertion, error) {
-	args := m.Called(ctx, height, prevSeqNum, prevAssertionState, postState, prevInboxMaxCount)
+func (m *MockProtocol) CreateAssertion(
+	ctx context.Context,
+	prevSeqNum protocol.AssertionSequenceNumber,
+	prevAssertionState *protocol.ExecutionState,
+	postState *protocol.ExecutionState,
+	prevInboxMaxCount *big.Int,
+) (protocol.Assertion, error) {
+	args := m.Called(ctx, prevSeqNum, prevAssertionState, postState, prevInboxMaxCount)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 

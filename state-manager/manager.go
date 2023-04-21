@@ -29,10 +29,8 @@ var (
 // AssertionToCreate defines a struct that can provide local state data and historical
 // Merkle commitments to L2 state for the validator.
 type AssertionToCreate struct {
-	PreState      *protocol.ExecutionState
-	PostState     *protocol.ExecutionState
+	State         *protocol.ExecutionState
 	InboxMaxCount *big.Int
-	Height        uint64
 }
 
 type Manager interface {
@@ -232,26 +230,11 @@ func NewWithAssertionStates(
 
 // LatestAssertionCreationData gets the state commitment corresponding to the last, local state root the manager has
 // and a pre-state based on a height of the previous assertion the validator should build upon.
-func (s *Simulated) LatestAssertionCreationData(
-	_ context.Context,
-	prevHeight uint64,
-) (*AssertionToCreate, error) {
-	if len(s.executionStates) == 0 {
-		return nil, errors.New("no local execution states")
-	}
-	if prevHeight >= uint64(len(s.stateRoots)) {
-		return nil, fmt.Errorf(
-			"prev height %d cannot be >= %d state roots",
-			prevHeight,
-			len(s.stateRoots),
-		)
-	}
+func (s *Simulated) LatestAssertionCreationData(_ context.Context) (*AssertionToCreate, error) {
 	lastState := s.executionStates[len(s.executionStates)-1]
 	return &AssertionToCreate{
-		PreState:      s.executionStates[prevHeight],
-		PostState:     lastState,
+		State:         lastState,
 		InboxMaxCount: big.NewInt(1), // TODO: this should be s.inboxMaxCounts[len(s.inboxMaxCounts)-1] but that breaks other stuff
-		Height:        uint64(len(s.stateRoots)) - 1,
 	}, nil
 }
 
