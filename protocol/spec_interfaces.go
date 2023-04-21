@@ -3,11 +3,13 @@ package protocol
 import (
 	"context"
 	"math/big"
-	"time"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+const GenesisAssertionSeqNum = AssertionSequenceNumber(1)
 
 // AssertionSequenceNumber is a monotonically increasing ID
 // for each assertion in the chain.
@@ -33,6 +35,18 @@ type Assertion interface {
 	InboxMsgCountSeen() (uint64, error)
 }
 
+// AssertionCreatedInfo from an event creation.
+type AssertionCreatedInfo struct {
+	ParentAssertionHash common.Hash
+	BeforeState         rollupgen.ExecutionState
+	AfterState          rollupgen.ExecutionState
+	InboxMaxCount       *big.Int
+	AfterInboxBatchAcc  common.Hash
+	ExecutionHash       common.Hash
+	AssertionHash       common.Hash
+	WasmModuleRoot      common.Hash
+}
+
 // AssertionChain can manage assertions in the protocol and retrieve
 // information about them. It also has an associated challenge manager
 // which is used for all challenges in the protocol.
@@ -43,12 +57,16 @@ type AssertionChain interface {
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	GetAssertionId(ctx context.Context, seqNum AssertionSequenceNumber) (AssertionId, error)
 	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
+	GenesisAssertionHashes(
+		ctx context.Context,
+	) (common.Hash, common.Hash, common.Hash, error)
+	ReadAssertionCreationInfo(
+		ctx context.Context, seqNum AssertionSequenceNumber,
+	) (*AssertionCreatedInfo, error)
 
 	// Mutating methods.
 	CreateAssertion(
 		ctx context.Context,
-		height uint64,
-		prevSeqNum AssertionSequenceNumber,
 		prevAssertionState *ExecutionState,
 		postState *ExecutionState,
 		prevInboxMaxCount *big.Int,
@@ -113,16 +131,20 @@ type ClaimId common.Hash
 
 // OneStepData used for confirming edges by one step proofs.
 type OneStepData struct {
-	BeforeHash common.Hash
-	Proof      []byte
+	BeforeHash             common.Hash
+	Proof                  []byte
+	WasmModuleRoot         common.Hash
+	WasmModuleRootProof    []byte
+	InboxMsgCountSeen      *big.Int
+	InboxMsgCountSeenProof []byte
 }
 
 // SpecChallengeManager implements the research specification.
 type SpecChallengeManager interface {
 	// Address of the challenge manager contract.
 	Address() common.Address
-	// Duration of the challenge period.
-	ChallengePeriodSeconds(ctx context.Context) (time.Duration, error)
+	// Duration of the challenge period in blocks.
+	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.
 	GetEdge(ctx context.Context, edgeId EdgeId) (util.Option[SpecEdge], error)
 	// Calculates an edge id for an edge.
@@ -139,7 +161,7 @@ type SpecChallengeManager interface {
 	AddBlockChallengeLevelZeroEdge(
 		ctx context.Context,
 		assertion Assertion,
-		startCommit util.HistoryCommitment,
+		startCommit,
 		endCommit util.HistoryCommitment,
 		startEndPrefixProof []byte,
 	) (SpecEdge, error)
@@ -147,7 +169,7 @@ type SpecChallengeManager interface {
 	AddSubChallengeLevelZeroEdge(
 		ctx context.Context,
 		challengedEdge SpecEdge,
-		startCommit util.HistoryCommitment,
+		startCommit,
 		endCommit util.HistoryCommitment,
 		startParentInclusionProof []common.Hash,
 		endParentInclusionProof []common.Hash,
@@ -167,9 +189,9 @@ type SpecChallengeManager interface {
 type Height uint64
 
 // Also copied in contracts/src/libraries/Constants.sol
-const LayerZeroBlockEdgeHeight = 1 << 5
-const LayerZeroBigStepEdgeHeight = 1 << 5
-const LayerZeroSmallStepEdgeHeight = 1 << 5
+const LevelZeroBlockEdgeHeight = 1 << 5
+const LevelZeroBigStepEdgeHeight = 1 << 5
+const LevelZeroSmallStepEdgeHeight = 1 << 5
 
 // EdgeStatus of an edge in the protocol.
 type EdgeStatus uint8
@@ -196,6 +218,9 @@ type SpecEdge interface {
 	StartCommitment() (Height, common.Hash)
 	// The end height and history commitment for an edge.
 	EndCommitment() (Height, common.Hash)
+	// The assertion id of the parent assertion that originated the challenge
+	// at the top-level.
+	PrevAssertionId(ctx context.Context) (AssertionId, error)
 	// The time in seconds an edge has been unrivaled.
 	TimeUnrivaled(ctx context.Context) (uint64, error)
 	// Whether or not an edge has rivals.
@@ -219,5 +244,4 @@ type SpecEdge interface {
 	// The history commitment for the top-level edge the current edge's challenge is made upon.
 	// This is used at subchallenge creation boundaries.
 	TopLevelClaimHeight(ctx context.Context) (*OriginHeights, error)
-	// The ending batch count of the corresponding top-level claim
 }

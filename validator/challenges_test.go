@@ -1,8 +1,10 @@
 package validator
 
 import (
+	"bytes"
 	"context"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,7 +82,7 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
 	t.Run("two validators opening leaves at height 31", func(t *testing.T) {
-		// TODO: we would use a larger height here but we're limited by protocol.LayerZeroBlockEdgeHeight
+		// TODO: we would use a larger height here but we're limited by protocol.LevelZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
 			aliceHeight:               31,
 			bobHeight:                 31,
@@ -96,7 +98,7 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
 	t.Run("two validators disagreeing on the number of blocks", func(t *testing.T) {
-		// TODO: we would use a larger height here but we're limited by protocol.LayerZeroBlockEdgeHeight
+		// TODO: we would use a larger height here but we're limited by protocol.LevelZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
 			aliceHeight:               7,
 			bobHeight:                 8,
@@ -286,15 +288,20 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 		}
 	}()
 
+	genesis, err := alice.chain.AssertionBySequenceNum(ctx, protocol.GenesisAssertionSeqNum)
+	require.NoError(t, err)
+	genesisStateHash, err := genesis.StateHash()
+	require.NoError(t, err)
+
 	// Submit leaf creation manually for each validator.
-	latestHonest, err := honestManager.LatestAssertionCreationData(ctx, 0)
+	genesisState, err := honestManager.AssertionExecutionState(ctx, genesisStateHash)
+	require.NoError(t, err)
+	latestHonest, err := honestManager.LatestAssertionCreationData(ctx)
 	require.NoError(t, err)
 	leaf1, err := alice.chain.CreateAssertion(
 		ctx,
-		latestHonest.Height,
-		1,
-		latestHonest.PreState,
-		latestHonest.PostState,
+		genesisState,
+		latestHonest.State,
 		latestHonest.InboxMaxCount,
 	)
 	require.NoError(t, err)
@@ -303,14 +310,12 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 	expectedLeaf1State := protocol.ComputeSimpleMachineChallengeHash(latestHonest.PostState)
 	assert.Equal(t, leaf1State, expectedLeaf1State, "created honest leaf1 with an unexpected state hash")
 
-	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx, 0)
+	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx)
 	require.NoError(t, err)
 	leaf2, err := bob.chain.CreateAssertion(
 		ctx,
-		latestEvil.Height,
-		1,
-		latestEvil.PreState,
-		latestEvil.PostState,
+		genesisState,
+		latestEvil.State,
 		latestEvil.InboxMaxCount,
 	)
 	require.NoError(t, err)
@@ -334,9 +339,9 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 
 	honestStartCommit, err := honestManager.HistoryCommitmentUpTo(ctx, 0)
 	require.NoError(t, err)
-	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
-	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Log("Alice creates level zero block edge")
@@ -350,9 +355,9 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 
 	evilStartCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, 0)
 	require.NoError(t, err)
-	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
-	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LayerZeroBlockEdgeHeight, 1)
+	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Log("Bob creates level zero block edge")

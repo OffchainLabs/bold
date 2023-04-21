@@ -25,8 +25,12 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 contract EdgeChallengeManagerTest is Test {
     Random rand = new Random();
     bytes32 genesisBlockHash = rand.hash();
-    State genesisState = StateToolsLib.randomState(rand, 7, genesisBlockHash, MachineStatus.RUNNING);
+    State genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.hash(genesisState);
+    bytes32 genesisExecutionHash = RollupLib.executionHash(AssertionInputs({
+        beforeState: genesisState.es,
+        afterState: genesisState.es
+    }));
 
     function genesisStates() internal view returns (bytes32[] memory) {
         bytes32[] memory genStates = new bytes32[](1);
@@ -45,7 +49,7 @@ contract EdgeChallengeManagerTest is Test {
     uint256 height1 = 32;
 
     uint256 miniStakeVal = 1 ether;
-    uint256 challengePeriodSec = 1000;
+    uint256 challengePeriodBlock = 1000;
 
     function appendRandomStates(bytes32[] memory currentStates, uint256 numStates)
         internal
@@ -61,9 +65,9 @@ contract EdgeChallengeManagerTest is Test {
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
         EdgeChallengeManager challengeManager =
-            new EdgeChallengeManager(assertionChain, challengePeriodSec, new MockOneStepProofEntry());
+            new EdgeChallengeManager(assertionChain, challengePeriodBlock, new MockOneStepProofEntry());
 
-        bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisStateHash, 0);
+        bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, genesisState, 0);
         return (assertionChain, challengeManager, genesis);
     }
 
@@ -81,16 +85,16 @@ contract EdgeChallengeManagerTest is Test {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
         State memory a2State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.FINISHED);
 
         // add one since heights are zero indexed in the history states
         bytes32 a1 = assertionChain.addAssertion(
-            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a1State), 0
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
         );
         bytes32 a2 = assertionChain.addAssertion(
-            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a2State), 0
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a2State, 0
         );
 
         return EdgeInitData({
@@ -104,63 +108,14 @@ contract EdgeChallengeManagerTest is Test {
         });
     }
 
-    function testRevertNonZeroStartHeight() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states, bytes32[] memory exp) =
-            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
-
-        vm.expectRevert("Start height is not 0");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 1,
-                endHistoryRoot: MerkleTreeLib.root(exp),
-                endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
-        );
-    }
-
-    function testRevertBlockChallengeExpired() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states, bytes32[] memory exp) =
-            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
-
-        vm.warp(block.timestamp + 2 * challengePeriodSec);
-        vm.expectRevert("Challenge period has expired");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(exp),
-                endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
-        );
-    }
-
     function testRevertBlockNoFork() public {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
         State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.RUNNING);
+            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
 
         bytes32 a1 = assertionChain.addAssertion(
-            genesis, genesisHeight + height1, inboxMsgCountAssertion, StateToolsLib.hash(a1State), 0
+            genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
         );
 
         (bytes32[] memory states, bytes32[] memory exp) =
@@ -170,8 +125,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edgeId = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: a1
@@ -190,38 +143,12 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory states, bytes32[] memory exp) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
 
-        vm.expectRevert("Invalid block edge end height");
+        vm.expectRevert("Invalid edge size");
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: 1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
-        );
-    }
-
-    function testRevertBlockInvalidHistroy() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states, bytes32[] memory exp) =
-            appendRandomStatesBetween(genesisStates(), StateToolsLib.hash(ei.a1State), height1);
-
-        vm.expectRevert("Start history root does not match previous assertion");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.Block,
-                startHistoryRoot: keccak256(abi.encodePacked("bad root")),
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(exp),
-                endHeight: height1,
                 claimId: ei.a1
             }),
             abi.encode(
@@ -242,8 +169,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: ei.a1
@@ -266,8 +191,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: ei.a1
@@ -289,8 +212,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: ei.a1
@@ -302,7 +223,7 @@ contract EdgeChallengeManagerTest is Test {
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
         );
 
-        vm.warp(challengePeriodSec + 2);
+        vm.roll(challengePeriodBlock + 2);
 
         bytes32[] memory ancestorEdges = new bytes32[](0);
         ei.challengeManager.confirmEdgeByTime(edgeId, ancestorEdges);
@@ -319,8 +240,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edge1Id = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp1),
                 endHeight: height1,
                 claimId: ei.a1
@@ -332,7 +251,7 @@ contract EdgeChallengeManagerTest is Test {
             abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1))
         );
 
-        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
         {
@@ -341,8 +260,6 @@ contract EdgeChallengeManagerTest is Test {
             bytes32 edge2Id = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.Block,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(exp2),
                     endHeight: height1,
                     claimId: ei.a2
@@ -354,14 +271,14 @@ contract EdgeChallengeManagerTest is Test {
                 abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1))
             );
 
-            vm.warp(block.timestamp + 2);
+            vm.roll(block.number + 2);
             assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
             assertEq(ei.challengeManager.timeUnrivaled(edge2Id), 0, "Edge2 timer");
         }
 
         BisectionChildren memory children = bisect(ei.challengeManager, edge1Id, states1, 16, states1.length - 1);
 
-        vm.warp(challengePeriodSec + 5);
+        vm.roll(challengePeriodBlock + 5);
 
         bytes32[] memory ancestors = new bytes32[](1);
         ancestors[0] = edge1Id;
@@ -525,8 +442,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -560,8 +475,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -598,46 +511,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
-                endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
-        );
-    }
-
-    function testRevertSubChallengeBadHistory() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
-            CreateEdgesBisectArgs(
-                ei.challengeManager,
-                EdgeType.Block,
-                ei.a1,
-                ei.a2,
-                StateToolsLib.hash(ei.a1State),
-                StateToolsLib.hash(ei.a2State),
-                false,
-                new bytes32[](0),
-                new bytes32[](0)
-            )
-        );
-
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
-            appendRandomStatesBetween(genesisStates(), states1[1], height1);
-
-        vm.expectRevert("Start history root does not match mutual startHistoryRoot");
-        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
-                startHistoryRoot: keccak256(abi.encodePacked("bad root")),
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -674,8 +547,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -717,8 +588,6 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -760,8 +629,6 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -803,8 +670,6 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -816,45 +681,6 @@ contract EdgeChallengeManagerTest is Test {
             abi.encode(
                 states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, claimStartInclusionProof
             )
-        );
-    }
-
-    function testRevertSubChallengeExpired() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states1,, BisectionChildren[6] memory edges1,) = createEdgesAndBisectToFork(
-            CreateEdgesBisectArgs(
-                ei.challengeManager,
-                EdgeType.Block,
-                ei.a1,
-                ei.a2,
-                StateToolsLib.hash(ei.a1State),
-                StateToolsLib.hash(ei.a2State),
-                false,
-                new bytes32[](0),
-                new bytes32[](0)
-            )
-        );
-
-        (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
-            appendRandomStatesBetween(genesisStates(), states1[1], height1);
-
-        vm.warp(block.timestamp + challengePeriodSec);
-        vm.expectRevert("Challenge period has expired");
-        ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
-                endHistoryRoot: MerkleTreeLib.root(bigStepExp),
-                endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
         );
     }
 
@@ -878,12 +704,10 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        vm.expectRevert("Invalid bigstep edge end height");
+        vm.expectRevert("Invalid edge size");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: 1,
                 claimId: edges1[0].lowerChildId
@@ -927,8 +751,6 @@ contract EdgeChallengeManagerTest is Test {
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.BigStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId
@@ -950,8 +772,6 @@ contract EdgeChallengeManagerTest is Test {
             edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.BigStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId
@@ -976,12 +796,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory smallStepExp1;
             (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
 
-            vm.expectRevert("Claim challenge type is not Block");
+            vm.expectRevert("Invalid claim edge type");
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.BigStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId
@@ -1018,12 +836,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory bigStepExp1;
             (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-            vm.expectRevert("Claim challenge type is not BigStep");
+            vm.expectRevert("Invalid claim edge type");
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.SmallStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId
@@ -1068,8 +884,6 @@ contract EdgeChallengeManagerTest is Test {
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.BigStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId
@@ -1091,8 +905,6 @@ contract EdgeChallengeManagerTest is Test {
             edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.BigStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId
@@ -1117,12 +929,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory smallStepExp1;
             (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
 
-            vm.expectRevert("Invalid smallstep edge end height");
+            vm.expectRevert("Invalid edge size");
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.SmallStep,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId
@@ -1159,8 +969,6 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
-                startHistoryRoot: genesisRoot,
-                startHeight: 0,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId
@@ -1172,7 +980,7 @@ contract EdgeChallengeManagerTest is Test {
             generateEdgeProof(states1, bigStepStates)
         );
 
-        vm.warp(challengePeriodSec + 5);
+        vm.roll(challengePeriodBlock + 5);
 
         ei.challengeManager.confirmEdgeByTime(edge1BigStepId, new bytes32[](0));
 
@@ -1236,8 +1044,6 @@ contract EdgeChallengeManagerTest is Test {
             edge1Id = args.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: args.eType,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(exp1),
                     endHeight: height1,
                     claimId: args.claim1Id
@@ -1250,7 +1056,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
 
@@ -1281,8 +1087,6 @@ contract EdgeChallengeManagerTest is Test {
             edge2Id = args.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: args.eType,
-                    startHistoryRoot: genesisRoot,
-                    startHeight: 0,
                     endHistoryRoot: MerkleTreeLib.root(exp2),
                     endHeight: height1,
                     claimId: args.claim2Id
@@ -1295,7 +1099,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        vm.warp(block.timestamp + 2);
+        vm.roll(block.number + 2);
 
         (BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = bisectToForkOnly(
             BisectToForkOnlyArgs(args.challengeManager, edge1Id, edge2Id, states1, states2, args.skipLast)
@@ -1359,7 +1163,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.warp(challengePeriodSec + 11);
+        vm.roll(challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));
@@ -1475,7 +1279,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.warp(challengePeriodSec + 11);
+        vm.roll(challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));
@@ -1486,7 +1290,14 @@ contract EdgeChallengeManagerTest is Test {
 
         ei.challengeManager.confirmEdgeByOneStepProof(
             allWinners[0].lowerChildId,
-            OneStepData({beforeHash: firstStates[0], proof: abi.encodePacked(firstStates[1])}),
+            OneStepData({
+                inboxMsgCountSeen: 7,
+                inboxMsgCountSeenProof: abi.encode(genesisState.es),
+                wasmModuleRoot: bytes32(0),
+                wasmModuleRootProof: abi.encode(bytes32(0), genesisExecutionHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
+                beforeHash: firstStates[0],
+                proof: abi.encodePacked(firstStates[1])
+            }),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(genesisStates()), 0),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(firstStates), 1)
         );
