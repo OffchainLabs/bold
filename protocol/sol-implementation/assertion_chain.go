@@ -150,23 +150,11 @@ func (ac *AssertionChain) InitialWasmModuleRoot(ctx context.Context) (common.Has
 // and a commitment to a post-state.
 func (ac *AssertionChain) CreateAssertion(
 	ctx context.Context,
-	height uint64,
 	prevAssertionId protocol.AssertionSequenceNumber,
 	prevAssertionState *protocol.ExecutionState,
 	postState *protocol.ExecutionState,
 	prevInboxMaxCount *big.Int,
 ) (protocol.Assertion, error) {
-	prev, err := ac.AssertionBySequenceNum(ctx, prevAssertionId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get prev assertion with id: %d", prevAssertionId)
-	}
-	prevHeight, err := prev.Height()
-	if err != nil {
-		return nil, err
-	}
-	if prevHeight >= height {
-		return nil, errors.Wrapf(ErrInvalidHeight, "prev height %d was >= incoming %d", prevHeight, height)
-	}
 	stake, err := ac.userLogic.CurrentRequiredStake(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get current required stake")
@@ -185,7 +173,7 @@ func (ac *AssertionChain) CreateAssertion(
 			prevInboxMaxCount,
 		)
 	})
-	if createErr := handleCreateAssertionError(err, height, postState.GlobalState.BlockHash); createErr != nil {
+	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
 		return nil, createErr
 	}
 	if len(receipt.Logs) == 0 {
@@ -351,7 +339,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	}, nil
 }
 
-func handleCreateAssertionError(err error, height uint64, blockHash common.Hash) error {
+func handleCreateAssertionError(err error, blockHash common.Hash) error {
 	if err == nil {
 		return nil
 	}
@@ -360,16 +348,8 @@ func handleCreateAssertionError(err error, height uint64, blockHash common.Hash)
 	case strings.Contains(errS, "Assertion already exists"):
 		return errors.Wrapf(
 			ErrAlreadyExists,
-			"commit block hash %#x and height %d",
+			"commit block hash %#x",
 			blockHash,
-			height,
-		)
-	case strings.Contains(errS, "Height not greater than predecessor"):
-		return errors.Wrapf(
-			ErrInvalidHeight,
-			"commit block hash %#x and height %d",
-			blockHash,
-			height,
 		)
 	case strings.Contains(errS, "Previous assertion does not exist"):
 		return ErrPrevDoesNotExist

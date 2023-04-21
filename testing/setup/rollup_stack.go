@@ -136,7 +136,6 @@ func CreateTwoValidatorFork(
 		}
 	}
 
-	height += 1
 	honestBlockHash = setup.Backend.Commit()
 	honestPostState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
@@ -147,7 +146,6 @@ func CreateTwoValidatorFork(
 	}
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
-		height,
 		1,
 		genesisState,
 		honestPostState,

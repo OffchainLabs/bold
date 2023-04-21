@@ -491,6 +491,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			uint64(0),
 			protocol.MachineStatusFinished,
 		)
+		require.NoError(t, err)
 
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
@@ -552,6 +553,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			uint64(0),
 			protocol.MachineStatusFinished,
 		)
+		require.NoError(t, err)
 
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,

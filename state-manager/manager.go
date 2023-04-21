@@ -38,7 +38,7 @@ type AssertionToCreate struct {
 type Manager interface {
 	// Produces the latest assertion data to post to L1 from the local state manager's
 	// perspective based on a parent assertion height.
-	LatestAssertionCreationData(ctx context.Context, prevHeight uint64) (*AssertionToCreate, error)
+	LatestAssertionCreationData(ctx context.Context) (*AssertionToCreate, error)
 	// Checks if a state commitment corresponds to data the state manager has locally.
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
 	// Produces a block challenge history commitment up to and including a certain height.
@@ -257,10 +257,12 @@ func (s *Simulated) LatestAssertionCreationData(
 
 // HasStateCommitment checks if a state commitment is found in our local list of state roots.
 func (s *Simulated) HasStateCommitment(_ context.Context, commitment util.StateCommitment) bool {
-	if commitment.Height >= uint64(len(s.stateRoots)) {
-		return false
+	for _, r := range s.stateRoots {
+		if r == commitment.StateRoot {
+			return true
+		}
 	}
-	return s.stateRoots[commitment.Height] == commitment.StateRoot
+	return false
 }
 
 func (s *Simulated) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error) {
@@ -503,13 +505,6 @@ func (s *Simulated) intermediateSmallStepLeaves(
 		leaves = append(leaves, hash)
 	}
 	return leaves, nil
-}
-
-type wasmModuleRootProof struct {
-	prevAssertionHash     common.Hash
-	executionHash         common.Hash
-	inboxAcc              common.Hash
-	initialWasmModuleRoot common.Hash
 }
 
 // Like abi.NewType but panics if it fails for use in constants

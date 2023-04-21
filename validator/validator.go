@@ -189,18 +189,12 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
-	parentAssertionHeight, err := parentAssertion.Height()
+	assertionToCreate, err := v.stateManager.LatestAssertionCreationData(ctx)
 	if err != nil {
 		return nil, err
 	}
-	assertionToCreate, err := v.stateManager.LatestAssertionCreationData(ctx, parentAssertionHeight)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Assertion to make %+v\n", assertionToCreate)
 	assertion, err := v.chain.CreateAssertion(
 		ctx,
-		assertionToCreate.Height,
 		parentAssertionSeq,
 		assertionToCreate.PreState,
 		assertionToCreate.PostState,
@@ -264,16 +258,11 @@ func (v *Validator) findLatestValidAssertion(ctx context.Context) (protocol.Asse
 		if !ok {
 			continue
 		}
-		height, err := a.Height()
-		if err != nil {
-			return 0, err
-		}
 		stateHash, err := a.StateHash()
 		if err != nil {
 			return 0, err
 		}
 		if v.stateManager.HasStateCommitment(ctx, util.StateCommitment{
-			Height:    height,
 			StateRoot: stateHash,
 		}) {
 			return a.SeqNum(), nil
