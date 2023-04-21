@@ -374,9 +374,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			honestChildren2.Id(),
 			&protocol.OneStepData{
-				BeforeHash:        common.Hash{},
-				Proof:             make([]byte, 0),
-				InboxMsgCountSeen: big.NewInt(0),
+				BeforeHash:             common.Hash{},
+				Proof:                  make([]byte, 0),
+				InboxMsgCountSeen:      big.NewInt(1),
+				InboxMsgCountSeenProof: inboxMaxCountProof,
+				WasmModuleRoot:         wasmModuleRoot,
+				WasmModuleRootProof:    wasmModuleRootProof,
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -408,13 +411,30 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgePending, s2)
 
+		executionHash, _, wasmModuleRoot, err := bisectionScenario.topLevelFork.Chains[0].GenesisAssertionHashes(ctx)
+		require.NoError(t, err)
+		wasmModuleRootProof, err := statemanager.WasmModuleProofAbi.Pack(common.Hash{}, executionHash, common.Hash{})
+		require.NoError(t, err)
+
+		inboxMaxCountProof, err := statemanager.ExecutionStateAbi.Pack(
+			common.Hash{},
+			common.Hash{},
+			uint64(0),
+			uint64(0),
+			protocol.MachineStatusFinished,
+		)
+
+		require.NoError(t, err)
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
 			honestChildren1.Id(),
 			&protocol.OneStepData{
-				BeforeHash:        common.Hash{},
-				Proof:             make([]byte, 0),
-				InboxMsgCountSeen: big.NewInt(0),
+				BeforeHash:             common.Hash{},
+				Proof:                  make([]byte, 0),
+				InboxMsgCountSeen:      big.NewInt(1),
+				InboxMsgCountSeenProof: inboxMaxCountProof,
+				WasmModuleRoot:         wasmModuleRoot,
+				WasmModuleRootProof:    wasmModuleRootProof,
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -424,9 +444,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			honestChildren2.Id(),
 			&protocol.OneStepData{
-				BeforeHash:        common.Hash{},
-				Proof:             make([]byte, 0),
-				InboxMsgCountSeen: big.NewInt(0),
+				BeforeHash:             common.Hash{},
+				Proof:                  make([]byte, 0),
+				InboxMsgCountSeen:      big.NewInt(1),
+				InboxMsgCountSeenProof: inboxMaxCountProof,
+				WasmModuleRoot:         wasmModuleRoot,
+				WasmModuleRootProof:    wasmModuleRootProof,
 			},
 			make([]common.Hash, 0),
 			make([]common.Hash, 0),
@@ -456,13 +479,29 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		executionHash, _, wasmModuleRoot, err := scenario.topLevelFork.Chains[0].GenesisAssertionHashes(ctx)
+		require.NoError(t, err)
+		wasmModuleRootProof, err := statemanager.WasmModuleProofAbi.Pack(common.Hash{}, executionHash, common.Hash{})
+		require.NoError(t, err)
+
+		inboxMaxCountProof, err := statemanager.ExecutionStateAbi.Pack(
+			common.Hash{},
+			common.Hash{},
+			uint64(0),
+			uint64(0),
+			protocol.MachineStatusFinished,
+		)
+
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
 			honestEdge.Id(),
 			&protocol.OneStepData{
-				BeforeHash:        common.BytesToHash([]byte("foo")),
-				Proof:             honestCommit.LastLeaf[:],
-				InboxMsgCountSeen: big.NewInt(0),
+				BeforeHash:             common.BytesToHash([]byte("foo")),
+				Proof:                  honestCommit.LastLeaf[:],
+				InboxMsgCountSeen:      big.NewInt(1),
+				InboxMsgCountSeenProof: inboxMaxCountProof,
+				WasmModuleRoot:         wasmModuleRoot,
+				WasmModuleRootProof:    wasmModuleRootProof,
 			},
 			honestCommit.FirstLeafProof,
 			honestCommit.LastLeafProof,
@@ -501,13 +540,29 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		executionHash, _, wasmModuleRoot, err := scenario.topLevelFork.Chains[0].GenesisAssertionHashes(ctx)
+		require.NoError(t, err)
+		wasmModuleRootProof, err := statemanager.WasmModuleProofAbi.Pack(common.Hash{}, executionHash, common.Hash{})
+		require.NoError(t, err)
+
+		inboxMaxCountProof, err := statemanager.ExecutionStateAbi.Pack(
+			common.Hash{},
+			common.Hash{},
+			uint64(0),
+			uint64(0),
+			protocol.MachineStatusFinished,
+		)
+
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
 			evilEdge.Id(),
 			&protocol.OneStepData{
-				BeforeHash:        startCommit.LastLeaf,
-				Proof:             make([]byte, 0),
-				InboxMsgCountSeen: big.NewInt(0),
+				BeforeHash:             startCommit.LastLeaf,
+				Proof:                  make([]byte, 0),
+				InboxMsgCountSeen:      big.NewInt(1),
+				InboxMsgCountSeenProof: inboxMaxCountProof,
+				WasmModuleRoot:         wasmModuleRoot,
+				WasmModuleRootProof:    wasmModuleRootProof,
 			},
 			startCommit.LastLeafProof,
 			endCommit.LastLeafProof,
