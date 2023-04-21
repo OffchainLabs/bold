@@ -136,16 +136,6 @@ func (ac *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Asserti
 	return ac.AssertionBySequenceNum(ctx, protocol.AssertionSequenceNumber(res))
 }
 
-func (ac *AssertionChain) AssertionInboxMaxCount(
-	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
-) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (ac *AssertionChain) InitialWasmModuleRoot(ctx context.Context) (common.Hash, error) {
-	return common.Hash{}, nil
-}
-
 // CreateAssertion makes an on-chain claim given a previous assertion id, execution state,
 // and a commitment to a post-state.
 func (ac *AssertionChain) CreateAssertion(
@@ -169,7 +159,7 @@ func (ac *AssertionChain) CreateAssertion(
 				BeforeState: prevAssertionState.AsSolidityStruct(),
 				AfterState:  postState.AsSolidityStruct(),
 			},
-			common.Hash{}, // Expected hash. TODO: Is this fine as empty?
+			common.Hash{}, // Expected hash. TODO(RJ): Is this fine as empty?
 			prevInboxMaxCount,
 		)
 	})

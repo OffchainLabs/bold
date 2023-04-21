@@ -508,7 +508,7 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 }
 
 func (s *Simulated) AssertionExecutionState(
-	ctx context.Context,
+	_ context.Context,
 	assertionStateHash common.Hash,
 ) (*protocol.ExecutionState, error) {
 	var stateRootIndex int

@@ -55,7 +55,7 @@ func (m *MockStateManager) AssertionExecutionState(
 	ctx context.Context,
 	assertionStateHash common.Hash,
 ) (*protocol.ExecutionState, error) {
-	args := m.Called(ctx)
+	args := m.Called(ctx, assertionStateHash)
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 func (m *MockStateManager) LatestAssertionCreationData(ctx context.Context) (*statemanager.AssertionToCreate, error) {
