@@ -128,8 +128,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		return et.fsm.Do(edgeMarkPresumptive{})
 	case edgeAwaitingSubchallenge:
-		// TODO: Perhaps we need an intermediate stage that tries to
-		// take confirmation actions if it can.
+		// Attempt to confirm by children.
 		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
 	default:
 		return fmt.Errorf("invalid state: %s", current.State)
