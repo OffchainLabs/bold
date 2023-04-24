@@ -71,7 +71,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		if err := et.submitOneStepProof(ctx); err != nil {
 			return errors.Wrap(err, "could not submit one step proof")
 		}
-		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
+		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		event, ok := current.SourceEvent.(edgeOpenSubchallengeLeaf)
