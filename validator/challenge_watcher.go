@@ -5,11 +5,9 @@ import (
 	"time"
 
 	"fmt"
-	"math/big"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,16 +52,19 @@ type challengeWatcher struct {
 	chain              protocol.AssertionChain
 	pollEventsInterval time.Duration
 	challenges         map[protocol.AssertionId]*challenge
+	backend            bind.ContractBackend
 }
 
 func NewWatcher(
 	chain protocol.AssertionChain,
+	backend bind.ContractBackend,
 	interval time.Duration,
 ) *challengeWatcher {
 	return &challengeWatcher{
 		chain:              chain,
 		pollEventsInterval: interval,
 		challenges:         make(map[protocol.AssertionId]*challenge),
+		backend:            backend,
 	}
 }
 
@@ -97,8 +98,9 @@ type ancestorsBranch struct {
 func (a *ancestorsBranch) updateTotalBlocksUnrivaled(
 	ctx context.Context,
 	challengeManager protocol.SpecChallengeManager,
+	backend bind.ContractBackend,
 ) {
-	caller, err := challengeV2gen.NewEdgeChallengeManagerCaller(challengeManager.Address(), nil)
+	caller, err := challengeV2gen.NewEdgeChallengeManagerCaller(challengeManager.Address(), backend)
 	if err != nil {
 		panic(err)
 	}
@@ -139,20 +141,14 @@ func (s *set[T]) has(t T) bool {
 // TODO: Panic if something occurs
 func (w *challengeWatcher) Watch(ctx context.Context) error {
 	// Start from the latest confirmed assertion's creation block.
-	// latestConfirmed, err := w.chain.LatestConfirmed(ctx)
-	// if err != nil {
-	// 	return err
-	// }
-	// assertionNode, ok := latestConfirmed.(*Assertion)
-	// if !ok {
-	// 	return errors.New("not ok")
-	// }
-	// inner, err := assertionNode.inner()
-	// if err != nil {
-	// 	return err
-	// }
-	// firstBlock := inner.CreatedAtBlock
-	firstBlock := uint64(0)
+	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
+	if err != nil {
+		return err
+	}
+	firstBlock, err := latestConfirmed.CreatedAtBlock()
+	if err != nil {
+		return err
+	}
 	fromBlock := firstBlock
 
 	// Some kind of backoff so as to not spam the node with requests.
@@ -161,68 +157,87 @@ func (w *challengeWatcher) Watch(ctx context.Context) error {
 	for {
 		select {
 		case <-ticker.C:
-			// latestBlock, err := w.chain.backend.HeaderByNumber(ctx, nil)
-			// if err != nil {
-			// 	return err
-			// }
-			// toBlock := latestBlock.Number.Uint64()
-			toBlock := uint64(0)
+			latestBlock, err := w.backend.HeaderByNumber(ctx, nil)
+			if err != nil {
+				return err
+			}
+			toBlock := latestBlock.Number.Uint64()
+
+			if fromBlock == toBlock {
+				continue
+			}
 
 			challengeManager, err := w.chain.SpecChallengeManager(ctx)
 			if err != nil {
 				return err
 			}
-			topics := make([]common.Hash, 0, len(topicByName))
-			for _, v := range topicByName {
-				topics = append(topics, v)
-			}
-			var query = ethereum.FilterQuery{
-				FromBlock: new(big.Int).SetUint64(fromBlock),
-				ToBlock:   new(big.Int).SetUint64(toBlock),
-				Addresses: []common.Address{challengeManager.Address()},
-				Topics:    [][]common.Hash{topics, {}},
-			}
-			logs, err := w.chain.backend.FilterLogs(ctx, query)
+			filterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 			if err != nil {
 				return err
 			}
-			if len(logs) == 0 {
-				continue
+			filterOpts := &bind.FilterOpts{
+				Start:   fromBlock,
+				End:     &toBlock,
+				Context: ctx,
 			}
-			// For each level zero edge creation event, get the edge type.
-			// Then, use the edge type to add to a challenge set in the challenge watcher.
-			for _, l := range logs {
-				topicName, ok := nameByTopic[l.Topics[0]]
-				if !ok {
-					continue
-				}
-
-				if isConfirmationTopic(topicName) {
-					// If edge is being confirmed, we check if it has a non-zero claimId.
-					// If so, it is a level zero edge, and we keep track of it in the watcher.
-				}
-
-				switch {
-				case topicName == "EdgeAdded":
-					// Switch on the log type.
-					edgeAdded, err := challengeManager.filterer.ParseEdgeAdded(l)
-					if err != nil {
-						return err
-					}
-					if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge {
-						if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
-							w.challenges[edgeAdded.ClaimId] = &challenge{
-								honestAncestorsBranch:          &ancestorsBranch{},
-								confirmedLevelZeroEdgeClaimIds: newSet[protocol.ClaimId](),
-							}
-						}
-					}
-				}
-
-				// Watcher needs access to the challenge manager. If it sees an edge it agrees with (honest),
-				// it will then persist that in the honest ancestors branch. It needs to keep track of ancestors
-				// in a special order.
+			if err = w.checkForEdgeAdded(filterOpts, filterer); err != nil {
+				return err
 			}
+			if err = w.checkForEdgeConfirmedByOneStepProof(filterOpts, filterer); err != nil {
+				return err
+			}
+
+			// topics := make([]common.Hash, 0, len(topicByName))
+			// for _, v := range topicByName {
+			// 	topics = append(topics, v)
+			// }
+			// var query = ethereum.FilterQuery{
+			// 	FromBlock: new(big.Int).SetUint64(fromBlock),
+			// 	ToBlock:   new(big.Int).SetUint64(toBlock),
+			// 	Addresses: []common.Address{challengeManager.Address()},
+			// 	Topics:    [][]common.Hash{topics, {}},
+			// }
+			// logs, err := w.backend.FilterLogs(ctx, query)
+			// if err != nil {
+			// 	return err
+			// }
+			// if len(logs) == 0 {
+			// 	continue
+			// }
+			// // For each level zero edge creation event, get the edge type.
+			// // Then, use the edge type to add to a challenge set in the challenge watcher.
+			// for _, l := range logs {
+			// 	topicName, ok := nameByTopic[l.Topics[0]]
+			// 	if !ok {
+			// 		continue
+			// 	}
+
+			// 	if isConfirmationTopic(topicName) {
+			// 		// If edge is being confirmed, we check if it has a non-zero claimId.
+			// 		// If so, it is a level zero edge, and we keep track of it in the watcher.
+			// 	}
+
+			// 	switch {
+			// 	case topicName == "EdgeAdded":
+			// 		// Switch on the log type.
+			// 		edgeAdded, err := filterer.ParseEdgeAdded(l)
+			// 		if err != nil {
+			// 			return err
+			// 		}
+			// 		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge {
+			// 			if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
+			// 				w.challenges[edgeAdded.ClaimId] = &challenge{
+			// 					honestAncestorsBranch:          &ancestorsBranch{},
+			// 					confirmedLevelZeroEdgeClaimIds: newSet[protocol.ClaimId](),
+			// 				}
+			// 			}
+			// 		}
+			// 	}
+
+			// 	// Watcher needs access to the challenge manager. If it sees an edge it agrees with (honest),
+			// 	// it will then persist that in the honest ancestors branch. It needs to keep track of ancestors
+			// 	// in a special order.
+			// }
 			fromBlock = toBlock
 		case <-ctx.Done():
 			return nil
@@ -230,13 +245,89 @@ func (w *challengeWatcher) Watch(ctx context.Context) error {
 	}
 }
 
+func (w *challengeWatcher) checkForEdgeConfirmedByOneStepProof(
+	filterOpts *bind.FilterOpts,
+	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
+) error {
+	challengeManager, err := w.chain.SpecChallengeManager(filterOpts.Context)
+	if err != nil {
+		return err
+	}
+	it, err := filterer.FilterEdgeConfirmedByOneStepProof(filterOpts, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err = it.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	for it.Next() {
+		if it.Error() != nil {
+			return err // TODO: Handle better.
+		}
+		if err := w.checkLevelZeroEdgeConfirmed(filterOpts.Context, challengeManager, it.Event.EdgeId); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *challengeWatcher) checkLevelZeroEdgeConfirmed(
+	ctx context.Context,
+	manager protocol.SpecChallengeManager,
+	edgeId protocol.EdgeId,
+) error {
+	edgeOpt, err := manager.GetEdge(ctx, edgeId)
+	if err != nil {
+		return err
+	}
+	if edgeOpt.IsNone() {
+		return errors.New("no edge found")
+	}
+	edge := edgeOpt.Unwrap()
+	if edge.ClaimId().IsNone() {
+		return nil
+	}
+	claimId := edge.ClaimId().Unwrap()
+	chal := w.challenges[protocol.AssertionId{}]
+	chal.confirmedLevelZeroEdgeClaimIds.insert(claimId)
+	return nil
+}
+
+func (w *challengeWatcher) checkForEdgeAdded(
+	filterOpts *bind.FilterOpts,
+	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
+) error {
+	it, err := filterer.FilterEdgeAdded(filterOpts, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err = it.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	for it.Next() {
+		if it.Error() != nil {
+			return err // TODO: Handle better.
+		}
+		edgeAdded := it.Event
+		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge {
+			if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
+				w.challenges[edgeAdded.ClaimId] = &challenge{
+					honestAncestorsBranch:          &ancestorsBranch{},
+					confirmedLevelZeroEdgeClaimIds: newSet[protocol.ClaimId](),
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func isConfirmationTopic(topicName string) bool {
 	return topicName == edgeConfirmedByChildrenEvent ||
 		topicName == edgeConfirmedByClaimEvent ||
 		topicName == edgeConfirmedByOneStepProofEvent ||
 		topicName == edgeConfirmedByTimeEvent
-}
-
-func newChallengeWatcher() *challengeWatcher {
-	return &challengeWatcher{}
 }

@@ -32,6 +32,7 @@ type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)
+	CreatedAtBlock() (uint64, error)
 }
 
 // AssertionCreatedInfo from an event creation.
@@ -211,6 +212,8 @@ type SpecEdge interface {
 	Id() EdgeId
 	// The type of challenge the edge is a part of.
 	GetType() EdgeType
+	// The claim id of an edge. None if the edge is not a level zero edge.
+	ClaimId() util.Option[ClaimId]
 	// The ministaker of an edge. Only existing for level zero edges.
 	MiniStaker() util.Option[common.Address]
 	// The start height and history commitment for an edge.

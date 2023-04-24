@@ -21,6 +21,13 @@ func (e *SpecEdge) Id() protocol.EdgeId {
 	return e.id
 }
 
+func (e *SpecEdge) ClaimId() util.Option[protocol.ClaimId] {
+	if e.inner.ClaimId == (common.Hash{}) {
+		return util.None[protocol.ClaimId]()
+	}
+	return util.Some(protocol.ClaimId(e.inner.ClaimId))
+}
+
 func (e *SpecEdge) GetType() protocol.EdgeType {
 	return protocol.EdgeType(e.inner.EType)
 }

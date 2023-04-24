@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/stretchr/testify/require"
@@ -65,11 +64,11 @@ func TestWatcher(t *testing.T) {
 	evilEdge := leafAdder(evilStateManager, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
-	watcher := solimpl.NewWatcher(createdData.Chains[0], time.Second)
+	watcher := NewWatcher(createdData.Chains[0], createdData.Backend, time.Millisecond*100)
 	go func() {
 		watcher.Watch(ctx)
 	}()
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Millisecond * 500)
 	cancel()
 }
 

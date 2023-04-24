@@ -25,6 +25,7 @@ type MockAssertion struct {
 	MockPrevSeqNum        protocol.AssertionSequenceNumber
 	MockStateHash         common.Hash
 	MockInboxMsgCountSeen uint64
+	MockCreatedAtBlock    uint64
 }
 
 func (m *MockAssertion) Height() (uint64, error) {
@@ -41,6 +42,10 @@ func (m *MockAssertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 
 func (m *MockAssertion) StateHash() (common.Hash, error) {
 	return m.MockStateHash, nil
+}
+
+func (m *MockAssertion) CreatedAtBlock() (uint64, error) {
+	return m.MockCreatedAtBlock, nil
 }
 
 func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {
@@ -273,6 +278,10 @@ type MockSpecEdge struct {
 func (m *MockSpecEdge) Id() protocol.EdgeId {
 	args := m.Called()
 	return args.Get(0).(protocol.EdgeId)
+}
+func (m *MockSpecEdge) ClaimId() util.Option[protocol.ClaimId] {
+	args := m.Called()
+	return args.Get(0).(util.Option[protocol.ClaimId])
 }
 func (m *MockSpecEdge) GetType() protocol.EdgeType {
 	args := m.Called()
