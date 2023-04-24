@@ -176,9 +176,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 indexed mutualId,
         bytes32 indexed originId,
         bytes32 claimId,
-        bool hasRival,
         uint256 length,
         EdgeType eType,
+        bool hasRival,
         bool isLayerZero
     );
 
@@ -258,9 +258,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             edgeAdded.mutualId,
             edgeAdded.originId,
             edgeAdded.claimId,
-            edgeAdded.hasRival,
             edgeAdded.length,
             edgeAdded.eType,
+            edgeAdded.hasRival,
             edgeAdded.isLayerZero
         );
         return edgeAdded.edgeId;
@@ -283,9 +283,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 lowerChildAdded.mutualId,
                 lowerChildAdded.originId,
                 lowerChildAdded.claimId,
-                lowerChildAdded.hasRival,
                 lowerChildAdded.length,
                 lowerChildAdded.eType,
+                lowerChildAdded.hasRival,
                 lowerChildAdded.isLayerZero
             );
         }
@@ -295,9 +295,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             upperChildAdded.mutualId,
             upperChildAdded.originId,
             upperChildAdded.claimId,
-            upperChildAdded.hasRival,
             upperChildAdded.length,
             upperChildAdded.eType,
+            upperChildAdded.hasRival,
             upperChildAdded.isLayerZero
         );
 
