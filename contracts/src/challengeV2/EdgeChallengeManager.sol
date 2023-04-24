@@ -64,7 +64,7 @@ interface IEdgeChallengeManager {
     /// @param edgeId                   The id of the edge to confirm
     /// @param ancestorEdgeIds          The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
     ///                                 great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
-    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdgeIds) external returns (uint256);
+    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdgeIds) external;
 
     /// @notice If a confirmed edge exists whose claim id is equal to this edge, then this edge can be confirmed
     /// @dev    When zero layer edges are created they reference an edge, or assertion, in the level above. If a zero layer
@@ -321,11 +321,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdges) public returns (uint256) {
+    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdges) public {
         uint256 totalTimeUnrivaled = store.confirmEdgeByTime(edgeId, ancestorEdges, challengePeriodBlock);
 
         emit EdgeConfirmedByTime(edgeId, store.edges[edgeId].mutualId(), totalTimeUnrivaled);
-        return totalTimeUnrivaled;
     }
 
     /// @inheritdoc IEdgeChallengeManager

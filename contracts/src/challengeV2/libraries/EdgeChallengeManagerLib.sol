@@ -63,9 +63,9 @@ struct EdgeAddedData {
     bytes32 mutualId;
     bytes32 originId;
     bytes32 claimId;
-    bool hasRival;
     uint256 length;
     EdgeType eType;
+    bool hasRival;
     bool isLayerZero;
 }
 
@@ -125,9 +125,9 @@ library EdgeChallengeManagerLib {
             mutualId,
             edge.originId,
             edge.claimId,
-            firstRival != 0,
             store.edges[eId].length(),
             edge.eType,
+            firstRival != 0,
             edge.claimId != 0
         );
     }
