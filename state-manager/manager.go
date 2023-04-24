@@ -136,13 +136,12 @@ type Manager interface {
 type Simulated struct {
 	stateRoots                []common.Hash
 	executionStates           []*protocol.ExecutionState
-	machineAtBlock            func(uint64) execution.Machine
+	machineAtBlock            func(uint64) (execution.Machine, error)
 	maxWavmOpcodes            uint64
 	numOpcodesPerBigStep      uint64
 	blockDivergenceHeight     uint64
 	bigStepDivergenceHeight   uint64
 	smallStepDivergenceHeight uint64
-	malicious                 bool
 }
 
 // New simulated manager from a list of predefined state roots, useful for tests and simulations.
@@ -194,12 +193,6 @@ func WithBlockDivergenceHeight(divergenceHeight uint64) Opt {
 	}
 }
 
-func WithMaliciousIntent() Opt {
-	return func(s *Simulated) {
-		s.malicious = true
-	}
-}
-
 // NewWithAssertionStates creates a simulated state manager from a list of predefined state roots for
 // the top-level assertion chain, useful for tests and simulation purposes in block challenges.
 // This also allows for specifying the honest states for big and small step subchallenges along
@@ -231,36 +224,45 @@ func NewWithAssertionStates(
 }
 
 func NewForSimpleMachine(
-	blockHeight uint64,
 	opts ...Opt,
 ) (*Simulated, error) {
 	s := &Simulated{}
 	for _, o := range opts {
 		o(s)
 	}
-	s.stateRoots = make([]common.Hash, blockHeight+1)
-	machineStates := make([]*big.Int, blockHeight+1)
 	var lastBatch uint64 = math.MaxUint64
 	var lastPosInBatch uint64 = math.MaxUint64
-	nextMachineState := big.NewInt(0)
-	for i := 0; i < len(s.stateRoots); i++ {
-		machine := execution.NewSimpleMachine(nextMachineState)
-		state := s.executionStates[i]
-		machHash := machine.Hash()
-		if !s.malicious && machHash != state.GlobalState.Hash() {
-			return nil, fmt.Errorf("machine at block %v has hash %v but we expected hash %v", i, machine.Hash(), state.GlobalState.Hash())
-		}
-		machineState := machine.GetState()
-		machine.Step(s.maxWavmOpcodes)
-		nextMachineState = machine.GetState()
-
+	nextMachineState := &protocol.ExecutionState{
+		GlobalState:   protocol.GoGlobalState{},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	maxBatchesRead := big.NewInt(1)
+	for block := 0; ; block++ {
+		machine := execution.NewSimpleMachine(nextMachineState, maxBatchesRead)
+		state := machine.GetExecutionState()
 		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
-			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
+			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", block-1, block, lastBatch, lastPosInBatch)
+		}
+		machHash := machine.Hash()
+		if machHash != state.GlobalState.Hash() {
+			return nil, fmt.Errorf("machine at block %v has hash %v but we expected hash %v", block, machine.Hash(), state.GlobalState.Hash())
 		}
 		lastBatch = state.GlobalState.Batch
 		lastPosInBatch = state.GlobalState.PosInBatch
-		s.stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
-		machineStates[i] = machineState
+		s.executionStates = append(s.executionStates, state)
+		s.stateRoots = append(s.stateRoots, protocol.ComputeSimpleMachineChallengeHash(state))
+
+		if machine.IsStopped() {
+			break
+		}
+		machine.Step(s.maxWavmOpcodes)
+		nextMachineState = machine.GetExecutionState()
+	}
+	s.machineAtBlock = func(block uint64) (execution.Machine, error) {
+		if block >= uint64(len(s.executionStates)) {
+			block = uint64(len(s.executionStates) - 1)
+		}
+		return execution.NewSimpleMachine(s.executionStates[block], maxBatchesRead), nil
 	}
 	return s, nil
 }
@@ -397,7 +399,10 @@ func (s *Simulated) intermediateBigStepLeaves(
 	toBigStep uint64,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
-	machine := s.machineAtBlock(fromBlockChallengeHeight)
+	machine, err := s.machineAtBlock(fromBlockChallengeHeight)
+	if err != nil {
+		return nil, err
+	}
 	// Up to and including the specified step.
 	for i := fromBigStep; i <= toBigStep; i++ {
 		hash := machine.Hash()
@@ -479,7 +484,10 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	if s.bigStepDivergenceHeight > 0 {
 		divergeAt = s.numOpcodesPerBigStep*(s.bigStepDivergenceHeight-1) + s.smallStepDivergenceHeight
 	}
-	machine := s.machineAtBlock(fromBlockChallengeHeight)
+	machine, err := s.machineAtBlock(fromBlockChallengeHeight)
+	if err != nil {
+		return nil, err
+	}
 	machine.Step(fromSmallStep)
 	for i := fromSmallStep; i <= toSmallStep; i++ {
 		hash := machine.Hash()
@@ -640,10 +648,6 @@ func (s *Simulated) OneStepProofData(
 		InboxMsgCountSeenProof: inboxMaxCountProof,
 		WasmModuleRoot:         assertionCreationInfo.WasmModuleRoot,
 		WasmModuleRootProof:    wasmModuleRootProof,
-	}
-	if !s.malicious {
-		// Only honest validators can produce a valid one step proof.
-		data.Proof = endCommit.LastLeaf[:]
 	}
 	startLeafInclusionProof = startCommit.LastLeafProof
 	endLeafInclusionProof = endCommit.LastLeafProof

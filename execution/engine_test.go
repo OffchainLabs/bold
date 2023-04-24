@@ -1,15 +1,19 @@
 package execution
 
 import (
-	"math/big"
 	"testing"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 func TestExecutionEngine(t *testing.T) {
-	machine := NewSimpleMachine(big.NewInt(123))
+	startState := &protocol.ExecutionState{
+		GlobalState:   protocol.GoGlobalState{},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	machine := NewSimpleMachine(startState, nil)
 	for i := uint64(0); i < 100; i++ {
 		require.Equal(t, i, machine.CurrentStepNum())
 
@@ -23,33 +27,33 @@ func TestExecutionEngine(t *testing.T) {
 
 		require.Equal(t, thisHash == nextHash, stopped)
 
-		if !VerifySimpleMachineOneStepProof(thisHash, nextHash, i, osp) {
+		if !VerifySimpleMachineOneStepProof(thisHash, nextHash, i, nil, osp) {
 			t.Fatal(i)
 		}
 
 		// verify that bad proofs get rejected
 		fakeProof := append([]byte{}, osp...)
 		fakeProof = append(fakeProof, 0)
-		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, fakeProof) {
+		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, nil, fakeProof) {
 			t.Fatal(i)
 		}
 
 		fakeProof = append([]byte{}, osp...)
 		fakeProof[19] ^= 1
-		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, fakeProof) {
+		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, nil, fakeProof) {
 			t.Fatal(i)
 		}
 
 		fakeProof = append([]byte{}, osp...)
 		fakeProof = fakeProof[len(fakeProof)-1:]
-		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, fakeProof) {
+		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, nil, fakeProof) {
 			t.Fatal(i)
 		}
 
-		if thisHash != nextHash && VerifySimpleMachineOneStepProof(thisHash, thisHash, i, osp) {
+		if thisHash != nextHash && VerifySimpleMachineOneStepProof(thisHash, thisHash, i, nil, osp) {
 			t.Fatal(i)
 		}
-		if VerifySimpleMachineOneStepProof(thisHash, common.Hash{}, i, osp) {
+		if VerifySimpleMachineOneStepProof(thisHash, common.Hash{}, i, nil, osp) {
 			t.Fatal(i)
 		}
 	}
