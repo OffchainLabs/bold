@@ -22,16 +22,14 @@ func TestAssertionChallengeHash(t *testing.T) {
 	assertion, err := chain.LatestConfirmed(ctx)
 	require.NoError(t, err)
 
-	execState := &protocol.ExecutionState{
-		GlobalState: protocol.GoGlobalState{
-			BlockHash: common.Hash{},
-		},
+	genesisState := &protocol.ExecutionState{
+		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	computed := protocol.ComputeSimpleMachineChallengeHash(execState)
-	stateHash, err := assertion.ChallengeHash()
+	computed := protocol.ComputeSimpleMachineChallengeHash(genesisState)
+	challengeHash, err := assertion.ChallengeHash()
 	require.NoError(t, err)
-	require.Equal(t, computed, stateHash)
+	require.Equal(t, computed, challengeHash)
 }
 
 func TestCreateAssertion(t *testing.T) {

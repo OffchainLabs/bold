@@ -25,17 +25,9 @@ var (
 	}
 )
 
-// AssertionToCreate defines a struct that can provide local state data and historical
-// Merkle commitments to L2 state for the validator.
-type AssertionToCreate struct {
-	State         *protocol.ExecutionState
-	InboxMaxCount *big.Int
-}
-
 type Manager interface {
-	// Produces the latest assertion data to post to L1 from the local state manager's
-	// perspective based on a parent assertion height.
-	LatestAssertionCreationData(ctx context.Context) (*AssertionToCreate, error)
+	// Produces the latest state to assert to L1 from the local state manager's perspective.
+	LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error)
 	AssertionExecutionState(ctx context.Context, assertionStateHash common.Hash) (*protocol.ExecutionState, error)
 	// Checks if a state commitment corresponds to data the state manager has locally.
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
@@ -121,7 +113,7 @@ type Manager interface {
 	OneStepProofData(
 		ctx context.Context,
 		parentAssertionStateHash common.Hash,
-		assertionCreationInfo *protocol.AssertionCreatedInfo,
+		parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
@@ -134,14 +126,14 @@ type Manager interface {
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
 // state roots. It can produce state and history commitments from those roots.
 type Simulated struct {
-	stateRoots                []common.Hash
-	executionStates           []*protocol.ExecutionState
-	machineAtBlock            func(uint64) (execution.Machine, error)
-	maxWavmOpcodes            uint64
-	numOpcodesPerBigStep      uint64
-	blockDivergenceHeight     uint64
-	bigStepDivergenceHeight   uint64
-	smallStepDivergenceHeight uint64
+	stateRoots            []common.Hash
+	executionStates       []*protocol.ExecutionState
+	machineAtBlock        func(uint64) (execution.Machine, error)
+	maxWavmOpcodes        uint64
+	numOpcodesPerBigStep  uint64
+	blockDivergenceHeight uint64
+	blockHeightOffset     int64
+	machineDivergenceStep uint64
 }
 
 // New simulated manager from a list of predefined state roots, useful for tests and simulations.
@@ -149,7 +141,12 @@ func New(stateRoots []common.Hash, opts ...Opt) (*Simulated, error) {
 	if len(stateRoots) == 0 {
 		return nil, errors.New("no state roots provided")
 	}
-	s := &Simulated{stateRoots: stateRoots}
+	s := &Simulated{
+		stateRoots: stateRoots,
+		machineAtBlock: func(uint64) (execution.Machine, error) {
+			return nil, errors.New("state manager created with New() cannot provide machines")
+		},
+	}
 	for _, o := range opts {
 		o(s)
 	}
@@ -170,26 +167,21 @@ func WithNumOpcodesPerBigStep(numOpcodes uint64) Opt {
 	}
 }
 
-func WithBigStepStateDivergenceHeight(divergenceHeight uint64) Opt {
+func WithMachineDivergenceStep(divergenceStep uint64) Opt {
 	return func(s *Simulated) {
-		s.bigStepDivergenceHeight = divergenceHeight
-	}
-}
-
-// The divergence height is relative to the last non-diverging big step.
-// E.g. if the big step divergence is set to 2, there are 32 small steps per big steps,
-// and the small step divergence is set to 10, then small steps would start diverging at step 42.
-// That's because we need to make a divergence before big step 2, but after big step 1.
-// We put the divergence 10 small steps into that big step block, as specified by this parameter.
-func WithSmallStepStateDivergenceHeight(divergenceHeight uint64) Opt {
-	return func(s *Simulated) {
-		s.smallStepDivergenceHeight = divergenceHeight
+		s.machineDivergenceStep = divergenceStep
 	}
 }
 
 func WithBlockDivergenceHeight(divergenceHeight uint64) Opt {
 	return func(s *Simulated) {
 		s.blockDivergenceHeight = divergenceHeight
+	}
+}
+
+func WithDivergentBlockHeightOffset(blockHeightOffset int64) Opt {
+	return func(s *Simulated) {
+		s.blockHeightOffset = blockHeightOffset
 	}
 }
 
@@ -219,6 +211,9 @@ func NewWithAssertionStates(
 	s := &Simulated{
 		stateRoots:      stateRoots,
 		executionStates: assertionChainExecutionStates,
+		machineAtBlock: func(uint64) (execution.Machine, error) {
+			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
+		},
 	}
 	return s, nil
 }
@@ -230,25 +225,22 @@ func NewForSimpleMachine(
 	for _, o := range opts {
 		o(s)
 	}
-	var lastBatch uint64 = math.MaxUint64
-	var lastPosInBatch uint64 = math.MaxUint64
 	nextMachineState := &protocol.ExecutionState{
 		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
 	maxBatchesRead := big.NewInt(1)
-	for block := 0; ; block++ {
+	for block := uint64(0); ; block++ {
 		machine := execution.NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
-		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
-			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", block-1, block, lastBatch, lastPosInBatch)
-		}
 		machHash := machine.Hash()
 		if machHash != state.GlobalState.Hash() {
 			return nil, fmt.Errorf("machine at block %v has hash %v but we expected hash %v", block, machine.Hash(), state.GlobalState.Hash())
 		}
-		lastBatch = state.GlobalState.Batch
-		lastPosInBatch = state.GlobalState.PosInBatch
+		if block+1 == s.blockDivergenceHeight {
+			// Note: blockHeightOffset might be negative, but two's complement addition works regardless
+			state.GlobalState.PosInBatch += uint64(s.blockHeightOffset)
+		}
 		s.executionStates = append(s.executionStates, state)
 		s.stateRoots = append(s.stateRoots, protocol.ComputeSimpleMachineChallengeHash(state))
 
@@ -267,14 +259,9 @@ func NewForSimpleMachine(
 	return s, nil
 }
 
-// LatestAssertionCreationData gets the state commitment corresponding to the last, local state root the manager has
-// and a pre-state based on a height of the previous assertion the validator should build upon.
-func (s *Simulated) LatestAssertionCreationData(_ context.Context) (*AssertionToCreate, error) {
-	lastState := s.executionStates[len(s.executionStates)-1]
-	return &AssertionToCreate{
-		State:         lastState,
-		InboxMaxCount: big.NewInt(1), // TODO: this should be s.inboxMaxCounts[len(s.inboxMaxCounts)-1] but that breaks other stuff
-	}, nil
+// Produces the latest state to assert to L1 from the local state manager's perspective.
+func (s *Simulated) LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error) {
+	return s.executionStates[len(s.executionStates)-1], nil
 }
 
 // HasStateCommitment checks if a state commitment is found in our local list of state roots.
@@ -384,12 +371,17 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	return util.NewHistoryCommitment(toBigStep, leaves)
 }
 
-func (s *Simulated) bigStepShouldDiverge(step uint64) bool {
-	// Diverge if:
-	return s.bigStepDivergenceHeight != 0 && // diverging is enabled, and
-		step >= s.bigStepDivergenceHeight && // we're past the divergence point, and
-		step != 0 && // we're not at the beginning of a block (otherwise the block->big step subchallenge wouldn't work), and
-		step != s.maxWavmOpcodes/s.numOpcodesPerBigStep // we're not at the end of a block (for the same reason)
+func (s *Simulated) divergeHash(hash *common.Hash, block uint64, step uint64) {
+	if s.blockDivergenceHeight == 0 {
+		return
+	}
+	if block+1 == s.blockDivergenceHeight && step == protocol.LevelZeroSmallStepEdgeHeight*protocol.LevelZeroBigStepEdgeHeight {
+		*hash = s.stateRoots[block+1]
+		return
+	}
+	if block+1 >= s.blockDivergenceHeight && step >= s.machineDivergenceStep {
+		(*hash)[0] ^= 1
+	}
 }
 
 func (s *Simulated) intermediateBigStepLeaves(
@@ -410,9 +402,7 @@ func (s *Simulated) intermediateBigStepLeaves(
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
-		if s.bigStepShouldDiverge(i) {
-			hash[0] ^= 1
-		}
+		s.divergeHash(&hash, fromBlockChallengeHeight, machine.CurrentStepNum())
 		leaves = append(leaves, hash)
 	}
 	return leaves, nil
@@ -479,11 +469,6 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	toSmallStep uint64,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
-	// Up to and including the specified step.
-	var divergeAt uint64
-	if s.bigStepDivergenceHeight > 0 {
-		divergeAt = s.numOpcodesPerBigStep*(s.bigStepDivergenceHeight-1) + s.smallStepDivergenceHeight
-	}
 	machine, err := s.machineAtBlock(fromBlockChallengeHeight)
 	if err != nil {
 		return nil, err
@@ -495,16 +480,7 @@ func (s *Simulated) intermediateSmallStepLeaves(
 
 		// For testing purposes, if we want to diverge from the honest
 		// hashes starting at a specified hash.
-		var shouldDiverge bool
-		if i%s.numOpcodesPerBigStep == 0 {
-			// If we're at a big step point, maintain compatibility so big step -> small step subchallenges work
-			shouldDiverge = s.bigStepShouldDiverge(i / s.numOpcodesPerBigStep)
-		} else {
-			shouldDiverge = divergeAt != 0 && i >= divergeAt
-		}
-		if shouldDiverge {
-			hash[0] ^= 0x80
-		}
+		s.divergeHash(&hash, fromBlockChallengeHeight, machine.CurrentStepNum())
 		leaves = append(leaves, hash)
 	}
 	return leaves, nil
@@ -582,7 +558,7 @@ var ExecutionStateAbi = abi.Arguments{
 func (s *Simulated) OneStepProofData(
 	ctx context.Context,
 	assertionStateHash common.Hash,
-	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -609,9 +585,9 @@ func (s *Simulated) OneStepProofData(
 	}
 
 	wasmModuleRootProof, packErr := WasmModuleProofAbi.Pack(
-		assertionCreationInfo.ParentAssertionHash,
-		assertionCreationInfo.ExecutionHash,
-		assertionCreationInfo.AfterInboxBatchAcc,
+		parentAssertionCreationInfo.ParentAssertionHash,
+		parentAssertionCreationInfo.ExecutionHash,
+		parentAssertionCreationInfo.AfterInboxBatchAcc,
 	)
 	if packErr != nil {
 		err = packErr
@@ -644,9 +620,9 @@ func (s *Simulated) OneStepProofData(
 	data = &protocol.OneStepData{
 		BeforeHash:             startCommit.LastLeaf,
 		Proof:                  make([]byte, 0),
-		InboxMsgCountSeen:      assertionCreationInfo.InboxMaxCount,
+		InboxMsgCountSeen:      parentAssertionCreationInfo.InboxMaxCount,
 		InboxMsgCountSeenProof: inboxMaxCountProof,
-		WasmModuleRoot:         assertionCreationInfo.WasmModuleRoot,
+		WasmModuleRoot:         parentAssertionCreationInfo.WasmModuleRoot,
 		WasmModuleRootProof:    wasmModuleRootProof,
 	}
 	startLeafInclusionProof = startCommit.LastLeafProof

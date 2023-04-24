@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"math/big"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
@@ -13,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
-	"math/big"
 )
 
 var (
@@ -25,25 +26,8 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     4,
-		DivergeHeight: 0,
+		DivergeBlockHeight: 1,
 	})
-	require.NoError(t, err)
-
-	opts := []statemanager.Opt{
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	}
-
-	honestStateManager, err := statemanager.NewWithAssertionStates(
-		createdData.HonestValidatorStates,
-		opts...,
-	)
-	require.NoError(t, err)
-	evilStateManager, err := statemanager.NewWithAssertionStates(
-		createdData.EvilValidatorStates,
-		opts...,
-	)
 	require.NoError(t, err)
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
@@ -69,7 +53,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		return edge
 	}
 
-	honestEdge := leafAdder(honestStateManager, createdData.Leaf1)
+	honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
@@ -78,7 +62,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		require.Equal(t, true, !hasRival)
 	})
 
-	evilEdge := leafAdder(evilStateManager, createdData.Leaf2)
+	evilEdge := leafAdder(createdData.EvilStateManager, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
@@ -93,9 +77,9 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 	t.Run("bisected children are presumptive", func(t *testing.T) {
 		var bisectHeight uint64 = protocol.LevelZeroBlockEdgeHeight / 2
-		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, bisectHeight, 1)
+		honestBisectCommit, err := createdData.HonestStateManager.HistoryCommitmentUpToBatch(ctx, 0, bisectHeight, 1)
 		require.NoError(t, err)
-		honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, bisectHeight, protocol.LevelZeroBlockEdgeHeight, 1)
+		honestProof, err := createdData.HonestStateManager.PrefixProofUpToBatch(ctx, 0, bisectHeight, protocol.LevelZeroBlockEdgeHeight, 1)
 		require.NoError(t, err)
 
 		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
@@ -170,8 +154,7 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	ctx := context.Background()
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     4,
-		DivergeHeight: 0,
+		DivergeBlockHeight: 1,
 	})
 	require.NoError(t, err)
 
@@ -202,22 +185,12 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	for i := range leaves {
 		leaves[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	opts := []statemanager.Opt{
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	}
 
-	honestStateManager, err := statemanager.New(
-		createdData.HonestValidatorStateRoots,
-		opts...,
-	)
+	start, err := createdData.HonestStateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
 	require.NoError(t, err)
-
-	start, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+	end, err := createdData.HonestStateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
-	end, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
-	require.NoError(t, err)
-	prefixProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	prefixProof, err := createdData.HonestStateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
 	require.NoError(t, err)
 
 	t.Run("OK", func(t *testing.T) {
@@ -591,7 +564,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.NoError(t, err)
 		prevAssertion, err := chain.AssertionBySequenceNum(ctx, assertionNum)
 		require.NoError(t, err)
-		parentAssertionStateHash, err := prevAssertion.StateHash()
+		parentAssertionStateHash, err := prevAssertion.ChallengeHash()
 		require.NoError(t, err)
 		assertionCreationInfo, err := chain.ReadAssertionCreationInfo(ctx, assertionNum)
 		require.NoError(t, err)
@@ -669,19 +642,10 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 
 func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	ctx := context.Background()
-	height := protocol.Height(3)
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     uint64(height) + 1,
-		DivergeHeight: 0,
+		DivergeBlockHeight: 1,
 	})
-	require.NoError(t, err)
-
-	honestStateManager, err := statemanager.New(
-		createdData.HonestValidatorStateRoots,
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	)
 	require.NoError(t, err)
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
@@ -706,7 +670,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		require.NoError(t, err)
 		return edge
 	}
-	honestEdge := leafAdder(honestStateManager, createdData.Leaf1)
+	honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgePending, s0)
@@ -757,29 +721,8 @@ func setupBisectionScenario(
 	ctx := context.Background()
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		NumBlocks:     8,
-		DivergeHeight: 0,
+		DivergeBlockHeight: 1,
 	})
-	require.NoError(t, err)
-
-	honestStateManager, err := statemanager.NewWithAssertionStates(
-		createdData.HonestValidatorStates,
-		createdData.HonestValidatorInboxCounts,
-		commonStateManagerOpts...,
-	)
-	require.NoError(t, err)
-
-	commonStateManagerOpts = append(
-		commonStateManagerOpts,
-		statemanager.WithMaliciousIntent(),
-		statemanager.WithBigStepStateDivergenceHeight(1),
-		statemanager.WithSmallStepStateDivergenceHeight(1),
-	)
-	evilStateManager, err := statemanager.NewWithAssertionStates(
-		createdData.EvilValidatorStates,
-		createdData.EvilValidatorInboxCounts,
-		commonStateManagerOpts...,
-	)
 	require.NoError(t, err)
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
@@ -805,7 +748,7 @@ func setupBisectionScenario(
 		return startCommit, edge
 	}
 
-	honestStartCommit, honestEdge := leafAdder(honestStateManager, createdData.Leaf1)
+	honestStartCommit, honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
 	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -815,7 +758,7 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 	require.Equal(t, false, isOSF)
 
-	evilStartCommit, evilEdge := leafAdder(evilStateManager, createdData.Leaf2)
+	evilStartCommit, evilEdge := leafAdder(createdData.EvilStateManager, createdData.Leaf2)
 	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
 
 	// Honest and evil edge are rivals, neither is presumptive.
@@ -829,8 +772,8 @@ func setupBisectionScenario(
 
 	return &bisectionScenario{
 		topLevelFork:        createdData,
-		honestStateManager:  honestStateManager,
-		evilStateManager:    evilStateManager,
+		honestStateManager:  createdData.HonestStateManager,
+		evilStateManager:    createdData.EvilStateManager,
 		honestLevelZeroEdge: honestEdge,
 		evilLevelZeroEdge:   evilEdge,
 		honestStartCommit:   honestStartCommit,

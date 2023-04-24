@@ -277,10 +277,13 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		if err != nil {
 			return nil, err
 		}
+		emptyExecutionState := rollupgen.ExecutionState{
+			MachineStatus: uint8(protocol.MachineStatusFinished),
+		}
 		return &protocol.AssertionCreatedInfo{
 			ParentAssertionHash: common.Hash{},
-			BeforeState:         rollupgen.ExecutionState{},
-			AfterState:          rollupgen.ExecutionState{},
+			BeforeState:         emptyExecutionState,
+			AfterState:          emptyExecutionState,
 			InboxMaxCount:       big.NewInt(1),
 			AfterInboxBatchAcc:  common.Hash{},
 			ExecutionHash:       executionHash,

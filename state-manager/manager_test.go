@@ -364,8 +364,8 @@ func TestDivergenceGranularity(t *testing.T) {
 		evilStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
-		WithBigStepStateDivergenceHeight(divergenceHeight),   // Diverges at the 3rd big step.
-		WithSmallStepStateDivergenceHeight(divergenceHeight), // Diverges at the 3rd small step, within the 3rd big step.
+		// Diverges at the 3rd small step, within the 3rd big step.
+		WithMachineDivergenceStep(divergenceHeight+divergenceHeight*protocol.LevelZeroSmallStepEdgeHeight),
 	)
 	require.NoError(t, err)
 

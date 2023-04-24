@@ -197,15 +197,21 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
-	assertionToCreate, err := v.stateManager.LatestAssertionCreationData(ctx)
+	parentAssertionCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
+	if err != nil {
+		return nil, err
+	}
+	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount
+	// TODO: this should really only go up to the prevInboxMaxCount batch state
+	newState, err := v.stateManager.LatestExecutionState(ctx)
 	if err != nil {
 		return nil, err
 	}
 	assertion, err := v.chain.CreateAssertion(
 		ctx,
 		parentAssertionState,
-		assertionToCreate.State,
-		assertionToCreate.InboxMaxCount,
+		newState,
+		prevInboxMaxCount,
 	)
 	switch {
 	case errors.Is(err, solimpl.ErrAlreadyExists):

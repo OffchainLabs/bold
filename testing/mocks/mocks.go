@@ -58,9 +58,9 @@ func (m *MockStateManager) AssertionExecutionState(
 	args := m.Called(ctx, assertionStateHash)
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
-func (m *MockStateManager) LatestAssertionCreationData(ctx context.Context) (*statemanager.AssertionToCreate, error) {
+func (m *MockStateManager) LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(*statemanager.AssertionToCreate), args.Error(1)
+	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 
 func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
