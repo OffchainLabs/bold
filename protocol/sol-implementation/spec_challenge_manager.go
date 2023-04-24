@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
@@ -36,6 +35,10 @@ func (e *SpecEdge) StartCommitment() (protocol.Height, common.Hash) {
 
 func (e *SpecEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.inner.EndHeight.Uint64()), e.inner.EndHistoryRoot
+}
+
+func (e *SpecEdge) PrevAssertionId(ctx context.Context) (protocol.AssertionId, error) {
+	return e.manager.caller.GetPrevAssertionId(&bind.CallOpts{Context: ctx}, e.id)
 }
 
 func (e *SpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
@@ -269,15 +272,15 @@ func (cm *SpecChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
-// Duration of the challenge period.
-func (cm *SpecChallengeManager) ChallengePeriodSeconds(
+// Duration of the challenge period in blocks.
+func (cm *SpecChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
-) (time.Duration, error) {
-	res, err := cm.caller.ChallengePeriodSec(&bind.CallOpts{Context: ctx})
+) (uint64, error) {
+	res, err := cm.caller.ChallengePeriodBlock(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return time.Second, err
+		return 0, err
 	}
-	return time.Second * time.Duration(res.Uint64()), nil
+	return res.Uint64(), nil
 }
 
 // Gets an edge by its hash.
@@ -350,8 +353,12 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
 				tentativeWinnerId,
 				challengeV2gen.OneStepData{
-					BeforeHash: oneStepData.BeforeHash,
-					Proof:      oneStepData.Proof,
+					InboxMsgCountSeen:      oneStepData.InboxMsgCountSeen,
+					InboxMsgCountSeenProof: oneStepData.InboxMsgCountSeenProof,
+					WasmModuleRoot:         oneStepData.WasmModuleRoot,
+					WasmModuleRootProof:    oneStepData.WasmModuleRootProof,
+					BeforeHash:             oneStepData.BeforeHash,
+					Proof:                  oneStepData.Proof,
 				},
 				pre,
 				post,
@@ -381,7 +388,7 @@ var blockEdgeProofAbi = abi.Arguments{{
 func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
-	startCommit util.HistoryCommitment,
+	startCommit,
 	endCommit util.HistoryCommitment,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
@@ -401,14 +408,12 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	if startCommit.Height != 0 {
-		return nil, fmt.Errorf("start commit has unexpected height %v (expected 0)", startCommit.Height)
-	}
-	if endCommit.Height != protocol.LayerZeroBlockEdgeHeight {
-		return nil, fmt.Errorf("end commit has unexpected height %v (expected %v)", endCommit.Height, protocol.LayerZeroBlockEdgeHeight)
-	}
-	if startCommit.FirstLeaf != endCommit.FirstLeaf {
-		return nil, fmt.Errorf("start commit first leaf %v didn't match end commit first leaf %v", startCommit.FirstLeaf, endCommit.FirstLeaf)
+	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
+		return nil, fmt.Errorf(
+			"end commit has unexpected height %v (expected %v)",
+			endCommit.Height,
+			protocol.LevelZeroBlockEdgeHeight,
+		)
 	}
 	blockEdgeProof, err := blockEdgeProofAbi.Pack(endCommit.LastLeafProof)
 	if err != nil {
@@ -418,12 +423,10 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				EdgeType:         uint8(protocol.BlockChallengeEdge),
-				StartHistoryRoot: startCommit.Merkle,
-				StartHeight:      big.NewInt(int64(startCommit.Height)),
-				EndHistoryRoot:   endCommit.Merkle,
-				EndHeight:        big.NewInt(int64(endCommit.Height)),
-				ClaimId:          assertionId,
+				EdgeType:       uint8(protocol.BlockChallengeEdge),
+				EndHistoryRoot: endCommit.Merkle,
+				EndHeight:      big.NewInt(int64(endCommit.Height)),
+				ClaimId:        assertionId,
 			},
 			startEndPrefixProof,
 			blockEdgeProof,
@@ -481,9 +484,9 @@ var subchallengeEdgeProofAbi = abi.Arguments{
 func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	ctx context.Context,
 	challengedEdge protocol.SpecEdge,
-	startCommit util.HistoryCommitment,
+	startCommit,
 	endCommit util.HistoryCommitment,
-	startParentInclusionProof []common.Hash,
+	startParentInclusionProof,
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
@@ -496,7 +499,13 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	default:
 		return nil, fmt.Errorf("cannot open level zero edge beneath small step challenge: %s", challengedEdge.GetType())
 	}
-	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(startCommit.FirstLeaf, endCommit.LastLeaf, startParentInclusionProof, endParentInclusionProof, endCommit.LastLeafProof)
+	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(
+		startCommit.FirstLeaf,
+		endCommit.LastLeaf,
+		startParentInclusionProof,
+		endParentInclusionProof,
+		endCommit.LastLeafProof,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -504,12 +513,10 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				EdgeType:         uint8(subChalTyp),
-				StartHistoryRoot: startCommit.Merkle,
-				StartHeight:      big.NewInt(int64(startCommit.Height)),
-				EndHistoryRoot:   endCommit.Merkle,
-				EndHeight:        big.NewInt(int64(endCommit.Height)),
-				ClaimId:          challengedEdge.Id(),
+				EdgeType:       uint8(subChalTyp),
+				EndHistoryRoot: endCommit.Merkle,
+				EndHeight:      big.NewInt(int64(endCommit.Height)),
+				ClaimId:        challengedEdge.Id(),
 			},
 			startEndPrefixProof,
 			subchallengeEdgeProof,

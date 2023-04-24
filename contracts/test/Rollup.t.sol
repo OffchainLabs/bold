@@ -96,7 +96,6 @@ contract RollupTest is Test {
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: address(0),
             genesisBlockNum: 0,
-            challengePeriodSeconds: 100,
             miniStakeValue: 1
         });
 
@@ -171,8 +170,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -186,8 +184,7 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeState: afterState,
-                afterState: afterState2,
-                numBlocks: 8
+                afterState: afterState2
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: inboxcount
@@ -209,8 +206,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -221,8 +217,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -244,8 +239,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -258,8 +252,7 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -292,8 +285,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -310,8 +302,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState2,
-                numBlocks: 8
+                afterState: afterState2
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -360,8 +351,6 @@ contract RollupTest is Test {
         bytes32 e1Id = challengeManager.createLayerZeroEdge{value: 1}(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                // CHRIS: TODO: put this back somehow?
-                // startHistoryRoot: MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states0, 0, 1)),
                 endHistoryRoot: root,
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
                 claimId: userRollup.getAssertionId(2)
@@ -388,8 +377,6 @@ contract RollupTest is Test {
         bytes32 e2Id = challengeManager.createLayerZeroEdge{value: 1}(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                // CHRIS: TODO: put this back somehow?
-                // startHistoryRoot: MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states0, 0, 1)),
                 endHistoryRoot: root,
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
                 claimId: userRollup.getAssertionId(3)
