@@ -92,6 +92,7 @@ func (s *set[T]) has(t T) bool {
 
 // TODO: Panic if something occurs
 func (w *challengeWatcher) watch(ctx context.Context) error {
+	// Start from the latest confirmed assertion's creation block.
 	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
 	if err != nil {
 		return err
@@ -118,13 +119,19 @@ func (w *challengeWatcher) watch(ctx context.Context) error {
 				return err
 			}
 			toBlock := latestBlock.Number.Uint64()
+
+			challengeManager, err := w.chain.SpecChallengeManager(ctx)
+			if err != nil {
+				return err
+			}
+			// Scan for challenge manager level zero edge, block challenge creation events.
 			topic := common.BytesToHash(hexutil.MustDecode(
 				"0xc9cc7aa3617dc3853c50ebf6703ec797191654dcc781255bed2057dce23b0e33",
 			))
 			var query = ethereum.FilterQuery{
 				FromBlock: new(big.Int).SetUint64(fromBlock),
 				ToBlock:   new(big.Int).SetUint64(toBlock),
-				Addresses: []common.Address{w.chain.rollupAddr},
+				Addresses: []common.Address{challengeManager.Address()},
 				Topics:    [][]common.Hash{{topic}, {}},
 			}
 			logs, err := w.chain.backend.FilterLogs(ctx, query)
@@ -134,6 +141,8 @@ func (w *challengeWatcher) watch(ctx context.Context) error {
 			if len(logs) == 0 {
 				continue
 			}
+			// For each level zero edge creation event, get the edge type.
+			// Then, use the edge type to add to a challenge set in the challenge watcher.
 			for _, l := range logs {
 				parsedLog, err := w.chain.rollup.ParseAssertionCreated(l)
 				if err != nil {
