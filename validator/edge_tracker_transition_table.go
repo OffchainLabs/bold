@@ -42,7 +42,7 @@ func newEdgeTrackerFsm(
 			// The tracker will take some action if it has reached a one-step-proof
 			// in a small step challenge.
 			Typ:  edgeHandleOneStepProof{},
-			From: []edgeTrackerState{edgeAtOneStepFork, edgeAtOneStepProof},
+			From: []edgeTrackerState{edgeAtOneStepFork},
 			To:   edgeAtOneStepProof,
 		},
 		{
@@ -72,11 +72,16 @@ func newEdgeTrackerFsm(
 			},
 			To: edgeBisecting,
 		},
-		// Finishing.
+		{
+			Typ:  edgeTryToConfirm{},
+			From: []edgeTrackerState{edgeAtOneStepFork},
+			To:   edgeConfirming,
+		},
+		// Terminal state.
 		{
 			Typ:  edgeConfirm{},
-			From: []edgeTrackerState{edgeAtOneStepProof, edgeConfirming},
-			To:   edgeConfirming,
+			From: []edgeTrackerState{edgeConfirming, edgeAtOneStepProof},
+			To:   edgeConfirmed,
 		},
 	}
 	return util.NewFsm(startState, transitions, fsmOpts...)

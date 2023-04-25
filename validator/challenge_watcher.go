@@ -54,6 +54,21 @@ func (w *challengeWatcher) ConfirmedEdgeWithClaimExists(
 	return challenge.confirmedLevelZeroEdgeClaimIds.has(claimId), nil
 }
 
+// TODO: Implement using ancestor branches.
+func (w *challengeWatcher) BranchTotalUnrivaledBlocks(
+	topLevelParentAssertionId protocol.AssertionId,
+	edgeId protocol.EdgeId,
+) (uint64, error) {
+	return 0, nil
+}
+
+func (w *challengeWatcher) Ancestors(
+	topLevelParentAssertionId protocol.AssertionId,
+	edgeId protocol.EdgeId,
+) ([]protocol.EdgeId, error) {
+	return nil, nil
+}
+
 type challenge struct {
 	honestAncestorsBranch          *ancestorsBranch
 	confirmedLevelZeroEdgeClaimIds *set[protocol.ClaimId]
