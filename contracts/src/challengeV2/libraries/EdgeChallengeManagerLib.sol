@@ -556,16 +556,18 @@ library EdgeChallengeManagerLib {
     ///         Given that an edge cannot become unrivaled after becoming rivaled, once the threshold is passed
     ///         it will always remain passed. The direct ancestors of an edge are linked by parent-child links for edges
     ///         of the same edgeType, and claimId-edgeid links for zero layer edges that claim an edge in the level above.
-    /// @param store                      The edge store containing all edges and rival data
-    /// @param edgeId                     The id of the edge to confirm
-    /// @param ancestorEdgeIds            The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
-    ///                                   great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
-    /// @param confirmationThresholdBlock The number of blocks that the total unrivaled time of an ancestor chain needs to exceed in
-    ///                                   order to be confirmed
+    /// @param store                            The edge store containing all edges and rival data
+    /// @param edgeId                           The id of the edge to confirm
+    /// @param ancestorEdgeIds                  The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
+    ///                                         great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
+    /// @param claimedAssertionUnrivaledBlocks  The number of blocks that the assertion ultimately being claimed by this edge spent unrivaled
+    /// @param confirmationThresholdBlock       The number of blocks that the total unrivaled time of an ancestor chain needs to exceed in
+    ///                                         order to be confirmed
     function confirmEdgeByTime(
         EdgeStore storage store,
         bytes32 edgeId,
         bytes32[] memory ancestorEdgeIds,
+        uint256 claimedAssertionUnrivaledBlocks,
         uint256 confirmationThresholdBlock
     ) internal returns (uint256) {
         require(store.edges[edgeId].exists(), "Edge does not exist");
@@ -590,6 +592,12 @@ library EdgeChallengeManagerLib {
                 revert("Current is not a child of ancestor");
             }
         }
+
+        // since sibling assertions have the same predecessor, they can be viewed as
+        // rival edges. Adding the assertion unrivaled time allows us to start the confirmation
+        // timer from the moment the first assertion is made, rather than having to wait until the
+        // second assertion is made.
+        totalTimeUnrivaled += claimedAssertionUnrivaledBlocks;
 
         require(
             totalTimeUnrivaled > confirmationThresholdBlock,
