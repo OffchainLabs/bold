@@ -53,16 +53,13 @@ func newEdgeTrackerFsm(
 		},
 		// Challenge moves.
 		{
-			Typ: edgeBisect{},
-			From: []edgeTrackerState{
-				edgeStarted,
-				edgeBisecting, // TODO: Can this still happen?
-			},
-			To: edgeBisecting,
+			Typ:  edgeBisect{},
+			From: []edgeTrackerState{edgeStarted},
+			To:   edgeBisecting,
 		},
 		{
 			Typ:  edgeTryToConfirm{},
-			From: []edgeTrackerState{edgeAtOneStepFork},
+			From: []edgeTrackerState{edgeBisecting, edgeAtOneStepFork, edgeAddingSubchallengeLeaf},
 			To:   edgeConfirming,
 		},
 		// Terminal state.

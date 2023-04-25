@@ -105,7 +105,7 @@ func main() {
 		validator.WithName("alice"),
 		validator.WithAddress(aliceAddr),
 		validator.WithTimeReference(ref),
-		validator.WithEdgeTrackerWakeInterval(time.Millisecond*100),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*500),
 		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
 	)
 	if err != nil {
@@ -134,7 +134,7 @@ func main() {
 		validator.WithName("bob"),
 		validator.WithAddress(bobAddr),
 		validator.WithTimeReference(ref),
-		validator.WithEdgeTrackerWakeInterval(time.Millisecond*100),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*500),
 		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
 	)
 	if err != nil {

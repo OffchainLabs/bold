@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
@@ -40,15 +41,15 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case edgeStarted:
+		if canOneStepProve(et.edge) {
+			return et.fsm.Do(edgeHandleOneStepProof{})
+		}
 		hasRival, err := et.edge.HasRival(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not check presumptive")
 		}
 		if !hasRival {
 			return et.fsm.Do(edgeMarkPresumptive{})
-		}
-		if canOneStepProve(et.edge) {
-			et.fsm.Do(edgeHandleOneStepProof{})
 		}
 		// TODO: Add a conditional to check if we can confirm.
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
@@ -153,6 +154,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 				if err = et.edge.ConfirmByChildren(ctx); err != nil {
 					return errors.Wrap(err, "could not confirm edge by children")
 				}
+				return et.fsm.Do(edgeConfirm{})
 			}
 		}
 
@@ -200,7 +202,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		// 		return errors.Wrap(err, "could not confirm edge by claim")
 		// 	}
 		// }
-		return et.fsm.Do(edgeConfirm{})
+		return nil
 	case edgeConfirmed:
 		log.WithFields(fields).Info("Edge reached confirmed state")
 		return nil
@@ -475,7 +477,7 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	); err != nil {
 		return errors.Wrap(err, "could not confirm one step proof against protocol")
 	}
-	log.WithFields(fields).Info("Succeeded one-step-proof for edge and confirmed it as winner")
+	log.WithFields(fields).Info("Succeeded one-step-proof for edge and confirmed it")
 	return nil
 }
 
@@ -531,7 +533,7 @@ func newEdgeTracker(
 
 func (et *edgeTracker) spawn(ctx context.Context) {
 	fields := et.uniqueTrackerLogFields()
-	log.WithFields(fields).Info("Tracking edge vertex")
+	log.WithFields(fields).Info("Tracking challenge edge")
 
 	t := et.cfg.timeRef.NewTicker(et.cfg.actEveryNSeconds)
 	defer t.Stop()
@@ -539,11 +541,21 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 		select {
 		case <-t.C():
 			if et.shouldComplete() {
-				log.WithFields(fields).Debug("Edge tracker received notice of a confirmation, exiting")
+				log.WithFields(fields).Info("Edge tracker received notice of a confirmation, closing goroutine")
 				return
 			}
 			if err := et.act(ctx); err != nil {
-				log.Error(err)
+				// Bob malicious, debug log
+				// TODO: Remove before PR
+				if strings.Contains(err.Error(), "could not confirm one step proof against protocol: execution reverted: Invalid inclusion proof") {
+					log.WithFields(fields).Errorf("%s failed OSP, closing goroutine", et.cfg.validatorName)
+					return
+				}
+				if strings.Contains(err.Error(), "could not confirm one step proof against protocol: execution reverted: Edge not pending") {
+					log.WithFields(fields).Errorf("%s failed OSP, closing goroutine", et.cfg.validatorName)
+					return
+				}
+				log.WithFields(fields).Error(err)
 			}
 		case <-ctx.Done():
 			log.WithFields(fields).Debug("Edge tracker goroutine exiting")
