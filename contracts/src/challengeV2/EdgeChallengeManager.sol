@@ -344,7 +344,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
         // and have a non zero claim - ie it's a zero layer edge
         bytes32 assertionId = topEdge.claimId;
-        require(assertionId != 0, "Top edge is not zero layer");
+        require(assertionId != 0, "Top edge does not have claim id");
 
         // if the assertion being claiming against was the first child of its predecessor
         // then we are able to count the time between the first and second child as time towards
