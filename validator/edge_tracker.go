@@ -154,6 +154,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 				if err = et.edge.ConfirmByChildren(ctx); err != nil {
 					return errors.Wrap(err, "could not confirm edge by children")
 				}
+				log.WithFields(fields).Info("Successfully confirmed edge by children")
 				return et.fsm.Do(edgeConfirm{})
 			}
 		}

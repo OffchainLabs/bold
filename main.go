@@ -95,6 +95,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	aliceWatcher := validator.NewWatcher(chains[0], backend, time.Millisecond*500)
 	aliceAddr := accs[0].AccountAddr
 	alice, err := validator.New(
 		ctx,
@@ -105,8 +106,9 @@ func main() {
 		validator.WithName("alice"),
 		validator.WithAddress(aliceAddr),
 		validator.WithTimeReference(ref),
-		validator.WithEdgeTrackerWakeInterval(time.Millisecond*500),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*200),
 		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
+		validator.WithWatcher(aliceWatcher),
 	)
 	if err != nil {
 		panic(err)
@@ -124,6 +126,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	bobWatcher := validator.NewWatcher(chains[1], backend, time.Millisecond*500)
 	bobAddr := accs[1].AccountAddr
 	bob, err := validator.New(
 		ctx,
@@ -134,8 +137,9 @@ func main() {
 		validator.WithName("bob"),
 		validator.WithAddress(bobAddr),
 		validator.WithTimeReference(ref),
-		validator.WithEdgeTrackerWakeInterval(time.Millisecond*500),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*200),
 		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
+		validator.WithWatcher(bobWatcher),
 	)
 	if err != nil {
 		panic(err)
@@ -232,6 +236,9 @@ func main() {
 	}
 
 	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, leaf2)
+
+	go aliceWatcher.Watch(ctx)
+	go bobWatcher.Watch(ctx)
 
 	alice.SpawnEdgeTracker(
 		ctx,

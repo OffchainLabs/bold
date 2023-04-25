@@ -201,7 +201,7 @@ func (w *challengeWatcher) checkForEdgeConfirmedByOneStepProof(
 		if it.Error() != nil {
 			return err // TODO: Handle better.
 		}
-		fmt.Println("ONE STEP PROOF CONFIRMATION")
+		log.Warn("Watcher: Edge was confirmed by one step proof")
 		if err := w.checkLevelZeroEdgeConfirmed(filterOpts.Context, manager, it.Event.EdgeId); err != nil {
 			return err
 		}
@@ -227,6 +227,7 @@ func (w *challengeWatcher) checkLevelZeroEdgeConfirmed(
 	}
 	w.lock.Lock()
 	defer w.lock.Unlock()
+	log.Warn("Watcher: Level zero edge was confirmed")
 	claimId := edge.ClaimId().Unwrap()
 	chal := w.challenges[protocol.AssertionId{}]
 	chal.confirmedLevelZeroEdgeClaimIds.insert(claimId)
@@ -250,9 +251,9 @@ func (w *challengeWatcher) checkForEdgeAdded(
 		if it.Error() != nil {
 			return err // TODO: Handle better.
 		}
-		fmt.Println("EDGE ADDED WHOA")
 		edgeAdded := it.Event
-		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge {
+		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge && edgeAdded.ClaimId != [32]byte{} {
+			log.Info("Watcher: Level zero block edge added")
 			w.lock.Lock()
 			if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
 				w.challenges[edgeAdded.ClaimId] = &challenge{

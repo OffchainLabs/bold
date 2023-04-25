@@ -90,6 +90,12 @@ func WithNewAssertionCheckInterval(d time.Duration) Opt {
 	}
 }
 
+func WithWatcher(w *challengeWatcher) Opt {
+	return func(val *Validator) {
+		val.watcher = w
+	}
+}
+
 // New sets up a validator client instances provided a protocol, state manager,
 // and additional options.
 func New(
@@ -114,6 +120,7 @@ func New(
 		edgeTrackerWakeInterval:                time.Millisecond * 100,
 		newAssertionCheckInterval:              time.Second,
 	}
+	v.watcher = NewWatcher(v.chain, v.backend, time.Second)
 	for _, o := range opts {
 		o(v)
 	}
@@ -144,7 +151,6 @@ func New(
 	v.assertions[0] = genesisAssertion
 	v.chalManagerAddr = chalManagerAddr
 	v.chalManager = chalManagerFilterer
-	v.watcher = NewWatcher(v.chain, v.backend, time.Second)
 
 	return v, nil
 }
@@ -332,6 +338,7 @@ func (v *Validator) SpawnEdgeTracker(
 			stateManager:     v.stateManager,
 			validatorName:    v.name,
 			validatorAddress: v.address,
+			watcher:          v.watcher,
 		},
 		edge,
 		heightOffset,
