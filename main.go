@@ -18,14 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var (
-	// The chain id for the backend.
-	chainId = big.NewInt(1337)
-	// The size of a mini stake that is posted when creating leaf edges in
-	// challenges (clarify if gwei?).
-	miniStakeSize = big.NewInt(1)
-)
-
 type challengeProtocolTestConfig struct {
 	// The latest heights by index at the assertion chain level.
 	aliceHeight uint64
@@ -74,8 +66,8 @@ func main() {
 		smallStepDivergenceHeight: 4,
 	}
 
-	honestHashes := honestHashesForUints(0, 32)
-	evilHashes := evilHashesForUints(0, 32)
+	honestHashes := honestHashesForUints(0, cfg.aliceHeight+1)
+	evilHashes := evilHashesForUints(0, cfg.bobHeight+1)
 
 	honestStates, honestInboxCounts := prepareHonestStates(
 		ctx,
@@ -115,7 +107,6 @@ func main() {
 		validator.WithTimeReference(ref),
 		validator.WithEdgeTrackerWakeInterval(time.Millisecond*100),
 		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
-		validator.WithPostAssertionsInterval(time.Second),
 	)
 	if err != nil {
 		panic(err)
@@ -124,6 +115,7 @@ func main() {
 	maliciousManager, err := statemanager.NewWithAssertionStates(
 		maliciousStates,
 		maliciousInboxCounts,
+		statemanager.WithMaliciousIntent(),
 		statemanager.WithNumOpcodesPerBigStep(protocol.LevelZeroSmallStepEdgeHeight),
 		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LevelZeroBigStepEdgeHeight*protocol.LevelZeroSmallStepEdgeHeight),
 		statemanager.WithBigStepStateDivergenceHeight(cfg.bigStepDivergenceHeight),
@@ -144,14 +136,115 @@ func main() {
 		validator.WithTimeReference(ref),
 		validator.WithEdgeTrackerWakeInterval(time.Millisecond*100),
 		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
-		validator.WithPostAssertionsInterval(time.Second),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	go alice.Start(ctx)
-	go bob.Start(ctx)
+	challengeManager, err := chains[0].SpecChallengeManager(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	genesis, err := chains[0].AssertionBySequenceNum(ctx, protocol.GenesisAssertionSeqNum)
+	if err != nil {
+		panic(err)
+	}
+	genesisStateHash, err := genesis.StateHash()
+	if err != nil {
+		panic(err)
+	}
+
+	// Submit leaf creation manually for each validator.
+	genesisState, err := honestManager.AssertionExecutionState(ctx, genesisStateHash)
+	if err != nil {
+		panic(err)
+	}
+	latestHonest, err := honestManager.LatestAssertionCreationData(ctx)
+	if err != nil {
+		panic(err)
+	}
+	leaf1, err := chains[0].CreateAssertion(
+		ctx,
+		genesisState,
+		latestHonest.State,
+		latestHonest.InboxMaxCount,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx)
+	if err != nil {
+		panic(err)
+	}
+	leaf2, err := chains[1].CreateAssertion(
+		ctx,
+		genesisState,
+		latestEvil.State,
+		latestEvil.InboxMaxCount,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Honest assertion being added.
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+			ctx,
+			leaf,
+			startCommit,
+			endCommit,
+			prefixProof,
+		)
+		if err != nil {
+			panic(err)
+		}
+		return edge
+	}
+
+	honestStartCommit, err := honestManager.HistoryCommitmentUpTo(ctx, 0)
+	if err != nil {
+		panic(err)
+	}
+	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, leaf1)
+
+	evilStartCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, 0)
+	if err != nil {
+		panic(err)
+	}
+	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, leaf2)
+
+	alice.SpawnEdgeTracker(
+		ctx,
+		honestEdge,
+		0,
+		prevInboxMaxCount.Uint64(),
+	)
+	bob.SpawnEdgeTracker(
+		ctx,
+		evilEdge,
+		0,
+		prevInboxMaxCount.Uint64(),
+	)
 	<-ctx.Done()
 }
 

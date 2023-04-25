@@ -45,8 +45,10 @@ func (v *Validator) pollForAssertions(ctx context.Context) {
 					log.Error(err)
 					continue
 				}
+				log.WithField("val", v.name).Info("Got an assertion")
 				// Ignore assertions from self.
 				if selfStakedAssertion {
+					log.WithField("val", v.name).Info("Was from self")
 					continue
 				}
 				if err := v.onLeafCreated(ctx, assertion); err != nil {
