@@ -333,8 +333,8 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			bisectionScenario.topLevelFork.Backend.Commit()
 		}
 
-		require.NoError(t, honestChildren1.ConfirmByTimer(ctx, []protocol.EdgeId{}))
-		require.NoError(t, honestChildren2.ConfirmByTimer(ctx, []protocol.EdgeId{}))
+		require.NoError(t, honestChildren1.ConfirmByTimer(ctx, []protocol.EdgeId{honestEdge.Id()}))
+		require.NoError(t, honestChildren2.ConfirmByTimer(ctx, []protocol.EdgeId{honestEdge.Id()}))
 		s1, err = honestChildren1.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, s1)
