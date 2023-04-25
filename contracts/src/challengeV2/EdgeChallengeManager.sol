@@ -254,7 +254,19 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         payable
         returns (bytes32)
     {
-        EdgeAddedData memory edgeAdded = store.createLayerZeroEdge(assertionChain, args, prefixProof, proof);
+        AssertionReferenceData memory ard;
+        if (args.edgeType == EdgeType.Block) {
+            bytes32 predecessorId = assertionChain.getPredecessorId(args.claimId);
+            ard = AssertionReferenceData(
+                args.claimId,
+                predecessorId,
+                assertionChain.isPending(args.claimId),
+                assertionChain.hasSibling(args.claimId),
+                assertionChain.getStateHash(predecessorId),
+                assertionChain.getStateHash(args.claimId)
+            );
+        }
+        EdgeAddedData memory edgeAdded = store.createLayerZeroEdge(args, ard, prefixProof, proof);
         emit EdgeAdded(
             edgeAdded.edgeId,
             edgeAdded.mutualId,
