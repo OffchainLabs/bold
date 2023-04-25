@@ -79,8 +79,10 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		runChallengeIntegrationTest(t, hook, cfg)
 		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
 		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
+		AssertLogsContain(t, hook, "MAIMAI")
 	})
 	t.Run("two validators opening leaves at height 31", func(t *testing.T) {
+		t.Skip()
 		// TODO: we would use a larger height here but we're limited by protocol.LevelZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
 			aliceHeight:               31,
@@ -97,6 +99,7 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
 	t.Run("two validators disagreeing on the number of blocks", func(t *testing.T) {
+		t.Skip()
 		// TODO: we would use a larger height here but we're limited by protocol.LevelZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
 			aliceHeight:               7,

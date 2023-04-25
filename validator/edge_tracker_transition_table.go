@@ -42,7 +42,7 @@ func newEdgeTrackerFsm(
 			// The tracker will take some action if it has reached a one-step-proof
 			// in a small step challenge.
 			Typ:  edgeHandleOneStepProof{},
-			From: []edgeTrackerState{edgeAtOneStepFork},
+			From: []edgeTrackerState{edgeStarted},
 			To:   edgeAtOneStepProof,
 		},
 		{
@@ -50,18 +50,6 @@ func newEdgeTrackerFsm(
 			Typ:  edgeOpenSubchallengeLeaf{},
 			From: []edgeTrackerState{edgeAtOneStepFork, edgeAddingSubchallengeLeaf},
 			To:   edgeAddingSubchallengeLeaf,
-		},
-		{
-			// The tracker will be awaiting subchallenge resolution until it will exit.
-			Typ: edgeAwaitSubchallengeResolution{},
-			From: []edgeTrackerState{
-				edgeAtOneStepFork,
-				edgeAtOneStepProof,
-				edgeAddingSubchallengeLeaf,
-				edgeBisecting,
-				edgeAwaitingSubchallenge,
-			},
-			To: edgeAwaitingSubchallenge,
 		},
 		// Challenge moves.
 		{

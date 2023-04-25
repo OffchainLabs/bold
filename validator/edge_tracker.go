@@ -28,6 +28,12 @@ func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	}
 }
 
+func canOneStepProve(edge protocol.SpecEdge) bool {
+	start, _ := edge.StartCommitment()
+	end, _ := edge.EndCommitment()
+	return end-start == 1 && edge.GetType() == protocol.SmallStepChallengeEdge
+}
+
 func (et *edgeTracker) act(ctx context.Context) error {
 	fields := et.uniqueTrackerLogFields()
 	current := et.fsm.Current()
@@ -40,6 +46,9 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		if !hasRival {
 			return et.fsm.Do(edgeMarkPresumptive{})
+		}
+		if canOneStepProve(et.edge) {
+			et.fsm.Do(edgeHandleOneStepProof{})
 		}
 		// TODO: Add a conditional to check if we can confirm.
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
@@ -62,9 +71,6 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			startHeight,
 			util.Trunc(startCommit.Bytes()),
 		)
-		if et.edge.GetType() == protocol.SmallStepChallengeEdge {
-			return et.fsm.Do(edgeHandleOneStepProof{})
-		}
 		return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
@@ -150,51 +156,51 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			}
 		}
 
-		// Checks if we can confirm by claim.
-		prevAssertionId, err := et.edge.PrevAssertionId(ctx)
-		if err != nil {
-			return err
-		}
-		// TODO: Can skip this check if edge is a block challenge.
-		confirmedWithClaimExists, err := et.cfg.watcher.ConfirmedEdgeWithClaimExists(
-			prevAssertionId, protocol.ClaimId(et.edge.Id()),
-		)
-		if err != nil {
-			return err
-		}
-		if confirmedWithClaimExists {
-			// TODO: Wrong args?
-			if err = et.edge.ConfirmByClaim(ctx, protocol.ClaimId(et.edge.Id())); err != nil {
-				return errors.Wrap(err, "could not confirm edge by claim")
-			}
-		}
+		// // Checks if we can confirm by claim.
+		// prevAssertionId, err := et.edge.PrevAssertionId(ctx)
+		// if err != nil {
+		// 	return err
+		// }
+		// // TODO: Can skip this check if edge is a block challenge.
+		// confirmedWithClaimExists, err := et.cfg.watcher.ConfirmedEdgeWithClaimExists(
+		// 	prevAssertionId, protocol.ClaimId(et.edge.Id()),
+		// )
+		// if err != nil {
+		// 	return err
+		// }
+		// if confirmedWithClaimExists {
+		// 	// TODO: Wrong args?
+		// 	if err = et.edge.ConfirmByClaim(ctx, protocol.ClaimId(et.edge.Id())); err != nil {
+		// 		return errors.Wrap(err, "could not confirm edge by claim")
+		// 	}
+		// }
 
-		// Checks if we can confirm by time.
-		// TODO: Should we skip  this check if we have a rival? What if we have > CHALLENGE_PERIOD
-		// unrivaled timer, then afterwards received a rival, and then we want to confirm by time?
-		branchTotalBlocksUnrivaled, err := et.cfg.watcher.BranchTotalUnrivaledBlocks(
-			prevAssertionId, et.edge.Id(),
-		)
-		if err != nil {
-			return err
-		}
-		chalManager, err := et.cfg.chain.SpecChallengeManager(ctx)
-		if err != nil {
-			return err
-		}
-		chalPeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
-		if err != nil {
-			return err
-		}
-		if branchTotalBlocksUnrivaled >= chalPeriodBlocks {
-			ancestorIds, err := et.cfg.watcher.Ancestors(
-				prevAssertionId, et.edge.Id(),
-			)
-			if err = et.edge.ConfirmByTimer(ctx, ancestorIds); err != nil {
-				return errors.Wrap(err, "could not confirm edge by claim")
-			}
-		}
-		return nil
+		// // Checks if we can confirm by time.
+		// // TODO: Should we skip  this check if we have a rival? What if we have > CHALLENGE_PERIOD
+		// // unrivaled timer, then afterwards received a rival, and then we want to confirm by time?
+		// branchTotalBlocksUnrivaled, err := et.cfg.watcher.BranchTotalUnrivaledBlocks(
+		// 	prevAssertionId, et.edge.Id(),
+		// )
+		// if err != nil {
+		// 	return err
+		// }
+		// chalManager, err := et.cfg.chain.SpecChallengeManager(ctx)
+		// if err != nil {
+		// 	return err
+		// }
+		// chalPeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
+		// if err != nil {
+		// 	return err
+		// }
+		// if branchTotalBlocksUnrivaled >= chalPeriodBlocks {
+		// 	ancestorIds, err := et.cfg.watcher.Ancestors(
+		// 		prevAssertionId, et.edge.Id(),
+		// 	)
+		// 	if err = et.edge.ConfirmByTimer(ctx, ancestorIds); err != nil {
+		// 		return errors.Wrap(err, "could not confirm edge by claim")
+		// 	}
+		// }
+		return et.fsm.Do(edgeConfirm{})
 	case edgeConfirmed:
 		log.WithFields(fields).Info("Edge reached confirmed state")
 		return nil
