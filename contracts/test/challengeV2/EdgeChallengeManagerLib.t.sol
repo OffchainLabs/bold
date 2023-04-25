@@ -1358,4 +1358,18 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmByOneStepBadOneStepReturn() public {
         confirmByOneStep(8, "Invalid inclusion proof");
     }
+
+    function testPowerOfTwo() public {
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(0), false);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(1), true);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(2), true);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(3), false);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(4), true);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(5), false);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(6), false);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(7), false);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(8), true);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(2**17), true);
+        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(1 << 255), true);
+    }
 }

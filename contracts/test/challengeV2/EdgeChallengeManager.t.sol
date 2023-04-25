@@ -69,7 +69,9 @@ contract EdgeChallengeManagerTest is Test {
                 )
             )
         );
-        challengeManager.initialize(assertionChain, challengePeriodBlock, new MockOneStepProofEntry());
+        challengeManager.initialize(
+            assertionChain, challengePeriodBlock, new MockOneStepProofEntry(), 2 ** 5, 2 ** 5, 2 ** 5
+        );
 
         bytes32 genesis =
             assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, genesisState, 0);
