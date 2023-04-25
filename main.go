@@ -9,216 +9,254 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
-	chalTesting "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/validator"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/offchainlabs/nitro/util/headerreader"
 )
 
-var (
-	// The chain id for the backend.
-	chainId = big.NewInt(1337)
-	// The size of a mini stake that is posted when creating leaf edges in
-	// challenges (clarify if gwei?).
-	miniStakeSize = big.NewInt(1)
-	// The current L2 chain height for this simulation.
-	currentL2ChainHeight = uint64(7)
-	// The number of wavm opcodes per block (all blocks are equal in this sim, but not IRL).
-	maxWavmOpcodesPerBlock = uint64(49)
-	// Number of opcodes in a big step within a big step subchallenge.
-	numOpcodesPerBigStep = uint64(7)
-	// The heights at which Alice and Bob diverge at each challenge level.
-	divergeHeightAtL2 = uint64(3)
-	// How often an edge tracker needs to wake and perform its responsibilities.
-	edgeTrackerWakeInterval = time.Millisecond * 500
-	// How often the validator polls the chain to see if new assertions have been posted.
-	checkForAssertionsInteral = time.Second
-	// How often the validator will post its latest assertion to the chain.
-	postNewAssertionInterval = time.Hour
-)
+type challengeProtocolTestConfig struct {
+	// The latest heights by index at the assertion chain level.
+	aliceHeight uint64
+	bobHeight   uint64
+	// The height in the assertion chain at which the validators diverge.
+	assertionDivergenceHeight uint64
+	// The heights at which the validators diverge in histories at the big step
+	// subchallenge level.
+	bigStepDivergenceHeight uint64
+	// The heights at which the validators diverge in histories at the small step
+	// subchallenge level.
+	smallStepDivergenceHeight uint64
+	// Events we want to assert are fired from the goimpl.
+	expectedBisections  uint64
+	expectedLeavesAdded uint64
+}
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	// Setup an admin account, Alice and Bob.
-	accs, backend, err := setup.SetupAccounts(3)
+	ref := util.NewRealTimeReference()
+	setupCfg, err := setup.SetupChainsWithEdgeChallengeManager()
 	if err != nil {
 		panic(err)
 	}
-	addresses, err := deployStack(ctx, accs[0], backend)
-	if err != nil {
-		panic(err)
-	}
+	chains := setupCfg.Chains
+	accs := setupCfg.Accounts
+	addrs := setupCfg.Addrs
+	backend := setupCfg.Backend
+	prevInboxMaxCount := big.NewInt(1)
 
-	headerReader := headerreader.New(util.SimulatedBackendWrapper{
-		SimulatedBackend: backend,
-	}, func() *headerreader.Config {
-		return &headerreader.TestConfig
-	})
-	headerReader.Start(ctx)
-
-	// Setup the chain abstractions for Alice and Bob.
-	aliceL1ChainWrapper, err := solimpl.NewAssertionChain(
-		ctx,
-		addresses.Rollup,
-		accs[1].TxOpts,
-		backend,
-		headerReader,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	bobL1ChainWrapper, err := solimpl.NewAssertionChain(
-		ctx,
-		addresses.Rollup,
-		accs[2].TxOpts,
-		backend,
-		headerReader,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	// Advance the L1 chain by 100 blocks as there needs to be a minimum period of time
-	// before any assertions can be submitted to L1.
+	// Advance the chain by 100 blocks as there needs to be a minimum period of time
+	// before any assertions can be made on-chain.
 	for i := 0; i < 100; i++ {
 		backend.Commit()
 	}
 
-	honestL2StateHashes := honestL2StateHashesForUints(0, currentL2ChainHeight+1)
-	evilL2StateHashes := evilL2StateHashesForUints(0, currentL2ChainHeight+1)
-
-	// Creates honest and evil L2 states. These will be equal up to a divergence height.
-	// These are toy hashes because this is a simulation and the L1 chain knows nothing about
-	// the real L2 state hashes except for what validators claim.
-	honestL2States, honestInboxCounts := prepareHonestL2States(
-		honestL2StateHashes,
-		currentL2ChainHeight,
-	)
-
-	evilL2States, evilInboxCounts := prepareMaliciousL2States(
-		divergeHeightAtL2,
-		evilL2StateHashes,
-		honestL2States,
-		honestInboxCounts,
-	)
-
-	// Initialize Alice and Bob's respective L2 state managers.
-	managerOpts := []statemanager.Opt{
-		statemanager.WithMaxWavmOpcodesPerBlock(maxWavmOpcodesPerBlock),
-		statemanager.WithNumOpcodesPerBigStep(numOpcodesPerBigStep),
+	cfg := &challengeProtocolTestConfig{
+		// The latest assertion height each validator has seen.
+		aliceHeight: 7,
+		bobHeight:   7,
+		// The heights at which the validators diverge in histories. In this test,
+		// alice and bob start diverging at height 3 at all subchallenge levels.
+		assertionDivergenceHeight: 4,
+		bigStepDivergenceHeight:   4,
+		smallStepDivergenceHeight: 4,
 	}
-	aliceL2StateManager, err := statemanager.NewWithAssertionStates(
-		honestL2States,
+
+	honestHashes := honestHashesForUints(0, cfg.aliceHeight+1)
+	evilHashes := evilHashesForUints(0, cfg.bobHeight+1)
+
+	honestStates, honestInboxCounts := prepareHonestStates(
+		ctx,
+		chains[0],
+		backend,
+		honestHashes,
+		cfg.aliceHeight,
+		prevInboxMaxCount,
+	)
+
+	maliciousStates, maliciousInboxCounts := prepareMaliciousStates(
+		cfg,
+		evilHashes,
+		honestStates,
 		honestInboxCounts,
-		managerOpts...,
+	)
+
+	// Initialize each validator.
+	honestManager, err := statemanager.NewWithAssertionStates(
+		honestStates,
+		honestInboxCounts,
+		statemanager.WithNumOpcodesPerBigStep(protocol.LevelZeroSmallStepEdgeHeight),
+		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LevelZeroBigStepEdgeHeight*protocol.LevelZeroSmallStepEdgeHeight),
 	)
 	if err != nil {
 		panic(err)
 	}
-
-	// Bob diverges from Alice's L2 history at the specified divergence height.
-	managerOpts = append(
-		managerOpts,
-		statemanager.WithMaliciousIntent(),
-		statemanager.WithBigStepStateDivergenceHeight(divergeHeightAtL2),
-		statemanager.WithSmallStepStateDivergenceHeight(divergeHeightAtL2),
-	)
-	bobL2StateManager, err := statemanager.NewWithAssertionStates(
-		evilL2States,
-		evilInboxCounts,
-		managerOpts...,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	timeReference := util.NewRealTimeReference()
-	commonValidatorOpts := []validator.Opt{
-		validator.WithTimeReference(timeReference),
-		validator.WithEdgeTrackerWakeInterval(edgeTrackerWakeInterval),
-		validator.WithPostAssertionsInterval(postNewAssertionInterval),
-		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
-	}
-	aliceOpts := []validator.Opt{
-		validator.WithName("alice"),
-		validator.WithAddress(accs[1].AccountAddr),
-	}
-
-	// Sets up Alice and Bob validators.
+	aliceAddr := accs[0].AccountAddr
 	alice, err := validator.New(
 		ctx,
-		aliceL1ChainWrapper,
+		chains[0],
 		backend,
-		aliceL2StateManager,
-		addresses.Rollup,
-		append(aliceOpts, commonValidatorOpts...)...,
+		honestManager,
+		addrs.Rollup,
+		validator.WithName("alice"),
+		validator.WithAddress(aliceAddr),
+		validator.WithTimeReference(ref),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*100),
+		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	bobOpts := []validator.Opt{
-		validator.WithName("bob"),
-		validator.WithAddress(accs[2].AccountAddr),
+	maliciousManager, err := statemanager.NewWithAssertionStates(
+		maliciousStates,
+		maliciousInboxCounts,
+		statemanager.WithMaliciousIntent(),
+		statemanager.WithNumOpcodesPerBigStep(protocol.LevelZeroSmallStepEdgeHeight),
+		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LevelZeroBigStepEdgeHeight*protocol.LevelZeroSmallStepEdgeHeight),
+		statemanager.WithBigStepStateDivergenceHeight(cfg.bigStepDivergenceHeight),
+		statemanager.WithSmallStepStateDivergenceHeight(cfg.smallStepDivergenceHeight),
+	)
+	if err != nil {
+		panic(err)
 	}
+	bobAddr := accs[1].AccountAddr
 	bob, err := validator.New(
 		ctx,
-		bobL1ChainWrapper,
+		chains[1],
 		backend,
-		bobL2StateManager,
-		addresses.Rollup,
-		append(bobOpts, commonValidatorOpts...)...,
+		maliciousManager,
+		addrs.Rollup,
+		validator.WithName("bob"),
+		validator.WithAddress(bobAddr),
+		validator.WithTimeReference(ref),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*100),
+		validator.WithNewAssertionCheckInterval(time.Millisecond*50),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	// Spawns the validators, which should have them post assertions, challenge each other,
-	// and have the honest party win.
-	go alice.Start(ctx)
-	go bob.Start(ctx)
+	challengeManager, err := chains[0].SpecChallengeManager(ctx)
+	if err != nil {
+		panic(err)
+	}
 
+	genesis, err := chains[0].AssertionBySequenceNum(ctx, protocol.GenesisAssertionSeqNum)
+	if err != nil {
+		panic(err)
+	}
+	genesisStateHash, err := genesis.StateHash()
+	if err != nil {
+		panic(err)
+	}
+
+	// Submit leaf creation manually for each validator.
+	genesisState, err := honestManager.AssertionExecutionState(ctx, genesisStateHash)
+	if err != nil {
+		panic(err)
+	}
+	latestHonest, err := honestManager.LatestAssertionCreationData(ctx)
+	if err != nil {
+		panic(err)
+	}
+	leaf1, err := chains[0].CreateAssertion(
+		ctx,
+		genesisState,
+		latestHonest.State,
+		latestHonest.InboxMaxCount,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx)
+	if err != nil {
+		panic(err)
+	}
+	leaf2, err := chains[1].CreateAssertion(
+		ctx,
+		genesisState,
+		latestEvil.State,
+		latestEvil.InboxMaxCount,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Honest assertion being added.
+	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {
+		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+			ctx,
+			leaf,
+			startCommit,
+			endCommit,
+			prefixProof,
+		)
+		if err != nil {
+			panic(err)
+		}
+		return edge
+	}
+
+	honestStartCommit, err := honestManager.HistoryCommitmentUpTo(ctx, 0)
+	if err != nil {
+		panic(err)
+	}
+	honestEndCommit, err := honestManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+	honestPrefixProof, err := honestManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	honestEdge := leafAdder(honestStartCommit, honestEndCommit, honestPrefixProof, leaf1)
+
+	evilStartCommit, err := maliciousManager.HistoryCommitmentUpTo(ctx, 0)
+	if err != nil {
+		panic(err)
+	}
+	evilEndCommit, err := maliciousManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+	evilPrefixProof, err := maliciousManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	evilEdge := leafAdder(evilStartCommit, evilEndCommit, evilPrefixProof, leaf2)
+
+	alice.SpawnEdgeTracker(
+		ctx,
+		honestEdge,
+		0,
+		prevInboxMaxCount.Uint64(),
+	)
+	bob.SpawnEdgeTracker(
+		ctx,
+		evilEdge,
+		0,
+		prevInboxMaxCount.Uint64(),
+	)
 	<-ctx.Done()
 }
 
-func deployStack(
+func prepareHonestStates(
 	ctx context.Context,
-	adminAccount *setup.TestAccount,
+	chain protocol.Protocol,
 	backend *backends.SimulatedBackend,
-) (*setup.RollupAddresses, error) {
-	prod := false
-	wasmModuleRoot := common.Hash{}
-	rollupOwner := adminAccount
-	loserStakeEscrow := common.Address{}
-	cfg := chalTesting.GenerateRollupConfig(
-		prod,
-		wasmModuleRoot,
-		rollupOwner.AccountAddr,
-		chainId,
-		loserStakeEscrow,
-		miniStakeSize,
-	)
-	return setup.DeployFullRollupStack(
-		ctx,
-		backend,
-		adminAccount.TxOpts,
-		common.Address{}, // Sequencer addr.
-		cfg,
-	)
-}
-
-func prepareHonestL2States(
 	honestHashes []common.Hash,
 	chainHeight uint64,
+	prevInboxMaxCount *big.Int,
 ) ([]*protocol.ExecutionState, []*big.Int) {
+	// Initialize each validator's associated state roots which diverge
 	genesisState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash: common.Hash{},
@@ -234,60 +272,76 @@ func prepareHonestL2States(
 	honestInboxCounts[0] = big.NewInt(1)
 
 	for i := uint64(1); i <= chainHeight; i++ {
+		backend.Commit()
 		state := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
-				BlockHash: honestHashes[i],
-				Batch:     1,
+				BlockHash:  honestHashes[i],
+				Batch:      0,
+				PosInBatch: i,
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
+		if i == chainHeight {
+			state.GlobalState.Batch = 1
+			state.GlobalState.PosInBatch = 0
+		}
 
 		honestStates[i] = state
-		honestInboxCounts[i] = big.NewInt(1)
+		honestInboxCounts[i] = big.NewInt(2)
 	}
 	return honestStates, honestInboxCounts
 }
 
-func prepareMaliciousL2States(
-	assertionDivergenceHeight uint64,
+func prepareMaliciousStates(
+	cfg *challengeProtocolTestConfig,
 	evilHashes []common.Hash,
 	honestStates []*protocol.ExecutionState,
 	honestInboxCounts []*big.Int,
 ) ([]*protocol.ExecutionState, []*big.Int) {
-	divergenceHeight := assertionDivergenceHeight
-	numRoots := currentL2ChainHeight + 1
+	divergenceHeight := cfg.assertionDivergenceHeight
+	numRoots := cfg.bobHeight + 1
 	states := make([]*protocol.ExecutionState, numRoots)
 	inboxCounts := make([]*big.Int, numRoots)
 
 	for j := uint64(0); j < numRoots; j++ {
 		if divergenceHeight == 0 || j < divergenceHeight {
-			states[j] = honestStates[j]
+			evilState := *honestStates[j]
+			if j < cfg.bobHeight {
+				evilState.GlobalState.Batch = 0
+				evilState.GlobalState.PosInBatch = j
+			}
+			states[j] = &evilState
 			inboxCounts[j] = honestInboxCounts[j]
 		} else {
 			evilState := &protocol.ExecutionState{
 				GlobalState: protocol.GoGlobalState{
-					BlockHash: evilHashes[j],
-					Batch:     1,
+					BlockHash:  evilHashes[j],
+					Batch:      0,
+					PosInBatch: j,
 				},
 				MachineStatus: protocol.MachineStatusFinished,
 			}
+			if j == cfg.bobHeight {
+				evilState.GlobalState.Batch = 1
+				evilState.GlobalState.PosInBatch = 0
+			}
 			states[j] = evilState
-			inboxCounts[j] = big.NewInt(1)
+			inboxCounts[j] = big.NewInt(2)
 		}
 	}
 	return states, inboxCounts
 }
 
-func evilL2StateHashesForUints(lo, hi uint64) []common.Hash {
-	ret := []common.Hash{}
+func evilHashesForUints(lo, hi uint64) []common.Hash {
+	var ret []common.Hash
 	for i := lo; i < hi; i++ {
 		ret = append(ret, hashForUint(math.MaxUint64-i))
 	}
 	return ret
 }
 
-func honestL2StateHashesForUints(lo, hi uint64) []common.Hash {
-	ret := []common.Hash{}
+func honestHashesForUints(lo, hi uint64) []common.Hash {
+	var ret []common.Hash
 	for i := lo; i < hi; i++ {
 		ret = append(ret, hashForUint(i))
 	}
