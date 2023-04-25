@@ -12,10 +12,19 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 interface IEdgeChallengeManager {
     /// @notice Initialize the EdgeChallengeManager. EdgeChallengeManagers are upgradeable
     ///         so use the initializer paradigm
+    /// @param _assertionChain              The assertion chain contract
+    /// @param _challengePeriodBlocks       The amount of cumalitive time an edge must spend unrivaled before it can be confirmed
+    /// @param _oneStepProofEntry           The one step proof logic
+    /// @param layerZeroBlockEdgeHeight     The end height of layer zero edges of type Block
+    /// @param layerZeroBigStepEdgeHeight   The end height of layer zero edges of type BigStep
+    /// @param layerZeroSmallStepEdgeHeight The end height of layer zero edges of type SmallStep
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodBlocks,
-        IOneStepProofEntry _oneStepProofEntry
+        IOneStepProofEntry _oneStepProofEntry,
+        uint256 layerZeroBlockEdgeHeight,
+        uint256 layerZeroBigStepEdgeHeight,
+        uint256 layerZeroSmallStepEdgeHeight
     ) external;
 
     /// @notice Performs necessary checks and creates a new layer zero edge
@@ -86,6 +95,10 @@ interface IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
+
+    /// @notice Zero layer edges have to be a fixed height.
+    ///         This function returns the end height for a given edge type
+    function getLayerZeroEndHeight(EdgeType eType) external view returns (uint256);
 
     /// @notice Calculate the unique id of an edge
     /// @param edgeType         The type of edge
@@ -220,12 +233,20 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///      edges from different challenges cannot have the same id, and so can be stored in the same store
     EdgeStore internal store;
 
+    /// @notice The cumulative amount of time an edge must remain unrivaled
+    ///         before it can be confirmed
     uint256 public challengePeriodBlock;
 
     /// @notice The assertion chain about which challenges are created
     IAssertionChain public assertionChain;
     /// @notice The one step proof resolver used to decide between rival SmallStep edges of length 1
     IOneStepProofEntry public oneStepProofEntry;
+    /// @notice The end height of layer zero Block edges
+    uint256 public LAYERZERO_BLOCKEDGE_HEIGHT;
+    /// @notice The end height of layer zero BigStep edges
+    uint256 public LAYERZERO_BIGSTEPEDGE_HEIGHT;
+    /// @notice The end height of layer zero SmallStep edges
+    uint256 public LAYERZERO_SMALLSTEPEDGE_HEIGHT;
 
     constructor() {
         _disableInitializers();
@@ -235,12 +256,22 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodBlocks,
-        IOneStepProofEntry _oneStepProofEntry
+        IOneStepProofEntry _oneStepProofEntry,
+        uint256 layerZeroBlockEdgeHeight,
+        uint256 layerZeroBigStepEdgeHeight,
+        uint256 layerZeroSmallStepEdgeHeight
     ) public initializer {
         require(address(assertionChain) == address(0), "ALREADY_INIT");
         assertionChain = _assertionChain;
         challengePeriodBlock = _challengePeriodBlocks;
         oneStepProofEntry = _oneStepProofEntry;
+
+        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight), "Block height not power of 2");
+        LAYERZERO_BLOCKEDGE_HEIGHT = layerZeroBlockEdgeHeight;
+        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBigStepEdgeHeight), "Big step height not power of 2");
+        LAYERZERO_BIGSTEPEDGE_HEIGHT = layerZeroBigStepEdgeHeight;
+        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroSmallStepEdgeHeight), "Small step height not power of 2");
+        LAYERZERO_SMALLSTEPEDGE_HEIGHT = layerZeroSmallStepEdgeHeight;
     }
 
     /////////////////////////////
@@ -253,7 +284,20 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         payable
         returns (bytes32)
     {
-        EdgeAddedData memory edgeAdded = store.createLayerZeroEdge(assertionChain, args, prefixProof, proof);
+        AssertionReferenceData memory ard;
+        if (args.edgeType == EdgeType.Block) {
+            bytes32 predecessorId = assertionChain.getPredecessorId(args.claimId);
+            ard = AssertionReferenceData(
+                args.claimId,
+                predecessorId,
+                assertionChain.isPending(args.claimId),
+                assertionChain.hasSibling(args.claimId),
+                assertionChain.getStateHash(predecessorId),
+                assertionChain.getStateHash(args.claimId)
+            );
+        }
+        uint256 expectedEndHeight = getLayerZeroEndHeight(args.edgeType);
+        EdgeAddedData memory edgeAdded = store.createLayerZeroEdge(args, ard, expectedEndHeight, prefixProof, proof);
         emit EdgeAdded(
             edgeAdded.edgeId,
             edgeAdded.mutualId,
@@ -377,6 +421,19 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///////////////////////
     // VIEW ONLY SECTION //
     ///////////////////////
+
+    /// @inheritdoc IEdgeChallengeManager
+    function getLayerZeroEndHeight(EdgeType eType) public view returns (uint256) {
+        if (eType == EdgeType.Block) {
+            return LAYERZERO_BLOCKEDGE_HEIGHT;
+        } else if (eType == EdgeType.BigStep) {
+            return LAYERZERO_BIGSTEPEDGE_HEIGHT;
+        } else if (eType == EdgeType.SmallStep) {
+            return LAYERZERO_SMALLSTEPEDGE_HEIGHT;
+        } else {
+            revert("Unrecognised edge type");
+        }
+    }
 
     /// @inheritdoc IEdgeChallengeManager
     function calculateEdgeId(
