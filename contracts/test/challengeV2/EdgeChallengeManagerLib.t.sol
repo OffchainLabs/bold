@@ -1227,19 +1227,19 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testConfirmByTimeBrokenAncestor() public {
-        claimWithMixedAncestors(10, 137, 1, 1, 0, "Current is not a child of ancestor");
+        claimWithMixedAncestors(10, 137, 1, 1, 1, "Current is not a child of ancestor");
     }
 
     function testConfirmByTimeBrokenClaim() public {
-        claimWithMixedAncestors(10, 138, 1, 1, 0, "Current is not a child of ancestor");
+        claimWithMixedAncestors(10, 138, 1, 1, 1, "Current is not a child of ancestor");
     }
 
     function testConfirmByTimeEdgeNotExist() public {
-        claimWithMixedAncestors(10, 139, 1, 1, 0, "Edge does not exist");
+        claimWithMixedAncestors(10, 139, 1, 1, 1, "Edge does not exist");
     }
 
     function testConfirmByTimeEdgeNotPending() public {
-        claimWithMixedAncestors(10, 140, 1, 1, 0, "Edge not pending");
+        claimWithMixedAncestors(10, 140, 1, 1, 1, "Edge not pending");
     }
 
     function confirmByOneStep(uint256 flag, string memory revertArg) internal {
