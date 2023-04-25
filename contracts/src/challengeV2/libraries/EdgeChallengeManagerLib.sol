@@ -238,55 +238,62 @@ library EdgeChallengeManagerLib {
         }
     }
 
-    /// @notice Zero layer edges have to be a fixed height.
-    ///         This function returns the end height for a given edge height
-    function getLayerZeroEndHeight(EdgeType eType) internal pure returns (uint256) {
-        if (eType == EdgeType.Block) {
-            return LAYERZERO_BLOCKEDGE_HEIGHT;
-        } else if (eType == EdgeType.BigStep) {
-            return LAYERZERO_BIGSTEPEDGE_HEIGHT;
-        } else if (eType == EdgeType.SmallStep) {
-            return LAYERZERO_SMALLSTEPEDGE_HEIGHT;
-        } else {
-            revert("Unrecognised edge type");
+    /// @notice Check that a uint is a power of 2
+    function isPowerOfTwo(uint256 x) internal pure returns (bool) {
+        // zero is not a power of 2
+        if (x == 0) {
+            return false;
         }
+
+        // if x is a power of 2, then this will be 0111111
+        uint256 y = x - 1;
+
+        // if x is a power of 2 then y will share no bits with y
+        return ((x & y) == 0);
     }
 
     /// @notice Common checks that apply to all layer zero edges
-    /// @param proofData    Data extracted from supplied proof
-    /// @param args         The edge creation args
-    /// @param prefixProof  A proof that the start history root commits to a prefix of the states committed
-    ///                     to by the end history root
-    function layerZeroCommonChecks(ProofData memory proofData, CreateEdgeArgs memory args, bytes calldata prefixProof)
-        internal
-        pure
-        returns (bytes32)
-    {
+    /// @param proofData            Data extracted from supplied proof
+    /// @param args                 The edge creation args
+    /// @param expectedEndHeight    Edges have a deterministic end height dependent on their type
+    /// @param prefixProof          A proof that the start history root commits to a prefix of the states committed
+    ///                             to by the end history root
+    function layerZeroCommonChecks(
+        ProofData memory proofData,
+        CreateEdgeArgs memory args,
+        uint256 expectedEndHeight,
+        bytes calldata prefixProof
+    ) internal pure returns (bytes32) {
         // since zero layer edges have a start height of zero, we know that they are a size
         // one tree containing only the start state. We can then compute the history root directly
         bytes32 startHistoryRoot = MerkleTreeLib.root(MerkleTreeLib.appendLeaf(new bytes32[](0), proofData.startState));
 
-        // edge have a deterministic end height dependent on their type
-        uint256 endHeight = getLayerZeroEndHeight(args.edgeType);
+        // all end heights are expected to be a power of 2, the specific power is defined by the
+        // edge challenge manager itself
+        require(isPowerOfTwo(expectedEndHeight), "End height is not a power of 2");
 
         // It isnt strictly necessary to pass in the end height, we know what it
         // should be so we could just use the end height that we get from getLayerZeroEndHeight
         // However it's a nice sanity check for the calling code to check that their local edge
         // will have the same height as the one created here
-        require(args.endHeight == endHeight, "Invalid edge size");
+        require(args.endHeight == expectedEndHeight, "Invalid edge size");
 
         // the end state is checked/detemined as part of the specific edge type
         // We then ensure that that same end state is part of the end history root we're creating
         // This ensures continuity of states between levels - the state is present in both this
         // level and the one above
-        MerkleTreeLib.verifyInclusionProof(args.endHistoryRoot, proofData.endState, endHeight, proofData.inclusionProof);
+        MerkleTreeLib.verifyInclusionProof(
+            args.endHistoryRoot, proofData.endState, args.endHeight, proofData.inclusionProof
+        );
 
         // start root must always be a prefix of end root, we ensure that
         // this new edge adheres to this. Future bisections will ensure that this
         // property is conserved
         require(prefixProof.length > 0, "Prefix proof is empty");
         (bytes32[] memory preExpansion, bytes32[] memory preProof) = abi.decode(prefixProof, (bytes32[], bytes32[]));
-        MerkleTreeLib.verifyPrefixProof(startHistoryRoot, 1, args.endHistoryRoot, endHeight + 1, preExpansion, preProof);
+        MerkleTreeLib.verifyPrefixProof(
+            startHistoryRoot, 1, args.endHistoryRoot, args.endHeight + 1, preExpansion, preProof
+        );
 
         return (startHistoryRoot);
     }
@@ -324,13 +331,14 @@ library EdgeChallengeManagerLib {
         EdgeStore storage store,
         CreateEdgeArgs memory args,
         AssertionReferenceData memory ard,
+        uint256 expectedEndHeight,
         bytes calldata prefixProof,
         bytes calldata proof
     ) internal returns (EdgeAddedData memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) = layerZeroTypeSpecifcChecks(store, args, ard, proof);
         // all edge types share some common checks
-        (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, prefixProof);
+        (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, expectedEndHeight, prefixProof);
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
         return add(store, ce);
@@ -473,7 +481,6 @@ library EdgeChallengeManagerLib {
         }
 
         bytes32 lowerChildId;
-        // CHRIS: TODO: check what value we have here if this is never added
         EdgeAddedData memory lowerChildAdded;
         {
             // midpoint proof it valid, create and store the children
