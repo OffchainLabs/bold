@@ -33,6 +33,9 @@ func (m *mockChain) advanceBlocks(numBlocks uint64) {
 	}
 }
 
+func TestAddEdge(t *testing.T) {
+}
+
 func TestCumulativeUnrivaledTimeUpdates_UniformInitialUnrivaledTimes(t *testing.T) {
 	tree := &challengeTree{
 		edges:                           threadsafe.NewMap[protocol.EdgeId, *edge](),

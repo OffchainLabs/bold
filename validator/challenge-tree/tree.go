@@ -52,7 +52,6 @@ type challengeTree struct {
 	edges                            *threadsafe.Map[protocol.EdgeId, *edge]
 	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
 	rivaledEdges                     *threadsafe.Set[protocol.EdgeId]
-	honestEdges                      *threadsafe.Set[protocol.EdgeId]
 	honestUnrivaledCumulativeTimers  *threadsafe.Map[protocol.EdgeId, uint64]
 	honestBlockChalLevelZeroEdge     util.Option[*edge]
 	honestBigStepChalLevelZeroEdge   util.Option[*edge]
@@ -77,14 +76,14 @@ func (ct *challengeTree) addEdge(eg *edge) {
 	}
 
 	// If this is an honest edge from our perspective, we keep track
-	// of it as such in a set. TODO: Handle subchallenges.
+	// of it as such in our implementation.
 	if ct.histChecker.hasHistoryCommitment(
 		eg.startHeight,
 		eg.startCommit,
 		eg.endHeight,
 		eg.endCommit,
 	) {
-		ct.honestEdges.Insert(eg.id)
+		ct.edges.Insert(eg.id, eg)
 		if eg.claimId != (common.Hash{}) {
 			switch eg.edgeType {
 			case protocol.BlockChallengeEdge:
@@ -97,9 +96,6 @@ func (ct *challengeTree) addEdge(eg *edge) {
 			}
 		}
 	}
-
-	// Add the edge to the map of edge ids for the challenge.
-	ct.edges.Insert(eg.id, eg)
 }
 
 func (ct *challengeTree) CumulativeTimeUnrivaled(edgeId protocol.EdgeId) (uint64, error) {
