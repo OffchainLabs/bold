@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -55,7 +56,7 @@ func TestAncestors(t *testing.T) {
 	child48.upperChildId = common.Hash(child68.id)
 
 	tree := &challengeTree{
-		honestBlockChalLevelZeroEdge: topLevel,
+		honestBlockChalLevelZeroEdge: util.Some(topLevel),
 		edges:                        threadsafe.NewMap[protocol.EdgeId, *edge](),
 	}
 
