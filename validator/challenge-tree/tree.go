@@ -156,8 +156,7 @@ func (ct *challengeTree) innerCumulativeUpdate(
 				// Defensive check ensuring the honest level zero edge one challenge level below
 				// claims the current edge id as its claim id.
 				if honestLowerLevelEdge.claimId != common.Hash(edgeId) {
-					// TODO: Return errors.
-					panic("bad claim")
+					return
 				}
 
 				ct.innerCumulativeUpdate(total, honestLowerLevelEdge.id)
@@ -243,7 +242,6 @@ func (ct *challengeTree) ancestorQuery(
 	if !hasChildren(curr) {
 		// If the edge has length 1, we then perform a few special checks.
 		if edgeLength(curr) == 1 {
-
 			// In case the edge is a small step challenge of length 1, we simply return.
 			if curr.edgeType == protocol.SmallStepChallengeEdge {
 				return accum, false
@@ -266,8 +264,7 @@ func (ct *challengeTree) ancestorQuery(
 				// Defensive check ensuring the honest level zero edge one challenge level below
 				// claims the current edge id as its claim id.
 				if honestLowerLevelEdge.claimId != common.Hash(curr.id) {
-					// TODO: Return errors.
-					panic("bad claim")
+					return accum, false
 				}
 
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
@@ -297,8 +294,14 @@ func (ct *challengeTree) ancestorQuery(
 	if isChild(curr, queryingFor) {
 		return append(accum, curr.id), true
 	}
-	lowerChild, _ := ct.edges.Get(protocol.EdgeId(curr.lowerChildId))
-	upperChild, _ := ct.edges.Get(protocol.EdgeId(curr.upperChildId))
+	lowerChild, lowerOk := ct.edges.Get(protocol.EdgeId(curr.lowerChildId))
+	if !lowerOk {
+		panic("not lower")
+	}
+	upperChild, upperOk := ct.edges.Get(protocol.EdgeId(curr.upperChildId))
+	if !upperOk {
+		panic(fmt.Sprintf("not upper curr %s, upper=%s", curr.id, curr.upperChildId.Bytes()))
+	}
 	lowerAncestors, foundInLowerChildren := ct.ancestorQuery(
 		append(accum, curr.id), lowerChild, queryingFor,
 	)
