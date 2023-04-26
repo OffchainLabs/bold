@@ -1,6 +1,8 @@
 package challengetree
 
 import (
+	"fmt"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
@@ -98,6 +100,14 @@ func (ct *challengeTree) addEdge(eg *edge) {
 
 	// Add the edge to the map of edge ids for the challenge.
 	ct.edges.Insert(eg.id, eg)
+}
+
+func (ct *challengeTree) CumulativeTimeUnrivaled(edgeId protocol.EdgeId) (uint64, error) {
+	total, ok := ct.honestUnrivaledCumulativeTimers.Get(edgeId)
+	if !ok {
+		return 0, fmt.Errorf("edge id %#x not found in cumulative timers map", edgeId)
+	}
+	return total, nil
 }
 
 // Get the honest level zero edge from our list of honest
