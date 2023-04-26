@@ -7,6 +7,7 @@ import "./ChallengeEdgeLib.sol";
 import "../../osp/IOneStepProofEntry.sol";
 import "../DataEntities.sol";
 import "../../libraries/Constants.sol";
+import "../../rollup/RollupLib.sol";
 
 /// @notice Data for creating a layer zero edge
 struct CreateEdgeArgs {
@@ -182,7 +183,8 @@ library EdgeChallengeManagerLib {
         EdgeStore storage store,
         IAssertionChain assertionChain,
         CreateEdgeArgs memory args,
-        bytes memory proof
+        bytes memory proof,
+        IOneStepProofEntry oneStepProofEntry
     ) internal view returns (ProofData memory, bytes32) {
         if (args.edgeType == EdgeType.Block) {
             // origin id is the assertion which is the root of challenge
@@ -198,11 +200,25 @@ library EdgeChallengeManagerLib {
 
             // parse the inclusion proof for later use
             require(proof.length > 0, "Block edge specific proof is empty");
-            bytes32[] memory inclusionProof = abi.decode(proof, (bytes32[]));
+            (
+                bytes32[] memory inclusionProof,
+                ExecutionState memory startState,
+                uint256 prevInboxMaxCount,
+                ExecutionState memory endState,
+                uint256 afterInboxMaxCount
+            ) = abi.decode(proof, (bytes32[], ExecutionState, uint256, ExecutionState, uint256));
 
-            bytes32 startState = assertionChain.getChallengeHash(originId);
-            bytes32 endState = assertionChain.getChallengeHash(args.claimId);
-            return (ProofData(startState, endState, inclusionProof), originId);
+            bytes32 startStateHash = assertionChain.getStateHash(originId);
+            bytes32 endStateHash = assertionChain.getStateHash(args.claimId);
+
+            require(startStateHash == RollupLib.stateHashMem(startState, prevInboxMaxCount), "Incorrect assertion start state");
+            require(endStateHash == RollupLib.stateHashMem(endState, afterInboxMaxCount), "Incorrect assertion end state");
+
+            // Transform the hashes into machine hashes for the challenge
+            startStateHash = oneStepProofEntry.getMachineHash(startState);
+            endStateHash = oneStepProofEntry.getMachineHash(endState);
+
+            return (ProofData(startStateHash, endStateHash, inclusionProof), originId);
         } else {
             ChallengeEdge storage claimEdge = get(store, args.claimId);
 
@@ -306,7 +322,7 @@ library EdgeChallengeManagerLib {
         return (startHistoryRoot);
     }
 
-    
+
     /// @notice Creates a new layer zero edges from edge creation args
     function toLayerZeroEdge(bytes32 originId, bytes32 startHistoryRoot, CreateEdgeArgs memory args)
         private
@@ -338,10 +354,11 @@ library EdgeChallengeManagerLib {
         IAssertionChain assertionChain,
         CreateEdgeArgs memory args,
         bytes calldata prefixProof,
-        bytes calldata proof
+        bytes calldata proof,
+        IOneStepProofEntry oneStepProofEntry
     ) internal returns (bytes32) {
         // each edge type requires some specific checks
-        (ProofData memory proofData, bytes32 originId) = layerZeroTypeSpecifcChecks(store, assertionChain, args, proof);
+        (ProofData memory proofData, bytes32 originId) = layerZeroTypeSpecifcChecks(store, assertionChain, args, proof, oneStepProofEntry);
         // all edge types share some common checks
         (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, prefixProof);
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit

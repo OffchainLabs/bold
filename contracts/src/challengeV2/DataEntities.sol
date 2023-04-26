@@ -10,7 +10,7 @@ interface IAssertionChain {
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32);
     function getHeight(bytes32 assertionId) external view returns (uint256);
     function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCount, bytes memory proof) external view returns (uint256);
-    function getChallengeHash(bytes32 assertionId) external view returns (bytes32);
+    function getStateHash(bytes32 assertionId) external view returns (bytes32);
     function hasSibling(bytes32 assertionId) external view returns (bool);
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256);
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32);

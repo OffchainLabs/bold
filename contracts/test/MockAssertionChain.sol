@@ -49,7 +49,7 @@ contract MockAssertionChain is IAssertionChain {
         return inboxMsgCountSeen;
     }
 
-    function getChallengeHash(bytes32 assertionId) external view returns (bytes32) {
+    function getStateHash(bytes32 assertionId) external view returns (bytes32) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].stateHash;
     }
@@ -65,11 +65,11 @@ contract MockAssertionChain is IAssertionChain {
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
-        (bytes32 lastHash, bytes32 assertionExecHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        (bytes32 lastHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
         require(
             RollupLib.assertionHash({
                 lastHash: lastHash,
-                assertionExecHash: assertionExecHash,
+                afterStateHash: afterStateHash,
                 inboxAcc: inboxAcc,
                 wasmModuleRoot: root
             }) == assertionId,
@@ -89,7 +89,7 @@ contract MockAssertionChain is IAssertionChain {
     }
 
     function calculateAssertionId(
-        bytes32 predecessorId, 
+        bytes32 predecessorId,
         State memory beforeState,
         State memory afterState
     )
@@ -97,14 +97,10 @@ contract MockAssertionChain is IAssertionChain {
         view
         returns (bytes32)
     {
-        bytes32 executionHash = RollupLib.executionHash(AssertionInputs({
-            beforeState: beforeState.es,
-            afterState: afterState.es
-        }));
         return RollupLib.assertionHash({
             lastHash: predecessorId,
-            assertionExecHash: executionHash,
-            inboxAcc: keccak256(abi.encode(afterState.es.globalState.u64Vals[0])), // mock accumulator based on inbox count 
+            afterState: afterState.es,
+            inboxAcc: keccak256(abi.encode(afterState.es.globalState.u64Vals[0])), // mock accumulator based on inbox count
             wasmModuleRoot: wasmModuleRoot
         });
     }

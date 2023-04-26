@@ -62,9 +62,14 @@ library RollupLib {
         return keccak256(abi.encodePacked(blockHash, sendRoot));
     }
 
+    // Not the same as a machine hash for a given execution state
+    function executionStateHash(ExecutionState memory state) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(state.machineStatus, state.globalState.hash()));
+    }
+
     function assertionHash(
         bytes32 lastHash,
-        bytes32 assertionExecHash,
+        ExecutionState memory afterState,
         bytes32 inboxAcc,
         bytes32 wasmModuleRoot
     ) internal pure returns (bytes32) {
@@ -74,7 +79,27 @@ library RollupLib {
             keccak256(
                 abi.encodePacked(
                     lastHash,
-                    assertionExecHash,
+                    executionStateHash(afterState),
+                    inboxAcc,
+                    wasmModuleRoot
+                )
+            );
+    }
+
+    // Takes in a hash of the afterState instead of the afterState itself
+    function assertionHash(
+        bytes32 lastHash,
+        bytes32 afterStateHash,
+        bytes32 inboxAcc,
+        bytes32 wasmModuleRoot
+    ) internal pure returns (bytes32) {
+        // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
+        // uint8 hasSiblingInt = hasSibling ? 1 : 0;
+        return
+            keccak256(
+                abi.encodePacked(
+                    lastHash,
+                    afterStateHash,
                     inboxAcc,
                     wasmModuleRoot
                 )

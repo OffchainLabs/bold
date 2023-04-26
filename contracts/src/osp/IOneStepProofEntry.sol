@@ -11,6 +11,11 @@ library OneStepProofEntryLib {
     uint256 internal constant MAX_STEPS = 1 << 43;
 }
 
+struct ExecutionState {
+    GlobalState globalState;
+    MachineStatus machineStatus;
+}
+
 interface IOneStepProofEntry {
     function proveOneStep(
         ExecutionContext calldata execCtx,
@@ -19,5 +24,5 @@ interface IOneStepProofEntry {
         bytes calldata proof
     ) external view returns (bytes32 afterHash);
 
-    function getMachineHash(GlobalState calldata globalState, MachineStatus machineStatus) external pure returns (bytes32);
+    function getMachineHash(ExecutionState calldata execState) external pure returns (bytes32);
 }

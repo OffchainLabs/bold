@@ -62,11 +62,11 @@ contract OneStepProofEntry is IOneStepProofEntry {
         return mach.hash();
     }
 
-    function getMachineHash(GlobalState calldata globalState, MachineStatus status) external pure override returns (bytes32) {
-        if (status == MachineStatus.FINISHED) {
-            return keccak256(abi.encodePacked("Machine finished:", globalState.hash()));
-        } else if (status == MachineStatus.ERRORED) {
-            return keccak256(abi.encodePacked("Machine errored:", globalState.hash()));
+    function getMachineHash(ExecutionState calldata execState) external pure override returns (bytes32) {
+        if (execState.machineStatus == MachineStatus.FINISHED) {
+            return keccak256(abi.encodePacked("Machine finished:", execState.globalState.hash()));
+        } else if (execState.machineStatus == MachineStatus.ERRORED) {
+            return keccak256(abi.encodePacked("Machine errored:", execState.globalState.hash()));
         } else {
             revert("BAD_MACHINE_STATUS");
         }

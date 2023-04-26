@@ -16,9 +16,9 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
         return bytes32(proof);
     }
 
-    function getMachineHash(GlobalState calldata globalState, MachineStatus machineStatus) external pure returns (bytes32) {
-        require(machineStatus == MachineStatus.FINISHED, "BAD_MACHINE_STATUS");
-        return GlobalStateLib.hash(globalState);
+    function getMachineHash(ExecutionState calldata execState) external pure override returns (bytes32) {
+        require(execState.machineStatus == MachineStatus.FINISHED, "BAD_MACHINE_STATUS");
+        return GlobalStateLib.hash(execState.globalState);
     }
 }
 
@@ -27,10 +27,7 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisBlockHash = rand.hash();
     State genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.hash(genesisState);
-    bytes32 genesisExecutionHash = RollupLib.executionHash(AssertionInputs({
-        beforeState: genesisState.es,
-        afterState: genesisState.es
-    }));
+    bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState.es);
 
     function genesisStates() internal view returns (bytes32[] memory) {
         bytes32[] memory genStates = new bytes32[](1);
@@ -1294,7 +1291,7 @@ contract EdgeChallengeManagerTest is Test {
                 inboxMsgCountSeen: 7,
                 inboxMsgCountSeenProof: abi.encode(genesisState.es),
                 wasmModuleRoot: bytes32(0),
-                wasmModuleRootProof: abi.encode(bytes32(0), genesisExecutionHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
+                wasmModuleRootProof: abi.encode(bytes32(0), genesisAfterStateHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
                 beforeHash: firstStates[0],
                 proof: abi.encodePacked(firstStates[1])
             }),

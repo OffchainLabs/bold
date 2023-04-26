@@ -351,8 +351,4 @@ contract OldChallengeManager is DelegateCallAware, IOldChallengeManager {
         //        resultReceiver.completeChallenge(challengeIndex, current, next);
         //        emit ChallengeEnded(challengeIndex, reason);
     }
-
-    function getChallengeHash(GlobalState calldata globalState, MachineStatus machineStatus) external pure override returns (bytes32) {
-        revert("UNIMPLEMENTED");
-    }
 }

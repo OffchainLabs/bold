@@ -32,7 +32,7 @@ interface IAssertionChain {
 
     function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256);
 
-    function getChallengeHash(bytes32 assertionId) external view returns (bytes32);
+    function getStateHash(bytes32 assertionId) external view returns (bytes32);
 
     function hasSibling(bytes32 assertionId) external view returns (bool);
 

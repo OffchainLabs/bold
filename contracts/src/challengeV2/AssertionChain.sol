@@ -94,7 +94,7 @@ contract AssertionChain is IAssertionChain {
         return assertions[assertionId].inboxMsgCountSeen;
     }
 
-    function getChallengeHash(bytes32 assertionId) external view returns (bytes32) {
+    function getStateHash(bytes32 assertionId) external view returns (bytes32) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].stateHash;
     }

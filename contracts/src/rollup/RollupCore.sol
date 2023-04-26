@@ -254,21 +254,21 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return uint64(_stakerList.length);
     }
 
-    /// @return Genesis challenge hash, assertion hash, and wasm module root
+    /// @return Genesis state hash, assertion hash, and wasm module root
     function genesisAssertionHashes() public view override returns (bytes32, bytes32, bytes32) {
         GlobalState memory emptyGlobalState;
         ExecutionState memory emptyExecutionState = ExecutionState(
             emptyGlobalState,
             MachineStatus.FINISHED
         );
-        bytes32 challengeHash = challengeManager.getChallengeHash(emptyExecutionState.globalState, emptyExecutionState.machineStatus);
+        bytes32 stateHash = RollupLib.stateHashMem(emptyExecutionState, 1);
         bytes32 genesisHash = RollupLib.assertionHash({
             lastHash: bytes32(0),
-            assertionExecHash: challengeHash,
+            afterState: emptyExecutionState,
             inboxAcc: bytes32(0),
             wasmModuleRoot: wasmModuleRoot
         });
-        return (challengeHash, genesisHash, wasmModuleRoot);
+        return (stateHash, genesisHash, wasmModuleRoot);
     }
 
     /**
@@ -548,7 +548,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     struct StakeOnNewAssertionFrame {
         uint256 currentInboxSize;
         AssertionNode assertion;
-        bytes32 challengeHash;
+        bytes32 stateHash;
         AssertionNode prevAssertion;
         bytes32 lastHash;
         bool hasSibling;
@@ -615,7 +615,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         }
 
         {
-            memoryFrame.challengeHash = challengeManager.getChallengeHash(assertion.afterState.globalState, assertion.afterState.machineStatus);
+            memoryFrame.stateHash = RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize);
 
             memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
 
@@ -632,7 +632,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             newAssertionHash = RollupLib.assertionHash(
                 memoryFrame.lastHash,
-                memoryFrame.challengeHash,
+                assertion.afterState,
                 memoryFrame.sequencerBatchAcc,
                 wasmModuleRoot // HN: TODO: should we include this in assertion hash?
             );
@@ -646,7 +646,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             );
 
             memoryFrame.assertion = AssertionNodeLib.createAssertion(
-                memoryFrame.challengeHash,
+                memoryFrame.stateHash,
                 RollupLib.confirmHash(assertion),
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
@@ -671,7 +671,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             latestAssertionCreated(),
             memoryFrame.prevAssertion.assertionHash,
             newAssertionHash,
-            memoryFrame.challengeHash,
+            memoryFrame.stateHash,
             assertion,
             memoryFrame.sequencerBatchAcc,
             wasmModuleRoot,
@@ -690,7 +690,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         revert("DEPRECATED");
     }
 
-    function getChallengeHash(bytes32 assertionId) external view returns (bytes32){
+    function getStateHash(bytes32 assertionId) external view returns (bytes32){
         return getAssertionStorage(getAssertionNum(assertionId)).stateHash;
     }
 
@@ -720,11 +720,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
-        (bytes32 lastHash, bytes32 assertionExecHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        (bytes32 lastHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
         require(
             RollupLib.assertionHash({
                 lastHash: lastHash,
-                assertionExecHash: assertionExecHash,
+                afterStateHash: afterStateHash,
                 inboxAcc: inboxAcc,
                 wasmModuleRoot: root
             }) == assertionId,

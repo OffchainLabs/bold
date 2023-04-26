@@ -80,9 +80,6 @@ interface IEdgeChallengeManager {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
-
-    // Returns a hash representing the execution state for the purposes of the challenge.
-    function getChallengeHash(GlobalState calldata globalState, MachineStatus machineStatus) external view returns (bytes32);
 }
 
 // // CHRIS: TODO: check the ministake was provided
@@ -132,7 +129,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         payable
         returns (bytes32)
     {
-        return store.createLayerZeroEdge(assertionChain, args, prefixProof, proof);
+        return store.createLayerZeroEdge(assertionChain, args, prefixProof, proof, oneStepProofEntry);
     }
 
     function confirmEdgeByChildren(bytes32 edgeId) public {
@@ -163,10 +160,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         store.confirmEdgeByOneStepProof(
             edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
         );
-    }
-
-    function getChallengeHash(GlobalState calldata globalState, MachineStatus machineStatus) external view override returns (bytes32) {
-        return oneStepProofEntry.getMachineHash(globalState, machineStatus);
     }
 
     // CHRIS: TODO: remove these?
