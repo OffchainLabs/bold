@@ -239,6 +239,9 @@ func (ct *challengeTree) ancestorQuery(
 	curr *edge,
 	queryingFor protocol.EdgeId,
 ) ([]protocol.EdgeId, bool) {
+	if curr.id == queryingFor {
+		return accum, true
+	}
 	if !hasChildren(curr) {
 		// If the edge has length 1, we then perform a few special checks.
 		if edgeLength(curr) == 1 {
@@ -272,18 +275,18 @@ func (ct *challengeTree) ancestorQuery(
 
 			// If the edge is a big step challenge edge, we continue the recursion starting from the honest
 			// small step level zero edge, if it exists.
-			if curr.edgeType == protocol.SmallStepChallengeEdge {
+			if curr.edgeType == protocol.BigStepChallengeEdge {
 				if ct.honestSmallStepChalLevelZeroEdge.IsNone() {
 					return accum, false
 				}
 				honestLowerLevelEdge := ct.honestSmallStepChalLevelZeroEdge.Unwrap()
-				if honestLowerLevelEdge.claimId != common.Hash(curr.id) {
-					panic("bad claim")
-				}
 
 				// Defensive check ensuring the honest level zero edge one challenge level below
 				// claims the current edge id as its claim id.
-				//
+				if honestLowerLevelEdge.claimId != common.Hash(curr.id) {
+					return accum, false
+				}
+
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
 			}
 		}
