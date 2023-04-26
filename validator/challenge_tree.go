@@ -71,7 +71,6 @@ type challengeTree struct {
 	mutualIds                        map[protocol.MutualId]set[protocol.EdgeId]
 	rivaledEdges                     set[protocol.EdgeId]
 	honestEdges                      set[protocol.EdgeId]
-	honestBranch                     []protocol.EdgeId
 	honestUnrivaledCumulativeTimers  map[protocol.EdgeId]uint64
 	honestBlockChalLevelZeroEdge     *edge
 	honestBigStepChalLevelZeroEdge   *edge
@@ -147,7 +146,6 @@ func (ct *challengeTree) innerCumulativeUpdate(
 	}
 }
 
-// TODO: How to get ancestors list based on our construct?
 func (ct *challengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.EdgeId {
 	// Consider the following set of edges in a challenge.
 	//
@@ -177,30 +175,44 @@ func (ct *challengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.E
 	// block challenge level zero edge and recursively traverse its children,
 	// reducing the ids along the way into a slice until we hit a child that
 	// matches id=I and return the slice.
-	return ct.ancestorQuery(
+	ancestors, ok := ct.ancestorQuery(
 		make([]protocol.EdgeId, 0),
 		ct.honestBlockChalLevelZeroEdge,
 		id,
 	)
+	if !ok {
+		return nil
+	}
+	reverse(ancestors)
+	return ancestors
 }
 
 func (ct *challengeTree) ancestorQuery(
 	accum []protocol.EdgeId,
 	curr *edge,
 	queryingFor protocol.EdgeId,
-) []protocol.EdgeId {
+) ([]protocol.EdgeId, bool) {
 	if curr.lowerChildId == (common.Hash{}) && curr.upperChildId == (common.Hash{}) {
-		return accum
+		return accum, false
 	}
 	if curr.lowerChildId == common.Hash(queryingFor) || curr.upperChildId == common.Hash(queryingFor) {
-		return append(accum, curr.id)
+		return append(accum, curr.id), true
 	}
 	lowerChild := ct.edges[protocol.EdgeId(curr.lowerChildId)]
 	upperChild := ct.edges[protocol.EdgeId(curr.upperChildId)]
-	lowerAncestors := ct.ancestorQuery(append(accum, curr.id), lowerChild, queryingFor)
-	upperAncestors := ct.ancestorQuery(append(accum, curr.id), upperChild, queryingFor)
-	allAncestors := accum
-	allAncestors = append(allAncestors, lowerAncestors...)
-	allAncestors = append(allAncestors, upperAncestors...)
-	return allAncestors
+	lowerAncestors, lowerOk := ct.ancestorQuery(append(accum, curr.id), lowerChild, queryingFor)
+	upperAncestors, upperOk := ct.ancestorQuery(append(accum, curr.id), upperChild, queryingFor)
+	if lowerOk {
+		return lowerAncestors, true
+	}
+	if upperOk {
+		return upperAncestors, true
+	}
+	return accum, false
+}
+
+func reverse[T any](s []T) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
 }
