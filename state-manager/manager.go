@@ -660,7 +660,7 @@ func (s *Simulated) OneStepProofData(
 	}
 
 	machine, machineErr := s.machineAtBlock(ctx, fromBlockChallengeHeight)
-	if err != nil {
+	if machineErr != nil {
 		err = machineErr
 		return
 	}
@@ -675,7 +675,7 @@ func (s *Simulated) OneStepProofData(
 		return
 	}
 	osp, ospErr := machine.OneStepProof()
-	if err != nil {
+	if ospErr != nil {
 		err = ospErr
 		return
 	}
