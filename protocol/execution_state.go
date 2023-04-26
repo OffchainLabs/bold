@@ -56,6 +56,11 @@ func (s GoGlobalState) AsSolidityStruct() challengegen.GlobalState {
 	}
 }
 
+func (s GoGlobalState) Equals(other GoGlobalState) bool {
+	// This is correct because we don't have any pointers or slices
+	return s == other
+}
+
 type MachineStatus uint8
 
 const (
@@ -69,8 +74,8 @@ type ExecutionState struct {
 	MachineStatus MachineStatus
 }
 
-func GoExecutionStateFromSolidity(executionState rollupgen.ExecutionState) ExecutionState {
-	return ExecutionState{
+func GoExecutionStateFromSolidity(executionState rollupgen.ExecutionState) *ExecutionState {
+	return &ExecutionState{
 		GlobalState:   GoGlobalStateFromSolidity(executionState.GlobalState),
 		MachineStatus: MachineStatus(executionState.MachineStatus),
 	}
@@ -81,6 +86,10 @@ func (s *ExecutionState) AsSolidityStruct() rollupgen.ExecutionState {
 		GlobalState:   rollupgen.GlobalState(s.GlobalState.AsSolidityStruct()),
 		MachineStatus: uint8(s.MachineStatus),
 	}
+}
+
+func (s *ExecutionState) Equals(other *ExecutionState) bool {
+	return s.MachineStatus == other.MachineStatus && s.GlobalState.Equals(other.GlobalState)
 }
 
 // RequiredBatches determines the batch count required to reach the execution state.

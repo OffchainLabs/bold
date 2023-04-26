@@ -22,6 +22,7 @@ type Assertion struct {
 	id              uint64
 }
 
+// TODO: this seems to measure L1 distance, does this make sense? Is this used anywhere?
 func (a *Assertion) Height() (uint64, error) {
 	genesis, err := a.chain.rollup.GetAssertion(&bind.CallOpts{}, uint64(1))
 	if err != nil {
@@ -55,6 +56,14 @@ func (a *Assertion) StateHash() (common.Hash, error) {
 		return common.Hash{}, err
 	}
 	return inner.StateHash, nil
+}
+
+func (a *Assertion) IsFirstChild() (bool, error) {
+	inner, err := a.inner()
+	if err != nil {
+		return false, err
+	}
+	return inner.IsFirstChild, nil
 }
 
 func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {

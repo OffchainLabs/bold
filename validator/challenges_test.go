@@ -8,10 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"bytes"
-	"sync"
-
-	"github.com/OffchainLabs/challenge-protocol-v2/execution"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
@@ -65,32 +61,13 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 	//
 	t.Run("two forked assertions at the same height", func(t *testing.T) {
 		cfg := &challengeProtocolTestConfig{
-			// The latest assertion height each validator has seen.
-			aliceHeight: 7,
-			bobHeight:   7,
 			// The heights at which the validators diverge in histories. In this test,
 			// alice and bob start diverging at height 3 at all subchallenge levels.
 			assertionDivergenceHeight: 4,
 			bigStepDivergenceHeight:   4,
 			smallStepDivergenceHeight: 4,
 		}
-		cfg.expectedLeavesAdded = 60
-		cfg.expectedBisections = 30
-		hook := test.NewGlobal()
-		runChallengeIntegrationTest(t, hook, cfg)
-		AssertLogsContain(t, hook, "Reached one-step-fork at start height 3")
-		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
-	})
-	t.Run("two validators opening leaves at height 31", func(t *testing.T) {
-		// TODO: we would use a larger height here but we're limited by protocol.LevelZeroBlockEdgeHeight
-		cfg := &challengeProtocolTestConfig{
-			aliceHeight:               31,
-			bobHeight:                 31,
-			assertionDivergenceHeight: 4,
-			bigStepDivergenceHeight:   4,
-			smallStepDivergenceHeight: 4,
-		}
-		cfg.expectedLeavesAdded = 60
+		cfg.expectedLeavesAdded = 61
 		cfg.expectedBisections = 30
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
@@ -98,15 +75,13 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
 	})
 	t.Run("two validators disagreeing on the number of blocks", func(t *testing.T) {
-		// TODO: we would use a larger height here but we're limited by protocol.LevelZeroBlockEdgeHeight
 		cfg := &challengeProtocolTestConfig{
-			aliceHeight:               7,
-			bobHeight:                 8,
-			assertionDivergenceHeight: 8,
-			bigStepDivergenceHeight:   4,
-			smallStepDivergenceHeight: 4,
+			assertionDivergenceHeight:      7,
+			assertionBlockHeightDifference: 1,
+			bigStepDivergenceHeight:        4,
+			smallStepDivergenceHeight:      4,
 		}
-		cfg.expectedLeavesAdded = 60
+		cfg.expectedLeavesAdded = 61
 		cfg.expectedBisections = 30
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
@@ -116,11 +91,10 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 }
 
 type challengeProtocolTestConfig struct {
-	// The latest heights by index at the assertion chain level.
-	aliceHeight uint64
-	bobHeight   uint64
 	// The height in the assertion chain at which the validators diverge.
 	assertionDivergenceHeight uint64
+	// The difference between the malicious assertion block height and the honest assertion block height.
+	assertionBlockHeightDifference int64
 	// The heights at which the validators diverge in histories at the big step
 	// subchallenge level.
 	bigStepDivergenceHeight uint64
@@ -130,42 +104,6 @@ type challengeProtocolTestConfig struct {
 	// Events we want to assert are fired from the goimpl.
 	expectedBisections  uint64
 	expectedLeavesAdded uint64
-}
-
-func prepareStates(
-	t testing.TB,
-	height uint64,
-	divergeAt uint64,
-) []*protocol.ExecutionState {
-	states := []*protocol.ExecutionState{{
-		GlobalState:   protocol.GoGlobalState{},
-		MachineStatus: protocol.MachineStatusFinished,
-	}}
-	machineState := big.NewInt(0)
-	for i := uint64(1); i < height+1; i++ {
-		mach := execution.NewSimpleMachine(machineState)
-		err := mach.Step(protocol.LayerZeroSmallStepEdgeHeight * protocol.LayerZeroBigStepEdgeHeight)
-		require.NoError(t, err)
-		machineState = mach.GetState()
-		hash := mach.Hash()
-		if divergeAt > 0 && i >= divergeAt {
-			hash[0] ^= 1
-		}
-		state := &protocol.ExecutionState{
-			GlobalState: protocol.GoGlobalState{
-				BlockHash:  hash,
-				Batch:      0,
-				PosInBatch: i,
-			},
-			MachineStatus: protocol.MachineStatusFinished,
-		}
-		if i == height {
-			state.GlobalState.Batch = 1
-			state.GlobalState.PosInBatch = 0
-		}
-		states = append(states, state)
-	}
-	return states
 }
 
 func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProtocolTestConfig) {
@@ -186,24 +124,8 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 		backend.Commit()
 	}
 
-	honestStates := prepareStates(
-		t,
-		cfg.aliceHeight,
-		0,
-	)
-
-	maliciousStates := prepareStates(
-		t,
-		cfg.bobHeight,
-		cfg.assertionDivergenceHeight,
-	)
-
 	// Initialize each validator.
-	honestManager, err := statemanager.NewWithAssertionStates(
-		honestStates,
-		statemanager.WithNumOpcodesPerBigStep(protocol.LayerZeroSmallStepEdgeHeight),
-		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LayerZeroBigStepEdgeHeight*protocol.LayerZeroSmallStepEdgeHeight),
-	)
+	honestManager, err := statemanager.NewForSimpleMachine()
 	require.NoError(t, err)
 	aliceAddr := accs[1].AccountAddr
 	alice, err := New(
@@ -220,13 +142,10 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 	)
 	require.NoError(t, err)
 
-	maliciousManager, err := statemanager.NewWithAssertionStates(
-		maliciousStates,
-		statemanager.WithNumOpcodesPerBigStep(protocol.LayerZeroSmallStepEdgeHeight),
-		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LayerZeroBigStepEdgeHeight*protocol.LayerZeroSmallStepEdgeHeight),
-		statemanager.WithBigStepStateDivergenceHeight(cfg.bigStepDivergenceHeight),
-		statemanager.WithSmallStepStateDivergenceHeight(cfg.smallStepDivergenceHeight),
-		statemanager.WithMaliciousIntent(),
+	maliciousManager, err := statemanager.NewForSimpleMachine(
+		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+		statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+		statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 	)
 	require.NoError(t, err)
 	bobAddr := accs[1].AccountAddr
@@ -293,23 +212,23 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 
 	// Submit leaf creation manually for each validator.
 	genesisState := protocol.GoExecutionStateFromSolidity(genesisCreation.AfterState)
-	latestHonest, err := honestManager.LatestAssertionCreationData(ctx)
+	latestHonest, err := honestManager.LatestExecutionState(ctx)
 	require.NoError(t, err)
 	leaf1, err := alice.chain.CreateAssertion(
 		ctx,
 		genesisState,
-		latestHonest.State,
-		latestHonest.InboxMaxCount,
+		latestHonest,
+		genesisCreation.InboxMaxCount,
 	)
 	require.NoError(t, err)
 
-	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx)
+	latestEvil, err := maliciousManager.LatestExecutionState(ctx)
 	require.NoError(t, err)
 	leaf2, err := bob.chain.CreateAssertion(
 		ctx,
 		genesisState,
-		latestEvil.State,
-		latestEvil.InboxMaxCount,
+		latestEvil,
+		genesisCreation.InboxMaxCount,
 	)
 	require.NoError(t, err)
 

@@ -26,20 +26,11 @@ func (v *Validator) pollForAssertions(ctx context.Context) {
 			}
 
 			for i := uint64(latestConfirmedAssertion.SeqNum()); i < numberOfAssertions; i++ {
-				v.assertionsLock.RLock()
-				_, ok := v.assertions[protocol.AssertionSequenceNumber(i)]
-				v.assertionsLock.RUnlock()
-				if ok {
-					continue
-				}
 				assertion, err := v.chain.AssertionBySequenceNum(ctx, protocol.AssertionSequenceNumber(i))
 				if err != nil {
 					log.Error(err)
 					continue
 				}
-				v.assertionsLock.Lock()
-				v.assertions[assertion.SeqNum()] = assertion
-				v.assertionsLock.Unlock()
 				selfStakedAssertion, err := v.rollup.AssertionHasStaker(&bind.CallOpts{Context: ctx}, i, v.address)
 				if err != nil {
 					log.Error(err)

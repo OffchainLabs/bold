@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
@@ -294,16 +293,20 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		emptyExecutionState := rollupgen.ExecutionState{
 			MachineStatus: uint8(protocol.MachineStatusFinished),
 		}
-		return &protocol.AssertionCreatedInfo{
+		info := &protocol.AssertionCreatedInfo{
 			ParentAssertionHash: common.Hash{},
 			BeforeState:         emptyExecutionState,
 			AfterState:          emptyExecutionState,
 			InboxMaxCount:       big.NewInt(1),
 			AfterInboxBatchAcc:  common.Hash{},
-			ExecutionHash:       executionHash,
 			AssertionHash:       assertionHash,
 			WasmModuleRoot:      wasmModuleRoot,
-		}, nil
+		}
+		computedExecutionHash := info.ExecutionHash()
+		if computedExecutionHash != executionHash {
+			return nil, fmt.Errorf("computed genesis assertion execution hash %v but the rollup has the hash %v", computedExecutionHash, executionHash)
+		}
+		return info, nil
 	}
 	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
 	if err != nil {
@@ -333,15 +336,12 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		return nil, err
 	}
 	afterState := parsedLog.Assertion.AfterState
-	afterGlobalStateHash := protocol.GoGlobalStateFromSolidity(afterState.GlobalState).Hash()
-	executionHash := crypto.Keccak256Hash(append([]byte{afterState.MachineStatus}, afterGlobalStateHash.Bytes()...))
 	return &protocol.AssertionCreatedInfo{
 		ParentAssertionHash: parsedLog.ParentAssertionHash,
 		BeforeState:         parsedLog.Assertion.BeforeState,
 		AfterState:          afterState,
 		InboxMaxCount:       parsedLog.InboxMaxCount,
 		AfterInboxBatchAcc:  parsedLog.AfterInboxBatchAcc,
-		ExecutionHash:       executionHash,
 		AssertionHash:       parsedLog.AssertionHash,
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 	}, nil

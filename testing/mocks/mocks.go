@@ -25,6 +25,7 @@ type MockAssertion struct {
 	MockPrevSeqNum        protocol.AssertionSequenceNumber
 	MockStateHash         common.Hash
 	MockInboxMsgCountSeen uint64
+	MockIsFirstChild      bool
 }
 
 func (m *MockAssertion) Height() (uint64, error) {
@@ -41,6 +42,10 @@ func (m *MockAssertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 
 func (m *MockAssertion) StateHash() (common.Hash, error) {
 	return m.MockStateHash, nil
+}
+
+func (m *MockAssertion) IsFirstChild() (bool, error) {
+	return m.MockIsFirstChild, nil
 }
 
 func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {
@@ -107,8 +112,8 @@ func (m *MockStateManager) SmallStepPrefixProof(
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (m *MockStateManager) HasStateCommitment(ctx context.Context, commit util.StateCommitment) bool {
-	args := m.Called(ctx, commit)
+func (m *MockStateManager) HasExecutionState(ctx context.Context, state *protocol.ExecutionState) bool {
+	args := m.Called(ctx, state)
 	return args.Bool(0)
 }
 

@@ -28,8 +28,8 @@ var (
 type Manager interface {
 	// Produces the latest state to assert to L1 from the local state manager's perspective.
 	LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error)
-	// Checks if a state commitment corresponds to data the state manager has locally.
-	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
+	// Checks if the execution manager locally has recorded this state
+	HasExecutionState(ctx context.Context, state *protocol.ExecutionState) bool
 	// Produces a block challenge history commitment up to and including a certain height.
 	HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error)
 	// Produces a block challenge history commitment in a certain inclusive block range,
@@ -130,7 +130,7 @@ type Simulated struct {
 	maxWavmOpcodes        uint64
 	numOpcodesPerBigStep  uint64
 	blockDivergenceHeight uint64
-	blockHeightOffset     int64
+	posInBatchDivergence  int64
 	machineDivergenceStep uint64
 }
 
@@ -179,7 +179,7 @@ func WithBlockDivergenceHeight(divergenceHeight uint64) Opt {
 
 func WithDivergentBlockHeightOffset(blockHeightOffset int64) Opt {
 	return func(s *Simulated) {
-		s.blockHeightOffset = blockHeightOffset
+		s.posInBatchDivergence = blockHeightOffset * 150
 	}
 }
 
@@ -247,7 +247,7 @@ func NewForSimpleMachine(
 		if s.blockDivergenceHeight > 0 {
 			if block == s.blockDivergenceHeight {
 				// Note: blockHeightOffset might be negative, but two's complement subtraction works regardless
-				state.GlobalState.PosInBatch -= uint64(s.blockHeightOffset)
+				state.GlobalState.PosInBatch -= uint64(s.posInBatchDivergence)
 			}
 			if block >= s.blockDivergenceHeight {
 				state.GlobalState.BlockHash[0] = 1
@@ -277,10 +277,10 @@ func (s *Simulated) LatestExecutionState(ctx context.Context) (*protocol.Executi
 	return s.executionStates[len(s.executionStates)-1], nil
 }
 
-// HasStateCommitment checks if a state commitment is found in our local list of state roots.
-func (s *Simulated) HasStateCommitment(_ context.Context, commitment util.StateCommitment) bool {
-	for _, r := range s.stateRoots {
-		if r == commitment.StateRoot {
+// Checks if the execution manager locally has recorded this state
+func (s *Simulated) HasExecutionState(ctx context.Context, state *protocol.ExecutionState) bool {
+	for _, r := range s.executionStates {
+		if r.Equals(state) {
 			return true
 		}
 	}
@@ -573,7 +573,7 @@ func (s *Simulated) OneStepProofData(
 
 	wasmModuleRootProof, packErr := WasmModuleProofAbi.Pack(
 		parentAssertionCreationInfo.ParentAssertionHash,
-		parentAssertionCreationInfo.ExecutionHash,
+		parentAssertionCreationInfo.ExecutionHash(),
 		parentAssertionCreationInfo.AfterInboxBatchAcc,
 	)
 	if packErr != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const GenesisAssertionSeqNum = AssertionSequenceNumber(1)
@@ -32,6 +33,7 @@ type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)
+	IsFirstChild() (bool, error)
 }
 
 // AssertionCreatedInfo from an event creation.
@@ -41,9 +43,13 @@ type AssertionCreatedInfo struct {
 	AfterState          rollupgen.ExecutionState
 	InboxMaxCount       *big.Int
 	AfterInboxBatchAcc  common.Hash
-	ExecutionHash       common.Hash
 	AssertionHash       common.Hash
 	WasmModuleRoot      common.Hash
+}
+
+func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
+	afterGlobalStateHash := GoGlobalStateFromSolidity(i.AfterState.GlobalState).Hash()
+	return crypto.Keccak256Hash(append([]byte{i.AfterState.MachineStatus}, afterGlobalStateHash.Bytes()...))
 }
 
 // AssertionChain can manage assertions in the protocol and retrieve

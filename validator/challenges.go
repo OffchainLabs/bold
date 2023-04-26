@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
@@ -40,7 +41,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 			)
 			return nil
 		}
-		return err
+		return fmt.Errorf("failed to created block challenge layer zero edge: %w", err)
 	}
 
 	// Start tracking the challenge.

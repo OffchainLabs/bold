@@ -30,7 +30,7 @@ contract SimpleOneStepProofEntry is IOneStepProofEntry {
         }
         require(globalState.hash() == beforeHash, "BAD_PROOF");
         globalState.u64Vals[1]++;
-        if (globalState.u64Vals[1] % 200 == 0) {
+        if (globalState.u64Vals[1] % 2000 == 0) {
             globalState.u64Vals[0]++;
             globalState.u64Vals[1] = 0;
         }
