@@ -592,6 +592,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                     "INBOX_POS_IN_MSG_BACKWARDS"
                 );
             }
+            if(afterInboxCount == memoryFrame.currentInboxSize) {
+                // force next assertion to consume 1 message if this assertion
+                // already consumed all messages in the inbox
+                memoryFrame.currentInboxSize += 1;
+            }
             // See validator/assertion.go ExecutionState RequiredBatches() for reasoning
             if (
                 assertion.afterState.machineStatus == MachineStatus.ERRORED ||
@@ -601,12 +606,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 afterInboxCount++;
             }
             require(afterInboxCount <= memoryFrame.currentInboxSize, "INBOX_PAST_END");
-
-            if(afterInboxCount == memoryFrame.currentInboxSize) {
-                // force next assertion to consume 1 message if this assertion
-                // already consumed all messages in the inbox
-                memoryFrame.currentInboxSize += 1;
-            }
 
             // This gives replay protection against the state of the inbox
             if (afterInboxCount > 0) {

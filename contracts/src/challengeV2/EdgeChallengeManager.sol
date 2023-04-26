@@ -18,6 +18,8 @@ interface IEdgeChallengeManager {
         IOneStepProofEntry _oneStepProofEntry
     ) external;
 
+    function oneStepProofEntry() external view returns (IOneStepProofEntry);
+
     // // Checks if an edge by ID exists.
     // function edgeExists(bytes32 eId) external view returns (bool);
     // Gets an edge by ID.
@@ -99,7 +101,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
 
     uint256 public challengePeriodBlock;
     IAssertionChain internal assertionChain;
-    IOneStepProofEntry oneStepProofEntry;
+    IOneStepProofEntry public override oneStepProofEntry;
 
     constructor(IAssertionChain _assertionChain, uint256 _challengePeriodBlocks, IOneStepProofEntry _oneStepProofEntry) {
         // HN: TODO: remove constructor?
