@@ -110,7 +110,6 @@ func (ct *challengeTree) updateCumulativeTimers() {
 	}
 	blockEdge := ct.honestBlockChalLevelZeroEdge.Unwrap()
 	ct.innerCumulativeUpdate(0, blockEdge.id)
-	// TODO: Figure out how to do for the lower challenge levels.
 }
 
 func (ct *challengeTree) innerCumulativeUpdate(
@@ -121,12 +120,62 @@ func (ct *challengeTree) innerCumulativeUpdate(
 	blocksUnrivaled := ct.chain.timeUnrivaled(edgeId)
 	total := blocksUnrivaled + cumulativeUnrivaledTime
 	ct.honestUnrivaledCumulativeTimers.Insert(edgeId, total)
-	if edge.lowerChildId != (common.Hash{}) {
-		ct.innerCumulativeUpdate(total, protocol.EdgeId(edge.lowerChildId))
+	if !hasChildren(edge) {
+		// If the edge has length 1, we then perform a few special checks.
+		if edgeLength(edge) == 1 {
+
+			// In case the edge is a small step challenge of length 1, we simply return.
+			if edge.edgeType == protocol.SmallStepChallengeEdge {
+				return
+			}
+
+			// If the edge is unrivaled, we return.
+			hasRival := ct.rivaledEdges.Has(edgeId)
+			if !hasRival {
+				return
+			}
+
+			// If the edge is a block challenge, we continue the recursion starting from the honest
+			// big step level zero edge, if it exists.
+			if edge.edgeType == protocol.BlockChallengeEdge {
+				if ct.honestBigStepChalLevelZeroEdge.IsNone() {
+					return
+				}
+				honestLowerLevelEdge := ct.honestBigStepChalLevelZeroEdge.Unwrap()
+
+				// Defensive check ensuring the honest level zero edge one challenge level below
+				// claims the current edge id as its claim id.
+				if honestLowerLevelEdge.claimId != common.Hash(edgeId) {
+					// TODO: Return errors.
+					panic("bad claim")
+				}
+
+				ct.innerCumulativeUpdate(total, honestLowerLevelEdge.id)
+				return
+			}
+			// If the edge is a big step challenge, we continue the recursion starting from the honest
+			// big step level zero edge, if it exists.
+			if edge.edgeType == protocol.BigStepChallengeEdge {
+				if ct.honestSmallStepChalLevelZeroEdge.IsNone() {
+					return
+				}
+				honestLowerLevelEdge := ct.honestSmallStepChalLevelZeroEdge.Unwrap()
+
+				// Defensive check ensuring the honest level zero edge one challenge level below
+				// claims the current edge id as its claim id.
+				if honestLowerLevelEdge.claimId != common.Hash(edgeId) {
+					// TODO: Return errors.
+					panic("bad claim")
+				}
+
+				ct.innerCumulativeUpdate(total, honestLowerLevelEdge.id)
+			}
+		}
+		return
 	}
-	if edge.upperChildId != (common.Hash{}) {
-		ct.innerCumulativeUpdate(total, protocol.EdgeId(edge.upperChildId))
-	}
+	// We recursively update the children's timers.
+	ct.innerCumulativeUpdate(total, protocol.EdgeId(edge.lowerChildId))
+	ct.innerCumulativeUpdate(total, protocol.EdgeId(edge.upperChildId))
 }
 
 func (ct *challengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.EdgeId {
@@ -182,32 +231,53 @@ func (ct *challengeTree) ancestorQuery(
 	queryingFor protocol.EdgeId,
 ) ([]protocol.EdgeId, bool) {
 	if !hasChildren(curr) {
-		// If the edge has no children, but is a rivaled edge of length 1, we continue
-		// the recursion down to the next challenge level if possible.
-		hasRival := ct.rivaledEdges.Has(curr.id)
-		if hasRival && edgeLength(curr) == 1 {
-			// If the edge is a block challenge, we continue the recursion starting from the honest
+		// If the edge has length 1, we then perform a few special checks.
+		if edgeLength(curr) == 1 {
+
+			// In case the edge is a small step challenge of length 1, we simply return.
+			if curr.edgeType == protocol.SmallStepChallengeEdge {
+				return accum, false
+			}
+
+			// If the edge is unrivaled, we return.
+			hasRival := ct.rivaledEdges.Has(curr.id)
+			if !hasRival {
+				return accum, false
+			}
+
+			// If the edge is a block challenge edge, we continue the recursion starting from the honest
 			// big step level zero edge, if it exists.
-			switch curr.edgeType {
-			case protocol.BlockChallengeEdge:
+			if curr.edgeType == protocol.BlockChallengeEdge {
 				if ct.honestBigStepChalLevelZeroEdge.IsNone() {
 					return accum, false
 				}
 				honestLowerLevelEdge := ct.honestBigStepChalLevelZeroEdge.Unwrap()
+
+				// Defensive check ensuring the honest level zero edge one challenge level below
+				// claims the current edge id as its claim id.
+				if honestLowerLevelEdge.claimId != common.Hash(curr.id) {
+					// TODO: Return errors.
+					panic("bad claim")
+				}
+
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
-			// If the edge is a big step challenge, we continue the recursion starting from the honest
-			// big step level zero edge, if it exists.
-			case protocol.BigStepChallengeEdge:
+			}
+
+			// If the edge is a big step challenge edge, we continue the recursion starting from the honest
+			// small step level zero edge, if it exists.
+			if curr.edgeType == protocol.SmallStepChallengeEdge {
 				if ct.honestSmallStepChalLevelZeroEdge.IsNone() {
 					return accum, false
 				}
 				honestLowerLevelEdge := ct.honestSmallStepChalLevelZeroEdge.Unwrap()
+				if honestLowerLevelEdge.claimId != common.Hash(curr.id) {
+					panic("bad claim")
+				}
+
+				// Defensive check ensuring the honest level zero edge one challenge level below
+				// claims the current edge id as its claim id.
+				//
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
-			// If the edge is a small step challenge at this point, we simply return the ancestors list.
-			case protocol.SmallStepChallengeEdge:
-				return accum, false
-			default:
-				panic("unsupported edge type")
 			}
 		}
 		return accum, false
