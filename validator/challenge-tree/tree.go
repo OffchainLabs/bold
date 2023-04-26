@@ -269,7 +269,7 @@ func (ct *challengeTree) ancestorQuery(
 					return accum, false
 				}
 
-				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
+				return ct.ancestorQuery(append(accum, curr.id), honestLowerLevelEdge, queryingFor)
 			}
 
 			// If the edge is a big step challenge edge, we continue the recursion starting from the honest
@@ -286,7 +286,7 @@ func (ct *challengeTree) ancestorQuery(
 					return accum, false
 				}
 
-				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
+				return ct.ancestorQuery(append(accum, curr.id), honestLowerLevelEdge, queryingFor)
 			}
 		}
 		return accum, false

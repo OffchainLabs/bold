@@ -98,15 +98,123 @@ func TestCumulativeUnrivaledTimeUpdates_UniformInitialUnrivaledTimes(t *testing.
 	// in our challenge tree, and are able to expect certain results based on the setup above.
 	tree.updateCumulativeTimers()
 
-	t.Run("block challenge edge", func(t *testing.T) {
-		ancestors := tree.ancestorsForHonestEdge(id("blk-0-4"))
+	t.Run("level zero block challenge edge", func(t *testing.T) {
+		edgeId := id("blk-0-16")
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), got)
+	})
+
+	t.Run("unrivaled block challenge edge", func(t *testing.T) {
+		unrivaledBlockEdgeId := id("blk-0-4")
+		// Expect the edge's cumulative time unrivaled is the time unrivaled of all its ancestors
+		// plus its own time unrivaled.
+		ancestors := tree.ancestorsForHonestEdge(unrivaledBlockEdgeId)
 		var wantedAncestorsTotal uint64
 		for _, an := range ancestors {
 			timeUnrivaled := tree.chain.timeUnrivaled(an)
 			wantedAncestorsTotal += timeUnrivaled
 		}
-		edgeUnrivaledTimer := tree.chain.timeUnrivaled(id("blk-0-4"))
-		got, err := tree.CumulativeTimeUnrivaled(id("blk-0-4"))
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(unrivaledBlockEdgeId)
+		got, err := tree.CumulativeTimeUnrivaled(unrivaledBlockEdgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("rivaled block challenge edge", func(t *testing.T) {
+		edgeId := id("blk-5-6")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("level zero big step challenge edge", func(t *testing.T) {
+		edgeId := id("big-0-16")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("unrivaled big step challenge edge", func(t *testing.T) {
+		edgeId := id("big-0-4")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("rivaled big step challenge edge", func(t *testing.T) {
+		edgeId := id("big-5-6")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("level zero small step challenge edge", func(t *testing.T) {
+		edgeId := id("smol-0-16")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("unrivaled small step challenge edge", func(t *testing.T) {
+		edgeId := id("smol-0-4")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("rivaled small step challenge edge", func(t *testing.T) {
+		edgeId := id("smol-5-6")
+		ancestors := tree.ancestorsForHonestEdge(edgeId)
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(edgeId)
+		got, err := tree.CumulativeTimeUnrivaled(edgeId)
 		require.NoError(t, err)
 		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
 	})
@@ -204,7 +312,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 		id("big-4-8"),
 		id("big-0-8"),
 		id("big-0-16"),
-		// id("blk-5-6"), TODO: Should the claim id be part of the ancestors as well?
+		id("blk-5-6"), // TODO: Should the claim id be part of the ancestors as well?
 		id("blk-4-6"),
 		id("blk-4-8"),
 		id("blk-0-8"),
@@ -219,11 +327,12 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 		id("smol-4-8"),
 		id("smol-0-8"),
 		id("smol-0-16"),
+		id("big-5-6"),
 		id("big-4-6"),
 		id("big-4-8"),
 		id("big-0-8"),
 		id("big-0-16"),
-		// id("blk-5-6"), TODO: Should the claim id be part of the ancestors as well?
+		id("blk-5-6"), // TODO: Should the claim id be part of the ancestors as well?
 		id("blk-4-6"),
 		id("blk-4-8"),
 		id("blk-0-8"),
@@ -237,6 +346,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 
 	ancestors = tree.ancestorsForHonestEdge(id("big-0-16"))
 	require.Equal(t, ancestors, []protocol.EdgeId{
+		id("blk-5-6"),
 		id("blk-4-6"),
 		id("blk-4-8"),
 		id("blk-0-8"),
@@ -245,10 +355,12 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 
 	ancestors = tree.ancestorsForHonestEdge(id("smol-0-16"))
 	require.Equal(t, ancestors, []protocol.EdgeId{
+		id("big-5-6"),
 		id("big-4-6"),
 		id("big-4-8"),
 		id("big-0-8"),
 		id("big-0-16"),
+		id("blk-5-6"),
 		id("blk-4-6"),
 		id("blk-4-8"),
 		id("blk-0-8"),
