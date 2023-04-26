@@ -41,11 +41,59 @@ func TestCumulativeUnrivaledTimeUpdates(t *testing.T) {
 	claimId = protocol.ClaimId(id("big-5-6"))
 	setupSmallStepChallengeSnapshot(t, tree, claimId)
 
-	tree.chain = &mockChain{
-		rivaledEdges:         tree.rivaledEdges,
-		unrivaledTimerByEdge: map[protocol.EdgeId]uint64{},
+	mChain := &mockChain{
+		rivaledEdges: tree.rivaledEdges,
+		unrivaledTimerByEdge: map[protocol.EdgeId]uint64{
+			// Initial, unrivaled timers for block challenge edges.
+			id("blk-0-16"): 1,
+			id("blk-8-16"): 1,
+			id("blk-0-8"):  1,
+			id("blk-0-4"):  1,
+			id("blk-4-8"):  1,
+			id("blk-4-6"):  1,
+			id("blk-6-8"):  1,
+			id("blk-4-5"):  1,
+			id("blk-5-6"):  1,
+			// Initial, unrivaled timers for big step challenge edges.
+			id("big-0-16"): 1,
+			id("big-8-16"): 1,
+			id("big-0-8"):  1,
+			id("big-0-4"):  1,
+			id("big-4-8"):  1,
+			id("big-4-6"):  1,
+			id("big-6-8"):  1,
+			id("big-4-5"):  1,
+			id("big-5-6"):  1,
+			// Initial, unrivaled timers for small step challenge edges.
+			id("smol-0-16"): 1,
+			id("smol-8-16"): 1,
+			id("smol-0-8"):  1,
+			id("smol-0-4"):  1,
+			id("smol-4-8"):  1,
+			id("smol-4-6"):  1,
+			id("smol-6-8"):  1,
+			id("smol-4-5"):  1,
+			id("smol-5-6"):  1,
+		},
 	}
+	// Advance by 4 blocks and expect that only unrivaled edges, blk-0-4, big-0-4,
+	// and smol-0-4, were the only ones to change their timers.
+	mChain.advanceBlocks(4)
+
+	for k, v := range mChain.unrivaledTimerByEdge {
+		if k == id("blk-0-4") || k == id("big-0-4") || k == id("smol-0-4") {
+			require.Equal(t, uint64(5), v)
+		} else {
+			require.Equal(t, uint64(1), v)
+		}
+	}
+
+	tree.chain = mChain
+
+	// We now recursively update the cumulative timers for each edge being tracked
+	// in our challenge tree, and are able to expect certain results based on the setup above.
 	tree.updateCumulativeTimers()
+
 }
 
 func TestAncestors_BlockChallengeOnly(t *testing.T) {
