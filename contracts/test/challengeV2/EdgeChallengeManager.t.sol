@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import "./Utils.sol";
 import "../MockAssertionChain.sol";
 import "../../src/challengeV2/EdgeChallengeManager.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "./StateTools.sol";
 
 contract MockOneStepProofEntry is IOneStepProofEntry {
@@ -61,10 +63,22 @@ contract EdgeChallengeManagerTest is Test {
 
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
-        EdgeChallengeManager challengeManager =
-            new EdgeChallengeManager(assertionChain, challengePeriodBlock, new MockOneStepProofEntry());
+        EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager();
+        EdgeChallengeManager challengeManager = EdgeChallengeManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(challengeManagerTemplate),
+                    address(new ProxyAdmin()),
+                    ""
+                )
+            )
+        );
+        challengeManager.initialize(
+            assertionChain, challengePeriodBlock, new MockOneStepProofEntry(), 2 ** 5, 2 ** 5, 2 ** 5
+        );
 
-        bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, genesisState, 0);
+        bytes32 genesis =
+            assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, genesisState, 0);
         return (assertionChain, challengeManager, genesis);
     }
 
@@ -81,10 +95,12 @@ contract EdgeChallengeManagerTest is Test {
     function deployAndInit() internal returns (EdgeInitData memory) {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
-        State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
-        State memory a2State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.FINISHED);
+        State memory a1State = StateToolsLib.randomState(
+            rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED
+        );
+        State memory a2State = StateToolsLib.randomState(
+            rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h2, MachineStatus.FINISHED
+        );
 
         // add one since heights are zero indexed in the history states
         bytes32 a1 = assertionChain.addAssertion(
@@ -108,8 +124,9 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertBlockNoFork() public {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
-        State memory a1State =
-            StateToolsLib.randomState(rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED);
+        State memory a1State = StateToolsLib.randomState(
+            rand, GlobalStateLib.getInboxPosition(genesisState.es.globalState), h1, MachineStatus.FINISHED
+        );
 
         bytes32 a1 = assertionChain.addAssertion(
             genesis, genesisHeight + height1, inboxMsgCountAssertion, genesisState, a1State, 0
@@ -978,8 +995,12 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.roll(challengePeriodBlock + 5);
+        bytes32[] memory ancestors = new bytes32[](edges1.length);
+        for (uint256 i = 0; i < edges1.length; i++) {
+            ancestors[i] = edges1[i].lowerChildId;
+        }
 
-        ei.challengeManager.confirmEdgeByTime(edge1BigStepId, new bytes32[](0));
+        ei.challengeManager.confirmEdgeByTime(edge1BigStepId, ancestors);
 
         ei.challengeManager.confirmEdgeByClaim(edges1[0].lowerChildId, edge1BigStepId);
         ei.challengeManager.confirmEdgeByTime(edges1[0].upperChildId, getAncestorsAbove(toDynamic(edges1), 0));
@@ -1359,7 +1380,9 @@ contract EdgeChallengeManagerTest is Test {
                 inboxMsgCountSeen: 7,
                 inboxMsgCountSeenProof: abi.encode(genesisState.es),
                 wasmModuleRoot: bytes32(0),
-                wasmModuleRootProof: abi.encode(bytes32(0), genesisAfterStateHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))),
+                wasmModuleRootProof: abi.encode(
+                    bytes32(0), genesisAfterStateHash, keccak256(abi.encode(genesisState.es.globalState.u64Vals[0]))
+                ),
                 beforeHash: firstStates[0],
                 proof: abi.encodePacked(firstStates[1])
             }),

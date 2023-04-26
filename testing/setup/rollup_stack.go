@@ -407,9 +407,6 @@ func deployChallengeFactory(
 	edgeChallengeManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
 		auth,
 		backend,
-		assertionChainAddr,
-		big.NewInt(10), // TODO: Challenge period length.
-		ospEntryAddr,
 	)
 	if err != nil {
 		return common.Address{}, common.Address{}, err

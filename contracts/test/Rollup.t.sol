@@ -18,6 +18,9 @@ import "../src/osp/OneStepProofEntry.sol";
 import "../src/challengeV2/EdgeChallengeManager.sol";
 import "./challengeV2/Utils.sol";
 
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 contract RollupTest is Test {
     address constant owner = address(1337);
     address constant sequencer = address(7331);
@@ -32,6 +35,8 @@ contract RollupTest is Test {
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
+
+    uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2 ** 5;
 
     RollupProxy rollup;
     RollupUserLogic userRollup;
@@ -61,11 +66,7 @@ contract RollupTest is Test {
             oneStepProverMath,
             oneStepProverHostIo
         );
-        EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager({
-            _assertionChain: IAssertionChain(address(0)),
-            _challengePeriodBlocks: 0,
-            _oneStepProofEntry: IOneStepProofEntry(address(0))
-        });
+        EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator();
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
@@ -97,7 +98,10 @@ contract RollupTest is Test {
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: address(0),
             genesisBlockNum: 0,
-            miniStakeValue: 1
+            miniStakeValue: 1,
+            layerZeroBlockEdgeHeight: 2**5,
+            layerZeroBigStepEdgeHeight: 2**5,
+            layerZeroSmallStepEdgeHeight: 2**5
         });
 
         address expectedRollupAddr = address(
