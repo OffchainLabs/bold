@@ -104,11 +104,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 	ctx := context.Background()
-	bisectionScenario := setupBisectionScenario(
-		t,
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	)
+	bisectionScenario := setupBisectionScenario(t)
 	honestStateManager := bisectionScenario.honestStateManager
 	evilStateManager := bisectionScenario.evilStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
@@ -203,11 +199,7 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 
 func TestEdgeChallengeManager_Bisect(t *testing.T) {
 	ctx := context.Background()
-	bisectionScenario := setupBisectionScenario(
-		t,
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	)
+	bisectionScenario := setupBisectionScenario(t)
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 
@@ -251,11 +243,7 @@ func TestEdgeChallengeManager_SubChallenges(t *testing.T) {
 func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	ctx := context.Background()
 	t.Run("edge does not exist", func(t *testing.T) {
-		bisectionScenario := setupBisectionScenario(
-			t,
-			statemanager.WithNumOpcodesPerBigStep(1),
-			statemanager.WithMaxWavmOpcodesPerBlock(1),
-		)
+		bisectionScenario := setupBisectionScenario(t)
 		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
 		require.NoError(t, err)
 		err = challengeManager.ConfirmEdgeByOneStepProof(
@@ -272,11 +260,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Edge does not exist")
 	})
 	t.Run("edge not pending", func(t *testing.T) {
-		bisectionScenario := setupBisectionScenario(
-			t,
-			statemanager.WithNumOpcodesPerBigStep(1),
-			statemanager.WithMaxWavmOpcodesPerBlock(1),
-		)
+		bisectionScenario := setupBisectionScenario(t)
 		honestStateManager := bisectionScenario.honestStateManager
 		honestEdge := bisectionScenario.honestLevelZeroEdge
 		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
@@ -356,11 +340,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.ErrorContains(t, err, "Edge not pending")
 	})
 	t.Run("edge not small step type", func(t *testing.T) {
-		bisectionScenario := setupBisectionScenario(
-			t,
-			statemanager.WithNumOpcodesPerBigStep(1),
-			statemanager.WithMaxWavmOpcodesPerBlock(1),
-		)
+		bisectionScenario := setupBisectionScenario(t)
 		honestStateManager := bisectionScenario.honestStateManager
 		honestEdge := bisectionScenario.honestLevelZeroEdge
 		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
@@ -591,11 +571,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 
 func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	ctx := context.Background()
-	bisectionScenario := setupBisectionScenario(
-		t,
-		statemanager.WithNumOpcodesPerBigStep(1),
-		statemanager.WithMaxWavmOpcodesPerBlock(1),
-	)
+	bisectionScenario := setupBisectionScenario(t)
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 
@@ -707,7 +683,6 @@ type bisectionScenario struct {
 
 func setupBisectionScenario(
 	t *testing.T,
-	commonStateManagerOpts ...statemanager.Opt,
 ) *bisectionScenario {
 	ctx := context.Background()
 
@@ -787,15 +762,9 @@ type oneStepProofScenario struct {
 // to then confirm the winner by one-step-proof execution.
 func setupOneStepProofScenario(
 	t *testing.T,
-	commonStateManagerOpts ...statemanager.Opt,
 ) *oneStepProofScenario {
 	ctx := context.Background()
-	commonStateManagerOpts = append(
-		commonStateManagerOpts,
-		statemanager.WithNumOpcodesPerBigStep(protocol.LevelZeroSmallStepEdgeHeight),
-		statemanager.WithMaxWavmOpcodesPerBlock(protocol.LevelZeroBigStepEdgeHeight*protocol.LevelZeroSmallStepEdgeHeight),
-	)
-	bisectionScenario := setupBisectionScenario(t, commonStateManagerOpts...)
+	bisectionScenario := setupBisectionScenario(t)
 	honestStateManager := bisectionScenario.honestStateManager
 	evilStateManager := bisectionScenario.evilStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge

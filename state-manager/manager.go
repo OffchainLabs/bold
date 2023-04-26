@@ -277,7 +277,10 @@ func NewForSimpleMachine(
 		if machine.IsStopped() || state.GlobalState.Batch >= 1 {
 			break
 		}
-		machine.Step(s.maxWavmOpcodes)
+		err := machine.Step(s.maxWavmOpcodes)
+		if err != nil {
+			return nil, err
+		}
 		nextMachineState = machine.GetExecutionState()
 	}
 	s.machineAtBlock = func(_ context.Context, block uint64) (execution.Machine, error) {
@@ -290,12 +293,12 @@ func NewForSimpleMachine(
 }
 
 // Produces the latest state to assert to L1 from the local state manager's perspective.
-func (s *Simulated) LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error) {
+func (s *Simulated) LatestExecutionState(_ context.Context) (*protocol.ExecutionState, error) {
 	return s.executionStates[len(s.executionStates)-1], nil
 }
 
 // Checks if the execution manager locally has recorded this state
-func (s *Simulated) HasExecutionState(ctx context.Context, state *protocol.ExecutionState) bool {
+func (s *Simulated) HasExecutionState(_ context.Context, state *protocol.ExecutionState) bool {
 	for _, r := range s.executionStates {
 		if r.Equals(state) {
 			return true
@@ -437,6 +440,9 @@ func (s *Simulated) intermediateBigStepLeaves(
 	fromBigStep,
 	toBigStep uint64,
 ) ([]common.Hash, error) {
+	if toBlockChallengeHeight != fromBlockChallengeHeight+1 {
+		return nil, fmt.Errorf("attempting to get big step leaves from block %v to %v", fromBlockChallengeHeight, toBlockChallengeHeight)
+	}
 	leaves := make([]common.Hash, 0)
 	machine, err := s.machineAtBlock(ctx, fromBlockChallengeHeight)
 	if err != nil {
@@ -449,7 +455,10 @@ func (s *Simulated) intermediateBigStepLeaves(
 			// We don't need to step the machine to the next point because it won't be used
 			break
 		}
-		machine.Step(s.numOpcodesPerBigStep)
+		err = machine.Step(s.numOpcodesPerBigStep)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return leaves, nil
 }
@@ -516,19 +525,28 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	fromSmallStep,
 	toSmallStep uint64,
 ) ([]common.Hash, error) {
+	if toBlockChallengeHeight != fromBlockChallengeHeight+1 {
+		return nil, fmt.Errorf("attempting to get small step leaves from block %v to %v", fromBlockChallengeHeight, toBlockChallengeHeight)
+	}
 	leaves := make([]common.Hash, 0)
 	machine, err := s.machineAtBlock(ctx, fromBlockChallengeHeight)
 	if err != nil {
 		return nil, err
 	}
-	machine.Step(fromSmallStep)
+	err = machine.Step(fromSmallStep)
+	if err != nil {
+		return nil, err
+	}
 	for i := fromSmallStep; i <= toSmallStep; i++ {
 		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
 		if i >= toSmallStep {
 			// We don't need to step the machine to the next point because it won't be used
 			break
 		}
-		machine.Step(1)
+		err = machine.Step(1)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return leaves, nil
 }

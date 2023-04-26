@@ -4,8 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"encoding/binary"
-	"math"
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
@@ -17,7 +15,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/validator"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/offchainlabs/nitro/util/headerreader"
 )
 
@@ -27,12 +24,6 @@ var (
 	// The size of a mini stake that is posted when creating leaf edges in
 	// challenges (clarify if gwei?).
 	miniStakeSize = big.NewInt(1)
-	// The current L2 chain height for this simulation.
-	currentL2ChainHeight = uint64(7)
-	// The number of wavm opcodes per block (all blocks are equal in this sim, but not IRL).
-	maxWavmOpcodesPerBlock = uint64(49)
-	// Number of opcodes in a big step within a big step subchallenge.
-	numOpcodesPerBigStep = uint64(7)
 	// The heights at which Alice and Bob diverge at each challenge level.
 	divergeHeightAtL2 = uint64(3)
 	// How often an edge tracker needs to wake and perform its responsibilities.
@@ -180,95 +171,4 @@ func deployStack(
 		common.Address{}, // Sequencer addr.
 		cfg,
 	)
-}
-
-func prepareHonestL2States(
-	honestHashes []common.Hash,
-	chainHeight uint64,
-) []*protocol.ExecutionState {
-	genesisState := &protocol.ExecutionState{
-		GlobalState: protocol.GoGlobalState{
-			BlockHash: common.Hash{},
-		},
-		MachineStatus: protocol.MachineStatusFinished,
-	}
-
-	// Initialize each validator associated state roots which diverge
-	// at specified points in the test config.
-	honestStates := make([]*protocol.ExecutionState, chainHeight+1)
-	honestStates[0] = genesisState
-
-	for i := uint64(1); i <= chainHeight; i++ {
-		state := &protocol.ExecutionState{
-			GlobalState: protocol.GoGlobalState{
-				BlockHash:  honestHashes[i],
-				Batch:      0,
-				PosInBatch: i,
-			},
-			MachineStatus: protocol.MachineStatusFinished,
-		}
-		if i == chainHeight {
-			state.GlobalState.Batch = 1
-			state.GlobalState.PosInBatch = 0
-		}
-
-		honestStates[i] = state
-	}
-	return honestStates
-}
-
-func prepareMaliciousL2States(
-	assertionDivergenceHeight uint64,
-	evilHashes []common.Hash,
-	honestStates []*protocol.ExecutionState,
-) []*protocol.ExecutionState {
-	divergenceHeight := assertionDivergenceHeight
-	numRoots := currentL2ChainHeight + 1
-	states := make([]*protocol.ExecutionState, numRoots)
-
-	for j := uint64(0); j < numRoots; j++ {
-		if divergenceHeight == 0 || j < divergenceHeight {
-			evilState := *honestStates[j]
-			if j < numRoots {
-				evilState.GlobalState.Batch = 0
-				evilState.GlobalState.PosInBatch = j
-			}
-			states[j] = &evilState
-		} else {
-			evilState := &protocol.ExecutionState{
-				GlobalState: protocol.GoGlobalState{
-					BlockHash:  evilHashes[j],
-					Batch:      0,
-					PosInBatch: j,
-				},
-				MachineStatus: protocol.MachineStatusFinished,
-			}
-			if j == numRoots {
-				evilState.GlobalState.Batch = 1
-				evilState.GlobalState.PosInBatch = 0
-			}
-			states[j] = evilState
-		}
-	}
-	return states
-}
-
-func evilL2StateHashesForUints(lo, hi uint64) []common.Hash {
-	ret := []common.Hash{}
-	for i := lo; i < hi; i++ {
-		ret = append(ret, hashForUint(math.MaxUint64-i))
-	}
-	return ret
-}
-
-func honestL2StateHashesForUints(lo, hi uint64) []common.Hash {
-	ret := []common.Hash{}
-	for i := lo; i < hi; i++ {
-		ret = append(ret, hashForUint(i))
-	}
-	return ret
-}
-
-func hashForUint(x uint64) common.Hash {
-	return crypto.Keccak256Hash(binary.BigEndian.AppendUint64([]byte{}, x))
 }
