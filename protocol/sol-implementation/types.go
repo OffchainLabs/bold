@@ -49,7 +49,7 @@ func (a *Assertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 	return protocol.AssertionSequenceNumber(inner.PrevNum), nil
 }
 
-func (a *Assertion) ChallengeHash() (common.Hash, error) {
+func (a *Assertion) StateHash() (common.Hash, error) {
 	inner, err := a.inner()
 	if err != nil {
 		return common.Hash{}, err

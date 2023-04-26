@@ -93,17 +93,10 @@ export function executionStateHash(
   )
 }
 
-export function executionStructHash(e: ExecutionStateStruct) {
+export function afterStateHash(a: AssertionStruct): BytesLike {
   return ethers.utils.solidityKeccak256(
-    ['bytes32', 'uint8'],
-    [globalStateLib.hash(e.globalState), e.machineStatus]
-  )
-}
-
-export function assertionChallengeHash(a: AssertionStruct): BytesLike {
-  return machineHash(
-    BigNumber.from(a.afterState.machineStatus),
-    globalStateLib.hash(a.afterState.globalState)
+    ['uint8', 'bytes32'],
+    [a.afterState.machineStatus, globalStateLib.hash(a.afterState.globalState)]
   )
 }
 
@@ -183,7 +176,7 @@ export class RollupContract {
     const newAssertionHash = assertionHash(
       Boolean(siblingAssertion),
       (siblingAssertion || parentAssertion).assertionHash,
-      assertionChallengeHash(assertion),
+      afterStateHash(assertion),
       afterInboxAcc,
       wasmModuleRoot
     )
@@ -241,7 +234,7 @@ export class RollupContract {
         assertion1.assertion.afterState.globalState,
       ],
       assertion1.assertion.numBlocks,
-      assertionChallengeHash(assertion2.assertion),
+      afterStateHash(assertion2.assertion),
       [assertion1.proposedBlock, assertion2.proposedBlock],
       [assertion1.wasmModuleRoot, assertion2.wasmModuleRoot]
     )
@@ -297,7 +290,7 @@ export async function forceCreateAssertion(
   const newAssertionHash = assertionHash(
     Boolean(siblingAssertion),
     (siblingAssertion || parentAssertion).assertionHash,
-    assertionChallengeHash(assertion),
+    afterStateHash(assertion),
     afterInboxAcc,
     wasmModuleRoot
   )

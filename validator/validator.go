@@ -189,7 +189,7 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
-	parentAssertionStateHash, err := parentAssertion.ChallengeHash()
+	parentAssertionStateHash, err := parentAssertion.StateHash()
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	case err != nil:
 		return nil, err
 	}
-	assertionState, err := assertion.ChallengeHash()
+	assertionState, err := assertion.StateHash()
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (v *Validator) findLatestValidAssertion(ctx context.Context) (protocol.Asse
 		if !ok {
 			continue
 		}
-		stateHash, err := a.ChallengeHash()
+		stateHash, err := a.StateHash()
 		if err != nil {
 			return 0, err
 		}
@@ -279,7 +279,7 @@ func (v *Validator) onLeafCreated(
 	ctx context.Context,
 	assertion protocol.Assertion,
 ) error {
-	assertionStateHash, err := assertion.ChallengeHash()
+	assertionStateHash, err := assertion.StateHash()
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (v *Validator) onLeafCreated(
 	}
 
 	v.assertionsLock.Lock()
-	key, err := prevAssertion.ChallengeHash()
+	key, err := prevAssertion.StateHash()
 	if err != nil {
 		return err
 	}

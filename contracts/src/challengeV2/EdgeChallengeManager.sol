@@ -408,11 +408,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         ExecutionContext memory execCtx = ExecutionContext({
             maxInboxMessagesRead: assertionChain.proveInboxMsgCountSeen(
                 prevAssertionId, oneStepData.inboxMsgCountSeen, oneStepData.inboxMsgCountSeenProof
-                ),
+            ),
             bridge: assertionChain.bridge(),
             initialWasmModuleRoot: assertionChain.proveWasmModuleRoot(
                 prevAssertionId, oneStepData.wasmModuleRoot, oneStepData.wasmModuleRootProof
-                )
+            )
         });
 
         store.confirmEdgeByOneStepProof(

@@ -28,7 +28,6 @@ var (
 type Manager interface {
 	// Produces the latest state to assert to L1 from the local state manager's perspective.
 	LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error)
-	AssertionExecutionState(ctx context.Context, assertionStateHash common.Hash) (*protocol.ExecutionState, error)
 	// Checks if a state commitment corresponds to data the state manager has locally.
 	HasStateCommitment(ctx context.Context, blockChallengeCommitment util.StateCommitment) bool
 	// Produces a block challenge history commitment up to and including a certain height.
@@ -112,7 +111,6 @@ type Manager interface {
 	) ([]byte, error)
 	OneStepProofData(
 		ctx context.Context,
-		parentAssertionStateHash common.Hash,
 		parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
@@ -221,9 +219,18 @@ func NewWithAssertionStates(
 func NewForSimpleMachine(
 	opts ...Opt,
 ) (*Simulated, error) {
-	s := &Simulated{}
+	s := &Simulated{
+		maxWavmOpcodes:       protocol.LevelZeroSmallStepEdgeHeight * protocol.LevelZeroBigStepEdgeHeight,
+		numOpcodesPerBigStep: protocol.LevelZeroSmallStepEdgeHeight,
+	}
 	for _, o := range opts {
 		o(s)
+	}
+	if s.maxWavmOpcodes == 0 {
+		return nil, errors.New("maxWavmOpcodes cannot be zero")
+	}
+	if s.blockDivergenceHeight > 0 && s.machineDivergenceStep == 0 {
+		return nil, errors.New("machineDivergenceStep cannot be zero if blockDivergenceHeight is non-zero")
 	}
 	nextMachineState := &protocol.ExecutionState{
 		GlobalState:   protocol.GoGlobalState{},
@@ -237,14 +244,20 @@ func NewForSimpleMachine(
 		if machHash != state.GlobalState.Hash() {
 			return nil, fmt.Errorf("machine at block %v has hash %v but we expected hash %v", block, machine.Hash(), state.GlobalState.Hash())
 		}
-		if block+1 == s.blockDivergenceHeight {
-			// Note: blockHeightOffset might be negative, but two's complement addition works regardless
-			state.GlobalState.PosInBatch += uint64(s.blockHeightOffset)
+		if s.blockDivergenceHeight > 0 {
+			if block == s.blockDivergenceHeight {
+				// Note: blockHeightOffset might be negative, but two's complement subtraction works regardless
+				state.GlobalState.PosInBatch -= uint64(s.blockHeightOffset)
+			}
+			if block >= s.blockDivergenceHeight {
+				state.GlobalState.BlockHash[0] = 1
+			}
+			machHash = protocol.ComputeSimpleMachineChallengeHash(state)
 		}
 		s.executionStates = append(s.executionStates, state)
-		s.stateRoots = append(s.stateRoots, protocol.ComputeSimpleMachineChallengeHash(state))
+		s.stateRoots = append(s.stateRoots, machHash)
 
-		if machine.IsStopped() {
+		if machine.IsStopped() || state.GlobalState.Batch >= 1 {
 			break
 		}
 		machine.Step(s.maxWavmOpcodes)
@@ -371,17 +384,23 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	return util.NewHistoryCommitment(toBigStep, leaves)
 }
 
-func (s *Simulated) divergeHash(hash *common.Hash, block uint64, step uint64) {
-	if s.blockDivergenceHeight == 0 {
-		return
-	}
+func (s *Simulated) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {
 	if block+1 == s.blockDivergenceHeight && step == protocol.LevelZeroSmallStepEdgeHeight*protocol.LevelZeroBigStepEdgeHeight {
-		*hash = s.stateRoots[block+1]
-		return
+		*state = *s.executionStates[block+1]
 	}
-	if block+1 >= s.blockDivergenceHeight && step >= s.machineDivergenceStep {
-		(*hash)[0] ^= 1
+	if block+1 > s.blockDivergenceHeight || step >= s.machineDivergenceStep {
+		state.GlobalState.BlockHash[0] = 1
 	}
+}
+
+// May modify the machine hash if divergence is enabled
+func (s *Simulated) getMachineHash(machine execution.Machine, block uint64) common.Hash {
+	if s.blockDivergenceHeight == 0 || block+1 < s.blockDivergenceHeight {
+		return machine.Hash()
+	}
+	state := machine.GetExecutionState()
+	s.maybeDivergeState(state, block, machine.CurrentStepNum())
+	return protocol.ComputeSimpleMachineChallengeHash(state)
 }
 
 func (s *Simulated) intermediateBigStepLeaves(
@@ -397,13 +416,9 @@ func (s *Simulated) intermediateBigStepLeaves(
 	}
 	// Up to and including the specified step.
 	for i := fromBigStep; i <= toBigStep; i++ {
-		hash := machine.Hash()
-		machine.Step(protocol.LevelZeroSmallStepEdgeHeight)
+		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
 
-		// For testing purposes, if we want to diverge from the honest
-		// hashes starting at a specified hash.
-		s.divergeHash(&hash, fromBlockChallengeHeight, machine.CurrentStepNum())
-		leaves = append(leaves, hash)
+		machine.Step(protocol.LevelZeroSmallStepEdgeHeight)
 	}
 	return leaves, nil
 }
@@ -475,13 +490,9 @@ func (s *Simulated) intermediateSmallStepLeaves(
 	}
 	machine.Step(fromSmallStep)
 	for i := fromSmallStep; i <= toSmallStep; i++ {
-		hash := machine.Hash()
-		machine.Step(1)
+		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
 
-		// For testing purposes, if we want to diverge from the honest
-		// hashes starting at a specified hash.
-		s.divergeHash(&hash, fromBlockChallengeHeight, machine.CurrentStepNum())
-		leaves = append(leaves, hash)
+		machine.Step(1)
 	}
 	return leaves, nil
 }
@@ -493,24 +504,6 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 		panic(err)
 	}
 	return ty
-}
-
-func (s *Simulated) AssertionExecutionState(
-	_ context.Context,
-	assertionStateHash common.Hash,
-) (*protocol.ExecutionState, error) {
-	var stateRootIndex int
-	var found bool
-	for i, r := range s.stateRoots {
-		if r == assertionStateHash {
-			stateRootIndex = i
-			found = true
-		}
-	}
-	if !found {
-		return nil, fmt.Errorf("assertion state hash %#x not found locally", assertionStateHash)
-	}
-	return s.executionStates[stateRootIndex], nil
 }
 
 var bytes32Type = newStaticType("bytes32", "", nil)
@@ -557,7 +550,6 @@ var ExecutionStateAbi = abi.Arguments{
 
 func (s *Simulated) OneStepProofData(
 	ctx context.Context,
-	assertionStateHash common.Hash,
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -566,12 +558,7 @@ func (s *Simulated) OneStepProofData(
 	fromSmallStep,
 	toSmallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	assertionExecutionState, getErr := s.AssertionExecutionState(ctx, assertionStateHash)
-	if getErr != nil {
-		err = getErr
-		return
-	}
-	execState := assertionExecutionState.AsSolidityStruct()
+	execState := parentAssertionCreationInfo.AfterState
 	inboxMaxCountProof, packErr := ExecutionStateAbi.Pack(
 		execState.GlobalState.Bytes32Vals[0],
 		execState.GlobalState.Bytes32Vals[1],
@@ -617,9 +604,26 @@ func (s *Simulated) OneStepProofData(
 		err = commitErr
 		return
 	}
+
+	machine, machineErr := s.machineAtBlock(fromBlockChallengeHeight)
+	if err != nil {
+		err = machineErr
+		return
+	}
+	step := fromBigStep*s.numOpcodesPerBigStep + fromSmallStep
+	err = machine.Step(step)
+	if err != nil {
+		return
+	}
+	osp, ospErr := machine.OneStepProof()
+	if err != nil {
+		err = ospErr
+		return
+	}
+
 	data = &protocol.OneStepData{
 		BeforeHash:             startCommit.LastLeaf,
-		Proof:                  make([]byte, 0),
+		Proof:                  osp,
 		InboxMsgCountSeen:      parentAssertionCreationInfo.InboxMaxCount,
 		InboxMsgCountSeenProof: inboxMaxCountProof,
 		WasmModuleRoot:         parentAssertionCreationInfo.WasmModuleRoot,

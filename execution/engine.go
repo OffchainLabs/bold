@@ -82,6 +82,7 @@ func (m *SimpleMachine) Step(steps uint64) error {
 		m.state.GlobalState.PosInBatch++
 		if m.state.GlobalState.PosInBatch%200 == 0 {
 			m.state.GlobalState.Batch++
+			m.state.GlobalState.PosInBatch = 0
 			m.state.MachineStatus = protocol.MachineStatusFinished
 		}
 		if m.Hash()[0] == 0 {

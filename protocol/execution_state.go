@@ -19,6 +19,15 @@ type GoGlobalState struct {
 	PosInBatch uint64
 }
 
+func GoGlobalStateFromSolidity(globalState rollupgen.GlobalState) GoGlobalState {
+	return GoGlobalState{
+		BlockHash:  globalState.Bytes32Vals[0],
+		SendRoot:   globalState.Bytes32Vals[1],
+		Batch:      globalState.U64Vals[0],
+		PosInBatch: globalState.U64Vals[1],
+	}
+}
+
 func u64ToBe(x uint64) []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, x)
@@ -58,6 +67,13 @@ const (
 type ExecutionState struct {
 	GlobalState   GoGlobalState
 	MachineStatus MachineStatus
+}
+
+func GoExecutionStateFromSolidity(executionState rollupgen.ExecutionState) ExecutionState {
+	return ExecutionState{
+		GlobalState:   GoGlobalStateFromSolidity(executionState.GlobalState),
+		MachineStatus: MachineStatus(executionState.MachineStatus),
+	}
 }
 
 func (s *ExecutionState) AsSolidityStruct() rollupgen.ExecutionState {

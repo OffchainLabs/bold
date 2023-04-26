@@ -12,26 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAssertionChallengeHash(t *testing.T) {
-	ctx := context.Background()
-
-	cfg, err := setup.SetupChainsWithEdgeChallengeManager()
-	require.NoError(t, err)
-
-	chain := cfg.Chains[0]
-	assertion, err := chain.LatestConfirmed(ctx)
-	require.NoError(t, err)
-
-	genesisState := &protocol.ExecutionState{
-		GlobalState:   protocol.GoGlobalState{},
-		MachineStatus: protocol.MachineStatusFinished,
-	}
-	computed := protocol.ComputeSimpleMachineChallengeHash(genesisState)
-	challengeHash, err := assertion.ChallengeHash()
-	require.NoError(t, err)
-	require.Equal(t, computed, challengeHash)
-}
-
 func TestCreateAssertion(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := setup.SetupChainsWithEdgeChallengeManager()
@@ -60,12 +40,8 @@ func TestCreateAssertion(t *testing.T) {
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 		prevInboxMaxCount := big.NewInt(1)
-		created, err := chain.CreateAssertion(ctx, prevState, postState, prevInboxMaxCount)
+		_, err := chain.CreateAssertion(ctx, prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
-		computed := protocol.ComputeSimpleMachineChallengeHash(postState)
-		stateHash, err := created.ChallengeHash()
-		require.NoError(t, err)
-		require.Equal(t, computed, stateHash, "Unequal computed hash")
 
 		_, err = chain.CreateAssertion(ctx, prevState, postState, prevInboxMaxCount)
 		require.ErrorContains(t, err, "ALREADY_STAKED")
@@ -91,12 +67,8 @@ func TestCreateAssertion(t *testing.T) {
 			MachineStatus: protocol.MachineStatusFinished,
 		}
 		prevInboxMaxCount := big.NewInt(1)
-		forked, err := assertionChain.CreateAssertion(ctx, prevState, postState, prevInboxMaxCount)
+		_, err := assertionChain.CreateAssertion(ctx, prevState, postState, prevInboxMaxCount)
 		require.NoError(t, err)
-		computed := protocol.ComputeSimpleMachineChallengeHash(postState)
-		stateHash, err := forked.ChallengeHash()
-		require.NoError(t, err)
-		require.Equal(t, computed, stateHash, "Unequal computed hash")
 	})
 }
 
@@ -108,7 +80,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	resp, err := chain.AssertionBySequenceNum(ctx, 1)
 	require.NoError(t, err)
 
-	stateHash, err := resp.ChallengeHash()
+	stateHash, err := resp.StateHash()
 	require.NoError(t, err)
 	require.Equal(t, true, stateHash != [32]byte{})
 

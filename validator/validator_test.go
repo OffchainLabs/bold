@@ -106,7 +106,7 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		assertions := setupAssertions(10)
 		for _, a := range assertions {
 			v.assertions[a.SeqNum()] = a
-			stateHash, err := a.ChallengeHash()
+			stateHash, err := a.StateHash()
 			require.NoError(t, err)
 			s.On("HasStateCommitment", ctx, util.StateCommitment{
 				StateRoot: stateHash,
@@ -124,7 +124,7 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		assertions := setupAssertions(10)
 		for i, a := range assertions {
 			v.assertions[a.SeqNum()] = a
-			stateHash, err := a.ChallengeHash()
+			stateHash, err := a.StateHash()
 			require.NoError(t, err)
 			if i <= 5 {
 				s.On("HasStateCommitment", ctx, util.StateCommitment{

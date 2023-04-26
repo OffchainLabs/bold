@@ -74,9 +74,18 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
+	// Set defaults (zeroes are not valid here)
+	if cfg.DivergeBlockHeight == 0 {
+		cfg.DivergeBlockHeight = 1
+	}
+	if cfg.DivergeMachineHeight == 0 {
+		cfg.DivergeMachineHeight = 1
+	}
+
 	evilStateManager, err := statemanager.NewForSimpleMachine(
 		statemanager.WithBlockDivergenceHeight(cfg.DivergeBlockHeight),
 		statemanager.WithDivergentBlockHeightOffset(cfg.BlockHeightDifference),
+		statemanager.WithMachineDivergenceStep(cfg.DivergeMachineHeight),
 	)
 	if err != nil {
 		return nil, err
@@ -393,17 +402,6 @@ func deployChallengeFactory(
 		return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
 	}
 
-	// TODO(RJ): This assertion chain is not used, but still needed by challenge manager. Need to remove.
-	genesisStateHash := common.BytesToHash([]byte("nyan"))
-
-	assertionChainAddr, tx, _, err := challengeV2gen.DeployAssertionChain(auth, backend, genesisStateHash, big.NewInt(1))
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	err = challenge_testing.TxSucceeded(ctx, tx, assertionChainAddr, backend, err)
-	if err != nil {
-		return common.Address{}, common.Address{}, errors.Wrap(err, "challengeV2gen.DeployAssertionChain")
-	}
 	edgeChallengeManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
 		auth,
 		backend,

@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -287,14 +288,11 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 		}
 	}()
 
-	genesis, err := alice.chain.AssertionBySequenceNum(ctx, protocol.GenesisAssertionSeqNum)
-	require.NoError(t, err)
-	genesisStateHash, err := genesis.StateHash()
+	genesisCreation, err := alice.chain.ReadAssertionCreationInfo(ctx, protocol.GenesisAssertionSeqNum)
 	require.NoError(t, err)
 
 	// Submit leaf creation manually for each validator.
-	genesisState, err := honestManager.AssertionExecutionState(ctx, genesisStateHash)
-	require.NoError(t, err)
+	genesisState := protocol.GoExecutionStateFromSolidity(genesisCreation.AfterState)
 	latestHonest, err := honestManager.LatestAssertionCreationData(ctx)
 	require.NoError(t, err)
 	leaf1, err := alice.chain.CreateAssertion(
@@ -304,10 +302,6 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 		latestHonest.InboxMaxCount,
 	)
 	require.NoError(t, err)
-	leaf1State, err := leaf1.ChallengeHash()
-	require.NoError(t, err)
-	expectedLeaf1State := protocol.ComputeSimpleMachineChallengeHash(latestHonest.PostState)
-	assert.Equal(t, leaf1State, expectedLeaf1State, "created honest leaf1 with an unexpected state hash")
 
 	latestEvil, err := maliciousManager.LatestAssertionCreationData(ctx)
 	require.NoError(t, err)
@@ -318,10 +312,6 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 		latestEvil.InboxMaxCount,
 	)
 	require.NoError(t, err)
-	leaf2State, err := leaf2.ChallengeHash()
-	require.NoError(t, err)
-	expectedLeaf2State := protocol.ComputeSimpleMachineChallengeHash(latestEvil.PostState)
-	assert.Equal(t, leaf2State, expectedLeaf2State, "created evil leaf2 with an unexpected state hash")
 
 	// Honest assertion being added.
 	leafAdder := func(startCommit, endCommit util.HistoryCommitment, prefixProof []byte, leaf protocol.Assertion) protocol.SpecEdge {

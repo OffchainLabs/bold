@@ -13,6 +13,9 @@ contract SimpleOneStepProofEntry is IOneStepProofEntry {
         bytes32 beforeHash,
         bytes calldata proof
     ) external view returns (bytes32 afterHash) {
+        if (proof.length == 0) {
+            revert("EMPTY_PROOF");
+        }
         GlobalState memory globalState;
         uint256 offset;
         (globalState.u64Vals[0], offset) = Deserialize.u64(proof, offset);
@@ -26,9 +29,10 @@ contract SimpleOneStepProofEntry is IOneStepProofEntry {
             return beforeHash;
         }
         require(globalState.hash() == beforeHash, "BAD_PROOF");
-        globalState.u64Vals[0]++;
-        if (globalState.u64Vals[0] % 200 == 0) {
-            globalState.u64Vals[1]++;
+        globalState.u64Vals[1]++;
+        if (globalState.u64Vals[1] % 200 == 0) {
+            globalState.u64Vals[0]++;
+            globalState.u64Vals[1] = 0;
         }
         return globalState.hash();
     }

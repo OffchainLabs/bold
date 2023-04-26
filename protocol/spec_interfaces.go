@@ -31,7 +31,7 @@ type Assertion interface {
 	Height() (uint64, error)
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
-	ChallengeHash() (common.Hash, error)
+	StateHash() (common.Hash, error)
 }
 
 // AssertionCreatedInfo from an event creation.

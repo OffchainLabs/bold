@@ -22,12 +22,12 @@ var (
 	_ = protocol.SpecChallengeManager(&solimpl.SpecChallengeManager{})
 )
 
+var genesisOspData = make([]byte, 16)
+
 func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		DivergeBlockHeight: 1,
-	})
+	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{})
 	require.NoError(t, err)
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
@@ -153,9 +153,7 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 
 func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		DivergeBlockHeight: 1,
-	})
+	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{})
 	require.NoError(t, err)
 
 	chain1 := createdData.Chains[0]
@@ -331,7 +329,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			honestChildren1.Id(),
 			&protocol.OneStepData{
 				BeforeHash:             common.Hash{},
-				Proof:                  make([]byte, 0),
+				Proof:                  genesisOspData,
 				InboxMsgCountSeen:      big.NewInt(1),
 				InboxMsgCountSeenProof: inboxMaxCountProof,
 				WasmModuleRoot:         wasmModuleRoot,
@@ -346,7 +344,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			honestChildren2.Id(),
 			&protocol.OneStepData{
 				BeforeHash:             common.Hash{},
-				Proof:                  make([]byte, 0),
+				Proof:                  genesisOspData,
 				InboxMsgCountSeen:      big.NewInt(1),
 				InboxMsgCountSeenProof: inboxMaxCountProof,
 				WasmModuleRoot:         wasmModuleRoot,
@@ -401,7 +399,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			honestChildren1.Id(),
 			&protocol.OneStepData{
 				BeforeHash:             common.Hash{},
-				Proof:                  make([]byte, 0),
+				Proof:                  genesisOspData,
 				InboxMsgCountSeen:      big.NewInt(1),
 				InboxMsgCountSeenProof: inboxMaxCountProof,
 				WasmModuleRoot:         wasmModuleRoot,
@@ -416,7 +414,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			honestChildren2.Id(),
 			&protocol.OneStepData{
 				BeforeHash:             common.Hash{},
-				Proof:                  make([]byte, 0),
+				Proof:                  genesisOspData,
 				InboxMsgCountSeen:      big.NewInt(1),
 				InboxMsgCountSeenProof: inboxMaxCountProof,
 				WasmModuleRoot:         wasmModuleRoot,
@@ -469,7 +467,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			honestEdge.Id(),
 			&protocol.OneStepData{
 				BeforeHash:             common.BytesToHash([]byte("foo")),
-				Proof:                  honestCommit.LastLeaf[:],
+				Proof:                  genesisOspData,
 				InboxMsgCountSeen:      big.NewInt(1),
 				InboxMsgCountSeenProof: inboxMaxCountProof,
 				WasmModuleRoot:         wasmModuleRoot,
@@ -531,7 +529,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			evilEdge.Id(),
 			&protocol.OneStepData{
 				BeforeHash:             startCommit.LastLeaf,
-				Proof:                  make([]byte, 0),
+				Proof:                  genesisOspData,
 				InboxMsgCountSeen:      big.NewInt(1),
 				InboxMsgCountSeenProof: inboxMaxCountProof,
 				WasmModuleRoot:         wasmModuleRoot,
@@ -560,19 +558,14 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 
 		prevId, err := honestEdge.PrevAssertionId(ctx)
 		require.NoError(t, err)
-		assertionNum, err := chain.GetAssertionNum(ctx, prevId)
+		parentAssertionNum, err := chain.GetAssertionNum(ctx, prevId)
 		require.NoError(t, err)
-		prevAssertion, err := chain.AssertionBySequenceNum(ctx, assertionNum)
-		require.NoError(t, err)
-		parentAssertionStateHash, err := prevAssertion.ChallengeHash()
-		require.NoError(t, err)
-		assertionCreationInfo, err := chain.ReadAssertionCreationInfo(ctx, assertionNum)
+		parentAssertionCreationInfo, err := chain.ReadAssertionCreationInfo(ctx, parentAssertionNum)
 		require.NoError(t, err)
 
 		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(
 			ctx,
-			parentAssertionStateHash,
-			assertionCreationInfo,
+			parentAssertionCreationInfo,
 			fromBlockChallengeHeight,
 			toBlockChallengeHeight,
 			fromBigStep,
@@ -643,9 +636,7 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		DivergeBlockHeight: 1,
-	})
+	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{})
 	require.NoError(t, err)
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
@@ -720,9 +711,7 @@ func setupBisectionScenario(
 ) *bisectionScenario {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
-		DivergeBlockHeight: 1,
-	})
+	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{})
 	require.NoError(t, err)
 
 	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
