@@ -1,9 +1,10 @@
-package validator
+package challengetree
 
 import (
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -55,16 +56,16 @@ func TestAncestors(t *testing.T) {
 
 	tree := &challengeTree{
 		honestBlockChalLevelZeroEdge: topLevel,
-		edges:                        make(map[protocol.EdgeId]*edge),
+		edges:                        threadsafe.NewMap[protocol.EdgeId, *edge](),
 	}
 
-	tree.edges[topLevel.id] = topLevel
-	tree.edges[child08.id] = child08
-	tree.edges[child816.id] = child816
-	tree.edges[child04.id] = child04
-	tree.edges[child48.id] = child48
-	tree.edges[child46.id] = child46
-	tree.edges[child68.id] = child68
+	tree.edges.Insert(topLevel.id, topLevel)
+	tree.edges.Insert(child08.id, child08)
+	tree.edges.Insert(child816.id, child816)
+	tree.edges.Insert(child04.id, child04)
+	tree.edges.Insert(child48.id, child48)
+	tree.edges.Insert(child46.id, child46)
+	tree.edges.Insert(child68.id, child68)
 
 	ancestors := tree.ancestorsForHonestEdge(child68.id)
 	require.Equal(t, ancestors, []protocol.EdgeId{child48.id, child08.id, topLevel.id})
