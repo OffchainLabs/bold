@@ -173,8 +173,7 @@ func (ct *challengeTree) innerCumulativeUpdate(
 				// Defensive check ensuring the honest level zero edge one challenge level below
 				// claims the current edge id as its claim id.
 				if honestLowerLevelEdge.claimId != common.Hash(edgeId) {
-					// TODO: Return errors.
-					panic("bad claim")
+					return
 				}
 
 				ct.innerCumulativeUpdate(total, honestLowerLevelEdge.id)

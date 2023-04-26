@@ -10,9 +10,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type mockChain struct {
+	rivaledEdges         *threadsafe.Set[protocol.EdgeId]
+	unrivaledTimerByEdge map[protocol.EdgeId]uint64
+}
+
+func (m *mockChain) timeUnrivaled(edgeId protocol.EdgeId) uint64 {
+	return m.unrivaledTimerByEdge[edgeId]
+}
+
+func (m *mockChain) advanceBlocks(numBlocks uint64) {
+	for k, v := range m.unrivaledTimerByEdge {
+		// Do not update unrivaled timer for rivaled edges.
+		if m.rivaledEdges.Has(k) {
+			continue
+		}
+		m.unrivaledTimerByEdge[k] = v + numBlocks
+	}
+}
+
+func TestCumulativeUnrivaledTimeUpdates(t *testing.T) {
+	tree := &challengeTree{
+		edges:                           threadsafe.NewMap[protocol.EdgeId, *edge](),
+		rivaledEdges:                    threadsafe.NewSet[protocol.EdgeId](),
+		honestUnrivaledCumulativeTimers: threadsafe.NewMap[protocol.EdgeId, uint64](),
+	}
+	setupBlockChallengeTreeSnapshot(t, tree)
+	claimId := protocol.ClaimId(id("blk-5-6"))
+	setupBigStepChallengeSnapshot(t, tree, claimId)
+	claimId = protocol.ClaimId(id("big-5-6"))
+	setupSmallStepChallengeSnapshot(t, tree, claimId)
+
+	tree.chain = &mockChain{
+		rivaledEdges:         tree.rivaledEdges,
+		unrivaledTimerByEdge: map[protocol.EdgeId]uint64{},
+	}
+	tree.updateCumulativeTimers()
+}
+
 func TestAncestors_BlockChallengeOnly(t *testing.T) {
 	tree := &challengeTree{
-		edges: threadsafe.NewMap[protocol.EdgeId, *edge](),
+		edges:        threadsafe.NewMap[protocol.EdgeId, *edge](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
 	}
 	setupBlockChallengeTreeSnapshot(t, tree)
 
