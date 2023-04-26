@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/execution"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,18 @@ import (
 )
 
 var _ = Manager(&Simulated{})
+
+func mockMachineAtBlock(_ context.Context, block uint64) (execution.Machine, error) {
+	blockBytes := make([]uint8, 8)
+	binary.BigEndian.PutUint64(blockBytes, block)
+	startState := &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash: crypto.Keccak256Hash(blockBytes),
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	return execution.NewSimpleMachine(startState, nil), nil
+}
 
 func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing.T) {
 	ctx := context.Background()
@@ -27,6 +40,8 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 		hashes,
 		WithMaxWavmOpcodesPerBlock(8),
 		WithNumOpcodesPerBigStep(8),
+		WithMachineAtBlockProvider(mockMachineAtBlock),
+		WithForceMachineBlockCompat(true),
 	)
 	require.NoError(t, err)
 	blockChalCommit, err := manager.HistoryCommitmentUpTo(ctx, 4)
@@ -70,6 +85,8 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		hashes,
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
+		WithMachineAtBlockProvider(mockMachineAtBlock),
+		WithForceMachineBlockCompat(true),
 	)
 	require.NoError(t, err)
 
@@ -142,6 +159,8 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 		hashes,
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
+		WithMachineAtBlockProvider(mockMachineAtBlock),
+		WithForceMachineBlockCompat(true),
 	)
 	require.NoError(t, err)
 
@@ -212,6 +231,8 @@ func TestAllPrefixProofs(t *testing.T) {
 		hashes,
 		WithMaxWavmOpcodesPerBlock(20),
 		WithNumOpcodesPerBigStep(4),
+		WithMachineAtBlockProvider(mockMachineAtBlock),
+		WithForceMachineBlockCompat(true),
 	)
 	require.NoError(t, err)
 
@@ -343,6 +364,8 @@ func TestDivergenceGranularity(t *testing.T) {
 		honestStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
+		WithMachineAtBlockProvider(mockMachineAtBlock),
+		WithForceMachineBlockCompat(true),
 	)
 	require.NoError(t, err)
 
@@ -357,15 +380,18 @@ func TestDivergenceGranularity(t *testing.T) {
 
 	t.Log("Big step leaf commitment height", honestCommit.Height)
 
-	divergenceHeight := uint64(3)
+	divergenceHeight := toBlock
 	evilStates, _ := setupStates(t, numStates, divergenceHeight)
 
 	evilManager, err := NewWithAssertionStates(
 		evilStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
+		WithBlockDivergenceHeight(toBlock),
 		// Diverges at the 3rd small step, within the 3rd big step.
-		WithMachineDivergenceStep(divergenceHeight+divergenceHeight*protocol.LevelZeroSmallStepEdgeHeight),
+		WithMachineDivergenceStep(divergenceHeight+(divergenceHeight-1)*bigStepSize),
+		WithMachineAtBlockProvider(mockMachineAtBlock),
+		WithForceMachineBlockCompat(true),
 	)
 	require.NoError(t, err)
 
@@ -379,6 +405,7 @@ func TestDivergenceGranularity(t *testing.T) {
 
 	require.Equal(t, honestCommit.Height, evilCommit.Height)
 	require.Equal(t, honestCommit.FirstLeaf, evilCommit.FirstLeaf)
+	require.NotEqual(t, honestCommit.LastLeaf, evilCommit.LastLeaf)
 	require.NotEqual(t, honestCommit.Merkle, evilCommit.Merkle)
 
 	// Check if big step commitments between the validators agree before the divergence height.
@@ -419,6 +446,7 @@ func TestDivergenceGranularity(t *testing.T) {
 
 	require.Equal(t, honestCommit.Height, evilCommit.Height)
 	require.Equal(t, honestCommit.FirstLeaf, evilCommit.FirstLeaf)
+	require.NotEqual(t, honestCommit.LastLeaf, evilCommit.LastLeaf)
 	require.NotEqual(t, honestCommit.Merkle, evilCommit.Merkle)
 
 	t.Log("Big step commitments diverge at divergence height")
@@ -446,6 +474,7 @@ func TestDivergenceGranularity(t *testing.T) {
 
 	require.Equal(t, honestCommit.Height, evilCommit.Height)
 	require.Equal(t, honestCommit.FirstLeaf, evilCommit.FirstLeaf)
+	require.NotEqual(t, honestCommit.LastLeaf, evilCommit.LastLeaf)
 	require.NotEqual(t, honestCommit.Merkle, evilCommit.Merkle)
 
 	t.Log("Small step commitments diverge at divergence height")

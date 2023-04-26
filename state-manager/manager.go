@@ -124,14 +124,15 @@ type Manager interface {
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
 // state roots. It can produce state and history commitments from those roots.
 type Simulated struct {
-	stateRoots            []common.Hash
-	executionStates       []*protocol.ExecutionState
-	machineAtBlock        func(uint64) (execution.Machine, error)
-	maxWavmOpcodes        uint64
-	numOpcodesPerBigStep  uint64
-	blockDivergenceHeight uint64
-	posInBatchDivergence  int64
-	machineDivergenceStep uint64
+	stateRoots              []common.Hash
+	executionStates         []*protocol.ExecutionState
+	machineAtBlock          func(context.Context, uint64) (execution.Machine, error)
+	maxWavmOpcodes          uint64
+	numOpcodesPerBigStep    uint64
+	blockDivergenceHeight   uint64
+	posInBatchDivergence    int64
+	machineDivergenceStep   uint64
+	forceMachineBlockCompat bool
 }
 
 // New simulated manager from a list of predefined state roots, useful for tests and simulations.
@@ -141,7 +142,7 @@ func New(stateRoots []common.Hash, opts ...Opt) (*Simulated, error) {
 	}
 	s := &Simulated{
 		stateRoots: stateRoots,
-		machineAtBlock: func(uint64) (execution.Machine, error) {
+		machineAtBlock: func(context.Context, uint64) (execution.Machine, error) {
 			return nil, errors.New("state manager created with New() cannot provide machines")
 		},
 	}
@@ -183,6 +184,19 @@ func WithDivergentBlockHeightOffset(blockHeightOffset int64) Opt {
 	}
 }
 
+func WithMachineAtBlockProvider(machineAtBlock func(ctx context.Context, blockNum uint64) (execution.Machine, error)) Opt {
+	return func(s *Simulated) {
+		s.machineAtBlock = machineAtBlock
+	}
+}
+
+// If enabled, forces the machine hash at block boundaries to be the block hash
+func WithForceMachineBlockCompat(forceMachineBlockCompat bool) Opt {
+	return func(s *Simulated) {
+		s.forceMachineBlockCompat = forceMachineBlockCompat
+	}
+}
+
 // NewWithAssertionStates creates a simulated state manager from a list of predefined state roots for
 // the top-level assertion chain, useful for tests and simulation purposes in block challenges.
 // This also allows for specifying the honest states for big and small step subchallenges along
@@ -209,9 +223,12 @@ func NewWithAssertionStates(
 	s := &Simulated{
 		stateRoots:      stateRoots,
 		executionStates: assertionChainExecutionStates,
-		machineAtBlock: func(uint64) (execution.Machine, error) {
+		machineAtBlock: func(context.Context, uint64) (execution.Machine, error) {
 			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
 		},
+	}
+	for _, o := range opts {
+		o(s)
 	}
 	return s, nil
 }
@@ -263,7 +280,7 @@ func NewForSimpleMachine(
 		machine.Step(s.maxWavmOpcodes)
 		nextMachineState = machine.GetExecutionState()
 	}
-	s.machineAtBlock = func(block uint64) (execution.Machine, error) {
+	s.machineAtBlock = func(_ context.Context, block uint64) (execution.Machine, error) {
 		if block >= uint64(len(s.executionStates)) {
 			block = uint64(len(s.executionStates) - 1)
 		}
@@ -360,7 +377,7 @@ func (s *Simulated) BigStepLeafCommitment(
 }
 
 func (s *Simulated) BigStepCommitmentUpTo(
-	_ context.Context,
+	ctx context.Context,
 	fromAssertionHeight,
 	toAssertionHeight,
 	toBigStep uint64,
@@ -373,6 +390,7 @@ func (s *Simulated) BigStepCommitmentUpTo(
 		)
 	}
 	leaves, err := s.intermediateBigStepLeaves(
+		ctx,
 		fromAssertionHeight,
 		toAssertionHeight,
 		0, // from big step.
@@ -385,7 +403,7 @@ func (s *Simulated) BigStepCommitmentUpTo(
 }
 
 func (s *Simulated) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {
-	if block+1 == s.blockDivergenceHeight && step == protocol.LevelZeroSmallStepEdgeHeight*protocol.LevelZeroBigStepEdgeHeight {
+	if block+1 == s.blockDivergenceHeight && step == s.maxWavmOpcodes {
 		*state = *s.executionStates[block+1]
 	}
 	if block+1 > s.blockDivergenceHeight || step >= s.machineDivergenceStep {
@@ -395,6 +413,15 @@ func (s *Simulated) maybeDivergeState(state *protocol.ExecutionState, block uint
 
 // May modify the machine hash if divergence is enabled
 func (s *Simulated) getMachineHash(machine execution.Machine, block uint64) common.Hash {
+	if s.forceMachineBlockCompat {
+		step := machine.CurrentStepNum()
+		if step == 0 {
+			return s.stateRoots[block]
+		}
+		if step == s.maxWavmOpcodes {
+			return s.stateRoots[block+1]
+		}
+	}
 	if s.blockDivergenceHeight == 0 || block+1 < s.blockDivergenceHeight {
 		return machine.Hash()
 	}
@@ -404,21 +431,25 @@ func (s *Simulated) getMachineHash(machine execution.Machine, block uint64) comm
 }
 
 func (s *Simulated) intermediateBigStepLeaves(
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
 	toBigStep uint64,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
-	machine, err := s.machineAtBlock(fromBlockChallengeHeight)
+	machine, err := s.machineAtBlock(ctx, fromBlockChallengeHeight)
 	if err != nil {
 		return nil, err
 	}
 	// Up to and including the specified step.
 	for i := fromBigStep; i <= toBigStep; i++ {
 		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
-
-		machine.Step(protocol.LevelZeroSmallStepEdgeHeight)
+		if i >= toBigStep {
+			// We don't need to step the machine to the next point because it won't be used
+			break
+		}
+		machine.Step(s.numOpcodesPerBigStep)
 	}
 	return leaves, nil
 }
@@ -441,7 +472,7 @@ func (s *Simulated) SmallStepLeafCommitment(
 }
 
 func (s *Simulated) SmallStepCommitmentUpTo(
-	_ context.Context,
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -466,6 +497,7 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
 	toSmall := fromSmall + toSmallStep
 	leaves, err := s.intermediateSmallStepLeaves(
+		ctx,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromSmall,
@@ -478,20 +510,24 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 }
 
 func (s *Simulated) intermediateSmallStepLeaves(
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromSmallStep,
 	toSmallStep uint64,
 ) ([]common.Hash, error) {
 	leaves := make([]common.Hash, 0)
-	machine, err := s.machineAtBlock(fromBlockChallengeHeight)
+	machine, err := s.machineAtBlock(ctx, fromBlockChallengeHeight)
 	if err != nil {
 		return nil, err
 	}
 	machine.Step(fromSmallStep)
 	for i := fromSmallStep; i <= toSmallStep; i++ {
 		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
-
+		if i >= toSmallStep {
+			// We don't need to step the machine to the next point because it won't be used
+			break
+		}
 		machine.Step(1)
 	}
 	return leaves, nil
@@ -605,7 +641,7 @@ func (s *Simulated) OneStepProofData(
 		return
 	}
 
-	machine, machineErr := s.machineAtBlock(fromBlockChallengeHeight)
+	machine, machineErr := s.machineAtBlock(ctx, fromBlockChallengeHeight)
 	if err != nil {
 		err = machineErr
 		return
@@ -615,9 +651,23 @@ func (s *Simulated) OneStepProofData(
 	if err != nil {
 		return
 	}
+	beforeHash := machine.Hash()
+	if beforeHash != startCommit.LastLeaf {
+		err = fmt.Errorf("machine executed to start step %v hash %v but expected %v", step, beforeHash, startCommit.LastLeaf)
+		return
+	}
 	osp, ospErr := machine.OneStepProof()
 	if err != nil {
 		err = ospErr
+		return
+	}
+	err = machine.Step(1)
+	if err != nil {
+		return
+	}
+	afterHash := machine.Hash()
+	if afterHash != endCommit.LastLeaf {
+		err = fmt.Errorf("machine executed to end step %v hash %v but expected %v", step+1, beforeHash, endCommit.LastLeaf)
 		return
 	}
 
@@ -668,7 +718,7 @@ func (s *Simulated) PrefixProofUpToBatch(ctx context.Context, start, lo, hi, bat
 }
 
 func (s *Simulated) BigStepPrefixProof(
-	_ context.Context,
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -682,6 +732,7 @@ func (s *Simulated) BigStepPrefixProof(
 		)
 	}
 	return s.bigStepPrefixProofCalculation(
+		ctx,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
@@ -690,6 +741,7 @@ func (s *Simulated) BigStepPrefixProof(
 }
 
 func (s *Simulated) bigStepPrefixProofCalculation(
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -698,6 +750,7 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 	loSize := fromBigStep + 1
 	hiSize := toBigStep + 1
 	prefixLeaves, err := s.intermediateBigStepLeaves(
+		ctx,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		0,
@@ -725,7 +778,7 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 }
 
 func (s *Simulated) SmallStepPrefixProof(
-	_ context.Context,
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -748,6 +801,7 @@ func (s *Simulated) SmallStepPrefixProof(
 		)
 	}
 	return s.smallStepPrefixProofCalculation(
+		ctx,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromBigStep,
@@ -757,6 +811,7 @@ func (s *Simulated) SmallStepPrefixProof(
 }
 
 func (s *Simulated) smallStepPrefixProofCalculation(
+	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -766,6 +821,7 @@ func (s *Simulated) smallStepPrefixProofCalculation(
 	fromSmall := (fromBigStep * s.numOpcodesPerBigStep)
 	toSmall := fromSmall + toSmallStep
 	prefixLeaves, err := s.intermediateSmallStepLeaves(
+		ctx,
 		fromBlockChallengeHeight,
 		toBlockChallengeHeight,
 		fromSmall,

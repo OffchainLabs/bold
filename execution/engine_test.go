@@ -39,7 +39,7 @@ func TestExecutionEngine(t *testing.T) {
 		}
 
 		fakeProof = append([]byte{}, osp...)
-		fakeProof[19] ^= 1
+		fakeProof[0] ^= 1
 		if VerifySimpleMachineOneStepProof(thisHash, nextHash, i, nil, fakeProof) {
 			t.Fatal(i)
 		}

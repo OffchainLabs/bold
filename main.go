@@ -92,46 +92,16 @@ func main() {
 		backend.Commit()
 	}
 
-	honestL2StateHashes := honestL2StateHashesForUints(0, currentL2ChainHeight+1)
-	evilL2StateHashes := evilL2StateHashesForUints(0, currentL2ChainHeight+1)
-
-	// Creates honest and evil L2 states. These will be equal up to a divergence height.
-	// These are toy hashes because this is a simulation and the L1 chain knows nothing about
-	// the real L2 state hashes except for what validators claim.
-	honestL2States := prepareHonestL2States(
-		honestL2StateHashes,
-		currentL2ChainHeight,
-	)
-
-	evilL2States := prepareMaliciousL2States(
-		divergeHeightAtL2,
-		evilL2StateHashes,
-		honestL2States,
-	)
-
 	// Initialize Alice and Bob's respective L2 state managers.
-	managerOpts := []statemanager.Opt{
-		statemanager.WithMaxWavmOpcodesPerBlock(maxWavmOpcodesPerBlock),
-		statemanager.WithNumOpcodesPerBigStep(numOpcodesPerBigStep),
-	}
-	aliceL2StateManager, err := statemanager.NewWithAssertionStates(
-		honestL2States,
-		managerOpts...,
-	)
+	aliceL2StateManager, err := statemanager.NewForSimpleMachine()
 	if err != nil {
 		panic(err)
 	}
 
 	// Bob diverges from Alice's L2 history at the specified divergence height.
-	managerOpts = append(
-		managerOpts,
-		statemanager.WithMaliciousIntent(),
-		statemanager.WithBigStepStateDivergenceHeight(divergeHeightAtL2),
-		statemanager.WithSmallStepStateDivergenceHeight(divergeHeightAtL2),
-	)
-	bobL2StateManager, err := statemanager.NewWithAssertionStates(
-		evilL2States,
-		managerOpts...,
+	bobL2StateManager, err := statemanager.NewForSimpleMachine(
+		statemanager.WithBlockDivergenceHeight(1),
+		statemanager.WithMachineDivergenceStep(divergeHeightAtL2+(divergeHeightAtL2-1)*protocol.LevelZeroSmallStepEdgeHeight),
 	)
 	if err != nil {
 		panic(err)
