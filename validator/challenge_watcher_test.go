@@ -77,7 +77,7 @@ func TestFullConfirmations(t *testing.T) {
 	t.Log("Small step upper honest child one step proven")
 
 	createdData := scenario.topLevelFork
-	watcher := NewWatcher(createdData.Chains[0], createdData.Backend, time.Millisecond*100)
+	watcher := NewWatcher(createdData.Chains[0], honestStateManager, createdData.Backend, time.Millisecond*100)
 	go watcher.Watch(ctx)
 	time.Sleep(time.Second)
 	cancel()

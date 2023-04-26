@@ -525,14 +525,11 @@ library EdgeChallengeManagerLib {
         // Sanity check: it bisect should already enforce that this child exists
         require(store.edges[upperChildId].exists(), "Upper child does not exist");
 
-        // If upper is confirmed but lower is pending, we can confirm
-        require(store.edges[upperChildId].status == EdgeStatus.Confirmed || store.edges[lowerChildId].status == EdgeStatus.Confirmed, "One child must be confirmed");
-        store.edges[edgeId].setConfirmed();
-        // Otherwise, we require both children to be confirmed
-        //require(store.edges[lowerChildId].status == EdgeStatus.Confirmed, "Lower child not confirmed");
-        //require(store.edges[upperChildId].status == EdgeStatus.Confirmed, "Upper child not confirmed");
+        // Require both children to be confirmed
+        require(store.edges[lowerChildId].status == EdgeStatus.Confirmed, "Lower child not confirmed");
+        require(store.edges[upperChildId].status == EdgeStatus.Confirmed, "Upper child not confirmed");
 
-        //store.edges[edgeId].setConfirmed();
+        store.edges[edgeId].setConfirmed();
     }
 
     /// @notice Returns the sub edge type of the provided edge type

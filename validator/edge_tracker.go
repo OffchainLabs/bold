@@ -150,7 +150,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrap(err, "could not check upper child edge's status")
 			}
-			if lowerStatus == protocol.EdgeConfirmed || upperStatus == protocol.EdgeConfirmed {
+			if lowerStatus == protocol.EdgeConfirmed && upperStatus == protocol.EdgeConfirmed {
 				if err = et.edge.ConfirmByChildren(ctx); err != nil {
 					return errors.Wrap(err, "could not confirm edge by children")
 				}

@@ -120,7 +120,7 @@ func New(
 		edgeTrackerWakeInterval:                time.Millisecond * 100,
 		newAssertionCheckInterval:              time.Second,
 	}
-	v.watcher = NewWatcher(v.chain, v.backend, time.Second)
+	v.watcher = NewWatcher(v.chain, stateManager, v.backend, time.Second)
 	for _, o := range opts {
 		o(v)
 	}

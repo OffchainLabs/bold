@@ -95,7 +95,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	aliceWatcher := validator.NewWatcher(chains[0], backend, time.Millisecond*500)
+	aliceWatcher := validator.NewWatcher(chains[0], honestManager, backend, time.Millisecond*500)
 	aliceAddr := accs[0].AccountAddr
 	alice, err := validator.New(
 		ctx,
@@ -126,7 +126,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	bobWatcher := validator.NewWatcher(chains[1], backend, time.Millisecond*500)
+	bobWatcher := validator.NewWatcher(chains[1], maliciousManager, backend, time.Millisecond*500)
 	bobAddr := accs[1].AccountAddr
 	bob, err := validator.New(
 		ctx,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 )
@@ -19,6 +20,7 @@ type challengeWatcher struct {
 	// Will scan for all previous events, and poll for new ones.
 	// Will scan for level zero edges being confirmed and track
 	// their claim id in this struct.
+	stateManager       statemanager.Manager
 	chain              protocol.AssertionChain
 	pollEventsInterval time.Duration
 	lock               sync.RWMutex
@@ -28,6 +30,7 @@ type challengeWatcher struct {
 
 func NewWatcher(
 	chain protocol.AssertionChain,
+	manager statemanager.Manager,
 	backend bind.ContractBackend,
 	interval time.Duration,
 ) *challengeWatcher {
@@ -108,24 +111,6 @@ func (a *ancestorsBranch) updateTotalBlocksUnrivaled(
 	}
 }
 
-type set[T comparable] struct {
-	items map[T]bool
-}
-
-func newSet[T comparable]() *set[T] {
-	return &set[T]{
-		items: make(map[T]bool),
-	}
-}
-
-func (s *set[T]) insert(t T) {
-	s.items[t] = true
-}
-
-func (s *set[T]) has(t T) bool {
-	return s.items[t]
-}
-
 func (w *challengeWatcher) Watch(ctx context.Context) error {
 	// Start from the latest confirmed assertion's creation block.
 	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
@@ -183,6 +168,51 @@ func (w *challengeWatcher) Watch(ctx context.Context) error {
 	}
 }
 
+func (w *challengeWatcher) checkForEdgeAdded(
+	filterOpts *bind.FilterOpts,
+	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
+) error {
+	it, err := filterer.FilterEdgeAdded(filterOpts, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err = it.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	for it.Next() {
+		if it.Error() != nil {
+			return err // TODO: Handle better.
+		}
+		edgeAdded := it.Event
+
+		// ClaimID: Entire namespace for a challenge's 3 levels.
+		// OriginID: Namespace per subchallenge level.
+		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge && edgeAdded.ClaimId != [32]byte{} {
+			w.lock.Lock()
+			if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
+				w.challenges[edgeAdded.ClaimId] = &challenge{
+					honestAncestorsBranch:          &ancestorsBranch{},
+					confirmedLevelZeroEdgeClaimIds: newSet[protocol.ClaimId](),
+				}
+			}
+			w.lock.Unlock()
+		}
+
+		// We see a new edge: what do?
+		// - For each branch in a challenge, we need to figure out where to place it on the branch
+		//   - We need to figure out its parent/child relationship to other edges being tracked here
+		// - We need to figure out what top-level assertion it corresponds to.
+		//   - However, we only have this information for level zero edges, using a claim id
+		//   - for all others, we have an origin id that can be used for namespacing information
+
+		// TODO: Optimization: figure out if the edge being added has a history commitment we agree with
+		// locally, and only track the edges this watcher agrees with.
+	}
+	return nil
+}
+
 func (w *challengeWatcher) checkForEdgeConfirmedByOneStepProof(
 	filterOpts *bind.FilterOpts,
 	manager protocol.SpecChallengeManager,
@@ -231,38 +261,5 @@ func (w *challengeWatcher) checkLevelZeroEdgeConfirmed(
 	claimId := edge.ClaimId().Unwrap()
 	chal := w.challenges[protocol.AssertionId{}]
 	chal.confirmedLevelZeroEdgeClaimIds.insert(claimId)
-	return nil
-}
-
-func (w *challengeWatcher) checkForEdgeAdded(
-	filterOpts *bind.FilterOpts,
-	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
-) error {
-	it, err := filterer.FilterEdgeAdded(filterOpts, nil, nil, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err = it.Close(); err != nil {
-			fmt.Println(err)
-		}
-	}()
-	for it.Next() {
-		if it.Error() != nil {
-			return err // TODO: Handle better.
-		}
-		edgeAdded := it.Event
-		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge && edgeAdded.ClaimId != [32]byte{} {
-			log.Info("Watcher: Level zero block edge added")
-			w.lock.Lock()
-			if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
-				w.challenges[edgeAdded.ClaimId] = &challenge{
-					honestAncestorsBranch:          &ancestorsBranch{},
-					confirmedLevelZeroEdgeClaimIds: newSet[protocol.ClaimId](),
-				}
-			}
-			w.lock.Unlock()
-		}
-	}
 	return nil
 }
