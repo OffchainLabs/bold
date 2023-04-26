@@ -227,8 +227,8 @@ func (ct *challengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.E
 	if !ok {
 		return nil
 	}
-	// The confirm by time function requires ancestors to be specified
-	// from earliest to oldest, which is the reverse of the result of our recursion.
+	// The confirm by time function in Solidity requires ancestors to be specified
+	// from earliest to oldest, which is the reverse result of our recursion.
 	reverse(ancestors)
 	return ancestors
 }

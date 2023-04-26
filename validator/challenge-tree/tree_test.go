@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO: Add benchmark of worst case scenario updates, add some latency to the chain calls.
+// TODO: Test adding edges to the challenge tree.
+// TODO: Rename challenge tree to HonestTreeForChallenge
+
 type mockChain struct {
 	rivaledEdges         *threadsafe.Set[protocol.EdgeId]
 	unrivaledTimerByEdge map[protocol.EdgeId]uint64
@@ -29,7 +33,7 @@ func (m *mockChain) advanceBlocks(numBlocks uint64) {
 	}
 }
 
-func TestCumulativeUnrivaledTimeUpdates(t *testing.T) {
+func TestCumulativeUnrivaledTimeUpdates_UniformInitialUnrivaledTimes(t *testing.T) {
 	tree := &challengeTree{
 		edges:                           threadsafe.NewMap[protocol.EdgeId, *edge](),
 		rivaledEdges:                    threadsafe.NewSet[protocol.EdgeId](),
@@ -94,6 +98,38 @@ func TestCumulativeUnrivaledTimeUpdates(t *testing.T) {
 	// in our challenge tree, and are able to expect certain results based on the setup above.
 	tree.updateCumulativeTimers()
 
+	t.Run("block challenge edge", func(t *testing.T) {
+		ancestors := tree.ancestorsForHonestEdge(id("blk-0-4"))
+		var wantedAncestorsTotal uint64
+		for _, an := range ancestors {
+			timeUnrivaled := tree.chain.timeUnrivaled(an)
+			wantedAncestorsTotal += timeUnrivaled
+		}
+		edgeUnrivaledTimer := tree.chain.timeUnrivaled(id("blk-0-4"))
+		got, err := tree.CumulativeTimeUnrivaled(id("blk-0-4"))
+		require.NoError(t, err)
+		require.Equal(t, edgeUnrivaledTimer+wantedAncestorsTotal, got)
+	})
+
+	t.Run("rivaled edge cumulative does not change but unrivaled does after advancing blocks", func(t *testing.T) {
+		// We advance blocks, and check that the only cumulative time that changed
+		// was that of the unrivaled edges blk-0-4, big-0-4, smol-0-4 and the deepest.
+		unrivaledEdgeTimer, err := tree.CumulativeTimeUnrivaled(id("blk-0-4"))
+		require.NoError(t, err)
+		rivaledEdgeTimer, err := tree.CumulativeTimeUnrivaled(id("blk-4-5"))
+		require.NoError(t, err)
+
+		mChain.advanceBlocks(4)
+		tree.updateCumulativeTimers()
+
+		unrivaledEdgeTimerAfterAdvancing, err := tree.CumulativeTimeUnrivaled(id("blk-0-4"))
+		require.NoError(t, err)
+		rivaledEdgeTimerAfterAdvancing, err := tree.CumulativeTimeUnrivaled(id("blk-4-5"))
+		require.NoError(t, err)
+
+		require.Equal(t, rivaledEdgeTimer, rivaledEdgeTimerAfterAdvancing)
+		require.Equal(t, unrivaledEdgeTimer+4, unrivaledEdgeTimerAfterAdvancing)
+	})
 }
 
 func TestAncestors_BlockChallengeOnly(t *testing.T) {
