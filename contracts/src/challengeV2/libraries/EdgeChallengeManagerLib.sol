@@ -162,7 +162,7 @@ library EdgeChallengeManagerLib {
         CreateEdgeArgs memory args,
         AssertionReferenceData memory ard,
         bytes memory proof
-    ) internal view returns (ProofData memory, bytes32) {
+    ) private view returns (ProofData memory, bytes32) {
         if (args.edgeType == EdgeType.Block) {
             // origin id is the assertion which is the root of challenge
             // all rivals and their children share the same origin id - it is a link to the information
@@ -172,6 +172,7 @@ library EdgeChallengeManagerLib {
             // Sanity check: The assertion reference data should be related to the claim
             // Of course the caller can provide whatever args they wish, so this is really just a helpful
             // check to avoid mistakes
+            require(ard.assertionId != 0, "Empty assertion id");
             require(ard.assertionId == args.claimId, "Mismatched claim id");
 
             // if the assertion is already confirmed or rejected then it cant be referenced as a claim
@@ -186,7 +187,11 @@ library EdgeChallengeManagerLib {
             bytes32[] memory inclusionProof = abi.decode(proof, (bytes32[]));
 
             bytes32 startState = ard.startState;
+            require(startState != 0, "Empty start state");
+            
             bytes32 endState = ard.endState;
+            require(endState != 0, "Empty end state");
+
             return (ProofData(startState, endState, inclusionProof), originId);
         } else {
             ChallengeEdge storage claimEdge = get(store, args.claimId);
@@ -262,8 +267,8 @@ library EdgeChallengeManagerLib {
         ProofData memory proofData,
         CreateEdgeArgs memory args,
         uint256 expectedEndHeight,
-        bytes calldata prefixProof
-    ) internal pure returns (bytes32) {
+        bytes memory prefixProof
+    ) private pure returns (bytes32) {
         // since zero layer edges have a start height of zero, we know that they are a size
         // one tree containing only the start state. We can then compute the history root directly
         bytes32 startHistoryRoot = MerkleTreeLib.root(MerkleTreeLib.appendLeaf(new bytes32[](0), proofData.startState));
@@ -332,8 +337,8 @@ library EdgeChallengeManagerLib {
         CreateEdgeArgs memory args,
         AssertionReferenceData memory ard,
         uint256 expectedEndHeight,
-        bytes calldata prefixProof,
-        bytes calldata proof
+        bytes memory prefixProof,
+        bytes memory proof
     ) internal returns (EdgeAddedData memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) = layerZeroTypeSpecifcChecks(store, args, ard, proof);
