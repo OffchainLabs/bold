@@ -50,36 +50,6 @@ library RollupLib {
             );
     }
 
-    function executionHash(AssertionInputs memory assertion) internal pure returns (bytes32) {
-        MachineStatus[2] memory statuses;
-        statuses[0] = assertion.beforeState.machineStatus;
-        statuses[1] = assertion.afterState.machineStatus;
-        GlobalState[2] memory globalStates;
-        globalStates[0] = assertion.beforeState.globalState;
-        globalStates[1] = assertion.afterState.globalState;
-        // TODO: benchmark how much this abstraction adds of gas overhead
-        return executionHash(statuses, globalStates, assertion.numBlocks);
-    }
-
-    function executionHash(
-        MachineStatus[2] memory statuses,
-        GlobalState[2] memory globalStates,
-        uint64 numBlocks
-    ) internal pure returns (bytes32) {
-        bytes32[] memory segments = new bytes32[](2);
-        segments[0] = OldChallengeLib.blockStateHash(statuses[0], globalStates[0].hash());
-        segments[1] = OldChallengeLib.blockStateHash(statuses[1], globalStates[1].hash());
-        return OldChallengeLib.hashChallengeState(0, numBlocks, segments);
-    }
-
-    function challengeRootHash(
-        bytes32 execution,
-        uint256 proposedTime,
-        bytes32 wasmModuleRoot
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(execution, proposedTime, wasmModuleRoot));
-    }
-
     function confirmHash(AssertionInputs memory assertion) internal pure returns (bytes32) {
         return
             confirmHash(
@@ -92,21 +62,46 @@ library RollupLib {
         return keccak256(abi.encodePacked(blockHash, sendRoot));
     }
 
-    // HN: TODO: any reason to include hasSibling in assertion hash?
+    // Not the same as a machine hash for a given execution state
+    function executionStateHash(ExecutionState memory state) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(state.machineStatus, state.globalState.hash()));
+    }
+
+    // The `assertionHash` contains all the information needed to determine an assertion's validity.
+    // This helps protect validators against reorgs by letting them bind their assertion to the current chain state.
     function assertionHash(
-        // bool hasSibling,
-        bytes32 lastHash,
-        bytes32 assertionExecHash,
+        bytes32 parentAssertionHash,
+        ExecutionState memory afterState,
         bytes32 inboxAcc,
         bytes32 wasmModuleRoot
     ) internal pure returns (bytes32) {
+        // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
         // uint8 hasSiblingInt = hasSibling ? 1 : 0;
         return
             keccak256(
                 abi.encodePacked(
-                    // hasSiblingInt,
-                    lastHash,
-                    assertionExecHash,
+                    parentAssertionHash,
+                    executionStateHash(afterState),
+                    inboxAcc,
+                    wasmModuleRoot
+                )
+            );
+    }
+
+    // Takes in a hash of the afterState instead of the afterState itself
+    function assertionHash(
+        bytes32 parentAssertionHash,
+        bytes32 afterStateHash,
+        bytes32 inboxAcc,
+        bytes32 wasmModuleRoot
+    ) internal pure returns (bytes32) {
+        // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
+        // uint8 hasSiblingInt = hasSibling ? 1 : 0;
+        return
+            keccak256(
+                abi.encodePacked(
+                    parentAssertionHash,
+                    afterStateHash,
                     inboxAcc,
                     wasmModuleRoot
                 )

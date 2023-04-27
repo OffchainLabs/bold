@@ -50,7 +50,7 @@ contract AssertionChain is IAssertionChain {
     uint256 public challengePeriodSeconds;
     IInbox inbox;
 
-    constructor(bytes32 stateHash, uint256 _challengePeriodSeconds) public {
+    constructor(bytes32 stateHash, uint256 _challengePeriodSeconds) {
         challengePeriodSeconds = _challengePeriodSeconds;
         bytes32 assertionId = bytes32(0);
         assertions[assertionId] = Assertion({
@@ -99,9 +99,9 @@ contract AssertionChain is IAssertionChain {
         return assertions[assertionId].stateHash;
     }
 
-    function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32) {
+    function hasSibling(bytes32 assertionId) external view returns (bool) {
         require(assertionExists(assertionId), "Assertion does not exist");
-        return assertions[assertionId].successionChallenge;
+        return assertions[getPredecessorId(assertionId)].secondChildCreationTime != 0;
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool) {

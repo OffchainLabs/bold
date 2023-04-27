@@ -18,6 +18,9 @@ import "../src/osp/OneStepProofEntry.sol";
 import "../src/challengeV2/EdgeChallengeManager.sol";
 import "./challengeV2/Utils.sol";
 
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 contract RollupTest is Test {
     address constant owner = address(1337);
     address constant sequencer = address(7331);
@@ -32,6 +35,8 @@ contract RollupTest is Test {
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
+
+    uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2 ** 5;
 
     RollupProxy rollup;
     RollupUserLogic userRollup;
@@ -61,11 +66,7 @@ contract RollupTest is Test {
             oneStepProverMath,
             oneStepProverHostIo
         );
-        EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager({
-            _assertionChain: IAssertionChain(address(0)),
-            _challengePeriodSec: 0,
-            _oneStepProofEntry: IOneStepProofEntry(address(0))
-        });
+        EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator();
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
@@ -97,8 +98,10 @@ contract RollupTest is Test {
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: address(0),
             genesisBlockNum: 0,
-            challengePeriodSeconds: 100,
-            miniStakeValue: 1
+            miniStakeValue: 1,
+            layerZeroBlockEdgeHeight: 2**5,
+            layerZeroBigStepEdgeHeight: 2**5,
+            layerZeroSmallStepEdgeHeight: 2**5
         });
 
         address expectedRollupAddr = address(
@@ -172,8 +175,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -187,8 +189,7 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeState: afterState,
-                afterState: afterState2,
-                numBlocks: 8
+                afterState: afterState2
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: inboxcount
@@ -210,8 +211,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -222,8 +222,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -245,8 +244,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -259,8 +257,7 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
             prevAssertionInboxMaxCount: 1
@@ -273,10 +270,12 @@ contract RollupTest is Test {
             ExecutionState memory,
             ExecutionState memory,
             ExecutionState memory,
+            uint256,
             uint256
         )
     {
-        uint64 inboxcount = uint64(_createNewBatch());
+        uint256 genesisInboxCount = 1;
+        uint64 newInboxCount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
         ExecutionState memory afterState;
@@ -286,18 +285,14 @@ contract RollupTest is Test {
         afterState.globalState.u64Vals[0] = 1; // inbox count
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
-        // record some genesis state for later use
-        uint256 genesisInboxCount = userRollup.bridge().sequencerMessageCount();
-
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState,
-                numBlocks: 8
+                afterState: afterState
             }),
             expectedAssertionHash: bytes32(0),
-            prevAssertionInboxMaxCount: 1
+            prevAssertionInboxMaxCount: genesisInboxCount
         });
 
 
@@ -311,16 +306,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
-                afterState: afterState2,
-                numBlocks: 8
+                afterState: afterState2
             }),
             expectedAssertionHash: bytes32(0),
-            prevAssertionInboxMaxCount: 1
+            prevAssertionInboxMaxCount: genesisInboxCount
         });
 
         assertEq(userRollup.getAssertion(1).secondChildBlock, block.number);
 
-        return (beforeState, afterState, afterState2, genesisInboxCount);
+        return (beforeState, afterState, afterState2, genesisInboxCount, newInboxCount);
     }
 
     function testRevertConfirmWrongInput() public {
@@ -346,57 +340,74 @@ contract RollupTest is Test {
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, bytes32(0));
     }
 
-    function testSuccessCreateChallenge() public returns(bytes32) {
-        (,,,uint256 genesisInboxCount) = testSuccessCreateSecondChild();
+    function testSuccessCreateChallenge() public returns(ExecutionState memory beforeState, uint256 genesisInboxCount, ExecutionState memory afterState2, uint256 newInboxCount, bytes32 e1Id) {
+        ExecutionState memory afterState1;
+        (beforeState, afterState1, afterState2, genesisInboxCount, newInboxCount) = testSuccessCreateSecondChild();
 
-        bytes32 h0 = userRollup.getStateHash(userRollup.getAssertionId(1));
-        bytes32 h1 = userRollup.getStateHash(userRollup.getAssertionId(2));
+        bytes32[] memory states;
+        {
+            IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
+            bytes32 h0 = osp.getMachineHash(beforeState);
+            bytes32 h1 = osp.getMachineHash(afterState1);
+            states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
+        }
 
-        bytes32[] memory states0 = new bytes32[](1);
-        states0[0] = h0;
-
-        bytes32[] memory states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
         bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
-        bytes32 e1Id = challengeManager.createLayerZeroEdge{value: 1}(
+        e1Id = challengeManager.createLayerZeroEdge{value: 1}(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states0, 0, 1)),
-                startHeight: 0,
                 endHistoryRoot: root,
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
                 claimId: userRollup.getAssertionId(2)
             }),
             abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
+            abi.encode(
+                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                beforeState,
+                genesisInboxCount,
+                afterState1,
+                newInboxCount
+            )
         );
-
-        return e1Id;
     }
 
     function testSuccessCreate2Edge() public returns(bytes32, bytes32) {
-        bytes32 e1Id = testSuccessCreateChallenge();
+        (
+            ExecutionState memory beforeState,
+            uint256 genesisInboxCount,
+            ExecutionState memory afterState2,
+            uint256 newInboxCount,
+            bytes32 e1Id
+        ) = testSuccessCreateChallenge();
 
-        bytes32 h0 = userRollup.getStateHash(userRollup.getAssertionId(1));
-        bytes32 h1 = userRollup.getStateHash(userRollup.getAssertionId(3));
+        bytes32[] memory states;
+        {
+            IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
+            bytes32 h0 = osp.getMachineHash(beforeState);
+            bytes32 h1 = osp.getMachineHash(afterState2);
+            states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
+        }
 
-        bytes32[] memory states0 = new bytes32[](1);
-        states0[0] = h0;
-
-        bytes32[] memory states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
         bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
+        require(genesisInboxCount == 1, "A");
+        require(newInboxCount == 2, "B");
         bytes32 e2Id = challengeManager.createLayerZeroEdge{value: 1}(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
-                startHistoryRoot: MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states0, 0, 1)),
-                startHeight: 0,
                 endHistoryRoot: root,
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
                 claimId: userRollup.getAssertionId(3)
             }),
             abi.encode(ProofUtils.expansionFromLeaves(states, 0, 1), ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))),
-            abi.encode(ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1))
+            abi.encode(
+                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                beforeState,
+                genesisInboxCount,
+                afterState2,
+                newInboxCount
+            )
         );
 
         return (e1Id, e2Id);
@@ -416,7 +427,7 @@ contract RollupTest is Test {
     }
 
     function testSuccessConfirmEdgeByTime() public {
-        bytes32 e1Id = testSuccessCreateChallenge();
+        (,,,,bytes32 e1Id) = testSuccessCreateChallenge();
 
         vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);

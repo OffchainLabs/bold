@@ -12,6 +12,7 @@ import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
 
 import "../challenge/IOldChallengeManager.sol";
+import "../state/Machine.sol";
 
 import "../bridge/ISequencerInbox.sol";
 import "../bridge/IBridge.sol";
@@ -74,7 +75,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // The assertion number of the initial assertion
     uint64 internal constant GENESIS_NODE = 1;
-    bytes32 internal constant GENESIS_HASH = keccak256(abi.encodePacked(GENESIS_NODE));
 
     bool public validatorWhitelistDisabled;
 
@@ -252,6 +252,23 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     /// @return Number of active stakers currently staked
     function stakerCount() public view override returns (uint64) {
         return uint64(_stakerList.length);
+    }
+
+    /// @return Genesis end state hash, assertion hash, and wasm module root
+    function genesisAssertionHashes() public view override returns (bytes32, bytes32, bytes32) {
+        GlobalState memory emptyGlobalState;
+        ExecutionState memory emptyExecutionState = ExecutionState(
+            emptyGlobalState,
+            MachineStatus.FINISHED
+        );
+        bytes32 afterStateHash = RollupLib.executionStateHash(emptyExecutionState);
+        bytes32 genesisHash = RollupLib.assertionHash({
+            parentAssertionHash: bytes32(0),
+            afterStateHash: afterStateHash,
+            inboxAcc: bytes32(0),
+            wasmModuleRoot: wasmModuleRoot
+        });
+        return (afterStateHash, genesisHash, wasmModuleRoot);
     }
 
     /**
@@ -531,7 +548,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     struct StakeOnNewAssertionFrame {
         uint256 currentInboxSize;
         AssertionNode assertion;
-        bytes32 executionHash;
+        bytes32 stateHash;
         AssertionNode prevAssertion;
         bytes32 lastHash;
         bool hasSibling;
@@ -585,7 +602,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             }
             require(afterInboxCount <= memoryFrame.currentInboxSize, "INBOX_PAST_END");
 
-            if(afterInboxCount == memoryFrame.currentInboxSize) {
+            if(assertion.afterState.globalState.getInboxPosition() == memoryFrame.currentInboxSize) {
                 // force next assertion to consume 1 message if this assertion
                 // already consumed all messages in the inbox
                 memoryFrame.currentInboxSize += 1;
@@ -598,7 +615,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         }
 
         {
-            memoryFrame.executionHash = RollupLib.executionHash(assertion);
+            memoryFrame.stateHash = RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize);
 
             memoryFrame.deadlineBlock = uint64(block.number) + confirmPeriodBlocks;
 
@@ -615,36 +632,26 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             newAssertionHash = RollupLib.assertionHash(
                 memoryFrame.lastHash,
-                memoryFrame.executionHash,
+                assertion.afterState,
                 memoryFrame.sequencerBatchAcc,
-                wasmModuleRoot // HN: TODO: should we include this in assertion hash? 
+                wasmModuleRoot // HN: TODO: should we include this in assertion hash?
             );
             require(
                 newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0),
                 "UNEXPECTED_NODE_HASH"
             );
-            // HN: TODO: assertion hash include
-            //           lastHash, assertionExecHash, inboxAcc, wasmModuleRoot
-            //           if wasmModuleRoot changed then it will have different hash
+
             require(
                 _assertionHashToNum[newAssertionHash] == 0, "ASSERTION_SEEN"
             );
 
             memoryFrame.assertion = AssertionNodeLib.createAssertion(
-                RollupLib.stateHash(assertion.afterState, memoryFrame.currentInboxSize),
-                RollupLib.challengeRootHash(
-                    memoryFrame.executionHash,
-                    block.number,
-                    wasmModuleRoot
-                ),
+                memoryFrame.stateHash,
                 RollupLib.confirmHash(assertion),
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
                 newAssertionHash,
-                assertion.numBlocks + memoryFrame.prevAssertion.height,
-                memoryFrame.currentInboxSize,
-                !memoryFrame.hasSibling,
-                wasmModuleRoot
+                !memoryFrame.hasSibling
             );
         }
 
@@ -662,10 +669,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         emit AssertionCreated(
             latestAssertionCreated(),
-            assertion.numBlocks + memoryFrame.prevAssertion.height,
             memoryFrame.prevAssertion.assertionHash,
             newAssertionHash,
-            memoryFrame.executionHash,
             assertion,
             memoryFrame.sequencerBatchAcc,
             wasmModuleRoot,
@@ -681,36 +686,53 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function getHeight(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).height;
-    }
-
-    function getInboxMsgCountSeen(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).inboxMsgCountSeen;
+        revert("DEPRECATED");
     }
 
     function getStateHash(bytes32 assertionId) external view returns (bytes32){
         return getAssertionStorage(getAssertionNum(assertionId)).stateHash;
     }
 
-    function getSuccessionChallenge(bytes32 assertionId) external view returns (bytes32){
-        if(getAssertionStorage(getAssertionNum(assertionId)).secondChildBlock > 0){
-            return assertionId;
-        } else {
-            return bytes32(0);
-        }
+    function proveInboxMsgCountSeen(bytes32 assertionId, uint256 inboxMsgCountSeen, bytes memory proof) external view returns (uint256){
+        (bytes32 b1, bytes32 b2, uint64 u1, uint64 u2, uint8 status) = abi.decode(proof, (bytes32, bytes32, uint64, uint64, uint8));
+        bytes32[2] memory bytes32Vals = [b1, b2];
+        uint64[2] memory u64Vals = [u1, u2];
+        GlobalState memory gs = GlobalState({bytes32Vals: bytes32Vals, u64Vals: u64Vals});
+        ExecutionState memory es = ExecutionState({globalState: gs, machineStatus: MachineStatus(status)});
+        require(
+            RollupLib.stateHashMem(es, inboxMsgCountSeen) ==
+                getAssertionStorage(getAssertionNum(assertionId)).stateHash,
+            "BAD_MSG_COUNT_PROOF"
+        );
+        return inboxMsgCountSeen;
+    }
+
+    function hasSibling(bytes32 assertionId) external view returns (bool) {
+        return getAssertionStorage(
+            getAssertionStorage(getAssertionNum(assertionId)).prevNum
+        ).secondChildBlock != 0;
     }
 
     // HN: TODO: use block or timestamp?
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256){
         return getAssertionStorage(getAssertionNum(assertionId)).firstChildBlock;
     }
-
-    function getFirstChildCreationTime(bytes32 assertionId) external view returns (uint256){
-        return getAssertionStorage(getAssertionNum(assertionId)).firstChildTime;
+    function getSecondChildCreationBlock(bytes32 assertionId) external view returns (uint256){
+        return getAssertionStorage(getAssertionNum(assertionId)).secondChildBlock;
     }
 
-    function getWasmModuleRoot(bytes32 assertionId) external view returns (bytes32){
-        return getAssertionStorage(getAssertionNum(assertionId)).wasmModuleRoot;
+    function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
+        (bytes32 parentAssertionHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        require(
+            RollupLib.assertionHash({
+                parentAssertionHash: parentAssertionHash,
+                afterStateHash: afterStateHash,
+                inboxAcc: inboxAcc,
+                wasmModuleRoot: root
+            }) == assertionId,
+            "BAD_WASM_MODULE_ROOT_PROOF"
+        );
+        return root;
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool){

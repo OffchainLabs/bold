@@ -354,8 +354,21 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	toBigStep := fromBigStep + 1
 	pc, _ := et.edge.StartCommitment()
 
+	prevAssertionId, err := et.edge.PrevAssertionId(ctx)
+	if err != nil {
+		return err
+	}
+	prevAssertionNum, err := et.cfg.chain.GetAssertionNum(ctx, prevAssertionId)
+	if err != nil {
+		return err
+	}
+	parentAssertionCreationInfo, err := et.cfg.chain.ReadAssertionCreationInfo(ctx, prevAssertionNum)
+	if err != nil {
+		return err
+	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
+		parentAssertionCreationInfo,
 		fromAssertionHeight,
 		toAssertionHeight,
 		fromBigStep,

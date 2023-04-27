@@ -102,7 +102,7 @@ library BlockLeafAdder {
             // check that the predecessor of this claim has registered this contract as it's succession challenge
             bytes32 predecessorId = assertionChain.getPredecessorId(leafLibArgs.leafData.claimId);
             require(
-                assertionChain.getSuccessionChallenge(predecessorId) == leafLibArgs.leafData.challengeId,
+                assertionChain.hasSibling(leafLibArgs.leafData.claimId),
                 "Claim predecessor not linked to this challenge"
             );
 
@@ -112,7 +112,7 @@ library BlockLeafAdder {
             uint256 heightDiff = assertionHeight - predecessorAssertionHeight;
             require(heightDiff == leafLibArgs.leafData.height, "Invalid leaf height");
 
-            // bytes32 claimStateHash = assertionChain.getStateHash(leafLibArgs.leafData.claimId);
+            // bytes32 claimStateHash = assertionChain.getChallengeHash(leafLibArgs.leafData.claimId);
 
             // RJ: TODO: provide valid inbox proofs from the validator client
             // require(

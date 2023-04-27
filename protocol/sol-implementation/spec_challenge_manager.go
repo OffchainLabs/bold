@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
@@ -36,6 +35,10 @@ func (e *SpecEdge) StartCommitment() (protocol.Height, common.Hash) {
 
 func (e *SpecEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.inner.EndHeight.Uint64()), e.inner.EndHistoryRoot
+}
+
+func (e *SpecEdge) PrevAssertionId(ctx context.Context) (protocol.AssertionId, error) {
+	return e.manager.caller.GetPrevAssertionId(&bind.CallOpts{Context: ctx}, e.id)
 }
 
 func (e *SpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
@@ -269,15 +272,15 @@ func (cm *SpecChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
-// Duration of the challenge period.
-func (cm *SpecChallengeManager) ChallengePeriodSeconds(
+// Duration of the challenge period in blocks.
+func (cm *SpecChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
-) (time.Duration, error) {
-	res, err := cm.caller.ChallengePeriodSec(&bind.CallOpts{Context: ctx})
+) (uint64, error) {
+	res, err := cm.caller.ChallengePeriodBlock(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return time.Second, err
+		return 0, err
 	}
-	return time.Second * time.Duration(res.Uint64()), nil
+	return res.Uint64(), nil
 }
 
 // Gets an edge by its hash.
@@ -350,8 +353,12 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
 				tentativeWinnerId,
 				challengeV2gen.OneStepData{
-					BeforeHash: oneStepData.BeforeHash,
-					Proof:      oneStepData.Proof,
+					InboxMsgCountSeen:      oneStepData.InboxMsgCountSeen,
+					InboxMsgCountSeenProof: oneStepData.InboxMsgCountSeenProof,
+					WasmModuleRoot:         oneStepData.WasmModuleRoot,
+					WasmModuleRootProof:    oneStepData.WasmModuleRootProof,
+					BeforeHash:             oneStepData.BeforeHash,
+					Proof:                  oneStepData.Proof,
 				},
 				pre,
 				post,
@@ -370,18 +377,65 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 	return ty
 }
 
+var uint256Type = newStaticType("uint256", "", nil)
 var bytes32Type = newStaticType("bytes32", "", nil)
 var bytes32ArrayType = newStaticType("bytes32[]", "", []abi.ArgumentMarshaling{{Type: "bytes32"}})
+var executionStateType = newStaticType("tuple", "ExecutionState", []abi.ArgumentMarshaling{
+	{
+		Type:         "tuple",
+		InternalType: "GlobalState",
+		Name:         "globalState",
+		Components: []abi.ArgumentMarshaling{
+			{
+				Type: "bytes32[2]",
+				Components: []abi.ArgumentMarshaling{{
+					Type: "bytes32",
+				}},
+				Name: "bytes32Vals",
+			},
+			{
+				Type: "uint64[2]",
+				Components: []abi.ArgumentMarshaling{{
+					Type: "uint64",
+				}},
+				Name: "u64Vals",
+			},
+		},
+	},
+	{
+		Type:         "uint8",
+		InternalType: "MachineStatus",
+		Name:         "machineStatus",
+	},
+})
 
-var blockEdgeProofAbi = abi.Arguments{{
-	Name: "inclusionProof",
-	Type: bytes32ArrayType,
-}}
+var blockEdgeProofAbi = abi.Arguments{
+	{
+		Name: "inclusionProof",
+		Type: bytes32ArrayType,
+	},
+	{
+		Name: "startState",
+		Type: executionStateType,
+	},
+	{
+		Name: "prevInboxMaxCount",
+		Type: uint256Type,
+	},
+	{
+		Name: "endState",
+		Type: executionStateType,
+	},
+	{
+		Name: "afterInboxMaxCount",
+		Type: uint256Type,
+	},
+}
 
 func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
-	startCommit util.HistoryCommitment,
+	startCommit,
 	endCommit util.HistoryCommitment,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
@@ -393,50 +447,60 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 			assertion.SeqNum(),
 		)
 	}
-	prevSeqNum, err := assertion.PrevSeqNum()
+	assertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.SeqNum())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read assertion %v creation info: %w", assertion.SeqNum(), err)
+	}
+	parentAssertionSeqNum, err := assertion.PrevSeqNum()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query assertion %v parent sequence number: %w", assertion.SeqNum(), err)
+	}
+	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, parentAssertionSeqNum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read parent assertion %v creation info: %w", parentAssertionSeqNum, err)
+	}
+	parentAssertionId, err := cm.assertionChain.GetAssertionId(ctx, parentAssertionSeqNum)
 	if err != nil {
 		return nil, err
 	}
-	prevAssertionId, err := cm.assertionChain.GetAssertionId(ctx, prevSeqNum)
+	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
+		return nil, fmt.Errorf(
+			"end commit has unexpected height %v (expected %v)",
+			endCommit.Height,
+			protocol.LevelZeroBlockEdgeHeight,
+		)
+	}
+	blockEdgeProof, err := blockEdgeProofAbi.Pack(
+		endCommit.LastLeafProof,
+		parentAssertionCreation.AfterState,
+		parentAssertionCreation.InboxMaxCount,
+		assertionCreation.AfterState,
+		assertionCreation.InboxMaxCount,
+	)
 	if err != nil {
-		return nil, err
-	}
-	if startCommit.Height != 0 {
-		return nil, fmt.Errorf("start commit has unexpected height %v (expected 0)", startCommit.Height)
-	}
-	if endCommit.Height != protocol.LayerZeroBlockEdgeHeight {
-		return nil, fmt.Errorf("end commit has unexpected height %v (expected %v)", endCommit.Height, protocol.LayerZeroBlockEdgeHeight)
-	}
-	if startCommit.FirstLeaf != endCommit.FirstLeaf {
-		return nil, fmt.Errorf("start commit first leaf %v didn't match end commit first leaf %v", startCommit.FirstLeaf, endCommit.FirstLeaf)
-	}
-	blockEdgeProof, err := blockEdgeProofAbi.Pack(endCommit.LastLeafProof)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to serialize block edge proof: %w", err)
 	}
 	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				EdgeType:         uint8(protocol.BlockChallengeEdge),
-				StartHistoryRoot: startCommit.Merkle,
-				StartHeight:      big.NewInt(int64(startCommit.Height)),
-				EndHistoryRoot:   endCommit.Merkle,
-				EndHeight:        big.NewInt(int64(endCommit.Height)),
-				ClaimId:          assertionId,
+				EdgeType:       uint8(protocol.BlockChallengeEdge),
+				EndHistoryRoot: endCommit.Merkle,
+				EndHeight:      big.NewInt(int64(endCommit.Height)),
+				ClaimId:        assertionId,
 			},
 			startEndPrefixProof,
 			blockEdgeProof,
 		)
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create layer zero edge: %w", err)
 	}
 
 	edgeId, err := cm.CalculateEdgeId(
 		ctx,
 		protocol.BlockChallengeEdge,
-		protocol.OriginId(prevAssertionId),
+		protocol.OriginId(parentAssertionId),
 		protocol.Height(startCommit.Height),
 		startCommit.Merkle,
 		protocol.Height(endCommit.Height),
@@ -481,9 +545,9 @@ var subchallengeEdgeProofAbi = abi.Arguments{
 func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	ctx context.Context,
 	challengedEdge protocol.SpecEdge,
-	startCommit util.HistoryCommitment,
+	startCommit,
 	endCommit util.HistoryCommitment,
-	startParentInclusionProof []common.Hash,
+	startParentInclusionProof,
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
@@ -496,7 +560,13 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	default:
 		return nil, fmt.Errorf("cannot open level zero edge beneath small step challenge: %s", challengedEdge.GetType())
 	}
-	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(startCommit.FirstLeaf, endCommit.LastLeaf, startParentInclusionProof, endParentInclusionProof, endCommit.LastLeafProof)
+	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(
+		startCommit.FirstLeaf,
+		endCommit.LastLeaf,
+		startParentInclusionProof,
+		endParentInclusionProof,
+		endCommit.LastLeafProof,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -504,12 +574,10 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				EdgeType:         uint8(subChalTyp),
-				StartHistoryRoot: startCommit.Merkle,
-				StartHeight:      big.NewInt(int64(startCommit.Height)),
-				EndHistoryRoot:   endCommit.Merkle,
-				EndHeight:        big.NewInt(int64(endCommit.Height)),
-				ClaimId:          challengedEdge.Id(),
+				EdgeType:       uint8(subChalTyp),
+				EndHistoryRoot: endCommit.Merkle,
+				EndHeight:      big.NewInt(int64(endCommit.Height)),
+				ClaimId:        challengedEdge.Id(),
 			},
 			startEndPrefixProof,
 			subchallengeEdgeProof,
