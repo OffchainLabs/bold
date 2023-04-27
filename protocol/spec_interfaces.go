@@ -29,7 +29,6 @@ type Protocol interface {
 // chain state created by a validator that stakes on their claim.
 // Assertions can be challenged.
 type Assertion interface {
-	Height() (uint64, error)
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)

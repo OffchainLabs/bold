@@ -7,6 +7,10 @@ import "../state/Deserialize.sol";
 contract SimpleOneStepProofEntry is IOneStepProofEntry {
     using GlobalStateLib for GlobalState;
 
+    // End the batch after 2000 steps. This results in 11 blocks for an honest validator.
+    // This constant must be synchronized with the one in execution/engine.go
+    uint64 public constant STEPS_PER_BATCH = 2000;
+
     function proveOneStep(
         ExecutionContext calldata execCtx,
         uint256 step,
@@ -30,7 +34,7 @@ contract SimpleOneStepProofEntry is IOneStepProofEntry {
         }
         require(globalState.hash() == beforeHash, "BAD_PROOF");
         globalState.u64Vals[1]++;
-        if (globalState.u64Vals[1] % 2000 == 0) {
+        if (globalState.u64Vals[1] % STEPS_PER_BATCH == 0) {
             globalState.u64Vals[0]++;
             globalState.u64Vals[1] = 0;
         }

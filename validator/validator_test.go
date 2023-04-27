@@ -151,7 +151,7 @@ func setupAssertions(ctx context.Context, p *mocks.MockProtocol, s *mocks.MockSt
 			protocol.AssertionSequenceNumber(i),
 		).Return(mockAssertionCreationInfo, nil)
 		valid := validity(i)
-		s.On("HasExecutionState", ctx, protocol.GoExecutionStateFromSolidity(mockState)).Return(valid)
+		s.On("ExecutionStateBlockHeight", ctx, protocol.GoExecutionStateFromSolidity(mockState)).Return(uint64(i), valid)
 
 		if i == 1 {
 			var firstValid protocol.Assertion = genesis

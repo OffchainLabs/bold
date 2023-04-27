@@ -41,7 +41,7 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 		WithMaxWavmOpcodesPerBlock(8),
 		WithNumOpcodesPerBigStep(8),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
-		WithForceMachineBlockCompat(true),
+		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
 	blockChalCommit, err := manager.HistoryCommitmentUpTo(ctx, 4)
@@ -86,7 +86,7 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
-		WithForceMachineBlockCompat(true),
+		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
 
@@ -160,7 +160,7 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
-		WithForceMachineBlockCompat(true),
+		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
 
@@ -232,7 +232,7 @@ func TestAllPrefixProofs(t *testing.T) {
 		WithMaxWavmOpcodesPerBlock(20),
 		WithNumOpcodesPerBigStep(4),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
-		WithForceMachineBlockCompat(true),
+		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
 
@@ -365,7 +365,7 @@ func TestDivergenceGranularity(t *testing.T) {
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
-		WithForceMachineBlockCompat(true),
+		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
 
@@ -391,7 +391,7 @@ func TestDivergenceGranularity(t *testing.T) {
 		// Diverges at the 3rd small step, within the 3rd big step.
 		WithMachineDivergenceStep(divergenceHeight+(divergenceHeight-1)*bigStepSize),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
-		WithForceMachineBlockCompat(true),
+		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
 

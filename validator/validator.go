@@ -246,7 +246,8 @@ func (v *Validator) findLatestValidAssertion(ctx context.Context) (protocol.Asse
 		if err != nil {
 			return 0, err
 		}
-		if v.stateManager.HasExecutionState(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState)) {
+		_, hasState := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState))
+		if hasState {
 			bestAssertion = s
 		}
 	}

@@ -18,17 +18,13 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 	if err != nil {
 		return err
 	}
-	assertionPrev, err := v.chain.AssertionBySequenceNum(ctx, assertionPrevSeqNum)
-	if err != nil {
-		return err
-	}
 	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, assertionPrevSeqNum)
 	if err != nil {
 		return err
 	}
-	assertionPrevHeight, err := assertionPrev.Height()
-	if err != nil {
-		return err
+	assertionPrevHeight, ok := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(prevCreationInfo.AfterState))
+	if !ok {
+		return fmt.Errorf("missing previous assertion %v after execution %+v in local state manager", assertionPrevSeqNum, prevCreationInfo.AfterState)
 	}
 	// We then add a challenge vertex to the challenge.
 	levelZeroEdge, err := v.addBlockChallengeLevelZeroEdge(ctx, assertionPrevSeqNum)

@@ -71,6 +71,10 @@ func (m *SimpleMachine) Clone() Machine {
 	return &newMachine
 }
 
+// End the batch after 2000 steps. This results in 11 blocks for an honest validator.
+// This constant must be synchronized with the one in execution/engine.go
+const stepsPerBatch = 2000
+
 func (m *SimpleMachine) Step(steps uint64) error {
 	for ; steps > 0; steps-- {
 		if m.IsStopped() {
@@ -80,7 +84,7 @@ func (m *SimpleMachine) Step(steps uint64) error {
 		m.state.MachineStatus = protocol.MachineStatusRunning
 		m.step++
 		m.state.GlobalState.PosInBatch++
-		if m.state.GlobalState.PosInBatch%2000 == 0 {
+		if m.state.GlobalState.PosInBatch%stepsPerBatch == 0 {
 			m.state.GlobalState.Batch++
 			m.state.GlobalState.PosInBatch = 0
 			m.state.MachineStatus = protocol.MachineStatusFinished

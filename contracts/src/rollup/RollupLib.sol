@@ -67,8 +67,10 @@ library RollupLib {
         return keccak256(abi.encodePacked(state.machineStatus, state.globalState.hash()));
     }
 
+    // The `assertionHash` contains all the information needed to determine an assertion's validity.
+    // This helps protect validators against reorgs by letting them bind their assertion to the current chain state.
     function assertionHash(
-        bytes32 lastHash,
+        bytes32 parentAssertionHash,
         ExecutionState memory afterState,
         bytes32 inboxAcc,
         bytes32 wasmModuleRoot
@@ -78,7 +80,7 @@ library RollupLib {
         return
             keccak256(
                 abi.encodePacked(
-                    lastHash,
+                    parentAssertionHash,
                     executionStateHash(afterState),
                     inboxAcc,
                     wasmModuleRoot
@@ -88,7 +90,7 @@ library RollupLib {
 
     // Takes in a hash of the afterState instead of the afterState itself
     function assertionHash(
-        bytes32 lastHash,
+        bytes32 parentAssertionHash,
         bytes32 afterStateHash,
         bytes32 inboxAcc,
         bytes32 wasmModuleRoot
@@ -98,7 +100,7 @@ library RollupLib {
         return
             keccak256(
                 abi.encodePacked(
-                    lastHash,
+                    parentAssertionHash,
                     afterStateHash,
                     inboxAcc,
                     wasmModuleRoot

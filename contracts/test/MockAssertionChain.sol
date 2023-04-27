@@ -63,17 +63,17 @@ contract MockAssertionChain is IAssertionChain {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].firstChildCreationBlock;
     }
-    
+
     function getSecondChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].secondChildCreationBlock;
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
-        (bytes32 lastHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        (bytes32 parentAssertionHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
         require(
             RollupLib.assertionHash({
-                lastHash: lastHash,
+                parentAssertionHash: parentAssertionHash,
                 afterStateHash: afterStateHash,
                 inboxAcc: inboxAcc,
                 wasmModuleRoot: root
@@ -103,7 +103,7 @@ contract MockAssertionChain is IAssertionChain {
         returns (bytes32)
     {
         return RollupLib.assertionHash({
-            lastHash: predecessorId,
+            parentAssertionHash: predecessorId,
             afterState: afterState.es,
             inboxAcc: keccak256(abi.encode(afterState.es.globalState.u64Vals[0])), // mock accumulator based on inbox count
             wasmModuleRoot: wasmModuleRoot

@@ -22,19 +22,6 @@ type Assertion struct {
 	id              uint64
 }
 
-// TODO: this seems to measure L1 distance, does this make sense? Is this used anywhere?
-func (a *Assertion) Height() (uint64, error) {
-	genesis, err := a.chain.rollup.GetAssertion(&bind.CallOpts{}, uint64(1))
-	if err != nil {
-		return 0, err
-	}
-	inner, err := a.inner()
-	if err != nil {
-		return 0, err
-	}
-	return inner.CreatedAtBlock - genesis.CreatedAtBlock, nil
-}
-
 func (a *Assertion) SeqNum() protocol.AssertionSequenceNumber {
 	return protocol.AssertionSequenceNumber(a.id)
 }

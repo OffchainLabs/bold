@@ -28,8 +28,9 @@ var (
 type Manager interface {
 	// Produces the latest state to assert to L1 from the local state manager's perspective.
 	LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error)
-	// Checks if the execution manager locally has recorded this state
-	HasExecutionState(ctx context.Context, state *protocol.ExecutionState) bool
+	// If the state manager locally has this execution state, returns its block height and true.
+	// Otherwise, returns false.
+	ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool)
 	// Produces a block challenge history commitment up to and including a certain height.
 	HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error)
 	// Produces a block challenge history commitment in a certain inclusive block range,
@@ -191,9 +192,9 @@ func WithMachineAtBlockProvider(machineAtBlock func(ctx context.Context, blockNu
 }
 
 // If enabled, forces the machine hash at block boundaries to be the block hash
-func WithForceMachineBlockCompat(forceMachineBlockCompat bool) Opt {
+func WithForceMachineBlockCompat() Opt {
 	return func(s *Simulated) {
-		s.forceMachineBlockCompat = forceMachineBlockCompat
+		s.forceMachineBlockCompat = true
 	}
 }
 
@@ -298,13 +299,13 @@ func (s *Simulated) LatestExecutionState(_ context.Context) (*protocol.Execution
 }
 
 // Checks if the execution manager locally has recorded this state
-func (s *Simulated) HasExecutionState(_ context.Context, state *protocol.ExecutionState) bool {
-	for _, r := range s.executionStates {
+func (s *Simulated) ExecutionStateBlockHeight(_ context.Context, state *protocol.ExecutionState) (uint64, bool) {
+	for i, r := range s.executionStates {
 		if r.Equals(state) {
-			return true
+			return uint64(i), true
 		}
 	}
-	return false
+	return 0, false
 }
 
 func (s *Simulated) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeight uint64) (util.HistoryCommitment, error) {

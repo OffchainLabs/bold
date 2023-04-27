@@ -263,7 +263,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         );
         bytes32 afterStateHash = RollupLib.executionStateHash(emptyExecutionState);
         bytes32 genesisHash = RollupLib.assertionHash({
-            lastHash: bytes32(0),
+            parentAssertionHash: bytes32(0),
             afterStateHash: afterStateHash,
             inboxAcc: bytes32(0),
             wasmModuleRoot: wasmModuleRoot
@@ -722,10 +722,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
-        (bytes32 lastHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        (bytes32 parentAssertionHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
         require(
             RollupLib.assertionHash({
-                lastHash: lastHash,
+                parentAssertionHash: parentAssertionHash,
                 afterStateHash: afterStateHash,
                 inboxAcc: inboxAcc,
                 wasmModuleRoot: root

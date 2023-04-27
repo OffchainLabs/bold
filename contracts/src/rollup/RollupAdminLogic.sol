@@ -85,7 +85,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             1 // inboxMaxCount - force the first assertion to read a message
         );
         bytes32 genesisHash = RollupLib.assertionHash({
-            lastHash: bytes32(0),
+            parentAssertionHash: bytes32(0),
             afterState: emptyExecutionState,
             inboxAcc: bytes32(0),
             wasmModuleRoot: wasmModuleRoot

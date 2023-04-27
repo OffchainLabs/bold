@@ -28,10 +28,6 @@ type MockAssertion struct {
 	MockIsFirstChild      bool
 }
 
-func (m *MockAssertion) Height() (uint64, error) {
-	return m.MockHeight, nil
-}
-
 func (m *MockAssertion) SeqNum() protocol.AssertionSequenceNumber {
 	return m.MockSeqNum
 }
@@ -112,9 +108,9 @@ func (m *MockStateManager) SmallStepPrefixProof(
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (m *MockStateManager) HasExecutionState(ctx context.Context, state *protocol.ExecutionState) bool {
+func (m *MockStateManager) ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool) {
 	args := m.Called(ctx, state)
-	return args.Bool(0)
+	return args.Get(0).(uint64), args.Bool(1)
 }
 
 func (m *MockStateManager) BigStepLeafCommitment(
