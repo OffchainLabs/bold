@@ -17,6 +17,7 @@ go_test(
         "manual",
     ],
     deps = [
+        "//protocol",
         "//protocol/sol-implementation",
         "//state-manager",
         "//testing/endtoend/internal/backend",

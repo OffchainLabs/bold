@@ -165,7 +165,7 @@ func (a *AnvilLocal) Start() error {
 
 	a.cmd = cmd
 
-	return a.MineBlocks(100)
+	return nil
 }
 
 // Stop the backend and terminate the anvil process.
@@ -194,7 +194,6 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 	wasmModuleRoot := common.Hash{}
 	rollupOwner := a.deployer.From
 	loserStakeEscrow := common.Address{}
-	challengePeriodSeconds := big.NewInt(100)
 	miniStake := big.NewInt(1)
 
 	result, err := setup.DeployFullRollupStack(
@@ -208,7 +207,6 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 			rollupOwner,
 			anvilLocalChainID,
 			loserStakeEscrow,
-			challengePeriodSeconds,
 			miniStake,
 		),
 	)
@@ -217,7 +215,8 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 		return common.Address{}, err
 	}
 
-	return result.Rollup, nil
+	// TODO: Move the mine blocks to its own method and require caller to call it.
+	return result.Rollup, a.MineBlocks(100) // At least 75 blocks should be mined.
 }
 
 // MineBlocks will call anvil to instantly mine n blocks.

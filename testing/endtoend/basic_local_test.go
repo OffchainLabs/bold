@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
@@ -15,11 +16,29 @@ import (
 )
 
 type ChallengeScenario struct {
+	Name string
+
 	// Validator knowledge
 	AliceStateManager statemanager.Manager
 	BobStateManager   statemanager.Manager
 
 	// Expectations
+}
+
+type challengeProtocolTestConfig struct {
+	// The height in the assertion chain at which the validators diverge.
+	assertionDivergenceHeight uint64
+	// The difference between the malicious assertion block height and the honest assertion block height.
+	assertionBlockHeightDifference int64
+	// The heights at which the validators diverge in histories at the big step
+	// subchallenge level.
+	bigStepDivergenceHeight uint64
+	// The heights at which the validators diverge in histories at the small step
+	// subchallenge level.
+	smallStepDivergenceHeight uint64
+	// Events we want to assert are fired from the goimpl.
+	expectedBisections  uint64
+	expectedLeavesAdded uint64
 }
 
 func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
@@ -34,69 +53,70 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 
 	scenarios := []*ChallengeScenario{
 		{
+			Name: "two forked assertions at the same height",
 			AliceStateManager: func() statemanager.Manager {
-				sm, err := statemanager.New(
-					[]common.Hash{ // stateRoots
-						common.HexToHash("0x1"),
-						common.HexToHash("0x2"),
-						common.HexToHash("0x3"),
-						common.HexToHash("0x4"),
-						common.HexToHash("0x5"),
-					},
-				)
+				sm, err := statemanager.NewForSimpleMachine()
 				if err != nil {
 					t.Fatal(err)
 				}
 				return sm
 			}(),
 			BobStateManager: func() statemanager.Manager {
-				sm, err := statemanager.New(
-					[]common.Hash{ // stateRoots
-						common.HexToHash("0x1"),
-						common.HexToHash("0x2"),
-						common.HexToHash("0x3"),
-						common.HexToHash("0x5"),
-						common.HexToHash("0x6"),
-					},
+				cfg := &challengeProtocolTestConfig{
+					// The heights at which the validators diverge in histories. In this test,
+					// alice and bob start diverging at height 3 at all subchallenge levels.
+					assertionDivergenceHeight: 4,
+					bigStepDivergenceHeight:   4,
+					smallStepDivergenceHeight: 4,
+				}
+				sm, err := statemanager.NewForSimpleMachine(
+					statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+					statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+					statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 				)
 				if err != nil {
 					t.Fatal(err)
 				}
 				return sm
 			}(),
+			// TODO: Alice should win this challenge.
 		},
 	} // TODO: Add more scenarios
 
 	for _, scenario := range scenarios {
 		testChallengeProtocol_AliceAndBob(t, be, scenario)
 	}
+
 }
 
 func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Run(scenario.Name, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-	rollup, err := be.DeployRollup()
-	if err != nil {
-		t.Fatal(err)
-	}
+		rollup, err := be.DeployRollup()
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	a, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
-	if err != nil {
-		t.Fatal(err)
-	}
+		a, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	a.Start(ctx)
-	b.Start(ctx)
+		a.Start(ctx)
+		b.Start(ctx)
 
-	// TODO: Wait for evaluation?
+		// TODO: Wait for evaluation?
 
-	t.Log("DEBUG: Sleeping for 30s")
-	time.Sleep(30 * time.Second)
+		t.Log("DEBUG: Sleeping for 30s")
+		time.Sleep(30 * time.Second)
+		t.Fail() // Temporary until some success criteria are added.
+	})
 }
 
 func setupValidator(ctx context.Context, be backend.Backend, rollup common.Address, sm statemanager.Manager, txOpts *bind.TransactOpts, name string) (*validator.Validator, error) {
