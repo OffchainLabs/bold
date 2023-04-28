@@ -414,11 +414,6 @@ type edgeTrackerConfig struct {
 	validatorAddress common.Address
 }
 
-type edgeChildren struct {
-	lower protocol.SpecEdge
-	upper protocol.SpecEdge
-}
-
 type edgeTracker struct {
 	cfg                        *edgeTrackerConfig
 	edge                       protocol.SpecEdge
@@ -482,6 +477,7 @@ func (et *edgeTracker) shouldComplete() bool {
 func canOneStepProve(edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
+	// Can never happen in the protocol, but added as an additional defensive check.
 	if start > end {
 		return false, fmt.Errorf("start height %d cannot be > end height %d", start, end)
 	}
