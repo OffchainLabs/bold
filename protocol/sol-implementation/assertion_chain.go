@@ -374,7 +374,7 @@ func handleCreateAssertionError(err error, blockHash common.Hash) error {
 // an optional transaction receipt. It returns an error if the
 // transaction had a failed status on-chain, or if the execution of the callback
 // failed directly.
-func transact(ctx context.Context, backend ChainBackend, _ *headerreader.HeaderReader, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
+func transact(ctx context.Context, backend ChainBackend, headerReder *headerreader.HeaderReader, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
 	tx, err := fn()
 	if err != nil {
 		return nil, err
@@ -382,6 +382,7 @@ func transact(ctx context.Context, backend ChainBackend, _ *headerreader.HeaderR
 	if commiter, ok := backend.(ChainCommitter); ok {
 		commiter.Commit()
 	}
+	headerReder.WaitForTxApproval(ctxIn context.Context, tx *types.Transaction)
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, err
