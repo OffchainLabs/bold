@@ -59,11 +59,19 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		require.Equal(t, uint64(0), total)
 	}
 
+	// Test out Alice's timers.
 	total := h.pathTimer(h.edges["4a-8a"], 5)
 	require.Equal(t, uint64(2), total)
 	// TODO: Is this correct?
 	total = h.pathTimer(h.edges["4a-8a"], 6)
 	require.Equal(t, uint64(3), total)
+
+	// Test out Bob's timers (was created after Alice).
+	// Given Bob was never unrivaled, its edges should have a timer of 0.
+	total = h.pathTimer(h.edges["4a-8b"], 6)
+	require.Equal(t, uint64(0), total)
+	total = h.pathTimer(h.edges["4a-8b"], 7)
+	require.Equal(t, uint64(0), total)
 
 	// Add a in a new level zero edge that will bisect to
 	// merge at height 4 with Alice.
@@ -89,6 +97,13 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	// TODO: Is this correct?
 	total = h.pathTimer(h.edges["4a-8a"], 6)
 	require.Equal(t, uint64(3), total)
+
+	// Ensure Bob's path timer does not change if this occurs.
+	// Given Bob was never unrivaled, its edges should have a timer of 0.
+	total = h.pathTimer(h.edges["4a-8b"], 6)
+	require.Equal(t, uint64(0), total)
+	total = h.pathTimer(h.edges["4a-8b"], 7)
+	require.Equal(t, uint64(0), total)
 }
 
 func buildEdges(allEdges ...*edg) map[edgeId]*edg {
