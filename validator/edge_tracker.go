@@ -34,15 +34,19 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case edgeStarted:
+		canOsp, err := canOneStepProve(et.edge)
+		if err != nil {
+			return errors.Wrap(err, "could not check if edge can be one step proven")
+		}
+		if canOsp {
+			return et.fsm.Do(edgeHandleOneStepProof{})
+		}
 		hasRival, err := et.edge.HasRival(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not check presumptive")
 		}
 		if !hasRival {
 			return et.fsm.Do(edgeMarkPresumptive{})
-		}
-		if et.edge.GetType() == protocol.SmallStepChallengeEdge {
-			return et.fsm.Do(edgeHandleOneStepProof{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
@@ -131,10 +135,10 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		// Checks if we can confirm by children.
 		// Checks if we can confirm by claim.
 		// Checks if we can confirm by time.
-		return nil
+		return et.fsm.Do(edgeTryToConfirm{})
 	case edgeConfirmed:
 		log.WithFields(fields).Info("Edge reached confirmed state")
-		return nil
+		return et.fsm.Do(edgeConfirm{})
 	default:
 		return fmt.Errorf("invalid state: %s", current.State)
 	}
@@ -473,4 +477,13 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 
 func (et *edgeTracker) shouldComplete() bool {
 	return et.fsm.Current().State == edgeConfirmed
+}
+
+func canOneStepProve(edge protocol.SpecEdge) (bool, error) {
+	start, _ := edge.StartCommitment()
+	end, _ := edge.EndCommitment()
+	if start > end {
+		return false, fmt.Errorf("start height %d cannot be > end height %d", start, end)
+	}
+	return end-start == 1 && edge.GetType() == protocol.SmallStepChallengeEdge, nil
 }
