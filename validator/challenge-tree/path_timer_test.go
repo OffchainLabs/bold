@@ -65,9 +65,30 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	total = h.pathTimer(h.edges["4a-8a"], 6)
 	require.Equal(t, uint64(3), total)
 
-	// TODO: Add a in a new level zero edge that will bisect to
-	// merge at height 4 with Alice. Ensure Alice's path timer
-	// does not change if this occurs.
+	// Add a in a new level zero edge that will bisect to
+	// merge at height 4 with Alice.
+	//   Charlie
+	//     0-16c        = T10
+	//     0-8b, 8b-16b = T11
+	//     4a-8b        = T12
+	//
+	lateEdges := buildEdges(
+		// Charlie.
+		withCreationTime("0-16c", 10),
+		withCreationTime("8a-16c", 11),
+		withCreationTime("0-8c", 11),
+		withCreationTime("4a-8c", 12),
+	)
+	for k, v := range lateEdges {
+		h.edges[k] = v
+	}
+
+	// Ensure Alice's path timer does not change if this occurs.
+	total = h.pathTimer(h.edges["4a-8a"], 5)
+	require.Equal(t, uint64(2), total)
+	// TODO: Is this correct?
+	total = h.pathTimer(h.edges["4a-8a"], 6)
+	require.Equal(t, uint64(3), total)
 }
 
 func buildEdges(allEdges ...*edg) map[edgeId]*edg {
