@@ -283,7 +283,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /////////////////////////////
 
     /// @inheritdoc IEdgeChallengeManager
-    function createLayerZeroEdge(CreateEdgeArgs memory args, bytes calldata prefixProof, bytes calldata proof)
+    function createLayerZeroEdge(CreateEdgeArgs calldata args, bytes calldata prefixProof, bytes calldata proof)
         external
         payable
         returns (bytes32)

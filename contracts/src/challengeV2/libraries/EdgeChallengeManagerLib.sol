@@ -160,10 +160,10 @@ library EdgeChallengeManagerLib {
     /// @return                 Data parsed from the proof, or fetched from elsewhere. Also the origin id for the to be created.
     function layerZeroTypeSpecifcChecks(
         EdgeStore storage store,
-        CreateEdgeArgs memory args,
+        CreateEdgeArgs calldata args,
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
-        bytes memory proof
+        bytes calldata proof
     ) private view returns (ProofData memory, bytes32) {
         if (args.edgeType == EdgeType.Block) {
             // origin id is the assertion which is the root of challenge
@@ -282,9 +282,9 @@ library EdgeChallengeManagerLib {
     ///                             to by the end history root
     function layerZeroCommonChecks(
         ProofData memory proofData,
-        CreateEdgeArgs memory args,
+        CreateEdgeArgs calldata args,
         uint256 expectedEndHeight,
-        bytes memory prefixProof
+        bytes calldata prefixProof
     ) private pure returns (bytes32) {
         // since zero layer edges have a start height of zero, we know that they are a size
         // one tree containing only the start state. We can then compute the history root directly
@@ -351,12 +351,12 @@ library EdgeChallengeManagerLib {
     ///                         bytes32[]: Inclusion proof - proof to show that the end state is the last state in the end history root
     function createLayerZeroEdge(
         EdgeStore storage store,
-        CreateEdgeArgs memory args,
+        CreateEdgeArgs calldata args,
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        bytes memory prefixProof,
-        bytes memory proof
+        bytes calldata prefixProof,
+        bytes calldata proof
     ) internal returns (EdgeAddedData memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) =

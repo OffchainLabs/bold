@@ -41,6 +41,10 @@ contract EdgeChallengeManagerLibAccess {
         return store.get(id);
     }
 
+    function setConfirmed(bytes32 id) public {
+        store.edges[id].status = EdgeStatus.Confirmed;
+    }
+
     function confirmEdgeByOneStepProof(
         bytes32 edgeId,
         IOneStepProofEntry oneStepProofEntry,
@@ -55,12 +59,12 @@ contract EdgeChallengeManagerLibAccess {
     }
 
     function createLayerZeroEdge(
-        CreateEdgeArgs memory args,
+        CreateEdgeArgs calldata args,
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        bytes memory prefixProof,
-        bytes memory proof
+        bytes calldata prefixProof,
+        bytes calldata proof
     ) public returns (EdgeAddedData memory) {
         return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, prefixProof, proof);
     }
@@ -1569,7 +1573,7 @@ contract EdgeChallengeManagerLibTest is Test {
         createZeroBlockEdge(148, "Incorrect assertion end state");
     }
 
-    function createClaimEdge(uint256 start, uint256 end, bool includeRival)
+    function createClaimEdge(EdgeChallengeManagerLibAccess c, uint256 start, uint256 end, bool includeRival)
         public
         returns (bytes32, ExpsAndProofs memory)
     {
@@ -1583,11 +1587,10 @@ contract EdgeChallengeManagerLibTest is Test {
             end,
             EdgeType.BigStep
         );
-        EdgeChallengeManagerLib.add(store, ce);
+        c.add(ce);
         // and give it a rival
         if (includeRival) {
-            EdgeChallengeManagerLib.add(
-                store,
+            c.add(
                 ChallengeEdgeLib.newChildEdge(
                     ce.originId, ce.startHistoryRoot, ce.startHeight, rand.hash(), ce.endHeight, ce.eType
                 )
@@ -1601,8 +1604,9 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 claimStartHeight = 4;
         uint256 claimEndHeight = mode == 161 ? 6 : 5;
         uint256 expectedEndHeight = 2 ** 5;
+        EdgeChallengeManagerLibAccess c = new EdgeChallengeManagerLibAccess();
         (bytes32 claimId, ExpsAndProofs memory claimRoots) =
-            createClaimEdge(claimStartHeight, claimEndHeight, mode == 160 ? false : true);
+            createClaimEdge(c, claimStartHeight, claimEndHeight, mode == 160 ? false : true);
 
         ExpsAndProofs memory roots = newRootsAndProofs(
             0, expectedEndHeight, claimRoots.states[claimStartHeight], claimRoots.states[claimEndHeight]
@@ -1624,10 +1628,8 @@ contract EdgeChallengeManagerLibTest is Test {
             claimRoots.endInclusionProof,
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(roots.states), expectedEndHeight)
         );
-        bytes32 endHistoryRoot = MerkleTreeLib.root(roots.endExp);
-
         if (mode == 162) {
-            store.edges[claimId].status = EdgeStatus.Confirmed;
+            c.setConfirmed(claimId);
         }
 
         MockOneStepProofEntry a = new MockOneStepProofEntry();
@@ -1635,12 +1637,10 @@ contract EdgeChallengeManagerLibTest is Test {
         if (bytes(revertArg).length != 0) {
             vm.expectRevert(bytes(revertArg));
         }
-
-        EdgeChallengeManagerLib.createLayerZeroEdge(
-            store,
+        c.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: mode == 163 ? EdgeType.BigStep : EdgeType.SmallStep,
-                endHistoryRoot: endHistoryRoot,
+                endHistoryRoot: MerkleTreeLib.root(roots.endExp),
                 endHeight: expectedEndHeight,
                 claimId: claimId
             }),
