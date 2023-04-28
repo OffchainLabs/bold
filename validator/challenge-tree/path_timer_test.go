@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestPathTimer(t *testing.T) {
+func TestPathTimer_FlipFlop(t *testing.T) {
 	// Setup the following challenge tree, where
 	// branch `a` is honest.
 	//
@@ -61,6 +61,7 @@ func TestPathTimer(t *testing.T) {
 
 	total := h.pathTimer(h.edges["4a-8a"], 5)
 	require.Equal(t, uint64(2), total)
+	// TODO: Is this correct?
 	total = h.pathTimer(h.edges["4a-8a"], 6)
 	require.Equal(t, uint64(3), total)
 
