@@ -16,26 +16,28 @@ func TestPathTimer(t *testing.T) {
 	//
 	//   Alice
 	//     0-16a        = T1
-	//     0-8a, 8a-16a = T2
-	//     0-4a, 4a-8a  = T3
+	//     0-8a, 8a-16a = T3
+	//     0-4a, 4a-8a  = T5
 	//
 	//   Bob
-	//     0-16b        = T3
-	//     0-8b, 8b-16b = T2
-	//     4a-8b        = T3
+	//     0-16b        = T2
+	//     0-8b, 8b-16b = T4
+	//     4a-8b        = T6
+	//
 	edges := buildEdges(
 		// Alice.
 		withCreationTime("0-16a", 1),
-		withCreationTime("8a-16a", 2),
-		withCreationTime("0-8a", 2),
-		withCreationTime("4a-8a", 3),
-		withCreationTime("0-4a", 3),
+		withCreationTime("8a-16a", 3),
+		withCreationTime("0-8a", 3),
+		withCreationTime("4a-8a", 5),
+		withCreationTime("0-4a", 5),
 		// Bob.
-		withCreationTime("0-16b", 1),
-		withCreationTime("8b-16b", 2),
-		withCreationTime("0-8b", 2),
-		withCreationTime("4a-8b", 3),
+		withCreationTime("0-16b", 2),
+		withCreationTime("8b-16b", 4),
+		withCreationTime("0-8b", 4),
+		withCreationTime("4a-8b", 6),
 	)
+	// Child-relationship linking.
 	// Alice.
 	edges["0-16a"].lowerChild = "0-8a"
 	edges["0-16a"].upperChild = "8a-16a"
@@ -51,13 +53,20 @@ func TestPathTimer(t *testing.T) {
 		edges: edges,
 	}
 
-	// Edge was not created at time 1 nor 2.
-	total := h.pathTimer(h.edges["4a-8a"], 1)
-	require.Equal(t, uint64(0), total)
-	total = h.pathTimer(h.edges["4a-8a"], 2)
-	require.Equal(t, uint64(0), total)
-	total = h.pathTimer(h.edges["4a-8a"], 3)
-	require.Equal(t, uint64(0), total)
+	// Edge was not created before time T5.
+	for i := 0; i < 5; i++ {
+		total := h.pathTimer(h.edges["4a-8a"], uint64(1))
+		require.Equal(t, uint64(0), total)
+	}
+
+	total := h.pathTimer(h.edges["4a-8a"], 5)
+	require.Equal(t, uint64(2), total)
+	total = h.pathTimer(h.edges["4a-8a"], 6)
+	require.Equal(t, uint64(3), total)
+
+	// TODO: Add a in a new level zero edge that will bisect to
+	// merge at height 4 with Alice. Ensure Alice's path timer
+	// does not change if this occurs.
 }
 
 func buildEdges(allEdges ...*edg) map[edgeId]*edg {
