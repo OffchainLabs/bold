@@ -41,7 +41,9 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		if !hasRival {
 			return et.fsm.Do(edgeMarkPresumptive{})
 		}
-		// TODO: Add a conditional to check if we can confirm.
+		if et.edge.GetType() == protocol.SmallStepChallengeEdge {
+			return et.fsm.Do(edgeHandleOneStepProof{})
+		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not check if edge is at one step fork")
@@ -62,16 +64,13 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			startHeight,
 			util.Trunc(startCommit.Bytes()),
 		)
-		if et.edge.GetType() == protocol.SmallStepChallengeEdge {
-			return et.fsm.Do(edgeHandleOneStepProof{})
-		}
 		return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
 			return errors.Wrap(err, "could not submit one step proof")
 		}
-		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
+		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		event, ok := current.SourceEvent.(edgeOpenSubchallengeLeaf)
@@ -81,10 +80,10 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			return errors.Wrap(err, "could not open subchallenge leaf")
 		}
-		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
+		return et.fsm.Do(edgeTryToConfirm{})
 	// Edge should bisect.
 	case edgeBisecting:
-		firstChild, secondChild, err := et.bisect(ctx)
+		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			if errors.Is(err, solimpl.ErrAlreadyExists) {
 				return et.fsm.Do(edgeBackToStart{})
@@ -95,7 +94,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		firstTracker, err := newEdgeTracker(
 			ctx,
 			et.cfg,
-			firstChild,
+			lowerChild,
 			et.startBlockHeight,
 			et.topLevelClaimEndBatchCount,
 		)
@@ -106,7 +105,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		secondTracker, err := newEdgeTracker(
 			ctx,
 			et.cfg,
-			secondChild,
+			upperChild,
 			et.startBlockHeight,
 			et.topLevelClaimEndBatchCount,
 		)
@@ -116,7 +115,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		go firstTracker.spawn(ctx)
 		go secondTracker.spawn(ctx)
-		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
+		return et.fsm.Do(edgeTryToConfirm{})
 	// Edge is presumptive, should do nothing until it loses ps status.
 	case edgePresumptive:
 		hasRival, err := et.edge.HasRival(ctx)
@@ -127,10 +126,15 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeMarkPresumptive{})
-	case edgeAwaitingSubchallenge:
-		// TODO: Perhaps we need an intermediate stage that tries to
-		// take confirmation actions if it can.
-		return et.fsm.Do(edgeAwaitSubchallengeResolution{})
+	case edgeConfirming:
+		// TODO: Implement.
+		// Checks if we can confirm by children.
+		// Checks if we can confirm by claim.
+		// Checks if we can confirm by time.
+		return nil
+	case edgeConfirmed:
+		log.WithFields(fields).Info("Edge reached confirmed state")
+		return nil
 	default:
 		return fmt.Errorf("invalid state: %s", current.State)
 	}
@@ -406,6 +410,11 @@ type edgeTrackerConfig struct {
 	validatorAddress common.Address
 }
 
+type edgeChildren struct {
+	lower protocol.SpecEdge
+	upper protocol.SpecEdge
+}
+
 type edgeTracker struct {
 	cfg                        *edgeTrackerConfig
 	edge                       protocol.SpecEdge
@@ -448,14 +457,7 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 	for {
 		select {
 		case <-t.C():
-			// Check if the associated edge or challenge are confirmed,
-			// or if a rival edge exists that has been confirmed before acting.
-			shouldComplete, err := et.shouldComplete(ctx)
-			if err != nil {
-				log.WithError(err).WithFields(fields).Error("Could not check if edge tracker should complete")
-				continue
-			}
-			if shouldComplete {
+			if et.shouldComplete() {
 				log.WithFields(fields).Debug("Edge tracker received notice of a confirmation, exiting")
 				return
 			}
@@ -469,7 +471,6 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 	}
 }
 
-// TODO(RJ): Implement
-func (et *edgeTracker) shouldComplete(_ context.Context) (bool, error) {
-	return false, nil
+func (et *edgeTracker) shouldComplete() bool {
+	return et.fsm.Current().State == edgeConfirmed
 }
