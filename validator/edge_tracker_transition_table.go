@@ -14,7 +14,6 @@ func newEdgeTrackerFsm(
 			// this, including challenge moves.
 			Typ: edgeBackToStart{},
 			From: []edgeTrackerState{
-				edgeAtOneStepFork,
 				edgePresumptive,
 				edgeBisecting,
 			},
@@ -27,7 +26,6 @@ func newEdgeTrackerFsm(
 			From: []edgeTrackerState{
 				edgeStarted,
 				edgePresumptive,
-				edgeBisecting,
 			},
 			To: edgePresumptive,
 		},
