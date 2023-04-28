@@ -499,9 +499,6 @@ library EdgeChallengeManagerLib {
         // cannot bisect an edge twice
         // has rival above checks the edge - so no need to check again
         ChallengeEdge memory ce = getNoCheck(store, edgeId);
-        require(
-            store.edges[edgeId].lowerChildId == 0 && store.edges[edgeId].upperChildId == 0, "Edge already has children"
-        );
 
         // bisections occur at deterministic heights, this ensures that
         // rival edges bisect at the same height, and create the same child if they agree
