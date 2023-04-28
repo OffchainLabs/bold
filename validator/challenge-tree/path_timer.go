@@ -9,23 +9,19 @@ type unsigned interface {
 type edgeId string
 
 type edg struct {
-	id         edgeId
-	mutualId   string // maybe id minus last char for testing?
-	lowerChild edgeId
-	upperChild edgeId
+	id           edgeId
+	mutualId     string // maybe id minus last char for testing?
+	lowerChild   edgeId
+	upperChild   edgeId
+	creationTime uint64
 }
 
 type helper struct {
-	edges         map[edgeId]*edg
-	creationTimes map[edgeId]uint64
-}
-
-func (h *helper) creationTime(e *edg) uint64 {
-	return h.creationTimes[e.id] // TODO: if !ok
+	edges map[edgeId]*edg
 }
 
 func (h *helper) pathTimer(e *edg, t uint64) uint64 {
-	if t < h.creationTime(e) {
+	if t < e.creationTime {
 		return 0
 	}
 	local := h.localTimer(e, t)
@@ -38,7 +34,7 @@ func (h *helper) pathTimer(e *edg, t uint64) uint64 {
 		}
 		parentTimers[i] = h.pathTimer(
 			parentEdge,
-			h.creationTime(e),
+			e.creationTime,
 		)
 	}
 	maxTimerOpt := max(parentTimers)
@@ -60,20 +56,20 @@ func (h *helper) parents(e *edg) []edgeId {
 }
 
 func (h *helper) localTimer(e *edg, t uint64) uint64 {
-	if t < h.creationTime(e) {
+	if t < e.creationTime {
 		return 0
 	}
 	// If no rival at time t, then the local timer is defined
 	// as t - t_creation(e).
 	if h.unrivaledAtTime(e, t) {
-		return t - h.creationTime(e)
+		return t - e.creationTime
 	}
 	// Else we return tRival minus the edge's creation time.
 	tRival := h.tRival(e).Unwrap()
-	if h.creationTime(e) >= tRival {
+	if e.creationTime >= tRival {
 		return 0
 	}
-	return tRival - h.creationTime(e)
+	return tRival - e.creationTime
 }
 
 func (h *helper) tRival(e *edg) util.Option[uint64] {
@@ -102,12 +98,12 @@ func (h *helper) rivalCreationTimes(e *edg) []uint64 {
 		return make([]uint64, 0)
 	}
 	timers := make([]uint64, len(rivals))
-	for i, rival := range rivals {
-		timer, ok := h.creationTimes[rival]
+	for i, rivalId := range rivals {
+		rival, ok := h.edges[rivalId]
 		if !ok {
 			panic("should not happen")
 		}
-		timers[i] = timer
+		timers[i] = rival.creationTime
 	}
 	return timers
 }

@@ -1,6 +1,7 @@
 package challengetree
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -13,58 +14,44 @@ func TestPathTimer(t *testing.T) {
 	//        \-----8c-------16c
 	//        \-----8d-------16d
 	//
-	// Here are the creation times of each edge.
-	//
-	// 8a-16a = T20
-	// 8a-16a = T20
-	// 8b-16b = T15
-	// 8c-16b = T15
-
-	creationTimes := map[edgeId]uint64{
-		// Alice's edges (honest).
-		"0-16a":  1,
-		"0-8a":   2,
-		"8a-16a": 2,
-		"0-4a":   3,
-		"4a-8a":  3,
-	}
+	// Here are the creation times of each edge:
+	edges := buildEdges(
+		withCreationTime("0-16a", 1),
+		withCreationTime("8a-16a", 2),
+		withCreationTime("0-8a", 2),
+		withCreationTime("4a-8a", 3),
+		withCreationTime("0-4a", 3),
+	)
+	edges["0-16a"].lowerChild = "0-8a"
+	edges["0-16a"].upperChild = "8a-16a"
+	edges["0-8a"].lowerChild = "0-4a"
+	edges["0-8a"].upperChild = "4a-8a"
 
 	h := &helper{
-		edges: map[edgeId]*edg{
-			// Alice's edges (honest).
-			"0-16a": {
-				id:         "0-16a",
-				mutualId:   "0-16",
-				lowerChild: "0-8a",
-				upperChild: "8a-16a",
-			},
-			"0-8a": {
-				id:         "0-8a",
-				mutualId:   "0-8",
-				lowerChild: "0-4a",
-				upperChild: "4a-8a",
-			},
-			"0-4a": {
-				id:         "0-4a",
-				mutualId:   "0-4",
-				lowerChild: "",
-				upperChild: "",
-			},
-			"4a-8a": {
-				id:         "4a-8a",
-				mutualId:   "4a-8",
-				lowerChild: "",
-				upperChild: "",
-			},
-			"8a-16a": {
-				id:         "8a-16a",
-				mutualId:   "8a-16",
-				lowerChild: "",
-				upperChild: "",
-			},
-		},
-		creationTimes: creationTimes,
+		edges: edges,
 	}
-	total := h.pathTimer(h.edges["4a-8a"], 3)
-	t.Log(total)
+
+	// Edge was not created at time 1 nor 2.
+	total := h.pathTimer(h.edges["4a-8a"], 1)
+	require.Equal(t, uint64(0), total)
+	total = h.pathTimer(h.edges["4a-8a"], 2)
+	require.Equal(t, uint64(0), total)
+}
+
+func buildEdges(allEdges ...*edg) map[edgeId]*edg {
+	m := make(map[edgeId]*edg)
+	for _, e := range allEdges {
+		m[e.id] = e
+	}
+	return m
+}
+
+func withCreationTime(id string, createdAt uint64) *edg {
+	return &edg{
+		id:           edgeId(id),
+		mutualId:     id[:len(id)-1], // Strip off the last char.
+		lowerChild:   "",
+		upperChild:   "",
+		creationTime: createdAt,
+	}
 }
