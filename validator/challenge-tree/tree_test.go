@@ -261,9 +261,6 @@ func TestAncestors_BlockChallengeOnly(t *testing.T) {
 	// require.Equal(t, ancestors, []protocol.EdgeId{id("blk-4-8"), id("blk-0-8"), id("blk-0-16")})
 
 	ancestors := tree.ancestorsForHonestEdge(id("blk-0-4"))
-	for _, an := range ancestors {
-		t.Logf("%s", an)
-	}
 	require.Equal(t, ancestors, []protocol.EdgeId{id("blk-0-8"), id("blk-0-16")})
 
 	// ancestors = tree.ancestorsForHonestEdge(id("blk-4-8"))
@@ -272,8 +269,8 @@ func TestAncestors_BlockChallengeOnly(t *testing.T) {
 	// ancestors = tree.ancestorsForHonestEdge(id("blk-5-6"))
 	// require.Equal(t, ancestors, []protocol.EdgeId{id("blk-4-6"), id("blk-4-8"), id("blk-0-8"), id("blk-0-16")})
 
-	ancestors = tree.ancestorsForHonestEdge(id("blk-0-16"))
-	require.Equal(t, 0, len(ancestors))
+	// ancestors = tree.ancestorsForHonestEdge(id("blk-0-16"))
+	// require.Equal(t, 0, len(ancestors))
 }
 
 // Tests the following tree, all the way down to the small

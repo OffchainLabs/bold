@@ -335,12 +335,12 @@ func (ct *challengeTree) ancestorQuery(
 	}
 	rivalIds := ct.rivalIds(curr)
 	accum = append(accum, rivalIds...)
+	accum = append(accum, curr.id)
 	// If the edge id we are querying for is a child of the current edge, we append
 	// the current edge to the ancestors list and return true.
 	if isChild(curr, queryingFor) {
 		return accum, true
 	}
-	accum = append(accum, curr.id)
 	lowerChild, lowerOk := ct.edges.Get(protocol.EdgeId(curr.lowerChildId))
 	if !lowerOk {
 		panic("not lower")
