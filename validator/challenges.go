@@ -62,10 +62,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.A
 
 	logFields := logrus.Fields{}
 	logFields["name"] = v.name
-	logFields["parentAssertionSeqNum"], err = assertion.PrevSeqNum()
-	if err != nil {
-		return err
-	}
+	logFields["parentAssertionSeqNum"] = assertionPrevSeqNum
 	log.WithFields(logFields).Info("Successfully created level zero edge for block challenge, now tracking")
 	return nil
 }
@@ -74,11 +71,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	prevAssertionSeqNum protocol.AssertionSequenceNumber,
 ) (protocol.SpecEdge, error) {
-	latestValidAssertionSeq, err := v.findLatestValidAssertion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	assertion, err := v.chain.AssertionBySequenceNum(ctx, latestValidAssertionSeq)
+	assertion, err := v.chain.AssertionBySequenceNum(ctx, prevAssertionSeqNum)
 	if err != nil {
 		return nil, err
 	}
