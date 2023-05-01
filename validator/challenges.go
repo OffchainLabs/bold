@@ -77,7 +77,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(prevAssertionSeqNum)
+
 	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, prevAssertionSeqNum)
 	if err != nil {
 		return nil, err
