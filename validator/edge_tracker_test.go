@@ -159,10 +159,15 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgeTracker, *edgeTr
 	)
 	require.NoError(t, err)
 
-	honestEdge, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
+	an, err := honestValidator.findLatestValidAssertion(ctx)
+	require.NoError(t, err)
+	assertion, err := honestValidator.chain.AssertionBySequenceNum(ctx, an)
 	require.NoError(t, err)
 
-	evilEdge, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
+	honestEdge, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, assertion)
+	require.NoError(t, err)
+
+	evilEdge, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	require.NoError(t, err)
 
 	// Check presumptive statuses.

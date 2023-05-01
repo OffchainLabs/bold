@@ -50,6 +50,7 @@ func Test_onLeafCreation(t *testing.T) {
 		AssertLogsContain(t, logsHook, "No fork detected in assertion tree")
 	})
 	t.Run("fork leads validator to challenge leaf", func(t *testing.T) {
+		logsHook := test.NewGlobal()
 		ctx := context.Background()
 		createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
 			DivergeBlockHeight: 5,
@@ -67,6 +68,15 @@ func Test_onLeafCreation(t *testing.T) {
 
 		err = validator.onLeafCreated(ctx, createdData.Leaf1)
 		require.NoError(t, err)
+
+		err = validator.onLeafCreated(ctx, createdData.Leaf2)
+		require.NoError(t, err)
+
+		AssertLogsContain(t, logsHook, "New assertion appended")
+		AssertLogsContain(t, logsHook, "Successfully created level zero edge")
+
+		err = validator.onLeafCreated(ctx, createdData.Leaf2)
+		require.ErrorContains(t, err, "Edge already exists")
 	})
 }
 
