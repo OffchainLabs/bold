@@ -478,7 +478,7 @@ func canOneStepProve(edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
 	// Can never happen in the protocol, but added as an additional defensive check.
-	if start > end {
+	if start >= end {
 		return false, fmt.Errorf("start height %d cannot be > end height %d", start, end)
 	}
 	return end-start == 1 && edge.GetType() == protocol.SmallStepChallengeEdge, nil
