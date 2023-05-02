@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -24,4 +25,6 @@ type Backend interface {
 	// Deployer functions
 	// DeployRollup contract, if not already deployed.
 	DeployRollup() (common.Address, error)
+
+	ContractAddresses() *setup.RollupAddresses
 }

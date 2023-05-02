@@ -26,13 +26,16 @@ func TestLocalAnvilLoadAccounts(t *testing.T) {
 }
 
 func TestLocalAnvilStarts(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 	defer cancel()
 	a, err := NewAnvilLocal(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.DeployRollup(); err != nil {
 		t.Fatal(err)
 	}
 

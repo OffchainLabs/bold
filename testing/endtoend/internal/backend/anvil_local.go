@@ -34,6 +34,8 @@ type AnvilLocal struct {
 	cmd    *exec.Cmd
 
 	deployer *bind.TransactOpts
+
+	addresses *setup.RollupAddresses
 }
 
 var anvilLocalChainID = big.NewInt(1002)
@@ -215,11 +217,17 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 		return common.Address{}, err
 	}
 
+	a.addresses = result
+
 	// TODO: Move the mine blocks to its own method and require caller to call it.
-	return result.Rollup, a.MineBlocks(100) // At least 75 blocks should be mined.
+	return result.Rollup, a.MineBlocks(100) // At least 75 blocks should be mined for a challenge to be possible.
 }
 
 // MineBlocks will call anvil to instantly mine n blocks.
 func (a *AnvilLocal) MineBlocks(n uint64) error {
 	return a.rpc.CallContext(a.ctx, nil, "anvil_mine", hexutil.EncodeUint64(n))
+}
+
+func (a *AnvilLocal) ContractAddresses() *setup.RollupAddresses {
+	return a.addresses
 }

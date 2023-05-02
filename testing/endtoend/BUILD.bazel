@@ -19,6 +19,8 @@ go_test(
     deps = [
         "//protocol",
         "//protocol/sol-implementation",
+        "//solgen/go/challengeV2gen",
+        "//solgen/go/rollupgen",
         "//state-manager",
         "//testing/endtoend/internal/backend",
         "//validator",
