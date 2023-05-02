@@ -112,8 +112,8 @@ interface IRollupAdmin {
 
     function forceConfirmAssertion(
         uint64 assertionNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        ExecutionState calldata confirmState, 
+        uint256 confirmInboxMaxCount
     ) external;
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external;

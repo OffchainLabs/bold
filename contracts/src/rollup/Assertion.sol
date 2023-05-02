@@ -11,8 +11,6 @@ import "../osp/IOneStepProofEntry.sol";
 struct AssertionNode {
     // Hash of the state of the chain as of this assertion
     bytes32 stateHash;
-    // Hash of the data that will be committed if this assertion is confirmed
-    bytes32 confirmData;
     // Index of the assertion previous to this one
     uint64 prevNum;
     // Deadline at which this assertion can be confirmed
@@ -48,14 +46,12 @@ library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
      * @param _stateHash Initial value of stateHash
-     * @param _confirmData Initial value of confirmData
      * @param _prevNum Initial value of prevNum
      * @param _deadlineBlock Initial value of deadlineBlock
      * @param _assertionHash Initial value of assertionHash
      */
     function createAssertion(
         bytes32 _stateHash,
-        bytes32 _confirmData,
         uint64 _prevNum,
         uint64 _deadlineBlock,
         bytes32 _assertionHash,
@@ -63,7 +59,6 @@ library AssertionNodeLib {
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.stateHash = _stateHash;
-        assertion.confirmData = _confirmData;
         assertion.prevNum = _prevNum;
         assertion.deadlineBlock = _deadlineBlock;
         assertion.noChildConfirmedBeforeBlock = _deadlineBlock;

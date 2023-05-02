@@ -47,6 +47,10 @@ contract RollupTest is Test {
     address[] validators;
     bool[] flags;
 
+    ExecutionState emptyExecutionState;
+
+    ExecutionState firstState;
+
     event RollupCreated(
         address indexed rollupAddress,
         address inboxAddress,
@@ -137,6 +141,12 @@ contract RollupTest is Test {
         adminRollup.setValidator(address[](validators), flags);
         adminRollup.sequencerInbox().setIsBatchPoster(sequencer, true);
         vm.stopPrank();
+
+        firstState.machineStatus = MachineStatus.FINISHED;
+        firstState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
+        firstState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        firstState.globalState.u64Vals[0] = 1; // inbox count
+        firstState.globalState.u64Vals[1] = 0; // pos in msg
 
         payable(validator1).transfer(1 ether);
         payable(validator2).transfer(1 ether);
@@ -322,14 +332,14 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.prank(validator1);
         vm.expectRevert("CONFIRM_DATA");
-        userRollup.confirmNextAssertion(bytes32(0), bytes32(0), bytes32(0));
+        userRollup.confirmNextAssertion(emptyExecutionState, 0, bytes32(0));
     }
 
     function testSuccessConfirmUnchallengedAssertions() public {
         testSuccessCreateAssertions();
         vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.prank(validator1);
-        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, bytes32(0));
+        userRollup.confirmNextAssertion(firstState, 2, bytes32(0));
     }
 
     function testRevertConfirmSiblingedAssertions() public {
@@ -337,7 +347,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.prank(validator1);
         vm.expectRevert("Edge does not exist"); // If there is a sibling, you need to supply a winning edge
-        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, bytes32(0));
+        userRollup.confirmNextAssertion(firstState, 2, bytes32(0));
     }
 
     function testSuccessCreateChallenge() public returns(ExecutionState memory beforeState, uint256 genesisInboxCount, ExecutionState memory afterState2, uint256 newInboxCount, bytes32 e1Id) {
@@ -433,7 +443,7 @@ contract RollupTest is Test {
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(e1Id, new bytes32[](0));
         vm.prank(validator1);
-        userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, e1Id);
+        userRollup.confirmNextAssertion(firstState, 2, e1Id);
     }
 
     function testSuccessRejection() public {

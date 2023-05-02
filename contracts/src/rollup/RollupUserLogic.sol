@@ -113,11 +113,11 @@ abstract contract AbsRollupUserLogic is
 
     /**
      * @notice Confirm the next unresolved assertion
-     * @param blockHash The block hash at the end of the assertion
-     * @param sendRoot The send root at the end of the assertion
+     * @param confirmState The state to confirm
+     * @param confirmInboxMaxCount The number of messages in the inbox at the time the assertion was made
      * @param winningEdge The winning edge if a challenge is started
      */
-    function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdge)
+    function confirmNextAssertion(ExecutionState calldata confirmState, uint256 confirmInboxMaxCount, bytes32 winningEdge)
         external
         onlyValidator
         whenNotPaused
@@ -156,7 +156,7 @@ abstract contract AbsRollupUserLogic is
             require(_winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
-        confirmAssertion(assertionNum, blockHash, sendRoot);
+        confirmAssertion(assertionNum, confirmState, confirmInboxMaxCount);
     }
 
     /**

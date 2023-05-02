@@ -301,12 +301,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function confirmAssertion(
         uint64 assertionNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        ExecutionState calldata confirmState,
+        uint256 confirmInboxMaxCount
     ) internal {
         AssertionNode storage assertion = getAssertionStorage(assertionNum);
-        // Authenticate data against assertion's confirm data pre-image
-        require(assertion.confirmData == RollupLib.confirmHash(blockHash, sendRoot), "CONFIRM_DATA");
+        // Authenticate data against assertion's statehash pre-image
+        require(assertion.stateHash == RollupLib.stateHash(confirmState, confirmInboxMaxCount), "CONFIRM_DATA");
+        
+        bytes32 blockHash = confirmState.globalState.bytes32Vals[0];
+        bytes32 sendRoot = confirmState.globalState.bytes32Vals[1];
 
         // trusted external call to outbox
         outbox.updateSendRoot(sendRoot, blockHash);
@@ -647,7 +650,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             memoryFrame.assertion = AssertionNodeLib.createAssertion(
                 memoryFrame.stateHash,
-                RollupLib.confirmHash(assertion),
                 prevAssertionNum,
                 memoryFrame.deadlineBlock,
                 newAssertionHash,

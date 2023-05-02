@@ -93,7 +93,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         return
             AssertionNodeLib.createAssertion(
                 stateHash,
-                0, // confirm data
                 0, // prev assertion
                 uint64(block.number), // deadline block (not challengeable)
                 genesisHash, // initial assertion has a assertion hash of 0
@@ -308,11 +307,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
     function forceConfirmAssertion(
         uint64 assertionNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        ExecutionState calldata confirmState,
+        uint256 confirmInboxMaxCount
     ) external override whenPaused {
         // this skips deadline, staker and zombie validation
-        confirmAssertion(assertionNum, blockHash, sendRoot);
+        confirmAssertion(assertionNum, confirmState, confirmInboxMaxCount);
         emit OwnerFunctionCalled(24);
     }
 
@@ -377,7 +376,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         );
         bytes32 genesisBlockHash = assertion.afterState.globalState.bytes32Vals[0];
         createNewAssertion(assertion, 0, expectedInboxCount, bytes32(0));
-        confirmAssertion(1, genesisBlockHash, expectedSendRoot);
+        confirmAssertion(1, assertion.afterState, expectedInboxCount);
         emit OwnerFunctionCalled(29);
     }
 
