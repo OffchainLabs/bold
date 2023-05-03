@@ -113,7 +113,7 @@ jobs:
     - name: build
       run: bazel build //...
     - name: test 
-      run: bazel test //... --build_manual_tests
+      run: bazel test //... --build_manual_tests --test_output=all
     
     # Foundry is required for end to end tests
     - name: Install Foundry
