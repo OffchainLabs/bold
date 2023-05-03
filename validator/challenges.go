@@ -13,7 +13,16 @@ import (
 // Initiates a challenge on an assertion added to the protocol by finding its parent assertion
 // and starting a challenge transaction. If the challenge creation is successful, we add a leaf
 // with an associated history commitment to it and spawn a challenge tracker in the background.
-func (v *Validator) challengeAssertion(ctx context.Context, assertion protocol.Assertion) error {
+func (v *Validator) challengeAssertion(ctx context.Context) error {
+	latestValid, err := v.findLatestValidAssertion(ctx)
+	if err != nil {
+		return err
+	}
+	assertion, err := v.chain.AssertionBySequenceNum(ctx, latestValid)
+	if err != nil {
+		return err
+	}
+
 	assertionPrevSeqNum, err := assertion.PrevSeqNum()
 	if err != nil {
 		return err
@@ -95,6 +104,7 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+
 	startEndPrefixProof, err := v.stateManager.PrefixProofUpToBatch(
 		ctx,
 		0,

@@ -110,8 +110,8 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		a.Start(ctx)
 		b.Start(ctx)
 
-		t.Log("DEBUG: Sleeping for 15s")
-		time.Sleep(15 * time.Second)
+		t.Log("DEBUG: Sleeping for 1m")
+		time.Sleep(time.Minute)
 
 		// TODO: Abstract this to be part of the scenario success criteria.
 
@@ -193,6 +193,7 @@ func setupValidator(ctx context.Context, be backend.Backend, rollup common.Addre
 		validator.WithAddress(txOpts.From),
 		validator.WithName(name),
 		validator.WithNewAssertionCheckInterval(500*time.Millisecond),
+		validator.WithPostAssertionsInterval(time.Hour),
 	)
 	if err != nil {
 		return nil, err

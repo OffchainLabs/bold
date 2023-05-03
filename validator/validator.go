@@ -279,5 +279,5 @@ func (v *Validator) onLeafCreated(
 		return nil
 	}
 
-	return v.challengeAssertion(ctx, assertion)
+	return v.challengeAssertion(ctx)
 }
