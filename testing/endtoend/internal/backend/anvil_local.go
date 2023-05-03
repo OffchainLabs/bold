@@ -219,7 +219,6 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 
 	a.addresses = result
 
-	// TODO: Move the mine blocks to its own method and require caller to call it.
 	return result.Rollup, a.MineBlocks(100) // At least 75 blocks should be mined for a challenge to be possible.
 }
 
