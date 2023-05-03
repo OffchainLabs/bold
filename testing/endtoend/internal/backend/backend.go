@@ -26,5 +26,6 @@ type Backend interface {
 	// DeployRollup contract, if not already deployed.
 	DeployRollup() (common.Address, error)
 
+  // Contract addresses relevant to the challenge protocol.
 	ContractAddresses() *setup.RollupAddresses
 }
