@@ -254,11 +254,11 @@ func (v *Validator) findLatestValidAssertion(ctx context.Context) (protocol.Asse
 	return bestAssertion, nil
 }
 
-// assertionFromParent returns the assertion number of a child of the parent assertion number.
+// validChildFromParent returns the assertion number of a child of the parent assertion number.
 // The assertion must be valid and exists in state manager by `ExecutionStateBlockHeight` validation.
 // It returns the first assertion number that is a child of the parent assertion number. This assumes there's no two children of the same parent.
 // If no such assertion exists, an error gets returned.
-func (v *Validator) assertionFromParent(ctx context.Context, parentAssertionNumber protocol.AssertionSequenceNumber) (protocol.AssertionSequenceNumber, error) {
+func (v *Validator) validChildFromParent(ctx context.Context, parentAssertionNumber protocol.AssertionSequenceNumber) (protocol.AssertionSequenceNumber, error) {
 	numAssertions, err := v.chain.NumAssertions(ctx)
 	if err != nil {
 		return 0, err
