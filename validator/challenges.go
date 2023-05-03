@@ -104,7 +104,6 @@ func (v *Validator) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-
 	startEndPrefixProof, err := v.stateManager.PrefixProofUpToBatch(
 		ctx,
 		0,

@@ -480,7 +480,6 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize block edge proof: %w", err)
 	}
-
 	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
