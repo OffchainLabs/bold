@@ -33,7 +33,7 @@ func expectChallengeCompletedByOneStepProof(t *testing.T, ctx context.Context, b
 
 				if e, err := ecm.GetEdge(nil, i.Event.EdgeId); err != nil {
 					t.Fatal(err)
-				} else if e.Status != uint8(protocol.MachineStatusFinished) {
+				} else if e.Status != uint8(protocol.EdgeConfirmed) {
 					t.Fatal("Confirmed edge with unfinished state")
 				}
 				break
