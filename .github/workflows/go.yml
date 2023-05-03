@@ -122,7 +122,7 @@ jobs:
         version: nightly
 
     - name: e2e test 
-      run: bazel test //testing/endtoend:endtoend --test_env=ANVIL=$(which anvil)
+      run: bazel test //testing/endtoend:endtoend_suite --test_env=ANVIL=$(which anvil)
 
   sol-test:
     name: Solidity tests

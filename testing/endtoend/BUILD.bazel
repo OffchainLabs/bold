@@ -1,7 +1,7 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 test_suite(
-    name = "endtoend",
+    name = "endtoend_suite",
     tags = ["manual"],
     tests = [
         ":endtoend_test",
@@ -12,6 +12,7 @@ test_suite(
 go_test(
     name = "endtoend_test",
     srcs = ["basic_local_test.go"],
+    embed = [":endtoend"],
     tags = [
         "exclusive-if-local",
         "manual",
@@ -19,13 +20,29 @@ go_test(
     deps = [
         "//protocol",
         "//protocol/sol-implementation",
-        "//solgen/go/challengeV2gen",
-        "//solgen/go/rollupgen",
         "//state-manager",
         "//testing/endtoend/internal/backend",
         "//validator",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_offchainlabs_nitro//util/headerreader",
+        "@org_golang_x_sync//errgroup",
+    ],
+)
+
+go_library(
+    name = "endtoend",
+    testonly = 1,
+    srcs = [
+        "expect.go",
+        "helpers.go",
+    ],
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//protocol",
+        "//solgen/go/challengeV2gen",
+        "//solgen/go/rollupgen",
+        "//testing/endtoend/internal/backend",
     ],
 )

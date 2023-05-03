@@ -7,14 +7,13 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
 	"github.com/OffchainLabs/challenge-protocol-v2/validator"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/nitro/util/headerreader"
+	"golang.org/x/sync/errgroup"
 )
 
 type ChallengeScenario struct {
@@ -25,6 +24,7 @@ type ChallengeScenario struct {
 	BobStateManager   statemanager.Manager
 
 	// Expectations
+	Expectations []expect
 }
 
 type challengeProtocolTestConfig struct {
@@ -78,7 +78,10 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 				}
 				return sm
 			}(),
-			// TODO: Alice should win this challenge.
+			Expectations: []expect{
+				expectChallengeCompletedByOneStepProof,
+				expectAliceAndBobStaked,
+			},
 		},
 	} // TODO: Add more scenarios
 
@@ -110,64 +113,21 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		a.Start(ctx)
 		b.Start(ctx)
 
-		t.Log("DEBUG: Sleeping for 1m")
-		time.Sleep(time.Minute)
+		g, ctx := errgroup.WithContext(ctx)
+		for _, e := range scenario.Expectations {
+			fn := e // loop closure
+			g.Go(func() error {
+				return fn(t, ctx, be)
+			})
+		}
 
-		// TODO: Abstract this to be part of the scenario success criteria.
-
-		// Read contract events to ensure that Alice and Bob did stuff.
-		rc, err := rollupgen.NewRollupCore(rollup, be.Client())
-		if err != nil {
+		if err := g.Wait(); err != nil {
 			t.Fatal(err)
 		}
-		cmAddr, err := rc.ChallengeManager(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ecm, err := challengeV2gen.NewEdgeChallengeManager(cmAddr, be.Client())
-		if err != nil {
-			t.Fatal(err)
-		}
-		i, err := ecm.FilterEdgeAdded(nil, nil, nil, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for i.Next() {
-			t.Logf("DEBUG: Edge %#x added with origin ID %#x", i.Event.EdgeId, i.Event.OriginId)
-
-			edge, err := ecm.GetEdge(nil, i.Event.EdgeId)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("DEBUG: Edge staker %#x", edge.Staker)
-			switch edge.Staker {
-			case be.Alice().From:
-				t.Log("DEBUG: Alice staker")
-			case be.Bob().From:
-				t.Log("DEBUG: Bob staker")
-			default:
-				t.Log("unexpected staker")
-			}
-		}
-
-		// Ensure a challenge has ended with a one step proof.
-		var edgeConfirmed bool
-		i2, err2 := ecm.FilterEdgeConfirmedByOneStepProof(nil, nil, nil)
-		if err2 != nil {
-			t.Fatal(err2)
-		}
-		for i2.Next() {
-			t.Logf("DEBUG: Edge %#x confirmed by one step proof", i2.Event.EdgeId)
-			edgeConfirmed = true
-		}
-		if !edgeConfirmed {
-			t.Fatal("FAIL: edge not confirmed by one step proof")
-		}
-
-		t.Fail() // Temporary until some success criteria are added.
 	})
 }
 
+// setupValidator initializes a validator with the minimum required configuration.
 func setupValidator(ctx context.Context, be backend.Backend, rollup common.Address, sm statemanager.Manager, txOpts *bind.TransactOpts, name string) (*validator.Validator, error) {
 	hr := headerreader.New(be.Client(), func() *headerreader.Config {
 		return &headerreader.DefaultConfig
@@ -192,8 +152,6 @@ func setupValidator(ctx context.Context, be backend.Backend, rollup common.Addre
 		rollup,
 		validator.WithAddress(txOpts.From),
 		validator.WithName(name),
-		validator.WithNewAssertionCheckInterval(500*time.Millisecond),
-		validator.WithPostAssertionsInterval(time.Hour),
 	)
 	if err != nil {
 		return nil, err
