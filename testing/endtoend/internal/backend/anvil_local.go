@@ -126,17 +126,17 @@ func (a *AnvilLocal) Start() error {
 		"--chain-id=1002",
 	}
 
-	cmd := exec.CommandContext(a.ctx, binaryPath, args...)
+	cmd := exec.CommandContext(a.ctx, binaryPath, args...) // #nosec G204 -- Test only code.
 
 	// Pipe stdout and stderr to test logs directory, if known.
 	if outputsDir, ok := os.LookupEnv("TEST_UNDECLARED_OUTPUTS_DIR"); ok {
 		stdoutFileName := path.Join(outputsDir, "anvil_out.log")
 		stderrFileName := path.Join(outputsDir, "anvil_err.log")
-		stdout, err := os.Create(stdoutFileName)
+		stdout, err := os.Create(stdoutFileName) // #nosec G304 -- Test only code.
 		if err != nil {
 			return err
 		}
-		stderr, err := os.Create(stderrFileName)
+		stderr, err := os.Create(stderrFileName) // #nosec G304 -- Test only code.
 		if err != nil {
 			return err
 		}
