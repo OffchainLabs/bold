@@ -136,15 +136,8 @@ func setupAssertions(ctx context.Context, p *mocks.MockProtocol, s *mocks.MockSt
 			MockSeqNum:     protocol.AssertionSequenceNumber(i),
 			MockHeight:     uint64(i),
 			MockStateHash:  mockHash,
-			Prev:           util.Some(assertions[i-1].(*mocks.MockAssertion)),
 			MockPrevSeqNum: protocol.AssertionSequenceNumber(i - 1),
 		})
-		assertions = append(assertions, assertion)
-		p.On(
-			"AssertionBySequenceNum",
-			ctx,
-			protocol.AssertionSequenceNumber(i),
-		).Return(assertion, nil)
 		mockState := rollupgen.ExecutionState{
 			MachineStatus: uint8(protocol.MachineStatusFinished),
 			GlobalState: rollupgen.GlobalState(protocol.GoGlobalState{

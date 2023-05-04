@@ -229,29 +229,19 @@ func (v *Validator) findLatestValidAssertion(ctx context.Context) (protocol.Asse
 		return 0, err
 	}
 	latestConfirmed := latestConfirmedFetched.SeqNum()
-	bestAssertion := latestConfirmed
-	for s := latestConfirmed + 1; s < protocol.AssertionSequenceNumber(numAssertions); s++ {
-		a, err := v.chain.AssertionBySequenceNum(ctx, s)
-		if err != nil {
-			return 0, err
-		}
-		parent, err := a.PrevSeqNum()
-		if err != nil {
-			return 0, err
-		}
-		if parent != bestAssertion {
-			continue
-		}
-		info, err := v.chain.ReadAssertionCreationInfo(ctx, s)
+
+	for s := numAssertions - 1; s > uint64(latestConfirmed); s-- {
+		info, err := v.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionSequenceNumber(s))
 		if err != nil {
 			return 0, err
 		}
 		_, hasState := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState))
 		if hasState {
-			bestAssertion = s
+			return protocol.AssertionSequenceNumber(s), nil
 		}
 	}
-	return bestAssertion, nil
+
+	return latestConfirmed, nil
 }
 
 // validChildFromParent returns the assertion number of a child of the parent assertion number.
