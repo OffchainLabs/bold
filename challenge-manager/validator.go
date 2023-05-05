@@ -7,14 +7,12 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -39,7 +37,6 @@ type Validator struct {
 	assertionsLock                         sync.RWMutex
 	sequenceNumbersByParentStateCommitment map[common.Hash][]protocol.AssertionSequenceNumber
 	assertions                             map[protocol.AssertionSequenceNumber]protocol.Assertion
-	postAssertionsInterval                 time.Duration
 	timeRef                                util.TimeReference
 	edgeTrackerWakeInterval                time.Duration
 	newAssertionCheckInterval              time.Duration
@@ -55,6 +52,7 @@ func WithName(name string) Opt {
 // WithAddress gives a staker address to the validator.
 func WithAddress(addr common.Address) Opt {
 	return func(val *Validator) {
+
 		val.address = addr
 	}
 }
@@ -63,13 +61,6 @@ func WithAddress(addr common.Address) Opt {
 func WithTimeReference(ref util.TimeReference) Opt {
 	return func(val *Validator) {
 		val.timeRef = ref
-	}
-}
-
-// WithPostAssertionsInterval specifies how often the validator should try to post assertions.
-func WithPostAssertionsInterval(d time.Duration) Opt {
-	return func(val *Validator) {
-		val.postAssertionsInterval = d
 	}
 }
 
@@ -104,7 +95,6 @@ func New(
 		chain:                                  chain,
 		stateManager:                           stateManager,
 		address:                                common.Address{},
-		postAssertionsInterval:                 time.Second * 5,
 		createdAssertions:                      make(map[common.Hash]protocol.Assertion),
 		sequenceNumbersByParentStateCommitment: make(map[common.Hash][]protocol.AssertionSequenceNumber),
 		assertions:                             make(map[protocol.AssertionSequenceNumber]protocol.Assertion),
@@ -148,124 +138,10 @@ func New(
 
 func (v *Validator) Start(ctx context.Context) {
 	go v.pollForAssertions(ctx)
-	go v.postAssertionsPeriodically(ctx)
 	log.WithField(
 		"address",
 		v.address.Hex(),
 	).Info("Started validator client")
-}
-
-func (v *Validator) postAssertionsPeriodically(ctx context.Context) {
-	if _, err := v.postLatestAssertion(ctx); err != nil {
-		log.WithError(err).Error("Could not submit latest assertion to L1")
-	}
-	ticker := time.NewTicker(v.postAssertionsInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if _, err := v.postLatestAssertion(ctx); err != nil {
-				log.WithError(err).Error("Could not submit latest assertion to L1")
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// Posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
-// TODO: Include leaf creation validity conditions which are more complex than this.
-// For example, a validator must include messages from the inbox that were not included
-// by the last validator in the last leaf's creation.
-func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion, error) {
-	// Ensure that we only build on a valid parent from this validator's perspective.
-	// the validator should also have ready access to historical commitments to make sure it can select
-	// the valid parent based on its commitment state root.
-	parentAssertionSeq, err := v.findLatestValidAssertion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	parentAssertion, err := v.chain.AssertionBySequenceNum(ctx, parentAssertionSeq)
-	if err != nil {
-		return nil, err
-	}
-	parentAssertionStateHash, err := parentAssertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
-	parentAssertionState, err := v.stateManager.AssertionExecutionState(ctx, parentAssertionStateHash)
-	if err != nil {
-		return nil, err
-	}
-	assertionToCreate, err := v.stateManager.LatestAssertionCreationData(ctx)
-	if err != nil {
-		return nil, err
-	}
-	assertion, err := v.chain.CreateAssertion(
-		ctx,
-		parentAssertionState,
-		assertionToCreate.State,
-		assertionToCreate.InboxMaxCount,
-	)
-	switch {
-	case errors.Is(err, solimpl.ErrAlreadyExists):
-		return nil, errors.Wrap(err, "assertion already exists, was unable to post")
-	case err != nil:
-		return nil, err
-	}
-	assertionState, err := assertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
-	logFields := logrus.Fields{
-		"name":               v.name,
-		"parentStateHash":    util.Trunc(parentAssertionStateHash.Bytes()),
-		"assertionStateHash": util.Trunc(assertionState.Bytes()),
-	}
-	log.WithFields(logFields).Info("Submitted latest L2 state claim as an assertion to L1")
-
-	// Keep track of the created assertion locally.
-	v.assertionsLock.Lock()
-	v.assertions[assertion.SeqNum()] = assertion
-	v.sequenceNumbersByParentStateCommitment[parentAssertionStateHash] = append(
-		v.sequenceNumbersByParentStateCommitment[parentAssertionStateHash],
-		assertion.SeqNum(),
-	)
-	v.assertionsLock.Unlock()
-	return assertion, nil
-}
-
-// Finds the latest valid assertion sequence num a validator should build their new leaves upon. This walks
-// down from the number of assertions in the protocol down until it finds
-// an assertion that we have a state commitment for.
-func (v *Validator) findLatestValidAssertion(ctx context.Context) (protocol.AssertionSequenceNumber, error) {
-	numAssertions, err := v.chain.NumAssertions(ctx)
-	if err != nil {
-		return 0, err
-	}
-	latestConfirmedFetched, err := v.chain.LatestConfirmed(ctx)
-	if err != nil {
-		return 0, err
-	}
-	latestConfirmed := latestConfirmedFetched.SeqNum()
-	v.assertionsLock.RLock()
-	defer v.assertionsLock.RUnlock()
-	for s := protocol.AssertionSequenceNumber(numAssertions); s > latestConfirmed; s-- {
-		a, ok := v.assertions[s]
-		if !ok {
-			continue
-		}
-		stateHash, err := a.StateHash()
-		if err != nil {
-			return 0, err
-		}
-		if v.stateManager.HasStateCommitment(ctx, util.StateCommitment{
-			StateRoot: stateHash,
-		}) {
-			return a.SeqNum(), nil
-		}
-	}
-	return latestConfirmed, nil
 }
 
 // Processes new leaf creation events from the protocol that were not initiated by self.
