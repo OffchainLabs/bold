@@ -11,6 +11,10 @@ func NewMap[K comparable, V any]() *Map[K, V] {
 	return &Map[K, V]{items: make(map[K]V)}
 }
 
+func NewMapFromItems[K comparable, V any](m map[K]V) *Map[K, V] {
+	return &Map[K, V]{items: m}
+}
+
 func (s *Map[K, V]) Keys() []K {
 	s.RLock()
 	defer s.RUnlock()
@@ -32,6 +36,12 @@ func (s *Map[K, V]) Get(k K) (V, bool) {
 	defer s.RUnlock()
 	item, ok := s.items[k]
 	return item, ok
+}
+
+func (s *Map[K, V]) GetKnown(k K) V {
+	s.RLock()
+	defer s.RUnlock()
+	return s.items[k]
 }
 
 func (s *Map[K, V]) Has(k K) bool {

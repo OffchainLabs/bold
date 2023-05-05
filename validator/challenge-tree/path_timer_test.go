@@ -1,8 +1,10 @@
 package challengetree
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPathTimer_FlipFlop(t *testing.T) {
@@ -39,38 +41,41 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	)
 	// Child-relationship linking.
 	// Alice.
-	edges["0-16a"].lowerChild = "0-8a"
-	edges["0-16a"].upperChild = "8a-16a"
-	edges["0-8a"].lowerChild = "0-4a"
-	edges["0-8a"].upperChild = "4a-8a"
+	edges["0-16a"].lowerChildId = "0-8a"
+	edges["0-16a"].upperChildId = "8a-16a"
+	edges["0-8a"].lowerChildId = "0-4a"
+	edges["0-8a"].upperChildId = "4a-8a"
 	// Bob.
-	edges["0-16b"].lowerChild = "0-8b"
-	edges["0-16b"].upperChild = "8b-16b"
-	edges["0-8b"].lowerChild = "0-4a"
-	edges["0-8b"].upperChild = "4a-8b"
+	edges["0-16b"].lowerChildId = "0-8b"
+	edges["0-16b"].upperChildId = "8b-16b"
+	edges["0-8b"].lowerChildId = "0-4a"
+	edges["0-8b"].upperChildId = "4a-8b"
 
-	h := &helper{
-		edges: edges,
+	allEdges := threadsafe.NewMapFromItems(edges)
+	ct := &challengeTree{
+		edges:        allEdges,
+		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
+		rivaledEdges: threadsafe.NewSet[edgeId](),
 	}
 
 	// Edge was not created before time T5.
 	for i := 0; i < 5; i++ {
-		total := h.pathTimer(h.edges["4a-8a"], uint64(1))
+		total := ct.pathTimer(ct.edges.GetKnown("4a-8a"), uint64(1))
 		require.Equal(t, uint64(0), total)
 	}
 
 	// Test out Alice's timers.
-	total := h.pathTimer(h.edges["4a-8a"], 5)
+	total := ct.pathTimer(ct.edges.GetKnown("4a-8a"), 5)
 	require.Equal(t, uint64(2), total)
 	// TODO: Is this correct?
-	total = h.pathTimer(h.edges["4a-8a"], 6)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 6)
 	require.Equal(t, uint64(3), total)
 
 	// Test out Bob's timers (was created after Alice).
 	// Given Bob was never unrivaled, its edges should have a timer of 0.
-	total = h.pathTimer(h.edges["4a-8b"], 6)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 6)
 	require.Equal(t, uint64(0), total)
-	total = h.pathTimer(h.edges["4a-8b"], 7)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 7)
 	require.Equal(t, uint64(0), total)
 
 	// Add a in a new level zero edge that will bisect to
@@ -88,38 +93,38 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		withCreationTime("4a-8c", 12),
 	)
 	for k, v := range lateEdges {
-		h.edges[k] = v
+		ct.edges.Insert(k, v)
 	}
 
 	// Ensure Alice's path timer does not change if this occurs.
-	total = h.pathTimer(h.edges["4a-8a"], 5)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 5)
 	require.Equal(t, uint64(2), total)
 	// TODO: Is this correct?
-	total = h.pathTimer(h.edges["4a-8a"], 6)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 6)
 	require.Equal(t, uint64(3), total)
 
 	// Ensure Bob's path timer does not change if this occurs.
 	// Given Bob was never unrivaled, its edges should have a timer of 0.
-	total = h.pathTimer(h.edges["4a-8b"], 6)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 6)
 	require.Equal(t, uint64(0), total)
-	total = h.pathTimer(h.edges["4a-8b"], 7)
+	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 7)
 	require.Equal(t, uint64(0), total)
 }
 
-func buildEdges(allEdges ...*edg) map[edgeId]*edg {
-	m := make(map[edgeId]*edg)
+func buildEdges(allEdges ...*edge) map[edgeId]*edge {
+	m := make(map[edgeId]*edge)
 	for _, e := range allEdges {
 		m[e.id] = e
 	}
 	return m
 }
 
-func withCreationTime(id string, createdAt uint64) *edg {
-	return &edg{
-		id:           edgeId(id),
-		mutualId:     id[:len(id)-1], // Strip off the last char.
-		lowerChild:   "",
-		upperChild:   "",
+func withCreationTime(id string, createdAt uint64) *edge {
+	return &edge{
+		id: edgeId(id),
+		//mutualId:     id[:len(id)-1], // Strip off the last char.
+		lowerChildId: "",
+		upperChildId: "",
 		creationTime: createdAt,
 	}
-}main
+}

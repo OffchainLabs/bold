@@ -6,8 +6,6 @@ type unsigned interface {
 	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
-type edgeId string
-
 func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
 	if t < e.creationTime {
 		return 0
@@ -33,8 +31,8 @@ func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
 }
 
 // Naive parent lookup just for testing purposes.
-func (ct *challengeTree) parents(e *edge) []string {
-	p := make([]string, 0)
+func (ct *challengeTree) parents(e *edge) []edgeId {
+	p := make([]edgeId, 0)
 	for _, k := range ct.edges.Keys() {
 		edge, _ := ct.edges.Get(k)
 		if edge.lowerChildId == e.id || edge.upperChildId == e.id {
@@ -95,20 +93,6 @@ func (ct *challengeTree) rivalCreationTimes(e *edge) []uint64 {
 		timers[i] = rival.creationTime
 	}
 	return timers
-}
-
-func (ct *challengeTree) rivals(e *edge) []string {
-	rivals := make([]string, 0)
-	for _, k := range ct.edges.Keys() {
-		potentialRival, _ := ct.edges.Get(k)
-		if k == e.id {
-			continue
-		}
-		if potentialRival.mutualId == e.mutualId {
-			rivals = append(rivals, k)
-		}
-	}
-	return rivals
 }
 
 func min[T unsigned](items []T) util.Option[T] {
