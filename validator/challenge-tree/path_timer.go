@@ -8,19 +8,7 @@ type unsigned interface {
 
 type edgeId string
 
-type edg struct {
-	id           edgeId
-	mutualId     string // maybe id minus last char for testing?
-	lowerChild   edgeId
-	upperChild   edgeId
-	creationTime uint64
-}
-
-type helper struct {
-	edges map[edgeId]*edg
-}
-
-func (h *helper) pathTimer(e *edg, t uint64) uint64 {
+func (ct *challengeTree) pathTimer(e *edg, t uint64) uint64 {
 	if t < e.creationTime {
 		return 0
 	}
@@ -45,7 +33,7 @@ func (h *helper) pathTimer(e *edg, t uint64) uint64 {
 }
 
 // Naive parent lookup just for testing purposes.
-func (h *helper) parents(e *edg) []edgeId {
+func (ct *challengeTree) parents(e *edg) []edgeId {
 	p := make([]edgeId, 0)
 	for _, edge := range h.edges {
 		if edge.lowerChild == e.id || edge.upperChild == e.id {
@@ -55,7 +43,7 @@ func (h *helper) parents(e *edg) []edgeId {
 	return p
 }
 
-func (h *helper) localTimer(e *edg, t uint64) uint64 {
+func (ct *challengeTree) localTimer(e *edg, t uint64) uint64 {
 	if t < e.creationTime {
 		return 0
 	}
@@ -72,12 +60,12 @@ func (h *helper) localTimer(e *edg, t uint64) uint64 {
 	return tRival - e.creationTime
 }
 
-func (h *helper) tRival(e *edg) util.Option[uint64] {
+func (ct *challengeTree) tRival(e *edg) util.Option[uint64] {
 	rivalTimes := h.rivalCreationTimes(e)
 	return min(rivalTimes)
 }
 
-func (h *helper) unrivaledAtTime(e *edg, t uint64) bool {
+func (ct *challengeTree) unrivaledAtTime(e *edg, t uint64) bool {
 	rivalTimes := h.rivalCreationTimes(e)
 	if len(rivalTimes) == 0 {
 		return true
@@ -92,7 +80,7 @@ func (h *helper) unrivaledAtTime(e *edg, t uint64) bool {
 	return true
 }
 
-func (h *helper) rivalCreationTimes(e *edg) []uint64 {
+func (ct *challengeTree) rivalCreationTimes(e *edg) []uint64 {
 	rivals := h.rivals(e)
 	if len(rivals) == 0 {
 		return make([]uint64, 0)
@@ -108,7 +96,7 @@ func (h *helper) rivalCreationTimes(e *edg) []uint64 {
 	return timers
 }
 
-func (h *helper) rivals(e *edg) []edgeId {
+func (ct *challengeTree) rivals(e *edg) []edgeId {
 	rivals := make([]edgeId, 0)
 	for edgeId, potentialRival := range h.edges {
 		if edgeId == e.id {
@@ -151,4 +139,4 @@ func max[T unsigned](items []T) util.Option[T] {
 		}
 	}
 	return util.Some(m)
-}ain
+}

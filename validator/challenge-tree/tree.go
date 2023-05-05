@@ -10,7 +10,8 @@ import (
 )
 
 type edge struct {
-	id           protocol.EdgeId
+	id           string
+	mutualId     string
 	edgeType     protocol.EdgeType
 	startHeight  uint64
 	startCommit  common.Hash
@@ -18,9 +19,11 @@ type edge struct {
 	endCommit    common.Hash
 	originId     common.Hash
 	claimId      common.Hash
-	lowerChildId common.Hash
 	upperChildId common.Hash
 	allHeights   *edgeHeights
+	lowerChildId   string
+	upperChildId   string
+	creationTime uint64
 }
 
 type commitHeights struct {
@@ -104,10 +107,9 @@ func (ct *challengeTree) addEdge(eg *edge) {
 		}
 	}
 
-	// TODO: We only need to check that we agree with the edge's start commitment,
-	// and then we will necessarily track all edges we care about.
-	// If this is an honest edge from our perspective, we keep track
-	// of it as such in our implementation.
+	// We only need to check that we agree with the edge's start commitment,
+	// and then we will necessarily track all edges we care about for the sake
+	// of honest edge confirmations.
 	if ct.histChecker.AgreesWithStartHistoryCommitment(
 		eg.claimHeights(),
 		eg.startCommit,
@@ -145,70 +147,10 @@ func (ct *challengeTree) updateCumulativeTimers() {
 	}
 	blockEdge := ct.honestBlockChalLevelZeroEdge.Unwrap()
 	ct.innerCumulativeUpdate(0, blockEdge.id)
-}
-
-func (ct *challengeTree) innerCumulativeUpdate(
-	cumulativeUnrivaledTime uint64,
-	edgeId protocol.EdgeId,
-) {
-	edge, _ := ct.edges.Get(edgeId)
-	blocksUnrivaled := ct.chain.timeUnrivaled(edgeId)
-	total := blocksUnrivaled + cumulativeUnrivaledTime
-	ct.honestUnrivaledCumulativeTimers.Insert(edgeId, total)
-	if !hasChildren(edge) {
-		// If the edge has length 1, we then perform a few special checks.
-		if edgeLength(edge) == 1 {
-
-			// In case the edge is a small step challenge of length 1, we simply return.
-			if edge.edgeType == protocol.SmallStepChallengeEdge {
-				return
-			}
-
-			// If the edge is unrivaled, we return.
-			hasRival := ct.rivaledEdges.Has(edgeId)
-			if !hasRival {
-				return
-			}
-
-			// If the edge is a block challenge, we continue the recursion starting from the honest
-			// big step level zero edge, if it exists.
-			if edge.edgeType == protocol.BlockChallengeEdge {
-				if ct.honestBigStepChalLevelZeroEdge.IsNone() {
-					return
-				}
-				honestLowerLevelEdge := ct.honestBigStepChalLevelZeroEdge.Unwrap()
-
-				// Defensive check ensuring the honest level zero edge one challenge level below
-				// claims the current edge id as its claim id.
-				if honestLowerLevelEdge.claimId != common.Hash(edgeId) {
-					return
-				}
-
-				ct.innerCumulativeUpdate(total, honestLowerLevelEdge.id)
-				return
-			}
-			// If the edge is a big step challenge, we continue the recursion starting from the honest
-			// big step level zero edge, if it exists.
-			if edge.edgeType == protocol.BigStepChallengeEdge {
-				if ct.honestSmallStepChalLevelZeroEdge.IsNone() {
-					return
-				}
-				honestLowerLevelEdge := ct.honestSmallStepChalLevelZeroEdge.Unwrap()
-
-				// Defensive check ensuring the honest level zero edge one challenge level below
-				// claims the current edge id as its claim id.
-				if honestLowerLevelEdge.claimId != common.Hash(edgeId) {
-					return
-				}
-
-				ct.innerCumulativeUpdate(total, honestLowerLevelEdge.id)
-			}
-		}
-		return
+	for _, k := range ct.edges.Keys() {
+		path
 	}
-	// We recursively update the children's timers.
-	ct.innerCumulativeUpdate(total, protocol.EdgeId(edge.lowerChildId))
-	ct.innerCumulativeUpdate(total, protocol.EdgeId(edge.upperChildId))
+	ct.edges.Insert(k protocol.EdgeId, v *edge)
 }
 
 func (ct *challengeTree) rivalIds(edge *edge) []protocol.EdgeId {

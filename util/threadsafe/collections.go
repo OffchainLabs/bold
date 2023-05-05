@@ -11,7 +11,7 @@ func NewMap[K comparable, V any]() *Map[K, V] {
 	return &Map[K, V]{items: make(map[K]V)}
 }
 
-func (s *Map[K, V]) Keys(k K, v V) []K {
+func (s *Map[K, V]) Keys() []K {
 	s.RLock()
 	defer s.RUnlock()
 	keys := make([]K, 0, len(s.items))
