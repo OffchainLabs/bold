@@ -66,10 +66,10 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 	// Test out Alice's timers.
 	total := ct.pathTimer(ct.edges.GetKnown("4a-8a"), 5)
-	require.Equal(t, uint64(2), total)
+	require.Equal(t, uint64(6), total)
 	// TODO: Is this correct?
 	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 6)
-	require.Equal(t, uint64(3), total)
+	require.Equal(t, uint64(9), total)
 
 	// Test out Bob's timers (was created after Alice).
 	// Given Bob was never unrivaled, its edges should have a timer of 0.

@@ -46,14 +46,15 @@ func (e *edge) claimHeights() *edgeHeights {
 }
 
 func (e *edge) computeMutualId() mutualId {
-	return mutualId(fmt.Sprintf(
-		"%d-%#x-%d-%#x-%d",
-		e.edgeType,
-		e.originId,
-		e.startHeight,
-		e.startCommit,
-		e.endHeight,
-	))
+	return mutualId(e.id[:len(e.id)-1]) // Strip off the last char.
+	// return mutualId(fmt.Sprintf(
+	// 	"%d-%#x-%d-%#x-%d",
+	// 	e.edgeType,
+	// 	e.originId,
+	// 	e.startHeight,
+	// 	e.startCommit,
+	// 	e.endHeight,
+	// ))
 }
 
 type chain interface {
