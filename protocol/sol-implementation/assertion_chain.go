@@ -382,8 +382,7 @@ func transact(ctx context.Context, backend ChainBackend, headerReder *headerread
 	if commiter, ok := backend.(ChainCommitter); ok {
 		commiter.Commit()
 	}
-	headerReder.WaitForTxApproval(ctxIn context.Context, tx *types.Transaction)
-	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
+	receipt, err := bind.WaitMined(ctx, backend, tx)
 	if err != nil {
 		return nil, err
 	}

@@ -36,7 +36,8 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	case edgeStarted:
 		canOsp, err := canOneStepProve(et.edge)
 		if err != nil {
-			return errors.Wrap(err, "could not check if edge can be one step proven")
+			log.WithFields(fields).WithError(err).Error("could not check if edge can be one step proven")
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		if canOsp {
 			return et.fsm.Do(edgeHandleOneStepProof{})
@@ -50,7 +51,8 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
-			return errors.Wrap(err, "could not check if edge is at one step fork")
+			log.WithFields(fields).WithError(err).Error("could not check if edge has length one rival")
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		if atOneStepFork {
 			return et.fsm.Do(edgeHandleOneStepFork{})
@@ -72,7 +74,8 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
-			return errors.Wrap(err, "could not submit one step proof")
+			log.WithFields(fields).WithError(err).Error("could not submit one step proof")
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
@@ -82,7 +85,8 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return fmt.Errorf("bad source event: %s", event)
 		}
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			return errors.Wrap(err, "could not open subchallenge leaf")
+			log.WithFields(fields).WithError(err).Error("could not open subchallenge leaf")
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeTryToConfirm{})
 	// Edge should bisect.
@@ -124,7 +128,8 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	case edgePresumptive:
 		hasRival, err := et.edge.HasRival(ctx)
 		if err != nil {
-			return errors.Wrap(err, "could not check if presumptive")
+			log.WithError(err).WithFields(fields).Error("Could not check if presumptive")
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		if hasRival {
 			return et.fsm.Do(edgeBackToStart{})
@@ -478,8 +483,8 @@ func canOneStepProve(edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
 	// Can never happen in the protocol, but added as an additional defensive check.
-	if start > end {
-		return false, fmt.Errorf("start height %d cannot be > end height %d", start, end)
+	if start >= end {
+		return false, fmt.Errorf("start height %d cannot be >= end height %d", start, end)
 	}
 	return end-start == 1 && edge.GetType() == protocol.SmallStepChallengeEdge, nil
 }
