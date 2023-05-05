@@ -19,7 +19,6 @@ type edge struct {
 	endCommit    common.Hash
 	originId     common.Hash
 	claimId      common.Hash
-	upperChildId common.Hash
 	allHeights   *edgeHeights
 	lowerChildId   string
 	upperChildId   string
@@ -81,10 +80,10 @@ type challengeTree struct {
 	chain                            chain
 	metadataReader                   edgeMetadataReader
 	histChecker                      HistoryChecker
-	edges                            *threadsafe.Map[protocol.EdgeId, *edge]
-	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
-	rivaledEdges                     *threadsafe.Set[protocol.EdgeId]
-	honestUnrivaledCumulativeTimers  *threadsafe.Map[protocol.EdgeId, uint64]
+	edges                            *threadsafe.Map[string, *edge]
+	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Set[string]]
+	rivaledEdges                     *threadsafe.Set[string]
+	honestUnrivaledCumulativeTimers  *threadsafe.Map[string, uint64]
 	honestBlockChalLevelZeroEdge     util.Option[*edge]
 	honestBigStepChalLevelZeroEdge   util.Option[*edge]
 	honestSmallStepChalLevelZeroEdge util.Option[*edge]

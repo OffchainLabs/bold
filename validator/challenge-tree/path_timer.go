@@ -8,19 +8,19 @@ type unsigned interface {
 
 type edgeId string
 
-func (ct *challengeTree) pathTimer(e *edg, t uint64) uint64 {
+func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
 	if t < e.creationTime {
 		return 0
 	}
-	local := h.localTimer(e, t)
-	edgeParents := h.parents(e)
+	local := ct.localTimer(e, t)
+	edgeParents := ct.parents(e)
 	parentTimers := make([]uint64, len(edgeParents))
 	for i, parent := range edgeParents {
-		parentEdge, ok := h.edges[parent]
+		parentEdge, ok := ct.edges.Get(parent)
 		if !ok {
 			panic("should not happen")
 		}
-		parentTimers[i] = h.pathTimer(
+		parentTimers[i] = ct.pathTimer(
 			parentEdge,
 			e.creationTime,
 		)
@@ -33,40 +33,41 @@ func (ct *challengeTree) pathTimer(e *edg, t uint64) uint64 {
 }
 
 // Naive parent lookup just for testing purposes.
-func (ct *challengeTree) parents(e *edg) []edgeId {
-	p := make([]edgeId, 0)
-	for _, edge := range h.edges {
-		if edge.lowerChild == e.id || edge.upperChild == e.id {
+func (ct *challengeTree) parents(e *edge) []string {
+	p := make([]string, 0)
+	for _, k := range ct.edges.Keys() {
+		edge, _ := ct.edges.Get(k)
+		if edge.lowerChildId == e.id || edge.upperChildId == e.id {
 			p = append(p, edge.id)
 		}
 	}
 	return p
 }
 
-func (ct *challengeTree) localTimer(e *edg, t uint64) uint64 {
+func (ct *challengeTree) localTimer(e *edge, t uint64) uint64 {
 	if t < e.creationTime {
 		return 0
 	}
 	// If no rival at time t, then the local timer is defined
 	// as t - t_creation(e).
-	if h.unrivaledAtTime(e, t) {
+	if ct.unrivaledAtTime(e, t) {
 		return t - e.creationTime
 	}
 	// Else we return tRival minus the edge's creation time.
-	tRival := h.tRival(e).Unwrap()
+	tRival := ct.tRival(e).Unwrap()
 	if e.creationTime >= tRival {
 		return 0
 	}
 	return tRival - e.creationTime
 }
 
-func (ct *challengeTree) tRival(e *edg) util.Option[uint64] {
-	rivalTimes := h.rivalCreationTimes(e)
+func (ct *challengeTree) tRival(e *edge) util.Option[uint64] {
+	rivalTimes := ct.rivalCreationTimes(e)
 	return min(rivalTimes)
 }
 
-func (ct *challengeTree) unrivaledAtTime(e *edg, t uint64) bool {
-	rivalTimes := h.rivalCreationTimes(e)
+func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) bool {
+	rivalTimes := ct.rivalCreationTimes(e)
 	if len(rivalTimes) == 0 {
 		return true
 	}
@@ -80,14 +81,14 @@ func (ct *challengeTree) unrivaledAtTime(e *edg, t uint64) bool {
 	return true
 }
 
-func (ct *challengeTree) rivalCreationTimes(e *edg) []uint64 {
-	rivals := h.rivals(e)
+func (ct *challengeTree) rivalCreationTimes(e *edge) []uint64 {
+	rivals := ct.rivals(e)
 	if len(rivals) == 0 {
 		return make([]uint64, 0)
 	}
 	timers := make([]uint64, len(rivals))
 	for i, rivalId := range rivals {
-		rival, ok := h.edges[rivalId]
+		rival, ok := ct.edges.Get(rivalId)
 		if !ok {
 			panic("should not happen")
 		}
@@ -96,14 +97,15 @@ func (ct *challengeTree) rivalCreationTimes(e *edg) []uint64 {
 	return timers
 }
 
-func (ct *challengeTree) rivals(e *edg) []edgeId {
-	rivals := make([]edgeId, 0)
-	for edgeId, potentialRival := range h.edges {
-		if edgeId == e.id {
+func (ct *challengeTree) rivals(e *edge) []string {
+	rivals := make([]string, 0)
+	for _, k := range ct.edges.Keys() {
+		potentialRival, _ := ct.edges.Get(k)
+		if k == e.id {
 			continue
 		}
 		if potentialRival.mutualId == e.mutualId {
-			rivals = append(rivals, edgeId)
+			rivals = append(rivals, k)
 		}
 	}
 	return rivals
