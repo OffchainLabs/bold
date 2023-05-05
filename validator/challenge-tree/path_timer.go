@@ -20,7 +20,7 @@ func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
 		}
 		parentTimers[i] = ct.pathTimer(
 			parentEdge,
-			e.creationTime,
+			t,
 		)
 	}
 	maxTimerOpt := max(parentTimers)
