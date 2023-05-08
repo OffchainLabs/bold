@@ -1,57 +1,65 @@
 package challengetree
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/stretchr/testify/require"
 )
 
+// The following tests checks a scenario where the honest
+// and dishonest parties take turns making challenge moves,
+// and as a result, their edges will be unrivaled for some time,
+// contributing to the path timer of edges we will query in this test.
+//
+// We first setup the following challenge tree, where branch `a` is honest.
+//
+//	 0-----4a----- 8a-------16a
+//		     \------8b-------16b
+//
+// Here are the creation times of each edge:
+//
+//	Alice (honest)
+//	  0-16a        = T1
+//	  0-8a, 8a-16a = T3
+//	  0-4a, 4a-8a  = T5
+//
+//	Bob (evil)
+//	  0-16b        = T2
+//	  0-8b, 8b-16b = T4
+//	  4a-8b        = T6
+//
+// In this contrived example, Alice and Bob's edges will have
+// a time interval of 1 in which they are unrivaled.
 func TestPathTimer_FlipFlop(t *testing.T) {
-	t.Skip()
-	// Setup the following challenge tree, where
-	// branch `a` is honest.
-	//
-	// 0-----4a----- 8a-------16a
-	//        \------8b-------16b
-	//
-	// Here are the creation times of each edge:
-	//
-	//   Alice
-	//     0-16a        = T1
-	//     0-8a, 8a-16a = T3
-	//     0-4a, 4a-8a  = T5
-	//
-	//   Bob
-	//     0-16b        = T2
-	//     0-8b, 8b-16b = T4
-	//     4a-8b        = T6
-	//
 	edges := buildEdges(
 		// Alice.
-		withCreationTime("0-16a", 1),
-		withCreationTime("8a-16a", 3),
-		withCreationTime("0-8a", 3),
-		withCreationTime("4a-8a", 5),
-		withCreationTime("0-4a", 5),
+		withCreationTime(t, "assertionA", "blk-0.a-16.a", 1),
+		withCreationTime(t, "assertionA", "blk-8.a-16.a", 3),
+		withCreationTime(t, "assertionA", "blk-0.a-8.a", 3),
+		withCreationTime(t, "assertionA", "blk-4.a-8.a", 5),
+		withCreationTime(t, "assertionA", "blk-0.a-4.a", 5),
 		// Bob.
-		withCreationTime("0-16b", 2),
-		withCreationTime("8b-16b", 4),
-		withCreationTime("0-8b", 4),
-		withCreationTime("4a-8b", 6),
+		withCreationTime(t, "assertionA", "blk-0.a-16.b", 2),
+		withCreationTime(t, "assertionA", "blk-8.b-16.b", 4),
+		withCreationTime(t, "assertionA", "blk-0.a-8.b", 4),
+		withCreationTime(t, "assertionA", "blk-4.a-8.b", 6),
 	)
 	// Child-relationship linking.
 	// Alice.
-	edges["0-16a"].lowerChildId = "0-8a"
-	edges["0-16a"].upperChildId = "8a-16a"
-	edges["0-8a"].lowerChildId = "0-4a"
-	edges["0-8a"].upperChildId = "4a-8a"
+	edges["blk-0.a-16.a"].lowerChildId = "blk-0.a-8.a"
+	edges["blk-0.a-16.a"].upperChildId = "blk-8.a-16.a"
+	edges["blk-0.a-8.a"].lowerChildId = "blk-0.a-4.a"
+	edges["blk-0.a-8.a"].upperChildId = "blk-4.a-8.a"
 	// Bob.
-	edges["0-16b"].lowerChildId = "0-8b"
-	edges["0-16b"].upperChildId = "8b-16b"
-	edges["0-8b"].lowerChildId = "0-4a"
-	edges["0-8b"].upperChildId = "4a-8b"
+	edges["blk-0.a-16.b"].lowerChildId = "blk-0.a-8.b"
+	edges["blk-0.a-16.b"].upperChildId = "blk-8.b-16.b"
+	edges["blk-0.a-8.b"].lowerChildId = "blk-0.a-4.a"
+	edges["blk-0.a-8.b"].upperChildId = "blk-4.a-8.b"
 
 	allEdges := threadsafe.NewMapFromItems(edges)
 	ct := &challengeTree{
@@ -60,67 +68,89 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		rivaledEdges: threadsafe.NewSet[edgeId](),
 	}
 
-	// Edge was not created before time T5.
-	for i := 0; i < 5; i++ {
-		total, err := ct.pathTimer(ct.edges.Get("4a-8a"), uint64(1))
-		require.NoError(t, err)
-		require.Equal(t, uint64(0), total)
+	// We then set up the rival relationships in the challenge tree.
+	// All edges are rivaled in this example.
+	for _, e := range edges {
+		ct.rivaledEdges.Insert(e.id)
 	}
+	mutualA := edges["blk-0.a-16.a"].computeMutualId()
+	ct.mutualIds.Put(mutualA, threadsafe.NewSet[edgeId]())
+	mutuals := ct.mutualIds.Get(mutualA)
+	mutuals.Insert("blk-0.a-16.a")
+	mutuals.Insert("blk-0.a-16.b")
 
-	// Test out Alice's timers.
-	total, err := ct.pathTimer(ct.edges.Get("4a-8a"), 5)
-	require.NoError(t, err)
+	mutualB := edges["blk-0.a-16.b"].computeMutualId()
+	require.Equal(t, mutualA, mutualB)
 
-	require.Equal(t, uint64(6), total)
-	// TODO: Is this correct?
-	total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 6)
-	require.NoError(t, err)
-	require.Equal(t, uint64(9), total)
+	mutualC := edges["blk-8.b-16.b"].computeMutualId()
+	mutualD := edges["blk-8.a-16.a"].computeMutualId()
+	require.NotEqual(t, mutualC, mutualD)
 
-	// Test out Bob's timers (was created after Alice).
-	// Given Bob was never unrivaled, its edges should have a timer of 0.
-	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 6)
+	timer, err := ct.pathTimer(ct.edges.Get("blk-0.a-16.a"), uint64(1000))
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), total)
-	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 7)
-	require.NoError(t, err)
-	require.Equal(t, uint64(0), total)
+	t.Log(timer)
 
-	// Add a in a new level zero edge that will bisect to
-	// merge at height 4 with Alice.
-	//   Charlie
-	//     0-16c        = T10
-	//     0-8b, 8b-16b = T11
-	//     4a-8b        = T12
-	//
-	lateEdges := buildEdges(
-		// Charlie.
-		withCreationTime("0-16c", 10),
-		withCreationTime("8a-16c", 11),
-		withCreationTime("0-8c", 11),
-		withCreationTime("4a-8c", 12),
-	)
-	for k, v := range lateEdges {
-		ct.edges.Put(k, v)
-	}
+	// // Edge was not created before time T5.
+	// for i := 0; i < 5; i++ {
+	// 	total, err := ct.pathTimer(ct.edges.Get("4a-8a"), uint64(1))
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, uint64(0), total)
+	// }
 
-	// Ensure Alice's path timer does not change if this occurs.
-	total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 5)
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), total)
-	// TODO: Is this correct?
-	total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 6)
-	require.NoError(t, err)
-	require.Equal(t, uint64(3), total)
+	// // Test out Alice's timers.
+	// total, err := ct.pathTimer(ct.edges.Get("4a-8a"), 5)
+	// require.NoError(t, err)
 
-	// Ensure Bob's path timer does not change if this occurs.
-	// Given Bob was never unrivaled, its edges should have a timer of 0.
-	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 6)
-	require.NoError(t, err)
-	require.Equal(t, uint64(0), total)
-	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 7)
-	require.NoError(t, err)
-	require.Equal(t, uint64(0), total)
+	// require.Equal(t, uint64(6), total)
+	// // TODO: Is this correct?
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 6)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(9), total)
+
+	// // Test out Bob's timers (was created after Alice).
+	// // Given Bob was never unrivaled, its edges should have a timer of 0.
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 6)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(0), total)
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 7)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(0), total)
+
+	// // Add a in a new level zero edge that will bisect to
+	// // merge at height 4 with Alice.
+	// //   Charlie
+	// //     0-16c        = T10
+	// //     0-8b, 8b-16b = T11
+	// //     4a-8b        = T12
+	// //
+	// lateEdges := buildEdges(
+	// 	// Charlie.
+	// 	withCreationTime("0-16c", 10),
+	// 	withCreationTime("8a-16c", 11),
+	// 	withCreationTime("0-8c", 11),
+	// 	withCreationTime("4a-8c", 12),
+	// )
+	// for k, v := range lateEdges {
+	// 	ct.edges.Put(k, v)
+	// }
+
+	// // Ensure Alice's path timer does not change if this occurs.
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 5)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(2), total)
+	// // TODO: Is this correct?
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 6)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(3), total)
+
+	// // Ensure Bob's path timer does not change if this occurs.
+	// // Given Bob was never unrivaled, its edges should have a timer of 0.
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 6)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(0), total)
+	// total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 7)
+	// require.NoError(t, err)
+	// require.Equal(t, uint64(0), total)
 }
 
 func Test_localTimer(t *testing.T) {
@@ -129,11 +159,9 @@ func Test_localTimer(t *testing.T) {
 		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
 		rivaledEdges: threadsafe.NewSet[edgeId](),
 	}
-	edgeA := &edge{
-		id:           "0-1a",
-		creationTime: 3,
-	}
-	ct.edges.Put("0-1a", edgeA)
+	edgeA := withCreationTime(t, "assertionA", "blk-0.a-1.a", 3)
+	ct.edges.Put(edgeA.id, edgeA)
+
 	t.Run("zero if earlier than creation time", func(t *testing.T) {
 		timer, err := ct.localTimer(edgeA, edgeA.creationTime-1)
 		require.NoError(t, err)
@@ -151,24 +179,18 @@ func Test_localTimer(t *testing.T) {
 		require.Equal(t, uint64(1000), timer)
 	})
 	t.Run("if rivaled timer is difference between earliest rival and edge creation", func(t *testing.T) {
-		edgeB := &edge{
-			id:           "0-1b",
-			creationTime: 5,
-		}
-		edgeC := &edge{
-			id:           "0-1c",
-			creationTime: 10,
-		}
-		ct.edges.Put("0-1b", edgeB)
-		ct.edges.Put("0-1c", edgeC)
-		ct.rivaledEdges.Insert("0-1c")
-		ct.rivaledEdges.Insert("0-1a")
-		ct.rivaledEdges.Insert("0-1b")
-		ct.mutualIds.Put("0-1", threadsafe.NewSet[edgeId]())
-		mutuals := ct.mutualIds.Get("0-1")
-		mutuals.Insert("0-1a")
-		mutuals.Insert("0-1b")
-		mutuals.Insert("0-1c")
+		edgeB := withCreationTime(t, "assertionA", "blk-0.a-1.b", 5)
+		edgeC := withCreationTime(t, "assertionA", "blk-0.a-1.c", 10)
+		ct.edges.Put(edgeB.id, edgeB)
+		ct.edges.Put(edgeC.id, edgeC)
+		ct.rivaledEdges.Insert(edgeA.id)
+		ct.rivaledEdges.Insert(edgeB.id)
+		ct.rivaledEdges.Insert(edgeC.id)
+		ct.mutualIds.Put(edgeA.computeMutualId(), threadsafe.NewSet[edgeId]())
+		mutuals := ct.mutualIds.Get(edgeA.computeMutualId())
+		mutuals.Insert(edgeA.id)
+		mutuals.Insert(edgeB.id)
+		mutuals.Insert(edgeC.id)
 
 		// Should get same result regardless of specified time.
 		timer, err := ct.localTimer(edgeA, 100)
@@ -388,10 +410,36 @@ func buildEdges(allEdges ...*edge) map[edgeId]*edge {
 	return m
 }
 
-func withCreationTime(id string, createdAt uint64) *edge {
+func withCreationTime(t *testing.T, origin originId, id edgeId, createdAt uint64) *edge {
+	t.Helper()
+	items := strings.Split(string(id), "-")
+	var typ protocol.EdgeType
+	switch items[0] {
+	case "blk":
+		typ = protocol.BlockChallengeEdge
+	case "big":
+		typ = protocol.BigStepChallengeEdge
+	case "smol":
+		typ = protocol.SmallStepChallengeEdge
+	}
+	startData := strings.Split(items[1], ".")
+	startHeight, err := strconv.ParseUint(startData[0], 10, 64)
+	require.NoError(t, err)
+	startCommit := startData[1]
+
+	endData := strings.Split(items[2], ".")
+	endHeight, err := strconv.ParseUint(endData[0], 10, 64)
+	require.NoError(t, err)
+	endCommit := endData[1]
+
 	return &edge{
-		id: edgeId(id),
-		//mutualId:     id[:len(id)-1], // Strip off the last char.
+		edgeType:     typ,
+		originId:     origin,
+		id:           id,
+		startHeight:  startHeight,
+		startCommit:  commit(startCommit),
+		endHeight:    endHeight,
+		endCommit:    commit(endCommit),
 		lowerChildId: "",
 		upperChildId: "",
 		creationTime: createdAt,

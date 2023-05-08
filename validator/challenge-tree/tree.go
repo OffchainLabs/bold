@@ -1,6 +1,7 @@
 package challengetree
 
 import (
+	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
@@ -27,15 +28,14 @@ type edge struct {
 }
 
 func (e *edge) computeMutualId() mutualId {
-	return mutualId(e.id[:len(e.id)-1]) // Strip off the last char.
-	// return mutualId(fmt.Sprintf(
-	// 	"%d-%#x-%d-%#x-%d",
-	// 	e.edgeType,
-	// 	e.originId,
-	// 	e.startHeight,
-	// 	e.startCommit,
-	// 	e.endHeight,
-	// ))
+	return mutualId(fmt.Sprintf(
+		"%d-%s-%d-%s-%d",
+		e.edgeType,
+		e.originId,
+		e.startHeight,
+		e.startCommit,
+		e.endHeight,
+	))
 }
 
 // A challenge tree keeps track of edges whose history commitments the honest node agrees with.
