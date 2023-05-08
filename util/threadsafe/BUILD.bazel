@@ -1,0 +1,8 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "threadsafe",
+    srcs = ["collections.go"],
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe",
+    visibility = ["//visibility:public"],
+)
