@@ -1,5 +1,6 @@
 // Package threadsafe includes generic utilities for maps and sets that can
-// be safely used concurrently for type-safety at compile time.
+// be safely used concurrently for type-safety at compile time with the
+// bare minimum methods needed in this repository.
 package threadsafe
 
 import "sync"
@@ -36,27 +37,10 @@ func (s *Map[K, V]) Get(k K) V {
 	return s.items[k]
 }
 
-func (s *Map[K, V]) Has(k K) bool {
-	s.RLock()
-	defer s.RUnlock()
-	_, ok := s.items[k]
-	return ok
-}
-
-func (s *Map[K, V]) Delete(k K, v V) {
+func (s *Map[K, V]) Delete(k K) {
 	s.Lock()
 	defer s.Unlock()
 	delete(s.items, k)
-}
-
-func (s *Map[K, V]) CopyItems() map[K]V {
-	s.RLock()
-	defer s.RUnlock()
-	copied := make(map[K]V, len(s.items))
-	for k, v := range s.items {
-		copied[k] = v
-	}
-	return copied
 }
 
 func (s *Map[K, V]) ForEach(fn func(k K, v V)) {
@@ -104,16 +88,6 @@ func (s *Set[T]) Delete(t T) {
 	s.Lock()
 	defer s.Unlock()
 	delete(s.items, t)
-}
-
-func (s *Set[T]) CopyItems() map[T]bool {
-	s.RLock()
-	defer s.RUnlock()
-	copied := make(map[T]bool, len(s.items))
-	for k, v := range s.items {
-		copied[k] = v
-	}
-	return copied
 }
 
 func (s *Set[T]) ForEach(fn func(elem T)) {
