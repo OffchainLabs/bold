@@ -105,6 +105,13 @@ func (ct *challengeTree) earliestCreatedRivalTimestamp(e *edge) (util.Option[uin
 // Determines if an edge was unrivaled at timestamp T. If any rival existed
 // for the edge at T, this function will return false.
 func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) (bool, error) {
+	if t < e.creationTime {
+		return false, fmt.Errorf(
+			"edge creation timestamp %d less than specified time %d",
+			e.creationTime,
+			t,
+		)
+	}
 	rivals, err := ct.rivalsWithCreationTimes(e)
 	if err != nil {
 		return false, err

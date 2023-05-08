@@ -7,6 +7,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Test_unrivaledAtTime(t *testing.T) {
+	ct := &challengeTree{
+		edges:        threadsafe.NewMap[edgeId, *edge](),
+		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
+		rivaledEdges: threadsafe.NewSet[edgeId](),
+	}
+	ct.edges.Put("0-1a", &edge{
+		id:           "0-1a",
+		creationTime: 3,
+	})
+	t.Run("less than specified time", func(t *testing.T) {
+		_, err := ct.unrivaledAtTime(ct.edges.Get("0-1a"), 0)
+		require.ErrorContains(t, err, "less than specified time")
+	})
+	t.Run("no rivals", func(t *testing.T) {
+		unrivaled, err := ct.unrivaledAtTime(ct.edges.Get("0-1a"), 3)
+		require.NoError(t, err)
+		require.Equal(t, true, unrivaled)
+		unrivaled, err = ct.unrivaledAtTime(ct.edges.Get("0-1a"), 1000)
+		require.NoError(t, err)
+		require.Equal(t, true, unrivaled)
+	})
+}
+
 func Test_rivalsWithCreationTimes(t *testing.T) {
 	ct := &challengeTree{
 		edges:        threadsafe.NewMap[edgeId, *edge](),
