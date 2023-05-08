@@ -213,8 +213,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		require.Equal(t, uint64(0), timer)
 
 		// Now we look at the upper honest grandchild, 4.a-8.a. It will have spent
-		// 1 second unrivaled and will inherit the max local timer
-		// of its parents, for a total of 3.
+		// 1 second unrivaled.
 		edge = ct.edges.Get(id("blk-4.a-8.a"))
 		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)

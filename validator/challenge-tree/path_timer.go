@@ -87,7 +87,7 @@ func (ct *challengeTree) parents(childId protocol.EdgeId) []protocol.EdgeId {
 			p = append(p, edge.Id())
 			return nil
 		}
-		upperChild := edge.LowerChildSnapshot()
+		upperChild := edge.UpperChildSnapshot()
 		if !upperChild.IsNone() && upperChild.Unwrap() == childId {
 			p = append(p, edge.Id())
 			return nil
