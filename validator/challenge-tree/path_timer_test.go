@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"context"
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -149,7 +148,6 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		ct.rivaledEdges.Insert(e.Id())
 	}
 
-	ctx := context.Background()
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
 	mutual := edges["blk-0.a-16.a"].MutualId()
 
@@ -174,13 +172,13 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 	t.Run("querying path timer before creation should return zero", func(t *testing.T) {
 		edge := ct.edges.Get(id("blk-0.a-16.a"))
-		timer, err := ct.pathTimer(ctx, edge, edge.CreatedAtBlock()-1)
+		timer, err := ct.pathTimer(edge, edge.CreatedAtBlock()-1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
 	t.Run("at creation time should be zero if no parents", func(t *testing.T) {
 		edge := ct.edges.Get(id("blk-0.a-16.a"))
-		timer, err := ct.pathTimer(ctx, edge, edge.CreatedAtBlock())
+		timer, err := ct.pathTimer(edge, edge.CreatedAtBlock())
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
@@ -188,13 +186,13 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		// Top-level edge should have spent 1 second unrivaled
 		// as its rival was created 1 second after its creation.
 		edge := ct.edges.Get(id("blk-0.a-16.a"))
-		timer, err := ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err := ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), timer)
 
 		// Its rival should have a timer of 0 as was rivaled on creation.
 		edge = ct.edges.Get(id("blk-0.a-16.b"))
-		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 
@@ -202,26 +200,26 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		// 1 second unrivaled and will inherit the max local timer
 		// of its parents, which is 1 for a total of 2.
 		edge = ct.edges.Get(id("blk-0.a-8.a"))
-		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), timer)
 
 		// Its rival will have a timer of 0 as was rivaled on creation.
 		edge = ct.edges.Get(id("blk-0.a-8.b"))
-		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 
 		// Now we look at the upper honest grandchild, 4.a-8.a. It will have spent
 		// 1 second unrivaled.
 		edge = ct.edges.Get(id("blk-4.a-8.a"))
-		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
 
 		// Its rival will have a timer of 0 as was rivaled on creation.
 		edge = ct.edges.Get(id("blk-4.a-8.b"))
-		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 
@@ -233,14 +231,14 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 		// Querying it at creation time+1 should just have the path timers
 		// of its ancestors that count, which is a total of 3.
-		timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
 
 		// Continuing to query it at time T+i should increase the timer
 		// as it is unrivaled.
 		for i := uint64(2); i < 10; i++ {
-			timer, err = ct.pathTimer(ctx, edge, edge.CreatedAtBlock()+i)
+			timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+i)
 			require.NoError(t, err)
 			require.Equal(t, uint64(2)+i, timer)
 		}
@@ -275,7 +273,6 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		}
 
 		// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
-		ctx := context.Background()
 		mutual := edges["blk-0.a-16.c"].MutualId()
 
 		ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
@@ -299,19 +296,19 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 		// The path timers of the newly created edges should count
 		// towards the unrivaled edge at the lowest level.
-		timer, err := ct.pathTimer(ctx, edge, lastCreated.CreatedAtBlock())
+		timer, err := ct.pathTimer(edge, lastCreated.CreatedAtBlock())
 		require.NoError(t, err)
 		require.Equal(t, uint64(15), timer)
 
-		timer, err = ct.pathTimer(ctx, edge, lastCreated.CreatedAtBlock()+1)
+		timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(16), timer)
 
-		timer, err = ct.pathTimer(ctx, edge, lastCreated.CreatedAtBlock()+2)
+		timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+2)
 		require.NoError(t, err)
 		require.Equal(t, uint64(17), timer)
 
-		timer, err = ct.pathTimer(ctx, edge, lastCreated.CreatedAtBlock()+3)
+		timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+3)
 		require.NoError(t, err)
 		require.Equal(t, uint64(18), timer)
 	})
@@ -326,20 +323,19 @@ func Test_localTimer(t *testing.T) {
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
 	ct.edges.Put(edgeA.Id(), edgeA)
 
-	ctx := context.Background()
 	t.Run("zero if earlier than creation time", func(t *testing.T) {
-		timer, err := ct.localTimer(ctx, edgeA, edgeA.creationTime-1)
+		timer, err := ct.localTimer(edgeA, edgeA.creationTime-1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
 	t.Run("no rival is simply difference between T and creation time", func(t *testing.T) {
-		timer, err := ct.localTimer(ctx, edgeA, edgeA.creationTime)
+		timer, err := ct.localTimer(edgeA, edgeA.creationTime)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
-		timer, err = ct.localTimer(ctx, edgeA, edgeA.creationTime+3)
+		timer, err = ct.localTimer(edgeA, edgeA.creationTime+3)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
-		timer, err = ct.localTimer(ctx, edgeA, edgeA.creationTime+1000)
+		timer, err = ct.localTimer(edgeA, edgeA.creationTime+1000)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1000), timer)
 	})
@@ -351,7 +347,6 @@ func Test_localTimer(t *testing.T) {
 		ct.rivaledEdges.Insert(edgeA.Id())
 		ct.rivaledEdges.Insert(edgeB.Id())
 		ct.rivaledEdges.Insert(edgeC.Id())
-		ctx := context.Background()
 		mutual := edgeA.MutualId()
 
 		ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
@@ -361,28 +356,28 @@ func Test_localTimer(t *testing.T) {
 		mutuals.Insert(edgeC.Id())
 
 		// Should get same result regardless of specified time.
-		timer, err := ct.localTimer(ctx, edgeA, 100)
+		timer, err := ct.localTimer(edgeA, 100)
 		require.NoError(t, err)
 		require.Equal(t, edgeB.creationTime-edgeA.creationTime, timer)
-		timer, err = ct.localTimer(ctx, edgeA, 10000)
+		timer, err = ct.localTimer(edgeA, 10000)
 		require.NoError(t, err)
 		require.Equal(t, edgeB.creationTime-edgeA.creationTime, timer)
-		timer, err = ct.localTimer(ctx, edgeA, 1000000)
+		timer, err = ct.localTimer(edgeA, 1000000)
 		require.NoError(t, err)
 		require.Equal(t, edgeB.creationTime-edgeA.creationTime, timer)
 
 		// EdgeB and EdgeC were already rivaled at creation, so they should have
 		// a local timer of 0 regardless of specified time.
-		timer, err = ct.localTimer(ctx, edgeB, 100)
+		timer, err = ct.localTimer(edgeB, 100)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
-		timer, err = ct.localTimer(ctx, edgeC, 100)
+		timer, err = ct.localTimer(edgeC, 100)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
-		timer, err = ct.localTimer(ctx, edgeB, 10000)
+		timer, err = ct.localTimer(edgeB, 10000)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
-		timer, err = ct.localTimer(ctx, edgeC, 10000)
+		timer, err = ct.localTimer(edgeC, 10000)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})

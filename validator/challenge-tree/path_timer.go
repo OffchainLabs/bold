@@ -1,7 +1,6 @@
 package challengetree
 
 import (
-	"context"
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -16,11 +15,11 @@ import (
 //
 // This definition captures the sum of all local timers of the maximum-contributing
 // edges along an edge e's ancestor path.
-func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeSnapshot, t uint64) (uint64, error) {
+func (ct *challengeTree) pathTimer(e protocol.EdgeSnapshot, t uint64) (uint64, error) {
 	if t < e.CreatedAtBlock() {
 		return 0, nil
 	}
-	local, err := ct.localTimer(ctx, e, t)
+	local, err := ct.localTimer(e, t)
 	if err != nil {
 		return 0, err
 	}
@@ -36,7 +35,7 @@ func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeSnapshot,
 				parent,
 			)
 		}
-		computed, err := ct.pathTimer(ctx, parentEdge, t)
+		computed, err := ct.pathTimer(parentEdge, t)
 		if err != nil {
 			return 0, err
 		}
@@ -55,7 +54,7 @@ func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeSnapshot,
 
 // Gets the local timer of an edge at time T. If T is earlier than the edge's creation,
 // this function will return 0.
-func (ct *challengeTree) localTimer(ctx context.Context, e protocol.EdgeSnapshot, t uint64) (uint64, error) {
+func (ct *challengeTree) localTimer(e protocol.EdgeSnapshot, t uint64) (uint64, error) {
 	if t < e.CreatedAtBlock() {
 		return 0, nil
 	}
