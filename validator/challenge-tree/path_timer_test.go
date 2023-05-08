@@ -54,11 +54,11 @@ func (e *edge) OriginId() protocol.OriginId {
 	return protocol.OriginId(common.BytesToHash([]byte(e.originId)))
 }
 
-func (e *edge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+func (e *edge) LowerChild(_ context.Context) (util.Option[protocol.EdgeId], error) {
 	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.lowerChildId)))), nil
 }
 
-func (e *edge) UpperChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+func (e *edge) UpperChild(_ context.Context) (util.Option[protocol.EdgeId], error) {
 	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.upperChildId)))), nil
 }
 
@@ -66,7 +66,7 @@ func (e *edge) CreatedAtBlock() uint64 {
 	return e.creationTime
 }
 
-func (e *edge) ComputeMutualId(ctx context.Context) (protocol.MutualId, error) {
+func (e *edge) ComputeMutualId(_ context.Context) (protocol.MutualId, error) {
 	return protocol.MutualId(common.BytesToHash([]byte(fmt.Sprintf(
 		"%d-%s-%d-%s-%d",
 		e.edgeType,
