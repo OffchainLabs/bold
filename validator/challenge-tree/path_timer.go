@@ -60,7 +60,7 @@ func (ct *challengeTree) localTimer(e *edge, t uint64) (uint64, error) {
 	// as t - t_creation(e).
 	unrivaled, err := ct.unrivaledAtTime(e, t)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	if unrivaled {
 		return t - e.creationTime, nil
