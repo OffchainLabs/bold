@@ -3,12 +3,10 @@ package challengetree
 import (
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 )
 
 type edgeId string
-type claimId string
 type originId string
 type mutualId string
 type commit string
@@ -21,7 +19,6 @@ type edge struct {
 	endHeight    uint64
 	endCommit    commit
 	originId     originId
-	claimId      claimId
 	lowerChildId edgeId
 	upperChildId edgeId
 	creationTime uint64
@@ -41,9 +38,7 @@ func (e *edge) computeMutualId() mutualId {
 // A challenge tree keeps track of edges whose history commitments the honest node agrees with.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type challengeTree struct {
-	timeRef            util.TimeReference
-	edges              *threadsafe.Map[edgeId, *edge]
-	mutualIds          *threadsafe.Map[mutualId, *threadsafe.Set[edgeId]]
-	rivaledEdges       *threadsafe.Set[edgeId]
-	computedPathTimers *threadsafe.Map[edgeId, uint64]
+	edges        *threadsafe.Map[edgeId, *edge]
+	mutualIds    *threadsafe.Map[mutualId, *threadsafe.Set[edgeId]]
+	rivaledEdges *threadsafe.Set[edgeId]
 }

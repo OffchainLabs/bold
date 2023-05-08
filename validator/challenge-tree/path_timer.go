@@ -3,6 +3,7 @@ package challengetree
 import (
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 )
 
 // Computes the path timer for an edge at time T. A path timer is defined recursively
@@ -138,6 +139,10 @@ func (ct *challengeTree) rivalsWithCreationTimes(eg *edge) []*rival {
 	}
 	mutualId := eg.computeMutualId()
 	mutuals := ct.mutualIds.Get(mutualId)
+	if mutuals == nil {
+		ct.mutualIds.Put(mutualId, threadsafe.NewSet[edgeId]())
+		return rivals
+	}
 	mutuals.ForEach(func(rivalId edgeId) {
 		if rivalId == eg.id {
 			return
