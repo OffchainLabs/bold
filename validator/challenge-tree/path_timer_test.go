@@ -7,6 +7,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Test_rivalsWithCreationTimes(t *testing.T) {
+}
+
+func Test_parents(t *testing.T) {
+	ct := &challengeTree{
+		edges: threadsafe.NewMap[edgeId, *edge](),
+	}
+	childId := edgeId("foo")
+	t.Run("no parents", func(t *testing.T) {
+		parents := ct.parents(childId)
+		require.Equal(t, 0, len(parents))
+	})
+	t.Run("one parent", func(t *testing.T) {
+		ct.edges.Put("a", &edge{
+			id:           "a",
+			lowerChildId: childId,
+		})
+		parents := ct.parents(childId)
+		require.Equal(t, []edgeId{edgeId("a")}, parents)
+	})
+	t.Run("two parents", func(t *testing.T) {
+		ct.edges.Put("b", &edge{
+			id:           "b",
+			upperChildId: childId,
+		})
+		parents := ct.parents(childId)
+		require.Equal(t, 2, len(parents))
+		got := make(map[edgeId]bool)
+		for _, p := range parents {
+			got[p] = true
+		}
+		require.Equal(t, true, got["a"])
+		require.Equal(t, true, got["b"])
+	})
+}
+
 func TestPathTimer_FlipFlop(t *testing.T) {
 	// Setup the following challenge tree, where
 	// branch `a` is honest.

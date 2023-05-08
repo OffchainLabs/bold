@@ -26,7 +26,10 @@ func (ct *challengeTree) pathTimer(e *edge, t uint64) (uint64, error) {
 	for i, parent := range edgeParents {
 		parentEdge, ok := ct.edges.TryGet(parent)
 		if !ok {
-			return 0, fmt.Errorf("parent edge with id %#x not found in challenge tree", parent)
+			return 0, fmt.Errorf(
+				"parent edge with id %#x not found in challenge tree",
+				parent,
+			)
 		}
 		computed, err := ct.pathTimer(parentEdge, t)
 		if err != nil {
@@ -69,7 +72,7 @@ func (ct *challengeTree) parents(childId edgeId) []edgeId {
 	p := make([]edgeId, 0)
 	ct.edges.ForEach(func(_ edgeId, edge *edge) {
 		if edge.lowerChildId == childId || edge.upperChildId == childId {
-			p = append(p, childId)
+			p = append(p, edge.id)
 		}
 	})
 	return p
