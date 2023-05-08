@@ -320,6 +320,7 @@ func (ct *challengeTree) ancestorQuery(
 
 // Computes the length of an edge by taking the difference between
 // its end and start heights.
+//
 // SAFETY: We will never receive a malformed edge, as the challenge tree is
 // created from events emitted by successful challenge addition events
 // in the protocol smart contracts.

@@ -9,6 +9,7 @@ import (
 
 var ErrUnableToBisect = errors.New("unable to bisect")
 
+// Unsigned is a generic constraint for all unsigned numeric primitives.
 type Unsigned interface {
 	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }

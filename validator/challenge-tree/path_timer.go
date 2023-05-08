@@ -1,29 +1,34 @@
 package challengetree
 
 import "github.com/OffchainLabs/challenge-protocol-v2/util"
+import "fmt"
 
-func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
+func (ct *challengeTree) pathTimer(e *edge, t uint64) (uint64, error) {
 	if t < e.creationTime {
-		return 0
+		return 0, nil
 	}
-	local := ct.localTimer(e, t)
+	local, err := ct.localTimer(e, t)
+	if err != nil {
+		return 0, err
+	}
 	edgeParents := ct.parents(e)
 	parentTimers := make([]uint64, len(edgeParents))
 	for i, parent := range edgeParents {
 		parentEdge, ok := ct.edges.Get(parent)
 		if !ok {
-			panic("should not happen")
+			return 0, fmt.Errorf("parent edge with id %#x not found in challenge tree", parent)
 		}
-		parentTimers[i] = ct.pathTimer(
-			parentEdge,
-			t,
-		)
+		computed, err := ct.pathTimer(parentEdge, t)
+		if err != nil {
+			return 0, err
+		}
+		parentTimers[i] = computed
 	}
 	maxTimerOpt := util.Max(parentTimers)
 	if maxTimerOpt.IsNone() {
-		return local
+		return local, nil
 	}
-	return local + maxTimerOpt.Unwrap()
+	return local + maxTimerOpt.Unwrap(), nil
 }
 
 // Naive parent lookup just for testing purposes.
@@ -38,55 +43,69 @@ func (ct *challengeTree) parents(e *edge) []edgeId {
 	return p
 }
 
-func (ct *challengeTree) localTimer(e *edge, t uint64) uint64 {
+func (ct *challengeTree) localTimer(e *edge, t uint64) (uint64, error) {
 	if t < e.creationTime {
-		return 0
+		return 0, nil
 	}
 	// If no rival at time t, then the local timer is defined
 	// as t - t_creation(e).
-	if ct.unrivaledAtTime(e, t) {
-		return t - e.creationTime
+	unrivaled, err := ct.unrivaledAtTime(e, t)
+	if err != nil {
+		return 0, err
+	}
+	if unrivaled {
+		return t - e.creationTime, nil
 	}
 	// Else we return tRival minus the edge's creation time.
-	tRival := ct.tRival(e).Unwrap()
-	if e.creationTime >= tRival {
-		return 0
+	someRival, err := ct.tRival(e)
+	if err != nil {
+		return 0, err
 	}
-	return tRival - e.creationTime
+	tRival := someRival.Unwrap()
+	if e.creationTime >= tRival {
+		return 0, nil
+	}
+	return tRival - e.creationTime, nil
 }
 
-func (ct *challengeTree) tRival(e *edge) util.Option[uint64] {
-	rivalTimes := ct.rivalCreationTimes(e)
-	return util.Min(rivalTimes)
+func (ct *challengeTree) tRival(e *edge) (util.Option[uint64], error) {
+	rivalTimes, err := ct.rivalCreationTimes(e)
+	if err != nil {
+		return util.None[uint64](), err
+	}
+	return util.Min(rivalTimes), nil
 }
 
-func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) bool {
-	rivalTimes := ct.rivalCreationTimes(e)
+func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) (bool, error) {
+	rivalTimes, err := ct.rivalCreationTimes(e)
+	if err != nil {
+		return false, err
+	}
 	if len(rivalTimes) == 0 {
-		return true
+		return true, nil
 	}
 	for _, rTime := range rivalTimes {
 		// If a rival existed before or at the time of the edge's
 		// creation, we then return false.
 		if rTime <= t {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
-func (ct *challengeTree) rivalCreationTimes(e *edge) []uint64 {
+func (ct *challengeTree) rivalCreationTimes(e *edge) ([]uint64, error) {
 	rivals := ct.rivals(e)
 	if len(rivals) == 0 {
-		return make([]uint64, 0)
+		return make([]uint64, 0), nil
 	}
 	timers := make([]uint64, len(rivals))
 	for i, rivalId := range rivals {
 		rival, ok := ct.edges.Get(rivalId)
 		if !ok {
-			panic("should not happen")
+			return nil, fmt.Errorf("rival with id %#x not found in challenge tree", rivalId)
 		}
 		timers[i] = rival.creationTime
 	}
-	return timers
+	return timers, nil
 }
