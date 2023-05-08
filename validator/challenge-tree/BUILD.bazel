@@ -23,6 +23,7 @@ go_test(
         "//protocol",
         "//util",
         "//util/threadsafe",
+        "@com_github_ethereum_go_ethereum//common",
         "@com_github_stretchr_testify//require",
     ],
 )
