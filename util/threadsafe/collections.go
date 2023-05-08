@@ -43,12 +43,15 @@ func (s *Map[K, V]) Delete(k K) {
 	delete(s.items, k)
 }
 
-func (s *Map[K, V]) ForEach(fn func(k K, v V)) {
+func (s *Map[K, V]) ForEach(fn func(k K, v V) error) error {
 	s.RLock()
 	defer s.RUnlock()
 	for k, v := range s.items {
-		fn(k, v)
+		if err := fn(k, v); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 type Set[T comparable] struct {
@@ -90,10 +93,13 @@ func (s *Set[T]) Delete(t T) {
 	delete(s.items, t)
 }
 
-func (s *Set[T]) ForEach(fn func(elem T)) {
+func (s *Set[T]) ForEach(fn func(elem T) error) error {
 	s.RLock()
 	defer s.RUnlock()
 	for elem := range s.items {
-		fn(elem)
+		if err := fn(elem); err != nil {
+			return err
+		}
 	}
+	return nil
 }

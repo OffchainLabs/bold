@@ -25,9 +25,12 @@ func TestMap(t *testing.T) {
 		m.Put("foo", 5)
 		m.Put("bar", 10)
 		var total uint64
-		m.ForEach(func(_ string, v uint64) {
+		err := m.ForEach(func(_ string, v uint64) error {
 			total += v
+			return nil
 		})
+		require.NoError(t, err)
+
 		require.Equal(t, uint64(15), total)
 	})
 }
@@ -50,9 +53,12 @@ func TestSet(t *testing.T) {
 		m.Insert(5)
 		m.Insert(10)
 		var total uint64
-		m.ForEach(func(elem uint64) {
+		err := m.ForEach(func(elem uint64) error {
 			total += elem
+			return nil
 		})
+		require.NoError(t, err)
+
 		require.Equal(t, uint64(15), total)
 	})
 }

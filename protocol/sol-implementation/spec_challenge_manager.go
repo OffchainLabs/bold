@@ -61,6 +61,51 @@ func (e *SpecEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
 	return protocol.EdgeStatus(edge.Status), nil
 }
 
+// The block number the edge was created at.
+func (e *SpecEdge) CreatedAtBlock() uint64 {
+	return e.inner.CreatedAtBlock.Uint64()
+}
+
+// The mutual id of the edge.
+func (e *SpecEdge) ComputeMutualId(ctx context.Context) (protocol.MutualId, error) {
+	mutual, err := e.manager.caller.CalculateMutualId(
+		&bind.CallOpts{Context: ctx},
+		e.inner.EType,
+		e.inner.OriginId,
+		e.inner.StartHeight,
+		e.inner.StartHistoryRoot,
+		e.inner.EndHeight,
+	)
+	if err != nil {
+		return protocol.MutualId{}, err
+	}
+	return protocol.MutualId(mutual), nil
+}
+
+// The lower child of the edge, if any.
+func (e *SpecEdge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if err != nil {
+		return util.None[protocol.EdgeId](), err
+	}
+	if edge.LowerChildId == ([32]byte{}) {
+		return util.None[protocol.EdgeId](), nil
+	}
+	return util.Some(protocol.EdgeId(edge.LowerChildId)), nil
+}
+
+// The upper child of the edge, if any.
+func (e *SpecEdge) UpperChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if err != nil {
+		return util.None[protocol.EdgeId](), err
+	}
+	if edge.LowerChildId == ([32]byte{}) {
+		return util.None[protocol.EdgeId](), nil
+	}
+	return util.Some(protocol.EdgeId(edge.UpperChildId)), nil
+}
+
 func (e *SpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	ok, err := e.manager.caller.HasLengthOneRival(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {

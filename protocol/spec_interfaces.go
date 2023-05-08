@@ -210,18 +210,32 @@ type OriginHeights struct {
 	BigStepChallengeOriginHeight Height
 }
 
-// SpecEdge according to the protocol specification.
-type SpecEdge interface {
+// TrackedEdge defines an interface for a minimal set of getters we need on
+// an edge a challenge tree is tracking.
+type EdgeGetter interface {
 	// The unique identifier for an edge.
 	Id() EdgeId
 	// The type of challenge the edge is a part of.
 	GetType() EdgeType
-	// The ministaker of an edge. Only existing for level zero edges.
-	MiniStaker() util.Option[common.Address]
 	// The start height and history commitment for an edge.
 	StartCommitment() (Height, common.Hash)
 	// The end height and history commitment for an edge.
 	EndCommitment() (Height, common.Hash)
+	// The block number the edge was created at.
+	CreatedAtBlock() uint64
+	// The mutual id of the edge.
+	ComputeMutualId(ctx context.Context) (MutualId, error)
+	// The lower child of the edge, if any.
+	LowerChild(ctx context.Context) (util.Option[EdgeId], error)
+	// The upper child of the edge, if any.
+	UpperChild(ctx context.Context) (util.Option[EdgeId], error)
+}
+
+// SpecEdge according to the protocol specification.
+type SpecEdge interface {
+	EdgeGetter
+	// The ministaker of an edge. Only existing for level zero edges.
+	MiniStaker() util.Option[common.Address]
 	// The assertion id of the parent assertion that originated the challenge
 	// at the top-level.
 	PrevAssertionId(ctx context.Context) (AssertionId, error)
