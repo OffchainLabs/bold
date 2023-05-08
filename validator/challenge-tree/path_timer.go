@@ -2,10 +2,6 @@ package challengetree
 
 import "github.com/OffchainLabs/challenge-protocol-v2/util"
 
-type unsigned interface {
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
-}
-
 func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
 	if t < e.creationTime {
 		return 0
@@ -23,7 +19,7 @@ func (ct *challengeTree) pathTimer(e *edge, t uint64) uint64 {
 			t,
 		)
 	}
-	maxTimerOpt := max(parentTimers)
+	maxTimerOpt := util.Max(parentTimers)
 	if maxTimerOpt.IsNone() {
 		return local
 	}
@@ -61,7 +57,7 @@ func (ct *challengeTree) localTimer(e *edge, t uint64) uint64 {
 
 func (ct *challengeTree) tRival(e *edge) util.Option[uint64] {
 	rivalTimes := ct.rivalCreationTimes(e)
-	return min(rivalTimes)
+	return util.Min(rivalTimes)
 }
 
 func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) bool {
@@ -93,36 +89,4 @@ func (ct *challengeTree) rivalCreationTimes(e *edge) []uint64 {
 		timers[i] = rival.creationTime
 	}
 	return timers
-}
-
-func min[T unsigned](items []T) util.Option[T] {
-	if len(items) == 0 {
-		return util.None[T]()
-	}
-	var m T
-	if len(items) > 0 {
-		m = items[0]
-	}
-	for i := 1; i < len(items); i++ {
-		if items[i] < m {
-			m = items[i]
-		}
-	}
-	return util.Some(m)
-}
-
-func max[T unsigned](items []T) util.Option[T] {
-	if len(items) == 0 {
-		return util.None[T]()
-	}
-	var m T
-	if len(items) > 0 {
-		m = items[0]
-	}
-	for i := 1; i < len(items); i++ {
-		if items[i] > m {
-			m = items[i]
-		}
-	}
-	return util.Some(m)
 }

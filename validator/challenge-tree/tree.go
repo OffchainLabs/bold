@@ -6,22 +6,21 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
-	"github.com/ethereum/go-ethereum/common"
-	"time"
 )
 
 type edgeId string
 type claimId string
 type originId string
 type mutualId string
+type commit string
 
 type edge struct {
 	id           edgeId
 	edgeType     protocol.EdgeType
 	startHeight  uint64
-	startCommit  common.Hash
+	startCommit  commit
 	endHeight    uint64
-	endCommit    common.Hash
+	endCommit    commit
 	originId     originId
 	claimId      claimId
 	allHeights   *edgeHeights
@@ -57,22 +56,18 @@ func (e *edge) computeMutualId() mutualId {
 	// ))
 }
 
-type chain interface {
-	timeUnrivaled(edgeId protocol.EdgeId) uint64
-}
-
 // Can check if the local challenge manager agrees with an edge's start
 // commitment. If the edge is a block challenge edge, we check if we
 // agree with the commitment at the block challenge height.
 type HistoryChecker interface {
 	AgreesWithStartHistoryCommitment(
 		heights *edgeHeights,
-		commitMerkle common.Hash,
+		commitMerkle commit,
 	) bool
 }
 
-type edgeMetadataReader interface {
-	topLevelAssertion(edgeId) protocol.AssertionId
+type EdgeMetadataReader interface {
+	TopLevelAssertion(edgeId) protocol.AssertionId
 }
 
 // A challenge tree keeps track of the honest branch for a challenged
@@ -80,21 +75,21 @@ type edgeMetadataReader interface {
 // are part of the same challenge.
 type challengeTree struct {
 	// TODO: Needs to be thread-safe.
+	timeRef                          util.TimeReference
 	topLevelAssertionId              protocol.AssertionId
-	chain                            chain
-	metadataReader                   edgeMetadataReader
+	metadataReader                   EdgeMetadataReader
 	histChecker                      HistoryChecker
 	edges                            *threadsafe.Map[edgeId, *edge]
 	mutualIds                        *threadsafe.Map[mutualId, *threadsafe.Set[edgeId]]
 	rivaledEdges                     *threadsafe.Set[edgeId]
-	honestUnrivaledCumulativeTimers  *threadsafe.Map[edgeId, uint64]
+	computedPathTimers               *threadsafe.Map[edgeId, uint64]
 	honestBlockChalLevelZeroEdge     util.Option[*edge]
 	honestBigStepChalLevelZeroEdge   util.Option[*edge]
 	honestSmallStepChalLevelZeroEdge util.Option[*edge]
 }
 
 func (ct *challengeTree) addEdge(eg *edge) {
-	prevAssertionId := ct.metadataReader.topLevelAssertion(eg.id)
+	prevAssertionId := ct.metadataReader.TopLevelAssertion(eg.id)
 	if ct.topLevelAssertionId != prevAssertionId {
 		// Do nothing - this edge should not be part of this challenge tree.
 		return
@@ -132,23 +127,30 @@ func (ct *challengeTree) addEdge(eg *edge) {
 	}
 }
 
-func (ct *challengeTree) CumulativeTimeUnrivaled(edgeId edgeId) (uint64, error) {
-	total, ok := ct.honestUnrivaledCumulativeTimers.Get(edgeId)
+// Gets the computed path timer for an edge id being tracked by the challenge tree.
+func (ct *challengeTree) GetPathTimer(edgeId edgeId) (uint64, error) {
+	total, ok := ct.computedPathTimers.Get(edgeId)
 	if !ok {
-		return 0, fmt.Errorf("edge id %#x not found in cumulative timers map", edgeId)
+		return 0, fmt.Errorf("edge id %#x not found in path timers map", edgeId)
 	}
 	return total, nil
 }
 
+// Updates the path timers at the current timestamp for all edges being
+// tracked by the challenge tree.
 func (ct *challengeTree) updateCumulativeTimers() {
-	t := time.Now()
+	now := uint64(ct.timeRef.Get().Unix())
 	for _, k := range ct.edges.Keys() {
 		edge, _ := ct.edges.Get(k)
-		timer := ct.pathTimer(edge, uint64(t.Unix()))
-		ct.honestUnrivaledCumulativeTimers.Insert(k, timer)
+		timer := ct.pathTimer(edge, now)
+		ct.computedPathTimers.Insert(k, timer)
 	}
 }
 
+// Computes the set of rivals for an edge being tracked by the challenge tree.
+// We do this by computing the mutual id of the edge and fetching all edge ids
+// that share the same one from a set the challenge tree keeps track of.
+// We exclude the specified edge from the returned list of rivals.
 func (ct *challengeTree) rivals(edge *edge) []edgeId {
 	rivalIds := make([]edgeId, 0)
 	if !ct.rivaledEdges.Has(edge.id) {
@@ -168,31 +170,35 @@ func (ct *challengeTree) rivals(edge *edge) []edgeId {
 	return rivalIds
 }
 
+// Consider the following set of edges in a challenge where evil
+// edges are marked with a ' and a *:
+//
+//	/---6---8
+//
+// 0-----4
+//
+//	\---6'--8'
+//
+// 0*-------------8*
+//
+// The honest branch is the one that goes from 0-8. The evil edge is 0-8'.
+// The evil edge 0-8' bisects, but agrees with the honest one from 0-4.
+// Therefore, there is only a single 0-4 edge in the set.
+//
+// In this case, the set of ancestors for 4-6 is the following:
+//
+//	{4-8, 4-8', 0-8, 0-8'}
+//
+// All of these ancestors will contribute towards the path timer of 4-6 when
+// confirmations by time are being attempted for the edge. Note there is another
+// evil party that starts at 0*. In this case, it does not agree with the honest
+// branch at all, so that party's edges can be ignored for this computation.
+//
+// In order to retrieve ancestors for an edge with id=I, we start from the honest,
+// block challenge level zero edge and recursively traverse its children,
+// reducing the ids and their rivals along the way into a slice until we hit a child that
+// matches id=I and return the slice.
 func (ct *challengeTree) ancestorsForHonestEdge(id edgeId) []edgeId {
-	// Consider the following set of edges in a challenge.
-	//
-	// Honest edges
-	// 0-----------------------8
-	// 0-------4, 4------------8
-	//            4----6, 6----8
-	//
-	// Evil edges
-	// 0-----------------------8'
-	//            4------------8'
-	//            4----6',6'---8'
-	//
-	// The honest branch is the one that goes from 0-8. The evil edge is 0-8'.
-	// The evil edge 0-8' bisects, but agrees with the honest one from 0-4.
-	// Therefore, there is only a single 0-4 edge in the set.
-	//
-	// In this case, the challenge tree's list of honest edge ids will be:
-	//
-	//   [id(0,4), id(4,6), id(6,8), id(0,8)]
-	//
-	// In order to retrieve ancestors for an edge with id=I, we start from the honest,
-	// block challenge level zero edge and recursively traverse its children,
-	// reducing the ids along the way into a slice until we hit a child that
-	// matches id=I and return the slice.
 	if ct.honestBlockChalLevelZeroEdge.IsNone() {
 		return make([]edgeId, 0)
 	}
@@ -207,7 +213,7 @@ func (ct *challengeTree) ancestorsForHonestEdge(id edgeId) []edgeId {
 	}
 	// The confirm by time function in Solidity requires ancestors to be specified
 	// from earliest to oldest, which is the reverse result of our recursion.
-	reverse(ancestors)
+	util.Reverse(ancestors)
 	return ancestors
 }
 
@@ -277,9 +283,10 @@ func (ct *challengeTree) ancestorQuery(
 	rivalIds := ct.rivals(curr)
 	accum = append(accum, rivalIds...)
 	accum = append(accum, curr.id)
-	// If the edge id we are querying for is a child of the current edge, we append
+
+	// If the edge id we are querying for is a direct child of the current edge, we append
 	// the current edge to the ancestors list and return true.
-	if isChild(curr, queryingFor) {
+	if isDirectChild(curr, queryingFor) {
 		return accum, true
 	}
 	lowerChild, lowerOk := ct.edges.Get(curr.lowerChildId)
@@ -311,20 +318,21 @@ func (ct *challengeTree) ancestorQuery(
 	return accum, false
 }
 
+// Computes the length of an edge by taking the difference between
+// its end and start heights.
+// SAFETY: We will never receive a malformed edge, as the challenge tree is
+// created from events emitted by successful challenge addition events
+// in the protocol smart contracts.
 func edgeLength(eg *edge) uint64 {
 	return eg.endHeight - eg.startHeight
 }
 
-func isChild(eg *edge, childId edgeId) bool {
-	return eg.lowerChildId == childId || eg.upperChildId == childId
+// Checks if an edge id is a direct child of a specified parent edge.
+func isDirectChild(parent *edge, childId edgeId) bool {
+	return parent.lowerChildId == childId || parent.upperChildId == childId
 }
 
+// Checks if an edge has any children.
 func hasChildren(eg *edge) bool {
 	return eg.lowerChildId != "" || eg.upperChildId != ""
-}
-
-func reverse[T any](s []T) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
 }
