@@ -8,7 +8,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 )
 
-// Computes the path timer for an edge at time T. A path timer is defined recursively
+// Computes the path timer for an edge snapshot at time T. A path timer is defined recursively
 // via min/maxing edges creation times and their rivals along a path of ancestors
 // within a challenge. The mathematical definition is as follows:
 //
