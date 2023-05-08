@@ -60,22 +60,28 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 	// Edge was not created before time T5.
 	for i := 0; i < 5; i++ {
-		total := ct.pathTimer(ct.edges.GetKnown("4a-8a"), uint64(1))
+		total, err := ct.pathTimer(ct.edges.Get("4a-8a"), uint64(1))
+		require.NoError(t, err)
 		require.Equal(t, uint64(0), total)
 	}
 
 	// Test out Alice's timers.
-	total := ct.pathTimer(ct.edges.GetKnown("4a-8a"), 5)
+	total, err := ct.pathTimer(ct.edges.Get("4a-8a"), 5)
+	require.NoError(t, err)
+
 	require.Equal(t, uint64(6), total)
 	// TODO: Is this correct?
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 6)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 6)
+	require.NoError(t, err)
 	require.Equal(t, uint64(9), total)
 
 	// Test out Bob's timers (was created after Alice).
 	// Given Bob was never unrivaled, its edges should have a timer of 0.
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 6)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 6)
+	require.NoError(t, err)
 	require.Equal(t, uint64(0), total)
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 7)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 7)
+	require.NoError(t, err)
 	require.Equal(t, uint64(0), total)
 
 	// Add a in a new level zero edge that will bisect to
@@ -93,21 +99,25 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		withCreationTime("4a-8c", 12),
 	)
 	for k, v := range lateEdges {
-		ct.edges.Insert(k, v)
+		ct.edges.Put(k, v)
 	}
 
 	// Ensure Alice's path timer does not change if this occurs.
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 5)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 5)
+	require.NoError(t, err)
 	require.Equal(t, uint64(2), total)
 	// TODO: Is this correct?
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8a"), 6)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8a"), 6)
+	require.NoError(t, err)
 	require.Equal(t, uint64(3), total)
 
 	// Ensure Bob's path timer does not change if this occurs.
 	// Given Bob was never unrivaled, its edges should have a timer of 0.
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 6)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 6)
+	require.NoError(t, err)
 	require.Equal(t, uint64(0), total)
-	total = ct.pathTimer(ct.edges.GetKnown("4a-8b"), 7)
+	total, err = ct.pathTimer(ct.edges.Get("4a-8b"), 7)
+	require.NoError(t, err)
 	require.Equal(t, uint64(0), total)
 }
 
