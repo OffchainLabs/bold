@@ -13,12 +13,58 @@ func Test_rivalsWithCreationTimes(t *testing.T) {
 		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
 		rivaledEdges: threadsafe.NewSet[edgeId](),
 	}
-	ct.edges.Put("a", &edge{
-		id: "a",
+	ct.edges.Put("0-1a", &edge{
+		id:           "0-1a",
+		creationTime: 3,
 	})
 	t.Run("no rivals", func(t *testing.T) {
-		rivals := ct.rivalsWithCreationTimes(ct.edges.Get("a"))
+		rivals, err := ct.rivalsWithCreationTimes(ct.edges.Get("0-1a"))
+		require.NoError(t, err)
 		require.Equal(t, 0, len(rivals))
+	})
+	t.Run("single rival", func(t *testing.T) {
+		ct.rivaledEdges.Insert("0-1a")
+		ct.rivaledEdges.Insert("0-1b")
+		ct.mutualIds.Put("0-1", threadsafe.NewSet[edgeId]())
+		mutuals := ct.mutualIds.Get("0-1")
+		mutuals.Insert("0-1a")
+		mutuals.Insert("0-1b")
+		ct.edges.Put("0-1b", &edge{
+			id:           "0-1b",
+			creationTime: 5,
+		})
+		rivals, err := ct.rivalsWithCreationTimes(ct.edges.Get("0-1a"))
+		require.NoError(t, err)
+		want := []*rival{
+			{id: "0-1b", creationTime: 5},
+		}
+		require.Equal(t, want, rivals)
+		rivals, err = ct.rivalsWithCreationTimes(ct.edges.Get("0-1b"))
+		require.NoError(t, err)
+		want = []*rival{
+			{id: "0-1a", creationTime: 3},
+		}
+		require.Equal(t, want, rivals)
+	})
+	t.Run("multiple rivals", func(t *testing.T) {
+		ct.edges.Put("0-1c", &edge{
+			id:           "0-1c",
+			creationTime: 10,
+		})
+		ct.rivaledEdges.Insert("0-1c")
+		mutuals := ct.mutualIds.Get("0-1")
+		mutuals.Insert("0-1c")
+		want := []edgeId{"0-1a", "0-1b"}
+		rivals, err := ct.rivalsWithCreationTimes(ct.edges.Get("0-1c"))
+		require.NoError(t, err)
+		require.Equal(t, true, len(rivals) > 0)
+		got := make(map[edgeId]bool)
+		for _, r := range rivals {
+			got[r.id] = true
+		}
+		for _, w := range want {
+			require.Equal(t, true, got[w])
+		}
 	})
 }
 
