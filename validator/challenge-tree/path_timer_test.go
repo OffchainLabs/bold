@@ -8,6 +8,18 @@ import (
 )
 
 func Test_rivalsWithCreationTimes(t *testing.T) {
+	ct := &challengeTree{
+		edges:        threadsafe.NewMap[edgeId, *edge](),
+		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
+		rivaledEdges: threadsafe.NewSet[edgeId](),
+	}
+	ct.edges.Put("a", &edge{
+		id: "a",
+	})
+	t.Run("no rivals", func(t *testing.T) {
+		rivals := ct.rivalsWithCreationTimes(ct.edges.Get("a"))
+		require.Equal(t, 0, len(rivals))
+	})
 }
 
 func Test_parents(t *testing.T) {
