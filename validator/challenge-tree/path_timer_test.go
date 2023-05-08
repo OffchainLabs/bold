@@ -38,16 +38,16 @@ import (
 func TestPathTimer_FlipFlop(t *testing.T) {
 	edges := buildEdges(
 		// Alice.
-		withCreationTime(t, "assertionA", "blk-0.a-16.a", 1),
-		withCreationTime(t, "assertionA", "blk-8.a-16.a", 3),
-		withCreationTime(t, "assertionA", "blk-0.a-8.a", 3),
-		withCreationTime(t, "assertionA", "blk-4.a-8.a", 5),
-		withCreationTime(t, "assertionA", "blk-0.a-4.a", 5),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.a", createdAt: 3}),
+		newEdge(&newCfg{t: t, edgeId: "blk-8.a-16.a", createdAt: 3}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a", createdAt: 5}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.a", createdAt: 5}),
 		// Bob.
-		withCreationTime(t, "assertionA", "blk-0.a-16.b", 2),
-		withCreationTime(t, "assertionA", "blk-8.b-16.b", 4),
-		withCreationTime(t, "assertionA", "blk-0.a-8.b", 4),
-		withCreationTime(t, "assertionA", "blk-4.a-8.b", 6),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.b", createdAt: 2}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.b", createdAt: 4}),
+		newEdge(&newCfg{t: t, edgeId: "blk-8.b-16.b", createdAt: 4}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.b", createdAt: 6}),
 	)
 	// Child-relationship linking.
 	// Alice.
@@ -125,10 +125,10 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	// //
 	// lateEdges := buildEdges(
 	// 	// Charlie.
-	// 	withCreationTime("0-16c", 10),
-	// 	withCreationTime("8a-16c", 11),
-	// 	withCreationTime("0-8c", 11),
-	// 	withCreationTime("4a-8c", 12),
+	// 	newEdge("0-16c", 10),
+	// 	newEdge("8a-16c", 11),
+	// 	newEdge("0-8c", 11),
+	// 	newEdge("4a-8c", 12),
 	// )
 	// for k, v := range lateEdges {
 	// 	ct.edges.Put(k, v)
@@ -159,7 +159,7 @@ func Test_localTimer(t *testing.T) {
 		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
 		rivaledEdges: threadsafe.NewSet[edgeId](),
 	}
-	edgeA := withCreationTime(t, "assertionA", "blk-0.a-1.a", 3)
+	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
 	ct.edges.Put(edgeA.id, edgeA)
 
 	t.Run("zero if earlier than creation time", func(t *testing.T) {
@@ -179,8 +179,8 @@ func Test_localTimer(t *testing.T) {
 		require.Equal(t, uint64(1000), timer)
 	})
 	t.Run("if rivaled timer is difference between earliest rival and edge creation", func(t *testing.T) {
-		edgeB := withCreationTime(t, "assertionA", "blk-0.a-1.b", 5)
-		edgeC := withCreationTime(t, "assertionA", "blk-0.a-1.c", 10)
+		edgeB := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.b", createdAt: 5})
+		edgeC := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.c", createdAt: 10})
 		ct.edges.Put(edgeB.id, edgeB)
 		ct.edges.Put(edgeC.id, edgeC)
 		ct.rivaledEdges.Insert(edgeA.id)
@@ -410,9 +410,16 @@ func buildEdges(allEdges ...*edge) map[edgeId]*edge {
 	return m
 }
 
-func withCreationTime(t *testing.T, origin originId, id edgeId, createdAt uint64) *edge {
-	t.Helper()
-	items := strings.Split(string(id), "-")
+type newCfg struct {
+	t         *testing.T
+	originId  originId
+	edgeId    edgeId
+	createdAt uint64
+}
+
+func newEdge(cfg *newCfg) *edge {
+	cfg.t.Helper()
+	items := strings.Split(string(cfg.edgeId), "-")
 	var typ protocol.EdgeType
 	switch items[0] {
 	case "blk":
@@ -424,24 +431,24 @@ func withCreationTime(t *testing.T, origin originId, id edgeId, createdAt uint64
 	}
 	startData := strings.Split(items[1], ".")
 	startHeight, err := strconv.ParseUint(startData[0], 10, 64)
-	require.NoError(t, err)
+	require.NoError(cfg.t, err)
 	startCommit := startData[1]
 
 	endData := strings.Split(items[2], ".")
 	endHeight, err := strconv.ParseUint(endData[0], 10, 64)
-	require.NoError(t, err)
+	require.NoError(cfg.t, err)
 	endCommit := endData[1]
 
 	return &edge{
 		edgeType:     typ,
-		originId:     origin,
-		id:           id,
+		originId:     cfg.originId,
+		id:           cfg.edgeId,
 		startHeight:  startHeight,
 		startCommit:  commit(startCommit),
 		endHeight:    endHeight,
 		endCommit:    commit(endCommit),
 		lowerChildId: "",
 		upperChildId: "",
-		creationTime: createdAt,
+		creationTime: cfg.createdAt,
 	}
 }
