@@ -5,11 +5,81 @@ import (
 	"strings"
 	"testing"
 
+	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
+
+var _ = TrackedEdge(&edge{})
+
+type edgeId string
+type commit string
+type originId string
+
+// Mock edge for challenge tree specific tests, making it easier for test ergonomics.
+type edge struct {
+	id           edgeId
+	edgeType     protocol.EdgeType
+	startHeight  uint64
+	startCommit  commit
+	endHeight    uint64
+	endCommit    commit
+	originId     originId
+	lowerChildId edgeId
+	upperChildId edgeId
+	creationTime uint64
+}
+
+func (e *edge) Id() protocol.EdgeId {
+	return protocol.EdgeId(common.BytesToHash([]byte(e.id)))
+}
+
+func (e *edge) EdgeType() protocol.EdgeType {
+	return e.edgeType
+}
+
+func (e *edge) StartCommitment() (uint64, common.Hash) {
+	return e.startHeight, common.BytesToHash([]byte(e.startCommit))
+}
+
+func (e *edge) EndCommitment() (uint64, common.Hash) {
+	return e.endHeight, common.BytesToHash([]byte(e.endCommit))
+}
+
+func (e *edge) OriginId() protocol.OriginId {
+	return protocol.OriginId(common.BytesToHash([]byte(e.originId)))
+}
+
+func (e *edge) LowerChild() protocol.EdgeId {
+	return protocol.EdgeId(common.BytesToHash([]byte(e.lowerChildId)))
+}
+
+func (e *edge) UpperChild() protocol.EdgeId {
+	return protocol.EdgeId(common.BytesToHash([]byte(e.upperChildId)))
+}
+
+func (e *edge) CreatedAtBlock() uint64 {
+	return e.creationTime
+}
+
+func (e *edge) ComputeMutualId() protocol.MutualId {
+	return protocol.MutualId(common.BytesToHash([]byte(fmt.Sprintf(
+		"%d-%s-%d-%s-%d",
+		e.edgeType,
+		e.originId,
+		e.startHeight,
+		e.startCommit,
+		e.endHeight,
+	))))
+}
+
+// Simple function to go from a mock string edge id to a real protocol EdgeId type.
+func id(i edgeId) protocol.EdgeId {
+	return protocol.EdgeId(common.BytesToHash([]byte(i)))
+}
 
 // The following tests checks a scenario where the honest
 // and dishonest parties take turns making challenge moves,
@@ -61,89 +131,93 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	edges["blk-0.a-8.b"].lowerChildId = "blk-0.a-4.a"
 	edges["blk-0.a-8.b"].upperChildId = "blk-4.a-8.b"
 
-	allEdges := threadsafe.NewMapFromItems(edges)
+	transformedEdges := make(map[protocol.EdgeId]TrackedEdge)
+	for _, v := range edges {
+		transformedEdges[v.Id()] = v
+	}
+	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	ct := &challengeTree{
 		edges:        allEdges,
-		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
-		rivaledEdges: threadsafe.NewSet[edgeId](),
+		mutualIds:    threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
 	}
 
 	// We then set up the rival relationships in the challenge tree.
 	// All edges are rivaled in this example.
 	for _, e := range edges {
-		ct.rivaledEdges.Insert(e.id)
+		ct.rivaledEdges.Insert(e.Id())
 	}
 
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
-	mutual := edges["blk-0.a-16.a"].computeMutualId()
-	ct.mutualIds.Put(mutual, threadsafe.NewSet[edgeId]())
+	mutual := edges["blk-0.a-16.a"].ComputeMutualId()
+	ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
 	mutuals := ct.mutualIds.Get(mutual)
-	mutuals.Insert("blk-0.a-16.a")
-	mutuals.Insert("blk-0.a-16.b")
+	mutuals.Insert(id("blk-0.a-16.a"))
+	mutuals.Insert(id("blk-0.a-16.b"))
 
-	mutual = edges["blk-0.a-8.a"].computeMutualId()
-	ct.mutualIds.Put(mutual, threadsafe.NewSet[edgeId]())
+	mutual = edges["blk-0.a-8.a"].ComputeMutualId()
+	ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
 	mutuals = ct.mutualIds.Get(mutual)
-	mutuals.Insert("blk-0.a-8.a")
-	mutuals.Insert("blk-0.a-8.b")
+	mutuals.Insert(id("blk-0.a-8.a"))
+	mutuals.Insert(id("blk-0.a-8.b"))
 
-	mutual = edges["blk-4.a-8.a"].computeMutualId()
-	ct.mutualIds.Put(mutual, threadsafe.NewSet[edgeId]())
+	mutual = edges["blk-4.a-8.a"].ComputeMutualId()
+	ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
 	mutuals = ct.mutualIds.Get(mutual)
-	mutuals.Insert("blk-4.a-8.a")
-	mutuals.Insert("blk-4.a-8.b")
+	mutuals.Insert(id("blk-4.a-8.a"))
+	mutuals.Insert(id("blk-4.a-8.b"))
 
 	t.Run("querying path timer before creation should return zero", func(t *testing.T) {
-		edge := ct.edges.Get("blk-0.a-16.a")
-		timer, err := ct.pathTimer(edge, edge.creationTime-1)
+		edge := ct.edges.Get(id("blk-0.a-16.a"))
+		timer, err := ct.pathTimer(edge, edge.CreatedAtBlock()-1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
 	t.Run("at creation time should be zero if no parents", func(t *testing.T) {
-		edge := ct.edges.Get("blk-0.a-16.a")
-		timer, err := ct.pathTimer(edge, edge.creationTime)
+		edge := ct.edges.Get(id("blk-0.a-16.a"))
+		timer, err := ct.pathTimer(edge, edge.CreatedAtBlock())
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
 	t.Run("OK", func(t *testing.T) {
 		// Top-level edge should have spent 1 second unrivaled
 		// as its rival was created 1 second after its creation.
-		edge := ct.edges.Get("blk-0.a-16.a")
-		timer, err := ct.pathTimer(edge, edge.creationTime+1)
+		edge := ct.edges.Get(id("blk-0.a-16.a"))
+		timer, err := ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), timer)
 
 		// Its rival should have a timer of 0 as was rivaled on creation.
-		edge = ct.edges.Get("blk-0.a-16.b")
-		timer, err = ct.pathTimer(edge, edge.creationTime+1)
+		edge = ct.edges.Get(id("blk-0.a-16.b"))
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 
 		// Now we look at the lower honest child, 0.a-8.a. It will have spent
 		// 1 second unrivaled and will inherit the max local timer
 		// of its parents, which is 1 for a total of 2.
-		edge = ct.edges.Get("blk-0.a-8.a")
-		timer, err = ct.pathTimer(edge, edge.creationTime+1)
+		edge = ct.edges.Get(id("blk-0.a-8.a"))
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), timer)
 
 		// Its rival will have a timer of 0 as was rivaled on creation.
-		edge = ct.edges.Get("blk-0.a-8.b")
-		timer, err = ct.pathTimer(edge, edge.creationTime+1)
+		edge = ct.edges.Get(id("blk-0.a-8.b"))
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 
 		// Now we look at the upper honest grandchild, 4.a-8.a. It will have spent
 		// 1 second unrivaled and will inherit the max local timer
 		// of its parents, for a total of 3.
-		edge = ct.edges.Get("blk-4.a-8.a")
-		timer, err = ct.pathTimer(edge, edge.creationTime+1)
+		edge = ct.edges.Get(id("blk-4.a-8.a"))
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
 
 		// Its rival will have a timer of 0 as was rivaled on creation.
-		edge = ct.edges.Get("blk-4.a-8.b")
-		timer, err = ct.pathTimer(edge, edge.creationTime+1)
+		edge = ct.edges.Get(id("blk-4.a-8.b"))
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 
@@ -151,18 +225,18 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		// will inherit the path timers of its ancestors AND also increase
 		// its local timer each time we query it as it has no rival
 		// to contend it.
-		edge = ct.edges.Get("blk-0.a-4.a")
+		edge = ct.edges.Get(id("blk-0.a-4.a"))
 
 		// Querying it at creation time+1 should just have the path timers
 		// of its ancestors that count, which is a total of 3.
-		timer, err = ct.pathTimer(edge, edge.creationTime+1)
+		timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
 
 		// Continuing to query it at time T+i should increase the timer
 		// as it is unrivaled.
 		for i := uint64(2); i < 10; i++ {
-			timer, err = ct.pathTimer(edge, edge.creationTime+i)
+			timer, err = ct.pathTimer(edge, edge.CreatedAtBlock()+i)
 			require.NoError(t, err)
 			require.Equal(t, uint64(2)+i, timer)
 		}
@@ -187,49 +261,49 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 		// Add the new edges into the mapping.
 		for k, v := range edges {
-			ct.edges.Put(k, v)
+			ct.edges.Put(id(k), v)
 		}
 
 		// We then set up the rival relationships in the challenge tree.
 		// All edges are rivaled in this example.
 		for _, e := range edges {
-			ct.rivaledEdges.Insert(e.id)
+			ct.rivaledEdges.Insert(e.Id())
 		}
 
 		// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
-		mutual := edges["blk-0.a-16.c"].computeMutualId()
-		ct.mutualIds.Put(mutual, threadsafe.NewSet[edgeId]())
+		mutual := edges["blk-0.a-16.c"].ComputeMutualId()
+		ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
 		mutuals := ct.mutualIds.Get(mutual)
-		mutuals.Insert("blk-0.a-16.c")
+		mutuals.Insert(id("blk-0.a-16.c"))
 
-		mutual = edges["blk-0.a-8.c"].computeMutualId()
-		ct.mutualIds.Put(mutual, threadsafe.NewSet[edgeId]())
+		mutual = edges["blk-0.a-8.c"].ComputeMutualId()
+		ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
 		mutuals = ct.mutualIds.Get(mutual)
-		mutuals.Insert("blk-0.a-8.c")
+		mutuals.Insert(id("blk-0.a-8.c"))
 
-		mutual = edges["blk-4.a-8.c"].computeMutualId()
-		ct.mutualIds.Put(mutual, threadsafe.NewSet[edgeId]())
+		mutual = edges["blk-4.a-8.c"].ComputeMutualId()
+		ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
 		mutuals = ct.mutualIds.Get(mutual)
-		mutuals.Insert("blk-4.a-8.c")
+		mutuals.Insert(id("blk-4.a-8.c"))
 
-		edge := ct.edges.Get("blk-0.a-4.a")
-		lastCreated := ct.edges.Get("blk-4.a-8.c")
+		edge := ct.edges.Get(id("blk-0.a-4.a"))
+		lastCreated := ct.edges.Get(id("blk-4.a-8.c"))
 
 		// The path timers of the newly created edges should count
 		// towards the unrivaled edge at the lowest level.
-		timer, err := ct.pathTimer(edge, lastCreated.creationTime)
+		timer, err := ct.pathTimer(edge, lastCreated.CreatedAtBlock())
 		require.NoError(t, err)
 		require.Equal(t, uint64(15), timer)
 
-		timer, err = ct.pathTimer(edge, lastCreated.creationTime+1)
+		timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+1)
 		require.NoError(t, err)
 		require.Equal(t, uint64(16), timer)
 
-		timer, err = ct.pathTimer(edge, lastCreated.creationTime+2)
+		timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+2)
 		require.NoError(t, err)
 		require.Equal(t, uint64(17), timer)
 
-		timer, err = ct.pathTimer(edge, lastCreated.creationTime+3)
+		timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+3)
 		require.NoError(t, err)
 		require.Equal(t, uint64(18), timer)
 	})
@@ -237,12 +311,12 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 func Test_localTimer(t *testing.T) {
 	ct := &challengeTree{
-		edges:        threadsafe.NewMap[edgeId, *edge](),
-		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
-		rivaledEdges: threadsafe.NewSet[edgeId](),
+		edges:        threadsafe.NewMap[protocol.EdgeId, TrackedEdge](),
+		mutualIds:    threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
-	ct.edges.Put(edgeA.id, edgeA)
+	ct.edges.Put(edgeA.Id(), edgeA)
 
 	t.Run("zero if earlier than creation time", func(t *testing.T) {
 		timer, err := ct.localTimer(edgeA, edgeA.creationTime-1)
@@ -263,16 +337,16 @@ func Test_localTimer(t *testing.T) {
 	t.Run("if rivaled timer is difference between earliest rival and edge creation", func(t *testing.T) {
 		edgeB := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.b", createdAt: 5})
 		edgeC := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.c", createdAt: 10})
-		ct.edges.Put(edgeB.id, edgeB)
-		ct.edges.Put(edgeC.id, edgeC)
-		ct.rivaledEdges.Insert(edgeA.id)
-		ct.rivaledEdges.Insert(edgeB.id)
-		ct.rivaledEdges.Insert(edgeC.id)
-		ct.mutualIds.Put(edgeA.computeMutualId(), threadsafe.NewSet[edgeId]())
-		mutuals := ct.mutualIds.Get(edgeA.computeMutualId())
-		mutuals.Insert(edgeA.id)
-		mutuals.Insert(edgeB.id)
-		mutuals.Insert(edgeC.id)
+		ct.edges.Put(edgeB.Id(), edgeB)
+		ct.edges.Put(edgeC.Id(), edgeC)
+		ct.rivaledEdges.Insert(edgeA.Id())
+		ct.rivaledEdges.Insert(edgeB.Id())
+		ct.rivaledEdges.Insert(edgeC.Id())
+		ct.mutualIds.Put(edgeA.ComputeMutualId(), threadsafe.NewSet[protocol.EdgeId]())
+		mutuals := ct.mutualIds.Get(edgeA.ComputeMutualId())
+		mutuals.Insert(edgeA.Id())
+		mutuals.Insert(edgeB.Id())
+		mutuals.Insert(edgeC.Id())
 
 		// Should get same result regardless of specified time.
 		timer, err := ct.localTimer(edgeA, 100)
@@ -304,35 +378,35 @@ func Test_localTimer(t *testing.T) {
 
 func Test_earliestCreatedRivalTimestamp(t *testing.T) {
 	ct := &challengeTree{
-		edges:        threadsafe.NewMap[edgeId, *edge](),
-		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
-		rivaledEdges: threadsafe.NewSet[edgeId](),
+		edges:        threadsafe.NewMap[protocol.EdgeId, TrackedEdge](),
+		mutualIds:    threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
 	edgeB := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.b", createdAt: 5})
 	edgeC := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.c", createdAt: 10})
-	ct.edges.Put(edgeA.id, edgeA)
+	ct.edges.Put(edgeA.Id(), edgeA)
 	t.Run("no rivals", func(t *testing.T) {
 		res := ct.earliestCreatedRivalTimestamp(edgeA)
 		require.Equal(t, util.None[uint64](), res)
 	})
 	t.Run("one rival", func(t *testing.T) {
-		ct.rivaledEdges.Insert(edgeA.id)
-		ct.rivaledEdges.Insert(edgeB.id)
-		ct.mutualIds.Put(edgeA.computeMutualId(), threadsafe.NewSet[edgeId]())
-		mutuals := ct.mutualIds.Get(edgeA.computeMutualId())
-		mutuals.Insert(edgeA.id)
-		mutuals.Insert(edgeB.id)
-		ct.edges.Put(edgeB.id, edgeB)
+		ct.rivaledEdges.Insert(edgeA.Id())
+		ct.rivaledEdges.Insert(edgeB.Id())
+		ct.mutualIds.Put(edgeA.ComputeMutualId(), threadsafe.NewSet[protocol.EdgeId]())
+		mutuals := ct.mutualIds.Get(edgeA.ComputeMutualId())
+		mutuals.Insert(edgeA.Id())
+		mutuals.Insert(edgeB.Id())
+		ct.edges.Put(edgeB.Id(), edgeB)
 
 		res := ct.earliestCreatedRivalTimestamp(edgeA)
 		require.Equal(t, uint64(5), res.Unwrap())
 	})
 	t.Run("multiple rivals", func(t *testing.T) {
-		ct.edges.Put(edgeC.id, edgeC)
-		ct.rivaledEdges.Insert(edgeC.id)
-		mutuals := ct.mutualIds.Get(edgeC.computeMutualId())
-		mutuals.Insert(edgeC.id)
+		ct.edges.Put(edgeC.Id(), edgeC)
+		ct.rivaledEdges.Insert(edgeC.Id())
+		mutuals := ct.mutualIds.Get(edgeC.ComputeMutualId())
+		mutuals.Insert(edgeC.Id())
 
 		res := ct.earliestCreatedRivalTimestamp(edgeA)
 		require.Equal(t, uint64(5), res.Unwrap())
@@ -341,16 +415,16 @@ func Test_earliestCreatedRivalTimestamp(t *testing.T) {
 
 func Test_unrivaledAtTime(t *testing.T) {
 	ct := &challengeTree{
-		edges:        threadsafe.NewMap[edgeId, *edge](),
-		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
-		rivaledEdges: threadsafe.NewSet[edgeId](),
+		edges:        threadsafe.NewMap[protocol.EdgeId, TrackedEdge](),
+		mutualIds:    threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
 	edgeB := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.b", createdAt: 5})
-	ct.edges.Put(edgeA.id, edgeA)
+	ct.edges.Put(edgeA.Id(), edgeA)
 	t.Run("less than specified time", func(t *testing.T) {
 		_, err := ct.unrivaledAtTime(edgeA, 0)
-		require.ErrorContains(t, err, "less than specified time")
+		require.ErrorContains(t, err, "less than specified")
 	})
 	t.Run("no rivals", func(t *testing.T) {
 		unrivaled, err := ct.unrivaledAtTime(edgeA, 3)
@@ -361,13 +435,13 @@ func Test_unrivaledAtTime(t *testing.T) {
 		require.Equal(t, true, unrivaled)
 	})
 	t.Run("with rivals but unrivaled at creation time", func(t *testing.T) {
-		ct.rivaledEdges.Insert(edgeA.id)
-		ct.rivaledEdges.Insert(edgeB.id)
-		ct.mutualIds.Put(edgeA.computeMutualId(), threadsafe.NewSet[edgeId]())
-		mutuals := ct.mutualIds.Get(edgeA.computeMutualId())
-		mutuals.Insert(edgeA.id)
-		mutuals.Insert(edgeB.id)
-		ct.edges.Put(edgeB.id, edgeB)
+		ct.rivaledEdges.Insert(edgeA.Id())
+		ct.rivaledEdges.Insert(edgeB.Id())
+		ct.mutualIds.Put(edgeA.ComputeMutualId(), threadsafe.NewSet[protocol.EdgeId]())
+		mutuals := ct.mutualIds.Get(edgeA.ComputeMutualId())
+		mutuals.Insert(edgeA.Id())
+		mutuals.Insert(edgeB.Id())
+		ct.edges.Put(edgeB.Id(), edgeB)
 
 		unrivaled, err := ct.unrivaledAtTime(edgeA, 3)
 		require.NoError(t, err)
@@ -385,85 +459,85 @@ func Test_unrivaledAtTime(t *testing.T) {
 
 func Test_rivalsWithCreationTimes(t *testing.T) {
 	ct := &challengeTree{
-		edges:        threadsafe.NewMap[edgeId, *edge](),
-		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
-		rivaledEdges: threadsafe.NewSet[edgeId](),
+		edges:        threadsafe.NewMap[protocol.EdgeId, TrackedEdge](),
+		mutualIds:    threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 5})
 	edgeB := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.b", createdAt: 5})
 	edgeC := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.c", createdAt: 10})
-	ct.edges.Put(edgeA.id, edgeA)
+	ct.edges.Put(edgeA.Id(), edgeA)
 	t.Run("no rivals", func(t *testing.T) {
 		rivals := ct.rivalsWithCreationTimes(edgeA)
 		require.Equal(t, 0, len(rivals))
 	})
 	t.Run("single rival", func(t *testing.T) {
-		ct.rivaledEdges.Insert(edgeA.id)
-		ct.rivaledEdges.Insert(edgeB.id)
-		ct.mutualIds.Put(edgeA.computeMutualId(), threadsafe.NewSet[edgeId]())
-		mutuals := ct.mutualIds.Get(edgeA.computeMutualId())
-		mutuals.Insert(edgeA.id)
-		mutuals.Insert(edgeB.id)
-		ct.edges.Put(edgeB.id, edgeB)
+		ct.rivaledEdges.Insert(edgeA.Id())
+		ct.rivaledEdges.Insert(edgeB.Id())
+		ct.mutualIds.Put(edgeA.ComputeMutualId(), threadsafe.NewSet[protocol.EdgeId]())
+		mutuals := ct.mutualIds.Get(edgeA.ComputeMutualId())
+		mutuals.Insert(edgeA.Id())
+		mutuals.Insert(edgeB.Id())
+		ct.edges.Put(edgeB.Id(), edgeB)
 		rivals := ct.rivalsWithCreationTimes(edgeA)
 		want := []*rival{
-			{id: edgeB.id, creationTime: edgeB.creationTime},
+			{id: edgeB.Id(), creationTime: edgeB.creationTime},
 		}
 		require.Equal(t, want, rivals)
 		rivals = ct.rivalsWithCreationTimes(edgeB)
 		want = []*rival{
-			{id: edgeA.id, creationTime: edgeA.creationTime},
+			{id: edgeA.Id(), creationTime: edgeA.creationTime},
 		}
 		require.Equal(t, want, rivals)
 	})
 	t.Run("multiple rivals", func(t *testing.T) {
-		ct.edges.Put(edgeC.id, edgeC)
-		ct.rivaledEdges.Insert(edgeC.id)
-		mutuals := ct.mutualIds.Get(edgeC.computeMutualId())
-		mutuals.Insert(edgeC.id)
+		ct.edges.Put(edgeC.Id(), edgeC)
+		ct.rivaledEdges.Insert(edgeC.Id())
+		mutuals := ct.mutualIds.Get(edgeC.ComputeMutualId())
+		mutuals.Insert(edgeC.Id())
 		want := []edgeId{edgeA.id, edgeB.id}
 		rivals := ct.rivalsWithCreationTimes(edgeC)
 		require.Equal(t, true, len(rivals) > 0)
-		got := make(map[edgeId]bool)
+		got := make(map[protocol.EdgeId]bool)
 		for _, r := range rivals {
 			got[r.id] = true
 		}
 		for _, w := range want {
-			require.Equal(t, true, got[w])
+			require.Equal(t, true, got[id(w)])
 		}
 	})
 }
 
 func Test_parents(t *testing.T) {
 	ct := &challengeTree{
-		edges: threadsafe.NewMap[edgeId, *edge](),
+		edges: threadsafe.NewMap[protocol.EdgeId, TrackedEdge](),
 	}
-	childId := edgeId("foo")
+	childId := id("foo")
 	t.Run("no parents", func(t *testing.T) {
 		parents := ct.parents(childId)
 		require.Equal(t, 0, len(parents))
 	})
 	t.Run("one parent", func(t *testing.T) {
-		ct.edges.Put("a", &edge{
+		ct.edges.Put(id("a"), &edge{
 			id:           "a",
-			lowerChildId: childId,
+			lowerChildId: "foo",
 		})
 		parents := ct.parents(childId)
-		require.Equal(t, []edgeId{edgeId("a")}, parents)
+		require.Equal(t, []protocol.EdgeId{id("a")}, parents)
 	})
 	t.Run("two parents", func(t *testing.T) {
-		ct.edges.Put("b", &edge{
+		ct.edges.Put(id("b"), &edge{
 			id:           "b",
-			upperChildId: childId,
+			upperChildId: "foo",
 		})
 		parents := ct.parents(childId)
 		require.Equal(t, 2, len(parents))
-		got := make(map[edgeId]bool)
+		got := make(map[protocol.EdgeId]bool)
 		for _, p := range parents {
 			got[p] = true
 		}
-		require.Equal(t, true, got["a"])
-		require.Equal(t, true, got["b"])
+		require.Equal(t, true, got[id("a")])
+		require.Equal(t, true, got[id("b")])
 	})
 }
 

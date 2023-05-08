@@ -2,6 +2,7 @@ package challengetree
 
 import (
 	"fmt"
+	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 )
@@ -14,15 +15,15 @@ import (
 //
 // This definition captures the sum of all local timers of the maximum-contributing
 // edges along an edge e's ancestor path.
-func (ct *challengeTree) pathTimer(e *edge, t uint64) (uint64, error) {
-	if t < e.creationTime {
+func (ct *challengeTree) pathTimer(e TrackedEdge, t uint64) (uint64, error) {
+	if t < e.CreatedAtBlock() {
 		return 0, nil
 	}
 	local, err := ct.localTimer(e, t)
 	if err != nil {
 		return 0, err
 	}
-	edgeParents := ct.parents(e.id)
+	edgeParents := ct.parents(e.Id())
 	parentTimers := make([]uint64, len(edgeParents))
 
 	// We compute a recursion over all of an edge's parents.
@@ -53,8 +54,8 @@ func (ct *challengeTree) pathTimer(e *edge, t uint64) (uint64, error) {
 
 // Gets the local timer of an edge at time T. If T is earlier than the edge's creation,
 // this function will return 0.
-func (ct *challengeTree) localTimer(e *edge, t uint64) (uint64, error) {
-	if t < e.creationTime {
+func (ct *challengeTree) localTimer(e TrackedEdge, t uint64) (uint64, error) {
+	if t < e.CreatedAtBlock() {
 		return 0, nil
 	}
 	// If no rival at time t, then the local timer is defined
@@ -64,23 +65,23 @@ func (ct *challengeTree) localTimer(e *edge, t uint64) (uint64, error) {
 		return 0, err
 	}
 	if unrivaled {
-		return t - e.creationTime, nil
+		return t - e.CreatedAtBlock(), nil
 	}
 	// Else we return the earliest created rival's time: t_rival - t_creation(e).
 	// This unwrap is safe because the edge has rivals at this point due to the check above.
 	tRival := ct.earliestCreatedRivalTimestamp(e).Unwrap()
-	if e.creationTime >= tRival {
+	if e.CreatedAtBlock() >= tRival {
 		return 0, nil
 	}
-	return tRival - e.creationTime, nil
+	return tRival - e.CreatedAtBlock(), nil
 }
 
 // Gets all edges that claim a specified edge as their lower or upper child.
-func (ct *challengeTree) parents(childId edgeId) []edgeId {
-	p := make([]edgeId, 0)
-	ct.edges.ForEach(func(_ edgeId, edge *edge) {
-		if edge.lowerChildId == childId || edge.upperChildId == childId {
-			p = append(p, edge.id)
+func (ct *challengeTree) parents(childId protocol.EdgeId) []protocol.EdgeId {
+	p := make([]protocol.EdgeId, 0)
+	ct.edges.ForEach(func(_ protocol.EdgeId, edge TrackedEdge) {
+		if edge.LowerChild() == childId || edge.UpperChild() == childId {
+			p = append(p, edge.Id())
 		}
 	})
 	return p
@@ -88,7 +89,7 @@ func (ct *challengeTree) parents(childId edgeId) []edgeId {
 
 // Gets the minimum creation timestamp across all of an edge's rivals. If an edge
 // has no rivals, this minimum is undefined.
-func (ct *challengeTree) earliestCreatedRivalTimestamp(e *edge) util.Option[uint64] {
+func (ct *challengeTree) earliestCreatedRivalTimestamp(e TrackedEdge) util.Option[uint64] {
 	rivals := ct.rivalsWithCreationTimes(e)
 	timestamps := make([]uint64, len(rivals))
 	for i, r := range rivals {
@@ -99,11 +100,11 @@ func (ct *challengeTree) earliestCreatedRivalTimestamp(e *edge) util.Option[uint
 
 // Determines if an edge was unrivaled at timestamp T. If any rival existed
 // for the edge at T, this function will return false.
-func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) (bool, error) {
-	if t < e.creationTime {
+func (ct *challengeTree) unrivaledAtTime(e TrackedEdge, t uint64) (bool, error) {
+	if t < e.CreatedAtBlock() {
 		return false, fmt.Errorf(
-			"edge creation timestamp %d less than specified time %d",
-			e.creationTime,
+			"edge creation block %d less than specified %d",
+			e.CreatedAtBlock(),
 			t,
 		)
 	}
@@ -123,7 +124,7 @@ func (ct *challengeTree) unrivaledAtTime(e *edge, t uint64) (bool, error) {
 
 // Contains a rival edge's id and its creation time.
 type rival struct {
-	id           edgeId
+	id           protocol.EdgeId
 	creationTime uint64
 }
 
@@ -131,25 +132,25 @@ type rival struct {
 // by the challenge tree. We do this by computing the mutual id of the edge and fetching
 // all edge ids that share the same one from a set the challenge tree keeps track of.
 // We exclude the specified edge from the returned list of rivals.
-func (ct *challengeTree) rivalsWithCreationTimes(eg *edge) []*rival {
+func (ct *challengeTree) rivalsWithCreationTimes(eg TrackedEdge) []*rival {
 	rivals := make([]*rival, 0)
 	// If the edge is unrivaled, we simply return.
-	if !ct.rivaledEdges.Has(eg.id) {
+	if !ct.rivaledEdges.Has(eg.Id()) {
 		return rivals
 	}
-	mutualId := eg.computeMutualId()
+	mutualId := eg.ComputeMutualId()
 	mutuals := ct.mutualIds.Get(mutualId)
 	if mutuals == nil {
-		ct.mutualIds.Put(mutualId, threadsafe.NewSet[edgeId]())
+		ct.mutualIds.Put(mutualId, threadsafe.NewSet[protocol.EdgeId]())
 		return rivals
 	}
-	mutuals.ForEach(func(rivalId edgeId) {
-		if rivalId == eg.id {
+	mutuals.ForEach(func(rivalId protocol.EdgeId) {
+		if rivalId == eg.Id() {
 			return
 		}
 		rivals = append(rivals, &rival{
 			id:           rivalId,
-			creationTime: ct.edges.Get(rivalId).creationTime,
+			creationTime: ct.edges.Get(rivalId).CreatedAtBlock(),
 		})
 	})
 	return rivals
