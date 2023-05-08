@@ -12,11 +12,11 @@ import (
 // via min/maxing edges creation times and their rivals along a path of ancestors
 // within a challenge. The mathematical definition is as follows:
 //
-//	path_timer(e: edge) -> local_timer(e) + max{ path_timer(p) | p in parents(e) }
+//	path_timer(e: edge, t: time) -> local_timer(e) + max{ path_timer(p, t) | p in parents(e) }
 //
 // This definition captures the sum of all local timers of the maximum-contributing
 // edges along an edge e's ancestor path.
-func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeGetter, t uint64) (uint64, error) {
+func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeSnapshot, t uint64) (uint64, error) {
 	if t < e.CreatedAtBlock() {
 		return 0, nil
 	}
@@ -24,10 +24,7 @@ func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeGetter, t
 	if err != nil {
 		return 0, err
 	}
-	edgeParents, err := ct.parents(ctx, e.Id())
-	if err != nil {
-		return 0, err
-	}
+	edgeParents := ct.parents(e.Id())
 	parentTimers := make([]uint64, len(edgeParents))
 
 	// We compute a recursion over all of an edge's parents.
@@ -58,13 +55,13 @@ func (ct *challengeTree) pathTimer(ctx context.Context, e protocol.EdgeGetter, t
 
 // Gets the local timer of an edge at time T. If T is earlier than the edge's creation,
 // this function will return 0.
-func (ct *challengeTree) localTimer(ctx context.Context, e protocol.EdgeGetter, t uint64) (uint64, error) {
+func (ct *challengeTree) localTimer(ctx context.Context, e protocol.EdgeSnapshot, t uint64) (uint64, error) {
 	if t < e.CreatedAtBlock() {
 		return 0, nil
 	}
 	// If no rival at time t, then the local timer is defined
 	// as t - t_creation(e).
-	unrivaled, err := ct.unrivaledAtTime(ctx, e, t)
+	unrivaled, err := ct.unrivaledAtTime(e, t)
 	if err != nil {
 		return 0, err
 	}
@@ -73,10 +70,7 @@ func (ct *challengeTree) localTimer(ctx context.Context, e protocol.EdgeGetter, 
 	}
 	// Else we return the earliest created rival's time: t_rival - t_creation(e).
 	// This unwrap is safe because the edge has rivals at this point due to the check above.
-	earliest, err := ct.earliestCreatedRivalTimestamp(ctx, e)
-	if err != nil {
-		return 0, err
-	}
+	earliest := ct.earliestCreatedRivalTimestamp(e)
 	tRival := earliest.Unwrap()
 	if e.CreatedAtBlock() >= tRival {
 		return 0, nil
@@ -85,53 +79,38 @@ func (ct *challengeTree) localTimer(ctx context.Context, e protocol.EdgeGetter, 
 }
 
 // Gets all edges that claim a specified edge as their lower or upper child.
-func (ct *challengeTree) parents(ctx context.Context, childId protocol.EdgeId) ([]protocol.EdgeId, error) {
+func (ct *challengeTree) parents(childId protocol.EdgeId) []protocol.EdgeId {
 	p := make([]protocol.EdgeId, 0)
-	if err := ct.edges.ForEach(func(_ protocol.EdgeId, edge protocol.EdgeGetter) error {
-		lowerChild, err := edge.LowerChild(ctx)
-		if err != nil {
-			return err
+	_ = ct.edges.ForEach(func(_ protocol.EdgeId, edge protocol.EdgeSnapshot) error {
+		lowerChild := edge.LowerChildSnapshot()
+		if !lowerChild.IsNone() && lowerChild.Unwrap() == childId {
+			p = append(p, edge.Id())
+			return nil
 		}
-		if !lowerChild.IsNone() {
-			if lowerChild.Unwrap() == childId {
-				p = append(p, edge.Id())
-				return nil
-			}
-		}
-		upperChild, err := edge.UpperChild(ctx)
-		if err != nil {
-			return err
-		}
-		if !upperChild.IsNone() {
-			if upperChild.Unwrap() == childId {
-				p = append(p, edge.Id())
-				return nil
-			}
+		upperChild := edge.LowerChildSnapshot()
+		if !upperChild.IsNone() && upperChild.Unwrap() == childId {
+			p = append(p, edge.Id())
+			return nil
 		}
 		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return p, nil
+	})
+	return p
 }
 
 // Gets the minimum creation timestamp across all of an edge's rivals. If an edge
 // has no rivals, this minimum is undefined.
-func (ct *challengeTree) earliestCreatedRivalTimestamp(ctx context.Context, e protocol.EdgeGetter) (util.Option[uint64], error) {
-	rivals, err := ct.rivalsWithCreationTimes(ctx, e)
-	if err != nil {
-		return util.None[uint64](), err
-	}
+func (ct *challengeTree) earliestCreatedRivalTimestamp(e protocol.EdgeSnapshot) util.Option[uint64] {
+	rivals := ct.rivalsWithCreationTimes(e)
 	timestamps := make([]uint64, len(rivals))
 	for i, r := range rivals {
 		timestamps[i] = r.creationTime
 	}
-	return util.Min(timestamps), nil
+	return util.Min(timestamps)
 }
 
 // Determines if an edge was unrivaled at timestamp T. If any rival existed
 // for the edge at T, this function will return false.
-func (ct *challengeTree) unrivaledAtTime(ctx context.Context, e protocol.EdgeGetter, t uint64) (bool, error) {
+func (ct *challengeTree) unrivaledAtTime(e protocol.EdgeSnapshot, t uint64) (bool, error) {
 	if t < e.CreatedAtBlock() {
 		return false, fmt.Errorf(
 			"edge creation block %d less than specified %d",
@@ -139,10 +118,7 @@ func (ct *challengeTree) unrivaledAtTime(ctx context.Context, e protocol.EdgeGet
 			t,
 		)
 	}
-	rivals, err := ct.rivalsWithCreationTimes(ctx, e)
-	if err != nil {
-		return false, err
-	}
+	rivals := ct.rivalsWithCreationTimes(e)
 	if len(rivals) == 0 {
 		return true, nil
 	}
@@ -166,22 +142,19 @@ type rival struct {
 // by the challenge tree. We do this by computing the mutual id of the edge and fetching
 // all edge ids that share the same one from a set the challenge tree keeps track of.
 // We exclude the specified edge from the returned list of rivals.
-func (ct *challengeTree) rivalsWithCreationTimes(ctx context.Context, eg protocol.EdgeGetter) ([]*rival, error) {
+func (ct *challengeTree) rivalsWithCreationTimes(eg protocol.EdgeSnapshot) []*rival {
 	rivals := make([]*rival, 0)
 	// If the edge is unrivaled, we simply return.
 	if !ct.rivaledEdges.Has(eg.Id()) {
-		return rivals, nil
+		return rivals
 	}
-	mutualId, err := eg.ComputeMutualId(ctx)
-	if err != nil {
-		return nil, err
-	}
+	mutualId := eg.MutualId()
 	mutuals := ct.mutualIds.Get(mutualId)
 	if mutuals == nil {
 		ct.mutualIds.Put(mutualId, threadsafe.NewSet[protocol.EdgeId]())
-		return rivals, nil
+		return rivals
 	}
-	if err := mutuals.ForEach(func(rivalId protocol.EdgeId) error {
+	_ = mutuals.ForEach(func(rivalId protocol.EdgeId) error {
 		if rivalId == eg.Id() {
 			return nil
 		}
@@ -190,8 +163,6 @@ func (ct *challengeTree) rivalsWithCreationTimes(ctx context.Context, eg protoco
 			creationTime: ct.edges.Get(rivalId).CreatedAtBlock(),
 		})
 		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return rivals, nil
+	})
+	return rivals
 }

@@ -210,9 +210,10 @@ type OriginHeights struct {
 	BigStepChallengeOriginHeight Height
 }
 
-// TrackedEdge defines an interface for a minimal set of getters we need on
-// an edge a challenge tree is tracking.
-type EdgeGetter interface {
+// EdgeSnapshot defines a minimal set of methods of an edge that are taken
+// from reading it on-chain. Some of this data may change, such as the children
+// of the edge. An EdgeSnapshot only represents an edge at the time it was originally fetched.
+type EdgeSnapshot interface {
 	// The unique identifier for an edge.
 	Id() EdgeId
 	// The type of challenge the edge is a part of.
@@ -224,16 +225,22 @@ type EdgeGetter interface {
 	// The block number the edge was created at.
 	CreatedAtBlock() uint64
 	// The mutual id of the edge.
-	ComputeMutualId(ctx context.Context) (MutualId, error)
-	// The lower child of the edge, if any.
-	LowerChild(ctx context.Context) (util.Option[EdgeId], error)
-	// The upper child of the edge, if any.
-	UpperChild(ctx context.Context) (util.Option[EdgeId], error)
+	MutualId() MutualId
+	// The lower child of the edge at the time the edge was read on-chain. Note
+	// this may change and if a newer snapshot is required, the edge should be re-fetched.
+	LowerChildSnapshot() util.Option[EdgeId]
+	// The upper child of the edge at the time the edge was read on-chain. Note
+	// this may change and if a newer snapshot is required, the edge should be re-fetched.
+	UpperChildSnapshot() util.Option[EdgeId]
 }
 
 // SpecEdge according to the protocol specification.
 type SpecEdge interface {
-	EdgeGetter
+	EdgeSnapshot
+	// The lower child of the edge, if any.
+	LowerChild(ctx context.Context) (util.Option[EdgeId], error)
+	// The upper child of the edge, if any.
+	UpperChild(ctx context.Context) (util.Option[EdgeId], error)
 	// The ministaker of an edge. Only existing for level zero edges.
 	MiniStaker() util.Option[common.Address]
 	// The assertion id of the parent assertion that originated the challenge

@@ -66,22 +66,6 @@ func (e *SpecEdge) CreatedAtBlock() uint64 {
 	return e.inner.CreatedAtBlock.Uint64()
 }
 
-// The mutual id of the edge.
-func (e *SpecEdge) ComputeMutualId(ctx context.Context) (protocol.MutualId, error) {
-	mutual, err := e.manager.caller.CalculateMutualId(
-		&bind.CallOpts{Context: ctx},
-		e.inner.EType,
-		e.inner.OriginId,
-		e.inner.StartHeight,
-		e.inner.StartHistoryRoot,
-		e.inner.EndHeight,
-	)
-	if err != nil {
-		return protocol.MutualId{}, err
-	}
-	return protocol.MutualId(mutual), nil
-}
-
 // The lower child of the edge, if any.
 func (e *SpecEdge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
 	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
@@ -104,6 +88,29 @@ func (e *SpecEdge) UpperChild(ctx context.Context) (util.Option[protocol.EdgeId]
 		return util.None[protocol.EdgeId](), nil
 	}
 	return util.Some(protocol.EdgeId(edge.UpperChildId)), nil
+}
+
+// The mutual id of the edge.
+func (e *SpecEdge) MutualId() protocol.MutualId {
+	return protocol.MutualId(e.mutualId)
+}
+
+// The lower child of the edge at the time the edge was read on-chain. Note
+// this may change and if a newer snapshot is required, the edge should be re-fetched.
+func (e *SpecEdge) LowerChildSnapshot() util.Option[protocol.EdgeId] {
+	if e.inner.LowerChildId == ([32]byte{}) {
+		return util.None[protocol.EdgeId]()
+	}
+	return util.Some(protocol.EdgeId(e.inner.LowerChildId))
+}
+
+// The upper child of the edge at the time the edge was read on-chain. Note
+// this may change and if a newer snapshot is required, the edge should be re-fetched.
+func (e *SpecEdge) UpperChildSnapshot() util.Option[protocol.EdgeId] {
+	if e.inner.UpperChildId == ([32]byte{}) {
+		return util.None[protocol.EdgeId]()
+	}
+	return util.Some(protocol.EdgeId(e.inner.UpperChildId))
 }
 
 func (e *SpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
@@ -199,17 +206,6 @@ func (e *SpecEdge) ConfirmByOneStepProof(ctx context.Context) error {
 		)
 	})
 	return err
-}
-
-func (e *SpecEdge) MutualId(ctx context.Context) (protocol.MutualId, error) {
-	return e.manager.caller.CalculateMutualId(
-		&bind.CallOpts{Context: ctx},
-		e.inner.EType,
-		e.inner.OriginId,
-		e.inner.StartHeight,
-		e.inner.StartHistoryRoot,
-		e.inner.EndHeight,
-	)
 }
 
 // TopLevelClaimHeight gets the height at the BlockChallenge level that originated a subchallenge.
@@ -341,8 +337,20 @@ func (cm *SpecChallengeManager) GetEdge(
 	if edge.Staker != (common.Address{}) {
 		miniStaker = util.Some(edge.Staker)
 	}
+	mutual, err := cm.caller.CalculateMutualId(
+		&bind.CallOpts{Context: ctx},
+		edge.EType,
+		edge.OriginId,
+		edge.StartHeight,
+		edge.StartHistoryRoot,
+		edge.EndHeight,
+	)
+	if err != nil {
+		return util.None[protocol.SpecEdge](), err
+	}
 	return util.Some(protocol.SpecEdge(&SpecEdge{
 		id:         edgeId,
+		mutualId:   mutual,
 		manager:    cm,
 		inner:      edge,
 		miniStaker: miniStaker,
@@ -635,10 +643,7 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	if !ok {
 		return nil, errors.New("not a *SpecEdge")
 	}
-	mutualId, err := challenged.MutualId(ctx)
-	if err != nil {
-		return nil, err
-	}
+	mutualId := challenged.MutualId()
 	edgeId, err := cm.CalculateEdgeId(
 		ctx,
 		subChalTyp,
