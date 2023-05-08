@@ -33,11 +33,12 @@ func (ct *challengeTree) addEdge(eg protocol.EdgeSnapshot) {
 	// We only need to check that we agree with the edge's start commitment,
 	// and then we will necessarily track all edges we care about for the sake
 	// of honest edge confirmations.
+	_, startCommit := eg.StartCommitment()
 	if ct.histChecker.AgreesWithStartHistoryCommitment(
-		eg.claimHeights(),
-		eg.startCommit,
+		ct.metadataReader.ClaimHeights(eg.Id()),
+		startCommit,
 	) {
-		ct.edges.Insert(eg.Id(), eg)
+		ct.edges.Put(eg.Id(), eg)
 		if eg.claimId != "" {
 			switch eg.GetType() {
 			case protocol.BlockChallengeEdge:
@@ -55,13 +56,11 @@ func (ct *challengeTree) addEdge(eg protocol.EdgeSnapshot) {
 // Consider the following set of edges in a challenge where evil
 // edges are marked with a ' and a *:
 //
-//	/---6---8
+//			     /---6---8
+//		  0-----4
+//			     \---6'--8'
 //
-// 0-----4
-//
-//	\---6'--8'
-//
-// 0*-------------8*
+//	   0*-------------8*
 //
 // The honest branch is the one that goes from 0-8. The evil edge is 0-8'.
 // The evil edge 0-8' bisects, but agrees with the honest one from 0-4.
@@ -125,7 +124,7 @@ func (ct *challengeTree) ancestorQuery(
 
 			// If the edge is a block challenge edge, we continue the recursion starting from the honest
 			// big step level zero edge, if it exists.
-			if curr.edgeType == protocol.BlockChallengeEdge {
+			if curr.GetType() == protocol.BlockChallengeEdge {
 				if ct.honestBigStepChalLevelZeroEdge.IsNone() {
 					return accum, false
 				}
@@ -137,7 +136,7 @@ func (ct *challengeTree) ancestorQuery(
 					return accum, false
 				}
 				accum = append(accum, rivalIds...)
-				accum = append(accum, curr.id)
+				accum = append(accum, curr.Id())
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
 			}
 
