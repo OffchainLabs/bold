@@ -4,54 +4,7 @@ import (
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 )
-
-func (ct *challengeTree) addEdge(eg protocol.EdgeSnapshot) {
-	prevAssertionId, err := ct.metadataReader.TopLevelAssertion(eg.Id())
-	if err != nil {
-		panic(err)
-	}
-	if ct.topLevelAssertionId != prevAssertionId {
-		// Do nothing - this edge should not be part of this challenge tree.
-		return
-	}
-
-	// Check if the edge id should be added to the rivaled edges set.
-	mutualId := eg.MutualId()
-	mutuals := ct.mutualIds.Get(mutualId)
-	if mutuals == nil {
-		ct.mutualIds.Put(mutualId, threadsafe.NewSet[protocol.EdgeId]())
-		mutuals = ct.mutualIds.Get(mutualId)
-	}
-	if mutuals.Has(eg.Id()) {
-		ct.rivaledEdges.Insert(eg.Id())
-	} else {
-		mutuals.Insert(eg.Id())
-	}
-
-	// We only need to check that we agree with the edge's start commitment,
-	// and then we will necessarily track all edges we care about for the sake
-	// of honest edge confirmations.
-	_, startCommit := eg.StartCommitment()
-	if ct.histChecker.AgreesWithStartHistoryCommitment(
-		ct.metadataReader.ClaimHeights(eg.Id()),
-		startCommit,
-	) {
-		ct.edges.Put(eg.Id(), eg)
-		if eg.claimId != "" {
-			switch eg.GetType() {
-			case protocol.BlockChallengeEdge:
-				ct.honestBlockChalLevelZeroEdge = util.Some(eg)
-			case protocol.BigStepChallengeEdge:
-				ct.honestBigStepChalLevelZeroEdge = util.Some(eg)
-			case protocol.SmallStepChallengeEdge:
-				ct.honestSmallStepChalLevelZeroEdge = util.Some(eg)
-			default:
-			}
-		}
-	}
-}
 
 // Consider the following set of edges in a challenge where evil
 // edges are marked with a ' and a *:
@@ -120,8 +73,6 @@ func (ct *challengeTree) ancestorQuery(
 				return accum, false
 			}
 
-			rivalIds := ct.rivals(curr)
-
 			// If the edge is a block challenge edge, we continue the recursion starting from the honest
 			// big step level zero edge, if it exists.
 			if curr.GetType() == protocol.BlockChallengeEdge {
@@ -135,7 +86,6 @@ func (ct *challengeTree) ancestorQuery(
 				if honestLowerLevelEdge.claimId != claimId(curr.id) {
 					return accum, false
 				}
-				accum = append(accum, rivalIds...)
 				accum = append(accum, curr.Id())
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
 			}
@@ -154,15 +104,12 @@ func (ct *challengeTree) ancestorQuery(
 					return accum, false
 				}
 
-				accum = append(accum, rivalIds...)
 				accum = append(accum, curr.Id())
 				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
 			}
 		}
 		return accum, false
 	}
-	rivalIds := ct.rivals(curr)
-	accum = append(accum, rivalIds...)
 	accum = append(accum, curr.Id())
 
 	// If the edge id we are querying for is a direct child of the current edge, we append
