@@ -95,6 +95,14 @@ func (e *SpecEdge) MutualId() protocol.MutualId {
 	return protocol.MutualId(e.mutualId)
 }
 
+// The claim id of the edge, if any.
+func (e *SpecEdge) ClaimId() util.Option[protocol.ClaimId] {
+	if e.inner.ClaimId == [32]byte{} {
+		return util.None[protocol.ClaimId]()
+	}
+	return util.Some(protocol.ClaimId(e.inner.ClaimId))
+}
+
 // The lower child of the edge at the time the edge was read on-chain. Note
 // this may change and if a newer snapshot is required, the edge should be re-fetched.
 func (e *SpecEdge) LowerChildSnapshot() util.Option[protocol.EdgeId] {

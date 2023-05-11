@@ -1,7 +1,6 @@
 package challengetree
 
 import (
-	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 )
@@ -19,20 +18,15 @@ import (
 // The evil edge 0-8' bisects, but agrees with the honest one from 0-4.
 // Therefore, there is only a single 0-4 edge in the set.
 //
-// In this case, the set of ancestors for 4-6 is the following:
+// In this case, the set of honest ancestors for 4-6 is the following:
 //
-//	{4-8, 4-8', 0-8, 0-8'}
-//
-// All of these ancestors will contribute towards the path timer of 4-6 when
-// confirmations by time are being attempted for the edge. Note there is another
-// evil party that starts at 0*. In this case, it does not agree with the honest
-// branch at all, so that party's edges can be ignored for this computation.
+//	{4-8, 0-8}
 //
 // In order to retrieve ancestors for an edge with id=I, we start from the honest,
 // block challenge level zero edge and recursively traverse its children,
-// reducing the ids and their rivals along the way into a slice until we hit a child that
+// reducing the ids and along the way into a slice until we hit a child that
 // matches id=I and return the slice.
-func (ct *challengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.EdgeId {
+func (ct *honestChallengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.EdgeId {
 	if ct.honestBlockChalLevelZeroEdge.IsNone() {
 		return make([]protocol.EdgeId, 0)
 	}
@@ -51,7 +45,7 @@ func (ct *challengeTree) ancestorsForHonestEdge(id protocol.EdgeId) []protocol.E
 	return ancestors
 }
 
-func (ct *challengeTree) ancestorQuery(
+func (ct *honestChallengeTree) ancestorQuery(
 	accum []protocol.EdgeId,
 	curr protocol.EdgeSnapshot,
 	queryingFor protocol.EdgeId,
@@ -73,40 +67,31 @@ func (ct *challengeTree) ancestorQuery(
 				return accum, false
 			}
 
+			var lowerLevelEdge protocol.EdgeSnapshot
 			// If the edge is a block challenge edge, we continue the recursion starting from the honest
 			// big step level zero edge, if it exists.
 			if curr.GetType() == protocol.BlockChallengeEdge {
 				if ct.honestBigStepChalLevelZeroEdge.IsNone() {
 					return accum, false
 				}
-				honestLowerLevelEdge := ct.honestBigStepChalLevelZeroEdge.Unwrap()
-
-				// Defensive check ensuring the honest level zero edge one challenge level below
-				// claims the current edge id as its claim id.
-				if honestLowerLevelEdge.claimId != claimId(curr.id) {
-					return accum, false
-				}
-				accum = append(accum, curr.Id())
-				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
+				lowerLevelEdge = ct.honestBigStepChalLevelZeroEdge.Unwrap()
 			}
 
 			// If the edge is a big step challenge edge, we continue the recursion starting from the honest
 			// small step level zero edge, if it exists.
-			if curr.edgeType == protocol.BigStepChallengeEdge {
+			if curr.GetType() == protocol.BigStepChallengeEdge {
 				if ct.honestSmallStepChalLevelZeroEdge.IsNone() {
 					return accum, false
 				}
-				honestLowerLevelEdge := ct.honestSmallStepChalLevelZeroEdge.Unwrap()
-
-				// Defensive check ensuring the honest level zero edge one challenge level below
-				// claims the current edge id as its claim id.
-				if honestLowerLevelEdge.claimId != protocol.ClaimId(curr.Id()) {
-					return accum, false
-				}
-
-				accum = append(accum, curr.Id())
-				return ct.ancestorQuery(accum, honestLowerLevelEdge, queryingFor)
+				lowerLevelEdge = ct.honestSmallStepChalLevelZeroEdge.Unwrap()
 			}
+			// Defensive check ensuring the honest level zero edge one challenge level below
+			// claims the current edge id as its claim id.
+			if !lowerLevelEdge.ClaimId().IsNone() && lowerLevelEdge.ClaimId().Unwrap() != protocol.ClaimId(curr.Id()) {
+				return accum, false
+			}
+			accum = append(accum, curr.Id())
+			return ct.ancestorQuery(accum, lowerLevelEdge, queryingFor)
 		}
 		return accum, false
 	}
@@ -117,22 +102,30 @@ func (ct *challengeTree) ancestorQuery(
 	if isDirectChild(curr, queryingFor) {
 		return accum, true
 	}
-	lowerChild, lowerOk := ct.edges.TryGet(curr.lowerChildId)
-	if !lowerOk {
-		panic("not lower")
+	var lowerAncestors []protocol.EdgeId
+	var foundInLowerChildren bool
+	if !curr.LowerChildSnapshot().IsNone() {
+		lowerChildId := curr.LowerChildSnapshot().Unwrap()
+		lowerChild, ok := ct.edges.TryGet(lowerChildId)
+		if !ok {
+			panic("not lower")
+		}
+		lowerAncestors, foundInLowerChildren = ct.ancestorQuery(
+			accum, lowerChild, queryingFor,
+		)
 	}
-	upperChild, upperOk := ct.edges.TryGet(curr.upperChildId)
-	if !upperOk {
-		panic(fmt.Sprintf("not upper curr %s, upper=%s", curr.Id(), curr.upperChildId))
+	var upperAncestors []protocol.EdgeId
+	var foundInUpperChildren bool
+	if !curr.UpperChildSnapshot().IsNone() {
+		upperChildId := curr.UpperChildSnapshot().Unwrap()
+		upperChild, ok := ct.edges.TryGet(upperChildId)
+		if !ok {
+			panic("not lower")
+		}
+		upperAncestors, foundInUpperChildren = ct.ancestorQuery(
+			accum, upperChild, queryingFor,
+		)
 	}
-	lowerAncestors, foundInLowerChildren := ct.ancestorQuery(
-		accum, lowerChild, queryingFor,
-	)
-	upperAncestors, foundInUpperChildren := ct.ancestorQuery(
-		accum,
-		upperChild,
-		queryingFor,
-	)
 	// If the edge we are querying for is found in the lower children,
 	// we return the ancestry along such path.
 	if foundInLowerChildren {
@@ -162,7 +155,13 @@ func edgeLength(eg protocol.EdgeSnapshot) protocol.Height {
 func isDirectChild(parent protocol.EdgeSnapshot, childId protocol.EdgeId) bool {
 	lowerChild := parent.LowerChildSnapshot()
 	upperChild := parent.UpperChildSnapshot()
-	return parent.lowerChildId == childId || parent.upperChildId == childId
+	if lowerChild.IsNone() && lowerChild.Unwrap() == childId {
+		return true
+	}
+	if upperChild.IsNone() && upperChild.Unwrap() == childId {
+		return true
+	}
+	return false
 }
 
 // Checks if an edge has any children.

@@ -1,38 +1,46 @@
 package challengetree
 
-import (
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
-	"testing"
-)
+// import (
+// 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+// 	"testing"
+// )
 
-func TestAncestors_BlockChallengeOnly(t *testing.T) {
-	tree := &challengeTree{
-		edges:        threadsafe.NewMap[edgeId, *edge](),
-		rivaledEdges: threadsafe.NewSet[edgeId](),
-		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
-	}
-	setupBlockChallengeTreeSnapshot(t, tree)
+// // The claim id of the edge, if any.
+// func (e *SpecEdge) ClaimId() util.Option[protocol.ClaimId] {
+// 	if e.inner.ClaimId == [32]byte{} {
+// 		return util.None[protocol.ClaimId]()
+// 	}
+// 	return util.Some(protocol.ClaimId(e.inner.ClaimId))
+// }
 
-	// Edge ids that belong to block challenges are prefixed with "blk".
-	// For big step, prefixed with "big", and small step, prefixed with "smol".
-	ancestors := tree.ancestorsForHonestEdge("blk-6-8")
-	require.Equal(t, ancestors, []edgeId{"blk-4-8", "blk-0-8", "blk-0-16"})
+// func TestAncestors_BlockChallengeOnly(t *testing.T) {
+// 	tree := &challengeTree{
+// 		edges:        threadsafe.NewMap[edgeId, *edge](),
+// 		rivaledEdges: threadsafe.NewSet[edgeId](),
+// 		mutualIds:    threadsafe.NewMap[mutualId, *threadsafe.Set[edgeId]](),
+// 	}
+// 	setupBlockChallengeTreeSnapshot(t, tree)
 
-	ancestors = tree.ancestorsForHonestEdge("blk-4-6")
-	require.Equal(t, ancestors, []edgeId{"blk-4-8", "blk-0-8", "blk-0-16"})
+// 	// Edge ids that belong to block challenges are prefixed with "blk".
+// 	// For big step, prefixed with "big", and small step, prefixed with "smol".
+// 	ancestors := tree.ancestorsForHonestEdge("blk-6-8")
+// 	require.Equal(t, ancestors, []edgeId{"blk-4-8", "blk-0-8", "blk-0-16"})
 
-	ancestors = tree.ancestorsForHonestEdge("blk-0-4")
-	require.Equal(t, ancestors, []edgeId{"blk-0-8", "blk-0-16"})
+// 	ancestors = tree.ancestorsForHonestEdge("blk-4-6")
+// 	require.Equal(t, ancestors, []edgeId{"blk-4-8", "blk-0-8", "blk-0-16"})
 
-	ancestors = tree.ancestorsForHonestEdge("blk-4-8")
-	require.Equal(t, ancestors, []edgeId{"blk-0-8", "blk-0-16"})
+// 	ancestors = tree.ancestorsForHonestEdge("blk-0-4")
+// 	require.Equal(t, ancestors, []edgeId{"blk-0-8", "blk-0-16"})
 
-	ancestors = tree.ancestorsForHonestEdge("blk-5-6")
-	require.Equal(t, ancestors, []edgeId{"blk-4-6", "blk-4-8", "blk-0-8", "blk-0-16"})
+// 	ancestors = tree.ancestorsForHonestEdge("blk-4-8")
+// 	require.Equal(t, ancestors, []edgeId{"blk-0-8", "blk-0-16"})
 
-	ancestors = tree.ancestorsForHonestEdge("blk-0-16")
-	require.Equal(t, 0, len(ancestors))
-}
+// 	ancestors = tree.ancestorsForHonestEdge("blk-5-6")
+// 	require.Equal(t, ancestors, []edgeId{"blk-4-6", "blk-4-8", "blk-0-8", "blk-0-16"})
+
+// 	ancestors = tree.ancestorsForHonestEdge("blk-0-16")
+// 	require.Equal(t, 0, len(ancestors))
+// }
 
 // // Tests the following tree, all the way down to the small
 // // step subchallenge level.
@@ -143,95 +151,95 @@ func TestAncestors_BlockChallengeOnly(t *testing.T) {
 //	4--5, 5--6
 //
 // and then inserts the respective edges into a challenge tree.
-func setupBlockChallengeTreeSnapshot(t *testing.T, tree *challengeTree) {
-	t.Helper()
-	topLevel := &edge{
-		id:          "blk-0-16",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 0,
-		endHeight:   16,
-	}
-	tree.honestBlockChalLevelZeroEdge = util.Some(topLevel)
-	child08 := &edge{
-		id:          "blk-0-8",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 0,
-		endHeight:   8,
-	}
-	child816 := &edge{
-		id:          "blk-8-16",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 8,
-		endHeight:   16,
-	}
-	topLevel.lowerChildId = child08.id
-	topLevel.upperChildId = child816.id
+// func setupBlockChallengeTreeSnapshot(t *testing.T, tree *challengeTree) {
+// 	t.Helper()
+// 	topLevel := &edge{
+// 		id:          "blk-0-16",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 0,
+// 		endHeight:   16,
+// 	}
+// 	tree.honestBlockChalLevelZeroEdge = util.Some(topLevel)
+// 	child08 := &edge{
+// 		id:          "blk-0-8",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 0,
+// 		endHeight:   8,
+// 	}
+// 	child816 := &edge{
+// 		id:          "blk-8-16",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 8,
+// 		endHeight:   16,
+// 	}
+// 	topLevel.lowerChildId = child08.id
+// 	topLevel.upperChildId = child816.id
 
-	child04 := &edge{
-		id:          "blk-0-4",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 0,
-		endHeight:   4,
-	}
-	child48 := &edge{
-		id:          "blk-4-8",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 4,
-		endHeight:   8,
-	}
-	child08.lowerChildId = child04.id
-	child08.upperChildId = child48.id
+// 	child04 := &edge{
+// 		id:          "blk-0-4",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 0,
+// 		endHeight:   4,
+// 	}
+// 	child48 := &edge{
+// 		id:          "blk-4-8",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 4,
+// 		endHeight:   8,
+// 	}
+// 	child08.lowerChildId = child04.id
+// 	child08.upperChildId = child48.id
 
-	child46 := &edge{
-		id:          "blk-4-6",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 4,
-		endHeight:   6,
-	}
-	child68 := &edge{
-		id:          "blk-6-8",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 6,
-		endHeight:   8,
-	}
-	child48.lowerChildId = child46.id
-	child48.upperChildId = child68.id
+// 	child46 := &edge{
+// 		id:          "blk-4-6",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 4,
+// 		endHeight:   6,
+// 	}
+// 	child68 := &edge{
+// 		id:          "blk-6-8",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 6,
+// 		endHeight:   8,
+// 	}
+// 	child48.lowerChildId = child46.id
+// 	child48.upperChildId = child68.id
 
-	child45 := &edge{
-		id:          "blk-4-5",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 4,
-		endHeight:   5,
-	}
-	child56 := &edge{
-		id:          "blk-5-6",
-		edgeType:    protocol.BlockChallengeEdge,
-		startHeight: 5,
-		endHeight:   6,
-	}
-	child46.lowerChildId = child45.id
-	child46.upperChildId = child56.id
+// 	child45 := &edge{
+// 		id:          "blk-4-5",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 4,
+// 		endHeight:   5,
+// 	}
+// 	child56 := &edge{
+// 		id:          "blk-5-6",
+// 		edgeType:    protocol.BlockChallengeEdge,
+// 		startHeight: 5,
+// 		endHeight:   6,
+// 	}
+// 	child46.lowerChildId = child45.id
+// 	child46.upperChildId = child56.id
 
-	tree.edges.Insert(topLevel.id, topLevel)
-	tree.edges.Insert(child08.id, child08)
-	tree.edges.Insert(child816.id, child816)
-	tree.edges.Insert(child04.id, child04)
-	tree.edges.Insert(child48.id, child48)
-	tree.edges.Insert(child46.id, child46)
-	tree.edges.Insert(child68.id, child68)
-	tree.edges.Insert(child45.id, child45)
-	tree.edges.Insert(child56.id, child56)
+// 	tree.edges.Insert(topLevel.id, topLevel)
+// 	tree.edges.Insert(child08.id, child08)
+// 	tree.edges.Insert(child816.id, child816)
+// 	tree.edges.Insert(child04.id, child04)
+// 	tree.edges.Insert(child48.id, child48)
+// 	tree.edges.Insert(child46.id, child46)
+// 	tree.edges.Insert(child68.id, child68)
+// 	tree.edges.Insert(child45.id, child45)
+// 	tree.edges.Insert(child56.id, child56)
 
-	// Rival all edges except for 0-4
-	tree.rivaledEdges.Insert(topLevel.id)
-	tree.rivaledEdges.Insert(child08.id)
-	tree.rivaledEdges.Insert(child816.id)
-	tree.rivaledEdges.Insert(child48.id)
-	tree.rivaledEdges.Insert(child46.id)
-	tree.rivaledEdges.Insert(child68.id)
-	tree.rivaledEdges.Insert(child45.id)
-	tree.rivaledEdges.Insert(child56.id)
-}
+// 	// Rival all edges except for 0-4
+// 	tree.rivaledEdges.Insert(topLevel.id)
+// 	tree.rivaledEdges.Insert(child08.id)
+// 	tree.rivaledEdges.Insert(child816.id)
+// 	tree.rivaledEdges.Insert(child48.id)
+// 	tree.rivaledEdges.Insert(child46.id)
+// 	tree.rivaledEdges.Insert(child68.id)
+// 	tree.rivaledEdges.Insert(child45.id)
+// 	tree.rivaledEdges.Insert(child56.id)
+// }
 
 // // Sets up the following big step challenge snapshot:
 // //

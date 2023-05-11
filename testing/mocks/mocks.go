@@ -318,6 +318,10 @@ func (m *MockSpecEdge) MutualId() protocol.MutualId {
 	args := m.Called()
 	return args.Get(0).(protocol.MutualId)
 }
+func (m *MockSpecEdge) ClaimId() util.Option[protocol.ClaimId] {
+	args := m.Called()
+	return args.Get(0).(util.Option[protocol.ClaimId])
+}
 func (m *MockSpecEdge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
 	args := m.Called(ctx)
 	return args.Get(0).(util.Option[protocol.EdgeId]), args.Error(1)
