@@ -105,17 +105,84 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	// })
 }
 
+func buildEdges(allEdges ...*edge) map[edgeId]*edge {
+	m := make(map[edgeId]*edge)
+	for _, e := range allEdges {
+		m[e.id] = e
+	}
+	return m
+}
+
 // Sets up the following block challenge snapshot:
 //
-//	0-----------------------8, 8----------------------16
-//	0-----------------------8
-//	0-------4, 4------------8
-//	4----6, 6----8
-//	4--5, 5--6
+//	 Alice
+//		0-----------------------8, 8----------------------16
+//		0-----------------------8
+//		0-------4, 4------------8
+//		4----6, 6----8
+//		4--5, 5--6
+//
+//	 Bob
+//		0-----------------------8', 8'----------------------16'
+//		0-----------------------8'
+//		        4---------------8'
+//		4----6', 6'----8'
+//		4--5', 5'--6'
 //
 // and then inserts the respective edges into a challenge tree.
 func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	t.Helper()
+	aliceEdges := buildEdges(
+		// Alice.
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.a"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-8.a-16.a"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.a"}),
+	)
+	bobEdges := buildEdges(
+		// Bob.
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.b"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.b"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-8.b-16.b"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.b"}),
+	)
+	// Child-relationship linking.
+	// Alice.
+	aliceEdges["blk-0.a-16.a"].lowerChildId = "blk-0.a-8.a"
+	aliceEdges["blk-0.a-16.a"].upperChildId = "blk-8.a-16.a"
+	aliceEdges["blk-0.a-8.a"].lowerChildId = "blk-0.a-4.a"
+	aliceEdges["blk-0.a-8.a"].upperChildId = "blk-4.a-8.a"
+	// Bob.
+	bobEdges["blk-0.a-16.b"].lowerChildId = "blk-0.a-8.b"
+	bobEdges["blk-0.a-16.b"].upperChildId = "blk-8.b-16.b"
+	bobEdges["blk-0.a-8.b"].lowerChildId = "blk-0.a-4.a"
+	bobEdges["blk-0.a-8.b"].upperChildId = "blk-4.a-8.b"
+
+	transformedEdges := make(map[protocol.EdgeId]protocol.EdgeSnapshot)
+	for _, v := range aliceEdges {
+		transformedEdges[v.Id()] = v
+	}
+	allEdges := threadsafe.NewMapFromItems(transformedEdges)
+	ct := &challengeTree{
+		edges:        allEdges,
+		mutualIds:    threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		rivaledEdges: threadsafe.NewSet[protocol.EdgeId](),
+	}
+
+	// We then set up the rival relationships in the challenge tree.
+	// All edges are rivaled in this example.
+	for _, e := range edges {
+		ct.rivaledEdges.Insert(e.Id())
+	}
+
+	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
+	mutual := edges["blk-0.a-16.a"].MutualId()
+
+	ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals := ct.mutualIds.Get(mutual)
+	mutuals.Insert(id("blk-0.a-16.a"))
+	mutuals.Insert(id("blk-0.a-16.b"))
 }
 
 // Sets up the following big step challenge snapshot:
