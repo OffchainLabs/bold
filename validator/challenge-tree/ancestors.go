@@ -42,7 +42,7 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(id protocol.EdgeId) ([]pro
 		return make([]protocol.EdgeId, 0), nil
 	}
 	// The confirm by time function in Solidity requires ancestors to be specified
-	// from earliest to oldest, which is the reverse result of our recursion.
+	// from child to parent linkage, which is the reverse result of our recursion.
 	util.Reverse(ancestors)
 	return ancestors, nil
 }
