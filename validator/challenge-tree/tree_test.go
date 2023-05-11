@@ -210,10 +210,16 @@ func (e *edge) OriginId() protocol.OriginId {
 }
 
 func (e *edge) LowerChildSnapshot() util.Option[protocol.EdgeId] {
+	if e.lowerChildId == "" {
+		return util.None[protocol.EdgeId]()
+	}
 	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.lowerChildId))))
 }
 
 func (e *edge) UpperChildSnapshot() util.Option[protocol.EdgeId] {
+	if e.upperChildId == "" {
+		return util.None[protocol.EdgeId]()
+	}
 	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.upperChildId))))
 }
 

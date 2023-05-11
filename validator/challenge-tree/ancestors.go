@@ -1,6 +1,7 @@
 package challengetree
 
 import (
+	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 )
@@ -24,9 +25,12 @@ import (
 // block challenge level zero edge and recursively traverse its children,
 // reducing the ids and along the way into a slice until we hit a child that
 // matches id=I and return the slice.
-func (ht *HonestChallengeTree) AncestorsForHonestEdge(id protocol.EdgeId) []protocol.EdgeId {
+func (ht *HonestChallengeTree) AncestorsForHonestEdge(id protocol.EdgeId) ([]protocol.EdgeId, error) {
+	if _, ok := ht.edges.TryGet(id); !ok {
+		return nil, fmt.Errorf("edge with id %#x not found in honest challenge tree", id)
+	}
 	if ht.honestBlockChalLevelZeroEdge.IsNone() {
-		return make([]protocol.EdgeId, 0)
+		return make([]protocol.EdgeId, 0), nil
 	}
 	blockEdge := ht.honestBlockChalLevelZeroEdge.Unwrap()
 	ancestors, ok := ht.ancestorQuery(
@@ -35,12 +39,12 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(id protocol.EdgeId) []prot
 		id,
 	)
 	if !ok {
-		return make([]protocol.EdgeId, 0)
+		return make([]protocol.EdgeId, 0), nil
 	}
 	// The confirm by time function in Solidity requires ancestors to be specified
 	// from earliest to oldest, which is the reverse result of our recursion.
 	util.Reverse(ancestors)
-	return ancestors
+	return ancestors, nil
 }
 
 func (ht *HonestChallengeTree) ancestorQuery(
