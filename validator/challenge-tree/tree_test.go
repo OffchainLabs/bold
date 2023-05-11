@@ -240,11 +240,6 @@ func (e *edge) ClaimId() util.Option[protocol.ClaimId] {
 	return util.Some(protocol.ClaimId(common.BytesToHash([]byte(e.claimId))))
 }
 
-// Simple function to go from a mock string edge id to a real protocol EdgeId type.
-func id(i edgeId) protocol.EdgeId {
-	return protocol.EdgeId(common.BytesToHash([]byte(i)))
-}
-
 type newCfg struct {
 	t         *testing.T
 	originId  originId
