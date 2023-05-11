@@ -37,14 +37,16 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
 	}
+	// Edge ids that belong to block challenges are prefixed with "blk".
+	// For big step, prefixed with "big", and small step, prefixed with "smol".
 	setupBlockChallengeTreeSnapshot(t, tree)
 	tree.honestBlockChalLevelZeroEdge = util.Some(tree.edges.Get(id("blk-0.a-16.a")))
-	claimId := "blk-5.a-6.a"
+	claimId := "blk-4.a-5.a"
 	setupBigStepChallengeSnapshot(t, tree, claimId)
 	tree.honestBigStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("big-0.a-16.a")))
-	claimId = "smol-5.a-6.a"
+	claimId = "big-4.a-5.a"
 	setupSmallStepChallengeSnapshot(t, tree, claimId)
-	tree.honestBigStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("smol-0.a-16.a")))
+	tree.honestSmallStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("smol-0.a-16.a")))
 
 	t.Run("junk edge fails", func(t *testing.T) {
 		// We start by querying for ancestors for a block edge id.
@@ -55,71 +57,103 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 		_, err := tree.AncestorsForHonestEdge(id("blk-0.a-16.b"))
 		require.ErrorContains(t, err, "not found in honest challenge tree")
 	})
-
-	// Edge ids that belong to block challenges are prefixed with "blk".
-	// For big step, prefixed with "big", and small step, prefixed with "smol".
-	t.Run("block challenge level zero edge has no ancestors", func(t *testing.T) {
+	t.Run("block challenge: level zero edge has no ancestors", func(t *testing.T) {
 		ancestors, err := tree.AncestorsForHonestEdge(id("blk-0.a-16.a"))
 		require.NoError(t, err)
 		require.Equal(t, 0, len(ancestors))
 	})
-
-	ancestors, err := tree.AncestorsForHonestEdge(id("blk-4.a-5.a"))
-	require.NoError(t, err)
-	wanted := []protocol.EdgeId{
-		id("blk-4.a-6.a"),
-		id("blk-4.a-8.a"),
-		id("blk-0.a-8.a"),
-		id("blk-0.a-16.a"),
-	}
-	require.Equal(t, wanted, ancestors)
-
-	// // We start query the ancestors of the lowest level, length one, small step edge.
-	// ancestors = tree.ancestorsForHonestEdge(id("smol-5-6"))
-	// wanted = []protocol.EdgeId{
-	// 	id("smol-4-6"),
-	// 	id("smol-4-8"),
-	// 	id("smol-0-8"),
-	// 	id("smol-0-16"),
-	// 	id("big-5-6"),
-	// 	id("big-4-6"),
-	// 	id("big-4-8"),
-	// 	id("big-0-8"),
-	// 	id("big-0-16"),
-	// 	id("blk-5-6"), // TODO: Should the claim id be part of the ancestors as well?
-	// 	id("blk-4-6"),
-	// 	id("blk-4-8"),
-	// 	id("blk-0-8"),
-	// 	id("blk-0-16"),
-	// }
-	// require.Equal(t, wanted, ancestors)
-
-	// // Query the level zero edge at each challenge type.
-	// ancestors = tree.ancestorsForHonestEdge(id("blk-0-16"))
-	// require.Equal(t, 0, len(ancestors))
-
-	// ancestors = tree.ancestorsForHonestEdge(id("big-0-16"))
-	// require.Equal(t, ancestors, []protocol.EdgeId{
-	// 	id("blk-5-6"),
-	// 	id("blk-4-6"),
-	// 	id("blk-4-8"),
-	// 	id("blk-0-8"),
-	// 	id("blk-0-16"),
-	// })
-
-	// ancestors = tree.ancestorsForHonestEdge(id("smol-0-16"))
-	// require.Equal(t, ancestors, []protocol.EdgeId{
-	// 	id("big-5-6"),
-	// 	id("big-4-6"),
-	// 	id("big-4-8"),
-	// 	id("big-0-8"),
-	// 	id("big-0-16"),
-	// 	id("blk-5-6"),
-	// 	id("blk-4-6"),
-	// 	id("blk-4-8"),
-	// 	id("blk-0-8"),
-	// 	id("blk-0-16"),
-	// })
+	t.Run("block challenge: single ancestor", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("blk-0.a-8.a"))
+		require.NoError(t, err)
+		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
+		ancestors, err = tree.AncestorsForHonestEdge(id("blk-8.a-16.a"))
+		require.NoError(t, err)
+		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
+	})
+	t.Run("block challenge: many ancestors", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("blk-4.a-5.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("big step challenge: level zero edge has ancestors from block challenge", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("big-0.a-16.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("big step challenge: many ancestors plus block challenge ancestors", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("big-5.a-6.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			// Big step chal.
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("small step challenge: level zero edge has ancestors from big and block challenge", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("smol-0.a-16.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			// Big step chal.
+			id("big-4.a-5.a"),
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("small step challenge: lowest level edge has full ancestry", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("smol-5.a-6.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			// Small step chal.
+			id("smol-4.a-6.a"),
+			id("smol-4.a-8.a"),
+			id("smol-0.a-8.a"),
+			id("smol-0.a-16.a"),
+			// Big step chal.
+			id("big-4.a-5.a"),
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
 }
 
 func buildEdges(allEdges ...*edge) map[edgeId]*edge {
@@ -207,6 +241,18 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	mutuals = tree.mutualIds.Get(mutual)
 	mutuals.Insert(id("blk-4.a-8.a"))
 	mutuals.Insert(id("blk-4.a-8.b"))
+
+	mutual = aliceEdges["blk-4.a-6.a"].MutualId()
+	tree.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals = tree.mutualIds.Get(mutual)
+	mutuals.Insert(id("blk-4.a-6.a"))
+	mutuals.Insert(id("blk-4.a-6.b"))
+
+	mutual = aliceEdges["blk-4.a-5.a"].MutualId()
+	tree.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals = tree.mutualIds.Get(mutual)
+	mutuals.Insert(id("blk-4.a-5.a"))
+	mutuals.Insert(id("blk-4.a-5.b"))
 }
 
 func id(eId edgeId) protocol.EdgeId {
@@ -287,6 +333,18 @@ func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, clai
 	mutuals = tree.mutualIds.Get(mutual)
 	mutuals.Insert(id("big-4.a-8.a"))
 	mutuals.Insert(id("big-4.a-8.b"))
+
+	mutual = aliceEdges["big-4.a-6.a"].MutualId()
+	tree.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals = tree.mutualIds.Get(mutual)
+	mutuals.Insert(id("big-4.a-6.a"))
+	mutuals.Insert(id("big-4.a-6.b"))
+
+	mutual = aliceEdges["big-4.a-5.a"].MutualId()
+	tree.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals = tree.mutualIds.Get(mutual)
+	mutuals.Insert(id("big-4.a-5.a"))
+	mutuals.Insert(id("big-4.a-5.b"))
 }
 
 // Sets up the following small step challenge snapshot:
@@ -365,4 +423,16 @@ func setupSmallStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 	mutuals = tree.mutualIds.Get(mutual)
 	mutuals.Insert(id("smol-4.a-8.a"))
 	mutuals.Insert(id("smol-4.a-8.b"))
+
+	mutual = aliceEdges["smol-4.a-6.a"].MutualId()
+	tree.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals = tree.mutualIds.Get(mutual)
+	mutuals.Insert(id("smol-4.a-6.a"))
+	mutuals.Insert(id("smol-4.a-6.b"))
+
+	mutual = aliceEdges["smol-4.a-5.a"].MutualId()
+	tree.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
+	mutuals = tree.mutualIds.Get(mutual)
+	mutuals.Insert(id("smol-4.a-5.a"))
+	mutuals.Insert(id("smol-4.a-5.b"))
 }
