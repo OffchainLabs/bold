@@ -156,6 +156,104 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	})
 }
 
+func TestHonestChallengeTree_isRivaled(t *testing.T) {
+	ht := &HonestChallengeTree{
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+	}
+	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+	rival := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.b"})
+	t.Run("mutual id mapping empty", func(t *testing.T) {
+		require.Equal(t, false, ht.isRivaled(edge))
+	})
+	ht.mutualIds.Put(edge.MutualId(), threadsafe.NewSet[protocol.EdgeId]())
+	mutuals := ht.mutualIds.Get(edge.MutualId())
+	t.Run("mutual id only one item", func(t *testing.T) {
+		mutuals.Insert(edge.Id())
+		require.Equal(t, false, ht.isRivaled(edge))
+	})
+	t.Run("mutual id contains two items and one of them is the specified edge", func(t *testing.T) {
+		mutuals.Insert(rival.Id())
+		require.Equal(t, true, ht.isRivaled(edge))
+		require.Equal(t, true, ht.isRivaled(rival))
+	})
+}
+
+func Test_checkEdgeClaim(t *testing.T) {
+	t.Run("no claim id", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", claimId: ""})
+		ok := checkEdgeClaim(edge, protocol.ClaimId(id("blk-4.a-5.a")))
+		require.Equal(t, false, ok)
+	})
+	t.Run("wrong claim id", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", claimId: "blk-5.a-6.a"})
+		ok := checkEdgeClaim(edge, protocol.ClaimId(id("blk-4.a-5.a")))
+		require.Equal(t, false, ok)
+	})
+	t.Run("OK", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", claimId: "blk-4.a-5.a"})
+		ok := checkEdgeClaim(edge, protocol.ClaimId(id("blk-4.a-5.a")))
+		require.Equal(t, true, ok)
+	})
+}
+
+func Test_isDirectChild(t *testing.T) {
+	t.Run("no children", func(t *testing.T) {
+		child := newEdge(&newCfg{t: t, edgeId: "blk-2.a-4.a"})
+		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		parent.lowerChildId = ""
+		parent.upperChildId = ""
+		require.Equal(t, false, isDirectChild(parent, child.Id()))
+	})
+	t.Run("wrong children", func(t *testing.T) {
+		child := newEdge(&newCfg{t: t, edgeId: "blk-2.b-4.b"})
+		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		parent.lowerChildId = "blk-0.a-2.a"
+		parent.upperChildId = "blk-2.a-4.a"
+		require.Equal(t, false, isDirectChild(parent, child.Id()))
+	})
+	t.Run("is lower", func(t *testing.T) {
+		child := newEdge(&newCfg{t: t, edgeId: "blk-0.a-2.a"})
+		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		parent.lowerChildId = "blk-0.a-2.a"
+		parent.upperChildId = "blk-2.a-4.a"
+		require.Equal(t, true, isDirectChild(parent, child.Id()))
+	})
+	t.Run("is upper", func(t *testing.T) {
+		child := newEdge(&newCfg{t: t, edgeId: "blk-2.a-4.a"})
+		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		parent.lowerChildId = "blk-0.a-2.a"
+		parent.upperChildId = "blk-2.a-4.a"
+		require.Equal(t, true, isDirectChild(parent, child.Id()))
+	})
+}
+
+func Test_hasChildren(t *testing.T) {
+	t.Run("no children", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		edge.lowerChildId = ""
+		edge.upperChildId = ""
+		require.Equal(t, false, hasChildren(edge))
+	})
+	t.Run("has upper", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		edge.lowerChildId = ""
+		edge.upperChildId = "blk-2.a-4.a"
+		require.Equal(t, true, hasChildren(edge))
+	})
+	t.Run("has lower", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		edge.lowerChildId = "blk-0.a-2.a"
+		edge.upperChildId = ""
+		require.Equal(t, true, hasChildren(edge))
+	})
+	t.Run("has both", func(t *testing.T) {
+		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
+		edge.lowerChildId = "blk-0.a-2.a"
+		edge.upperChildId = "blk-2.a-4.a"
+		require.Equal(t, true, hasChildren(edge))
+	})
+}
+
 func buildEdges(allEdges ...*edge) map[edgeId]*edge {
 	m := make(map[edgeId]*edge)
 	for _, e := range allEdges {

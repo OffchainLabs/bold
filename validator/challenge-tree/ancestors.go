@@ -167,10 +167,10 @@ func edgeLength(eg protocol.EdgeSnapshot) protocol.Height {
 func isDirectChild(parent protocol.EdgeSnapshot, childId protocol.EdgeId) bool {
 	lowerChild := parent.LowerChildSnapshot()
 	upperChild := parent.UpperChildSnapshot()
-	if lowerChild.IsNone() && lowerChild.Unwrap() == childId {
+	if !lowerChild.IsNone() && lowerChild.Unwrap() == childId {
 		return true
 	}
-	if upperChild.IsNone() && upperChild.Unwrap() == childId {
+	if !upperChild.IsNone() && upperChild.Unwrap() == childId {
 		return true
 	}
 	return false
