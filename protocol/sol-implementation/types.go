@@ -78,6 +78,7 @@ func (a *Assertion) CreatedAtBlock() (uint64, error) {
 
 type SpecEdge struct {
 	id         [32]byte
+	mutualId   [32]byte
 	manager    *SpecChallengeManager
 	miniStaker util.Option[common.Address]
 	inner      challengeV2gen.ChallengeEdge
