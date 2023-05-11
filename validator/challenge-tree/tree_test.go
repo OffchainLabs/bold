@@ -143,13 +143,13 @@ type mockMetadataReader struct {
 }
 
 func (m *mockMetadataReader) TopLevelAssertion(
-	ctx context.Context, edgeId protocol.EdgeId,
+	_ context.Context, _ protocol.EdgeId,
 ) (protocol.AssertionId, error) {
 	return m.assertionId, m.assertionErr
 }
 
 func (m *mockMetadataReader) ClaimHeights(
-	ctx context.Context, edgeId protocol.EdgeId,
+	_ context.Context, _ protocol.EdgeId,
 ) (*ClaimHeights, error) {
 	return m.claimHeights, m.claimHeightsErr
 }
@@ -160,10 +160,10 @@ type mockHistChecker struct {
 }
 
 func (m *mockHistChecker) AgreesWithHistoryCommitment(
-	ctx context.Context,
-	heights *ClaimHeights,
-	startCommit,
-	endCommit util.HistoryCommitment,
+	_ context.Context,
+	_ *ClaimHeights,
+	_,
+	_ util.HistoryCommitment,
 ) (Agreement, error) {
 	return m.agreement, m.agreesErr
 }
