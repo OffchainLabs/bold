@@ -16,7 +16,7 @@ type MetadataReader interface {
 }
 
 // ClaimHeights returns the heights of the claim data for an edge, all the way up to
-// to the top-level assertion chain.
+// the top-level assertion chain.
 type ClaimHeights struct {
 	AssertionClaimHeight      uint64
 	BlockChallengeClaimHeight uint64
