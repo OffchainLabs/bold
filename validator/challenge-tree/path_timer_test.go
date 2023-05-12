@@ -407,7 +407,8 @@ func Test_rivalsWithCreationTimes(t *testing.T) {
 		mutual := edgeA.MutualId()
 		ct.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 		mutuals := ct.mutualIds.Get(mutual)
-		_ = mutuals
+		mutuals.Put(edgeB.Id(), creationTime(edgeB.creationTime))
+		mutuals.Put(edgeA.Id(), creationTime(edgeA.creationTime))
 		ct.edges.Put(edgeB.Id(), edgeB)
 		rivals := ct.rivalsWithCreationTimes(edgeA)
 
