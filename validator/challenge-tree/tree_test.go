@@ -18,7 +18,7 @@ import (
 func TestAddEdge(t *testing.T) {
 	ht := &HonestChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
-		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	ht.topLevelAssertionId = protocol.AssertionId(common.BytesToHash([]byte("foo")))
 	ctx := context.Background()
