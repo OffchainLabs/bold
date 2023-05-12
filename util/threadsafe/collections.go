@@ -24,6 +24,19 @@ func (s *Map[K, V]) Put(k K, v V) {
 	s.items[k] = v
 }
 
+func (s *Map[K, V]) Has(k K) bool {
+	s.RLock()
+	defer s.RUnlock()
+	_, ok := s.items[k]
+	return ok
+}
+
+func (s *Map[K, V]) NumItems() uint64 {
+	s.RLock()
+	defer s.RUnlock()
+	return uint64(len(s.items))
+}
+
 func (s *Map[K, V]) TryGet(k K) (V, bool) {
 	s.RLock()
 	defer s.RUnlock()
@@ -43,12 +56,15 @@ func (s *Map[K, V]) Delete(k K) {
 	delete(s.items, k)
 }
 
-func (s *Map[K, V]) ForEach(fn func(k K, v V)) {
+func (s *Map[K, V]) ForEach(fn func(k K, v V) error) error {
 	s.RLock()
 	defer s.RUnlock()
 	for k, v := range s.items {
-		fn(k, v)
+		if err := fn(k, v); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 type Set[T comparable] struct {

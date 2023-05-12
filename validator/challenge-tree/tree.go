@@ -40,11 +40,13 @@ type HistoryChecker interface {
 	) (Agreement, error)
 }
 
+type creationTime uint64
+
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
 	edges                            *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
-	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
+	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionId              protocol.AssertionId
 	honestBlockChalLevelZeroEdge     util.Option[protocol.EdgeSnapshot]
 	honestBigStepChalLevelZeroEdge   util.Option[protocol.EdgeSnapshot]
@@ -112,10 +114,10 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 		mutualId := eg.MutualId()
 		mutuals := ht.mutualIds.Get(mutualId)
 		if mutuals == nil {
-			ht.mutualIds.Put(mutualId, threadsafe.NewSet[protocol.EdgeId]())
+			ht.mutualIds.Put(mutualId, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 			mutuals = ht.mutualIds.Get(mutualId)
 		}
-		mutuals.Insert(eg.Id())
+		mutuals.Put(eg.Id(), creationTime(eg.CreatedAtBlock()))
 	}
 	return nil
 }
