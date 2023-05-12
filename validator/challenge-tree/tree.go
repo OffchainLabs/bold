@@ -9,6 +9,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+type EdgeReader interface {
+	GetEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
+}
+
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
@@ -54,6 +58,30 @@ type HonestChallengeTree struct {
 	cumulativeHonestPathTimers       *threadsafe.Map[protocol.EdgeId, uint64]
 	metadataReader                   MetadataReader
 	histChecker                      HistoryChecker
+	edgeReader                       EdgeReader
+}
+
+// RefreshEdgesFromChain refreshes all edge snapshots from the chain.
+func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error {
+	edgeIds := make([]protocol.EdgeId, 0, ht.edges.NumItems())
+	if err := ht.edges.ForEach(func(id protocol.EdgeId, _ protocol.EdgeSnapshot) error {
+		edgeIds = append(edgeIds, id)
+		return nil
+	}); err != nil {
+		return err
+	}
+	snapshots := make([]protocol.EdgeSnapshot, len(edgeIds))
+	for i, edgeId := range edgeIds {
+		edge, err := ht.edgeReader.GetEdge(ctx, edgeId)
+		if err != nil {
+			return err
+		}
+		snapshots[i] = edge
+	}
+	for i, edgeId := range edgeIds {
+		ht.edges.Put(edgeId, snapshots[i])
+	}
+	return nil
 }
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track

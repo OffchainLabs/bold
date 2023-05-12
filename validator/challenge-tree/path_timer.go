@@ -75,11 +75,15 @@ func (ht *HonestChallengeTree) recursiveTimersUpdate(
 				ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
 				return nil
 			}
+			// We recurse into the lower, subchallenge levels.
 			return ht.recursiveTimersUpdate(timerAcc+timer, lowerLevelEdge, blockNum)
 		}
+		// Otherwise, the edge has no children and no lower-level edges that claim it,
+		// so we simply update its cumulative timer and return.
 		ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
 		return nil
 	}
+	// We recurse into the edge's children, if it has any.
 	if !curr.LowerChildSnapshot().IsNone() {
 		lowerChildId := curr.LowerChildSnapshot().Unwrap()
 		lowerChild := ht.edges.Get(lowerChildId)
@@ -98,6 +102,7 @@ func (ht *HonestChallengeTree) recursiveTimersUpdate(
 			return err
 		}
 	}
+	// We update the edge's cumulative timer and return.
 	ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
 	return nil
 }
