@@ -51,6 +51,7 @@ type HonestChallengeTree struct {
 	honestBlockChalLevelZeroEdge     util.Option[protocol.EdgeSnapshot]
 	honestBigStepChalLevelZeroEdge   util.Option[protocol.EdgeSnapshot]
 	honestSmallStepChalLevelZeroEdge util.Option[protocol.EdgeSnapshot]
+	cumulativeHonestPathTimers       *threadsafe.Map[protocol.EdgeId, uint64]
 	metadataReader                   MetadataReader
 	histChecker                      HistoryChecker
 }

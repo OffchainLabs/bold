@@ -7,27 +7,115 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 )
 
-func (ht *HonestChallengeTree) PathTimer(e protocol.EdgeSnapshot, blockNum uint64) (uint64, error) {
+// HonestPathTimer returns the cumulative local timers of the
+// honest branch of edges starting at a particular edge id.
+func (ht *HonestChallengeTree) HonestPathTimer(edgeId protocol.EdgeId) (uint64, error) {
+	timer, ok := ht.cumulativeHonestPathTimers.TryGet(edgeId)
+	if !ok {
+		return 0, fmt.Errorf("edge id %#x not being tracked in honest challenge tree", edgeId)
+	}
+	return timer, nil
+}
+
+func (ht *HonestChallengeTree) UpdateCumulativePathTimers(blockNum uint64) error {
+	if ht.honestBlockChalLevelZeroEdge.IsNone() {
+		return nil
+	}
+	blockEdge := ht.honestBlockChalLevelZeroEdge.Unwrap()
+	return ht.recursiveTimersUpdate(
+		0, // Total honest path timer accumulator, starting at 0.
+		blockEdge,
+		blockNum,
+	)
+}
+
+// Recursively updates the path timers of all honest edges tracked in the challenge tree.
+func (ht *HonestChallengeTree) recursiveTimersUpdate(
+	timerAcc uint64,
+	curr protocol.EdgeSnapshot,
+	blockNum uint64,
+) error {
+	timer, err := ht.localTimer(curr, blockNum)
+	if err != nil {
+		return err
+	}
+	if !hasChildren(curr) {
+		// If the edge has length 1, we then perform a few special checks.
+		if edgeLength(curr) == 1 {
+			isRivaled := ht.isRivaled(curr)
+			// In case the edge is a small step challenge of length 1, or is not rivaled we simply return.
+			if curr.GetType() == protocol.SmallStepChallengeEdge || !isRivaled {
+				ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
+				return nil
+			}
+
+			var lowerLevelEdge protocol.EdgeSnapshot
+			// If the edge is a block challenge edge, we continue the recursion starting from the honest
+			// big step level zero edge, if it exists.
+			if curr.GetType() == protocol.BlockChallengeEdge {
+				if ht.honestBigStepChalLevelZeroEdge.IsNone() {
+					ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
+					return nil
+				}
+				lowerLevelEdge = ht.honestBigStepChalLevelZeroEdge.Unwrap()
+			}
+
+			// If the edge is a big step challenge edge, we continue the recursion starting from the honest
+			// small step level zero edge, if it exists.
+			if curr.GetType() == protocol.BigStepChallengeEdge {
+				if ht.honestSmallStepChalLevelZeroEdge.IsNone() {
+					ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
+					return nil
+				}
+				lowerLevelEdge = ht.honestSmallStepChalLevelZeroEdge.Unwrap()
+			}
+			// Defensive check ensuring the honest level zero edge one challenge level below
+			// claims the current edge id as its claim id. If it does not, we simply return.
+			if !checkEdgeClaim(lowerLevelEdge, protocol.ClaimId(curr.Id())) {
+				ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
+				return nil
+			}
+			return ht.recursiveTimersUpdate(timerAcc+timer, lowerLevelEdge, blockNum)
+		}
+		ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
+		return nil
+	}
+	if !curr.LowerChildSnapshot().IsNone() {
+		lowerChildId := curr.LowerChildSnapshot().Unwrap()
+		lowerChild := ht.edges.Get(lowerChildId)
+		if err := ht.recursiveTimersUpdate(
+			timerAcc+timer, lowerChild, blockNum,
+		); err != nil {
+			return err
+		}
+	}
+	if !curr.UpperChildSnapshot().IsNone() {
+		upperChildId := curr.UpperChildSnapshot().Unwrap()
+		upperChild := ht.edges.Get(upperChildId)
+		if err := ht.recursiveTimersUpdate(
+			timerAcc+timer, upperChild, blockNum,
+		); err != nil {
+			return err
+		}
+	}
+	ht.cumulativeHonestPathTimers.Put(curr.Id(), timer+timerAcc)
+	return nil
+}
+
+// Gets the local timer of an edge at a block number, T. If T is earlier than the edge's creation,
+// this function will return 0.
+func (ht *HonestChallengeTree) localTimer(e protocol.EdgeSnapshot, blockNum uint64) (uint64, error) {
 	if blockNum < e.CreatedAtBlock() {
 		return 0, nil
 	}
-	return 0, nil
-}
-
-// Gets the local timer of an edge at time T. If T is earlier than the edge's creation,
-// this function will return 0.
-func (ht *HonestChallengeTree) localTimer(e protocol.EdgeSnapshot, t uint64) (uint64, error) {
-	if t < e.CreatedAtBlock() {
-		return 0, nil
-	}
-	// If no rival at time t, then the local timer is defined
+	// If no rival at a block num, then the local timer is defined
 	// as t - t_creation(e).
-	unrivaled, err := ht.unrivaledAtTime(e, t)
+	unrivaled, err := ht.unrivaledAtTime(e, blockNum)
 	if err != nil {
 		return 0, err
 	}
 	if unrivaled {
-		return t - e.CreatedAtBlock(), nil
+		return blockNum - e.CreatedAtBlock(), nil
 	}
 	// Else we return the earliest created rival's time: t_rival - t_creation(e).
 	// This unwrap is safe because the edge has rivals at this point due to the check above.
@@ -50,14 +138,14 @@ func (ht *HonestChallengeTree) earliestCreatedRivalTimestamp(e protocol.EdgeSnap
 	return util.Min(creationBlocks)
 }
 
-// Determines if an edge was unrivaled at timestamp T. If any rival existed
+// Determines if an edge was unrivaled at a block num T. If any rival existed
 // for the edge at T, this function will return false.
-func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.EdgeSnapshot, t uint64) (bool, error) {
-	if t < e.CreatedAtBlock() {
+func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.EdgeSnapshot, blockNum uint64) (bool, error) {
+	if blockNum < e.CreatedAtBlock() {
 		return false, fmt.Errorf(
 			"edge creation block %d less than specified %d",
 			e.CreatedAtBlock(),
-			t,
+			blockNum,
 		)
 	}
 	rivals := ht.rivalsWithCreationTimes(e)
@@ -67,7 +155,7 @@ func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.EdgeSnapshot, t uint64
 	for _, r := range rivals {
 		// If a rival existed before or at the time of the edge's
 		// creation, we then return false.
-		if uint64(r.createdAtBlock) <= t {
+		if uint64(r.createdAtBlock) <= blockNum {
 			return false, nil
 		}
 	}
