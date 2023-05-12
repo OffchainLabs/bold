@@ -273,26 +273,26 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	t.Helper()
 	aliceEdges := buildEdges(
 		// Alice.
-		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-8.a-16.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-4.a-6.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-6.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-4.a-5.a"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-5.a-6.a"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.a", createdAt: 3}),
+		newEdge(&newCfg{t: t, edgeId: "blk-8.a-16.a", createdAt: 3}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a", createdAt: 5}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.a", createdAt: 5}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-6.a", createdAt: 7}),
+		newEdge(&newCfg{t: t, edgeId: "blk-6.a-8.a", createdAt: 7}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-5.a", createdAt: 9}),
+		newEdge(&newCfg{t: t, edgeId: "blk-5.a-6.a", createdAt: 9}),
 	)
 	bobEdges := buildEdges(
 		// Bob.
-		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-8.b-16.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-4.a-6.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-6.b-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-4.a-5.b"}),
-		newEdge(&newCfg{t: t, edgeId: "blk-5.b-6.b"}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.b", createdAt: 2}),
+		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.b", createdAt: 4}),
+		newEdge(&newCfg{t: t, edgeId: "blk-8.b-16.b", createdAt: 4}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.b", createdAt: 6}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-6.b", createdAt: 6}),
+		newEdge(&newCfg{t: t, edgeId: "blk-6.b-8.b", createdAt: 8}),
+		newEdge(&newCfg{t: t, edgeId: "blk-4.a-5.b", createdAt: 10}),
+		newEdge(&newCfg{t: t, edgeId: "blk-5.b-6.b", createdAt: 10}),
 	)
 	// Child-relationship linking.
 	// Alice.
@@ -368,26 +368,26 @@ func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, clai
 	t.Helper()
 	aliceEdges := buildEdges(
 		// Alice.
-		newEdge(&newCfg{t: t, edgeId: "big-0.a-16.a", claimId: claimId}),
-		newEdge(&newCfg{t: t, edgeId: "big-0.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-8.a-16.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-4.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-4.a-6.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-6.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-4.a-5.a"}),
-		newEdge(&newCfg{t: t, edgeId: "big-5.a-6.a"}),
+		newEdge(&newCfg{t: t, edgeId: "big-0.a-16.a", claimId: claimId, createdAt: 11}),
+		newEdge(&newCfg{t: t, edgeId: "big-0.a-8.a", createdAt: 13}),
+		newEdge(&newCfg{t: t, edgeId: "big-8.a-16.a", createdAt: 13}),
+		newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", createdAt: 15}),
+		newEdge(&newCfg{t: t, edgeId: "big-4.a-8.a", createdAt: 15}),
+		newEdge(&newCfg{t: t, edgeId: "big-4.a-6.a", createdAt: 17}),
+		newEdge(&newCfg{t: t, edgeId: "big-6.a-8.a", createdAt: 17}),
+		newEdge(&newCfg{t: t, edgeId: "big-4.a-5.a", createdAt: 19}),
+		newEdge(&newCfg{t: t, edgeId: "big-5.a-6.a", createdAt: 19}),
 	)
 	bobEdges := buildEdges(
 		// Bob.
-		newEdge(&newCfg{t: t, edgeId: "big-0.a-16.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-0.a-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-8.b-16.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-4.a-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-4.a-6.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-6.b-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-4.a-5.b"}),
-		newEdge(&newCfg{t: t, edgeId: "big-5.b-6.b"}),
+		newEdge(&newCfg{t: t, edgeId: "big-0.a-16.b", createdAt: 12}),
+		newEdge(&newCfg{t: t, edgeId: "big-0.a-8.b", createdAt: 14}),
+		newEdge(&newCfg{t: t, edgeId: "big-8.b-16.b", createdAt: 14}),
+		newEdge(&newCfg{t: t, edgeId: "big-4.a-8.b", createdAt: 16}),
+		newEdge(&newCfg{t: t, edgeId: "big-4.a-6.b", createdAt: 18}),
+		newEdge(&newCfg{t: t, edgeId: "big-6.b-8.b", createdAt: 18}),
+		newEdge(&newCfg{t: t, edgeId: "big-4.a-5.b", createdAt: 20}),
+		newEdge(&newCfg{t: t, edgeId: "big-5.b-6.b", createdAt: 20}),
 	)
 	// Child-relationship linking.
 	// Alice.
@@ -458,26 +458,26 @@ func setupSmallStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 	t.Helper()
 	aliceEdges := buildEdges(
 		// Alice.
-		newEdge(&newCfg{t: t, edgeId: "smol-0.a-16.a", claimId: claimId}),
-		newEdge(&newCfg{t: t, edgeId: "smol-0.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-8.a-16.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-0.a-4.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-4.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-4.a-6.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-6.a-8.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-4.a-5.a"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-5.a-6.a"}),
+		newEdge(&newCfg{t: t, edgeId: "smol-0.a-16.a", claimId: claimId, createdAt: 21}),
+		newEdge(&newCfg{t: t, edgeId: "smol-0.a-8.a", createdAt: 23}),
+		newEdge(&newCfg{t: t, edgeId: "smol-8.a-16.a", createdAt: 23}),
+		newEdge(&newCfg{t: t, edgeId: "smol-0.a-4.a", createdAt: 25}),
+		newEdge(&newCfg{t: t, edgeId: "smol-4.a-8.a", createdAt: 25}),
+		newEdge(&newCfg{t: t, edgeId: "smol-4.a-6.a", createdAt: 27}),
+		newEdge(&newCfg{t: t, edgeId: "smol-6.a-8.a", createdAt: 27}),
+		newEdge(&newCfg{t: t, edgeId: "smol-4.a-5.a", createdAt: 29}),
+		newEdge(&newCfg{t: t, edgeId: "smol-5.a-6.a", createdAt: 29}),
 	)
 	bobEdges := buildEdges(
 		// Bob.
-		newEdge(&newCfg{t: t, edgeId: "smol-0.a-16.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-0.a-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-8.b-16.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-4.a-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-4.a-6.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-6.b-8.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-4.a-5.b"}),
-		newEdge(&newCfg{t: t, edgeId: "smol-5.b-6.b"}),
+		newEdge(&newCfg{t: t, edgeId: "smol-0.a-16.b", createdAt: 22}),
+		newEdge(&newCfg{t: t, edgeId: "smol-0.a-8.b", createdAt: 24}),
+		newEdge(&newCfg{t: t, edgeId: "smol-8.b-16.b", createdAt: 24}),
+		newEdge(&newCfg{t: t, edgeId: "smol-4.a-8.b", createdAt: 26}),
+		newEdge(&newCfg{t: t, edgeId: "smol-4.a-6.b", createdAt: 28}),
+		newEdge(&newCfg{t: t, edgeId: "smol-6.b-8.b", createdAt: 28}),
+		newEdge(&newCfg{t: t, edgeId: "smol-4.a-5.b", createdAt: 30}),
+		newEdge(&newCfg{t: t, edgeId: "smol-5.b-6.b", createdAt: 30}),
 	)
 	// Child-relationship linking.
 	// Alice.

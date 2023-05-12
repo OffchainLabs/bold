@@ -243,6 +243,20 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 // edge inherits the local timers of all its honest ancestors through a cumulative update
 // for confirmation purposes.
 func TestPathTimer_AllChallengeLevels(t *testing.T) {
+	tree := &HonestChallengeTree{
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+	}
+	// Edge ids that belong to block challenges are prefixed with "blk".
+	// For big step, prefixed with "big", and small step, prefixed with "smol".
+	setupBlockChallengeTreeSnapshot(t, tree)
+	tree.honestBlockChalLevelZeroEdge = util.Some(tree.edges.Get(id("blk-0.a-16.a")))
+	claimId := "blk-4.a-5.a"
+	setupBigStepChallengeSnapshot(t, tree, claimId)
+	tree.honestBigStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("big-0.a-16.a")))
+	claimId = "big-4.a-5.a"
+	setupSmallStepChallengeSnapshot(t, tree, claimId)
+	tree.honestSmallStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("smol-0.a-16.a")))
 }
 
 func Test_localTimer(t *testing.T) {
