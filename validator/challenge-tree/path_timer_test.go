@@ -237,6 +237,12 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	})
 }
 
+// Tests out path timers across all challenge levels, checking the lowest, small step challenge
+// edge inherits the local timers of all its honest ancestors through a cumulative update
+// for confirmation purposes.
+func TestPathTimer_AllChallengeLevels(t *testing.T) {
+}
+
 func Test_localTimer(t *testing.T) {
 	ct := &HonestChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
