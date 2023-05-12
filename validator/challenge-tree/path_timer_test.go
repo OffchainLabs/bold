@@ -181,13 +181,14 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 			newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.c", createdAt: 7}),
 			newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.c", createdAt: 8}),
 			newEdge(&newCfg{t: t, edgeId: "blk-8.c-16.c", createdAt: 8}),
-			newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.c", createdAt: 9}),
+			newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.c", createdAt: 9}),
+			newEdge(&newCfg{t: t, edgeId: "blk-4.c-8.c", createdAt: 9}),
 		)
 		// Child-relationship linking.
 		edges["blk-0.a-16.c"].lowerChildId = "blk-0.a-8.c"
 		edges["blk-0.a-16.c"].upperChildId = "blk-8.c-16.c"
-		edges["blk-0.a-8.c"].lowerChildId = "blk-0.a-4.a"
-		edges["blk-0.a-8.c"].upperChildId = "blk-4.a-8.c"
+		edges["blk-0.a-8.c"].lowerChildId = "blk-0.a-4.c"
+		edges["blk-0.a-8.c"].upperChildId = "blk-4.c-8.c"
 
 		// Add the new edges into the mapping.
 		for k, v := range edges {
@@ -195,45 +196,46 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 			ht.cumulativeHonestPathTimers.Put(id(k), 0)
 		}
 
-		// // Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
-		// mutual := edges["blk-0.a-16.c"].MutualId()
+		// Three pairs of edges are rivaled in this test: 0-16, 0-8, 0-4
+		mutual := edges["blk-0.a-16.c"].MutualId()
+		mutuals := ht.mutualIds.Get(mutual)
+		idd := id("blk-0.a-16.c")
+		mutuals.Put(idd, creationTime(ht.edges.Get(idd).CreatedAtBlock()))
 
-		// ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
-		// mutuals := ct.mutualIds.Get(mutual)
-		// mutuals.Insert(id("blk-0.a-16.c"))
+		mutual = edges["blk-0.a-8.c"].MutualId()
 
-		// mutual = edges["blk-0.a-8.c"].MutualId()
+		mutuals = ht.mutualIds.Get(mutual)
+		idd = id("blk-0.a-8.c")
+		mutuals.Put(idd, creationTime(ht.edges.Get(idd).CreatedAtBlock()))
 
-		// ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
-		// mutuals = ct.mutualIds.Get(mutual)
-		// mutuals.Insert(id("blk-0.a-8.c"))
+		mutual = edges["blk-0.a-4.c"].MutualId()
 
-		// mutual = edges["blk-4.a-8.c"].MutualId()
+		ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		mutuals = ht.mutualIds.Get(mutual)
+		idd = id("blk-0.a-4.a")
+		mutuals.Put(idd, creationTime(ht.edges.Get(idd).CreatedAtBlock()))
+		idd = id("blk-0.a-4.c")
+		mutuals.Put(idd, creationTime(ht.edges.Get(idd).CreatedAtBlock()))
 
-		// ct.mutualIds.Put(mutual, threadsafe.NewSet[protocol.EdgeId]())
-		// mutuals = ct.mutualIds.Get(mutual)
-		// mutuals.Insert(id("blk-4.a-8.c"))
+		// The path timer of the old, unrivaled edge should no longer increase
+		// as it is now rivaled as of the time of the last created edge above.
+		lastCreated := ht.edges.Get(id("blk-0.a-4.c"))
+		edge := ht.edges.Get(id("blk-0.a-4.a"))
+		err := ht.UpdateCumulativePathTimers(lastCreated.CreatedAtBlock())
+		require.NoError(t, err)
+		timer, err := ht.HonestPathTimer(edge.Id())
+		require.NoError(t, err)
+		ancestorTimers := uint64(2)
+		require.Equal(t, lastCreated.CreatedAtBlock()-edge.CreatedAtBlock()+ancestorTimers, timer)
 
-		// edge := ct.edges.Get(id("blk-0.a-4.a"))
-		// lastCreated := ct.edges.Get(id("blk-4.a-8.c"))
-
-		// // The path timers of the newly created edges should count
-		// // towards the unrivaled edge at the lowest level.
-		// timer, err := ct.pathTimer(edge, lastCreated.CreatedAtBlock())
-		// require.NoError(t, err)
-		// require.Equal(t, uint64(15), timer)
-
-		// timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+1)
-		// require.NoError(t, err)
-		// require.Equal(t, uint64(16), timer)
-
-		// timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+2)
-		// require.NoError(t, err)
-		// require.Equal(t, uint64(17), timer)
-
-		// timer, err = ct.pathTimer(edge, lastCreated.CreatedAtBlock()+3)
-		// require.NoError(t, err)
-		// require.Equal(t, uint64(18), timer)
+		// Should no longer increase.
+		for i := 0; i < 10; i++ {
+			err := ht.UpdateCumulativePathTimers(lastCreated.CreatedAtBlock() + uint64(i))
+			require.NoError(t, err)
+			timer, err := ht.HonestPathTimer(edge.Id())
+			require.NoError(t, err)
+			require.Equal(t, lastCreated.CreatedAtBlock()-edge.CreatedAtBlock()+ancestorTimers, timer)
+		}
 	})
 }
 
