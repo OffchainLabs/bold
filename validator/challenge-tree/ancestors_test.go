@@ -317,6 +317,11 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	transformedEdges := make(map[protocol.EdgeId]protocol.EdgeSnapshot)
 	for _, v := range aliceEdges {
 		transformedEdges[v.Id()] = v
+		tree.cumulativeHonestPathTimers.Put(v.Id(), v.creationTime)
+	}
+	for _, v := range bobEdges {
+		transformedEdges[v.Id()] = v
+		tree.cumulativeHonestPathTimers.Put(v.Id(), v.creationTime)
 	}
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	tree.edges = allEdges
@@ -325,32 +330,52 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	mutual := aliceEdges["blk-0.a-16.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals := tree.mutualIds.Get(mutual)
-	mutuals.Put(id("blk-0.a-16.a"), 0)
-	mutuals.Put(id("blk-0.a-16.b"), 0)
+	aId := id("blk-0.a-16.a")
+	bId := id("blk-0.a-16.b")
+	a := tree.edges.Get(aId)
+	b := tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["blk-0.a-8.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("blk-0.a-8.a"), 0)
-	mutuals.Put(id("blk-0.a-8.b"), 0)
+	aId = id("blk-0.a-8.a")
+	bId = id("blk-0.a-8.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["blk-4.a-8.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("blk-4.a-8.a"), 0)
-	mutuals.Put(id("blk-4.a-8.b"), 0)
+	aId = id("blk-4.a-8.a")
+	bId = id("blk-4.a-8.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["blk-4.a-6.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("blk-4.a-6.a"), 0)
-	mutuals.Put(id("blk-4.a-6.b"), 0)
+	aId = id("blk-4.a-6.a")
+	bId = id("blk-4.a-6.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["blk-4.a-5.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("blk-4.a-5.a"), 0)
-	mutuals.Put(id("blk-4.a-5.b"), 0)
+	aId = id("blk-4.a-5.a")
+	bId = id("blk-4.a-5.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 }
 
 func id(eId edgeId) protocol.EdgeId {
@@ -411,38 +436,63 @@ func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, clai
 
 	for _, v := range aliceEdges {
 		tree.edges.Put(v.Id(), v)
+		tree.cumulativeHonestPathTimers.Put(v.Id(), v.creationTime)
+	}
+	for _, v := range bobEdges {
+		tree.edges.Put(v.Id(), v)
+		tree.cumulativeHonestPathTimers.Put(v.Id(), v.creationTime)
 	}
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["big-0.a-16.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals := tree.mutualIds.Get(mutual)
-	mutuals.Put(id("big-0.a-16.a"), 0)
-	mutuals.Put(id("big-0.a-16.b"), 0)
+	aId := id("big-0.a-16.a")
+	bId := id("big-0.a-16.b")
+	a := tree.edges.Get(aId)
+	b := tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["big-0.a-8.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("big-0.a-8.a"), 0)
-	mutuals.Put(id("big-0.a-8.b"), 0)
+	aId = id("big-0.a-8.a")
+	bId = id("big-0.a-8.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["big-4.a-8.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("big-4.a-8.a"), 0)
-	mutuals.Put(id("big-4.a-8.b"), 0)
+	aId = id("big-4.a-8.a")
+	bId = id("big-4.a-8.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["big-4.a-6.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("big-4.a-6.a"), 0)
-	mutuals.Put(id("big-4.a-6.b"), 0)
+	aId = id("big-4.a-6.a")
+	bId = id("big-4.a-6.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["big-4.a-5.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("big-4.a-5.a"), 0)
-	mutuals.Put(id("big-4.a-5.b"), 0)
+	aId = id("big-4.a-5.a")
+	bId = id("big-4.a-5.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 }
 
 // Sets up the following small step challenge snapshot:
@@ -501,36 +551,61 @@ func setupSmallStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 
 	for _, v := range aliceEdges {
 		tree.edges.Put(v.Id(), v)
+		tree.cumulativeHonestPathTimers.Put(v.Id(), v.creationTime)
+	}
+	for _, v := range bobEdges {
+		tree.edges.Put(v.Id(), v)
+		tree.cumulativeHonestPathTimers.Put(v.Id(), v.creationTime)
 	}
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["smol-0.a-16.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals := tree.mutualIds.Get(mutual)
-	mutuals.Put(id("smol-0.a-16.a"), 0)
-	mutuals.Put(id("smol-0.a-16.b"), 0)
+	aId := id("smol-0.a-16.a")
+	bId := id("smol-0.a-16.b")
+	a := tree.edges.Get(aId)
+	b := tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["smol-0.a-8.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("smol-0.a-8.a"), 0)
-	mutuals.Put(id("smol-0.a-8.b"), 0)
+	aId = id("smol-0.a-8.a")
+	bId = id("smol-0.a-8.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["smol-4.a-8.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("smol-4.a-8.a"), 0)
-	mutuals.Put(id("smol-4.a-8.b"), 0)
+	aId = id("smol-4.a-8.a")
+	bId = id("smol-4.a-8.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["smol-4.a-6.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("smol-4.a-6.a"), 0)
-	mutuals.Put(id("smol-4.a-6.b"), 0)
+	aId = id("smol-4.a-6.a")
+	bId = id("smol-4.a-6.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 
 	mutual = aliceEdges["smol-4.a-5.a"].MutualId()
 	tree.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = tree.mutualIds.Get(mutual)
-	mutuals.Put(id("smol-4.a-5.a"), 0)
-	mutuals.Put(id("smol-4.a-5.b"), 0)
+	aId = id("smol-4.a-5.a")
+	bId = id("smol-4.a-5.b")
+	a = tree.edges.Get(aId)
+	b = tree.edges.Get(bId)
+	mutuals.Put(aId, creationTime(a.CreatedAtBlock()))
+	mutuals.Put(bId, creationTime(b.CreatedAtBlock()))
 }

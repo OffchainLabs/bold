@@ -243,20 +243,49 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 // edge inherits the local timers of all its honest ancestors through a cumulative update
 // for confirmation purposes.
 func TestPathTimer_AllChallengeLevels(t *testing.T) {
-	tree := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
-		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+	ht := &HonestChallengeTree{
+		edges:                      threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		mutualIds:                  threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		cumulativeHonestPathTimers: threadsafe.NewMap[protocol.EdgeId, uint64](),
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
-	setupBlockChallengeTreeSnapshot(t, tree)
-	tree.honestBlockChalLevelZeroEdge = util.Some(tree.edges.Get(id("blk-0.a-16.a")))
+	setupBlockChallengeTreeSnapshot(t, ht)
+	ht.honestBlockChalLevelZeroEdge = util.Some(ht.edges.Get(id("blk-0.a-16.a")))
 	claimId := "blk-4.a-5.a"
-	setupBigStepChallengeSnapshot(t, tree, claimId)
-	tree.honestBigStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("big-0.a-16.a")))
+	setupBigStepChallengeSnapshot(t, ht, claimId)
+	ht.honestBigStepChalLevelZeroEdge = util.Some(ht.edges.Get(id("big-0.a-16.a")))
 	claimId = "big-4.a-5.a"
-	setupSmallStepChallengeSnapshot(t, tree, claimId)
-	tree.honestSmallStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("smol-0.a-16.a")))
+	setupSmallStepChallengeSnapshot(t, ht, claimId)
+	ht.honestSmallStepChalLevelZeroEdge = util.Some(ht.edges.Get(id("smol-0.a-16.a")))
+
+	lastCreated := ht.edges.Get(id("smol-4.a-5.a"))
+	err := ht.UpdateCumulativePathTimers(lastCreated.CreatedAtBlock() + 1)
+	require.NoError(t, err)
+	timer, err := ht.HonestPathTimer(lastCreated.Id())
+	require.NoError(t, err)
+
+	// Should be the sum of the unrivaled timers of honest edges along the path
+	// all the way to the block challenge level. Each edge unrivaled for 1 second, and the edges
+	// are:
+	//
+	// 1. blk-0.a-16.a
+	// 2. blk-0.a-8.a
+	// 3. blk-4.a-8.a
+	// 4. blk-4.a-6.a
+	// 5. blk-4.a-5.a
+	// 6. big-0.a-16.a
+	// 7. big-0.a-8.a
+	// 8. big-4.a-8.a
+	// 9. big-4.a-6.a
+	// 10. big-4.a-5.a
+	// 11. smol-0.a-16.a
+	// 12. smol-0.a-8.a
+	// 13. smol-4.a-8.a
+	// 14. smol-4.a-6.a
+	//
+	// This gives a total of 14 seconds unrivaled along the honest path.
+	require.Equal(t, uint64(14), timer)
 }
 
 func Test_localTimer(t *testing.T) {
