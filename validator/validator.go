@@ -320,3 +320,30 @@ func (v *Validator) onLeafCreated(
 
 	return v.challengeAssertion(ctx, psn)
 }
+
+func (v *Validator) SpawnEdgeTracker(
+	ctx context.Context,
+	edge protocol.SpecEdge,
+	heightOffset,
+	prevInboxMaxCount uint64,
+) {
+	tracker, err := newEdgeTracker(
+		ctx,
+		&edgeTrackerConfig{
+			timeRef:          v.timeRef,
+			actEveryNSeconds: v.edgeTrackerWakeInterval,
+			chain:            v.chain,
+			stateManager:     v.stateManager,
+			validatorName:    v.name,
+			validatorAddress: v.address,
+			watcher:          v.watcher,
+		},
+		edge,
+		heightOffset,
+		prevInboxMaxCount,
+	)
+	if err != nil {
+		panic(err)
+	}
+	go tracker.spawn(ctx)
+}
