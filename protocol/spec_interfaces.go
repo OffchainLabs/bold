@@ -33,6 +33,7 @@ type Assertion interface {
 	PrevSeqNum() (AssertionSequenceNumber, error)
 	StateHash() (common.Hash, error)
 	IsFirstChild() (bool, error)
+	CreatedAtBlock() (uint64, error)
 }
 
 // AssertionCreatedInfo from an event creation.
