@@ -135,8 +135,7 @@ func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum pro
 		id:    uint64(seqNum),
 		chain: ac,
 		StateCommitment: util.StateCommitment{
-			Height:    res.CreatedAtBlock - genesis.CreatedAtBlock,
-			StateRoot: res.StateHash,
+			Height: res.CreatedAtBlock - genesis.CreatedAtBlock,
 		},
 	}, nil
 }

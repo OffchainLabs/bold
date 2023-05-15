@@ -172,14 +172,6 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	if err != nil {
 		return nil, err
 	}
-	parentAssertion, err := v.chain.AssertionBySequenceNum(ctx, parentAssertionSeq)
-	if err != nil {
-		return nil, err
-	}
-	parentAssertionStateHash, err := parentAssertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
 	parentAssertionCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
 	if err != nil {
 		return nil, err
@@ -202,14 +194,8 @@ func (v *Validator) postLatestAssertion(ctx context.Context) (protocol.Assertion
 	case err != nil:
 		return nil, err
 	}
-	assertionState, err := assertion.StateHash()
-	if err != nil {
-		return nil, err
-	}
 	logFields := logrus.Fields{
-		"name":               v.name,
-		"parentStateHash":    util.Trunc(parentAssertionStateHash.Bytes()),
-		"assertionStateHash": util.Trunc(assertionState.Bytes()),
+		"name": v.name,
 	}
 	log.WithFields(logFields).Info("Submitted latest L2 state claim as an assertion to L1")
 
@@ -293,13 +279,8 @@ func (v *Validator) onLeafCreated(
 	ctx context.Context,
 	assertion protocol.Assertion,
 ) error {
-	assertionStateHash, err := assertion.StateHash()
-	if err != nil {
-		return err
-	}
 	log.WithFields(logrus.Fields{
-		"name":      v.name,
-		"stateHash": fmt.Sprintf("%#x", assertionStateHash),
+		"name": v.name,
 	}).Info("New assertion appended to protocol")
 
 	isFirstChild, err := assertion.IsFirstChild()

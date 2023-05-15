@@ -31,7 +31,6 @@ type Protocol interface {
 type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
-	StateHash() (common.Hash, error)
 	IsFirstChild() (bool, error)
 }
 

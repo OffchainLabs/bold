@@ -77,12 +77,8 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	cfg, err := setup.SetupChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
-	resp, err := chain.AssertionBySequenceNum(ctx, 1)
+	_, err = chain.AssertionBySequenceNum(ctx, 1)
 	require.NoError(t, err)
-
-	stateHash, err := resp.StateHash()
-	require.NoError(t, err)
-	require.Equal(t, true, stateHash != [32]byte{})
 
 	_, err = chain.AssertionBySequenceNum(ctx, 2)
 	require.ErrorIs(t, err, solimpl.ErrNotFound)
