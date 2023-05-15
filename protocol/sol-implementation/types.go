@@ -58,7 +58,7 @@ func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bytes.Equal(assertionNode.StateHash[:], make([]byte, 32)) {
+	if bytes.Equal(assertionNode.AssertionHash[:], make([]byte, 32)) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %d",

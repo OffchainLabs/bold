@@ -149,6 +149,7 @@ func (e *SpecEdge) ConfirmByOneStepProof(ctx context.Context) error {
 			// TODO: Fill in.
 			challengeV2gen.OneStepData{},
 			// TODO: Add pre/post proofs.
+			challengeV2gen.WasmModuleData{},
 			nil,
 			nil,
 		)
@@ -353,12 +354,12 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
 				tentativeWinnerId,
 				challengeV2gen.OneStepData{
-					InboxMsgCountSeen:      oneStepData.InboxMsgCountSeen,
-					InboxMsgCountSeenProof: oneStepData.InboxMsgCountSeenProof,
-					WasmModuleRoot:         oneStepData.WasmModuleRoot,
-					WasmModuleRootProof:    oneStepData.WasmModuleRootProof,
-					BeforeHash:             oneStepData.BeforeHash,
-					Proof:                  oneStepData.Proof,
+					BeforeHash: oneStepData.BeforeHash,
+					Proof:      oneStepData.Proof,
+				},
+				challengeV2gen.WasmModuleData{
+					WasmModuleRoot:      oneStepData.WasmModuleRoot,
+					WasmModuleRootProof: oneStepData.WasmModuleRootProof,
 				},
 				pre,
 				post,
