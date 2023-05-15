@@ -31,7 +31,6 @@ type Protocol interface {
 type Assertion interface {
 	SeqNum() AssertionSequenceNumber
 	PrevSeqNum() (AssertionSequenceNumber, error)
-	StateHash() (common.Hash, error)
 	IsFirstChild() (bool, error)
 }
 
@@ -73,7 +72,6 @@ type AssertionChain interface {
 		ctx context.Context,
 		prevAssertionState *ExecutionState,
 		postState *ExecutionState,
-		prevInboxMaxCount *big.Int,
 	) (Assertion, error)
 
 	// Spec-based implementation methods.
@@ -192,7 +190,7 @@ type SpecChallengeManager interface {
 // Heights are 0-indexed.
 type Height uint64
 
-// Also copied in contracts/src/libraries/Constants.sol
+// Also set in the `initialize()` function of the EdgeChallengeManager contract.
 const LevelZeroBlockEdgeHeight = 1 << 5
 const LevelZeroBigStepEdgeHeight = 1 << 5
 const LevelZeroSmallStepEdgeHeight = 1 << 5
