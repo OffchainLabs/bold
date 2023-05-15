@@ -9,10 +9,10 @@ import "../state/Machine.sol";
 import "../osp/IOneStepProofEntry.sol";
 
 struct AssertionNode {
-    // The inbox position that the assertion that succeeds should process up to and including
-    uint64 nextInboxPosition;
     // Hash of the data that will be committed if this assertion is confirmed
     bytes32 confirmData;
+    // The inbox position that the assertion that succeeds should process up to and including
+    uint64 nextInboxPosition;
     // Index of the assertion previous to this one
     uint64 prevNum;
     // Deadline at which this assertion can be confirmed
