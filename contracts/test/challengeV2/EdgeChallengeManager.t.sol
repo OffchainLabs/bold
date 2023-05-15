@@ -182,8 +182,6 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
-    // CHRIS: TODO: we need to write tests for the execution states - do this as the last thing before committing
-
     function testRevertBlockNoProof() public {
         EdgeInitData memory ei = deployAndInit();
 

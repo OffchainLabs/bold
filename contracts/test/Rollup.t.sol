@@ -275,41 +275,71 @@ contract RollupTest is Test {
         });
     }
 
-    // CHRUS: TODO: comment this back in, we still need to check the before state is valid (dont we do that with the prev)? no
-    // function testRevertAssertWrongBranch() public {
-    //     uint64 inboxcount = uint64(_createNewBatch());
-    //     ExecutionState memory beforeState;
-    //     beforeState.machineStatus = MachineStatus.FINISHED;
-    //     ExecutionState memory afterState;
-    //     afterState.machineStatus = MachineStatus.FINISHED;
-    //     afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
-    //     afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
-    //     afterState.globalState.u64Vals[0] = 1; // inbox count
-    //     afterState.globalState.u64Vals[1] = 0; // pos in msg
+    function testRevertInvalidPrev() public {
+        uint64 inboxcount = uint64(_createNewBatch());
+        ExecutionState memory beforeState;
+        beforeState.machineStatus = MachineStatus.FINISHED;
+        ExecutionState memory afterState;
+        afterState.machineStatus = MachineStatus.FINISHED;
+        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
+        afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        afterState.globalState.u64Vals[0] = 1; // inbox count
+        afterState.globalState.u64Vals[1] = 0; // pos in msg
 
-    //     vm.prank(validator1);
-    //     userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
-    //         assertion: AssertionInputs({
-    //             beforeState: beforeState,
-    //             afterState: afterState
-    //         }),
-    //         expectedAssertionHash: bytes32(0),
-    //         prevAssertionInboxMaxCount: 1
-    //     });
+        bytes32 expectedAssertionHash = RollupLib.assertionHash(
+            {
+                parentAssertionHash: genesisHash,
+                afterState: afterState,
+                inboxAcc: userRollup.bridge().sequencerInboxAccs(0),
+                wasmModuleRoot: WASM_MODULE_ROOT
+            }
+        );
 
-    //     vm.expectRevert("PREV_STATE_HASH");
-    //     afterState.globalState.u64Vals[1] = 1; // modify the state
-    //     vm.roll(block.number + 75);
-    //     vm.prank(validator1);
-    //     userRollup.stakeOnNewAssertion({
-    //         assertion: AssertionInputs({
-    //             beforeState: beforeState,
-    //             afterState: afterState
-    //         }),
-    //         expectedAssertionHash: bytes32(0),
-    //         prevAssertionInboxMaxCount: 1
-    //     });
-    // }
+        vm.prank(validator1);
+        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+            assertion: AssertionInputs({
+                beforeStateData: BeforeStateData({
+                    wasmRoot: bytes32(0),
+                    sequencerBatchAcc: bytes32(0),
+                    prevAssertionHash: bytes32(0)
+                }),
+                beforeState: beforeState,
+                afterState: afterState
+            }),
+            expectedAssertionHash: expectedAssertionHash
+        });
+
+
+        ExecutionState memory afterState2;
+        afterState2.machineStatus = MachineStatus.FINISHED;
+        afterState2.globalState.u64Vals[0] = inboxcount;
+        bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
+            parentAssertionHash: expectedAssertionHash,
+            afterState: afterState2,
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(1), // 1 because we moved the position within message
+            wasmModuleRoot: WASM_MODULE_ROOT
+        });
+        bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
+
+        // set the wrong before state
+        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_SENDROOT;
+
+        vm.roll(block.number + 75);
+        vm.prank(validator1);
+        vm.expectRevert("INVALID_BEFORE_STATE");
+        userRollup.stakeOnNewAssertion({
+            assertion: AssertionInputs({
+                beforeStateData: BeforeStateData({
+                    wasmRoot: WASM_MODULE_ROOT,
+                    sequencerBatchAcc: prevInboxAcc,
+                    prevAssertionHash: genesisHash
+                }),
+                beforeState: afterState,
+                afterState: afterState2
+            }),
+            expectedAssertionHash: expectedAssertionHash2
+        });
+    }
 
     function testSuccessCreateSecondChild()
         public
