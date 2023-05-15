@@ -154,7 +154,6 @@ func (ac *AssertionChain) CreateAssertion(
 	ctx context.Context,
 	prevAssertionState *protocol.ExecutionState,
 	postState *protocol.ExecutionState,
-	prevInboxMaxCount *big.Int,
 ) (protocol.Assertion, error) {
 	stake, err := ac.userLogic.CurrentRequiredStake(&bind.CallOpts{Context: ctx})
 	if err != nil {

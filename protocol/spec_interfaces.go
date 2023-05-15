@@ -72,7 +72,6 @@ type AssertionChain interface {
 		ctx context.Context,
 		prevAssertionState *ExecutionState,
 		postState *ExecutionState,
-		prevInboxMaxCount *big.Int,
 	) (Assertion, error)
 
 	// Spec-based implementation methods.
