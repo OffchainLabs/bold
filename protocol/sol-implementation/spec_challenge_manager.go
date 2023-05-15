@@ -379,7 +379,6 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 	return ty
 }
 
-var uint256Type = newStaticType("uint256", "", nil)
 var bytes32Type = newStaticType("bytes32", "", nil)
 var bytes32ArrayType = newStaticType("bytes32[]", "", []abi.ArgumentMarshaling{{Type: "bytes32"}})
 var executionStateData = newStaticType("tuple", "ExecutionStateData", []abi.ArgumentMarshaling{
@@ -419,35 +418,6 @@ var executionStateData = newStaticType("tuple", "ExecutionStateData", []abi.Argu
 	{
 		Type: "bytes",
 		Name: "proof",
-	},
-})
-
-var executionStateType = newStaticType("tuple", "ExecutionState", []abi.ArgumentMarshaling{
-	{
-		Type:         "tuple",
-		InternalType: "GlobalState",
-		Name:         "globalState",
-		Components: []abi.ArgumentMarshaling{
-			{
-				Type: "bytes32[2]",
-				Components: []abi.ArgumentMarshaling{{
-					Type: "bytes32",
-				}},
-				Name: "bytes32Vals",
-			},
-			{
-				Type: "uint64[2]",
-				Components: []abi.ArgumentMarshaling{{
-					Type: "uint64",
-				}},
-				Name: "u64Vals",
-			},
-		},
-	},
-	{
-		Type:         "uint8",
-		InternalType: "MachineStatus",
-		Name:         "machineStatus",
 	},
 })
 
