@@ -15,26 +15,21 @@ import (
 // - Given block still advances while building all the edges trackers. At the end, it checks if it's on the latest block, or loop from the start
 // - Once gathered all the sync edges from all the blocks, spin of all the edge trackers as part of go routine.
 func (v *Validator) syncEdges(ctx context.Context) error {
+	latestBlockNum, err := v.getLatestBlockNum(ctx)
+	if err != nil {
+		return err
+	}
+
+	currentBlockNum, err := v.getConfirmedBlockNum(ctx)
+	if err != nil {
+		return err
+	}
+
 	cm, err := v.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return err
 	}
 	filterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(cm.Address(), v.backend)
-	if err != nil {
-		return err
-	}
-
-	latestBlock, err := v.backend.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return err
-	}
-	latestBlockNum := latestBlock.Number.Uint64()
-
-	latestConfirmed, err := v.chain.LatestConfirmed(ctx)
-	if err != nil {
-		return err
-	}
-	currentBlockNum, err := latestConfirmed.CreatedAtBlock()
 	if err != nil {
 		return err
 	}
@@ -62,16 +57,15 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 		edgeTrackers = append(edgeTrackers, trackers...)
 
 		// latest block will keep advance. We shouldn't be done until we've processed all blocks.
-		b, err := v.backend.HeaderByNumber(ctx, nil)
+		lbn, err := v.getLatestBlockNum(ctx)
 		if err != nil {
 			return err
 		}
-		bn := b.Number.Uint64()
-		if latestBlockNum == bn {
+		if latestBlockNum == lbn {
 			break
 		}
 		currentBlockNum = latestBlockNum
-		latestBlockNum = bn
+		latestBlockNum = lbn
 	}
 
 	// Spin off all the edge trackers as part of go routine.
@@ -80,6 +74,24 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// get latest block number from the chain.
+func (v *Validator) getLatestBlockNum(ctx context.Context) (uint64, error) {
+	latestBlock, err := v.backend.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	return latestBlock.Number.Uint64(), nil
+}
+
+// get confirmed block number from the chain.
+func (v *Validator) getConfirmedBlockNum(ctx context.Context) (uint64, error) {
+	latestConfirmed, err := v.chain.LatestConfirmed(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return latestConfirmed.CreatedAtBlock()
 }
 
 // getEdges gets all the edges from edge added events.
