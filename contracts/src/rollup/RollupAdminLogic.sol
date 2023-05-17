@@ -41,7 +41,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
         challengeManager = connectedContracts.challengeManager;
 
-        AssertionNode memory assertion = createInitialAssertion();
+        AssertionNode memory assertion = createInitialAssertion(config.wasmModuleRoot);
         initializeCore(assertion);
 
         confirmPeriodBlocks = config.confirmPeriodBlocks;
@@ -64,18 +64,16 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         emit RollupInitialized(config.wasmModuleRoot, config.chainId);
     }
 
-    function createInitialAssertion() private view returns (AssertionNode memory) {
+    function createInitialAssertion(bytes32 _wasmModuleRoot) private view returns (AssertionNode memory) {
         GlobalState memory emptyGlobalState;
         ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
         bytes32 genesisHash = RollupLib.assertionHash({
             parentAssertionHash: bytes32(0),
             afterState: emptyExecutionState,
             inboxAcc: bytes32(0),
-            // CHRIS: TODO: we have a bug here in that this is 0 upon startup
-            // CHRIS: TODO: this means the assertionHash is unexpected, and out of sync with genesisAssertionHashes
-            // CHRIS: TODO: it would also lead to an invalid first assertion, will fix this in a future PR
-            wasmModuleRoot: wasmModuleRoot
+            wasmModuleRoot: _wasmModuleRoot
         });
+        
         return AssertionNodeLib.createAssertion(
             1, // inboxMaxCount - force the first assertion to read a message
             0, // confirm data

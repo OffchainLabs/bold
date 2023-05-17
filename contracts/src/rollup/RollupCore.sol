@@ -264,6 +264,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             afterStateHash: afterStateHash,
             inboxAcc: bytes32(0),
             wasmModuleRoot: bytes32(0)
+
         });
         return (afterStateHash, genesisHash, wasmModuleRoot);
     }

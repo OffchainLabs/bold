@@ -53,7 +53,7 @@ contract RollupTest is Test {
         parentAssertionHash: bytes32(0),
         afterState: emptyExecutionState,
         inboxAcc: bytes32(0),
-        wasmModuleRoot: bytes32(0) // this is zero upon initialisation
+        wasmModuleRoot: WASM_MODULE_ROOT
     });
 
     event RollupCreated(
@@ -179,7 +179,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevAssertionHash: bytes32(0)
                 }),
@@ -230,7 +230,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevAssertionHash: bytes32(0)
                 }),
@@ -245,7 +245,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevAssertionHash: bytes32(0)
                 }),
@@ -278,7 +278,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevAssertionHash: bytes32(0)
                 }),
@@ -345,7 +345,7 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevAssertionHash: bytes32(0)
                 }),
@@ -373,7 +373,7 @@ contract RollupTest is Test {
             assertion: AssertionInputs({
                 beforeState: beforeState,
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevAssertionHash: bytes32(0)
                 }),
@@ -446,7 +446,7 @@ contract RollupTest is Test {
             ),
             abi.encode(
                 ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), bytes32(0))),
+                ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                 ExecutionStateData(
                     afterState1, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0), WASM_MODULE_ROOT)
                 )
@@ -488,7 +488,7 @@ contract RollupTest is Test {
             ),
             abi.encode(
                 ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), bytes32(0))),
+                ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                 ExecutionStateData(
                     afterState2, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0), WASM_MODULE_ROOT)
                 )
