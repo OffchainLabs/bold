@@ -36,6 +36,10 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 
 	var edgeTrackers []*edgeTracker
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		filterOpts := &bind.FilterOpts{
 			Start:   currentBlockNum,
 			End:     &latestBlockNum,
