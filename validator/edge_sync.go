@@ -25,39 +25,16 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 		return err
 	}
 
-	cm, err := v.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return err
-	}
-	filterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(cm.Address(), v.backend)
-	if err != nil {
-		return err
-	}
-
 	var edgeTrackers []*edgeTracker
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
-		filterOpts := &bind.FilterOpts{
-			Start:   currentBlockNum,
-			End:     &latestBlockNum,
-			Context: ctx,
-		}
-
-		// Retry if there's an error on filtering edge added events.
-		it, err := filterer.FilterEdgeAdded(filterOpts, nil, nil, nil)
+		trackers, err := v.buildEdgeTrackersFromEvents(ctx, currentBlockNum, latestBlockNum)
 		if err != nil {
-			log.WithError(err).Error("error filtering edge added events")
-			continue
+			return err
 		}
-
-		// Get all the edges.
-		edges := v.getEdges(ctx, cm, it)
-
-		// Build edge trackers for every edge.
-		trackers := v.getEdgeTrackers(ctx, edges)
 		edgeTrackers = append(edgeTrackers, trackers...)
 
 		// latest block will keep advance. We shouldn't be done until we've processed all blocks.
@@ -78,6 +55,41 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// buildEdgeTrackersFromEvents builds edge trackers from events.
+func (v *Validator) buildEdgeTrackersFromEvents(ctx context.Context, currentBlockNum, latestBlockNum uint64) ([]*edgeTracker, error) {
+	filterOpts := &bind.FilterOpts{
+		Start:   currentBlockNum,
+		End:     &latestBlockNum,
+		Context: ctx,
+	}
+	filterer, err := v.getFilterer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	it, err := filterer.FilterEdgeAdded(filterOpts, nil, nil, nil)
+	if err != nil {
+
+	}
+	cm, err := v.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all the edges.
+	edges := v.getEdges(ctx, cm, it)
+
+	// Build edge trackers for every edge.
+	return v.getEdgeTrackers(ctx, edges), nil
+}
+
+func (v *Validator) getFilterer(ctx context.Context) (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
+	cm, err := v.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return challengeV2gen.NewEdgeChallengeManagerFilterer(cm.Address(), v.backend)
 }
 
 // get latest block number from the chain.
