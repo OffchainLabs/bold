@@ -13,6 +13,7 @@ import (
 type MetadataReader interface {
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
+	GetEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
 }
 
 // ClaimHeights returns the heights of the claim data for an edge, all the way up to
