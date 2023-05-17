@@ -283,7 +283,14 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash
     ) external override whenPaused {
-        require(prevAssertion == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
+        // CHRIS: TODO: update this comment
+        // We've removed this in favour of the following flow:
+        // 1. Pause the rollup
+        // 2. Update the wasm module root
+        // 3. Create an alternative prev
+        // 4. Refund the stake to the party that created the correct but ERRORED assertion
+        // 5. Unpause the rollup
+        // require(prevAssertion == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
         createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
 

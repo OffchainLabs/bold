@@ -530,22 +530,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         delete _stakerMap[stakerAddress];
     }
 
-    struct StakeOnNewAssertionFrame {
-        uint256 currentInboxSize;
-        AssertionNode assertion;
-        bytes32 stateHash;
-        AssertionNode prevAssertion;
-        bytes32 lastHash;
-        bool hasSibling;
-        uint64 deadlineBlock;
-        bytes32 sequencerBatchAcc;
-    }
-
     function createNewAssertion(
         AssertionInputs calldata assertion,
         uint64 prevAssertionNum,
         bytes32 expectedAssertionHash
     ) internal returns (bytes32) {
+        // reading inbox messages always terminates in either a finished or errored state
+        // although the challenge protocol that any invalid terminal state will be proven incorrect
+        // we can do a quick sanity check here
         require(
             assertion.afterState.machineStatus == MachineStatus.FINISHED
                 || assertion.afterState.machineStatus == MachineStatus.ERRORED,
@@ -554,7 +546,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         AssertionNode storage prevAssertion = getAssertionStorage(prevAssertionNum);
         bytes32 prevAssertionHash = prevAssertion.assertionHash;
-        // validate the before state
+        // validate the provided before state is correct by checking that it's part of the prev assertion hash
         require(
             RollupLib.assertionHash(
                 assertion.beforeStateData.prevAssertionHash,
@@ -565,85 +557,101 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             "INVALID_BEFORE_STATE"
         );
 
+        // The rollup cannot advance from an errored state
+        // If it reaches an errored state it must be corrected by an administrator
+        // This will involve updating the wasm root and creating an alternative assertion
+        // that consumes the correct number of inbox messages, and correctly transitions to the
+        // FINISHED state so that normal progress can continue
+        require(assertion.beforeState.machineStatus == MachineStatus.FINISHED, "BAD_PREV_STATUS");
+
         uint256 nextInboxPosition;
         bytes32 sequencerBatchAcc;
         {
-            // Validate the inbox positions
-            uint64 afterInboxCount = assertion.afterState.globalState.getInboxPosition();
+            uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
-            require(afterInboxCount >= prevInboxPosition, "INBOX_BACKWARDS");
-            if (afterInboxCount == prevInboxPosition) {
+            require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
+            if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
+                // See validator/assertion.go ExecutionState RequiredBatches() for
+                // for why we move forward in the batch when the machine ends in an errored state
+                afterInboxPosition++;
+
+                // We make an exception if the machine enters the errored state,
+                // as it can't consume future batches.
+                // CHRIS: TODO: should we check that it's less than then? Since it should be possible to consume all of those messages
+                //              if we errored on the way right?
+                // require(assertion.afterState.globalState.getInboxPosition() == prevAssertion.nextInboxPosition, "INCORRECT_INBOX_POS");
+            } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
+                // Assertions must consume exactly all inbox messages
+                // that were in the inbox at the time the previous assertion was created
                 require(
-                    assertion.afterState.globalState.getPositionInMessage()
-                        >= assertion.beforeState.globalState.getPositionInMessage(),
-                    "INBOX_POS_IN_MSG_BACKWARDS"
+                    assertion.afterState.globalState.getInboxPosition() == prevAssertion.nextInboxPosition,
+                    "INCORRECT_INBOX_POS"
                 );
+                // Assertions that finish correctly completely consume the message
+                // Therefore their position in the message is 0
+                require(assertion.afterState.globalState.getPositionInMessage() == 0, "FINISHED_NON_ZERO_POS");
             }
 
-            // See validator/assertion.go ExecutionState RequiredBatches() for reasoning
-            if (
-                assertion.afterState.machineStatus == MachineStatus.ERRORED
-                    || assertion.afterState.globalState.getPositionInMessage() > 0
-            ) {
-                // The current inbox message was read
-                afterInboxCount++;
-            }
-            // Cannot read more messages than currently exist
+            // We enforce that at least one inbox message is always consumed
+            // so the after inbox position is always strictly greater than previous
+            require(afterInboxPosition > prevInboxPosition, "INBOX_BACKWARDS");
+
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
-            require(afterInboxCount <= currentInboxPosition, "INBOX_PAST_END");
+            // Cannot read more messages than currently exist in the inbox
+            require(afterInboxPosition <= currentInboxPosition, "INBOX_PAST_END");
 
+            // The next assertion must consume all the messages that are currently found in the inbox
             if (assertion.afterState.globalState.getInboxPosition() == currentInboxPosition) {
-                // assertions must consume exactly up to the message count that was in the inbox
-                // when the prev assertion was made. However if no new messages are sent, the next assertion
-                // would need to consume the same number of messages as the prev, meaning the chain
-                // would be unable to make progress. To avoid this we say that if no new messages have been
-                // made between the prev and now, then the next assertion should consume one message
+                // No new messages have been added to the inbox since the last assertion
+                // In this case if we set the next inbox position to the current one we would be insisting that
+                // the next assertion process no messages. So instead we increment the next inbox position to current
+                // plus one, so that the next assertion will process exactly one message
                 nextInboxPosition = currentInboxPosition + 1;
             } else {
                 nextInboxPosition = currentInboxPosition;
             }
 
-            // we don't create an assertion until messages are added to the inbox
-            require(afterInboxCount != 0, "EMPTY_INBOX_COUNT");
+            // only the genesis assertion processes no messages, and that assertion is created
+            // when we initialize this contract. Therefore, all assertions created here should have a non
+            // zero inbox position.
+            require(afterInboxPosition != 0, "EMPTY_INBOX_COUNT");
 
-            // This gives replay protection against the state of the inbox
-            sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxCount - 1);
+            // Fetch the inbox accumulator for this message count. Fetching this and checking against it
+            // allows the assertion creator to ensure they're creating an assertion against the expected
+            // inbox messages
+            sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxPosition - 1);
         }
 
-        bytes32 newAssertionHash = RollupLib.assertionHash(
-            // HN: TODO: is this ok?
-            prevAssertionHash,
-            assertion.afterState,
-            sequencerBatchAcc,
-            wasmModuleRoot // HN: TODO: should we include this in assertion hash?
-        );
+        bytes32 newAssertionHash =
+            RollupLib.assertionHash(prevAssertionHash, assertion.afterState, sequencerBatchAcc, wasmModuleRoot);
+
+        // allow an assertion creator to ensure that they're creating their assertion against the expected state
         require(
             newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0), "UNEXPECTED_NODE_HASH"
         );
 
+        // the assertion hash is unique - it's only possible to have one correct assertion hash
+        // per assertion. Therefore we can check if this assertion has already been made, and if so
+        // we can revert
         require(_assertionHashToNum[newAssertionHash] == 0, "ASSERTION_SEEN");
 
+        // state updates
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
             uint64(nextInboxPosition),
             RollupLib.confirmHash(assertion),
             prevAssertionNum,
             uint64(block.number) + confirmPeriodBlocks,
             newAssertionHash,
-            prevAssertion.firstChildBlock == 0 // assume block 0 is impossible
+            prevAssertion.firstChildBlock == 0 // assumes block 0 is impossible
         );
 
-        {
-            uint64 assertionNum = latestAssertionCreated() + 1;
-            _assertionHashToNum[newAssertionHash] = assertionNum;
-
-            // Fetch a storage reference to prevAssertion since we copied our other one into memory
-            // and we don't have enough stack available to keep to keep the previous storage reference around
-            prevAssertion.childCreated(assertionNum, confirmPeriodBlocks);
-            assertionCreated(newAssertion);
-        }
+        uint64 assertionNum = latestAssertionCreated() + 1;
+        _assertionHashToNum[newAssertionHash] = assertionNum;
+        prevAssertion.childCreated(assertionNum, confirmPeriodBlocks);
+        assertionCreated(newAssertion);
 
         emit AssertionCreated(
-            latestAssertionCreated(),
+            assertionNum,
             prevAssertionHash,
             newAssertionHash,
             assertion,

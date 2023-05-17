@@ -73,7 +73,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
              * If the first unresolved assertion is a child of the latest confirmed assertion, to prove it can be rejected, we show:
              * a) Its deadline has expired
              * b) *Some* staker is staked on a sibling
-             * 
+             *
              * The following three checks are sufficient to prove b:
              */
 
@@ -200,32 +200,11 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // Ensure staker is staked on the previous assertion
         uint64 prevAssertion = latestStakedAssertion(msg.sender);
 
-        {
-            uint256 timeSinceLastAssertion = block.number - getAssertion(prevAssertion).createdAtBlock;
-            // Verify that assertion meets the minimum Delta time requirement
-            require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
+        uint256 timeSinceLastAssertion = block.number - getAssertion(prevAssertion).createdAtBlock;
+        // Verify that the assertion meets the minimum Delta time requirement
+        require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
 
-            // CHRIS: TODO: this is an extra storage call
-            // CHRIS: TODO: we should be doing this inside the createNewAssertion call
-            //              since otherwise an admin created assertion would be challengeable if created with the wrong count
-            uint64 prevAssertionNextInboxPosition = getAssertionStorage(prevAssertion).nextInboxPosition;
-
-            // Minimum size requirement: any assertion must consume exactly all inbox messages
-            // put into L1 inbox before the prev node’s L1 blocknum.
-            // We make an exception if the machine enters the errored state,
-            // as it can't consume future batches.
-            require(
-                assertion.afterState.machineStatus == MachineStatus.ERRORED
-                    || assertion.afterState.globalState.getInboxPosition() == prevAssertionNextInboxPosition,
-                "WRONG_INBOX_POS"
-            );
-
-            // The rollup cannot advance normally from an errored state
-            // CHRIS: TODO: this is interesting? How do we recover from errored state?
-            require(assertion.beforeState.machineStatus == MachineStatus.FINISHED, "BAD_PREV_STATUS");
-        }
         createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
-
         stakeOnAssertion(msg.sender, latestAssertionCreated());
     }
 
