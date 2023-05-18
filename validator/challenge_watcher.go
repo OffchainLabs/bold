@@ -16,12 +16,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+type challenge struct {
+	honestEdgeTree                 *challengetree.HonestChallengeTree
+	confirmedLevelZeroEdgeClaimIds *threadsafe.Set[protocol.ClaimId]
+}
+
+// Will keep track of ancestor histories for honest
+// branches per challenge.
+// Will scan for all previous events, and poll for new ones.
+// Will scan for level zero edges being confirmed and track
+// their claim id in this struct.
 type challengeWatcher struct {
-	// Will keep track of ancestor histories for honest
-	// branches per challenge.
-	// Will scan for all previous events, and poll for new ones.
-	// Will scan for level zero edges being confirmed and track
-	// their claim id in this struct.
 	stateManager       statemanager.Manager
 	chain              protocol.AssertionChain
 	pollEventsInterval time.Duration
@@ -30,7 +35,7 @@ type challengeWatcher struct {
 	backend            bind.ContractBackend
 }
 
-func NewWatcher(
+func newChallengeWatcher(
 	chain protocol.AssertionChain,
 	manager statemanager.Manager,
 	backend bind.ContractBackend,
@@ -46,7 +51,7 @@ func NewWatcher(
 
 // Checks if a confirmed, level zero edge exists that claims a particular
 // claim id for a given challenge namespace (for a top-level assertion).
-func (w *challengeWatcher) ConfirmedEdgeWithClaimExists(
+func (w *challengeWatcher) confirmedEdgeWithClaimExists(
 	topLevelParentAssertionId protocol.AssertionId,
 	claimId protocol.ClaimId,
 ) (bool, error) {
@@ -59,27 +64,33 @@ func (w *challengeWatcher) ConfirmedEdgeWithClaimExists(
 	return challenge.confirmedLevelZeroEdgeClaimIds.Has(claimId), nil
 }
 
-// TODO: Implement using ancestor branches.
-func (w *challengeWatcher) BranchTotalUnrivaledBlocks(
+func (w *challengeWatcher) computeHonestPathTimer(
+	ctx context.Context,
 	topLevelParentAssertionId protocol.AssertionId,
 	edgeId protocol.EdgeId,
-) (uint64, error) {
-	return 0, nil
+) (challengetree.PathTimer, challengetree.HonestAncestors, error) {
+	header, err := w.backend.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, nil, err
+	}
+	if !header.Number.IsUint64() {
+		return 0, nil, errors.New("latest block header number is not a uint64")
+	}
+	blockNumber := header.Number.Uint64()
+	w.lock.RLock()
+	chal, ok := w.challenges[topLevelParentAssertionId]
+	if !ok {
+		w.lock.RUnlock()
+		return 0, nil, fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			topLevelParentAssertionId,
+		)
+	}
+	w.lock.RUnlock()
+	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
 }
 
-func (w *challengeWatcher) Ancestors(
-	topLevelParentAssertionId protocol.AssertionId,
-	edgeId protocol.EdgeId,
-) ([]protocol.EdgeId, error) {
-	return nil, nil
-}
-
-type challenge struct {
-	honestTree                     *challengetree.HonestChallengeTree
-	confirmedLevelZeroEdgeClaimIds *threadsafe.Set[protocol.ClaimId]
-}
-
-func (w *challengeWatcher) Watch(ctx context.Context) error {
+func (w *challengeWatcher) watch(ctx context.Context) error {
 	// Start from the latest confirmed assertion's creation block.
 	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
 	if err != nil {
@@ -151,29 +162,23 @@ func (w *challengeWatcher) checkForEdgeAdded(
 			return err // TODO: Handle better.
 		}
 		edgeAdded := it.Event
-
 		// ClaimID: Entire namespace for a challenge's 3 levels.
 		// OriginID: Namespace per subchallenge level.
 		if protocol.EdgeType(edgeAdded.EType) == protocol.BlockChallengeEdge && edgeAdded.ClaimId != [32]byte{} {
 			w.lock.Lock()
 			if _, ok := w.challenges[edgeAdded.ClaimId]; !ok {
+				tree := challengetree.New(
+					protocol.AssertionId(edgeAdded.ClaimId),
+					w.chain,
+					w.stateManager,
+				)
 				w.challenges[edgeAdded.ClaimId] = &challenge{
-					honestAncestorsBranch:          &ancestorsBranch{},
+					honestEdgeTree:                 tree,
 					confirmedLevelZeroEdgeClaimIds: threadsafe.NewSet[protocol.ClaimId](),
 				}
 			}
 			w.lock.Unlock()
 		}
-
-		// We see a new edge: what do?
-		// - For each branch in a challenge, we need to figure out where to place it on the branch
-		//   - We need to figure out its parent/child relationship to other edges being tracked here
-		// - We need to figure out what top-level assertion it corresponds to.
-		//   - However, we only have this information for level zero edges, using a claim id
-		//   - for all others, we have an origin id that can be used for namespacing information
-
-		// TODO: Optimization: figure out if the edge being added has a history commitment we agree with
-		// locally, and only track the edges this watcher agrees with.
 	}
 	return nil
 }

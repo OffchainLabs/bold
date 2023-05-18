@@ -3,21 +3,19 @@ package challengetree
 import (
 	"context"
 
+	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/pkg/errors"
 )
 
-type EdgeReader interface {
-	GetEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
-}
-
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
 	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
+	SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error)
 }
 
 // ClaimHeights returns the heights of the claim data for an edge, all the way up to
@@ -58,7 +56,23 @@ type HonestChallengeTree struct {
 	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
 	metadataReader                MetadataReader
 	histChecker                   HistoryChecker
-	edgeReader                    EdgeReader
+}
+
+func New(
+	prevAssertionId protocol.AssertionId,
+	metadataReader MetadataReader,
+	histChecker HistoryChecker,
+) *HonestChallengeTree {
+	return &HonestChallengeTree{
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		topLevelAssertionId:           prevAssertionId,
+		honestBlockChalLevelZeroEdge:  util.None[protocol.EdgeSnapshot](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		metadataReader:                metadataReader,
+		histChecker:                   histChecker,
+	}
 }
 
 // RefreshEdgesFromChain refreshes all edge snapshots from the chain.
@@ -70,13 +84,20 @@ func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error 
 	}); err != nil {
 		return err
 	}
+	edgeReader, err := ht.metadataReader.SpecChallengeManager(ctx)
+	if err != nil {
+		return err
+	}
 	snapshots := make([]protocol.EdgeSnapshot, len(edgeIds))
 	for i, edgeId := range edgeIds {
-		edge, err := ht.edgeReader.GetEdge(ctx, edgeId)
+		edgeOpt, err := edgeReader.GetEdge(ctx, edgeId)
 		if err != nil {
 			return err
 		}
-		snapshots[i] = edge
+		if edgeOpt.IsNone() {
+			return fmt.Errorf("edge with id %#x not found", edgeId)
+		}
+		snapshots[i] = edgeOpt.Unwrap()
 	}
 	for i, edgeId := range edgeIds {
 		ht.edges.Put(edgeId, snapshots[i])
