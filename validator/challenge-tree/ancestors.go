@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/pkg/errors"
 )
 
@@ -195,13 +196,18 @@ func (ht *HonestChallengeTree) isRivaled(edge protocol.EdgeSnapshot) bool {
 	return mutuals.NumItems() > 1 && mutuals.Has(edge.Id())
 }
 
-func findOriginEdge(originId protocol.OriginId, edges []protocol.EdgeSnapshot) (protocol.EdgeSnapshot, bool) {
-	for _, e := range edges {
+func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.EdgeSnapshot]) (protocol.EdgeSnapshot, bool) {
+	var originEdge protocol.EdgeSnapshot
+	found := false
+	edges.ForEach(func(_ int, e protocol.EdgeSnapshot) bool {
 		if e.OriginId() == originId {
-			return e, true
+			originEdge = e
+			found = true
+			return true
 		}
-	}
-	return nil, false
+		return false
+	})
+	return originEdge, found
 }
 
 func errNotFound(id protocol.EdgeId) error {

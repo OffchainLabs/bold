@@ -47,8 +47,8 @@ type HonestChallengeTree struct {
 	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
 	topLevelAssertionId           protocol.AssertionId
 	honestBlockChalLevelZeroEdge  util.Option[protocol.EdgeSnapshot]
-	honestBigStepLevelZeroEdges   []protocol.EdgeSnapshot
-	honestSmallStepLevelZeroEdges []protocol.EdgeSnapshot
+	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.EdgeSnapshot]
+	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
 	metadataReader                MetadataReader
 	histChecker                   HistoryChecker
 }
@@ -97,9 +97,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 			case protocol.BlockChallengeEdge:
 				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
 			case protocol.BigStepChallengeEdge:
-				ht.honestBigStepLevelZeroEdges = append(ht.honestBigStepLevelZeroEdges, eg)
+				ht.honestBigStepLevelZeroEdges.Push(eg)
 			case protocol.SmallStepChallengeEdge:
-				ht.honestSmallStepLevelZeroEdges = append(ht.honestSmallStepLevelZeroEdges, eg)
+				ht.honestSmallStepLevelZeroEdges.Push(eg)
 			default:
 			}
 		}

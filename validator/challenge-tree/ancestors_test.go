@@ -34,8 +34,10 @@ import (
 // From here, the list of ancestors can be determined all the way to the top.
 func TestAncestors_AllChallengeLevels(t *testing.T) {
 	tree := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
-		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
@@ -43,10 +45,10 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	tree.honestBlockChalLevelZeroEdge = util.Some(tree.edges.Get(id("blk-0.a-16.a")))
 	claimId := "blk-4.a-5.a"
 	setupBigStepChallengeSnapshot(t, tree, claimId)
-	tree.honestBigStepLevelZeroEdges = append(tree.honestBigStepLevelZeroEdges, tree.edges.Get(id("big-0.a-16.a")))
+	tree.honestBigStepLevelZeroEdges.Push(tree.edges.Get(id("big-0.a-16.a")))
 	claimId = "big-4.a-5.a"
 	setupSmallStepChallengeSnapshot(t, tree, claimId)
-	tree.honestSmallStepLevelZeroEdges = append(tree.honestSmallStepLevelZeroEdges, tree.edges.Get(id("smol-0.a-16.a")))
+	tree.honestSmallStepLevelZeroEdges.Push(tree.edges.Get(id("smol-0.a-16.a")))
 
 	t.Run("junk edge fails", func(t *testing.T) {
 		// We start by querying for ancestors for a block edge id.
