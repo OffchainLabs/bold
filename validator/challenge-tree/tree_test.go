@@ -150,7 +150,7 @@ func (m *mockMetadataReader) TopLevelAssertion(
 	return m.assertionId, m.assertionErr
 }
 
-func (_ *mockMetadataReader) AssertionUnrivaledTime(
+func (*mockMetadataReader) AssertionUnrivaledTime(
 	_ context.Context, _ protocol.EdgeId,
 ) (uint64, error) {
 	return 0, nil
