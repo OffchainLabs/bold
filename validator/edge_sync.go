@@ -2,12 +2,15 @@ package validator
 
 import (
 	"context"
+	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
+
+const sleepTime = 5 * time.Second
 
 // Sync edges from challenges from confirmed block height to latest block height.
 // - Get all edges from challenges (retry on fail)
@@ -116,12 +119,18 @@ func (v *Validator) getEdges(ctx context.Context, cm protocol.SpecChallengeManag
 	edges := make([]util.Option[protocol.SpecEdge], 0)
 	for it.Next() {
 		edgeAdded := it.Event
-		e, err := cm.GetEdge(ctx, edgeAdded.EdgeId)
-		if err != nil {
+		var edge util.Option[protocol.SpecEdge]
+		var err error
+		for {
+			edge, err = cm.GetEdge(ctx, edgeAdded.EdgeId)
+			if err == nil {
+				break
+			}
 			log.WithError(err).Error("error getting edge") // Retry on error.
-			continue
+			time.Sleep(sleepTime)
 		}
-		edges = append(edges, e)
+
+		edges = append(edges, edge)
 	}
 	return edges
 }
@@ -132,10 +141,15 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[pro
 	var assertionIdMap = make(map[protocol.AssertionId][2]uint64)
 	edgeTrackers := make([]*edgeTracker, len(edges))
 	for i, edge := range edges {
-		assertionId, err := edge.Unwrap().PrevAssertionId(ctx)
-		if err != nil {
+		var assertionId protocol.AssertionId
+		var err error
+		for {
+			assertionId, err = edge.Unwrap().PrevAssertionId(ctx)
+			if err == nil {
+				break
+			}
 			log.WithError(err).Error("error getting prev assertion id")
-			continue
+			time.Sleep(sleepTime)
 		}
 
 		// Smart caching to avoid querying the same assertion number and creation info multiple times.
@@ -144,23 +158,32 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[pro
 		var assertionHeight uint64
 		var inboxMsgCount uint64
 		if !ok {
-			n, err := v.chain.GetAssertionNum(ctx, assertionId)
-			if err != nil {
+			var assertionNum protocol.AssertionSequenceNumber
+			var err error
+			for {
+				assertionNum, err = v.chain.GetAssertionNum(ctx, assertionId)
+				if err == nil {
+					break
+				}
 				log.WithError(err).Error("error getting prev assertion id")
-				continue
+				time.Sleep(sleepTime)
 			}
-			creationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, n)
-			if err != nil {
+
+			var assertionCreationInfo *protocol.AssertionCreatedInfo
+			for {
+				assertionCreationInfo, err = v.chain.ReadAssertionCreationInfo(ctx, assertionNum)
+				if err == nil {
+					break
+				}
 				log.WithError(err).Error("error getting creation info")
-				continue
 			}
-			height, ok := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(creationInfo.AfterState))
+			height, ok := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(assertionCreationInfo.AfterState))
 			if !ok {
-				log.Errorf("missing previous assertion %v after execution %+v in local state manager", n, creationInfo.AfterState)
+				log.Errorf("missing previous assertion %v after execution %+v in local state manager", assertionNum, assertionCreationInfo.AfterState)
 				continue
 			}
 			assertionHeight = height
-			inboxMsgCount = creationInfo.InboxMaxCount.Uint64()
+			inboxMsgCount = assertionCreationInfo.InboxMaxCount.Uint64()
 			assertionIdMap[assertionId] = [2]uint64{assertionHeight, inboxMsgCount}
 		} else {
 			assertionHeight, inboxMsgCount = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
