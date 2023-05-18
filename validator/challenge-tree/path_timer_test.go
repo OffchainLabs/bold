@@ -1,6 +1,7 @@
 package challengetree
 
 import (
+	"context"
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
@@ -66,11 +67,9 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		timers[v.Id()] = 0
 	}
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
-	allTimers := threadsafe.NewMapFromItems(timers)
 	ht := &HonestChallengeTree{
-		edges:                      allEdges,
-		mutualIds:                  threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		cumulativeHonestPathTimers: allTimers,
+		edges:     allEdges,
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
 	mutual := edges["blk-0.a-16.a"].MutualId()
@@ -101,12 +100,11 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	mutuals.Put(idd, creationTime(ht.edges.Get(idd).CreatedAtBlock()))
 
 	ht.honestBlockChalLevelZeroEdge = util.Some(ht.edges.Get(id("blk-0.a-16.a")))
+	ctx := context.Background()
 
 	t.Run("querying path timer before creation should return zero", func(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
-		err := ht.UpdateCumulativePathTimers(edge.CreatedAtBlock() - 1)
-		require.NoError(t, err)
-		timer, err := ht.HonestPathTimer(edge.Id())
+		timer, _, err := ht.HonestPathTimer(ctx, edge.Id(), 0)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
@@ -114,7 +112,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
 		err := ht.UpdateCumulativePathTimers(edge.CreatedAtBlock())
 		require.NoError(t, err)
-		timer, err := ht.HonestPathTimer(edge.Id())
+		timer, _, err := ht.HonestPathTimer(edge.Id())
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), timer)
 	})
@@ -124,7 +122,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
 		err := ht.UpdateCumulativePathTimers(edge.CreatedAtBlock() + 1)
 		require.NoError(t, err)
-		timer, err := ht.HonestPathTimer(edge.Id())
+		timer, _, err := ht.HonestPathTimer(edge.Id())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), timer)
 
@@ -134,7 +132,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge = ht.edges.Get(id("blk-0.a-8.a"))
 		err = ht.UpdateCumulativePathTimers(edge.CreatedAtBlock() + 1)
 		require.NoError(t, err)
-		timer, err = ht.HonestPathTimer(edge.Id())
+		timer, _, err = ht.HonestPathTimer(edge.Id())
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), timer)
 
@@ -143,7 +141,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge = ht.edges.Get(id("blk-4.a-8.a"))
 		err = ht.UpdateCumulativePathTimers(edge.CreatedAtBlock() + 1)
 		require.NoError(t, err)
-		timer, err = ht.HonestPathTimer(edge.Id())
+		timer, _, err = ht.HonestPathTimer(edge.Id())
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
 
@@ -157,7 +155,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		// of its ancestors that count, which is a total of 3.
 		err = ht.UpdateCumulativePathTimers(edge.CreatedAtBlock() + 1)
 		require.NoError(t, err)
-		timer, err = ht.HonestPathTimer(edge.Id())
+		timer, _, err = ht.HonestPathTimer(edge.Id())
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), timer)
 
@@ -167,7 +165,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 			err = ht.UpdateCumulativePathTimers(edge.CreatedAtBlock() + i)
 			require.NoError(t, err)
 			require.NoError(t, err)
-			timer, err = ht.HonestPathTimer(edge.Id())
+			timer, _, err = ht.HonestPathTimer(edge.Id())
 			require.NoError(t, err)
 			require.Equal(t, uint64(2)+i, timer)
 		}
@@ -193,7 +191,6 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		// Add the new edges into the mapping.
 		for k, v := range edges {
 			ht.edges.Put(id(k), v)
-			ht.cumulativeHonestPathTimers.Put(id(k), 0)
 		}
 
 		// Three pairs of edges are rivaled in this test: 0-16, 0-8, 0-4
@@ -223,7 +220,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-4.a"))
 		err := ht.UpdateCumulativePathTimers(lastCreated.CreatedAtBlock())
 		require.NoError(t, err)
-		timer, err := ht.HonestPathTimer(edge.Id())
+		timer, _, err := ht.HonestPathTimer(edge.Id())
 		require.NoError(t, err)
 		ancestorTimers := uint64(2)
 		require.Equal(t, lastCreated.CreatedAtBlock()-edge.CreatedAtBlock()+ancestorTimers, timer)
@@ -232,7 +229,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			err := ht.UpdateCumulativePathTimers(lastCreated.CreatedAtBlock() + uint64(i))
 			require.NoError(t, err)
-			timer, err := ht.HonestPathTimer(edge.Id())
+			timer, _, err := ht.HonestPathTimer(edge.Id())
 			require.NoError(t, err)
 			require.Equal(t, lastCreated.CreatedAtBlock()-edge.CreatedAtBlock()+ancestorTimers, timer)
 		}
@@ -244,9 +241,8 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 // for confirmation purposes.
 func TestPathTimer_AllChallengeLevels(t *testing.T) {
 	ht := &HonestChallengeTree{
-		edges:                      threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
-		mutualIds:                  threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		cumulativeHonestPathTimers: threadsafe.NewMap[protocol.EdgeId, uint64](),
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
@@ -262,7 +258,7 @@ func TestPathTimer_AllChallengeLevels(t *testing.T) {
 	lastCreated := ht.edges.Get(id("smol-4.a-5.a"))
 	err := ht.UpdateCumulativePathTimers(lastCreated.CreatedAtBlock() + 1)
 	require.NoError(t, err)
-	timer, err := ht.HonestPathTimer(lastCreated.Id())
+	timer, _, err := ht.HonestPathTimer(lastCreated.Id())
 	require.NoError(t, err)
 
 	// Should be the sum of the unrivaled timers of honest edges along the path
