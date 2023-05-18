@@ -24,6 +24,7 @@ type MockAssertion struct {
 	MockPrevSeqNum        protocol.AssertionSequenceNumber
 	MockStateHash         common.Hash
 	MockInboxMsgCountSeen uint64
+	MockCreatedAtBlock    uint64
 	MockIsFirstChild      bool
 }
 
@@ -46,6 +47,9 @@ func (m *MockAssertion) IsFirstChild() (bool, error) {
 func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {
 	return m.MockInboxMsgCountSeen, nil
 }
+func (m *MockAssertion) CreatedAtBlock() uint64 {
+	return m.MockCreatedAtBlock
+}
 
 type MockStateManager struct {
 	mock.Mock
@@ -66,6 +70,16 @@ func (m *MockStateManager) LatestExecutionState(ctx context.Context) (*protocol.
 func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uint64) (util.HistoryCommitment, error) {
 	args := m.Called(ctx, height)
 	return args.Get(0).(util.HistoryCommitment), args.Error(1)
+}
+
+func (m *MockStateManager) AgreesWithHistoryCommitment(
+	ctx context.Context,
+	heights *protocol.ClaimHeights,
+	startCommit,
+	endCommit util.HistoryCommitment,
+) (protocol.Agreement, error) {
+	args := m.Called(ctx, heights, startCommit, endCommit)
+	return args.Get(0).(protocol.Agreement), args.Error(1)
 }
 
 func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, startBlock, endBlock, batchCount uint64) (util.HistoryCommitment, error) {
@@ -399,6 +413,21 @@ func (m *MockProtocol) GenesisAssertionHashes(
 ) (common.Hash, common.Hash, common.Hash, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(common.Hash), args.Get(1).(common.Hash), args.Get(2).(common.Hash), args.Error(3)
+}
+
+func (m *MockProtocol) AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error) {
+	args := m.Called(ctx, edgeId)
+	return args.Get(0).(uint64), args.Error(1)
+}
+
+func (m *MockProtocol) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error) {
+	args := m.Called(ctx, edgeId)
+	return args.Get(0).(protocol.AssertionId), args.Error(1)
+}
+
+func (m *MockProtocol) ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.ClaimHeights, error) {
+	args := m.Called(ctx, edgeId)
+	return args.Get(0).(*protocol.ClaimHeights), args.Error(1)
 }
 
 func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {

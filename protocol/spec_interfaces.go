@@ -68,6 +68,10 @@ type AssertionChain interface {
 		ctx context.Context, seqNum AssertionSequenceNumber,
 	) (*AssertionCreatedInfo, error)
 
+	AssertionUnrivaledTime(ctx context.Context, edgeId EdgeId) (uint64, error)
+	TopLevelAssertion(ctx context.Context, edgeId EdgeId) (AssertionId, error)
+	ClaimHeights(ctx context.Context, edgeId EdgeId) (*ClaimHeights, error)
+
 	// Mutating methods.
 	CreateAssertion(
 		ctx context.Context,
@@ -77,6 +81,21 @@ type AssertionChain interface {
 
 	// Spec-based implementation methods.
 	SpecChallengeManager(ctx context.Context) (SpecChallengeManager, error)
+}
+
+// ClaimHeights returns the heights of the claim data for an edge, all the way up to
+// the top-level assertion chain.
+type ClaimHeights struct {
+	AssertionClaimHeight      uint64
+	BlockChallengeClaimHeight uint64
+	BigStepClaimHeight        uint64
+}
+
+// Agreement encompasses whether or not a local node agrees with a edge's commitments.
+// Either the edge is honest, we agree with its start commit, or disagree entirely.
+type Agreement struct {
+	IsHonestEdge          bool
+	AgreesWithStartCommit bool
 }
 
 // EdgeType corresponds to the three different challenge

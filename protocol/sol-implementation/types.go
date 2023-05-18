@@ -26,6 +26,14 @@ func (a *Assertion) SeqNum() protocol.AssertionSequenceNumber {
 	return protocol.AssertionSequenceNumber(a.id)
 }
 
+func (a *Assertion) CreatedAtBlock() uint64 {
+	inner, err := a.inner()
+	if err != nil {
+		panic(err)
+	}
+	return inner.CreatedAtBlock
+}
+
 func (a *Assertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 	inner, err := a.inner()
 	if err != nil {

@@ -14,33 +14,18 @@ import (
 type MetadataReader interface {
 	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
-	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
+	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.ClaimHeights, error)
 	SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error)
-}
-
-// ClaimHeights returns the heights of the claim data for an edge, all the way up to
-// the top-level assertion chain.
-type ClaimHeights struct {
-	AssertionClaimHeight      uint64
-	BlockChallengeClaimHeight uint64
-	BigStepClaimHeight        uint64
-}
-
-// Agreement encompasses whether or not a local node agrees with a edge's commitments.
-// Either the edge is honest, we agree with its start commit, or disagree entirely.
-type Agreement struct {
-	IsHonestEdge          bool
-	AgreesWithStartCommit bool
 }
 
 // HistoryChecker can verify to what extent we agree with an edge's history commitments locally.
 type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
-		heights *ClaimHeights,
+		heights *protocol.ClaimHeights,
 		startCommit,
 		endCommit util.HistoryCommitment,
-	) (Agreement, error)
+	) (protocol.Agreement, error)
 }
 
 type creationTime uint64

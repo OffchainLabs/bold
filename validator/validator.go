@@ -38,6 +38,7 @@ type Validator struct {
 	timeRef                   util.TimeReference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
+	watcher                   *challengeWatcher
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -130,6 +131,8 @@ func New(
 	v.rollupFilterer = rollupFilterer
 	v.chalManagerAddr = chalManagerAddr
 	v.chalManager = chalManagerFilterer
+	v.watcher = newChallengeWatcher(chain, stateManager, backend, time.Second*2)
+	go v.watcher.watch(ctx)
 	return v, nil
 }
 

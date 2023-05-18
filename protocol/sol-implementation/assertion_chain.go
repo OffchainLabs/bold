@@ -215,6 +215,18 @@ func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Sp
 	)
 }
 
+func (ac *AssertionChain) AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error) {
+	return 0, nil
+}
+
+func (ac *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error) {
+	return protocol.AssertionId{}, nil
+}
+
+func (ac *AssertionChain) ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.ClaimHeights, error) {
+	return &protocol.ClaimHeights{}, nil
+}
+
 // Confirm creates a confirmation for an assertion at the block hash and send root.
 func (ac *AssertionChain) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
 	receipt, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {

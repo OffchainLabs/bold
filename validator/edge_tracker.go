@@ -403,6 +403,7 @@ type edgeTrackerConfig struct {
 	stateManager     statemanager.Manager
 	validatorName    string
 	validatorAddress common.Address
+	watcher          *challengeWatcher
 }
 
 type edgeTracker struct {

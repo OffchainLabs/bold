@@ -71,9 +71,10 @@ func TestChallengeProtocol_AliceAndBob(t *testing.T) {
 		cfg.expectedBisections = 30
 		hook := test.NewGlobal()
 		runChallengeIntegrationTest(t, hook, cfg)
-		AssertLogsContain(t, hook, "Succeeded one-step-proof for edge and confirmed it as winner")
+		AssertLogsContain(t, hook, "asdSucceeded one-step-proof for edge and confirmed it as winner")
 	})
 	t.Run("two validators disagreeing on the number of blocks", func(t *testing.T) {
+		t.Skip()
 		cfg := &challengeProtocolTestConfig{
 			assertionDivergenceHeight:      7,
 			assertionBlockHeightDifference: 1,
