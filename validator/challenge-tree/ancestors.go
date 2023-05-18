@@ -4,6 +4,14 @@ import (
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+	"github.com/pkg/errors"
+)
+
+var (
+	ErrNoHonestTopLevelEdge = errors.New("no honest block challenge edge being tracked")
+	ErrNotFound             = errors.New("not found in honest challenge tree")
+	ErrNoLevelZero          = errors.New("no level zero edge with origin id found")
 )
 
 // Consider the following set of edges in a challenge where evil
@@ -20,163 +28,220 @@ import (
 // In this case, the set of honest ancestors for 4-6 is the following:
 //
 //	{4-8, 0-8}
-//
-// In order to retrieve ancestors for an edge with id=I, we start from the honest,
-// block challenge level zero edge and recursively traverse its children,
-// reducing the ids and along the way into a slice until we hit a child that
-// matches id=I and return the slice.
-func (ht *HonestChallengeTree) AncestorsForHonestEdge(id protocol.EdgeId) ([]protocol.EdgeId, error) {
-	if _, ok := ht.edges.TryGet(id); !ok {
-		return nil, fmt.Errorf("edge with id %#x not found in honest challenge tree", id)
+func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeId) ([]protocol.EdgeId, error) {
+	wantedEdge, ok := ht.edges.TryGet(queryingFor)
+	if !ok {
+		return nil, errNotFound(queryingFor)
 	}
 	if ht.honestBlockChalLevelZeroEdge.IsNone() {
-		return make([]protocol.EdgeId, 0), nil
+		return nil, ErrNoHonestTopLevelEdge
 	}
-	blockEdge := ht.honestBlockChalLevelZeroEdge.Unwrap()
-	ancestors, ok := ht.ancestorQuery(
-		make([]protocol.EdgeId, 0),
-		blockEdge,
-		id,
-	)
-	if !ok {
-		return make([]protocol.EdgeId, 0), nil
-	}
-	// The confirm by time function in Solidity requires ancestors to be specified
-	// from child to parent linkage, which is the reverse result of our recursion.
-	util.Reverse(ancestors)
-	return ancestors, nil
-}
+	honestLevelZero := ht.honestBlockChalLevelZeroEdge.Unwrap()
 
-func (ht *HonestChallengeTree) ancestorQuery(
-	accum []protocol.EdgeId,
-	curr protocol.EdgeSnapshot,
-	queryingFor protocol.EdgeId,
-) ([]protocol.EdgeId, bool) {
-	if curr.Id() == queryingFor {
-		return accum, true
-	}
-	if !hasChildren(curr) {
-		// If the edge has length 1, we then perform a few special checks.
-		if edgeLength(curr) == 1 {
-			// In case the edge is a small step challenge of length 1, we simply return.
-			if curr.GetType() == protocol.SmallStepChallengeEdge {
-				return accum, false
-			}
-
-			// If the edge is unrivaled, we return.
-			isRivaled := ht.isRivaled(curr)
-			if !isRivaled {
-				return accum, false
-			}
-
-			var lowerLevelEdge protocol.EdgeSnapshot
-			// If the edge is a block challenge edge, we continue the recursion starting from the honest
-			// big step level zero edge, if it exists.
-			if curr.GetType() == protocol.BlockChallengeEdge {
-				if ht.honestBigStepChalLevelZeroEdge.IsNone() {
-					return accum, false
-				}
-				lowerLevelEdge = ht.honestBigStepChalLevelZeroEdge.Unwrap()
-			}
-
-			// If the edge is a big step challenge edge, we continue the recursion starting from the honest
-			// small step level zero edge, if it exists.
-			if curr.GetType() == protocol.BigStepChallengeEdge {
-				if ht.honestSmallStepChalLevelZeroEdge.IsNone() {
-					return accum, false
-				}
-				lowerLevelEdge = ht.honestSmallStepChalLevelZeroEdge.Unwrap()
-			}
-			// Defensive check ensuring the honest level zero edge one challenge level below
-			// claims the current edge id as its claim id. If it does not, we simply return.
-			if !checkEdgeClaim(lowerLevelEdge, protocol.ClaimId(curr.Id())) {
-				return accum, false
-			}
-			accum = append(accum, curr.Id())
-			return ht.ancestorQuery(accum, lowerLevelEdge, queryingFor)
+	// Figure out what kind of edge this is, and apply different logic based on it.
+	switch wantedEdge.GetType() {
+	case protocol.BlockChallengeEdge:
+		// If the edge is a block challenge edge, we simply search for the wanted edge's ancestors
+		// in the block challenge starting from the honest, level zero edge and return
+		// the computed ancestor ids list.
+		start := honestLevelZero
+		searchFor := wantedEdge
+		ancestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		if err != nil {
+			return nil, err
 		}
-		return accum, false
-	}
-	accum = append(accum, curr.Id())
+		// The solidity confirmations function expects a child-to-parent ordering,
+		// which is the reverse of our computed list.
+		util.Reverse(ancestry)
+		return ancestry, nil
+	case protocol.BigStepChallengeEdge:
+		ancestry := make([]protocol.EdgeId, 0)
+		originId := wantedEdge.OriginId()
 
-	// If the edge id we are querying for is a direct child of the current edge, we append
-	// the current edge to the ancestors list and return true.
-	if isDirectChild(curr, queryingFor) {
-		return accum, true
+		// If the edge is a big step challenge edge, we first find out the honest big step
+		// level zero edge it is a child of.
+		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
+		if !ok {
+			return nil, errNoLevelZero(originId)
+		}
+
+		// From there, we compute its ancestors.
+		start := bigStepLevelZero
+		searchFor := wantedEdge
+		bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		if err != nil {
+			return nil, err
+		}
+
+		// Next, we go up to the block challenge level by getting the edge the big step
+		// level zero edge claims as its claim id.
+		claimedEdge, err := ht.getClaimedEdge(bigStepLevelZero)
+		if err != nil {
+			return nil, err
+		}
+
+		// We compute the block ancestry from there.
+		start = honestLevelZero
+		searchFor = claimedEdge
+		blockChalAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		if err != nil {
+			return nil, err
+		}
+
+		// Finally, the solidity confirmations function expects a child-to-parent ordering,
+		// which is the reverse of our computed list. This list should contain
+		// the block challenge claimed edge id that links the edge between challenge types.
+		ancestry = append(ancestry, blockChalAncestry...)
+		ancestry = append(ancestry, claimedEdge.Id())
+		ancestry = append(ancestry, bigStepAncestry...)
+
+		util.Reverse(ancestry)
+		return ancestry, nil
+	case protocol.SmallStepChallengeEdge:
+		ancestry := make([]protocol.EdgeId, 0)
+		originId := wantedEdge.OriginId()
+
+		// If the edge is a small step challenge edge, we first find out the honest small step
+		// level zero edge it is a child of.
+		smallStepLevelZero, ok := findOriginEdge(originId, ht.honestSmallStepLevelZeroEdges)
+		if !ok {
+			return nil, errNoLevelZero(originId)
+		}
+
+		// From there, we compute its ancestors.
+		start := smallStepLevelZero
+		searchFor := wantedEdge
+		smallStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		if err != nil {
+			return nil, err
+		}
+
+		// Next, we go up to the big step challenge level by getting the edge the small step
+		// level zero edge claims as its claim id.
+		claimedBigStepEdge, err := ht.getClaimedEdge(smallStepLevelZero)
+		if err != nil {
+			return nil, err
+		}
+		originId = claimedBigStepEdge.OriginId()
+		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
+		if !ok {
+			return nil, errNoLevelZero(originId)
+		}
+
+		// From there, we compute its ancestors.
+		start = bigStepLevelZero
+		searchFor = claimedBigStepEdge
+		bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		if err != nil {
+			return nil, err
+		}
+
+		// Next, we go up to the block challenge level by getting the edge the big step
+		// level zero edge claims as its claim id.
+		claimedBlockEdge, err := ht.getClaimedEdge(bigStepLevelZero)
+		if err != nil {
+			return nil, err
+		}
+
+		start = honestLevelZero
+		searchFor = claimedBlockEdge
+		blockAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		if err != nil {
+			return nil, err
+		}
+
+		// Finally, the solidity confirmations function expects a child-to-parent ordering,
+		// which is the reverse of our computed list. This list should contain
+		// the claimed edge ids that link the edge between challenge types.
+		ancestry = append(ancestry, blockAncestry...)
+		ancestry = append(ancestry, claimedBlockEdge.Id())
+		ancestry = append(ancestry, bigStepAncestry...)
+		ancestry = append(ancestry, claimedBigStepEdge.Id())
+		ancestry = append(ancestry, smallStepAncestry...)
+		util.Reverse(ancestry)
+		return ancestry, nil
+	default:
+		return nil, fmt.Errorf("edge with type %v not supported", wantedEdge.GetType())
 	}
-	var lowerAncestors []protocol.EdgeId
-	var foundInLowerChildren bool
-	if !curr.LowerChildSnapshot().IsNone() {
-		lowerChildId := curr.LowerChildSnapshot().Unwrap()
-		lowerChild := ht.edges.Get(lowerChildId)
-		lowerAncestors, foundInLowerChildren = ht.ancestorQuery(
-			accum, lowerChild, queryingFor,
-		)
-	}
-	var upperAncestors []protocol.EdgeId
-	var foundInUpperChildren bool
-	if !curr.UpperChildSnapshot().IsNone() {
-		upperChildId := curr.UpperChildSnapshot().Unwrap()
-		upperChild := ht.edges.Get(upperChildId)
-		upperAncestors, foundInUpperChildren = ht.ancestorQuery(
-			accum, upperChild, queryingFor,
-		)
-	}
-	// If the edge we are querying for is found in the lower children,
-	// we return the ancestry along such path.
-	if foundInLowerChildren {
-		return lowerAncestors, true
-	}
-	// If the edge we are querying for is found in the upper children,
-	// we return the ancestry along such path.
-	if foundInUpperChildren {
-		return upperAncestors, true
-	}
-	return accum, false
 }
 
-// Checks if an edge is rivaled by looking up its mutual ids mapping.
-func (ht *HonestChallengeTree) isRivaled(edge protocol.EdgeSnapshot) bool {
-	mutuals, ok := ht.mutualIds.TryGet(edge.MutualId())
+// Computes the list of ancestors in a challenge type from a starting edge down
+// to a specified child edge. The edge we are querying must be a child of this start edge
+// for this function to succeed without error.
+func (ht *HonestChallengeTree) findAncestorsInChallenge(
+	start protocol.EdgeSnapshot,
+	queryingFor protocol.EdgeSnapshot,
+) ([]protocol.EdgeId, error) {
+	found := false
+	curr := start
+	ancestry := make([]protocol.EdgeId, 0)
+	wantedEdgeStart, _ := queryingFor.StartCommitment()
+	for {
+		if curr.Id() == queryingFor.Id() {
+			found = true
+			break
+		}
+		ancestry = append(ancestry, curr.Id())
+
+		currStart, _ := curr.StartCommitment()
+		currEnd, _ := curr.EndCommitment()
+		bisectTo, err := util.BisectionPoint(uint64(currStart), uint64(currEnd))
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not bisect start=%d, end=%d", currStart, currEnd)
+		}
+		// If the wanted edge's start commitment is < the bisection height of the current
+		// edge in the loop, it means it is part of its lower children.
+		if uint64(wantedEdgeStart) < bisectTo {
+			lowerSnapshot := curr.LowerChildSnapshot()
+			if lowerSnapshot.IsNone() {
+				return nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
+			}
+			curr = ht.edges.Get(lowerSnapshot.Unwrap())
+		} else {
+			// Else, it is part of the upper children.
+			upperSnapshot := curr.UpperChildSnapshot()
+			if upperSnapshot.IsNone() {
+				return nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
+			}
+			curr = ht.edges.Get(upperSnapshot.Unwrap())
+		}
+	}
+	if !found {
+		return nil, errNotFound(queryingFor.Id())
+	}
+	return ancestry, nil
+}
+
+// Gets the edge a specified edge claims, if any.
+func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.EdgeSnapshot) (protocol.EdgeSnapshot, error) {
+	if edge.ClaimId().IsNone() {
+		return nil, errors.New("does not claim any edge")
+	}
+	claimId := edge.ClaimId().Unwrap()
+	claimedBlockEdge, ok := ht.edges.TryGet(protocol.EdgeId(claimId))
 	if !ok {
+		return nil, errors.New("claimed edge not found")
+	}
+	return claimedBlockEdge, nil
+}
+
+// Finds an edge in a list with a specified origin id.
+func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.EdgeSnapshot]) (protocol.EdgeSnapshot, bool) {
+	var originEdge protocol.EdgeSnapshot
+	found := edges.Find(func(_ int, e protocol.EdgeSnapshot) bool {
+		if e.OriginId() == originId {
+			originEdge = e
+			return true
+		}
 		return false
-	}
-	// If the mutual ids mapping has more than 1 item and includes
-	// the edge, it is then rivaled.
-	return mutuals.NumItems() > 1 && mutuals.Has(edge.Id())
+	})
+	return originEdge, found
 }
 
-// Checks if an edge claims a certain claim id.
-func checkEdgeClaim(edge protocol.EdgeSnapshot, claimId protocol.ClaimId) bool {
-	return !edge.ClaimId().IsNone() && edge.ClaimId().Unwrap() == claimId
+func errNotFound(id protocol.EdgeId) error {
+	return errors.Wrapf(ErrNotFound, "id=%#x", id)
 }
 
-// Computes the length of an edge by taking the difference between
-// its end and start heights.
-//
-// SAFETY: We will never receive a malformed edge, as the challenge tree is
-// created from events emitted by successful challenge addition events
-// in the protocol smart contracts.
-func edgeLength(eg protocol.EdgeSnapshot) protocol.Height {
-	startHeight, _ := eg.StartCommitment()
-	endHeight, _ := eg.EndCommitment()
-	return endHeight - startHeight
-}
-
-// Checks if an edge id is a direct child of a specified parent edge.
-func isDirectChild(parent protocol.EdgeSnapshot, childId protocol.EdgeId) bool {
-	lowerChild := parent.LowerChildSnapshot()
-	upperChild := parent.UpperChildSnapshot()
-	if !lowerChild.IsNone() && lowerChild.Unwrap() == childId {
-		return true
-	}
-	if !upperChild.IsNone() && upperChild.Unwrap() == childId {
-		return true
-	}
-	return false
-}
-
-// Checks if an edge has any children.
-func hasChildren(eg protocol.EdgeSnapshot) bool {
-	return !eg.LowerChildSnapshot().IsNone() || !eg.UpperChildSnapshot().IsNone()
+func errNoLevelZero(originId protocol.OriginId) error {
+	return errors.Wrapf(ErrNoLevelZero, "originId=%#x", originId)
 }
