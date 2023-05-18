@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	ErrNotFound    = errors.New("not found in honest challenge tree")
-	ErrNoLevelZero = errors.New("no level zero edge with origin id found")
+	ErrNoHonestTopLevelEdge = errors.New("no honest block challenge edge being tracked")
+	ErrNotFound             = errors.New("not found in honest challenge tree")
+	ErrNoLevelZero          = errors.New("no level zero edge with origin id found")
 )
 
 // Consider the following set of edges in a challenge where evil
@@ -27,32 +28,39 @@ var (
 // In this case, the set of honest ancestors for 4-6 is the following:
 //
 //	{4-8, 0-8}
-//
-// In order to retrieve ancestors for an edge with id=I, we start from the honest,
-// block challenge level zero edge and recursively traverse its children,
-// reducing the ids and along the way into a slice until we hit a child that
-// matches id=I and return the slice.
 func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeId) ([]protocol.EdgeId, error) {
 	wantedEdge, ok := ht.edges.TryGet(queryingFor)
 	if !ok {
 		return nil, errNotFound(queryingFor)
 	}
+	if ht.honestBlockChalLevelZeroEdge.IsNone() {
+		return nil, ErrNoHonestTopLevelEdge
+	}
 	honestLevelZero := ht.honestBlockChalLevelZeroEdge.Unwrap()
 
 	// Figure out what kind of edge this is, and apply different logic based on it.
-	var curr protocol.EdgeSnapshot
 	switch wantedEdge.GetType() {
 	case protocol.BlockChallengeEdge:
-		curr = honestLevelZero
-		ancestry, err := ht.findAncestorsInChallenge(curr, wantedEdge)
+		// If the edge is a block challenge edge, we simply search for the wanted edge's ancestors
+		// in the block challenge starting from the honest, level zero edge and return
+		// the computed ancestor ids list.
+		start := honestLevelZero
+		searchFor := wantedEdge
+		ancestry, err := ht.findAncestorsInChallenge(start, searchFor)
 		if err != nil {
 			return nil, err
 		}
+		// The solidity confirmations function expects a child-to-parent ordering,
+		// which is the reverse of our computed list.
 		util.Reverse(ancestry)
 		return ancestry, nil
 	case protocol.BigStepChallengeEdge:
 		ancestry := make([]protocol.EdgeId, 0)
 		originId := wantedEdge.OriginId()
+
+		// If the edge is a block challenge edge, we simply search for the wanted edge's ancestors
+		// in the block challenge starting from the honest, level zero edge and return
+		// the computed ancestor ids list.
 		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
 		if !ok {
 			return nil, errNoLevelZero(originId)
@@ -152,7 +160,10 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 
 		currStart, _ := curr.StartCommitment()
 		currEnd, _ := curr.EndCommitment()
-		bisectTo, _ := util.BisectionPoint(uint64(currStart), uint64(currEnd))
+		bisectTo, err := util.BisectionPoint(uint64(currStart), uint64(currEnd))
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not bisect start=%d, end=%d", currStart, currEnd)
+		}
 		if uint64(wantedEdgeStart) < bisectTo {
 			lowerSnapshot := curr.LowerChildSnapshot()
 			if lowerSnapshot.IsNone() {
