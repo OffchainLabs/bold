@@ -250,8 +250,11 @@ func TestPathTimer_AllChallengeLevels(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should be the sum of the unrivaled timers of honest edges along the path
-	// all the way to the block challenge level. Each edge unrivaled for 1 second, and the edges
-	// are:
+	// all the way to the block challenge level. There are 15 edges in total, including the one
+	// we are querying for. The assertion was unrivaled for 0 seconds. However, due to a merge move
+	// made into edge with commit 4a, the edge blk-4.a-6.b from the malicious party was created
+	// before blk-4.a-6.a, so 4.a-6.a was rivaled at time of creation. This means the total time
+	// unrivaled is 15 - 1, which is 14.
 	wantedAncestors := HonestAncestors{
 		id("smol-4.a-6.a"),
 		id("smol-4.a-8.a"),

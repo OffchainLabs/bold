@@ -157,11 +157,6 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		if err != nil {
 			return 0, nil, err
 		}
-		claimedEdgeTimer, err := ht.localTimer(claimedBigStepEdge, blockNumber)
-		if err != nil {
-			return 0, ancestry, err
-		}
-		pathTimer += PathTimer(claimedEdgeTimer)
 
 		originId = claimedBigStepEdge.OriginId()
 		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
@@ -184,13 +179,6 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		if err != nil {
 			return 0, nil, err
 		}
-
-		claimedEdgeTimer, err = ht.localTimer(claimedBlockEdge, blockNumber)
-		if err != nil {
-			return 0, ancestry, err
-		}
-		pathTimer += PathTimer(claimedEdgeTimer)
-
 		start = honestLevelZero
 		searchFor = claimedBlockEdge
 		blockChalTimer, blockAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
