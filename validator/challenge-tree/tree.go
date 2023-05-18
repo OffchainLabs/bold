@@ -15,6 +15,7 @@ type EdgeReader interface {
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
+	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
 }

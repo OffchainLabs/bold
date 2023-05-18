@@ -1,6 +1,7 @@
 package challengetree
 
 import (
+	"context"
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -14,6 +15,19 @@ var (
 	ErrNoLevelZero          = errors.New("no level zero edge with origin id found")
 )
 
+// PathTimer for an honest edge defined as the cumulative unrivaled time
+// of it and its honest ancestors all the way up to the assertion chain level.
+// This also includes the time the assertion, which the challenge corresponds to,
+// has been unrivaled.
+type PathTimer uint64
+
+// HonestAncestors of an edge id all the way up to and including the
+// block challenge level zero edge.
+type HonestAncestors []protocol.EdgeId
+
+// HonestPathTimer computes the honest path timer of a specified honest edge
+// at a block number and its list of honest ancestors.
+//
 // Consider the following set of edges in a challenge where evil
 // edges are marked with a ' and a *:
 //
@@ -28,15 +42,27 @@ var (
 // In this case, the set of honest ancestors for 4-6 is the following:
 //
 //	{4-8, 0-8}
-func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeId) ([]protocol.EdgeId, error) {
+func (ht *HonestChallengeTree) HonestPathTimer(
+	ctx context.Context,
+	queryingFor protocol.EdgeId,
+	blockNumber uint64,
+) (PathTimer, HonestAncestors, error) {
 	wantedEdge, ok := ht.edges.TryGet(queryingFor)
 	if !ok {
-		return nil, errNotFound(queryingFor)
+		return 0, nil, errNotFound(queryingFor)
 	}
 	if ht.honestBlockChalLevelZeroEdge.IsNone() {
-		return nil, ErrNoHonestTopLevelEdge
+		return 0, nil, ErrNoHonestTopLevelEdge
 	}
 	honestLevelZero := ht.honestBlockChalLevelZeroEdge.Unwrap()
+
+	// Get assertion's unrivaled time and use that as the start
+	// of our path timer.
+	timer, err := ht.metadataReader.AssertionUnrivaledTime(ctx, queryingFor)
+	if err != nil {
+		return 0, nil, err
+	}
+	pathTimer := PathTimer(timer)
 
 	// Figure out what kind of edge this is, and apply different logic based on it.
 	switch wantedEdge.GetType() {
@@ -46,14 +72,15 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		// the computed ancestor ids list.
 		start := honestLevelZero
 		searchFor := wantedEdge
-		ancestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		blockChalTimer, ancestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
 		// The solidity confirmations function expects a child-to-parent ordering,
 		// which is the reverse of our computed list.
 		util.Reverse(ancestry)
-		return ancestry, nil
+		pathTimer += blockChalTimer
+		return pathTimer, ancestry, nil
 	case protocol.BigStepChallengeEdge:
 		ancestry := make([]protocol.EdgeId, 0)
 		originId := wantedEdge.OriginId()
@@ -62,31 +89,38 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		// level zero edge it is a child of.
 		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
 		if !ok {
-			return nil, errNoLevelZero(originId)
+			return 0, ancestry, errNoLevelZero(originId)
 		}
 
 		// From there, we compute its ancestors.
 		start := bigStepLevelZero
 		searchFor := wantedEdge
-		bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		bigStepTimer, bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
 		if err != nil {
-			return nil, err
+			return 0, ancestry, err
 		}
+		pathTimer += bigStepTimer
 
 		// Next, we go up to the block challenge level by getting the edge the big step
 		// level zero edge claims as its claim id.
 		claimedEdge, err := ht.getClaimedEdge(bigStepLevelZero)
 		if err != nil {
-			return nil, err
+			return 0, ancestry, err
 		}
+		claimedEdgeTimer, err := ht.localTimer(claimedEdge, blockNumber)
+		if err != nil {
+			return 0, ancestry, err
+		}
+		pathTimer += PathTimer(claimedEdgeTimer)
 
 		// We compute the block ancestry from there.
 		start = honestLevelZero
 		searchFor = claimedEdge
-		blockChalAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		blockChalTimer, blockChalAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
 		if err != nil {
-			return nil, err
+			return 0, ancestry, err
 		}
+		pathTimer += blockChalTimer
 
 		// Finally, the solidity confirmations function expects a child-to-parent ordering,
 		// which is the reverse of our computed list. This list should contain
@@ -96,7 +130,7 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		ancestry = append(ancestry, bigStepAncestry...)
 
 		util.Reverse(ancestry)
-		return ancestry, nil
+		return pathTimer, ancestry, nil
 	case protocol.SmallStepChallengeEdge:
 		ancestry := make([]protocol.EdgeId, 0)
 		originId := wantedEdge.OriginId()
@@ -105,50 +139,65 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		// level zero edge it is a child of.
 		smallStepLevelZero, ok := findOriginEdge(originId, ht.honestSmallStepLevelZeroEdges)
 		if !ok {
-			return nil, errNoLevelZero(originId)
+			return 0, nil, errNoLevelZero(originId)
 		}
 
 		// From there, we compute its ancestors.
 		start := smallStepLevelZero
 		searchFor := wantedEdge
-		smallStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		smallStepTimer, smallStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		pathTimer += smallStepTimer
 
 		// Next, we go up to the big step challenge level by getting the edge the small step
 		// level zero edge claims as its claim id.
 		claimedBigStepEdge, err := ht.getClaimedEdge(smallStepLevelZero)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		claimedEdgeTimer, err := ht.localTimer(claimedBigStepEdge, blockNumber)
+		if err != nil {
+			return 0, ancestry, err
+		}
+		pathTimer += PathTimer(claimedEdgeTimer)
+
 		originId = claimedBigStepEdge.OriginId()
 		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
 		if !ok {
-			return nil, errNoLevelZero(originId)
+			return 0, nil, errNoLevelZero(originId)
 		}
 
 		// From there, we compute its ancestors.
 		start = bigStepLevelZero
 		searchFor = claimedBigStepEdge
-		bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		bigStepTimer, bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		pathTimer += bigStepTimer
 
 		// Next, we go up to the block challenge level by getting the edge the big step
 		// level zero edge claims as its claim id.
 		claimedBlockEdge, err := ht.getClaimedEdge(bigStepLevelZero)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+
+		claimedEdgeTimer, err = ht.localTimer(claimedBlockEdge, blockNumber)
+		if err != nil {
+			return 0, ancestry, err
+		}
+		pathTimer += PathTimer(claimedEdgeTimer)
 
 		start = honestLevelZero
 		searchFor = claimedBlockEdge
-		blockAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
+		blockChalTimer, blockAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		pathTimer += blockChalTimer
 
 		// Finally, the solidity confirmations function expects a child-to-parent ordering,
 		// which is the reverse of our computed list. This list should contain
@@ -159,9 +208,9 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		ancestry = append(ancestry, claimedBigStepEdge.Id())
 		ancestry = append(ancestry, smallStepAncestry...)
 		util.Reverse(ancestry)
-		return ancestry, nil
+		return pathTimer, ancestry, nil
 	default:
-		return nil, fmt.Errorf("edge with type %v not supported", wantedEdge.GetType())
+		return 0, nil, fmt.Errorf("edge with type %v not supported", wantedEdge.GetType())
 	}
 }
 
@@ -171,11 +220,18 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 func (ht *HonestChallengeTree) findAncestorsInChallenge(
 	start protocol.EdgeSnapshot,
 	queryingFor protocol.EdgeSnapshot,
-) ([]protocol.EdgeId, error) {
+	blockNumber uint64,
+) (PathTimer, []protocol.EdgeId, error) {
 	found := false
 	curr := start
+	pathTimer, err := ht.localTimer(curr, blockNumber)
+	if err != nil {
+		return 0, nil, err
+	}
+
 	ancestry := make([]protocol.EdgeId, 0)
 	wantedEdgeStart, _ := queryingFor.StartCommitment()
+
 	for {
 		if curr.Id() == queryingFor.Id() {
 			found = true
@@ -187,29 +243,34 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		currEnd, _ := curr.EndCommitment()
 		bisectTo, err := util.BisectionPoint(uint64(currStart), uint64(currEnd))
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not bisect start=%d, end=%d", currStart, currEnd)
+			return 0, nil, errors.Wrapf(err, "could not bisect start=%d, end=%d", currStart, currEnd)
 		}
 		// If the wanted edge's start commitment is < the bisection height of the current
 		// edge in the loop, it means it is part of its lower children.
 		if uint64(wantedEdgeStart) < bisectTo {
 			lowerSnapshot := curr.LowerChildSnapshot()
 			if lowerSnapshot.IsNone() {
-				return nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
+				return 0, nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
 			}
 			curr = ht.edges.Get(lowerSnapshot.Unwrap())
 		} else {
 			// Else, it is part of the upper children.
 			upperSnapshot := curr.UpperChildSnapshot()
 			if upperSnapshot.IsNone() {
-				return nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
+				return 0, nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
 			}
 			curr = ht.edges.Get(upperSnapshot.Unwrap())
 		}
+		timer, err := ht.localTimer(curr, blockNumber)
+		if err != nil {
+			return 0, nil, err
+		}
+		pathTimer += timer
 	}
 	if !found {
-		return nil, errNotFound(queryingFor.Id())
+		return 0, nil, errNotFound(queryingFor.Id())
 	}
-	return ancestry, nil
+	return PathTimer(pathTimer), ancestry, nil
 }
 
 // Gets the edge a specified edge claims, if any.
