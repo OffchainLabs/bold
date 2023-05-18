@@ -40,6 +40,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
 		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		metadataReader:                &mockMetadataReader{},
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
@@ -70,15 +71,15 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	t.Run("block challenge: single ancestor", func(t *testing.T) {
 		_, ancestors, err := tree.HonestPathTimer(ctx, id("blk-0.a-8.a"), blockNum)
 		require.NoError(t, err)
-		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
+		require.Equal(t, HonestAncestors{id("blk-0.a-16.a")}, ancestors)
 		_, ancestors, err = tree.HonestPathTimer(ctx, id("blk-8.a-16.a"), blockNum)
 		require.NoError(t, err)
-		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
+		require.Equal(t, HonestAncestors{id("blk-0.a-16.a")}, ancestors)
 	})
 	t.Run("block challenge: many ancestors", func(t *testing.T) {
 		_, ancestors, err := tree.HonestPathTimer(ctx, id("blk-4.a-5.a"), blockNum)
 		require.NoError(t, err)
-		wanted := []protocol.EdgeId{
+		wanted := HonestAncestors{
 			id("blk-4.a-6.a"),
 			id("blk-4.a-8.a"),
 			id("blk-0.a-8.a"),
@@ -89,7 +90,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	t.Run("big step challenge: level zero edge has ancestors from block challenge", func(t *testing.T) {
 		_, ancestors, err := tree.HonestPathTimer(ctx, id("big-0.a-16.a"), blockNum)
 		require.NoError(t, err)
-		wanted := []protocol.EdgeId{
+		wanted := HonestAncestors{
 			id("blk-4.a-5.a"),
 			id("blk-4.a-6.a"),
 			id("blk-4.a-8.a"),
@@ -101,7 +102,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	t.Run("big step challenge: many ancestors plus block challenge ancestors", func(t *testing.T) {
 		_, ancestors, err := tree.HonestPathTimer(ctx, id("big-5.a-6.a"), blockNum)
 		require.NoError(t, err)
-		wanted := []protocol.EdgeId{
+		wanted := HonestAncestors{
 			// Big step chal.
 			id("big-4.a-6.a"),
 			id("big-4.a-8.a"),
@@ -119,7 +120,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	t.Run("small step challenge: level zero edge has ancestors from big and block challenge", func(t *testing.T) {
 		_, ancestors, err := tree.HonestPathTimer(ctx, id("smol-0.a-16.a"), blockNum)
 		require.NoError(t, err)
-		wanted := []protocol.EdgeId{
+		wanted := HonestAncestors{
 			// Big step chal.
 			id("big-4.a-5.a"),
 			id("big-4.a-6.a"),
@@ -138,7 +139,7 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	t.Run("small step challenge: lowest level edge has full ancestry", func(t *testing.T) {
 		_, ancestors, err := tree.HonestPathTimer(ctx, id("smol-5.a-6.a"), blockNum)
 		require.NoError(t, err)
-		wanted := []protocol.EdgeId{
+		wanted := HonestAncestors{
 			// Small step chal.
 			id("smol-4.a-6.a"),
 			id("smol-4.a-8.a"),
