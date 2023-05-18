@@ -7,6 +7,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	ErrNotFound    = errors.New("not found in honest challenge tree")
+	ErrNoLevelZero = errors.New("no level zero edge with origin id found")
+)
+
 // Consider the following set of edges in a challenge where evil
 // edges are marked with a ' and a *:
 //
@@ -29,7 +34,7 @@ import (
 func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeId) ([]protocol.EdgeId, error) {
 	wantedEdge, ok := ht.edges.TryGet(queryingFor)
 	if !ok {
-		return nil, errors.New("not found in honest challenge tree")
+		return nil, errNotFound(queryingFor)
 	}
 	honestLevelZero := ht.honestBlockChalLevelZeroEdge.Unwrap()
 
@@ -46,32 +51,22 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		return ancestry, nil
 	case protocol.BigStepChallengeEdge:
 		ancestry := make([]protocol.EdgeId, 0)
-		var bigStepLevelZeroEdge protocol.EdgeSnapshot
-		foundLevelZeroEdge := false
-		for _, e := range ht.honestBigStepLevelZeroEdges {
-			if e.OriginId() == wantedEdge.OriginId() {
-				bigStepLevelZeroEdge = e
-				foundLevelZeroEdge = true
-				break
-			}
-		}
-		if !foundLevelZeroEdge {
-			return nil, errors.New("no level zero edge with origin id found")
+		originId := wantedEdge.OriginId()
+		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
+		if !ok {
+			return nil, errNoLevelZero(originId)
 		}
 
-		start := bigStepLevelZeroEdge
+		start := bigStepLevelZero
 		searchFor := wantedEdge
 		bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
 		if err != nil {
 			return nil, err
 		}
-		if bigStepLevelZeroEdge.ClaimId().IsNone() {
-			return nil, errors.New("does not claim any edge")
-		}
-		claimId := bigStepLevelZeroEdge.ClaimId().Unwrap()
-		claimedEdge, ok := ht.edges.TryGet(protocol.EdgeId(claimId))
-		if !ok {
-			return nil, errors.New("claimed edge not found")
+
+		claimedEdge, err := ht.getClaimedEdge(bigStepLevelZero)
+		if err != nil {
+			return nil, err
 		}
 
 		start = honestLevelZero
@@ -88,43 +83,25 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		return ancestry, nil
 	case protocol.SmallStepChallengeEdge:
 		ancestry := make([]protocol.EdgeId, 0)
-		var smallStepLevelZeroEdge protocol.EdgeSnapshot
-		foundLevelZeroEdge := false
-		for _, e := range ht.honestSmallStepLevelZeroEdges {
-			if e.OriginId() == wantedEdge.OriginId() {
-				smallStepLevelZeroEdge = e
-				foundLevelZeroEdge = true
-				break
-			}
+		originId := wantedEdge.OriginId()
+		smallStepLevelZero, ok := findOriginEdge(originId, ht.honestSmallStepLevelZeroEdges)
+		if !ok {
+			return nil, errNoLevelZero(originId)
 		}
-		if !foundLevelZeroEdge {
-			return nil, errors.New("no level zero edge with origin id found")
-		}
-		start := smallStepLevelZeroEdge
+		start := smallStepLevelZero
 		searchFor := wantedEdge
 		smallStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor)
 		if err != nil {
 			return nil, err
 		}
-		if smallStepLevelZeroEdge.ClaimId().IsNone() {
-			return nil, errors.New("does not claim any edge")
+		claimedBigStepEdge, err := ht.getClaimedEdge(smallStepLevelZero)
+		if err != nil {
+			return nil, err
 		}
-		claimId := smallStepLevelZeroEdge.ClaimId().Unwrap()
-		claimedBigStepEdge, ok := ht.edges.TryGet(protocol.EdgeId(claimId))
+		originId = claimedBigStepEdge.OriginId()
+		bigStepLevelZero, ok := findOriginEdge(originId, ht.honestBigStepLevelZeroEdges)
 		if !ok {
-			return nil, errors.New("claimed edge not found")
-		}
-		var bigStepLevelZero protocol.EdgeSnapshot
-		foundLevelZeroEdge = false
-		for _, e := range ht.honestBigStepLevelZeroEdges {
-			if e.OriginId() == claimedBigStepEdge.OriginId() {
-				bigStepLevelZero = e
-				foundLevelZeroEdge = true
-				break
-			}
-		}
-		if !foundLevelZeroEdge {
-			return nil, errors.New("no level zero edge with origin id found")
+			return nil, errNoLevelZero(originId)
 		}
 
 		start = bigStepLevelZero
@@ -134,13 +111,9 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 			return nil, err
 		}
 
-		if bigStepLevelZero.ClaimId().IsNone() {
-			return nil, errors.New("does not claim any edge")
-		}
-		claimId = bigStepLevelZero.ClaimId().Unwrap()
-		claimedBlockEdge, ok := ht.edges.TryGet(protocol.EdgeId(claimId))
-		if !ok {
-			return nil, errors.New("claimed edge not found")
+		claimedBlockEdge, err := ht.getClaimedEdge(bigStepLevelZero)
+		if err != nil {
+			return nil, err
 		}
 
 		start = honestLevelZero
@@ -157,7 +130,7 @@ func (ht *HonestChallengeTree) AncestorsForHonestEdge(queryingFor protocol.EdgeI
 		util.Reverse(ancestry)
 		return ancestry, nil
 	default:
-		return nil, errors.New("not found")
+		return nil, fmt.Errorf("edge with type %v not supported", wantedEdge.GetType())
 	}
 }
 
@@ -180,24 +153,35 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		currEnd, _ := curr.EndCommitment()
 		bisectTo, _ := util.BisectionPoint(uint64(currStart), uint64(currEnd))
 		if uint64(wantedEdgeStart) < bisectTo {
-			// Lower child..., increase the list of ancestors.
 			lowerSnapshot := curr.LowerChildSnapshot()
 			if lowerSnapshot.IsNone() {
-				return nil, fmt.Errorf("edge %s had no lower child", curr.Id())
+				return nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
 			}
 			curr = ht.edges.Get(lowerSnapshot.Unwrap())
 		} else {
 			upperSnapshot := curr.UpperChildSnapshot()
 			if upperSnapshot.IsNone() {
-				return nil, fmt.Errorf("edge %s had no upper child", curr.Id())
+				return nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
 			}
 			curr = ht.edges.Get(upperSnapshot.Unwrap())
 		}
 	}
 	if !found {
-		return nil, errors.New("not found")
+		return nil, errNotFound(queryingFor.Id())
 	}
 	return ancestry, nil
+}
+
+func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.EdgeSnapshot) (protocol.EdgeSnapshot, error) {
+	if edge.ClaimId().IsNone() {
+		return nil, errors.New("does not claim any edge")
+	}
+	claimId := edge.ClaimId().Unwrap()
+	claimedBlockEdge, ok := ht.edges.TryGet(protocol.EdgeId(claimId))
+	if !ok {
+		return nil, errors.New("claimed edge not found")
+	}
+	return claimedBlockEdge, nil
 }
 
 // Checks if an edge is rivaled by looking up its mutual ids mapping.
@@ -209,4 +193,21 @@ func (ht *HonestChallengeTree) isRivaled(edge protocol.EdgeSnapshot) bool {
 	// If the mutual ids mapping has more than 1 item and includes
 	// the edge, it is then rivaled.
 	return mutuals.NumItems() > 1 && mutuals.Has(edge.Id())
+}
+
+func findOriginEdge(originId protocol.OriginId, edges []protocol.EdgeSnapshot) (protocol.EdgeSnapshot, bool) {
+	for _, e := range edges {
+		if e.OriginId() == originId {
+			return e, true
+		}
+	}
+	return nil, false
+}
+
+func errNotFound(id protocol.EdgeId) error {
+	return errors.Wrapf(ErrNotFound, "id=%#x", id)
+}
+
+func errNoLevelZero(originId protocol.OriginId) error {
+	return errors.Wrapf(ErrNoLevelZero, "originId=%#x", originId)
 }
