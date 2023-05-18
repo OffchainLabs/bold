@@ -15,6 +15,7 @@ type EdgeReader interface {
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
+	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
 }
@@ -49,16 +50,15 @@ type creationTime uint64
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                            *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
-	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionId              protocol.AssertionId
-	honestBlockChalLevelZeroEdge     util.Option[protocol.EdgeSnapshot]
-	honestBigStepChalLevelZeroEdge   util.Option[protocol.EdgeSnapshot]
-	honestSmallStepChalLevelZeroEdge util.Option[protocol.EdgeSnapshot]
-	cumulativeHonestPathTimers       *threadsafe.Map[protocol.EdgeId, uint64]
-	metadataReader                   MetadataReader
-	histChecker                      HistoryChecker
-	edgeReader                       EdgeReader
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
+	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionId           protocol.AssertionId
+	honestBlockChalLevelZeroEdge  util.Option[protocol.EdgeSnapshot]
+	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.EdgeSnapshot]
+	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
+	metadataReader                MetadataReader
+	histChecker                   HistoryChecker
+	edgeReader                    EdgeReader
 }
 
 // RefreshEdgesFromChain refreshes all edge snapshots from the chain.
@@ -128,9 +128,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 			case protocol.BlockChallengeEdge:
 				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
 			case protocol.BigStepChallengeEdge:
-				ht.honestBigStepChalLevelZeroEdge = util.Some(eg)
+				ht.honestBigStepLevelZeroEdges.Push(eg)
 			case protocol.SmallStepChallengeEdge:
-				ht.honestSmallStepChalLevelZeroEdge = util.Some(eg)
+				ht.honestSmallStepLevelZeroEdges.Push(eg)
 			default:
 			}
 		}
