@@ -185,24 +185,11 @@ func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.EdgeSnapshot) (proto
 	return claimedBlockEdge, nil
 }
 
-// Checks if an edge is rivaled by looking up its mutual ids mapping.
-func (ht *HonestChallengeTree) isRivaled(edge protocol.EdgeSnapshot) bool {
-	mutuals, ok := ht.mutualIds.TryGet(edge.MutualId())
-	if !ok {
-		return false
-	}
-	// If the mutual ids mapping has more than 1 item and includes
-	// the edge, it is then rivaled.
-	return mutuals.NumItems() > 1 && mutuals.Has(edge.Id())
-}
-
 func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.EdgeSnapshot]) (protocol.EdgeSnapshot, bool) {
 	var originEdge protocol.EdgeSnapshot
-	found := false
-	edges.ForEach(func(_ int, e protocol.EdgeSnapshot) bool {
+	found := edges.Find(func(_ int, e protocol.EdgeSnapshot) bool {
 		if e.OriginId() == originId {
 			originEdge = e
-			found = true
 			return true
 		}
 		return false

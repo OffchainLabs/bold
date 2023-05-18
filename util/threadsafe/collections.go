@@ -26,14 +26,15 @@ func (s *Slice[V]) Len() int {
 	return len(s.items)
 }
 
-func (s *Slice[V]) ForEach(fn func(i int, v V) bool) {
+func (s *Slice[V]) Find(fn func(i int, v V) bool) bool {
 	s.RLock()
 	defer s.RUnlock()
 	for ii, vv := range s.items {
-		if ok := fn(ii, vv); ok {
-			return
+		if fn(ii, vv) {
+			return true
 		}
 	}
+	return false
 }
 
 type Map[K comparable, V any] struct {

@@ -158,28 +158,6 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	})
 }
 
-func TestHonestChallengeTree_isRivaled(t *testing.T) {
-	ht := &HonestChallengeTree{
-		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
-	}
-	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-	rival := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.b"})
-	t.Run("mutual id mapping empty", func(t *testing.T) {
-		require.Equal(t, false, ht.isRivaled(edge))
-	})
-	ht.mutualIds.Put(edge.MutualId(), threadsafe.NewSet[protocol.EdgeId]())
-	mutuals := ht.mutualIds.Get(edge.MutualId())
-	t.Run("mutual id only one item", func(t *testing.T) {
-		mutuals.Insert(edge.Id())
-		require.Equal(t, false, ht.isRivaled(edge))
-	})
-	t.Run("mutual id contains two items and one of them is the specified edge", func(t *testing.T) {
-		mutuals.Insert(rival.Id())
-		require.Equal(t, true, ht.isRivaled(edge))
-		require.Equal(t, true, ht.isRivaled(rival))
-	})
-}
-
 func buildEdges(allEdges ...*edge) map[edgeId]*edge {
 	m := make(map[edgeId]*edge)
 	for _, e := range allEdges {
