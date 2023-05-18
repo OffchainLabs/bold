@@ -4,157 +4,157 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	//"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
-// // Tests the following tree, all the way down to the small
-// // step subchallenge level.
-// //
-// //		Block challenge:
-// //
-// //			      /--5---6-----8-----------16 = Alice
-// //			0-----4
-// //			      \--5'--6'----8'----------16' = Bob
-// //
-// //		Big step challenge:
-// //
-// //			      /--5---6-----8-----------16 = Alice (claim_id = id(5, 6) in the level above)
-// //			0-----4
-// //			      \--5'--6'----8'----------16' = Bob
-// //
-// //	 Small step challenge:
-// //
-// //			      /--5---6-----8-----------16 = Alice (claim_id = id(5, 6) in the level above)
-// //			0-----4
-// //			      \--5'--6'----8'----------16' = Bob
-// //
-// // From here, the list of ancestors can be determined all the way to the top.
-// func TestAncestors_AllChallengeLevels(t *testing.T) {
-// 	tree := &HonestChallengeTree{
-// 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
-// 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
-// 	}
-// 	// Edge ids that belong to block challenges are prefixed with "blk".
-// 	// For big step, prefixed with "big", and small step, prefixed with "smol".
-// 	setupBlockChallengeTreeSnapshot(t, tree)
-// 	tree.honestBlockChalLevelZeroEdge = util.Some(tree.edges.Get(id("blk-0.a-16.a")))
-// 	claimId := "blk-4.a-5.a"
-// 	setupBigStepChallengeSnapshot(t, tree, claimId)
-// 	tree.honestBigStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("big-0.a-16.a")))
-// 	claimId = "big-4.a-5.a"
-// 	setupSmallStepChallengeSnapshot(t, tree, claimId)
-// 	tree.honestSmallStepChalLevelZeroEdge = util.Some(tree.edges.Get(id("smol-0.a-16.a")))
+// Tests the following tree, all the way down to the small
+// step subchallenge level.
+//
+//		Block challenge:
+//
+//			      /--5---6-----8-----------16 = Alice
+//			0-----4
+//			      \--5'--6'----8'----------16' = Bob
+//
+//		Big step challenge:
+//
+//			      /--5---6-----8-----------16 = Alice (claim_id = id(5, 6) in the level above)
+//			0-----4
+//			      \--5'--6'----8'----------16' = Bob
+//
+//	 Small step challenge:
+//
+//			      /--5---6-----8-----------16 = Alice (claim_id = id(5, 6) in the level above)
+//			0-----4
+//			      \--5'--6'----8'----------16' = Bob
+//
+// From here, the list of ancestors can be determined all the way to the top.
+func TestAncestors_AllChallengeLevels(t *testing.T) {
+	tree := &HonestChallengeTree{
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]](),
+	}
+	// Edge ids that belong to block challenges are prefixed with "blk".
+	// For big step, prefixed with "big", and small step, prefixed with "smol".
+	setupBlockChallengeTreeSnapshot(t, tree)
+	tree.honestBlockChalLevelZeroEdge = util.Some(tree.edges.Get(id("blk-0.a-16.a")))
+	claimId := "blk-4.a-5.a"
+	setupBigStepChallengeSnapshot(t, tree, claimId)
+	tree.honestBigStepLevelZeroEdges = append(tree.honestBigStepLevelZeroEdges, tree.edges.Get(id("big-0.a-16.a")))
+	claimId = "big-4.a-5.a"
+	setupSmallStepChallengeSnapshot(t, tree, claimId)
+	tree.honestSmallStepLevelZeroEdges = append(tree.honestSmallStepLevelZeroEdges, tree.edges.Get(id("smol-0.a-16.a")))
 
-// 	t.Run("junk edge fails", func(t *testing.T) {
-// 		// We start by querying for ancestors for a block edge id.
-// 		_, err := tree.AncestorsForHonestEdge(id("foo"))
-// 		require.ErrorContains(t, err, "not found in honest challenge tree")
-// 	})
-// 	t.Run("dishonest edge lookup fails", func(t *testing.T) {
-// 		_, err := tree.AncestorsForHonestEdge(id("blk-0.a-16.b"))
-// 		require.ErrorContains(t, err, "not found in honest challenge tree")
-// 	})
-// 	t.Run("block challenge: level zero edge has no ancestors", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("blk-0.a-16.a"))
-// 		require.NoError(t, err)
-// 		require.Equal(t, 0, len(ancestors))
-// 	})
-// 	t.Run("block challenge: single ancestor", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("blk-0.a-8.a"))
-// 		require.NoError(t, err)
-// 		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
-// 		ancestors, err = tree.AncestorsForHonestEdge(id("blk-8.a-16.a"))
-// 		require.NoError(t, err)
-// 		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
-// 	})
-// 	t.Run("block challenge: many ancestors", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("blk-4.a-5.a"))
-// 		require.NoError(t, err)
-// 		wanted := []protocol.EdgeId{
-// 			id("blk-4.a-6.a"),
-// 			id("blk-4.a-8.a"),
-// 			id("blk-0.a-8.a"),
-// 			id("blk-0.a-16.a"),
-// 		}
-// 		require.Equal(t, wanted, ancestors)
-// 	})
-// 	t.Run("big step challenge: level zero edge has ancestors from block challenge", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("big-0.a-16.a"))
-// 		require.NoError(t, err)
-// 		wanted := []protocol.EdgeId{
-// 			id("blk-4.a-5.a"),
-// 			id("blk-4.a-6.a"),
-// 			id("blk-4.a-8.a"),
-// 			id("blk-0.a-8.a"),
-// 			id("blk-0.a-16.a"),
-// 		}
-// 		require.Equal(t, wanted, ancestors)
-// 	})
-// 	t.Run("big step challenge: many ancestors plus block challenge ancestors", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("big-5.a-6.a"))
-// 		require.NoError(t, err)
-// 		wanted := []protocol.EdgeId{
-// 			// Big step chal.
-// 			id("big-4.a-6.a"),
-// 			id("big-4.a-8.a"),
-// 			id("big-0.a-8.a"),
-// 			id("big-0.a-16.a"),
-// 			// Block chal.
-// 			id("blk-4.a-5.a"),
-// 			id("blk-4.a-6.a"),
-// 			id("blk-4.a-8.a"),
-// 			id("blk-0.a-8.a"),
-// 			id("blk-0.a-16.a"),
-// 		}
-// 		require.Equal(t, wanted, ancestors)
-// 	})
-// 	t.Run("small step challenge: level zero edge has ancestors from big and block challenge", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("smol-0.a-16.a"))
-// 		require.NoError(t, err)
-// 		wanted := []protocol.EdgeId{
-// 			// Big step chal.
-// 			id("big-4.a-5.a"),
-// 			id("big-4.a-6.a"),
-// 			id("big-4.a-8.a"),
-// 			id("big-0.a-8.a"),
-// 			id("big-0.a-16.a"),
-// 			// Block chal.
-// 			id("blk-4.a-5.a"),
-// 			id("blk-4.a-6.a"),
-// 			id("blk-4.a-8.a"),
-// 			id("blk-0.a-8.a"),
-// 			id("blk-0.a-16.a"),
-// 		}
-// 		require.Equal(t, wanted, ancestors)
-// 	})
-// 	t.Run("small step challenge: lowest level edge has full ancestry", func(t *testing.T) {
-// 		ancestors, err := tree.AncestorsForHonestEdge(id("smol-5.a-6.a"))
-// 		require.NoError(t, err)
-// 		wanted := []protocol.EdgeId{
-// 			// Small step chal.
-// 			id("smol-4.a-6.a"),
-// 			id("smol-4.a-8.a"),
-// 			id("smol-0.a-8.a"),
-// 			id("smol-0.a-16.a"),
-// 			// Big step chal.
-// 			id("big-4.a-5.a"),
-// 			id("big-4.a-6.a"),
-// 			id("big-4.a-8.a"),
-// 			id("big-0.a-8.a"),
-// 			id("big-0.a-16.a"),
-// 			// Block chal.
-// 			id("blk-4.a-5.a"),
-// 			id("blk-4.a-6.a"),
-// 			id("blk-4.a-8.a"),
-// 			id("blk-0.a-8.a"),
-// 			id("blk-0.a-16.a"),
-// 		}
-// 		require.Equal(t, wanted, ancestors)
-// 	})
-// }
+	t.Run("junk edge fails", func(t *testing.T) {
+		// We start by querying for ancestors for a block edge id.
+		_, err := tree.AncestorsForHonestEdge(id("foo"))
+		require.ErrorContains(t, err, "not found in honest challenge tree")
+	})
+	t.Run("dishonest edge lookup fails", func(t *testing.T) {
+		_, err := tree.AncestorsForHonestEdge(id("blk-0.a-16.b"))
+		require.ErrorContains(t, err, "not found in honest challenge tree")
+	})
+	t.Run("block challenge: level zero edge has no ancestors", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("blk-0.a-16.a"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(ancestors))
+	})
+	t.Run("block challenge: single ancestor", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("blk-0.a-8.a"))
+		require.NoError(t, err)
+		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
+		ancestors, err = tree.AncestorsForHonestEdge(id("blk-8.a-16.a"))
+		require.NoError(t, err)
+		require.Equal(t, []protocol.EdgeId{id("blk-0.a-16.a")}, ancestors)
+	})
+	t.Run("block challenge: many ancestors", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("blk-4.a-5.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("big step challenge: level zero edge has ancestors from block challenge", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("big-0.a-16.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("big step challenge: many ancestors plus block challenge ancestors", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("big-5.a-6.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			// Big step chal.
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("small step challenge: level zero edge has ancestors from big and block challenge", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("smol-0.a-16.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			// Big step chal.
+			id("big-4.a-5.a"),
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+	t.Run("small step challenge: lowest level edge has full ancestry", func(t *testing.T) {
+		ancestors, err := tree.AncestorsForHonestEdge(id("smol-5.a-6.a"))
+		require.NoError(t, err)
+		wanted := []protocol.EdgeId{
+			// Small step chal.
+			id("smol-4.a-6.a"),
+			id("smol-4.a-8.a"),
+			id("smol-0.a-8.a"),
+			id("smol-0.a-16.a"),
+			// Big step chal.
+			id("big-4.a-5.a"),
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, ancestors)
+	})
+}
 
 func TestHonestChallengeTree_isRivaled(t *testing.T) {
 	ht := &HonestChallengeTree{
@@ -175,82 +175,6 @@ func TestHonestChallengeTree_isRivaled(t *testing.T) {
 		mutuals.Insert(rival.Id())
 		require.Equal(t, true, ht.isRivaled(edge))
 		require.Equal(t, true, ht.isRivaled(rival))
-	})
-}
-
-func Test_checkEdgeClaim(t *testing.T) {
-	t.Run("no claim id", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", claimId: ""})
-		ok := checkEdgeClaim(edge, protocol.ClaimId(id("blk-4.a-5.a")))
-		require.Equal(t, false, ok)
-	})
-	t.Run("wrong claim id", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", claimId: "blk-5.a-6.a"})
-		ok := checkEdgeClaim(edge, protocol.ClaimId(id("blk-4.a-5.a")))
-		require.Equal(t, false, ok)
-	})
-	t.Run("OK", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-4.a", claimId: "blk-4.a-5.a"})
-		ok := checkEdgeClaim(edge, protocol.ClaimId(id("blk-4.a-5.a")))
-		require.Equal(t, true, ok)
-	})
-}
-
-func Test_isDirectChild(t *testing.T) {
-	t.Run("no children", func(t *testing.T) {
-		child := newEdge(&newCfg{t: t, edgeId: "blk-2.a-4.a"})
-		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		parent.lowerChildId = ""
-		parent.upperChildId = ""
-		require.Equal(t, false, isDirectChild(parent, child.Id()))
-	})
-	t.Run("wrong children", func(t *testing.T) {
-		child := newEdge(&newCfg{t: t, edgeId: "blk-2.b-4.b"})
-		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		parent.lowerChildId = "blk-0.a-2.a"
-		parent.upperChildId = "blk-2.a-4.a"
-		require.Equal(t, false, isDirectChild(parent, child.Id()))
-	})
-	t.Run("is lower", func(t *testing.T) {
-		child := newEdge(&newCfg{t: t, edgeId: "blk-0.a-2.a"})
-		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		parent.lowerChildId = "blk-0.a-2.a"
-		parent.upperChildId = "blk-2.a-4.a"
-		require.Equal(t, true, isDirectChild(parent, child.Id()))
-	})
-	t.Run("is upper", func(t *testing.T) {
-		child := newEdge(&newCfg{t: t, edgeId: "blk-2.a-4.a"})
-		parent := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		parent.lowerChildId = "blk-0.a-2.a"
-		parent.upperChildId = "blk-2.a-4.a"
-		require.Equal(t, true, isDirectChild(parent, child.Id()))
-	})
-}
-
-func Test_hasChildren(t *testing.T) {
-	t.Run("no children", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		edge.lowerChildId = ""
-		edge.upperChildId = ""
-		require.Equal(t, false, hasChildren(edge))
-	})
-	t.Run("has upper", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		edge.lowerChildId = ""
-		edge.upperChildId = "blk-2.a-4.a"
-		require.Equal(t, true, hasChildren(edge))
-	})
-	t.Run("has lower", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		edge.lowerChildId = "blk-0.a-2.a"
-		edge.upperChildId = ""
-		require.Equal(t, true, hasChildren(edge))
-	})
-	t.Run("has both", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a"})
-		edge.lowerChildId = "blk-0.a-2.a"
-		edge.upperChildId = "blk-2.a-4.a"
-		require.Equal(t, true, hasChildren(edge))
 	})
 }
 
