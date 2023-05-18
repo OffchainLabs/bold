@@ -224,6 +224,8 @@ type EdgeSnapshot interface {
 	CreatedAtBlock() uint64
 	// The mutual id of the edge.
 	MutualId() MutualId
+	// The origin id of the edge.
+	OriginId() OriginId
 	// The claim id of the edge, if any
 	ClaimId() util.Option[ClaimId]
 	// The lower child of the edge at the time the edge was read on-chain. Note

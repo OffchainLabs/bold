@@ -13,7 +13,6 @@ import (
 type MetadataReader interface {
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
-	GetEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
 }
 
 // ClaimHeights returns the heights of the claim data for an edge, all the way up to
@@ -44,14 +43,14 @@ type HistoryChecker interface {
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                            *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
-	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
-	topLevelAssertionId              protocol.AssertionId
-	honestBlockChalLevelZeroEdge     util.Option[protocol.EdgeSnapshot]
-	honestBigStepChalLevelZeroEdge   util.Option[protocol.EdgeSnapshot]
-	honestSmallStepChalLevelZeroEdge util.Option[protocol.EdgeSnapshot]
-	metadataReader                   MetadataReader
-	histChecker                      HistoryChecker
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
+	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
+	topLevelAssertionId           protocol.AssertionId
+	honestBlockChalLevelZeroEdge  util.Option[protocol.EdgeSnapshot]
+	honestBigStepLevelZeroEdges   []protocol.EdgeSnapshot
+	honestSmallStepLevelZeroEdges []protocol.EdgeSnapshot
+	metadataReader                MetadataReader
+	histChecker                   HistoryChecker
 }
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
@@ -98,9 +97,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 			case protocol.BlockChallengeEdge:
 				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
 			case protocol.BigStepChallengeEdge:
-				ht.honestBigStepChalLevelZeroEdge = util.Some(eg)
+				ht.honestBigStepLevelZeroEdges = append(ht.honestBigStepLevelZeroEdges, eg)
 			case protocol.SmallStepChallengeEdge:
-				ht.honestSmallStepChalLevelZeroEdge = util.Some(eg)
+				ht.honestSmallStepLevelZeroEdges = append(ht.honestSmallStepLevelZeroEdges, eg)
 			default:
 			}
 		}

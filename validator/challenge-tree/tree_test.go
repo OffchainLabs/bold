@@ -95,8 +95,8 @@ func TestAddEdge(t *testing.T) {
 
 		// However, we should not have a level zero edge being tracked yet.
 		require.Equal(t, true, ht.honestBlockChalLevelZeroEdge.IsNone())
-		require.Equal(t, true, ht.honestBigStepChalLevelZeroEdge.IsNone())
-		require.Equal(t, true, ht.honestSmallStepChalLevelZeroEdge.IsNone())
+		require.Equal(t, true, len(ht.honestBigStepLevelZeroEdges) == 0)
+		require.Equal(t, true, len(ht.honestSmallStepLevelZeroEdges) == 0)
 	})
 	t.Run("agrees with edge and is a level zero edge", func(t *testing.T) {
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a", createdAt: 1, claimId: "foo"})
@@ -205,10 +205,6 @@ func (e *edge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.endHeight), common.BytesToHash([]byte(e.endCommit))
 }
 
-func (e *edge) OriginId() protocol.OriginId {
-	return protocol.OriginId(common.BytesToHash([]byte(e.originId)))
-}
-
 func (e *edge) LowerChildSnapshot() util.Option[protocol.EdgeId] {
 	if e.lowerChildId == "" {
 		return util.None[protocol.EdgeId]()
@@ -227,15 +223,23 @@ func (e *edge) CreatedAtBlock() uint64 {
 	return e.creationTime
 }
 
+func (e *edge) OriginId() protocol.OriginId {
+	return protocol.OriginId(common.BytesToHash([]byte(e.originId)))
+}
+
 func (e *edge) MutualId() protocol.MutualId {
-	return protocol.MutualId(common.BytesToHash([]byte(fmt.Sprintf(
+	return protocol.MutualId(common.BytesToHash([]byte(e.computeMutualId())))
+}
+
+func (e *edge) computeMutualId() string {
+	return fmt.Sprintf(
 		"%d-%s-%d-%s-%d",
 		e.edgeType,
 		e.originId,
 		e.startHeight,
 		e.startCommit,
 		e.endHeight,
-	))))
+	)
 }
 
 // The claim id of the edge, if any
