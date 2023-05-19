@@ -9,6 +9,7 @@ import (
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -132,6 +133,23 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		// Checks if we can confirm by children.
 		// Checks if we can confirm by claim.
 		// Checks if we can confirm by time.
+		prevAssertionId, err := et.edge.PrevAssertionId(ctx)
+		if err != nil {
+			return err
+		}
+		timer, ancestors, err := et.cfg.watcher.computeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
+		if err != nil {
+			return err
+		}
+		manager, err := et.cfg.chain.SpecChallengeManager(ctx)
+		if err != nil {
+			return err
+		}
+		chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
+		if timer >= challengetree.PathTimer(chalPeriod) {
+			log.Info("************************CAN CONFIRM")
+		}
+		_ = ancestors
 		return et.fsm.Do(edgeTryToConfirm{})
 	case edgeConfirmed:
 		log.WithFields(fields).Info("Edge reached confirmed state")
