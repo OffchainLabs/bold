@@ -107,11 +107,6 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		if err != nil {
 			return 0, ancestry, err
 		}
-		claimedEdgeTimer, err := ht.localTimer(claimedEdge, blockNumber)
-		if err != nil {
-			return 0, ancestry, err
-		}
-		pathTimer += PathTimer(claimedEdgeTimer)
 
 		// We compute the block ancestry from there.
 		start = honestLevelZero
