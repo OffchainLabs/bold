@@ -288,8 +288,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // 1. Pause the rollup
         // 2. Update the wasm module root
         // 3. Create an alternative prev
-        // 4. Refund the stake to the party that created the correct but ERRORED assertion
-        // 5. Unpause the rollup
+        // 4. Force confirm all assertions up to an including the newly created prev
+        // 5. Refund the stake to the party that created the correct but ERRORED assertion
+        // 6. Unpause the rollup
         // require(prevAssertion == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
         createNewAssertion(assertion, prevAssertion, expectedAssertionHash);

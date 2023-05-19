@@ -584,7 +584,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 // Assertions must consume exactly all inbox messages
                 // that were in the inbox at the time the previous assertion was created
                 require(
-                    assertion.afterState.globalState.getInboxPosition() == prevAssertion.nextInboxPosition,
+                    afterInboxPosition == prevAssertion.nextInboxPosition,
                     "INCORRECT_INBOX_POS"
                 );
                 // Assertions that finish correctly completely consume the message
