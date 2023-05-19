@@ -146,9 +146,11 @@ func (v *Validator) getExecutionStateBlockHeight(ctx context.Context, st rollupg
 func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[protocol.SpecEdge]) ([]*edgeTracker, error) {
 	var assertionIdMap = make(map[protocol.AssertionId][2]uint64)
 	edgeTrackers := make([]*edgeTracker, len(edges))
+	var err error
+	var assertionId protocol.AssertionId
 	for i, edge := range edges {
 		// Retry until you get the previous assertion ID.
-		assertionId, err := retryUntilSucceeds[protocol.AssertionId](ctx, func() (protocol.AssertionId, error) {
+		assertionId, err = retryUntilSucceeds[protocol.AssertionId](ctx, func() (protocol.AssertionId, error) {
 			return edge.Unwrap().PrevAssertionId(ctx)
 		})
 		if err != nil {
