@@ -33,6 +33,7 @@ type challengeWatcher struct {
 	lock               sync.RWMutex
 	challenges         *threadsafe.Map[protocol.AssertionId, *challenge]
 	backend            bind.ContractBackend
+	validatorName      string
 }
 
 func newChallengeWatcher(
@@ -40,12 +41,15 @@ func newChallengeWatcher(
 	manager statemanager.Manager,
 	backend bind.ContractBackend,
 	interval time.Duration,
+	validatorName string,
 ) *challengeWatcher {
 	return &challengeWatcher{
 		chain:              chain,
 		pollEventsInterval: interval,
 		challenges:         threadsafe.NewMap[protocol.AssertionId, *challenge](),
 		backend:            backend,
+		stateManager:       manager,
+		validatorName:      validatorName,
 	}
 }
 
@@ -178,23 +182,23 @@ func (w *challengeWatcher) checkForEdgeAdded(
 		}
 		edge := edgeOpt.Unwrap()
 
-		chal, ok := w.challenges.TryGet(protocol.AssertionId(edgeAdded.ClaimId))
+		assertionId, err := edge.PrevAssertionId(ctx)
+		if err != nil {
+			return err
+		}
+		chal, ok := w.challenges.TryGet(assertionId)
 		if !ok {
-			if edge.GetType() == protocol.BlockChallengeEdge && !edge.ClaimId().IsNone() {
-				log.Info("Top level block challenge edge seen")
-				tree := challengetree.New(
-					protocol.AssertionId(edge.ClaimId().Unwrap()),
-					w.chain,
-					w.stateManager,
-				)
-				chal = &challenge{
-					honestEdgeTree:                 tree,
-					confirmedLevelZeroEdgeClaimIds: threadsafe.NewSet[protocol.ClaimId](),
-				}
-				w.challenges.Put(protocol.AssertionId(edgeAdded.ClaimId), chal)
-			} else {
-				continue
+			tree := challengetree.New(
+				protocol.AssertionId(edgeAdded.OriginId),
+				w.chain,
+				w.stateManager,
+				w.validatorName,
+			)
+			chal = &challenge{
+				honestEdgeTree:                 tree,
+				confirmedLevelZeroEdgeClaimIds: threadsafe.NewSet[protocol.ClaimId](),
 			}
+			w.challenges.Put(assertionId, chal)
 		}
 		if err := chal.honestEdgeTree.AddEdge(ctx, edge); err != nil {
 			return err

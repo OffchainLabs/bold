@@ -37,12 +37,14 @@ type HonestChallengeTree struct {
 	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
 	metadataReader                MetadataReader
 	histChecker                   statemanager.HistoryChecker
+	validatorName                 string
 }
 
 func New(
 	prevAssertionId protocol.AssertionId,
 	metadataReader MetadataReader,
 	histChecker statemanager.HistoryChecker,
+	validatorName string,
 ) *HonestChallengeTree {
 	return &HonestChallengeTree{
 		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
@@ -53,6 +55,7 @@ func New(
 		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
 		metadataReader:                metadataReader,
 		histChecker:                   histChecker,
+		validatorName:                 validatorName,
 	}
 }
 
@@ -97,7 +100,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	}
 	if ht.topLevelAssertionId != prevAssertionId {
 		// Do nothing - this edge should not be part of this challenge tree.
-		log.Infof("Top level assertion id in tree is %#x, but got %#x", ht.topLevelAssertionId, prevAssertionId)
 		return nil
 	}
 	prevAssertionSeqNum, err := ht.metadataReader.GetAssertionNum(ctx, prevAssertionId)
@@ -108,7 +110,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	if err != nil {
 		return err
 	}
-	log.Infof("******************WHOA WHOA CHECKING HEIGHTS")
 
 	// We only track edges we fully agree with (honest edges).
 	startHeight, startCommit := eg.StartCommitment()
@@ -117,7 +118,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	if err != nil {
 		return errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
-	log.Infof("******************HEIGHTS %+v", heights)
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		eg.GetType(),
@@ -139,14 +139,18 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
 	// we keep track of it specifically in our struct.
 	if agreement.IsHonestEdge {
-		ht.edges.Put(eg.Id(), eg)
+		id := eg.Id()
+		ht.edges.Put(id, eg)
 		if !eg.ClaimId().IsNone() {
 			switch eg.GetType() {
 			case protocol.BlockChallengeEdge:
+				log.WithField("validator", ht.validatorName).Infof("Added honest block challenge edge to tree: %#x", util.Trunc(id[:]))
 				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
 			case protocol.BigStepChallengeEdge:
+				log.WithField("validator", ht.validatorName).Infof("Added honest big challenge edge to tree: %#x", util.Trunc(id[:]))
 				ht.honestBigStepLevelZeroEdges.Push(eg)
 			case protocol.SmallStepChallengeEdge:
+				log.WithField("validator", ht.validatorName).Infof("Added honest small step challenge edge to tree: %#x", util.Trunc(id[:]))
 				ht.honestSmallStepLevelZeroEdges.Push(eg)
 			default:
 			}

@@ -393,11 +393,11 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localStartCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(heights.BlockChallengeOriginHeight), prevAssertionInboxMaxCount)
+		localStartCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(startCommit.Height), prevAssertionInboxMaxCount)
 		if err != nil {
 			return protocol.Agreement{}, err
 		}
-		localEndCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(heights.BlockChallengeOriginHeight)+1, prevAssertionInboxMaxCount)
+		localEndCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(endCommit.Height), prevAssertionInboxMaxCount)
 		if err != nil {
 			return protocol.Agreement{}, err
 		}
