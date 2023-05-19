@@ -120,10 +120,15 @@ type Manager interface {
 		fromSmallStep,
 		toSmallStep uint64,
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
+	HistoryChecker
+}
+
+type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
 		edgeType protocol.EdgeType,
-		heights *protocol.ClaimHeights,
+		prevAssertionInboxMaxCount uint64,
+		heights *protocol.OriginHeights,
 		startCommit,
 		endCommit util.HistoryCommitment,
 	) (protocol.Agreement, error)
@@ -377,7 +382,8 @@ func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, bl
 func (s *Simulated) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	edgeType protocol.EdgeType,
-	heights *protocol.ClaimHeights,
+	prevAssertionInboxMaxCount uint64,
+	heights *protocol.OriginHeights,
 	startCommit,
 	endCommit util.HistoryCommitment,
 ) (protocol.Agreement, error) {
@@ -387,29 +393,29 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localStartCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, heights.BlockChallengeClaimHeight, 1)
+		localStartCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(heights.BlockChallengeOriginHeight), prevAssertionInboxMaxCount)
 		if err != nil {
 			return protocol.Agreement{}, err
 		}
-		localEndCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, heights.BlockChallengeClaimHeight+1, 1)
+		localEndCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(heights.BlockChallengeOriginHeight)+1, prevAssertionInboxMaxCount)
 		if err != nil {
 			return protocol.Agreement{}, err
 		}
 	case protocol.BigStepChallengeEdge:
 		localStartCommit, err = s.BigStepCommitmentUpTo(
 			ctx,
-			heights.BlockChallengeClaimHeight,
-			heights.BlockChallengeClaimHeight+1,
-			heights.BigStepClaimHeight,
+			uint64(heights.BlockChallengeOriginHeight),
+			uint64(heights.BlockChallengeOriginHeight)+1,
+			uint64(heights.BigStepChallengeOriginHeight),
 		)
 		if err != nil {
 			return protocol.Agreement{}, err
 		}
 		localEndCommit, err = s.BigStepCommitmentUpTo(
 			ctx,
-			heights.BlockChallengeClaimHeight,
-			heights.BlockChallengeClaimHeight+1,
-			heights.BigStepClaimHeight+1,
+			uint64(heights.BlockChallengeOriginHeight),
+			uint64(heights.BlockChallengeOriginHeight)+1,
+			uint64(heights.BigStepChallengeOriginHeight)+1,
 		)
 		if err != nil {
 			return protocol.Agreement{}, err
@@ -417,10 +423,10 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	case protocol.SmallStepChallengeEdge:
 		localStartCommit, err = s.SmallStepCommitmentUpTo(
 			ctx,
-			heights.BlockChallengeClaimHeight,
-			heights.BlockChallengeClaimHeight+1,
-			heights.BigStepClaimHeight,
-			heights.BigStepClaimHeight+1,
+			uint64(heights.BlockChallengeOriginHeight),
+			uint64(heights.BlockChallengeOriginHeight)+1,
+			uint64(heights.BigStepChallengeOriginHeight),
+			uint64(heights.BigStepChallengeOriginHeight)+1,
 			startCommit.Height,
 		)
 		if err != nil {
@@ -428,10 +434,10 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 		}
 		localEndCommit, err = s.SmallStepCommitmentUpTo(
 			ctx,
-			heights.BlockChallengeClaimHeight,
-			heights.BlockChallengeClaimHeight+1,
-			heights.BigStepClaimHeight,
-			heights.BigStepClaimHeight+1,
+			uint64(heights.BlockChallengeOriginHeight),
+			uint64(heights.BlockChallengeOriginHeight)+1,
+			uint64(heights.BigStepChallengeOriginHeight),
+			uint64(heights.BigStepChallengeOriginHeight)+1,
 			endCommit.Height,
 		)
 		if err != nil {

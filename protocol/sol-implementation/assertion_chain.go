@@ -231,7 +231,7 @@ func (ac *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol
 	return edgeOpt.Unwrap().PrevAssertionId(ctx)
 }
 
-func (ac *AssertionChain) ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error) {
+func (ac *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error) {
 	cm, err := ac.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err

@@ -5,6 +5,7 @@ import (
 
 	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/pkg/errors"
@@ -14,19 +15,12 @@ import (
 type MetadataReader interface {
 	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
-	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.ClaimHeights, error)
+	TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error)
 	SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error)
-}
-
-// HistoryChecker can verify to what extent we agree with an edge's history commitments locally.
-type HistoryChecker interface {
-	AgreesWithHistoryCommitment(
-		ctx context.Context,
-		edgeType protocol.EdgeType,
-		heights *protocol.ClaimHeights,
-		startCommit,
-		endCommit util.HistoryCommitment,
-	) (protocol.Agreement, error)
+	GetAssertionNum(ctx context.Context, assertionHash protocol.AssertionId) (protocol.AssertionSequenceNumber, error)
+	ReadAssertionCreationInfo(
+		ctx context.Context, seqNum protocol.AssertionSequenceNumber,
+	) (*protocol.AssertionCreatedInfo, error)
 }
 
 type creationTime uint64
@@ -41,13 +35,13 @@ type HonestChallengeTree struct {
 	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.EdgeSnapshot]
 	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
 	metadataReader                MetadataReader
-	histChecker                   HistoryChecker
+	histChecker                   statemanager.HistoryChecker
 }
 
 func New(
 	prevAssertionId protocol.AssertionId,
 	metadataReader MetadataReader,
-	histChecker HistoryChecker,
+	histChecker statemanager.HistoryChecker,
 ) *HonestChallengeTree {
 	return &HonestChallengeTree{
 		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
@@ -102,17 +96,26 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 		// Do nothing - this edge should not be part of this challenge tree.
 		return nil
 	}
+	prevAssertionSeqNum, err := ht.metadataReader.GetAssertionNum(ctx, prevAssertionId)
+	if err != nil {
+		return err
+	}
+	prevCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, prevAssertionSeqNum)
+	if err != nil {
+		return err
+	}
 
 	// We only track edges we fully agree with (honest edges).
 	startHeight, startCommit := eg.StartCommitment()
 	endHeight, endCommit := eg.EndCommitment()
-	heights, err := ht.metadataReader.ClaimHeights(ctx, eg.Id())
+	heights, err := ht.metadataReader.TopLevelClaimHeights(ctx, eg.Id())
 	if err != nil {
 		return errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		eg.GetType(),
+		prevCreationInfo.InboxMaxCount.Uint64(),
 		heights,
 		util.HistoryCommitment{
 			Height: uint64(startHeight),
