@@ -74,11 +74,13 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uin
 
 func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
-	heights *protocol.ClaimHeights,
+	edgeType protocol.EdgeType,
+	prevAssertionMaxInboxCount uint64,
+	heights *protocol.OriginHeights,
 	startCommit,
 	endCommit util.HistoryCommitment,
 ) (protocol.Agreement, error) {
-	args := m.Called(ctx, heights, startCommit, endCommit)
+	args := m.Called(ctx, edgeType, prevAssertionMaxInboxCount, heights, startCommit, endCommit)
 	return args.Get(0).(protocol.Agreement), args.Error(1)
 }
 
@@ -425,9 +427,9 @@ func (m *MockProtocol) TopLevelAssertion(ctx context.Context, edgeId protocol.Ed
 	return args.Get(0).(protocol.AssertionId), args.Error(1)
 }
 
-func (m *MockProtocol) ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.ClaimHeights, error) {
+func (m *MockProtocol) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error) {
 	args := m.Called(ctx, edgeId)
-	return args.Get(0).(*protocol.ClaimHeights), args.Error(1)
+	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
 }
 
 func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // MetadataReader can read certain information about edges from the backend.
@@ -85,6 +86,8 @@ func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error 
 	return nil
 }
 
+var log = logrus.WithField("prefix", "watcher")
+
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
 func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnapshot) error {
@@ -94,6 +97,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	}
 	if ht.topLevelAssertionId != prevAssertionId {
 		// Do nothing - this edge should not be part of this challenge tree.
+		log.Infof("Top level assertion id in tree is %#x, but got %#x", ht.topLevelAssertionId, prevAssertionId)
 		return nil
 	}
 	prevAssertionSeqNum, err := ht.metadataReader.GetAssertionNum(ctx, prevAssertionId)
@@ -104,6 +108,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	if err != nil {
 		return err
 	}
+	log.Infof("******************WHOA WHOA CHECKING HEIGHTS")
 
 	// We only track edges we fully agree with (honest edges).
 	startHeight, startCommit := eg.StartCommitment()
@@ -112,6 +117,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	if err != nil {
 		return errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
+	log.Infof("******************HEIGHTS %+v", heights)
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		eg.GetType(),
