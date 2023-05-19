@@ -104,14 +104,10 @@ contract RollupCreator is Ownable {
             _oneStepProofEntry: osp,
             layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
             layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
-            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight
+            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
+            _stakeToken: IERC20(config.stakeToken),
+            _stakeAmount: config.miniStakeValue
         });
-        // oldChallengeManager.initialize(
-        //     IOldChallengeResultReceiver(expectedRollupAddr),
-        //     frame.sequencerInbox,
-        //     frame.bridge,
-        //     osp
-        // );
 
         frame.rollup = new RollupProxy(
             config,

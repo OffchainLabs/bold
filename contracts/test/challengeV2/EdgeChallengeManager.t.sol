@@ -76,7 +76,14 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
         challengeManager.initialize(
-            assertionChain, challengePeriodBlock, new MockOneStepProofEntry(), 2 ** 5, 2 ** 5, 2 ** 5
+            assertionChain,
+            challengePeriodBlock,
+            new MockOneStepProofEntry(),
+            2 ** 5,
+            2 ** 5,
+            2 ** 5,
+            IERC20(address(0)),
+            miniStakeVal
         );
 
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, 0);
@@ -142,17 +149,17 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
-                claimId: a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(
-                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                ExecutionStateData(genesisState, ""),
-                ExecutionStateData(a1State, "")
-            )
+                claimId: a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ExecutionStateData(genesisState, ""),
+                    ExecutionStateData(a1State, "")
+                    )
+            })
         );
     }
 
@@ -168,17 +175,17 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: 1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(
-                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                ExecutionStateData(genesisState, ""),
-                ExecutionStateData(ei.a1State, "")
-            )
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ExecutionStateData(genesisState, ""),
+                    ExecutionStateData(ei.a1State, "")
+                    )
+            })
         );
     }
 
@@ -194,13 +201,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            ""
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: ""
+            })
         );
     }
 
@@ -216,17 +223,17 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(
-                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), 0),
-                ExecutionStateData(genesisState, ""),
-                ExecutionStateData(ei.a1State, "")
-            )
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), 0),
+                    ExecutionStateData(genesisState, ""),
+                    ExecutionStateData(ei.a1State, "")
+                    )
+            })
         );
     }
 
@@ -241,17 +248,17 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            abi.encode(
-                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                ExecutionStateData(genesisState, ""),
-                ExecutionStateData(ei.a1State, "")
-            )
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ExecutionStateData(genesisState, ""),
+                    ExecutionStateData(ei.a1State, "")
+                    )
+            })
         );
 
         vm.roll(challengePeriodBlock + 2);
@@ -273,17 +280,17 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp1),
                 endHeight: height1,
-                claimId: ei.a1
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states1, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
-            ),
-            abi.encode(
-                ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1),
-                ExecutionStateData(genesisState, ""),
-                ExecutionStateData(ei.a1State, "")
-            )
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1),
+                    ExecutionStateData(genesisState, ""),
+                    ExecutionStateData(ei.a1State, "")
+                    )
+            })
         );
 
         vm.roll(block.number + 1);
@@ -297,17 +304,17 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.Block,
                     endHistoryRoot: MerkleTreeLib.root(exp2),
                     endHeight: height1,
-                    claimId: ei.a2
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(states2, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
-                ),
-                abi.encode(
-                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1),
-                    ExecutionStateData(genesisState, ""),
-                    ExecutionStateData(ei.a2State, "")
-                )
+                    claimId: ei.a2,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(states2, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
+                        ),
+                    proof: abi.encode(
+                        ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1),
+                        ExecutionStateData(genesisState, ""),
+                        ExecutionStateData(ei.a2State, "")
+                        )
+                })
             );
 
             vm.roll(block.number + 2);
@@ -473,10 +480,10 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            "",
-            generateEdgeProof(states1, bigStepStates)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: "",
+                proof: generateEdgeProof(states1, bigStepStates)
+            })
         );
     }
 
@@ -496,13 +503,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states1, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
+                    ),
+                proof: generateEdgeProof(states1, bigStepStates)
+            })
         );
     }
 
@@ -529,13 +536,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: generateEdgeProof(states1, bigStepStates)
+            })
         );
     }
 
@@ -555,13 +562,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            ""
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: ""
+            })
         );
     }
 
@@ -586,13 +593,15 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            abi.encode(states1[0], states1[1], claimEndInclusionProof, claimEndInclusionProof, edgeInclusionProof)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: abi.encode(
+                    states1[0], states1[1], claimEndInclusionProof, claimEndInclusionProof, edgeInclusionProof
+                    )
+            })
         );
     }
 
@@ -617,13 +626,15 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            abi.encode(states1[0], states1[1], claimStartInclusionProof, claimStartInclusionProof, edgeInclusionProof)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: abi.encode(
+                    states1[0], states1[1], claimStartInclusionProof, claimStartInclusionProof, edgeInclusionProof
+                    )
+            })
         );
     }
 
@@ -648,15 +659,15 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            abi.encode(
-                states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, claimStartInclusionProof
-            )
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: abi.encode(
+                    states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, claimStartInclusionProof
+                    )
+            })
         );
     }
 
@@ -676,13 +687,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: 1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: generateEdgeProof(states1, bigStepStates)
+            })
         );
     }
 
@@ -709,13 +720,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.BigStep,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
-                    claimId: edges1[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
-                ),
-                generateEdgeProof(states1, bigStepStates1)
+                    claimId: edges1[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
+                        ),
+                    proof: generateEdgeProof(states1, bigStepStates1)
+                })
             );
         }
 
@@ -730,13 +741,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.BigStep,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
-                    claimId: edges2[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
-                ),
-                generateEdgeProof(states2, bigStepStates2)
+                    claimId: edges2[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
+                        ),
+                    proof: generateEdgeProof(states2, bigStepStates2)
+                })
             );
         }
 
@@ -758,13 +769,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.BigStep,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
-                    claimId: bigstepedges1[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
-                ),
-                generateEdgeProof(bigStepStates1, smallStepStates1)
+                    claimId: bigstepedges1[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
+                        ),
+                    proof: generateEdgeProof(bigStepStates1, smallStepStates1)
+                })
             );
         }
     }
@@ -788,13 +799,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.SmallStep,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
-                    claimId: edges1[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
-                ),
-                generateEdgeProof(states1, bigStepStates1)
+                    claimId: edges1[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
+                        ),
+                    proof: generateEdgeProof(states1, bigStepStates1)
+                })
             );
         }
     }
@@ -822,13 +833,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.BigStep,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
-                    claimId: edges1[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
-                ),
-                generateEdgeProof(states1, bigStepStates1)
+                    claimId: edges1[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(bigStepStates1, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
+                        ),
+                    proof: generateEdgeProof(states1, bigStepStates1)
+                })
             );
         }
 
@@ -843,13 +854,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.BigStep,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
-                    claimId: edges2[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
-                ),
-                generateEdgeProof(states2, bigStepStates2)
+                    claimId: edges2[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(bigStepStates2, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
+                        ),
+                    proof: generateEdgeProof(states2, bigStepStates2)
+                })
             );
         }
 
@@ -871,13 +882,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: EdgeType.SmallStep,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
-                    claimId: bigstepedges1[0].lowerChildId
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
-                ),
-                generateEdgeProof(bigStepStates1, smallStepStates1)
+                    claimId: bigstepedges1[0].lowerChildId,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(smallStepStates1, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
+                        ),
+                    proof: generateEdgeProof(bigStepStates1, smallStepStates1)
+                })
             );
         }
     }
@@ -897,13 +908,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
-                claimId: edges1[0].lowerChildId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
-            ),
-            generateEdgeProof(states1, bigStepStates)
+                claimId: edges1[0].lowerChildId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(bigStepStates, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
+                    ),
+                proof: generateEdgeProof(states1, bigStepStates)
+            })
         );
 
         vm.roll(challengePeriodBlock + 5);
@@ -970,13 +981,13 @@ contract EdgeChallengeManagerTest is Test {
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
-                claimId: claimId
-            }),
-            abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, 1),
-                ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-            ),
-            typeSpecificProof1
+                claimId: claimId,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: typeSpecificProof1
+            })
         );
     }
 
@@ -1035,13 +1046,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: args.eType,
                     endHistoryRoot: MerkleTreeLib.root(exp1),
                     endHeight: height1,
-                    claimId: args.claim1Id
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(states1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
-                ),
-                typeSpecificProof1
+                    claimId: args.claim1Id,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(states1, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
+                        ),
+                    proof: typeSpecificProof1
+                })
             );
         }
 
@@ -1075,13 +1086,13 @@ contract EdgeChallengeManagerTest is Test {
                     edgeType: args.eType,
                     endHistoryRoot: MerkleTreeLib.root(exp2),
                     endHeight: height1,
-                    claimId: args.claim2Id
-                }),
-                abi.encode(
-                    ProofUtils.expansionFromLeaves(states2, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
-                ),
-                typeSpecificProof2
+                    claimId: args.claim2Id,
+                    prefixProof: abi.encode(
+                        ProofUtils.expansionFromLeaves(states2, 0, 1),
+                        ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
+                        ),
+                    proof: typeSpecificProof2
+                })
             );
         }
 
