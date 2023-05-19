@@ -569,32 +569,35 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
-            require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
+            uint256 prevNextInboxPosition = prevAssertion.nextInboxPosition;
+
             if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
+                // Errored state must still fall within the correct range
+                require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
+                require(afterInboxPosition <= prevNextInboxPosition, "INBOX_TOO_HIGH");
+
+                // if the errored state resulted in all inbox messages being processed
+                // then it must have position 0 in the final message
+                if (afterInboxPosition == prevNextInboxPosition) {
+                    require(assertion.afterState.globalState.getPositionInMessage() == 0, "FINISHED_NON_ZERO_ERRORED");
+                }
                 // See validator/assertion.go ExecutionState RequiredBatches() for
                 // for why we move forward in the batch when the machine ends in an errored state
+                // CHRIS: TODO: we no longer want to do this, see slack with lee. Need to remove from the go code too
                 afterInboxPosition++;
-
-                // We make an exception if the machine enters the errored state,
-                // as it can't consume future batches.
-                // CHRIS: TODO: should we check that it's less than then? Since it should be possible to consume all of those messages
-                //              if we errored on the way right?
-                // require(assertion.afterState.globalState.getInboxPosition() == prevAssertion.nextInboxPosition, "INCORRECT_INBOX_POS");
             } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
-                // Assertions must consume exactly all inbox messages
+                // We enforce that at least one inbox message is always consumed
+                // so the after inbox position is always strictly greater than previous when not errored
+                require(afterInboxPosition > prevInboxPosition, "INBOX_BACKWARDS");
+
+                // Finished state assertions must consume exactly all inbox messages
                 // that were in the inbox at the time the previous assertion was created
-                require(
-                    afterInboxPosition == prevAssertion.nextInboxPosition,
-                    "INCORRECT_INBOX_POS"
-                );
+                require(afterInboxPosition == prevNextInboxPosition, "INCORRECT_INBOX_POS");
+
                 // Assertions that finish correctly completely consume the message
                 // Therefore their position in the message is 0
                 require(assertion.afterState.globalState.getPositionInMessage() == 0, "FINISHED_NON_ZERO_POS");
             }
-
-            // We enforce that at least one inbox message is always consumed
-            // so the after inbox position is always strictly greater than previous
-            require(afterInboxPosition > prevInboxPosition, "INBOX_BACKWARDS");
 
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
             // Cannot read more messages than currently exist in the inbox
@@ -611,15 +614,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 nextInboxPosition = currentInboxPosition;
             }
 
-            // only the genesis assertion processes no messages, and that assertion is created
+            // Sanity Check: only the genesis assertion processes no messages, and that assertion is created
             // when we initialize this contract. Therefore, all assertions created here should have a non
             // zero inbox position.
-            require(afterInboxPosition != 0, "EMPTY_INBOX_COUNT");
+            require(prevNextInboxPosition != 0, "EMPTY_INBOX_COUNT");
 
             // Fetch the inbox accumulator for this message count. Fetching this and checking against it
             // allows the assertion creator to ensure they're creating an assertion against the expected
             // inbox messages
-            sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxPosition - 1);
+            sequencerBatchAcc = bridge.sequencerInboxAccs(prevNextInboxPosition - 1);
         }
 
         bytes32 newAssertionHash =
