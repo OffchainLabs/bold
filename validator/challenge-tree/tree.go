@@ -22,6 +22,7 @@ type MetadataReader interface {
 type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
+		edgeType protocol.EdgeType,
 		heights *protocol.ClaimHeights,
 		startCommit,
 		endCommit util.HistoryCommitment,
@@ -111,6 +112,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	}
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
+		eg.GetType(),
 		heights,
 		util.HistoryCommitment{
 			Height: uint64(startHeight),

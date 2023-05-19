@@ -122,6 +122,7 @@ type Manager interface {
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
+		edgeType protocol.EdgeType,
 		heights *protocol.ClaimHeights,
 		startCommit,
 		endCommit util.HistoryCommitment,
@@ -372,13 +373,80 @@ func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, bl
 	)
 }
 
+// TODO: Include the next batch count.
 func (s *Simulated) AgreesWithHistoryCommitment(
 	ctx context.Context,
+	edgeType protocol.EdgeType,
 	heights *protocol.ClaimHeights,
 	startCommit,
 	endCommit util.HistoryCommitment,
 ) (protocol.Agreement, error) {
-	return protocol.Agreement{}, nil
+	agreement := protocol.Agreement{}
+	var localStartCommit util.HistoryCommitment
+	var localEndCommit util.HistoryCommitment
+	var err error
+	switch edgeType {
+	case protocol.BlockChallengeEdge:
+		localStartCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, heights.BlockChallengeClaimHeight, 1)
+		if err != nil {
+			return protocol.Agreement{}, err
+		}
+		localEndCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, heights.BlockChallengeClaimHeight+1, 1)
+		if err != nil {
+			return protocol.Agreement{}, err
+		}
+	case protocol.BigStepChallengeEdge:
+		localStartCommit, err = s.BigStepCommitmentUpTo(
+			ctx,
+			heights.BlockChallengeClaimHeight,
+			heights.BlockChallengeClaimHeight+1,
+			heights.BigStepClaimHeight,
+		)
+		if err != nil {
+			return protocol.Agreement{}, err
+		}
+		localEndCommit, err = s.BigStepCommitmentUpTo(
+			ctx,
+			heights.BlockChallengeClaimHeight,
+			heights.BlockChallengeClaimHeight+1,
+			heights.BigStepClaimHeight+1,
+		)
+		if err != nil {
+			return protocol.Agreement{}, err
+		}
+	case protocol.SmallStepChallengeEdge:
+		localStartCommit, err = s.SmallStepCommitmentUpTo(
+			ctx,
+			heights.BlockChallengeClaimHeight,
+			heights.BlockChallengeClaimHeight+1,
+			heights.BigStepClaimHeight,
+			heights.BigStepClaimHeight+1,
+			startCommit.Height,
+		)
+		if err != nil {
+			return protocol.Agreement{}, err
+		}
+		localEndCommit, err = s.SmallStepCommitmentUpTo(
+			ctx,
+			heights.BlockChallengeClaimHeight,
+			heights.BlockChallengeClaimHeight+1,
+			heights.BigStepClaimHeight,
+			heights.BigStepClaimHeight+1,
+			endCommit.Height,
+		)
+		if err != nil {
+			return protocol.Agreement{}, err
+		}
+	default:
+		return agreement, errors.New("unsupported edge type")
+	}
+	if localStartCommit.Height == startCommit.Height && localStartCommit.Merkle == startCommit.Merkle {
+		agreement.AgreesWithStartCommit = true
+	}
+	if localEndCommit.Height == endCommit.Height && localEndCommit.Merkle == endCommit.Merkle {
+		agreement.IsHonestEdge = true
+	}
+	return agreement, nil
 }
 
 func (s *Simulated) BigStepLeafCommitment(

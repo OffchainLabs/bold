@@ -70,7 +70,7 @@ type AssertionChain interface {
 
 	AssertionUnrivaledTime(ctx context.Context, edgeId EdgeId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId EdgeId) (AssertionId, error)
-	ClaimHeights(ctx context.Context, edgeId EdgeId) (*ClaimHeights, error)
+	ClaimHeights(ctx context.Context, edgeId EdgeId) (*OriginHeights, error)
 
 	// Mutating methods.
 	CreateAssertion(
