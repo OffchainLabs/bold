@@ -146,6 +146,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return err
 		}
 		chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
+		log.WithFields(fields).Infof("CHAL PERIOD IS %d, path timer is %d", chalPeriod, timer)
 		if timer >= challengetree.PathTimer(chalPeriod) {
 			log.Info("************************CAN CONFIRM")
 		}
