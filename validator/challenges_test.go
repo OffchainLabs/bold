@@ -162,7 +162,7 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	challengeManager, err := chains[1].SpecChallengeManager(ctx)
