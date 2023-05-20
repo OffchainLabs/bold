@@ -19,6 +19,7 @@ func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	startHeight, startCommit := et.edge.StartCommitment()
 	endHeight, endCommit := et.edge.EndCommitment()
 	return logrus.Fields{
+		"id":            fmt.Sprintf("%#x", et.edge.Id()),
 		"startHeight":   startHeight,
 		"startCommit":   util.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
@@ -139,7 +140,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		timer, ancestors, err := et.cfg.watcher.computeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
 		if err != nil {
-			log.WithFields(fields).Errorf("Did not find edge with id %#x", et.edge.Id())
+			log.WithFields(fields).WithError(err).Error("Did not compute honest path")
 			return et.fsm.Do(edgeTryToConfirm{})
 		}
 		manager, err := et.cfg.chain.SpecChallengeManager(ctx)
@@ -149,9 +150,12 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 		log.WithFields(fields).Infof("CHAL PERIOD IS %d, path timer is %d", chalPeriod, timer)
 		if timer >= challengetree.PathTimer(chalPeriod) {
-			log.Info("************************CAN CONFIRM")
+			if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
+				log.WithFields(fields).WithError(err).Error("Could not confirm edge by time")
+				return et.fsm.Do(edgeTryToConfirm{})
+			}
+			return et.fsm.Do(edgeConfirm{})
 		}
-		_ = ancestors
 		return et.fsm.Do(edgeTryToConfirm{})
 	case edgeConfirmed:
 		log.WithFields(fields).Info("Edge reached confirmed state")

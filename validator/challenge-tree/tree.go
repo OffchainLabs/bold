@@ -61,7 +61,7 @@ func New(
 
 // RefreshEdgesFromChain refreshes all edge snapshots from the chain.
 func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error {
-	edgeIds := make([]protocol.EdgeId, 0, ht.edges.NumItems())
+	edgeIds := make([]protocol.EdgeId, 0)
 	if err := ht.edges.ForEach(func(id protocol.EdgeId, _ protocol.EdgeSnapshot) error {
 		edgeIds = append(edgeIds, id)
 		return nil
@@ -83,8 +83,8 @@ func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error 
 		}
 		snapshots[i] = edgeOpt.Unwrap()
 	}
-	for i, edgeId := range edgeIds {
-		ht.edges.Put(edgeId, snapshots[i])
+	for _, sShot := range snapshots {
+		ht.edges.Put(sShot.Id(), sShot)
 	}
 	return nil
 }
@@ -118,6 +118,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	if err != nil {
 		return errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
+	log.Infof("%s checking %#x", ht.validatorName, eg.Id())
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		eg.GetType(),
@@ -139,18 +140,19 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
 	// we keep track of it specifically in our struct.
 	if agreement.IsHonestEdge {
+		log.Infof("%s no issues on %#x, putting under %#x", ht.validatorName, eg.Id(), prevAssertionId)
 		id := eg.Id()
 		ht.edges.Put(id, eg)
 		if !eg.ClaimId().IsNone() {
 			switch eg.GetType() {
 			case protocol.BlockChallengeEdge:
-				log.WithField("validator", ht.validatorName).Infof("Added honest block challenge edge to tree: %#x", util.Trunc(id[:]))
+				log.WithField("validator", ht.validatorName).Infof("Added honest block challenge edge to tree: %s", util.Trunc(id[:]))
 				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
 			case protocol.BigStepChallengeEdge:
-				log.WithField("validator", ht.validatorName).Infof("Added honest big challenge edge to tree: %#x", util.Trunc(id[:]))
+				log.WithField("validator", ht.validatorName).Infof("Added honest big challenge edge to tree: %s", util.Trunc(id[:]))
 				ht.honestBigStepLevelZeroEdges.Push(eg)
 			case protocol.SmallStepChallengeEdge:
-				log.WithField("validator", ht.validatorName).Infof("Added honest small step challenge edge to tree: %#x", util.Trunc(id[:]))
+				log.WithField("validator", ht.validatorName).Infof("Added honest small step challenge edge to tree: %s", util.Trunc(id[:]))
 				ht.honestSmallStepLevelZeroEdges.Push(eg)
 			default:
 			}

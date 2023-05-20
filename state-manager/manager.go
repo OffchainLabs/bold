@@ -13,6 +13,7 @@ import (
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sirupsen/logrus"
 )
 
 // Defines the ABI encoding structure for submission of prefix proofs to the protocol contracts
@@ -451,9 +452,14 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	}
 	if localEndCommit.Height == endCommit.Height && localEndCommit.Merkle == endCommit.Merkle {
 		agreement.IsHonestEdge = true
+		log.Info("No issues")
+	} else {
+		log.Infof("%s and heights: %+v, local end %d, %s and %d, %s", edgeType, heights, localEndCommit.Height, util.Trunc(localEndCommit.Merkle[:]), endCommit.Height, util.Trunc(endCommit.Merkle[:]))
 	}
 	return agreement, nil
 }
+
+var log = logrus.WithField("prefix", "manager")
 
 func (s *Simulated) BigStepLeafCommitment(
 	ctx context.Context,

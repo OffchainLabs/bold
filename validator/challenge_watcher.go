@@ -88,6 +88,9 @@ func (w *challengeWatcher) computeHonestPathTimer(
 			topLevelParentAssertionId,
 		)
 	}
+	if err := chal.honestEdgeTree.RefreshEdgesFromChain(ctx); err != nil {
+		return 0, nil, err
+	}
 	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
 }
 
@@ -95,11 +98,45 @@ func (w *challengeWatcher) watch(ctx context.Context) {
 	// Start from the latest confirmed assertion's creation block.
 	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
 	if err != nil {
-		log.Error(err)
-		return
+		panic(err)
 	}
 	firstBlock := latestConfirmed.CreatedAtBlock()
 	fromBlock := firstBlock
+
+	latestBlock, err := w.backend.HeaderByNumber(ctx, nil)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	toBlock := latestBlock.Number.Uint64()
+	log.Infof("&&&&&&&&&SCANNING %d to %d", fromBlock, toBlock)
+
+	challengeManager, err := w.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	filterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	filterOpts := &bind.FilterOpts{
+		Start:   fromBlock,
+		End:     &toBlock,
+		Context: ctx,
+	}
+	if err = w.checkForEdgeAdded(filterOpts, filterer); err != nil {
+		log.Error(err)
+		return
+	}
+	// if err = w.checkForEdgeConfirmedByOneStepProof(filterOpts, challengeManager, filterer); err != nil {
+	// 	return err
+	// }
+	// Watcher needs access to the challenge manager. If it sees an edge it agrees with (honest),
+	// it will then persist that in the honest ancestors branch. It needs to keep track of ancestors
+	// in a special order.
+	fromBlock = toBlock
 
 	// Some kind of backoff so as to not spam the node with requests.
 	ticker := time.NewTicker(w.pollEventsInterval)
@@ -113,6 +150,7 @@ func (w *challengeWatcher) watch(ctx context.Context) {
 				continue
 			}
 			toBlock := latestBlock.Number.Uint64()
+			log.Infof("&&&&&&&&&SCANNING %d to %d", fromBlock, toBlock)
 
 			if fromBlock == toBlock {
 				continue
@@ -170,20 +208,25 @@ func (w *challengeWatcher) checkForEdgeAdded(
 	}
 	for it.Next() {
 		if it.Error() != nil {
+			log.WithError(err).Error("***************WEIRDOOOOOO 1st")
 			return err // TODO: Handle better.
 		}
 		edgeAdded := it.Event
+		log.Infof("GOT EVENT CREATION %#x", edgeAdded.EdgeId)
 		edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId(edgeAdded.EdgeId))
 		if err != nil {
+			log.WithError(err).Error("***************WEIRDOOOOOO 2nd")
 			return err
 		}
 		if edgeOpt.IsNone() {
+			log.WithError(err).Error("***************WEIRDOOOOOO 3rd")
 			return fmt.Errorf("no edge found with id %#x", edgeAdded.EdgeId)
 		}
 		edge := edgeOpt.Unwrap()
 
 		assertionId, err := edge.PrevAssertionId(ctx)
 		if err != nil {
+			log.WithError(err).Error("***************WEIRDOOOOOO 4rd")
 			return err
 		}
 		chal, ok := w.challenges.TryGet(assertionId)
@@ -201,6 +244,7 @@ func (w *challengeWatcher) checkForEdgeAdded(
 			w.challenges.Put(assertionId, chal)
 		}
 		if err := chal.honestEdgeTree.AddEdge(ctx, edge); err != nil {
+			log.WithError(err).Error("***************WEIRDOOOOOO 5rd")
 			return err
 		}
 	}

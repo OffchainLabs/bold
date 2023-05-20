@@ -157,12 +157,12 @@ func runChallengeIntegrationTest(t *testing.T, _ *test.Hook, cfg *challengeProto
 		WithName("bob"),
 		WithAddress(bobAddr),
 		WithTimeReference(ref),
-		WithEdgeTrackerWakeInterval(time.Millisecond*100),
+		WithEdgeTrackerWakeInterval(time.Millisecond*250),
 		WithNewAssertionCheckInterval(time.Millisecond*50),
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
 	challengeManager, err := chains[1].SpecChallengeManager(ctx)

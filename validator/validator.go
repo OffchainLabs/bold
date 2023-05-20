@@ -131,7 +131,7 @@ func New(
 	v.rollupFilterer = rollupFilterer
 	v.chalManagerAddr = chalManagerAddr
 	v.chalManager = chalManagerFilterer
-	v.watcher = newChallengeWatcher(chain, stateManager, backend, time.Second*2, v.name)
+	v.watcher = newChallengeWatcher(chain, stateManager, backend, time.Millisecond*250, v.name)
 	go v.watcher.watch(ctx)
 	return v, nil
 }

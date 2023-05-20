@@ -256,7 +256,7 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		pathTimer += timer
 	}
 	if !found {
-		return 0, nil, errNotFound(queryingFor.Id())
+		return 0, nil, fmt.Errorf("not found when looping through children %#x", queryingFor.Id())
 	}
 	return PathTimer(pathTimer), ancestry, nil
 }
