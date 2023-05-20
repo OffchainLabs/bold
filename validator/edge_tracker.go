@@ -139,7 +139,8 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		timer, ancestors, err := et.cfg.watcher.computeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
 		if err != nil {
-			return err
+			log.WithFields(fields).Errorf("Did not find edge with id %#x", et.edge.Id())
+			return et.fsm.Do(edgeTryToConfirm{})
 		}
 		manager, err := et.cfg.chain.SpecChallengeManager(ctx)
 		if err != nil {

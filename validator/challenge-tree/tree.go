@@ -155,6 +155,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 			default:
 			}
 		}
+	} else {
+		log.WithFields(fields(eg)).Infof("%s got dishonest edge %#x and heights %+v", ht.validatorName, eg.Id(), heights)
 	}
 
 	// Check if the edge id should be added to the rivaled edges set.
@@ -170,4 +172,16 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 		mutuals.Put(eg.Id(), creationTime(eg.CreatedAtBlock()))
 	}
 	return nil
+}
+
+func fields(edge protocol.EdgeSnapshot) logrus.Fields {
+	startHeight, startCommit := edge.StartCommitment()
+	endHeight, endCommit := edge.EndCommitment()
+	return logrus.Fields{
+		"startHeight":   startHeight,
+		"startCommit":   util.Trunc(startCommit.Bytes()),
+		"endHeight":     endHeight,
+		"endCommit":     util.Trunc(endCommit.Bytes()),
+		"challengeType": edge.GetType(),
+	}
 }

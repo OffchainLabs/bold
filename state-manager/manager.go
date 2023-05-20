@@ -406,7 +406,7 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 			ctx,
 			uint64(heights.BlockChallengeOriginHeight),
 			uint64(heights.BlockChallengeOriginHeight)+1,
-			uint64(heights.BigStepChallengeOriginHeight),
+			uint64(startCommit.Height),
 		)
 		if err != nil {
 			return protocol.Agreement{}, err
@@ -415,7 +415,7 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 			ctx,
 			uint64(heights.BlockChallengeOriginHeight),
 			uint64(heights.BlockChallengeOriginHeight)+1,
-			uint64(heights.BigStepChallengeOriginHeight)+1,
+			uint64(endCommit.Height),
 		)
 		if err != nil {
 			return protocol.Agreement{}, err
