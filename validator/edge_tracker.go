@@ -18,8 +18,9 @@ import (
 func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	startHeight, startCommit := et.edge.StartCommitment()
 	endHeight, endCommit := et.edge.EndCommitment()
+	id := et.edge.Id()
 	return logrus.Fields{
-		"id":            fmt.Sprintf("%#x", et.edge.Id()),
+		"id":            util.Trunc(id[:]),
 		"startHeight":   startHeight,
 		"startCommit":   util.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,

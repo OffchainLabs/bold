@@ -109,7 +109,7 @@ func (w *challengeWatcher) watch(ctx context.Context) {
 		return
 	}
 	toBlock := latestBlock.Number.Uint64()
-	log.Infof("&&&&&&&&&SCANNING %d to %d", fromBlock, toBlock)
+	//log.Infof("&&&&&&&&&SCANNING %d to %d", fromBlock, toBlock)
 
 	challengeManager, err := w.chain.SpecChallengeManager(ctx)
 	if err != nil {
@@ -150,7 +150,7 @@ func (w *challengeWatcher) watch(ctx context.Context) {
 				continue
 			}
 			toBlock := latestBlock.Number.Uint64()
-			log.Infof("&&&&&&&&&SCANNING %d to %d", fromBlock, toBlock)
+			//log.Infof("&&&&&&&&&SCANNING %d to %d", fromBlock, toBlock)
 
 			if fromBlock == toBlock {
 				continue
@@ -212,21 +212,18 @@ func (w *challengeWatcher) checkForEdgeAdded(
 			return err // TODO: Handle better.
 		}
 		edgeAdded := it.Event
-		log.Infof("GOT EVENT CREATION %#x", edgeAdded.EdgeId)
+		//log.Infof("GOT EVENT CREATION %#x", edgeAdded.EdgeId)
 		edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId(edgeAdded.EdgeId))
 		if err != nil {
-			log.WithError(err).Error("***************WEIRDOOOOOO 2nd")
 			return err
 		}
 		if edgeOpt.IsNone() {
-			log.WithError(err).Error("***************WEIRDOOOOOO 3rd")
 			return fmt.Errorf("no edge found with id %#x", edgeAdded.EdgeId)
 		}
 		edge := edgeOpt.Unwrap()
 
 		assertionId, err := edge.PrevAssertionId(ctx)
 		if err != nil {
-			log.WithError(err).Error("***************WEIRDOOOOOO 4rd")
 			return err
 		}
 		chal, ok := w.challenges.TryGet(assertionId)
@@ -244,7 +241,6 @@ func (w *challengeWatcher) checkForEdgeAdded(
 			w.challenges.Put(assertionId, chal)
 		}
 		if err := chal.honestEdgeTree.AddEdge(ctx, edge); err != nil {
-			log.WithError(err).Error("***************WEIRDOOOOOO 5rd")
 			return err
 		}
 	}
