@@ -3,7 +3,6 @@ package challengetree
 import (
 	"context"
 
-	"fmt"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -29,12 +28,12 @@ type creationTime uint64
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                         *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.ReadOnlyEdge]
 	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionId           protocol.AssertionId
-	honestBlockChalLevelZeroEdge  util.Option[protocol.EdgeSnapshot]
-	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.EdgeSnapshot]
-	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
+	honestBlockChalLevelZeroEdge  util.Option[protocol.ReadOnlyEdge]
+	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.ReadOnlyEdge]
+	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.ReadOnlyEdge]
 	metadataReader                MetadataReader
 	histChecker                   statemanager.HistoryChecker
 	validatorName                 string
@@ -47,53 +46,23 @@ func New(
 	validatorName string,
 ) *HonestChallengeTree {
 	return &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		topLevelAssertionId:           prevAssertionId,
-		honestBlockChalLevelZeroEdge:  util.None[protocol.EdgeSnapshot](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestBlockChalLevelZeroEdge:  util.None[protocol.ReadOnlyEdge](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 		metadataReader:                metadataReader,
 		histChecker:                   histChecker,
 		validatorName:                 validatorName,
 	}
 }
 
-// RefreshEdgesFromChain refreshes all edge snapshots from the chain.
-func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error {
-	edgeIds := make([]protocol.EdgeId, 0)
-	if err := ht.edges.ForEach(func(id protocol.EdgeId, _ protocol.EdgeSnapshot) error {
-		edgeIds = append(edgeIds, id)
-		return nil
-	}); err != nil {
-		return err
-	}
-	edgeReader, err := ht.metadataReader.SpecChallengeManager(ctx)
-	if err != nil {
-		return err
-	}
-	snapshots := make([]protocol.EdgeSnapshot, len(edgeIds))
-	for i, edgeId := range edgeIds {
-		edgeOpt, err := edgeReader.GetEdge(ctx, edgeId)
-		if err != nil {
-			return err
-		}
-		if edgeOpt.IsNone() {
-			return fmt.Errorf("edge with id %#x not found", edgeId)
-		}
-		snapshots[i] = edgeOpt.Unwrap()
-	}
-	for _, sShot := range snapshots {
-		ht.edges.Put(sShot.Id(), sShot)
-	}
-	return nil
-}
-
 var log = logrus.WithField("prefix", "watcher")
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
-func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnapshot) error {
+func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnlyEdge) error {
 	prevAssertionId, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
 		return errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
@@ -176,7 +145,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnap
 	return nil
 }
 
-func fields(edge protocol.EdgeSnapshot) logrus.Fields {
+func fields(edge protocol.ReadOnlyEdge) logrus.Fields {
 	startHeight, startCommit := edge.StartCommitment()
 	endHeight, endCommit := edge.EndCommitment()
 	return logrus.Fields{

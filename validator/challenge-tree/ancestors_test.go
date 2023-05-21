@@ -36,10 +36,10 @@ import (
 func TestAncestors_AllChallengeLevels(t *testing.T) {
 	ctx := context.Background()
 	tree := &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 		metadataReader:                &mockMetadataReader{},
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
@@ -222,7 +222,7 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	bobEdges["blk-4.a-6.b"].lowerChildId = "blk-4.a-5.b"
 	bobEdges["blk-4.a-6.b"].upperChildId = "blk-5.b-6.b"
 
-	transformedEdges := make(map[protocol.EdgeId]protocol.EdgeSnapshot)
+	transformedEdges := make(map[protocol.EdgeId]protocol.ReadOnlyEdge)
 	for _, v := range aliceEdges {
 		transformedEdges[v.Id()] = v
 	}

@@ -88,9 +88,6 @@ func (w *challengeWatcher) computeHonestPathTimer(
 			topLevelParentAssertionId,
 		)
 	}
-	if err := chal.honestEdgeTree.RefreshEdgesFromChain(ctx); err != nil {
-		return 0, nil, err
-	}
 	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
 }
 

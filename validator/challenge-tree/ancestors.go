@@ -72,7 +72,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		// the computed ancestor ids list.
 		start := honestLevelZero
 		searchFor := wantedEdge
-		blockChalTimer, ancestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
+		blockChalTimer, ancestry, err := ht.findAncestorsInChallenge(ctx, start, searchFor, blockNumber)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -95,7 +95,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		// From there, we compute its ancestors.
 		start := bigStepLevelZero
 		searchFor := wantedEdge
-		bigStepTimer, bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
+		bigStepTimer, bigStepAncestry, err := ht.findAncestorsInChallenge(ctx, start, searchFor, blockNumber)
 		if err != nil {
 			return 0, ancestry, err
 		}
@@ -116,7 +116,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		// We compute the block ancestry from there.
 		start = honestLevelZero
 		searchFor = claimedEdge
-		blockChalTimer, blockChalAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
+		blockChalTimer, blockChalAncestry, err := ht.findAncestorsInChallenge(ctx, start, searchFor, blockNumber)
 		if err != nil {
 			return 0, ancestry, err
 		}
@@ -145,7 +145,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		// From there, we compute its ancestors.
 		start := smallStepLevelZero
 		searchFor := wantedEdge
-		smallStepTimer, smallStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
+		smallStepTimer, smallStepAncestry, err := ht.findAncestorsInChallenge(ctx, start, searchFor, blockNumber)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -167,7 +167,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		// From there, we compute its ancestors.
 		start = bigStepLevelZero
 		searchFor = claimedBigStepEdge
-		bigStepTimer, bigStepAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
+		bigStepTimer, bigStepAncestry, err := ht.findAncestorsInChallenge(ctx, start, searchFor, blockNumber)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -181,7 +181,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		}
 		start = honestLevelZero
 		searchFor = claimedBlockEdge
-		blockChalTimer, blockAncestry, err := ht.findAncestorsInChallenge(start, searchFor, blockNumber)
+		blockChalTimer, blockAncestry, err := ht.findAncestorsInChallenge(ctx, start, searchFor, blockNumber)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -206,8 +206,9 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 // to a specified child edge. The edge we are querying must be a child of this start edge
 // for this function to succeed without error.
 func (ht *HonestChallengeTree) findAncestorsInChallenge(
-	start protocol.EdgeSnapshot,
-	queryingFor protocol.EdgeSnapshot,
+	ctx context.Context,
+	start protocol.ReadOnlyEdge,
+	queryingFor protocol.ReadOnlyEdge,
 	blockNumber uint64,
 ) (PathTimer, []protocol.EdgeId, error) {
 	found := false
@@ -236,14 +237,20 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		// If the wanted edge's start commitment is < the bisection height of the current
 		// edge in the loop, it means it is part of its lower children.
 		if uint64(wantedEdgeStart) < bisectTo {
-			lowerSnapshot := curr.LowerChildSnapshot()
+			lowerSnapshot, err := curr.LowerChild(ctx)
+			if err != nil {
+				return 0, nil, err
+			}
 			if lowerSnapshot.IsNone() {
 				return 0, nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
 			}
 			curr = ht.edges.Get(lowerSnapshot.Unwrap())
 		} else {
 			// Else, it is part of the upper children.
-			upperSnapshot := curr.UpperChildSnapshot()
+			upperSnapshot, err := curr.UpperChild(ctx)
+			if err != nil {
+				return 0, nil, err
+			}
 			if upperSnapshot.IsNone() {
 				return 0, nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
 			}
@@ -262,7 +269,7 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 }
 
 // Gets the edge a specified edge claims, if any.
-func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.EdgeSnapshot) (protocol.EdgeSnapshot, error) {
+func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.ReadOnlyEdge) (protocol.ReadOnlyEdge, error) {
 	if edge.ClaimId().IsNone() {
 		return nil, errors.New("does not claim any edge")
 	}
@@ -275,9 +282,9 @@ func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.EdgeSnapshot) (proto
 }
 
 // Finds an edge in a list with a specified origin id.
-func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.EdgeSnapshot]) (protocol.EdgeSnapshot, bool) {
-	var originEdge protocol.EdgeSnapshot
-	found := edges.Find(func(_ int, e protocol.EdgeSnapshot) bool {
+func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.ReadOnlyEdge]) (protocol.ReadOnlyEdge, bool) {
+	var originEdge protocol.ReadOnlyEdge
+	found := edges.Find(func(_ int, e protocol.ReadOnlyEdge) bool {
 		if e.OriginId() == originId {
 			originEdge = e
 			return true

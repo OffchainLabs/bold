@@ -452,9 +452,9 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	}
 	if localEndCommit.Height == endCommit.Height && localEndCommit.Merkle == endCommit.Merkle {
 		agreement.IsHonestEdge = true
-		log.Info("No issues")
+		//log.Info("No issues")
 	} else {
-		log.Infof("%s and heights: %+v, local end %d, %s and %d, %s", edgeType, heights, localEndCommit.Height, util.Trunc(localEndCommit.Merkle[:]), endCommit.Height, util.Trunc(endCommit.Merkle[:]))
+		//log.Infof("%s and heights: %+v, local end %d, %s and %d, %s", edgeType, heights, localEndCommit.Height, util.Trunc(localEndCommit.Merkle[:]), endCommit.Height, util.Trunc(endCommit.Merkle[:]))
 	}
 	return agreement, nil
 }

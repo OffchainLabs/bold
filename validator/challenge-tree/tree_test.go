@@ -6,21 +6,23 @@ import (
 
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"strings"
 )
 
 func TestAddEdge(t *testing.T) {
 	ht := &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 	}
 	ht.topLevelAssertionId = protocol.AssertionId(common.BytesToHash([]byte("foo")))
 	ctx := context.Background()
@@ -55,18 +57,16 @@ func TestAddEdge(t *testing.T) {
 			assertionErr: nil,
 			assertionId:  ht.topLevelAssertionId,
 		}
-		ht.histChecker = &mockHistChecker{
-			agreesErr: errors.New("bad request"),
-		}
+		ht.histChecker = &mocks.MockStateManager{}
 		err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not check if agrees with")
 	})
 	t.Run("fully disagrees with edge", func(t *testing.T) {
-		ht.histChecker = &mockHistChecker{
-			agreement: Agreement{
-				IsHonestEdge:          false,
-				AgreesWithStartCommit: false,
-			},
+		ht.histChecker = &mocks.MockStateManager{
+			// agreement: Agreement{
+			// 	IsHonestEdge:          false,
+			// 	AgreesWithStartCommit: false,
+			// },
 		}
 		badEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.f-16.a", createdAt: 1})
 		err := ht.AddEdge(ctx, badEdge)
@@ -79,10 +79,10 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, false, ok)
 	})
 	t.Run("agrees with edge but is not a level zero edge", func(t *testing.T) {
-		ht.histChecker = &mockHistChecker{
-			agreement: Agreement{
-				IsHonestEdge: true,
-			},
+		ht.histChecker = &mocks.MockStateManager{
+			// agreement: Agreement{
+			// 	IsHonestEdge: true,
+			// },
 		}
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1})
 		err := ht.AddEdge(ctx, edge)
@@ -116,11 +116,11 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, false, ht.honestBlockChalLevelZeroEdge.IsNone())
 	})
 	t.Run("edge is not honest but we agree with start commit and keep it as a rival", func(t *testing.T) {
-		ht.histChecker = &mockHistChecker{
-			agreement: Agreement{
-				IsHonestEdge:          false,
-				AgreesWithStartCommit: true,
-			},
+		ht.histChecker = &mocks.MockStateManager{
+			// agreement: Agreement{
+			// 	IsHonestEdge:          false,
+			// 	AgreesWithStartCommit: true,
+			// },
 		}
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.b", createdAt: 1, claimId: "bar"})
 		err := ht.AddEdge(ctx, edge)
@@ -140,7 +140,7 @@ func TestAddEdge(t *testing.T) {
 type mockMetadataReader struct {
 	assertionId     protocol.AssertionId
 	assertionErr    error
-	claimHeights    *ClaimHeights
+	claimHeights    *protocol.OriginHeights
 	claimHeightsErr error
 }
 
@@ -156,27 +156,25 @@ func (*mockMetadataReader) AssertionUnrivaledTime(
 	return 0, nil
 }
 
-func (m *mockMetadataReader) ClaimHeights(
+func (m *mockMetadataReader) TopLevelClaimHeights(
 	_ context.Context, _ protocol.EdgeId,
-) (*ClaimHeights, error) {
+) (*protocol.OriginHeights, error) {
 	return m.claimHeights, m.claimHeightsErr
 }
 
-type mockHistChecker struct {
-	agreement Agreement
-	agreesErr error
+func (m *mockMetadataReader) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
+	return nil, errors.New("unimplemented")
+}
+func (m *mockMetadataReader) GetAssertionNum(ctx context.Context, assertionHash protocol.AssertionId) (protocol.AssertionSequenceNumber, error) {
+	return 0, errors.New("unimplemented")
+}
+func (m *mockMetadataReader) ReadAssertionCreationInfo(
+	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
+) (*protocol.AssertionCreatedInfo, error) {
+	return nil, errors.New("unimplemented")
 }
 
-func (m *mockHistChecker) AgreesWithHistoryCommitment(
-	_ context.Context,
-	_ *ClaimHeights,
-	_,
-	_ util.HistoryCommitment,
-) (Agreement, error) {
-	return m.agreement, m.agreesErr
-}
-
-var _ = protocol.EdgeSnapshot(&edge{})
+var _ = protocol.ReadOnlyEdge(&edge{})
 
 type edgeId string
 type commit string
@@ -213,20 +211,6 @@ func (e *edge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.endHeight), common.BytesToHash([]byte(e.endCommit))
 }
 
-func (e *edge) LowerChildSnapshot() util.Option[protocol.EdgeId] {
-	if e.lowerChildId == "" {
-		return util.None[protocol.EdgeId]()
-	}
-	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.lowerChildId))))
-}
-
-func (e *edge) UpperChildSnapshot() util.Option[protocol.EdgeId] {
-	if e.upperChildId == "" {
-		return util.None[protocol.EdgeId]()
-	}
-	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.upperChildId))))
-}
-
 func (e *edge) CreatedAtBlock() uint64 {
 	return e.creationTime
 }
@@ -256,6 +240,61 @@ func (e *edge) ClaimId() util.Option[protocol.ClaimId] {
 		return util.None[protocol.ClaimId]()
 	}
 	return util.Some(protocol.ClaimId(common.BytesToHash([]byte(e.claimId))))
+}
+
+// The lower child of the edge, if any.
+func (e *edge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+	if e.lowerChildId == "" {
+		return util.None[protocol.EdgeId](), nil
+	}
+	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.lowerChildId)))), nil
+}
+
+// The upper child of the edge, if any.
+func (e *edge) UpperChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+	if e.upperChildId == "" {
+		return util.None[protocol.EdgeId](), nil
+	}
+	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.upperChildId)))), nil
+}
+
+// The ministaker of an edge. Only existing for level zero edges.
+func (e *edge) MiniStaker() util.Option[common.Address] {
+	return util.None[common.Address]()
+}
+
+// The assertion id of the parent assertion that originated the challenge
+// at the top-level.
+func (e *edge) PrevAssertionId(ctx context.Context) (protocol.AssertionId, error) {
+	return protocol.AssertionId{}, errors.New("unimplemented")
+}
+
+// The time in seconds an edge has been unrivaled.
+func (e *edge) TimeUnrivaled(ctx context.Context) (uint64, error) {
+	return 0, errors.New("unimplemented")
+}
+
+// The status of an edge.
+func (e *edge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
+
+	return 0, errors.New("unimplemented")
+}
+
+// Whether or not an edge has rivals.
+func (e *edge) HasRival(ctx context.Context) (bool, error) {
+	return false, errors.New("unimplemented")
+}
+
+// Checks if an edge has a length one rival.
+func (e *edge) HasLengthOneRival(ctx context.Context) (bool, error) {
+	return false, errors.New("unimplemented")
+
+}
+
+// The history commitment for the top-level edge the current edge's challenge is made upon.
+// This is used at subchallenge creation boundaries.
+func (e *edge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHeights, error) {
+	return nil, errors.New("unimplemented")
 }
 
 type newCfg struct {

@@ -147,7 +147,8 @@ func (v *Validator) Start(ctx context.Context) {
 
 func (v *Validator) postAssertionsPeriodically(ctx context.Context) {
 	if _, err := v.postLatestAssertion(ctx); err != nil {
-		log.WithError(err).Error("Could not submit latest assertion to L1")
+		//log.WithError(err).Error("Could not submit latest assertion to L1")
+		_ = err
 	}
 	ticker := time.NewTicker(v.postAssertionsInterval)
 	defer ticker.Stop()
@@ -155,7 +156,8 @@ func (v *Validator) postAssertionsPeriodically(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if _, err := v.postLatestAssertion(ctx); err != nil {
-				log.WithError(err).Error("Could not submit latest assertion to L1")
+				//log.WithError(err).Error("Could not submit latest assertion to L1")
+				_ = err
 			}
 		case <-ctx.Done():
 			return

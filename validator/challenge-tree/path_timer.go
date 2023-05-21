@@ -9,7 +9,7 @@ import (
 
 // Gets the local timer of an edge at a block number, T. If T is earlier than the edge's creation,
 // this function will return 0.
-func (ht *HonestChallengeTree) localTimer(e protocol.EdgeSnapshot, blockNum uint64) (uint64, error) {
+func (ht *HonestChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
 	if blockNum < e.CreatedAtBlock() {
 		return 0, nil
 	}
@@ -34,7 +34,7 @@ func (ht *HonestChallengeTree) localTimer(e protocol.EdgeSnapshot, blockNum uint
 
 // Gets the minimum creation timestamp across all of an edge's rivals. If an edge
 // has no rivals, this minimum is undefined.
-func (ht *HonestChallengeTree) earliestCreatedRivalTimestamp(e protocol.EdgeSnapshot) util.Option[uint64] {
+func (ht *HonestChallengeTree) earliestCreatedRivalTimestamp(e protocol.ReadOnlyEdge) util.Option[uint64] {
 	rivals := ht.rivalsWithCreationTimes(e)
 	creationBlocks := make([]uint64, len(rivals))
 	for i, r := range rivals {
@@ -45,7 +45,7 @@ func (ht *HonestChallengeTree) earliestCreatedRivalTimestamp(e protocol.EdgeSnap
 
 // Determines if an edge was unrivaled at a block num T. If any rival existed
 // for the edge at T, this function will return false.
-func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.EdgeSnapshot, blockNum uint64) (bool, error) {
+func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.ReadOnlyEdge, blockNum uint64) (bool, error) {
 	if blockNum < e.CreatedAtBlock() {
 		return false, fmt.Errorf(
 			"edge creation block %d less than specified %d",
@@ -77,7 +77,7 @@ type rival struct {
 // by the challenge tree. We do this by computing the mutual id of the edge and fetching
 // all edge ids that share the same one from a set the challenge tree keeps track of.
 // We exclude the specified edge from the returned list of rivals.
-func (ht *HonestChallengeTree) rivalsWithCreationTimes(eg protocol.EdgeSnapshot) []*rival {
+func (ht *HonestChallengeTree) rivalsWithCreationTimes(eg protocol.ReadOnlyEdge) []*rival {
 	rivals := make([]*rival, 0)
 	mutualId := eg.MutualId()
 	mutuals := ht.mutualIds.Get(mutualId)

@@ -20,7 +20,7 @@ func GenerateRollupConfig(
 	if prod {
 		confirmPeriod = 45818
 	} else {
-		confirmPeriod = 2
+		confirmPeriod = 20
 	}
 
 	return rollupgen.Config{

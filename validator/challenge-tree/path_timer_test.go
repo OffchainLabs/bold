@@ -60,7 +60,7 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	edges["blk-0.a-8.b"].lowerChildId = "blk-0.a-4.a"
 	edges["blk-0.a-8.b"].upperChildId = "blk-4.a-8.b"
 
-	transformedEdges := make(map[protocol.EdgeId]protocol.EdgeSnapshot)
+	transformedEdges := make(map[protocol.EdgeId]protocol.ReadOnlyEdge)
 	timers := make(map[protocol.EdgeId]uint64)
 	for _, v := range edges {
 		transformedEdges[v.Id()] = v
@@ -70,8 +70,8 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 	ht := &HonestChallengeTree{
 		edges:                         allEdges,
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 		metadataReader:                &mockMetadataReader{},
 	}
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
@@ -227,10 +227,10 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 // for confirmation purposes.
 func TestPathTimer_AllChallengeLevels(t *testing.T) {
 	ht := &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 		metadataReader:                &mockMetadataReader{},
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
@@ -281,7 +281,7 @@ func TestPathTimer_AllChallengeLevels(t *testing.T) {
 
 func Test_localTimer(t *testing.T) {
 	ct := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
@@ -346,7 +346,7 @@ func Test_localTimer(t *testing.T) {
 
 func Test_earliestCreatedRivalTimestamp(t *testing.T) {
 	ct := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
@@ -385,7 +385,7 @@ func Test_earliestCreatedRivalTimestamp(t *testing.T) {
 
 func Test_unrivaledAtTime(t *testing.T) {
 	ct := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
@@ -427,7 +427,7 @@ func Test_unrivaledAtTime(t *testing.T) {
 
 func Test_rivalsWithCreationTimes(t *testing.T) {
 	ct := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
 	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 5})
