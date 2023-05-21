@@ -51,7 +51,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return errors.Wrap(err, "could not check if can confirm by time")
 		}
 		if canConfirm {
-			log.Info("Trying to confirm by time")
+			log.WithFields(fields).Infof("Can confirm by time")
 			return et.fsm.Do(edgeTryToConfirm{})
 		}
 		hasRival, err := et.edge.HasRival(ctx)
@@ -59,7 +59,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return errors.Wrap(err, "could not check presumptive")
 		}
 		if !hasRival {
-			return et.fsm.Do(edgeMarkPresumptive{})
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
@@ -131,18 +131,15 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		go firstTracker.spawn(ctx)
 		go secondTracker.spawn(ctx)
 		return et.fsm.Do(edgeTryToConfirm{})
-	// Edge is presumptive, should do nothing until it loses ps status.
-	case edgePresumptive:
-		hasRival, err := et.edge.HasRival(ctx)
-		if err != nil {
-			log.WithError(err).WithFields(fields).Error("Could not check if presumptive")
-			return et.fsm.Do(edgeBackToStart{})
-		}
-		if hasRival {
-			return et.fsm.Do(edgeBackToStart{})
-		}
-		return et.fsm.Do(edgeMarkPresumptive{})
 	case edgeConfirming:
+		status, err := et.edge.Status(ctx)
+		if err != nil {
+			log.WithError(err).Error("Could not check edge status")
+			return et.fsm.Do(edgeTryToConfirm{})
+		}
+		if status == protocol.EdgeConfirmed {
+			return et.fsm.Do(edgeConfirm{})
+		}
 		prevAssertionId, err := et.edge.PrevAssertionId(ctx)
 		if err != nil {
 			log.WithError(err).Error("Could not get prev assertion id")
@@ -158,16 +155,27 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			log.Error(err)
 			return et.fsm.Do(edgeTryToConfirm{})
 		}
-
-		chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
-		if et.edge.GetType() == protocol.SmallStepChallengeEdge && et.cfg.validatorName == "alice" {
-			log.WithFields(et.uniqueTrackerLogFields()).Infof("CHAL PERIOD IS %d, path timer is %d", chalPeriod, timer)
+		start, _ := et.edge.StartCommitment()
+		end, _ := et.edge.EndCommitment()
+		if et.cfg.validatorName == "alice" && start == 0 && end == 2 && et.edge.GetType() == protocol.SmallStepChallengeEdge {
+			log.WithFields(et.uniqueTrackerLogFields()).Infof("Path timer %d", timer)
 		}
+		if et.cfg.validatorName == "bob" && start == 16 && end == 32 && et.edge.GetType() == protocol.BlockChallengeEdge {
+			log.WithFields(et.uniqueTrackerLogFields()).Infof("Bob Path timer %d", timer)
+		}
+		if et.cfg.validatorName == "alice" && start == 16 && end == 32 && et.edge.GetType() == protocol.BlockChallengeEdge {
+			log.WithFields(et.uniqueTrackerLogFields()).Infof("Alice Path timer %d", timer)
+		}
+		chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 		if timer >= challengetree.PathTimer(chalPeriod) {
 			if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
+				if strings.Contains(err.Error(), "Edge not pending") {
+					return et.fsm.Do(edgeConfirm{})
+				}
 				log.WithFields(fields).WithError(err).Error("Could not confirm edge by time")
 				return et.fsm.Do(edgeTryToConfirm{})
 			}
+			log.WithFields(fields).Infof("Successfully confirmed by time")
 			return et.fsm.Do(edgeConfirm{})
 		}
 		return et.fsm.Do(edgeTryToConfirm{})
@@ -193,8 +201,16 @@ func (et *edgeTracker) canConfirmByTime(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
-	if et.edge.GetType() == protocol.SmallStepChallengeEdge && et.cfg.validatorName == "alice" {
-		log.WithFields(et.uniqueTrackerLogFields()).Infof("CHAL PERIOD IS %d, path timer is %d", chalPeriod, timer)
+	start, _ := et.edge.StartCommitment()
+	end, _ := et.edge.EndCommitment()
+	if et.cfg.validatorName == "alice" && start == 0 && end == 2 && et.edge.GetType() == protocol.SmallStepChallengeEdge {
+		log.WithFields(et.uniqueTrackerLogFields()).Infof("Path timer %d", timer)
+	}
+	if et.cfg.validatorName == "bob" && start == 16 && end == 32 && et.edge.GetType() == protocol.BlockChallengeEdge {
+		log.WithFields(et.uniqueTrackerLogFields()).Infof("Bob Path timer %d", timer)
+	}
+	if et.cfg.validatorName == "alice" && start == 16 && end == 32 && et.edge.GetType() == protocol.BlockChallengeEdge {
+		log.WithFields(et.uniqueTrackerLogFields()).Infof("Alice Path timer %d", timer)
 	}
 	return timer >= challengetree.PathTimer(chalPeriod), nil
 }
@@ -507,7 +523,7 @@ func (et *edgeTracker) spawn(ctx context.Context) {
 		select {
 		case <-t.C():
 			if et.shouldComplete() {
-				log.WithFields(fields).Debug("Edge tracker received notice of a confirmation, exiting")
+				log.WithFields(fields).Infof("Edge tracker received notice of a confirmation, exiting")
 				return
 			}
 			if err := et.act(ctx); err != nil {

@@ -11,7 +11,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/validator"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -44,7 +43,7 @@ type challengeProtocolTestConfig struct {
 }
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
 	defer cancel()
 
 	setupCfg, err := setup.SetupChainsWithEdgeChallengeManager()
@@ -93,7 +92,7 @@ func main() {
 
 	// Advance the blockchain in the background.
 	go func() {
-		tick := time.NewTicker(3 * time.Second)
+		tick := time.NewTicker(5 * time.Second)
 		defer tick.Stop()
 		for {
 			select {
@@ -108,20 +107,7 @@ func main() {
 	a.Start(ctx)
 	b.Start(ctx)
 
-	tick := time.NewTicker(5 * time.Second)
-	defer tick.Stop()
-	for {
-		select {
-		case <-tick.C:
-			header, err := backend.HeaderByNumber(ctx, nil)
-			if err != nil {
-				panic(err)
-			}
-			logrus.Infof("***Simulation current block number: %d", header.Number.Uint64())
-		case <-ctx.Done():
-			return
-		}
-	}
+	<-ctx.Done()
 }
 
 // setupValidator initializes a validator with the minimum required configuration.

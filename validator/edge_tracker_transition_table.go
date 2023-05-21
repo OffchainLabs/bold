@@ -14,24 +14,12 @@ func newEdgeTrackerFsm(
 			// this, including challenge moves.
 			Typ: edgeBackToStart{},
 			From: []edgeTrackerState{
-				edgePresumptive,
 				edgeBisecting,
 				edgeStarted,
 				edgeAtOneStepProof,
 				edgeAddingSubchallengeLeaf,
-				edgePresumptive,
 			},
 			To: edgeStarted,
-		},
-		{
-			// Marks a tracker as presumptive status. This can occur
-			// soon after the tracker begins, or if a challenge move has been made.
-			Typ: edgeMarkPresumptive{},
-			From: []edgeTrackerState{
-				edgeStarted,
-				edgePresumptive,
-			},
-			To: edgePresumptive,
 		},
 		// One-step-proof states.
 		{

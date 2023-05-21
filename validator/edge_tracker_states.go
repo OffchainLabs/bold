@@ -13,8 +13,6 @@ const (
 	_ edgeTrackerState = iota
 	// The start state of the tracker.
 	edgeStarted
-	// The edge being tracked is presumptive.
-	edgePresumptive
 	// The edge being tracked is at a one step fork.
 	edgeAtOneStepFork
 	// The edge being tracked is at a one step proof.
@@ -36,8 +34,6 @@ func (s edgeTrackerState) String() string {
 	switch s {
 	case edgeStarted:
 		return "started"
-	case edgePresumptive:
-		return "presumptive"
 	case edgeAtOneStepFork:
 		return "one_step_fork"
 	case edgeAtOneStepProof:
@@ -65,9 +61,6 @@ type edgeTrackerAction interface {
 // Transitions the edge tracker back to a start state.
 type edgeBackToStart struct{}
 
-// Transitions the edge tracker to a presumptive state.
-type edgeMarkPresumptive struct{}
-
 // Tracker will act if the edge is at a one step fork.
 type edgeHandleOneStepFork struct{}
 
@@ -87,9 +80,6 @@ type edgeConfirm struct{}
 
 func (edgeBackToStart) String() string {
 	return "back_to_start"
-}
-func (edgeMarkPresumptive) String() string {
-	return "mark_presumptive"
 }
 func (edgeHandleOneStepFork) String() string {
 	return "check_one_step_fork"
@@ -111,9 +101,6 @@ func (edgeConfirm) String() string {
 }
 
 func (edgeBackToStart) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeMarkPresumptive) isEdgeTrackerAction() bool {
 	return true
 }
 func (edgeHandleOneStepFork) isEdgeTrackerAction() bool {
