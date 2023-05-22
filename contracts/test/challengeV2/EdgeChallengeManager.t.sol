@@ -248,12 +248,17 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
-    function testCanConfirmPs() public {
+    function testCanCreateEdgeWithStake()
+        public
+        returns (EdgeInitData memory, bytes32[] memory, bytes32[] memory, bytes32)
+    {
         EdgeInitData memory ei = deployAndInit();
 
         (bytes32[] memory states, bytes32[] memory exp) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
 
+        IERC20 stakeToken = ei.challengeManager.stakeToken();
+        uint256 beforeBalance = stakeToken.balanceOf(address(this));
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
@@ -271,6 +276,15 @@ contract EdgeChallengeManagerTest is Test {
                     )
             })
         );
+        uint256 afterBalance = stakeToken.balanceOf(address(this));
+        assertEq(beforeBalance - afterBalance, ei.challengeManager.stakeAmount(), "Staked");
+
+        return (ei, states, exp, edgeId);
+    }
+
+    function testCanConfirmPs() public {
+        (EdgeInitData memory ei, bytes32[] memory states, bytes32[] memory exp, bytes32 edgeId) =
+            testCanCreateEdgeWithStake();
 
         vm.roll(challengePeriodBlock + 2);
 
@@ -281,28 +295,8 @@ contract EdgeChallengeManagerTest is Test {
     }
 
     function testCanConfirmByChildren() public {
-        EdgeInitData memory ei = deployAndInit();
-
-        (bytes32[] memory states1, bytes32[] memory exp1) =
-            appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
-
-        bytes32 edge1Id = ei.challengeManager.createLayerZeroEdge(
-            CreateEdgeArgs({
-                edgeType: EdgeType.Block,
-                endHistoryRoot: MerkleTreeLib.root(exp1),
-                endHeight: height1,
-                claimId: ei.a1,
-                prefixProof: abi.encode(
-                    ProofUtils.expansionFromLeaves(states1, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
-                    ),
-                proof: abi.encode(
-                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), states1.length - 1),
-                    ExecutionStateData(genesisState, ""),
-                    ExecutionStateData(ei.a1State, "")
-                    )
-            })
-        );
+        (EdgeInitData memory ei, bytes32[] memory states1, bytes32[] memory exp1, bytes32 edge1Id) =
+            testCanCreateEdgeWithStake();
 
         vm.roll(block.number + 1);
 
@@ -1222,7 +1216,7 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
-    function testCanConfirmByOneStep() public {
+    function testCanConfirmByOneStep() public returns (EdgeInitData memory, BisectionChildren[] memory) {
         EdgeInitData memory ei = deployAndInit();
 
         (
@@ -1343,6 +1337,50 @@ contract EdgeChallengeManagerTest is Test {
         assertTrue(
             ei.challengeManager.getEdge(allWinners[17].lowerChildId).status == EdgeStatus.Confirmed, "Edge confirmed"
         );
+
+        return (ei, allWinners);
+    }
+
+    function testCanRefundStake() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+
+        IERC20 stakeToken = ei.challengeManager.stakeToken();
+        uint256 beforeBalance = stakeToken.balanceOf(address(this));
+        ei.challengeManager.refundStake(allWinners[17].lowerChildId);
+        uint256 afterBalance = stakeToken.balanceOf(address(this));
+        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
+    }
+
+    function testRevertRefundStakeTwice() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        ei.challengeManager.refundStake(allWinners[17].lowerChildId);
+        vm.expectRevert("Already refunded");
+        ei.challengeManager.refundStake(allWinners[17].lowerChildId);
+    }
+
+    function testRevertRefundStakeNotLayerZero() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        vm.expectRevert("Not layer zero edge");
+        ei.challengeManager.refundStake(allWinners[16].lowerChildId);
+    }
+
+    function testRevertRefundStakeBigStep() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        vm.expectRevert("Not Block edge type");
+        ei.challengeManager.refundStake(allWinners[11].lowerChildId);
+    }
+
+    function testRevertRefundStakeSmallStep() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        vm.expectRevert("Not Block edge type");
+        ei.challengeManager.refundStake(allWinners[6].lowerChildId);
+    }
+
+    function testRevertRefundStakeNotConfirmed() external {
+        (EdgeInitData memory ei,,, bytes32 edgeId) = testCanCreateEdgeWithStake();
+
+        vm.expectRevert("Status not Confirmed");
+        ei.challengeManager.refundStake(edgeId);
     }
 
     function testGetPrevAssertionId() public {
