@@ -36,11 +36,10 @@ import (
 func TestAncestors_AllChallengeLevels(t *testing.T) {
 	ctx := context.Background()
 	tree := &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.EdgeSnapshot](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.EdgeSnapshot](),
-		metadataReader:                &mockMetadataReader{},
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 	}
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
@@ -162,6 +161,41 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	})
 }
 
+func Test_findOriginEdge(t *testing.T) {
+	edges := threadsafe.NewSlice[protocol.ReadOnlyEdge]()
+	origin := protocol.OriginId(common.BytesToHash([]byte("foo")))
+	_, ok := findOriginEdge(origin, edges)
+	require.Equal(t, false, ok)
+	edges.Push(newEdge(&newCfg{
+		t:         t,
+		originId:  "bar",
+		edgeId:    "blk-0.a-4.a",
+		claimId:   "",
+		createdAt: 2,
+	}))
+
+	_, ok = findOriginEdge(origin, edges)
+	require.Equal(t, false, ok)
+
+	origin = protocol.OriginId(common.BytesToHash([]byte("bar")))
+	got, ok := findOriginEdge(origin, edges)
+	require.Equal(t, true, ok)
+	require.Equal(t, got.Id(), protocol.EdgeId(common.BytesToHash([]byte("blk-0.a-4.a"))))
+
+	edges.Push(newEdge(&newCfg{
+		t:         t,
+		originId:  "baz",
+		edgeId:    "blk-0.b-4.b",
+		claimId:   "",
+		createdAt: 2,
+	}))
+
+	origin = protocol.OriginId(common.BytesToHash([]byte("baz")))
+	got, ok = findOriginEdge(origin, edges)
+	require.Equal(t, true, ok)
+	require.Equal(t, got.Id(), protocol.EdgeId(common.BytesToHash([]byte("blk-0.b-4.b"))))
+}
+
 func buildEdges(allEdges ...*edge) map[edgeId]*edge {
 	m := make(map[edgeId]*edge)
 	for _, e := range allEdges {
@@ -222,7 +256,7 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree) {
 	bobEdges["blk-4.a-6.b"].lowerChildId = "blk-4.a-5.b"
 	bobEdges["blk-4.a-6.b"].upperChildId = "blk-5.b-6.b"
 
-	transformedEdges := make(map[protocol.EdgeId]protocol.EdgeSnapshot)
+	transformedEdges := make(map[protocol.EdgeId]protocol.ReadOnlyEdge)
 	for _, v := range aliceEdges {
 		transformedEdges[v.Id()] = v
 	}

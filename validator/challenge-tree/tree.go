@@ -50,43 +50,20 @@ type creationTime uint64
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                         *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.ReadOnlyEdge]
 	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionId           protocol.AssertionId
-	honestBlockChalLevelZeroEdge  util.Option[protocol.EdgeSnapshot]
-	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.EdgeSnapshot]
-	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
+	honestBlockChalLevelZeroEdge  util.Option[protocol.ReadOnlyEdge]
+	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.ReadOnlyEdge]
+	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.ReadOnlyEdge]
 	metadataReader                MetadataReader
 	histChecker                   HistoryChecker
 	edgeReader                    EdgeReader
 }
 
-// RefreshEdgesFromChain refreshes all edge snapshots from the chain.
-func (ht *HonestChallengeTree) RefreshEdgesFromChain(ctx context.Context) error {
-	edgeIds := make([]protocol.EdgeId, 0, ht.edges.NumItems())
-	if err := ht.edges.ForEach(func(id protocol.EdgeId, _ protocol.EdgeSnapshot) error {
-		edgeIds = append(edgeIds, id)
-		return nil
-	}); err != nil {
-		return err
-	}
-	snapshots := make([]protocol.EdgeSnapshot, len(edgeIds))
-	for i, edgeId := range edgeIds {
-		edge, err := ht.edgeReader.GetEdge(ctx, edgeId)
-		if err != nil {
-			return err
-		}
-		snapshots[i] = edge
-	}
-	for i, edgeId := range edgeIds {
-		ht.edges.Put(edgeId, snapshots[i])
-	}
-	return nil
-}
-
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
-func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnapshot) error {
+func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnlyEdge) error {
 	prevAssertionId, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
 		return errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
