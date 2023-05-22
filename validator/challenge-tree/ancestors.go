@@ -181,6 +181,9 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 	ancestry := make([]protocol.EdgeId, 0)
 	wantedEdgeStart, _ := queryingFor.StartCommitment()
 	for {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if curr.Id() == queryingFor.Id() {
 			found = true
 			break
