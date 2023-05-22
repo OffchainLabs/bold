@@ -9,13 +9,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-type EdgeReader interface {
-	GetEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
-}
-
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
-	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
+	AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	ClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*ClaimHeights, error)
 }
@@ -58,7 +54,6 @@ type HonestChallengeTree struct {
 	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.ReadOnlyEdge]
 	metadataReader                MetadataReader
 	histChecker                   HistoryChecker
-	edgeReader                    EdgeReader
 }
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
