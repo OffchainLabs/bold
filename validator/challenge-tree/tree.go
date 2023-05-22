@@ -43,19 +43,19 @@ type HistoryChecker interface {
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                         *threadsafe.Map[protocol.EdgeId, protocol.EdgeSnapshot]
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.ReadOnlyEdge]
 	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Set[protocol.EdgeId]]
 	topLevelAssertionId           protocol.AssertionId
-	honestBlockChalLevelZeroEdge  util.Option[protocol.EdgeSnapshot]
-	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.EdgeSnapshot]
-	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.EdgeSnapshot]
+	honestBlockChalLevelZeroEdge  util.Option[protocol.ReadOnlyEdge]
+	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.ReadOnlyEdge]
+	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.ReadOnlyEdge]
 	metadataReader                MetadataReader
 	histChecker                   HistoryChecker
 }
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
-func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.EdgeSnapshot) error {
+func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnlyEdge) error {
 	prevAssertionId, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
 		return errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
