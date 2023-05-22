@@ -160,6 +160,41 @@ func TestAncestors_AllChallengeLevels(t *testing.T) {
 	})
 }
 
+func Test_findOriginEdge(t *testing.T) {
+	edges := threadsafe.NewSlice[protocol.ReadOnlyEdge]()
+	origin := protocol.OriginId(common.BytesToHash([]byte("foo")))
+	_, ok := findOriginEdge(origin, edges)
+	require.Equal(t, false, ok)
+	edges.Push(newEdge(&newCfg{
+		t:         t,
+		originId:  "bar",
+		edgeId:    "blk-0.a-4.a",
+		claimId:   "",
+		createdAt: 2,
+	}))
+
+	_, ok = findOriginEdge(origin, edges)
+	require.Equal(t, false, ok)
+
+	origin = protocol.OriginId(common.BytesToHash([]byte("bar")))
+	got, ok := findOriginEdge(origin, edges)
+	require.Equal(t, true, ok)
+	require.Equal(t, got.Id(), protocol.EdgeId(common.BytesToHash([]byte("blk-0.a-4.a"))))
+
+	edges.Push(newEdge(&newCfg{
+		t:         t,
+		originId:  "baz",
+		edgeId:    "blk-0.b-4.b",
+		claimId:   "",
+		createdAt: 2,
+	}))
+
+	origin = protocol.OriginId(common.BytesToHash([]byte("baz")))
+	got, ok = findOriginEdge(origin, edges)
+	require.Equal(t, true, ok)
+	require.Equal(t, got.Id(), protocol.EdgeId(common.BytesToHash([]byte("blk-0.b-4.b"))))
+}
+
 func buildEdges(allEdges ...*edge) map[edgeId]*edge {
 	m := make(map[edgeId]*edge)
 	for _, e := range allEdges {
