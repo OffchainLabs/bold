@@ -239,7 +239,7 @@ func (e *edge) ClaimId() util.Option[protocol.ClaimId] {
 }
 
 // The lower child of the edge, if any.
-func (e *edge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+func (e *edge) LowerChild(_ context.Context) (util.Option[protocol.EdgeId], error) {
 	if e.lowerChildId == "" {
 		return util.None[protocol.EdgeId](), nil
 	}
@@ -247,7 +247,7 @@ func (e *edge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], er
 }
 
 // The upper child of the edge, if any.
-func (e *edge) UpperChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
+func (e *edge) UpperChild(_ context.Context) (util.Option[protocol.EdgeId], error) {
 	if e.upperChildId == "" {
 		return util.None[protocol.EdgeId](), nil
 	}
@@ -255,41 +255,39 @@ func (e *edge) UpperChild(ctx context.Context) (util.Option[protocol.EdgeId], er
 }
 
 // The ministaker of an edge. Only existing for level zero edges.
-func (e *edge) MiniStaker() util.Option[common.Address] {
+func (*edge) MiniStaker() util.Option[common.Address] {
 	return util.None[common.Address]()
 }
 
 // The assertion id of the parent assertion that originated the challenge
 // at the top-level.
-func (e *edge) PrevAssertionId(ctx context.Context) (protocol.AssertionId, error) {
+func (*edge) PrevAssertionId(_ context.Context) (protocol.AssertionId, error) {
 	return protocol.AssertionId{}, errors.New("unimplemented")
 }
 
 // The time in seconds an edge has been unrivaled.
-func (e *edge) TimeUnrivaled(ctx context.Context) (uint64, error) {
+func (*edge) TimeUnrivaled(_ context.Context) (uint64, error) {
 	return 0, errors.New("unimplemented")
 }
 
 // The status of an edge.
-func (e *edge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
-
+func (*edge) Status(_ context.Context) (protocol.EdgeStatus, error) {
 	return 0, errors.New("unimplemented")
 }
 
 // Whether or not an edge has rivals.
-func (e *edge) HasRival(ctx context.Context) (bool, error) {
+func (*edge) HasRival(_ context.Context) (bool, error) {
 	return false, errors.New("unimplemented")
 }
 
 // Checks if an edge has a length one rival.
-func (e *edge) HasLengthOneRival(ctx context.Context) (bool, error) {
+func (*edge) HasLengthOneRival(_ context.Context) (bool, error) {
 	return false, errors.New("unimplemented")
-
 }
 
 // The history commitment for the top-level edge the current edge's challenge is made upon.
 // This is used at subchallenge creation boundaries.
-func (e *edge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHeights, error) {
+func (*edge) TopLevelClaimHeight(_ context.Context) (*protocol.OriginHeights, error) {
 	return nil, errors.New("unimplemented")
 }
 
