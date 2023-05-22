@@ -235,9 +235,9 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		// If the wanted edge's start commitment is < the bisection height of the current
 		// edge in the loop, it means it is part of its lower children.
 		if uint64(wantedEdgeStart) < bisectTo {
-			lowerSnapshot, err := curr.LowerChild(ctx)
-			if err != nil {
-				return 0, nil, errors.Wrapf(err, "could not get lower child for edge %#x", curr.Id())
+			lowerSnapshot, lowerErr := curr.LowerChild(ctx)
+			if lowerErr != nil {
+				return 0, nil, errors.Wrapf(lowerErr, "could not get lower child for edge %#x", curr.Id())
 			}
 			if lowerSnapshot.IsNone() {
 				return 0, nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
@@ -245,9 +245,9 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 			curr = ht.edges.Get(lowerSnapshot.Unwrap())
 		} else {
 			// Else, it is part of the upper children.
-			upperSnapshot, err := curr.UpperChild(ctx)
-			if err != nil {
-				return 0, nil, errors.Wrapf(err, "could not get upper child for edge %#x", curr.Id())
+			upperSnapshot, upperErr := curr.UpperChild(ctx)
+			if upperErr != nil {
+				return 0, nil, errors.Wrapf(upperErr, "could not get upper child for edge %#x", curr.Id())
 			}
 			if upperSnapshot.IsNone() {
 				return 0, nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
