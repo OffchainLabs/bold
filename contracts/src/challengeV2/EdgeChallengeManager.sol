@@ -39,6 +39,7 @@ interface IEdgeChallengeManager {
     /// @param layerZeroSmallStepEdgeHeight The end height of layer zero edges of type SmallStep
     /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
     /// @param _stakeAmount                 The amount of stake (in units of stake token) required to create a block edge
+    /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodBlocks,
@@ -47,7 +48,8 @@ interface IEdgeChallengeManager {
         uint256 layerZeroBigStepEdgeHeight,
         uint256 layerZeroSmallStepEdgeHeight,
         IERC20 _stakeToken,
-        uint256 _stakeAmount
+        uint256 _stakeAmount,
+        address _excessStakeReceiver
     ) external;
 
     /// @notice The one step proof resolver used to decide between rival SmallStep edges of length 1
@@ -300,7 +302,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 layerZeroBigStepEdgeHeight,
         uint256 layerZeroSmallStepEdgeHeight,
         IERC20 _stakeToken,
-        uint256 _stakeAmount
+        uint256 _stakeAmount,
+        address _excessStakeReceiver
     ) public initializer {
         require(address(assertionChain) == address(0), "ALREADY_INIT");
         require(address(_assertionChain) != address(0), "Empty assertion chain");
@@ -312,6 +315,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
         stakeToken = _stakeToken;
         stakeAmount = _stakeAmount;
+        require(_excessStakeReceiver != address(0), "Empty excess stake receiver");
+        excessStakeReceiver = _excessStakeReceiver;
 
         require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight), "Block height not power of 2");
         LAYERZERO_BLOCKEDGE_HEIGHT = layerZeroBlockEdgeHeight;

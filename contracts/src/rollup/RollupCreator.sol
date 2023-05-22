@@ -106,7 +106,8 @@ contract RollupCreator is Ownable {
             layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
             layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
             _stakeToken: IERC20(config.stakeToken),
-            _stakeAmount: config.miniStakeValue
+            _stakeAmount: config.miniStakeValue,
+            _excessStakeReceiver: config.owner // TODO: HN: this should be the gov L1 timelock or executor
         });
 
         frame.rollup = new RollupProxy(

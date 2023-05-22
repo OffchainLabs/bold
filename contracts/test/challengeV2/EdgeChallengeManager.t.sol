@@ -7,6 +7,7 @@ import "../MockAssertionChain.sol";
 import "../../src/challengeV2/EdgeChallengeManager.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "../ERC20Mock.sol";
 import "./StateTools.sol";
 
 contract MockOneStepProofEntry is IOneStepProofEntry {
@@ -49,6 +50,8 @@ contract EdgeChallengeManagerTest is Test {
     uint256 height1 = 32;
 
     uint256 miniStakeVal = 1 ether;
+    address excessStakeReceiver = address(77);
+
     uint256 challengePeriodBlock = 1000;
     ExecutionStateData empty;
 
@@ -82,9 +85,17 @@ contract EdgeChallengeManagerTest is Test {
             2 ** 5,
             2 ** 5,
             2 ** 5,
-            IERC20(address(0)),
-            miniStakeVal
+            new ERC20Mock(
+                "StakeToken",
+                "ST",
+                address(this),
+                1000000 ether
+            ),
+            miniStakeVal,
+            excessStakeReceiver
         );
+
+        challengeManager.stakeToken().approve(address(challengeManager), type(uint256).max);
 
         bytes32 genesis = assertionChain.addAssertionUnsafe(0, genesisHeight, inboxMsgCountGenesis, genesisState, 0);
         return (assertionChain, challengeManager, genesis);
