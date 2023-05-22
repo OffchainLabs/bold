@@ -51,6 +51,7 @@ contract EdgeChallengeManagerTest is Test {
 
     uint256 miniStakeVal = 1 ether;
     address excessStakeReceiver = address(77);
+    address nobody = address(78);
 
     uint256 challengePeriodBlock = 1000;
     ExecutionStateData empty;
@@ -1352,6 +1353,7 @@ contract EdgeChallengeManagerTest is Test {
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         uint256 beforeBalance = stakeToken.balanceOf(address(this));
+        vm.prank(nobody); // call refund as nobody
         ei.challengeManager.refundStake(allWinners[17].lowerChildId);
         uint256 afterBalance = stakeToken.balanceOf(address(this));
         assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");

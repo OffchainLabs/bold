@@ -503,7 +503,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 sa = stakeAmount;
         // no need to refund with the token or amount where zero'd out
         if (address(st) != address(0) && sa != 0) {
-            st.safeTransfer(msg.sender, sa);
+            st.safeTransfer(edge.staker, sa);
         }
 
         emit EdgeRefunded(edgeId, store.edges[edgeId].mutualId(), address(st), sa);
