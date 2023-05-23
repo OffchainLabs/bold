@@ -15,16 +15,16 @@ func (ht *HonestChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint
 	}
 	// If no rival at a block num, then the local timer is defined
 	// as t - t_creation(e).
-	unrivaled, err := ht.unrivaledAtTime(e, blockNum)
+	unrivaled, err := ht.unrivaledAtBlockNum(e, blockNum)
 	if err != nil {
 		return 0, err
 	}
 	if unrivaled {
 		return blockNum - e.CreatedAtBlock(), nil
 	}
-	// Else we return the earliest created rival's time: t_rival - t_creation(e).
+	// Else we return the earliest created rival's block number: t_rival - t_creation(e).
 	// This unwrap is safe because the edge has rivals at this point due to the check above.
-	earliest := ht.earliestCreatedRivalTimestamp(e)
+	earliest := ht.earliestCreatedRivalBlockNumber(e)
 	tRival := earliest.Unwrap()
 	if e.CreatedAtBlock() >= tRival {
 		return 0, nil
@@ -32,9 +32,9 @@ func (ht *HonestChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint
 	return tRival - e.CreatedAtBlock(), nil
 }
 
-// Gets the minimum creation timestamp across all of an edge's rivals. If an edge
+// Gets the minimum creation block number across all of an edge's rivals. If an edge
 // has no rivals, this minimum is undefined.
-func (ht *HonestChallengeTree) earliestCreatedRivalTimestamp(e protocol.ReadOnlyEdge) util.Option[uint64] {
+func (ht *HonestChallengeTree) earliestCreatedRivalBlockNumber(e protocol.ReadOnlyEdge) util.Option[uint64] {
 	rivals := ht.rivalsWithCreationTimes(e)
 	creationBlocks := make([]uint64, len(rivals))
 	for i, r := range rivals {
@@ -45,7 +45,7 @@ func (ht *HonestChallengeTree) earliestCreatedRivalTimestamp(e protocol.ReadOnly
 
 // Determines if an edge was unrivaled at a block num T. If any rival existed
 // for the edge at T, this function will return false.
-func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.ReadOnlyEdge, blockNum uint64) (bool, error) {
+func (ht *HonestChallengeTree) unrivaledAtBlockNum(e protocol.ReadOnlyEdge, blockNum uint64) (bool, error) {
 	if blockNum < e.CreatedAtBlock() {
 		return false, fmt.Errorf(
 			"edge creation block %d less than specified %d",
@@ -67,13 +67,13 @@ func (ht *HonestChallengeTree) unrivaledAtTime(e protocol.ReadOnlyEdge, blockNum
 	return true, nil
 }
 
-// Contains a rival edge's id and its creation time.
+// Contains a rival edge's id and its creation block number.
 type rival struct {
 	id             protocol.EdgeId
 	createdAtBlock creationTime
 }
 
-// Computes the set of rivals with their creation timestamp for an edge being tracked
+// Computes the set of rivals with their creation block number for an edge being tracked
 // by the challenge tree. We do this by computing the mutual id of the edge and fetching
 // all edge ids that share the same one from a set the challenge tree keeps track of.
 // We exclude the specified edge from the returned list of rivals.

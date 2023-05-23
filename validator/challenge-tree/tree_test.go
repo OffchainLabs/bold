@@ -184,17 +184,17 @@ type originId string
 
 // Mock edge for challenge tree specific tests, making it easier for test ergonomics.
 type edge struct {
-	id           edgeId
-	edgeType     protocol.EdgeType
-	startHeight  uint64
-	startCommit  commit
-	endHeight    uint64
-	endCommit    commit
-	originId     originId
-	claimId      string
-	lowerChildId edgeId
-	upperChildId edgeId
-	creationTime uint64
+	id            edgeId
+	edgeType      protocol.EdgeType
+	startHeight   uint64
+	startCommit   commit
+	endHeight     uint64
+	endCommit     commit
+	originId      originId
+	claimId       string
+	lowerChildId  edgeId
+	upperChildId  edgeId
+	creationBlock uint64
 }
 
 func (e *edge) Id() protocol.EdgeId {
@@ -214,7 +214,7 @@ func (e *edge) EndCommitment() (protocol.Height, common.Hash) {
 }
 
 func (e *edge) CreatedAtBlock() uint64 {
-	return e.creationTime
+	return e.creationBlock
 }
 
 func (e *edge) OriginId() protocol.OriginId {
@@ -328,16 +328,16 @@ func newEdge(cfg *newCfg) *edge {
 	endCommit := endData[1]
 
 	return &edge{
-		edgeType:     typ,
-		originId:     cfg.originId,
-		id:           cfg.edgeId,
-		startHeight:  startHeight,
-		claimId:      cfg.claimId,
-		startCommit:  commit(startCommit),
-		endHeight:    endHeight,
-		endCommit:    commit(endCommit),
-		lowerChildId: "",
-		upperChildId: "",
-		creationTime: cfg.createdAt,
+		edgeType:      typ,
+		originId:      cfg.originId,
+		id:            cfg.edgeId,
+		startHeight:   startHeight,
+		claimId:       cfg.claimId,
+		startCommit:   commit(startCommit),
+		endHeight:     endHeight,
+		endCommit:     commit(endCommit),
+		lowerChildId:  "",
+		upperChildId:  "",
+		creationBlock: cfg.createdAt,
 	}
 }
