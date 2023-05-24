@@ -17,8 +17,6 @@ interface IRollupCore is IAssertionChain {
         uint256 amountStaked;
         uint64 index;
         uint64 latestStakedAssertion;
-        // currentChallenge is 0 if staker is not in a challenge
-        uint64 currentChallenge;
         bool isStaked;
     }
 

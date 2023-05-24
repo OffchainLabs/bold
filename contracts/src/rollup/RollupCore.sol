@@ -155,7 +155,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return Current challenge of the staker
      */
     function currentChallenge(address staker) public view override returns (uint64) {
-        return _stakerMap[staker].currentChallenge;
+        revert("currentChallenge DEPRECATED");
     }
 
     /**
@@ -322,7 +322,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             depositAmount,
             stakerIndex,
             _latestConfirmed,
-            NO_CHAL_INDEX, // new staker is not in challenge
             true
         );
         _assertionStakers[_latestConfirmed][stakerAddress] = true;
@@ -337,12 +336,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @return Address of the challenge that the two stakers are in
      */
     function inChallenge(address stakerAddress1, address stakerAddress2) internal view returns (uint64) {
-        Staker storage staker1 = _stakerMap[stakerAddress1];
-        Staker storage staker2 = _stakerMap[stakerAddress2];
-        uint64 challenge = staker1.currentChallenge;
-        require(challenge != NO_CHAL_INDEX, "NO_CHAL");
-        require(challenge == staker2.currentChallenge, "DIFF_IN_CHAL");
-        return challenge;
+        revert("inChallenge DEPRECATED");
     }
 
     /**
@@ -350,8 +344,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the staker to remove from a challenge
      */
     function clearChallenge(address stakerAddress) internal {
-        Staker storage staker = _stakerMap[stakerAddress];
-        staker.currentChallenge = NO_CHAL_INDEX;
+        revert("clearChallenge DEPRECATED");
     }
 
     /**
@@ -361,8 +354,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param challenge Address of the challenge both stakers are now in
      */
     function challengeStarted(address staker1, address staker2, uint64 challenge) internal {
-        _stakerMap[staker1].currentChallenge = challenge;
-        _stakerMap[staker2].currentChallenge = challenge;
+        revert("challengeStarted DEPRECATED");
     }
 
     /**
