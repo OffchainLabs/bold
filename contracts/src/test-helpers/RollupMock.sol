@@ -16,6 +16,7 @@ contract RollupMock {
     function removeOldZombies(
         uint256 /* startIndex */
     ) external {
+        revert("removeOldZombies DEPRECATED");
         emit ZombieTriggered();
     }
 }

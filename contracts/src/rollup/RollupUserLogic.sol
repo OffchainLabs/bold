@@ -162,7 +162,8 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     function _newStake(uint256 depositAmount) internal onlyValidator whenNotPaused {
         // Verify that sender is not already a staker
         require(!isStaked(msg.sender), "ALREADY_STAKED");
-        require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
+        // TODO: HN: review this logic
+        // require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
         require(depositAmount >= currentRequiredStake(), "NOT_ENOUGH_STAKE");
 
         createNewStake(msg.sender, depositAmount);
@@ -282,46 +283,12 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         revert("DEPRECATED");
     }
 
-    /**
-     * @notice Remove the given zombie from assertions it is staked on, moving backwords from the latest assertion it is staked on
-     * @param zombieNum Index of the zombie to remove
-     * @param maxAssertions Maximum number of assertions to remove the zombie from (to limit the cost of this transaction)
-     */
     function removeZombie(uint256 zombieNum, uint256 maxAssertions) external onlyValidator whenNotPaused {
-        require(zombieNum < zombieCount(), "NO_SUCH_ZOMBIE");
-        address zombieStakerAddress = zombieAddress(zombieNum);
-        uint64 latestAssertionStaked = zombieLatestStakedAssertion(zombieNum);
-        uint256 assertionsRemoved = 0;
-        uint256 latestConfirmedNum = latestConfirmed();
-        while (latestAssertionStaked >= latestConfirmedNum && assertionsRemoved < maxAssertions) {
-            AssertionNode storage assertion = getAssertionStorage(latestAssertionStaked);
-            removeStaker(latestAssertionStaked, zombieStakerAddress);
-            latestAssertionStaked = assertion.prevNum;
-            assertionsRemoved++;
-        }
-        if (latestAssertionStaked < latestConfirmedNum) {
-            removeZombie(zombieNum);
-        } else {
-            zombieUpdateLatestStakedAssertion(zombieNum, latestAssertionStaked);
-        }
+        revert("removeZombie DEPRECATED");
     }
 
-    /**
-     * @notice Remove any zombies whose latest stake is earlier than the latest confirmed assertion
-     * @param startIndex Index in the zombie list to start removing zombies from (to limit the cost of this transaction)
-     */
     function removeOldZombies(uint256 startIndex) public onlyValidator whenNotPaused {
-        uint256 currentZombieCount = zombieCount();
-        uint256 latestConfirmedNum = latestConfirmed();
-        for (uint256 i = startIndex; i < currentZombieCount; i++) {
-            while (zombieLatestStakedAssertion(i) < latestConfirmedNum) {
-                removeZombie(i);
-                currentZombieCount--;
-                if (i >= currentZombieCount) {
-                    return;
-                }
-            }
-        }
+        revert("removeOldZombies DEPRECATED");
     }
 
     /**
@@ -380,50 +347,12 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         return currentRequiredStake(block.number, firstUnresolvedAssertionNum, latestAssertionCreated());
     }
 
-    /**
-     * @notice Calculate the number of zombies staked on the given assertion
-     *
-     * @dev This function could be uncallable if there are too many zombies. However,
-     * removeZombie and removeOldZombies can be used to remove any zombies that exist
-     * so that this will then be callable
-     *
-     * @param assertionNum The assertion on which to count staked zombies
-     * @return The number of zombies staked on the assertion
-     */
     function countStakedZombies(uint64 assertionNum) public view override returns (uint256) {
-        uint256 currentZombieCount = zombieCount();
-        uint256 stakedZombieCount = 0;
-        for (uint256 i = 0; i < currentZombieCount; i++) {
-            if (assertionHasStaker(assertionNum, zombieAddress(i))) {
-                stakedZombieCount++;
-            }
-        }
-        return stakedZombieCount;
+        revert("countStakedZombies DEPRECATED");
     }
 
-    /**
-     * @notice Calculate the number of zombies staked on a child of the given assertion
-     *
-     * @dev This function could be uncallable if there are too many zombies. However,
-     * removeZombie and removeOldZombies can be used to remove any zombies that exist
-     * so that this will then be callable
-     *
-     * @param assertionNum The parent assertion on which to count zombies staked on children
-     * @return The number of zombies staked on children of the assertion
-     */
     function countZombiesStakedOnChildren(uint64 assertionNum) public view override returns (uint256) {
-        uint256 currentZombieCount = zombieCount();
-        uint256 stakedZombieCount = 0;
-        for (uint256 i = 0; i < currentZombieCount; i++) {
-            Zombie storage zombie = getZombieStorage(i);
-            // If this zombie is staked on this assertion, but its _latest_ staked assertion isn't this assertion,
-            // then it must be staked on a child of this assertion.
-            if (zombie.latestStakedAssertion != assertionNum && assertionHasStaker(assertionNum, zombie.stakerAddress))
-            {
-                stakedZombieCount++;
-            }
-        }
-        return stakedZombieCount;
+        revert("countZombiesStakedOnChildren DEPRECATED");
     }
 
     /**

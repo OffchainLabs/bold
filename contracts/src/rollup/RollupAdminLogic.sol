@@ -271,11 +271,12 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function forceRefundStaker(address[] calldata staker) external override whenPaused {
         require(staker.length > 0, "EMPTY_ARRAY");
         for (uint256 i = 0; i < staker.length; i++) {
-            // TODO: HN: revise this
+            // TODO: HN: review this
             // require(_stakerMap[staker[i]].currentChallenge == NO_CHAL_INDEX, "STAKER_IN_CHALL");
 
             reduceStakeTo(staker[i], 0);
-            turnIntoZombie(staker[i]);
+            // TODO: HN: review this
+            // turnIntoZombie(staker[i]);
         }
         emit OwnerFunctionCalled(22);
     }

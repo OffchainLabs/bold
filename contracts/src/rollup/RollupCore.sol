@@ -49,12 +49,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     mapping(address => bool) public isValidator;
 
-    // Stakers become Zombies after losing a challenge
-    struct Zombie {
-        address stakerAddress;
-        uint64 latestStakedAssertion;
-    }
-
     uint64 private _latestConfirmed;
     uint64 private _firstUnresolvedAssertion;
     uint64 private _latestAssertionCreated;
@@ -66,8 +60,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     address[] private _stakerList;
     mapping(address => Staker) public _stakerMap;
-
-    Zombie[] private _zombies;
 
     mapping(address => uint256) private _withdrawableFunds;
     uint256 public totalWithdrawableFunds;
@@ -176,45 +168,20 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return _stakerMap[staker];
     }
 
-    /**
-     * @notice Get the original staker address of the zombie at the given index
-     * @param zombieNum Index of the zombie to lookup
-     * @return Original staker address of the zombie
-     */
     function zombieAddress(uint256 zombieNum) public view override returns (address) {
-        return _zombies[zombieNum].stakerAddress;
+        revert("zombieAddress DEPRECATED");
     }
 
-    /**
-     * @notice Get Latest assertion that the given zombie at the given index is staked on
-     * @param zombieNum Index of the zombie to lookup
-     * @return Latest assertion that the given zombie is staked on
-     */
     function zombieLatestStakedAssertion(uint256 zombieNum) public view override returns (uint64) {
-        return _zombies[zombieNum].latestStakedAssertion;
+        revert("zombieLatestStakedAssertion DEPRECATED");
     }
 
-    /**
-     * @notice Retrieves stored information about a requested zombie
-     * @param zombieNum Index of the zombie to lookup
-     * @return A structure with information about the requested staker
-     */
-    function getZombieStorage(uint256 zombieNum) internal view returns (Zombie storage) {
-        return _zombies[zombieNum];
-    }
-
-    /// @return Current number of un-removed zombies
     function zombieCount() public view override returns (uint256) {
-        return _zombies.length;
+        revert("zombieCount DEPRECATED");
     }
 
     function isZombie(address staker) public view override returns (bool) {
-        for (uint256 i = 0; i < _zombies.length; i++) {
-            if (staker == _zombies[i].stakerAddress) {
-                return true;
-            }
-        }
-        return false;
+        revert("isZombie DEPRECATED");
     }
 
     /**
@@ -387,33 +354,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return amountWithdrawn;
     }
 
-    /**
-     * @notice Remove the given staker and turn them into a zombie
-     * @param stakerAddress Address of the staker to remove
-     */
-    function turnIntoZombie(address stakerAddress) internal {
-        Staker storage staker = _stakerMap[stakerAddress];
-        _zombies.push(Zombie(stakerAddress, staker.latestStakedAssertion));
-        deleteStaker(stakerAddress);
-    }
 
-    /**
-     * @notice Update the latest staked assertion of the zombie at the given index
-     * @param zombieNum Index of the zombie to move
-     * @param latest New latest assertion the zombie is staked on
-     */
-    function zombieUpdateLatestStakedAssertion(uint256 zombieNum, uint64 latest) internal {
-        _zombies[zombieNum].latestStakedAssertion = latest;
-    }
-
-    /**
-     * @notice Remove the zombie at the given index
-     * @param zombieNum Index of the zombie to remove
-     */
-    function removeZombie(uint256 zombieNum) internal {
-        _zombies[zombieNum] = _zombies[_zombies.length - 1];
-        _zombies.pop();
-    }
 
     /**
      * @notice Mark the given staker as staked on this assertion
