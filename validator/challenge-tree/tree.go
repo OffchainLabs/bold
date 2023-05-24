@@ -13,7 +13,7 @@ import (
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
-	AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error)
+	AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error)
 	TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error)
 	SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error)
@@ -109,25 +109,19 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnly
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
 	// we keep track of it specifically in our struct.
 	if agreement.IsHonestEdge {
-		//log.Infof("%s no issues on %#x, putting under %#x", ht.validatorName, eg.Id(), prevAssertionId)
 		id := eg.Id()
 		ht.edges.Put(id, eg)
 		if !eg.ClaimId().IsNone() {
 			switch eg.GetType() {
 			case protocol.BlockChallengeEdge:
-				//log.WithField("validator", ht.validatorName).Infof("Added honest block challenge edge to tree: %s", util.Trunc(id[:]))
 				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
 			case protocol.BigStepChallengeEdge:
-				//log.WithField("validator", ht.validatorName).Infof("Added honest big challenge edge to tree: %s", util.Trunc(id[:]))
 				ht.honestBigStepLevelZeroEdges.Push(eg)
 			case protocol.SmallStepChallengeEdge:
-				//log.WithField("validator", ht.validatorName).Infof("Added honest small step challenge edge to tree: %s", util.Trunc(id[:]))
 				ht.honestSmallStepLevelZeroEdges.Push(eg)
 			default:
 			}
 		}
-	} else {
-		//log.WithFields(fields(eg)).Infof("%s got dishonest edge %#x and heights %+v", ht.validatorName, eg.Id(), heights)
 	}
 
 	// Check if the edge id should be added to the rivaled edges set.

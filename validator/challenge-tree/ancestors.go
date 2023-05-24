@@ -58,7 +58,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 
 	// Get assertion's unrivaled time and use that as the start
 	// of our path timer.
-	timer, err := ht.metadataReader.AssertionUnrivaledTime(ctx, queryingFor)
+	timer, err := ht.metadataReader.AssertionUnrivaledTime(ctx, ht.topLevelAssertionId)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -107,11 +107,6 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		if err != nil {
 			return 0, ancestry, err
 		}
-		claimedEdgeTimer, err := ht.localTimer(claimedEdge, blockNumber)
-		if err != nil {
-			return 0, ancestry, err
-		}
-		pathTimer += PathTimer(claimedEdgeTimer)
 
 		// We compute the block ancestry from there.
 		start = honestLevelZero
@@ -222,6 +217,9 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 	wantedEdgeStart, _ := queryingFor.StartCommitment()
 
 	for {
+		if ctx.Err() != nil {
+			return 0, nil, ctx.Err()
+		}
 		if curr.Id() == queryingFor.Id() {
 			found = true
 			break
@@ -237,9 +235,9 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		// If the wanted edge's start commitment is < the bisection height of the current
 		// edge in the loop, it means it is part of its lower children.
 		if uint64(wantedEdgeStart) < bisectTo {
-			lowerSnapshot, err := curr.LowerChild(ctx)
-			if err != nil {
-				return 0, nil, err
+			lowerSnapshot, lowerErr := curr.LowerChild(ctx)
+			if lowerErr != nil {
+				return 0, nil, errors.Wrapf(lowerErr, "could not get lower child for edge %#x", curr.Id())
 			}
 			if lowerSnapshot.IsNone() {
 				return 0, nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
@@ -247,9 +245,9 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 			curr = ht.edges.Get(lowerSnapshot.Unwrap())
 		} else {
 			// Else, it is part of the upper children.
-			upperSnapshot, err := curr.UpperChild(ctx)
-			if err != nil {
-				return 0, nil, err
+			upperSnapshot, upperErr := curr.UpperChild(ctx)
+			if upperErr != nil {
+				return 0, nil, errors.Wrapf(upperErr, "could not get upper child for edge %#x", curr.Id())
 			}
 			if upperSnapshot.IsNone() {
 				return 0, nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
@@ -263,7 +261,7 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 		pathTimer += timer
 	}
 	if !found {
-		return 0, nil, fmt.Errorf("not found when looping through children %#x", queryingFor.Id())
+		return 0, nil, errNotFound(queryingFor.Id())
 	}
 	return PathTimer(pathTimer), ancestry, nil
 }
