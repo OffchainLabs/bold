@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"math/big"
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
@@ -14,11 +13,6 @@ import (
 )
 
 var (
-	// The chain id for the backend.
-	chainId = big.NewInt(1337)
-	// The size of a mini stake that is posted when creating leaf edges in
-	// challenges.
-	miniStakeSize = big.NewInt(1)
 	// The heights at which Alice and Bob diverge at each challenge level.
 	divergeHeightAtL2 = uint64(4)
 	// How often an edge tracker needs to wake and perform its responsibilities.
@@ -132,6 +126,7 @@ func setupValidator(
 		validator.WithName(name),
 		validator.WithEdgeTrackerWakeInterval(edgeTrackerWakeInterval),
 		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
+		validator.WithPostAssertionsInterval(postNewAssertionInterval),
 	)
 	if err != nil {
 		return nil, err
