@@ -17,16 +17,18 @@ var (
 	// The chain id for the backend.
 	chainId = big.NewInt(1337)
 	// The size of a mini stake that is posted when creating leaf edges in
-	// challenges (clarify if gwei?).
+	// challenges.
 	miniStakeSize = big.NewInt(1)
 	// The heights at which Alice and Bob diverge at each challenge level.
-	divergeHeightAtL2 = uint64(3)
+	divergeHeightAtL2 = uint64(4)
 	// How often an edge tracker needs to wake and perform its responsibilities.
-	edgeTrackerWakeInterval = time.Millisecond * 500
+	edgeTrackerWakeInterval = time.Second
 	// How often the validator polls the chain to see if new assertions have been posted.
 	checkForAssertionsInteral = time.Second
 	// How often the validator will post its latest assertion to the chain.
 	postNewAssertionInterval = time.Second * 5
+	// How often we advance the blockchain's latest block in the background using a simulated backend.
+	advanceChainInterval = time.Second * 5
 )
 
 type challengeProtocolTestConfig struct {
@@ -68,9 +70,9 @@ func main() {
 	cfg := &challengeProtocolTestConfig{
 		// The heights at which the validators diverge in histories. In this test,
 		// alice and bob start diverging at height 3 at all subchallenge levels.
-		assertionDivergenceHeight: 4,
-		bigStepDivergenceHeight:   4,
-		smallStepDivergenceHeight: 4,
+		assertionDivergenceHeight: divergeHeightAtL2,
+		bigStepDivergenceHeight:   divergeHeightAtL2,
+		smallStepDivergenceHeight: divergeHeightAtL2,
 	}
 	bobStateManager, err := statemanager.NewForSimpleMachine(
 		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
@@ -92,7 +94,7 @@ func main() {
 
 	// Advance the blockchain in the background.
 	go func() {
-		tick := time.NewTicker(5 * time.Second)
+		tick := time.NewTicker(advanceChainInterval)
 		defer tick.Stop()
 		for {
 			select {
@@ -128,8 +130,8 @@ func setupValidator(
 		rollup,
 		validator.WithAddress(addr),
 		validator.WithName(name),
-		validator.WithEdgeTrackerWakeInterval(time.Second),
-		validator.WithNewAssertionCheckInterval(time.Second),
+		validator.WithEdgeTrackerWakeInterval(edgeTrackerWakeInterval),
+		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
 	)
 	if err != nil {
 		return nil, err
