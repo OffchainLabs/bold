@@ -293,40 +293,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     /**
      * @notice Calculate the current amount of funds required to place a new stake in the rollup
-     * @dev If the stake requirement get's too high, this function may start reverting due to overflow, but
-     * that only blocks operations that should be blocked anyway
-     * @return The current minimum stake requirement
-     */
-    function currentRequiredStake(
-        uint256 _blockNumber,
-        uint64 _firstUnresolvedAssertionNum,
-        uint256 _latestCreatedAssertion
-    ) internal view returns (uint256) {
-        // If there are no unresolved assertions, then you can use the base stake
-        if (_firstUnresolvedAssertionNum - 1 == _latestCreatedAssertion) {
-            return baseStake;
-        }
-        uint256 firstUnresolvedDeadline = getAssertionStorage(_firstUnresolvedAssertionNum).deadlineBlock;
-        if (_blockNumber < firstUnresolvedDeadline) {
-            return baseStake;
-        }
-        uint24[10] memory numerators = [1, 122971, 128977, 80017, 207329, 114243, 314252, 129988, 224562, 162163];
-        uint24[10] memory denominators = [1, 114736, 112281, 64994, 157126, 80782, 207329, 80017, 128977, 86901];
-        uint256 firstUnresolvedAge = _blockNumber - firstUnresolvedDeadline;
-        uint256 periodsPassed = (firstUnresolvedAge * 10) / confirmPeriodBlocks;
-        uint256 baseMultiplier = 2 ** (periodsPassed / 10);
-        uint256 withNumerator = baseMultiplier * numerators[periodsPassed % 10];
-        uint256 multiplier = withNumerator / denominators[periodsPassed % 10];
-        if (multiplier == 0) {
-            multiplier = 1;
-        }
-        return baseStake * multiplier;
-    }
-
-    /**
-     * @notice Calculate the current amount of funds required to place a new stake in the rollup
-     * @dev If the stake requirement get's too high, this function may start reverting due to overflow, but
-     * that only blocks operations that should be blocked anyway
      * @return The current minimum stake requirement
      */
     function requiredStake(uint256 blockNumber, uint64 firstUnresolvedAssertionNum, uint64 latestCreatedAssertion)
@@ -334,7 +300,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         view
         returns (uint256)
     {
-        return currentRequiredStake(blockNumber, firstUnresolvedAssertionNum, latestCreatedAssertion);
+        return baseStake;
     }
 
     function owner() external view returns (address) {
@@ -342,9 +308,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 
     function currentRequiredStake() public view returns (uint256) {
-        uint64 firstUnresolvedAssertionNum = firstUnresolvedAssertion();
-
-        return currentRequiredStake(block.number, firstUnresolvedAssertionNum, latestAssertionCreated());
+        return baseStake;
     }
 
     function countStakedZombies(uint64 assertionNum) public view override returns (uint256) {
