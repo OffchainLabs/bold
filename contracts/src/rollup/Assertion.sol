@@ -25,9 +25,10 @@ struct AssertionNode {
     uint64 secondChildBlock;
     // The block number when this assertion was created
     uint64 createdAtBlock;
+    // True if this assertion is the first child of its prev
+    bool isFirstChild;
     // A hash of all the data needed to determine this assertion's validity, to protect against reorgs
     bytes32 assertionHash;
-    bool isFirstChild; // no longer in assertionHash
 }
 
 struct BeforeStateData {
