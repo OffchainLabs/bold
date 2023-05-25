@@ -140,22 +140,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         createNewStake(msg.sender, depositAmount);
     }
 
-    /**
-     * @notice Move stake onto existing child assertion
-     * @param assertionNum Index of the assertion to move stake to. This must by a child of the assertion the staker is currently staked on
-     * @param assertionHash Assertion hash of assertionNum (protects against reorgs)
-     */
     function stakeOnExistingAssertion(uint64 assertionNum, bytes32 assertionHash) public onlyValidator whenNotPaused {
-        require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
-
-        require(
-            assertionNum >= firstUnresolvedAssertion() && assertionNum <= latestAssertionCreated(),
-            "NODE_NUM_OUT_OF_RANGE"
-        );
-        AssertionNode storage assertion = getAssertionStorage(assertionNum);
-        require(assertion.assertionHash == assertionHash, "NODE_REORG");
-        require(latestStakedAssertion(msg.sender) == assertion.prevNum, "NOT_STAKED_PREV");
-        stakeOnAssertion(msg.sender, assertionNum);
+        // Assertion should only have 1 staker
+        revert("stakeOnExistingAssertion DEPRECATED");
     }
 
     /**
@@ -168,14 +155,36 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         onlyValidator
         whenNotPaused
     {
-        require(isStakedOnLatestConfirmed(msg.sender), "NOT_STAKED");
-        // Ensure staker is staked on the previous assertion
-        uint64 prevAssertion = latestStakedAssertion(msg.sender);
+        // Early revert on duplicated assertion if expectedAssertionHash is set
+        require(
+            expectedAssertionHash == bytes32(0) || !isAssertionExists(expectedAssertionHash), "EXPECTED_ASSERTION_SEEN"
+        );
+
+        require(isStaked(msg.sender), "NOT_STAKED");
+        require(amountStaked(msg.sender) >= currentRequiredStake(), "INSUFFICIENT_STAKE");
+        // Staker can create new assertion only if
+        // a) its last staked assertion is the prev; or
+        // b) its last staked assertion have a child
+        uint64 prevAssertion = getAssertionNum(
+            RollupLib.assertionHash(
+                assertion.beforeStateData.prevAssertionHash,
+                assertion.beforeState,
+                assertion.beforeStateData.sequencerBatchAcc,
+                assertion.beforeStateData.wasmRoot
+            )
+        ); // TODO: HN: we calculated this hash again in createNewAssertion
+        {
+            uint64 lastAssertion = latestStakedAssertion(msg.sender);
+            require(
+                lastAssertion == prevAssertion || getAssertionStorage(lastAssertion).firstChildBlock > 0,
+                "STAKED_ON_ANOTHER_BRANCH"
+            );
+        }
 
         {
-            uint256 timeSinceLastAssertion = block.number - getAssertion(prevAssertion).createdAtBlock;
+            uint256 timeSincePrev = block.number - getAssertion(prevAssertion).createdAtBlock;
             // Verify that assertion meets the minimum Delta time requirement
-            require(timeSinceLastAssertion >= minimumAssertionPeriod, "TIME_DELTA");
+            require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
             // CHRIS: TODO: this is an extra storage call
             // CHRIS: TODO: we should be doing this inside the createNewAssertion call
@@ -199,18 +208,22 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
 
         stakeOnAssertion(msg.sender, latestAssertionCreated());
+
+        if (getAssertionStorage(prevAssertion).secondChildBlock > 0) {
+            // only 1 of the children can be confirmed and get their stake refunded
+            // so we send the other child's stake to the excess stake receiver
+            // TODO: HN: if the losing staker have staked more than currentRequiredStake, the excess stake will be stuck
+            // TODO: HN: use prev stake amount instead of currentRequiredStake
+            increaseWithdrawableFunds(excessStakeReceiver, currentRequiredStake());
+        }
     }
 
     /**
      * @notice Refund a staker that is currently staked on or before the latest confirmed assertion
-     * @dev Since a staker is initially placed in the latest confirmed assertion, if they don't move it
-     * a griefer can remove their stake. It is recomended to batch together the txs to place a stake
-     * and move it to the desired assertion.
      * @param stakerAddress Address of the staker whose stake is refunded
      */
     function returnOldDeposit(address stakerAddress) external override onlyValidator whenNotPaused {
-        require(latestStakedAssertion(stakerAddress) <= latestConfirmed(), "TOO_RECENT");
-        requireUnchallengedStaker(stakerAddress);
+        requireInactiveStaker(msg.sender);
         withdrawStaker(stakerAddress);
     }
 
@@ -220,7 +233,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @param depositAmount The amount of either eth or tokens deposited
      */
     function _addToDeposit(address stakerAddress, uint256 depositAmount) internal onlyValidator whenNotPaused {
-        requireUnchallengedStaker(stakerAddress);
         increaseStakeBy(stakerAddress, depositAmount);
     }
 
@@ -229,7 +241,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @param target Target amount of stake for the staker. If this is below the current minimum, it will be set to minimum instead
      */
     function reduceDeposit(uint256 target) external onlyValidator whenNotPaused {
-        requireUnchallengedStaker(msg.sender);
+        requireInactiveStaker(msg.sender);
         uint256 currentRequired = currentRequiredStake();
         if (target < currentRequired) {
             target = currentRequired;
@@ -304,12 +316,18 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 
     /**
-     * @notice Verify that the given address is staked and not actively in a challenge
+     * @notice Verify that the given staker is not active
      * @param stakerAddress Address to check
      */
-    function requireUnchallengedStaker(address stakerAddress) private view {
+    function requireInactiveStaker(address stakerAddress) private view {
         require(isStaked(stakerAddress), "NOT_STAKED");
-        require(currentChallenge(stakerAddress) == NO_CHAL_INDEX, "IN_CHAL");
+        // A staker is inactive if
+        // a) their last staked assertion is the latest confirmed assertion
+        // b) their last staked assertion have a child
+        uint64 lastestAssertion = latestStakedAssertion(stakerAddress);
+        bool isLatestConfirmed = lastestAssertion == latestConfirmed();
+        bool haveChild = getAssertionStorage(lastestAssertion).firstChildBlock > 0;
+        require(isLatestConfirmed || haveChild, "STAKE_ACTIVE");
     }
 }
 

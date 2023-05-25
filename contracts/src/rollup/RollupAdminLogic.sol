@@ -41,6 +41,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
         challengeManager = connectedContracts.challengeManager;
 
+        excessStakeReceiver = config.excessStakeReceiver;
+
         AssertionNode memory assertion = createInitialAssertion();
         initializeCore(assertion);
 

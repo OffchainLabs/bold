@@ -28,6 +28,7 @@ contract RollupTest is Test {
     address constant validator1 = address(100001);
     address constant validator2 = address(100002);
     address constant validator3 = address(100003);
+    address constant excessStakeReceiver = owner;
 
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
@@ -106,7 +107,8 @@ contract RollupTest is Test {
             miniStakeValue: 0,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
-            layerZeroSmallStepEdgeHeight: 2 ** 5
+            layerZeroSmallStepEdgeHeight: 2 ** 5,
+            excessStakeReceiver: excessStakeReceiver
         });
 
         address expectedRollupAddr = address(
@@ -304,7 +306,7 @@ contract RollupTest is Test {
 
         vm.roll(block.number + 75);
         vm.prank(validator1);
-        vm.expectRevert("INVALID_BEFORE_STATE");
+        vm.expectRevert("ASSERTION_NOT_EXIST");
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
@@ -331,7 +333,7 @@ contract RollupTest is Test {
         afterState.machineStatus = MachineStatus.FINISHED;
         afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
         afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
-        afterState.globalState.u64Vals[0] = 1; // inbox count
+        afterState.globalState.u64Vals[0] = 1; // inbox counttestRevertInvalidPrev
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         bytes32 expectedAssertionHash = RollupLib.assertionHash({

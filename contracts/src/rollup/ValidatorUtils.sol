@@ -67,11 +67,12 @@ contract ValidatorUtils {
             rollup.getAssertion(assertion.prevNum).requirePastChildConfirmDeadline();
 
             // Verify that no staker is staked on this assertion
-            require(
-                assertion.stakerCount ==
-                    IRollupUser(address(rollup)).countStakedZombies(firstUnresolvedAssertion),
-                "HAS_STAKERS"
-            );
+            // TODO: HN: review this
+            // require(
+            //     assertion.stakerCount ==
+            //         IRollupUser(address(rollup)).countStakedZombies(firstUnresolvedAssertion),
+            //     "HAS_STAKERS"
+            // );
         }
     }
 
@@ -96,10 +97,11 @@ contract ValidatorUtils {
 
         uint256 zombiesStakedOnOtherChildren = rollup.countZombiesStakedOnChildren(assertion.prevNum) -
             rollup.countStakedZombies(firstUnresolved);
-        require(
-            prevAssertion.childStakerCount == assertion.stakerCount + zombiesStakedOnOtherChildren,
-            "NOT_ALL_STAKED"
-        );
+        // TODO: HN: review this
+        // require(
+        //     prevAssertion.childStakerCount == assertion.stakerCount + zombiesStakedOnOtherChildren,
+        //     "NOT_ALL_STAKED"
+        // );
     }
 
     function refundableStakers(IRollupCore rollup) external view returns (address[] memory) {

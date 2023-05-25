@@ -19,13 +19,8 @@ struct AssertionNode {
     uint64 deadlineBlock;
     // Deadline at which a child of this assertion can be confirmed
     uint64 noChildConfirmedBeforeBlock;
-    // Number of stakers staked on this assertion. This includes real stakers and zombies
-    uint64 stakerCount;
-    // Number of stakers staked on a child assertion. This includes real stakers and zombies
-    uint64 childStakerCount;
     // This value starts at zero and is set to a value when the first child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
     uint64 firstChildBlock;
-    uint256 firstChildTime; // TODO: remove this after migrating to use block instead of timestamp
     // This value starts at zero and is set to a value when the second child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
     uint64 secondChildBlock;
     // The block number when this assertion was created
@@ -87,7 +82,6 @@ library AssertionNodeLib {
     function childCreated(AssertionNode storage self, uint64 number, uint64 confirmPeriodBlocks) internal {
         if (self.firstChildBlock == 0) {
             self.firstChildBlock = uint64(block.number);
-            self.firstChildTime = block.timestamp;
             self.noChildConfirmedBeforeBlock = uint64(block.number) + confirmPeriodBlocks;
         } else if (self.secondChildBlock == 0) {
             self.secondChildBlock = uint64(block.number);

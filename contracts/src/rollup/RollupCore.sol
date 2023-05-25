@@ -54,7 +54,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     uint64 private _latestAssertionCreated;
     uint64 private _lastStakeBlock;
     mapping(uint64 => AssertionNode) private _assertions;
-    mapping(uint64 => mapping(address => bool)) private _assertionStakers;
     // HN: TODO: decide if we want index or hash based mapping
     mapping(bytes32 => uint64) private _assertionHashToNum;
 
@@ -72,8 +71,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     IEdgeChallengeManager public challengeManager;
 
+    address public excessStakeReceiver;
+
     /**
      * @notice Get a storage reference to the Assertion for the given assertion index
+     * @dev The assertion may not exists
      * @param assertionNum Index of the assertion
      * @return Assertion struct
      */
@@ -101,7 +103,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * Only accurate at the latest confirmed assertion and afterwards.
      */
     function assertionHasStaker(uint64 assertionNum, address staker) public view override returns (bool) {
-        return _assertionStakers[assertionNum][staker];
+        revert("assertionHasStaker DEPRECATED");
     }
 
     /**
@@ -120,16 +122,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function isStaked(address staker) public view override returns (bool) {
         return _stakerMap[staker].isStaked;
-    }
-
-    /**
-     * @notice Check whether the given staker is staked on the latest confirmed assertion,
-     * which includes if the staker is staked on a descendent of the latest confirmed assertion.
-     * @param staker Staker address to check
-     * @return True or False for whether the staker was staked
-     */
-    function isStakedOnLatestConfirmed(address staker) public view returns (bool) {
-        return _stakerMap[staker].isStaked && assertionHasStaker(_latestConfirmed, staker);
     }
 
     /**
@@ -286,7 +278,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
         _stakerMap[stakerAddress] = Staker(depositAmount, stakerIndex, _latestConfirmed, true);
-        _assertionStakers[_latestConfirmed][stakerAddress] = true;
         _lastStakeBlock = uint64(block.number);
         emit UserStakeUpdated(stakerAddress, 0, depositAmount);
     }
@@ -350,44 +341,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
-     * @notice Mark the given staker as staked on this assertion
-     * @param staker Address of the staker to mark
-     */
-    function addStaker(uint64 assertionNum, address staker) internal {
-        require(!_assertionStakers[assertionNum][staker], "ALREADY_STAKED");
-        _assertionStakers[assertionNum][staker] = true;
-        AssertionNode storage assertion = getAssertionStorage(assertionNum);
-        require(assertion.deadlineBlock != 0, "NO_NODE");
-
-        uint64 prevCount = assertion.stakerCount;
-        assertion.stakerCount = prevCount + 1;
-
-        if (assertionNum > GENESIS_NODE) {
-            AssertionNode storage parent = getAssertionStorage(assertion.prevNum);
-            parent.childStakerCount++;
-            // if (prevCount == 0) {
-            //     parent.newChildConfirmDeadline(uint64(block.number) + confirmPeriodBlocks);
-            // }
-        }
-    }
-
-    /**
-     * @notice Remove the given staker from this assertion
-     * @param staker Address of the staker to remove
-     */
-    function removeStaker(uint64 assertionNum, address staker) internal {
-        require(_assertionStakers[assertionNum][staker], "NOT_STAKED");
-        _assertionStakers[assertionNum][staker] = false;
-
-        AssertionNode storage assertion = getAssertionStorage(assertionNum);
-        assertion.stakerCount--;
-
-        if (assertionNum > GENESIS_NODE) {
-            getAssertionStorage(assertion.prevNum).childStakerCount--;
-        }
-    }
-
-    /**
      * @notice Remove the given staker and return their stake
      * This should not be called if the staker is staked on a descendent of the latest confirmed assertion
      * @param stakerAddress Address of the staker withdrawing their stake
@@ -398,7 +351,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         if (assertionHasStaker(latestConfirmedNum, stakerAddress)) {
             // Withdrawing a staker whose latest staked assertion isn't resolved should be impossible
             assert(staker.latestStakedAssertion == latestConfirmedNum);
-            removeStaker(latestConfirmedNum, stakerAddress);
         }
         uint256 initialStaked = staker.amountStaked;
         increaseWithdrawableFunds(stakerAddress, initialStaked);
@@ -413,7 +365,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function stakeOnAssertion(address stakerAddress, uint64 assertionNum) internal {
         Staker storage staker = _stakerMap[stakerAddress];
-        addStaker(assertionNum, stakerAddress);
         staker.latestStakedAssertion = assertionNum;
     }
 
@@ -547,7 +498,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0), "UNEXPECTED_NODE_HASH"
         );
 
-        require(_assertionHashToNum[newAssertionHash] == 0, "ASSERTION_SEEN");
+        require(!isAssertionExists(newAssertionHash), "ASSERTION_SEEN");
 
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
             uint64(nextInboxPosition),
@@ -652,6 +603,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     // HN: TODO: decide to keep using index or hash
+    /// @notice Return the assertion number from id, reverts if the assertion does not exist
     function getAssertionNum(bytes32 id) public view returns (uint64) {
         uint64 num = _assertionHashToNum[id];
         require(num > 0, "ASSERTION_NOT_EXIST");
@@ -661,5 +613,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function getAssertionId(uint64 num) public view returns (bytes32) {
         require(num <= latestAssertionCreated(), "INVALID_ASSERTION_NUM");
         return getAssertionStorage(num).assertionHash;
+    }
+
+    function isAssertionExists(bytes32 id) public view returns (bool) {
+        return _assertionHashToNum[id] > 0;
     }
 }

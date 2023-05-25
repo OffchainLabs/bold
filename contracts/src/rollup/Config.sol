@@ -29,6 +29,7 @@ struct Config {
     uint256 layerZeroBlockEdgeHeight;
     uint256 layerZeroBigStepEdgeHeight;
     uint256 layerZeroSmallStepEdgeHeight;
+    address excessStakeReceiver;
 }
 
 struct ContractDependencies {
