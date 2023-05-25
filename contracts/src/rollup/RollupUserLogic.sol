@@ -82,7 +82,10 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
             require(winningEdge.eType == EdgeType.Block, "EDGE_NOT_BLOCK_TYPE");
-            require(winningEdge.originId == getAssertionStorage(latestConfirmedAssertionNum).assertionHash, "EDGE_NOT_FROM_PREV");
+            require(
+                winningEdge.originId == getAssertionStorage(latestConfirmedAssertionNum).assertionHash,
+                "EDGE_NOT_FROM_PREV"
+            );
             require(winningEdge.claimId != firstUnresolvedAssertion_.assertionHash, "IS_WINNER");
         }
         // Simpler case: if the first unreseolved assertion doesn't point to the last confirmed assertion, another branch was confirmed and can simply reject it outright

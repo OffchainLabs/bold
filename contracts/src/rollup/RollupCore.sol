@@ -285,12 +285,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function createNewStake(address stakerAddress, uint256 depositAmount) internal {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
-        _stakerMap[stakerAddress] = Staker(
-            depositAmount,
-            stakerIndex,
-            _latestConfirmed,
-            true
-        );
+        _stakerMap[stakerAddress] = Staker(depositAmount, stakerIndex, _latestConfirmed, true);
         _assertionStakers[_latestConfirmed][stakerAddress] = true;
         _lastStakeBlock = uint64(block.number);
         emit UserStakeUpdated(stakerAddress, 0, depositAmount);
@@ -353,8 +348,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         emit UserStakeUpdated(stakerAddress, current, target);
         return amountWithdrawn;
     }
-
-
 
     /**
      * @notice Mark the given staker as staked on this assertion
