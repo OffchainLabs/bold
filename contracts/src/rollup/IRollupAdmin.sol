@@ -108,7 +108,6 @@ interface IRollupAdmin {
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        bytes32 _wasmModuleRoot,
         uint256 confirmInboxMaxCount
     ) external;
 

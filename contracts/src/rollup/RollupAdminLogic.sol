@@ -41,11 +41,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
         challengeManager = connectedContracts.challengeManager;
 
-        excessStakeReceiver = config.excessStakeReceiver;
-
-        AssertionNode memory assertion = createInitialAssertion();
-        initializeCore(assertion);
-
         confirmPeriodBlocks = config.confirmPeriodBlocks;
         extraChallengeTimeBlocks = config.extraChallengeTimeBlocks;
         chainId = config.chainId;
@@ -63,6 +58,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         stakeToken = config.stakeToken;
 
+        AssertionNode memory assertion = createInitialAssertion();
+        initializeCore(assertion);
+
         emit RollupInitialized(config.wasmModuleRoot, config.chainId);
     }
 
@@ -72,18 +70,20 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         bytes32 genesisHash = RollupLib.assertionHash({
             parentAssertionHash: bytes32(0),
             afterState: emptyExecutionState,
-            inboxAcc: bytes32(0),
-            // CHRIS: TODO: we have a bug here in that this is 0 upon startup
-            // CHRIS: TODO: this means the assertionHash is unexpected, and out of sync with genesisAssertionHashes
-            // CHRIS: TODO: it would also lead to an invalid first assertion, will fix this in a future PR
-            wasmModuleRoot: wasmModuleRoot
+            inboxAcc: bytes32(0)
         });
         return AssertionNodeLib.createAssertion(
             1, // inboxMaxCount - force the first assertion to read a message
             0, // prev assertion
             uint64(block.number), // deadline block (not challengeable)
             genesisHash,
-            true
+            true,
+            RollupLib.configHash({
+                wasmModuleRoot: wasmModuleRoot,
+                requiredStake: baseStake,
+                challengeManager: address(challengeManager),
+                confirmPeriodBlocks: confirmPeriodBlocks
+            })
         );
     }
 
@@ -281,13 +281,10 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        bytes32 _wasmModuleRoot,
         uint256 confirmInboxMaxCount
     ) external override whenPaused {
         // this skips deadline, staker and zombie validation
-        confirmAssertion(
-            assertionNum, parentAssertionHash, confirmState, inboxAcc, _wasmModuleRoot, confirmInboxMaxCount
-        );
+        confirmAssertion(assertionNum, parentAssertionHash, confirmState, inboxAcc, confirmInboxMaxCount);
         emit OwnerFunctionCalled(24);
     }
 

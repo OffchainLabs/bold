@@ -28,7 +28,6 @@ contract RollupTest is Test {
     address constant validator1 = address(100001);
     address constant validator2 = address(100002);
     address constant validator3 = address(100003);
-    address constant excessStakeReceiver = owner;
 
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
@@ -53,8 +52,7 @@ contract RollupTest is Test {
     bytes32 genesisHash = RollupLib.assertionHash({
         parentAssertionHash: bytes32(0),
         afterState: emptyExecutionState,
-        inboxAcc: bytes32(0),
-        wasmModuleRoot: bytes32(0) // this is zero upon initialisation
+        inboxAcc: bytes32(0)
     });
     ExecutionState firstState;
 
@@ -108,8 +106,7 @@ contract RollupTest is Test {
             miniStakeValue: 0,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
-            layerZeroSmallStepEdgeHeight: 2 ** 5,
-            excessStakeReceiver: excessStakeReceiver
+            layerZeroSmallStepEdgeHeight: 2 ** 5
         });
 
         address expectedRollupAddr = address(
@@ -180,17 +177,19 @@ contract RollupTest is Test {
         bytes32 expectedAssertionHash = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
             afterState: afterState,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(0),
-            wasmModuleRoot: WASM_MODULE_ROOT
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
 
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
-                    prevAssertionHash: bytes32(0)
+                    prevAssertionHash: bytes32(0),
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -204,8 +203,7 @@ contract RollupTest is Test {
         bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
             parentAssertionHash: expectedAssertionHash,
             afterState: afterState2,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(1), // 1 because we moved the position within message
-            wasmModuleRoot: WASM_MODULE_ROOT
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(1) // 1 because we moved the position within message
         });
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
 
@@ -216,7 +214,10 @@ contract RollupTest is Test {
                 beforeStateData: BeforeStateData({
                     wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: prevInboxAcc,
-                    prevAssertionHash: genesisHash
+                    prevAssertionHash: genesisHash,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: afterState,
                 afterState: afterState2
@@ -239,9 +240,12 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
-                    prevAssertionHash: bytes32(0)
+                    prevAssertionHash: bytes32(0),
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -254,9 +258,12 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
-                    prevAssertionHash: bytes32(0)
+                    prevAssertionHash: bytes32(0),
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -279,17 +286,19 @@ contract RollupTest is Test {
         bytes32 expectedAssertionHash = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
             afterState: afterState,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(0),
-            wasmModuleRoot: WASM_MODULE_ROOT
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
 
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
-                    prevAssertionHash: bytes32(0)
+                    prevAssertionHash: bytes32(0),
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -303,8 +312,7 @@ contract RollupTest is Test {
         bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
             parentAssertionHash: expectedAssertionHash,
             afterState: afterState2,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(1), // 1 because we moved the position within message
-            wasmModuleRoot: WASM_MODULE_ROOT
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(1) // 1 because we moved the position within message
         });
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
 
@@ -319,7 +327,10 @@ contract RollupTest is Test {
                 beforeStateData: BeforeStateData({
                     wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: prevInboxAcc,
-                    prevAssertionHash: genesisHash
+                    prevAssertionHash: genesisHash,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: afterState,
                 afterState: afterState2
@@ -340,23 +351,25 @@ contract RollupTest is Test {
         afterState.machineStatus = MachineStatus.FINISHED;
         afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
         afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
-        afterState.globalState.u64Vals[0] = 1; // inbox counttestRevertInvalidPrev
+        afterState.globalState.u64Vals[0] = 1; // inbox count
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         bytes32 expectedAssertionHash = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
             afterState: afterState,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(0),
-            wasmModuleRoot: WASM_MODULE_ROOT
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
 
         vm.prank(validator1);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
-                    prevAssertionHash: bytes32(0)
+                    prevAssertionHash: bytes32(0),
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -374,17 +387,19 @@ contract RollupTest is Test {
         bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
             afterState: afterState2,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(1), // 1 because we moved the position within message
-            wasmModuleRoot: WASM_MODULE_ROOT
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(1) // 1 because we moved the position within message
         });
         vm.prank(validator2);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeState: beforeState,
                 beforeStateData: BeforeStateData({
-                    wasmRoot: bytes32(0),
+                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
-                    prevAssertionHash: bytes32(0)
+                    prevAssertionHash: bytes32(0),
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
                 }),
                 afterState: afterState2
             }),
@@ -403,14 +418,7 @@ contract RollupTest is Test {
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
         vm.expectRevert("CONFIRM_DATA");
-        userRollup.confirmNextAssertion(
-            prevAssertionHash,
-            emptyExecutionState,
-            prevInboxAcc,
-            WASM_MODULE_ROOT,
-            0,
-            bytes32(0)
-        );
+        userRollup.confirmNextAssertion(prevAssertionHash, emptyExecutionState, prevInboxAcc, 0, bytes32(0));
     }
 
     function testSuccessConfirmUnchallengedAssertions() public {
@@ -419,14 +427,7 @@ contract RollupTest is Test {
         bytes32 prevAssertionHash = userRollup.getAssertionId(1);
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        userRollup.confirmNextAssertion(
-            prevAssertionHash,
-            firstState,
-            prevInboxAcc,
-            WASM_MODULE_ROOT,
-            2,
-            bytes32(0)
-        );
+        userRollup.confirmNextAssertion(prevAssertionHash, firstState, prevInboxAcc, 2, bytes32(0));
     }
 
     function testRevertConfirmSiblingedAssertions() public {
@@ -436,14 +437,7 @@ contract RollupTest is Test {
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
         vm.expectRevert("Edge does not exist"); // If there is a sibling, you need to supply a winning edge
-        userRollup.confirmNextAssertion(
-            prevAssertionHash,
-            firstState,
-            prevInboxAcc,
-            WASM_MODULE_ROOT,
-            2,
-            bytes32(0)
-        );
+        userRollup.confirmNextAssertion(prevAssertionHash, firstState, prevInboxAcc, 2, bytes32(0));
     }
 
     function testSuccessCreateChallenge()
@@ -481,7 +475,7 @@ contract RollupTest is Test {
                     ),
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                    ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), bytes32(0))),
+                    ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                     ExecutionStateData(
                         afterState1, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0), WASM_MODULE_ROOT)
                     )
@@ -523,7 +517,7 @@ contract RollupTest is Test {
                     ),
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                    ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), bytes32(0))),
+                    ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                     ExecutionStateData(
                         afterState2, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(1), WASM_MODULE_ROOT)
                     )
@@ -556,14 +550,7 @@ contract RollupTest is Test {
         bytes32 prevAssertionHash = userRollup.getAssertionId(1);
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        userRollup.confirmNextAssertion(
-            prevAssertionHash,
-            firstState,
-            prevInboxAcc,
-            WASM_MODULE_ROOT,
-            2,
-            e1Id
-        );
+        userRollup.confirmNextAssertion(prevAssertionHash, firstState, prevInboxAcc, 2, e1Id);
         return e1Id;
     }
 

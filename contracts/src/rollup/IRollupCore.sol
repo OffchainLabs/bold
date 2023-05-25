@@ -138,7 +138,4 @@ interface IRollupCore is IAssertionChain {
 
     /// @return Number of active stakers currently staked
     function stakerCount() external view returns (uint64);
-
-    /// @return genesis end state hash, assertion hash, and wasm module root
-    function genesisAssertionHashes() external view returns (bytes32, bytes32, bytes32);
 }

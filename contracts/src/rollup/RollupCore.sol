@@ -71,8 +71,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     IEdgeChallengeManager public challengeManager;
 
-    address public excessStakeReceiver;
-
     /**
      * @notice Get a storage reference to the Assertion for the given assertion index
      * @dev The assertion may not exists
@@ -180,19 +178,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return uint64(_stakerList.length);
     }
 
-    /// @return Genesis end state hash, assertion hash, and wasm module root
-    function genesisAssertionHashes() public view override returns (bytes32, bytes32, bytes32) {
-        GlobalState memory emptyGlobalState;
-        ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
-        bytes32 afterStateHash = RollupLib.executionStateHash(emptyExecutionState);
-        bytes32 genesisHash = RollupLib.assertionHash({
-            parentAssertionHash: bytes32(0),
-            afterStateHash: afterStateHash,
-            inboxAcc: bytes32(0),
-            wasmModuleRoot: bytes32(0)
-        });
-        return (afterStateHash, genesisHash, wasmModuleRoot);
-    }
+    // TODO: HN: emit event on genesis assertion creation to return (afterStateHash, genesisHash, wasmModuleRoot)
 
     /**
      * @notice Initialize the core with an initial assertion
@@ -227,7 +213,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        bytes32 _wasmModuleRoot,
         uint256 confirmInboxMaxCount
     ) internal {
         AssertionNode storage assertion = getAssertionStorage(assertionNum);
@@ -238,8 +223,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 == RollupLib.assertionHash({
                     parentAssertionHash: parentAssertionHash,
                     afterState: confirmState,
-                    inboxAcc: inboxAcc,
-                    wasmModuleRoot: _wasmModuleRoot
+                    inboxAcc: inboxAcc
                 }),
             "CONFIRM_DATA"
         );
@@ -393,8 +377,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             RollupLib.assertionHash(
                 assertion.beforeStateData.prevAssertionHash,
                 assertion.beforeState,
-                assertion.beforeStateData.sequencerBatchAcc,
-                assertion.beforeStateData.wasmRoot
+                assertion.beforeStateData.sequencerBatchAcc
             ) == prevAssertionHash,
             "INVALID_BEFORE_STATE"
         );
@@ -444,13 +427,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxCount - 1);
         }
 
-        bytes32 newAssertionHash = RollupLib.assertionHash(
-            // HN: TODO: is this ok?
-            prevAssertionHash,
-            assertion.afterState,
-            sequencerBatchAcc,
-            wasmModuleRoot // HN: TODO: should we include this in assertion hash?
-        );
+        bytes32 newAssertionHash = RollupLib.assertionHash(prevAssertionHash, assertion.afterState, sequencerBatchAcc);
         require(
             newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0), "UNEXPECTED_NODE_HASH"
         );
@@ -462,7 +439,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             prevAssertionNum,
             uint64(block.number) + confirmPeriodBlocks,
             newAssertionHash,
-            prevAssertion.firstChildBlock == 0 // assume block 0 is impossible
+            prevAssertion.firstChildBlock == 0, // assume block 0 is impossible
+            RollupLib.configHash({
+                wasmModuleRoot: wasmModuleRoot,
+                requiredStake: baseStake,
+                challengeManager: address(challengeManager),
+                confirmPeriodBlocks: confirmPeriodBlocks
+            })
         );
 
         {
@@ -498,12 +481,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         view
         returns (ExecutionState memory)
     {
-        (bytes32 parentAssertionHash, bytes32 inboxAcc, bytes32 wasmModuleRootInner) =
-            abi.decode(proof, (bytes32, bytes32, bytes32));
+        (bytes32 parentAssertionHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32));
 
         require(
             getAssertionStorage(getAssertionNum(assertionId)).assertionHash
-                == RollupLib.assertionHash(parentAssertionHash, state, inboxAcc, wasmModuleRootInner),
+                == RollupLib.assertionHash(parentAssertionHash, state, inboxAcc),
             "Invalid assertion hash"
         );
 
@@ -532,15 +514,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         view
         returns (bytes32)
     {
-        (bytes32 parentAssertionHash, bytes32 afterStateHash, bytes32 inboxAcc) =
-            abi.decode(proof, (bytes32, bytes32, bytes32));
+        (uint256 requiredStake, address _challengeManager, uint256 _confirmPeriodBlocks) =
+            abi.decode(proof, (uint256, address, uint256));
         require(
-            RollupLib.assertionHash({
-                parentAssertionHash: parentAssertionHash,
-                afterStateHash: afterStateHash,
-                inboxAcc: inboxAcc,
-                wasmModuleRoot: root
-            }) == assertionId,
+            RollupLib.configHash({
+                wasmModuleRoot: root,
+                requiredStake: requiredStake,
+                challengeManager: _challengeManager,
+                confirmPeriodBlocks: _confirmPeriodBlocks
+            }) == getAssertionStorage(getAssertionNum(assertionId)).configHash,
             "BAD_WASM_MODULE_ROOT_PROOF"
         );
         return root;

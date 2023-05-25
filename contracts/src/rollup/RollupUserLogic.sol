@@ -104,7 +104,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        bytes32 _wasmModuleRoot,
         uint256 confirmInboxMaxCount,
         bytes32 winningEdgeId
     ) external onlyValidator whenNotPaused {
@@ -126,9 +125,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
-        confirmAssertion(
-            assertionNum, parentAssertionHash, confirmState, inboxAcc, _wasmModuleRoot, confirmInboxMaxCount
-        );
+        confirmAssertion(assertionNum, parentAssertionHash, confirmState, inboxAcc, confirmInboxMaxCount);
     }
 
     /**
@@ -140,7 +137,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         require(!isStaked(msg.sender), "ALREADY_STAKED");
         // TODO: HN: review this logic
         // require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
-        require(depositAmount >= currentRequiredStake(), "NOT_ENOUGH_STAKE");
+        // amount will be checked when creating an assertion
 
         createNewStake(msg.sender, depositAmount);
     }
@@ -161,7 +158,8 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         );
 
         require(isStaked(msg.sender), "NOT_STAKED");
-        require(amountStaked(msg.sender) >= currentRequiredStake(), "INSUFFICIENT_STAKE");
+        // requiredStake is user supplied, will be verified against configHash later
+        require(amountStaked(msg.sender) >= assertion.beforeStateData.requiredStake, "INSUFFICIENT_STAKE");
         // Staker can create new assertion only if
         // a) its last staked assertion is the prev; or
         // b) its last staked assertion have a child
@@ -169,10 +167,19 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             RollupLib.assertionHash(
                 assertion.beforeStateData.prevAssertionHash,
                 assertion.beforeState,
-                assertion.beforeStateData.sequencerBatchAcc,
-                assertion.beforeStateData.wasmRoot
+                assertion.beforeStateData.sequencerBatchAcc
             )
         ); // TODO: HN: we calculated this hash again in createNewAssertion
+        require(
+            getAssertionStorage(prevAssertion).configHash
+                == RollupLib.configHash(
+                    assertion.beforeStateData.wasmRoot,
+                    assertion.beforeStateData.requiredStake,
+                    assertion.beforeStateData.challengeManager,
+                    assertion.beforeStateData.confirmPeriodBlocks
+                ),
+            "CONFIG_HASH_MISMATCH"
+        );
         {
             uint64 lastAssertion = latestStakedAssertion(msg.sender);
             require(
@@ -182,7 +189,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         }
 
         {
-            uint256 timeSincePrev = block.number - getAssertion(prevAssertion).createdAtBlock;
+            uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
             // Verify that assertion meets the minimum Delta time requirement
             require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
@@ -211,10 +218,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
         if (getAssertionStorage(prevAssertion).secondChildBlock > 0) {
             // only 1 of the children can be confirmed and get their stake refunded
-            // so we send the other child's stake to the excess stake receiver
-            // TODO: HN: if the losing staker have staked more than currentRequiredStake, the excess stake will be stuck
-            // TODO: HN: use prev stake amount instead of currentRequiredStake
-            increaseWithdrawableFunds(excessStakeReceiver, currentRequiredStake());
+            // so we send the other child's stake to the loserStakeEscrow
+            // TODO: HN: if the losing staker have staked more than requiredStake, the excess stake will be stuck
+            increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.requiredStake);
         }
     }
 
@@ -238,14 +244,11 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     /**
      * @notice Reduce the amount staked for the sender (difference between initial amount staked and target is creditted back to the sender).
-     * @param target Target amount of stake for the staker. If this is below the current minimum, it will be set to minimum instead
+     * @param target Target amount of stake for the staker.
      */
     function reduceDeposit(uint256 target) external onlyValidator whenNotPaused {
         requireInactiveStaker(msg.sender);
-        uint256 currentRequired = currentRequiredStake();
-        if (target < currentRequired) {
-            target = currentRequired;
-        }
+        // amount will be checked when creating an assertion
         reduceStakeTo(msg.sender, target);
     }
 
@@ -263,10 +266,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     function owner() external view returns (address) {
         return _getAdmin();
-    }
-
-    function currentRequiredStake() public view returns (uint256) {
-        return baseStake;
     }
 
     /**

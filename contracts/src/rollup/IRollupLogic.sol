@@ -26,7 +26,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        bytes32 _wasmModuleRoot,
         uint256 confirmInboxMaxCount,
         bytes32 winningEdge
     ) external;
@@ -41,8 +40,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
         external
         view
         returns (uint256);
-
-    function currentRequiredStake() external view returns (uint256);
 
     function requireUnresolvedExists() external view;
 

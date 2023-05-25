@@ -60,8 +60,7 @@ library RollupLib {
     function assertionHash(
         bytes32 parentAssertionHash,
         ExecutionState memory afterState,
-        bytes32 inboxAcc,
-        bytes32 wasmModuleRoot
+        bytes32 inboxAcc
     ) internal pure returns (bytes32) {
         // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
         // uint8 hasSiblingInt = hasSibling ? 1 : 0;
@@ -70,8 +69,7 @@ library RollupLib {
                 abi.encodePacked(
                     parentAssertionHash,
                     executionStateHash(afterState),
-                    inboxAcc,
-                    wasmModuleRoot
+                    inboxAcc
                 )
             );
     }
@@ -80,8 +78,7 @@ library RollupLib {
     function assertionHash(
         bytes32 parentAssertionHash,
         bytes32 afterStateHash,
-        bytes32 inboxAcc,
-        bytes32 wasmModuleRoot
+        bytes32 inboxAcc
     ) internal pure returns (bytes32) {
         // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
         // uint8 hasSiblingInt = hasSibling ? 1 : 0;
@@ -90,8 +87,24 @@ library RollupLib {
                 abi.encodePacked(
                     parentAssertionHash,
                     afterStateHash,
-                    inboxAcc,
-                    wasmModuleRoot
+                    inboxAcc
+                )
+            );
+    }
+
+    function configHash(
+        bytes32 wasmModuleRoot,
+        uint256 requiredStake,
+        address challengeManager,
+        uint256 confirmPeriodBlocks
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    wasmModuleRoot,
+                    requiredStake,
+                    challengeManager,
+                    confirmPeriodBlocks
                 )
             );
     }

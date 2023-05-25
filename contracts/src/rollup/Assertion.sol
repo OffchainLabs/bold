@@ -27,12 +27,17 @@ struct AssertionNode {
     bool isFirstChild;
     // A hash of all the data needed to determine this assertion's validity, to protect against reorgs
     bytes32 assertionHash;
+    // A hash of all configuration data when the assertion is created
+    bytes32 configHash;
 }
 
 struct BeforeStateData {
     bytes32 wasmRoot;
     bytes32 prevAssertionHash;
     bytes32 sequencerBatchAcc;
+    uint256 requiredStake;
+    address challengeManager;
+    uint256 confirmPeriodBlocks;
 }
 
 struct AssertionInputs {
@@ -58,7 +63,8 @@ library AssertionNodeLib {
         uint64 _prevNum,
         uint64 _deadlineBlock,
         bytes32 _assertionHash,
-        bool _isFirstChild
+        bool _isFirstChild,
+        bytes32 _configHash
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.nextInboxPosition = _nextInboxPosition;
@@ -68,6 +74,7 @@ library AssertionNodeLib {
         assertion.createdAtBlock = uint64(block.number);
         assertion.assertionHash = _assertionHash;
         assertion.isFirstChild = _isFirstChild;
+        assertion.configHash = _configHash;
         return assertion;
     }
 

@@ -19,12 +19,16 @@ struct MockAssertion {
     uint256 secondChildCreationBlock;
     bool isFirstChild;
     bool isPending;
+    bytes32 configHash;
 }
 
 contract MockAssertionChain is IAssertionChain {
     mapping(bytes32 => MockAssertion) assertions;
     IBridge public bridge; // TODO: set bridge in this mock
     bytes32 public wasmModuleRoot;
+    uint256 public baseStake;
+    address public challengeManager;
+    uint256 public confirmPeriodBlocks;
 
     function assertionExists(bytes32 assertionId) public view returns (bool) {
         return assertions[assertionId].height != 0;
@@ -65,15 +69,16 @@ contract MockAssertionChain is IAssertionChain {
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
-        (bytes32 parentAssertionHash, bytes32 afterStateHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32, bytes32));
+        (uint256 requiredStake, address _challengeManager, uint256 _confirmPeriodBlocks) =
+            abi.decode(proof, (uint256, address, uint256));
         require(
-            RollupLib.assertionHash({
-                parentAssertionHash: parentAssertionHash,
-                afterStateHash: afterStateHash,
-                inboxAcc: inboxAcc,
-                wasmModuleRoot: root
-            }) == assertionId,
-            "Wasm module root proof does not match assertion"
+            RollupLib.configHash({
+                wasmModuleRoot: root,
+                requiredStake: requiredStake,
+                challengeManager: _challengeManager,
+                confirmPeriodBlocks: _confirmPeriodBlocks
+            }) == assertions[assertionId].configHash,
+            "BAD_WASM_MODULE_ROOT_PROOF"
         );
         return root;
     }
@@ -99,8 +104,7 @@ contract MockAssertionChain is IAssertionChain {
         return RollupLib.assertionHash({
             parentAssertionHash: predecessorId,
             afterState: afterState,
-            inboxAcc: keccak256(abi.encode(afterState.globalState.u64Vals[0])), // mock accumulator based on inbox count
-            wasmModuleRoot: wasmModuleRoot
+            inboxAcc: keccak256(abi.encode(afterState.globalState.u64Vals[0])) // mock accumulator based on inbox count
         });
     }
 
@@ -129,7 +133,13 @@ contract MockAssertionChain is IAssertionChain {
             firstChildCreationBlock: 0,
             secondChildCreationBlock: 0,
             isFirstChild: assertions[predecessorId].firstChildCreationBlock == 0,
-            isPending: true
+            isPending: true,
+            configHash: RollupLib.configHash({
+                wasmModuleRoot: wasmModuleRoot,
+                requiredStake: baseStake,
+                challengeManager: challengeManager,
+                confirmPeriodBlocks: confirmPeriodBlocks
+            })
         });
         childCreated(predecessorId);
         return assertionId;
