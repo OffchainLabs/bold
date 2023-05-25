@@ -60,9 +60,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     /**
      * @notice Reject the next unresolved assertion
-     * @param stakerAddress Example staker staked on sibling, used to prove a assertion is on an unconfirmable branch and can be rejected
+     * @param winningEdgeId The winning challenge edge of the prev's succession challenge
      */
-    function rejectNextAssertion(address stakerAddress) external onlyValidator whenNotPaused {
+    function rejectNextAssertion(bytes32 winningEdgeId) external onlyValidator whenNotPaused {
         requireUnresolvedExists();
         uint64 latestConfirmedAssertionNum = latestConfirmed();
         uint64 firstUnresolvedAssertionNum = firstUnresolvedAssertion();
@@ -71,35 +71,19 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         if (firstUnresolvedAssertion_.prevNum == latestConfirmedAssertionNum) {
             /**
              * If the first unresolved assertion is a child of the latest confirmed assertion, to prove it can be rejected, we show:
-             * a) Its deadline has expired
-             * b) *Some* staker is staked on a sibling
-             *
-             * The following three checks are sufficient to prove b:
+             * a) Its prev's child confirmation deadline has expired
+             * b) There is more than 1 child on the prev
+             * c) The assertion is not the winner of the prev's succession challenge
              */
 
-            // 1.  StakerAddress is indeed a staker
-            require(isStakedOnLatestConfirmed(stakerAddress), "NOT_STAKED");
-
-            // 2. Staker's latest staked assertion hasn't been resolved; this proves that staker's latest staked assertion can't be a parent of firstUnresolvedAssertion
-            requireUnresolved(latestStakedAssertion(stakerAddress));
-
-            // 3. staker isn't staked on first unresolved assertion; this proves staker's latest staked can't be a child of firstUnresolvedAssertion (recall staking on assertion requires staking on all of its parents)
-            require(!assertionHasStaker(firstUnresolvedAssertionNum, stakerAddress), "STAKED_ON_TARGET");
-            // If a staker is staked on a assertion that is neither a child nor a parent of firstUnresolvedAssertion, it must be a sibling, QED
-
-            // // Verify the block's deadline has passed
-            // firstUnresolvedAssertion_.requirePastDeadline();
-
             getAssertionStorage(latestConfirmedAssertionNum).requirePastChildConfirmDeadline();
+            getAssertionStorage(latestConfirmedAssertionNum).requireMoreThanOneChild();
 
-            removeOldZombies(0);
-
-            // HN: TODO: do we need this logic here?
-            // // Verify that no staker is staked on this assertion
-            // require(
-            //     firstUnresolvedAssertion_.stakerCount == countStakedZombies(firstUnresolvedAssertionNum),
-            //     "HAS_STAKERS"
-            // );
+            ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
+            require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
+            require(winningEdge.eType == EdgeType.Block, "EDGE_NOT_BLOCK_TYPE");
+            require(winningEdge.originId == getAssertionStorage(latestConfirmedAssertionNum).assertionHash, "EDGE_NOT_FROM_PREV");
+            require(winningEdge.claimId != firstUnresolvedAssertion_.assertionHash, "IS_WINNER");
         }
         // Simpler case: if the first unreseolved assertion doesn't point to the last confirmed assertion, another branch was confirmed and can simply reject it outright
         _rejectNextAssertion();

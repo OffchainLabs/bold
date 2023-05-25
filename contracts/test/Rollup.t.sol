@@ -511,7 +511,7 @@ contract RollupTest is Test {
         return states;
     }
 
-    function testSuccessConfirmEdgeByTime() public {
+    function testSuccessConfirmEdgeByTime() public returns (bytes32) {
         (,,,, bytes32 e1Id) = testSuccessCreateChallenge();
 
         vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
@@ -519,24 +519,25 @@ contract RollupTest is Test {
         userRollup.challengeManager().confirmEdgeByTime(e1Id, new bytes32[](0));
         vm.prank(validator1);
         userRollup.confirmNextAssertion(FIRST_ASSERTION_BLOCKHASH, FIRST_ASSERTION_SENDROOT, e1Id);
+        return e1Id;
     }
 
     function testSuccessRejection() public {
-        testSuccessConfirmEdgeByTime();
+        bytes32 winningEdgeId = testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
-        userRollup.rejectNextAssertion(validator2);
+        userRollup.rejectNextAssertion(winningEdgeId);
     }
 
     function testRevertRejectionTooRecent() public {
         testSuccessCreateSecondChild();
         vm.prank(validator1);
         vm.expectRevert("CHILD_TOO_RECENT");
-        userRollup.rejectNextAssertion(validator2);
+        userRollup.rejectNextAssertion(bytes32(0));
     }
 
     function testRevertRejectionNoUnresolved() public {
         vm.prank(validator1);
         vm.expectRevert("NO_UNRESOLVED");
-        userRollup.rejectNextAssertion(validator2);
+        userRollup.rejectNextAssertion(bytes32(0));
     }
 }

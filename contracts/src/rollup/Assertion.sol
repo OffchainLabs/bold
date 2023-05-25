@@ -115,4 +115,13 @@ library AssertionNodeLib {
     function requirePastChildConfirmDeadline(AssertionNode memory self) internal view {
         require(block.number >= self.noChildConfirmedBeforeBlock, "CHILD_TOO_RECENT");
     }
+
+    function requireMoreThanOneChild(AssertionNode memory self) internal pure {
+        require(self.secondChildBlock > 0, "TOO_FEW_CHILD");
+    }
+
+    function requireExists(AssertionNode memory self) internal pure {
+        require(self.createdAtBlock > 0, "ASSERTION_NOT_EXIST");
+    }
+
 }

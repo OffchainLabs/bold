@@ -20,7 +20,7 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function isERC20Enabled() external view returns (bool);
 
-    function rejectNextAssertion(address stakerAddress) external;
+    function rejectNextAssertion(bytes32 winningEdgeId) external;
 
     function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdge) external;
 
