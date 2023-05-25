@@ -95,9 +95,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @notice Confirm the next unresolved assertion
      * @param blockHash The block hash at the end of the assertion
      * @param sendRoot The send root at the end of the assertion
-     * @param winningEdge The winning edge if a challenge is started
+     * @param winningEdgeId The winning edge id if a challenge is started
      */
-    function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdge)
+    function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdgeId)
         external
         onlyValidator
         whenNotPaused
@@ -107,33 +107,17 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         uint64 assertionNum = firstUnresolvedAssertion();
         AssertionNode storage assertion = getAssertionStorage(assertionNum);
 
-        // // Verify the block's deadline has passed
-        // assertion.requirePastDeadline();
-
         // Check that prev is latest confirmed
         assert(assertion.prevNum == latestConfirmed());
 
         AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevNum);
         prevAssertion.requirePastChildConfirmDeadline();
 
-        // HN: TODO: Do we need the zombie logic here?
-        // removeOldZombies(0);
-        //
-        // // Require only zombies are staked on siblings to this assertion, and there's at least one non-zombie staked on this assertion
-        // uint256 stakedZombies = countStakedZombies(assertionNum);
-        // uint256 zombiesStakedOnOtherChildren = countZombiesStakedOnChildren(assertion.prevNum) -
-        //     stakedZombies;
-        // require(assertion.stakerCount > stakedZombies, "NO_STAKERS");
-        // require(
-        //     prevAssertion.childStakerCount == assertion.stakerCount + zombiesStakedOnOtherChildren,
-        //     "NOT_ALL_STAKED"
-        // );
-
         if (prevAssertion.secondChildBlock > 0) {
             // check if assertion is the challenge winner
-            ChallengeEdge memory _winningEdge = challengeManager.getEdge(winningEdge);
-            require(getAssertionNum(_winningEdge.claimId) == assertionNum, "NOT_WINNER");
-            require(_winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
+            ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
+            require(getAssertionNum(winningEdge.claimId) == assertionNum, "NOT_WINNER");
+            require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
         confirmAssertion(assertionNum, blockHash, sendRoot);
