@@ -22,22 +22,25 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function rejectNextAssertion(bytes32 winningEdgeId) external;
 
-    function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdge) external;
-
-    function stakeOnNewAssertion(
-        AssertionInputs memory assertion,
-        bytes32 expectedAssertionHash
+    function confirmNextAssertion(
+        bytes32 parentAssertionHash,
+        ExecutionState calldata confirmState,
+        bytes32 inboxAcc,
+        bytes32 _wasmModuleRoot,
+        uint256 confirmInboxMaxCount,
+        bytes32 winningEdge
     ) external;
+
+    function stakeOnNewAssertion(AssertionInputs memory assertion, bytes32 expectedAssertionHash) external;
 
     function returnOldDeposit(address stakerAddress) external;
 
     function reduceDeposit(uint256 target) external;
 
-    function requiredStake(
-        uint256 blockNumber,
-        uint64 firstUnresolvedAssertionNum,
-        uint64 latestCreatedAssertion
-    ) external view returns (uint256);
+    function requiredStake(uint256 blockNumber, uint64 firstUnresolvedAssertionNum, uint64 latestCreatedAssertion)
+        external
+        view
+        returns (uint256);
 
     function currentRequiredStake() external view returns (uint256);
 
@@ -46,14 +49,12 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
     function requireUnresolved(uint256 assertionNum) external view;
 
     function withdrawStakerFunds() external returns (uint256);
-
 }
 
 interface IRollupUser is IRollupUserAbs {
-    function newStakeOnNewAssertion(
-        AssertionInputs calldata assertion,
-        bytes32 expectedAssertionHash
-    ) external payable;
+    function newStakeOnNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
+        external
+        payable;
 
     function addToDeposit(address stakerAddress) external payable;
 }

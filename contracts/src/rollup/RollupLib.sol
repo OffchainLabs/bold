@@ -50,18 +50,6 @@ library RollupLib {
             );
     }
 
-    function confirmHash(AssertionInputs memory assertion) internal pure returns (bytes32) {
-        return
-            confirmHash(
-                assertion.afterState.globalState.getBlockHash(),
-                assertion.afterState.globalState.getSendRoot()
-            );
-    }
-
-    function confirmHash(bytes32 blockHash, bytes32 sendRoot) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(blockHash, sendRoot));
-    }
-
     // Not the same as a machine hash for a given execution state
     function executionStateHash(ExecutionState memory state) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(state.machineStatus, state.globalState.hash()));

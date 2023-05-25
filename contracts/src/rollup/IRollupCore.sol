@@ -37,19 +37,12 @@ interface IRollupCore is IAssertionChain {
     event AssertionRejected(uint64 indexed assertionNum);
 
     event RollupChallengeStarted(
-        uint64 indexed challengeIndex,
-        address asserter,
-        address challenger,
-        uint64 challengedAssertion
+        uint64 indexed challengeIndex, address asserter, address challenger, uint64 challengedAssertion
     );
 
     event UserStakeUpdated(address indexed user, uint256 initialBalance, uint256 finalBalance);
 
-    event UserWithdrawableFundsUpdated(
-        address indexed user,
-        uint256 initialBalance,
-        uint256 finalBalance
-    );
+    event UserWithdrawableFundsUpdated(address indexed user, uint256 initialBalance, uint256 finalBalance);
 
     function confirmPeriodBlocks() external view returns (uint64);
 

@@ -13,8 +13,7 @@ import "./Config.sol";
 interface IRollupAdmin {
     event OwnerFunctionCalled(uint256 indexed id);
 
-    function initialize(Config calldata config, ContractDependencies calldata connectedContracts)
-        external;
+    function initialize(Config calldata config, ContractDependencies calldata connectedContracts) external;
 
     /**
      * @notice Add a contract authorized to put messages into this rollup's inbox
@@ -101,16 +100,16 @@ interface IRollupAdmin {
 
     function forceRefundStaker(address[] memory stacker) external;
 
-    function forceCreateAssertion(
-        uint64 prevAssertion,
-        AssertionInputs memory assertion,
-        bytes32 expectedAssertionHash
-    ) external;
+    function forceCreateAssertion(uint64 prevAssertion, AssertionInputs memory assertion, bytes32 expectedAssertionHash)
+        external;
 
     function forceConfirmAssertion(
         uint64 assertionNum,
-        bytes32 blockHash,
-        bytes32 sendRoot
+        bytes32 parentAssertionHash,
+        ExecutionState calldata confirmState,
+        bytes32 inboxAcc,
+        bytes32 _wasmModuleRoot,
+        uint256 confirmInboxMaxCount
     ) external;
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external;

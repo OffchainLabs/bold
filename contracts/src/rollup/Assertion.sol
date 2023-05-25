@@ -9,8 +9,6 @@ import "../state/Machine.sol";
 import "../osp/IOneStepProofEntry.sol";
 
 struct AssertionNode {
-    // Hash of the data that will be committed if this assertion is confirmed
-    bytes32 confirmData;
     // The inbox position that the assertion that succeeds should process up to and including
     uint64 nextInboxPosition;
     // Index of the assertion previous to this one
@@ -50,15 +48,13 @@ struct AssertionInputs {
 library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
-     s* @param _nextInboxPosition The inbox position that the assertion that succeeds should process up to and including
-     * @param _confirmData Initial value of confirmData
+     * @param _nextInboxPosition The inbox position that the assertion that succeeds should process up to and including
      * @param _prevNum Initial value of prevNum
      * @param _deadlineBlock Initial value of deadlineBlock
      * @param _assertionHash Initial value of assertionHash
      */
     function createAssertion(
         uint64 _nextInboxPosition,
-        bytes32 _confirmData,
         uint64 _prevNum,
         uint64 _deadlineBlock,
         bytes32 _assertionHash,
@@ -66,7 +62,6 @@ library AssertionNodeLib {
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.nextInboxPosition = _nextInboxPosition;
-        assertion.confirmData = _confirmData;
         assertion.prevNum = _prevNum;
         assertion.deadlineBlock = _deadlineBlock;
         assertion.noChildConfirmedBeforeBlock = _deadlineBlock;
@@ -118,5 +113,4 @@ library AssertionNodeLib {
     function requireExists(AssertionNode memory self) internal pure {
         require(self.createdAtBlock > 0, "ASSERTION_NOT_EXIST");
     }
-
 }

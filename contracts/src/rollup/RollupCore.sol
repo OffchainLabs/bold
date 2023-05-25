@@ -222,10 +222,30 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _firstUnresolvedAssertion++;
     }
 
-    function confirmAssertion(uint64 assertionNum, bytes32 blockHash, bytes32 sendRoot) internal {
+    function confirmAssertion(
+        uint64 assertionNum,
+        bytes32 parentAssertionHash,
+        ExecutionState calldata confirmState,
+        bytes32 inboxAcc,
+        bytes32 _wasmModuleRoot,
+        uint256 confirmInboxMaxCount
+    ) internal {
         AssertionNode storage assertion = getAssertionStorage(assertionNum);
-        // Authenticate data against assertion's confirm data pre-image
-        require(assertion.confirmData == RollupLib.confirmHash(blockHash, sendRoot), "CONFIRM_DATA");
+
+        // Authenticate data against assertionHash pre-image
+        require(
+            assertion.assertionHash
+                == RollupLib.assertionHash({
+                    parentAssertionHash: parentAssertionHash,
+                    afterState: confirmState,
+                    inboxAcc: inboxAcc,
+                    wasmModuleRoot: _wasmModuleRoot
+                }),
+            "CONFIRM_DATA"
+        );
+
+        bytes32 blockHash = confirmState.globalState.bytes32Vals[0];
+        bytes32 sendRoot = confirmState.globalState.bytes32Vals[1];
 
         // trusted external call to outbox
         outbox.updateSendRoot(sendRoot, blockHash);
@@ -439,7 +459,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
             uint64(nextInboxPosition),
-            RollupLib.confirmHash(assertion),
             prevAssertionNum,
             uint64(block.number) + confirmPeriodBlocks,
             newAssertionHash,

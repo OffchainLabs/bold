@@ -96,15 +96,18 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     /**
      * @notice Confirm the next unresolved assertion
-     * @param blockHash The block hash at the end of the assertion
-     * @param sendRoot The send root at the end of the assertion
-     * @param winningEdgeId The winning edge id if a challenge is started
+     * @param confirmState The state to confirm
+     * @param confirmInboxMaxCount The number of messages in the inbox at the time the assertion was made
+     * @param winningEdgeId The winning edge if a challenge is started
      */
-    function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdgeId)
-        external
-        onlyValidator
-        whenNotPaused
-    {
+    function confirmNextAssertion(
+        bytes32 parentAssertionHash,
+        ExecutionState calldata confirmState,
+        bytes32 inboxAcc,
+        bytes32 _wasmModuleRoot,
+        uint256 confirmInboxMaxCount,
+        bytes32 winningEdgeId
+    ) external onlyValidator whenNotPaused {
         requireUnresolvedExists();
 
         uint64 assertionNum = firstUnresolvedAssertion();
@@ -123,7 +126,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
-        confirmAssertion(assertionNum, blockHash, sendRoot);
+        confirmAssertion(
+            assertionNum, parentAssertionHash, confirmState, inboxAcc, _wasmModuleRoot, confirmInboxMaxCount
+        );
     }
 
     /**

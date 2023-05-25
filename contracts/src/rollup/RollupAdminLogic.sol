@@ -80,7 +80,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         });
         return AssertionNodeLib.createAssertion(
             1, // inboxMaxCount - force the first assertion to read a message
-            0, // confirm data
             0, // prev assertion
             uint64(block.number), // deadline block (not challengeable)
             genesisHash,
@@ -277,13 +276,18 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         emit OwnerFunctionCalled(23);
     }
 
-    function forceConfirmAssertion(uint64 assertionNum, bytes32 blockHash, bytes32 sendRoot)
-        external
-        override
-        whenPaused
-    {
+    function forceConfirmAssertion(
+        uint64 assertionNum,
+        bytes32 parentAssertionHash,
+        ExecutionState calldata confirmState,
+        bytes32 inboxAcc,
+        bytes32 _wasmModuleRoot,
+        uint256 confirmInboxMaxCount
+    ) external override whenPaused {
         // this skips deadline, staker and zombie validation
-        confirmAssertion(assertionNum, blockHash, sendRoot);
+        confirmAssertion(
+            assertionNum, parentAssertionHash, confirmState, inboxAcc, _wasmModuleRoot, confirmInboxMaxCount
+        );
         emit OwnerFunctionCalled(24);
     }
 
@@ -320,25 +324,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function setInbox(IInbox newInbox) external {
         inbox = newInbox;
         emit OwnerFunctionCalled(28);
-    }
-
-    // CHRIS: TODO: remove this now?
-    function createNitroMigrationGenesis(AssertionInputs calldata assertion) external whenPaused {
-        bytes32 expectedSendRoot = bytes32(0);
-        uint64 expectedInboxCount = 1;
-
-        require(latestAssertionCreated() == 0, "NON_GENESIS_NODES_EXIST");
-        require(GlobalStateLib.isEmpty(assertion.beforeState.globalState), "NOT_EMPTY_BEFORE");
-        require(assertion.beforeState.machineStatus == MachineStatus.FINISHED, "BEFORE_MACHINE_NOT_FINISHED");
-        // accessors such as state.getSendRoot not available for calldata structs, only memory
-        require(assertion.afterState.globalState.bytes32Vals[1] == expectedSendRoot, "NOT_ZERO_SENDROOT");
-        require(assertion.afterState.globalState.u64Vals[0] == expectedInboxCount, "INBOX_NOT_AT_ONE");
-        require(assertion.afterState.globalState.u64Vals[1] == 0, "POSITION_IN_MESSAGE_NOT_ZERO");
-        require(assertion.afterState.machineStatus == MachineStatus.FINISHED, "AFTER_MACHINE_NOT_FINISHED");
-        bytes32 genesisBlockHash = assertion.afterState.globalState.bytes32Vals[0];
-        createNewAssertion(assertion, 0, bytes32(0));
-        confirmAssertion(1, genesisBlockHash, expectedSendRoot);
-        emit OwnerFunctionCalled(29);
     }
 
     /**
