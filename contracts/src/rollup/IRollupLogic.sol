@@ -24,8 +24,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function confirmNextAssertion(bytes32 blockHash, bytes32 sendRoot, bytes32 winningEdge) external;
 
-    function stakeOnExistingAssertion(uint64 assertionNum, bytes32 assertionHash) external;
-
     function stakeOnNewAssertion(
         AssertionInputs memory assertion,
         bytes32 expectedAssertionHash
@@ -35,10 +33,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function reduceDeposit(uint256 target) external;
 
-    function removeZombie(uint256 zombieNum, uint256 maxAssertions) external;
-
-    function removeOldZombies(uint256 startIndex) external;
-
     function requiredStake(
         uint256 blockNumber,
         uint64 firstUnresolvedAssertionNum,
@@ -46,10 +40,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
     ) external view returns (uint256);
 
     function currentRequiredStake() external view returns (uint256);
-
-    function countStakedZombies(uint64 assertionNum) external view returns (uint256);
-
-    function countZombiesStakedOnChildren(uint64 assertionNum) external view returns (uint256);
 
     function requireUnresolvedExists() external view;
 
@@ -60,8 +50,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 }
 
 interface IRollupUser is IRollupUserAbs {
-    function newStakeOnExistingAssertion(uint64 assertionNum, bytes32 assertionHash) external payable;
-
     function newStakeOnNewAssertion(
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash
@@ -71,12 +59,6 @@ interface IRollupUser is IRollupUserAbs {
 }
 
 interface IRollupUserERC20 is IRollupUserAbs {
-    function newStakeOnExistingAssertion(
-        uint256 tokenAmount,
-        uint64 assertionNum,
-        bytes32 assertionHash
-    ) external;
-
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
         AssertionInputs calldata assertion,

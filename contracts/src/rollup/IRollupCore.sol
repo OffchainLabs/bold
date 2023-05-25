@@ -87,12 +87,6 @@ interface IRollupCore is IAssertionChain {
     function getAssertion(uint64 assertionNum) external view returns (AssertionNode memory);
 
     /**
-     * @notice Check if the specified assertion has been staked on by the provided staker.
-     * Only accurate at the latest confirmed assertion and afterwards.
-     */
-    function assertionHasStaker(uint64 assertionNum, address staker) external view returns (bool);
-
-    /**
      * @notice Get the address of the staker at the given index
      * @param stakerNum Index of the staker
      * @return Address of the staker
@@ -114,13 +108,6 @@ interface IRollupCore is IAssertionChain {
     function latestStakedAssertion(address staker) external view returns (uint64);
 
     /**
-     * @notice Get the current challenge of the given staker
-     * @param staker Staker address to lookup
-     * @return Current challenge of the staker
-     */
-    function currentChallenge(address staker) external view returns (uint64);
-
-    /**
      * @notice Get the amount staked of the given staker
      * @param staker Staker address to lookup
      * @return Amount staked of the staker
@@ -133,25 +120,6 @@ interface IRollupCore is IAssertionChain {
      * @return A structure with information about the requested staker
      */
     function getStaker(address staker) external view returns (Staker memory);
-
-    /**
-     * @notice Get the original staker address of the zombie at the given index
-     * @param zombieNum Index of the zombie to lookup
-     * @return Original staker address of the zombie
-     */
-    function zombieAddress(uint256 zombieNum) external view returns (address);
-
-    /**
-     * @notice Get Latest assertion that the given zombie at the given index is staked on
-     * @param zombieNum Index of the zombie to lookup
-     * @return Latest assertion that the given zombie is staked on
-     */
-    function zombieLatestStakedAssertion(uint256 zombieNum) external view returns (uint64);
-
-    /// @return Current number of un-removed zombies
-    function zombieCount() external view returns (uint256);
-
-    function isZombie(address staker) external view returns (bool);
 
     /**
      * @notice Get the amount of funds withdrawable by the given address

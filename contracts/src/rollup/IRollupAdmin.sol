@@ -99,8 +99,6 @@ interface IRollupAdmin {
      */
     function upgradeBeacon(address beacon, address newImplementation) external;
 
-    function forceResolveChallenge(address[] memory stackerA, address[] memory stackerB) external;
-
     function forceRefundStaker(address[] memory stacker) external;
 
     function forceCreateAssertion(

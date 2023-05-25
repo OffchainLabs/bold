@@ -39,11 +39,6 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].predecessorId;
     }
 
-    function getHeight(bytes32 assertionId) external view returns (uint256) {
-        require(assertionExists(assertionId), "Assertion does not exist");
-        return assertions[assertionId].height;
-    }
-
     function getNextInboxPosition(bytes32 assertionId) external view returns(uint64) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].nextInboxPosition;

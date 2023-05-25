@@ -99,14 +99,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
-     * @notice Check if the specified assertion has been staked on by the provided staker.
-     * Only accurate at the latest confirmed assertion and afterwards.
-     */
-    function assertionHasStaker(uint64 assertionNum, address staker) public view override returns (bool) {
-        revert("assertionHasStaker DEPRECATED");
-    }
-
-    /**
      * @notice Get the address of the staker at the given index
      * @param stakerNum Index of the staker
      * @return Address of the staker
@@ -134,15 +126,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
-     * @notice Get the current challenge of the given staker
-     * @param staker Staker address to lookup
-     * @return Current challenge of the staker
-     */
-    function currentChallenge(address staker) public view override returns (uint64) {
-        revert("currentChallenge DEPRECATED");
-    }
-
-    /**
      * @notice Get the amount staked of the given staker
      * @param staker Staker address to lookup
      * @return Amount staked of the staker
@@ -158,22 +141,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function getStaker(address staker) external view override returns (Staker memory) {
         return _stakerMap[staker];
-    }
-
-    function zombieAddress(uint256 zombieNum) public view override returns (address) {
-        revert("zombieAddress DEPRECATED");
-    }
-
-    function zombieLatestStakedAssertion(uint256 zombieNum) public view override returns (uint64) {
-        revert("zombieLatestStakedAssertion DEPRECATED");
-    }
-
-    function zombieCount() public view override returns (uint256) {
-        revert("zombieCount DEPRECATED");
-    }
-
-    function isZombie(address staker) public view override returns (bool) {
-        revert("isZombie DEPRECATED");
     }
 
     /**
@@ -283,34 +250,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
-     * @notice Check to see whether the two stakers are in the same challenge
-     * @param stakerAddress1 Address of the first staker
-     * @param stakerAddress2 Address of the second staker
-     * @return Address of the challenge that the two stakers are in
-     */
-    function inChallenge(address stakerAddress1, address stakerAddress2) internal view returns (uint64) {
-        revert("inChallenge DEPRECATED");
-    }
-
-    /**
-     * @notice Make the given staker as not being in a challenge
-     * @param stakerAddress Address of the staker to remove from a challenge
-     */
-    function clearChallenge(address stakerAddress) internal {
-        revert("clearChallenge DEPRECATED");
-    }
-
-    /**
-     * @notice Mark both the given stakers as engaged in the challenge
-     * @param staker1 Address of the first staker
-     * @param staker2 Address of the second staker
-     * @param challenge Address of the challenge both stakers are now in
-     */
-    function challengeStarted(address staker1, address staker2, uint64 challenge) internal {
-        revert("challengeStarted DEPRECATED");
-    }
-
-    /**
      * @notice Add to the stake of the given staker by the given amount
      * @param stakerAddress Address of the staker to increase the stake of
      * @param amountAdded Amount of stake to add to the staker
@@ -348,10 +287,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function withdrawStaker(address stakerAddress) internal {
         Staker storage staker = _stakerMap[stakerAddress];
         uint64 latestConfirmedNum = latestConfirmed();
-        if (assertionHasStaker(latestConfirmedNum, stakerAddress)) {
-            // Withdrawing a staker whose latest staked assertion isn't resolved should be impossible
-            assert(staker.latestStakedAssertion == latestConfirmedNum);
-        }
+        // TODO: HN: review if we need additional checks here
+        //           the user logic already checked if the staker is inactive
         uint256 initialStaked = staker.amountStaked;
         increaseWithdrawableFunds(stakerAddress, initialStaked);
         deleteStaker(stakerAddress);
@@ -535,10 +472,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
         uint64 prevNum = getAssertionStorage(getAssertionNum(assertionId)).prevNum;
         return getAssertionId(prevNum);
-    }
-
-    function getHeight(bytes32 assertionId) external view returns (uint256) {
-        revert("DEPRECATED");
     }
 
     function proveExecutionState(bytes32 assertionId, ExecutionState memory state, bytes memory proof)

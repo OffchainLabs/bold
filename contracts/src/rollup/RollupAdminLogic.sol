@@ -252,24 +252,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         emit OwnerFunctionCalled(20);
     }
 
-    function forceResolveChallenge(address[] calldata stakerA, address[] calldata stakerB)
-        external
-        override
-        whenPaused
-    {
-        require(stakerA.length > 0, "EMPTY_ARRAY");
-        require(stakerA.length == stakerB.length, "WRONG_LENGTH");
-        for (uint256 i = 0; i < stakerA.length; i++) {
-            uint64 chall = inChallenge(stakerA[i], stakerB[i]);
-
-            require(chall != NO_CHAL_INDEX, "NOT_IN_CHALL");
-            clearChallenge(stakerA[i]);
-            clearChallenge(stakerB[i]);
-            oldChallengeManager.clearChallenge(chall);
-        }
-        emit OwnerFunctionCalled(21);
-    }
-
     function forceRefundStaker(address[] calldata staker) external override whenPaused {
         require(staker.length > 0, "EMPTY_ARRAY");
         for (uint256 i = 0; i < staker.length; i++) {

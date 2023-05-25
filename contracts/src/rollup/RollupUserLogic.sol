@@ -12,7 +12,7 @@ import "./RollupCore.sol";
 import "./IRollupLogic.sol";
 import {ETH_POS_BLOCK_TIME} from "../libraries/Constants.sol";
 
-abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUserAbs, IOldChallengeResultReceiver {
+abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUserAbs {
     using AssertionNodeLib for AssertionNode;
     using GlobalStateLib for GlobalState;
 
@@ -140,11 +140,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         createNewStake(msg.sender, depositAmount);
     }
 
-    function stakeOnExistingAssertion(uint64 assertionNum, bytes32 assertionHash) public onlyValidator whenNotPaused {
-        // Assertion should only have 1 staker
-        revert("stakeOnExistingAssertion DEPRECATED");
-    }
-
     /**
      * @notice Create a new assertion and move stake onto it
      * @param assertion The assertion data
@@ -249,31 +244,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         reduceStakeTo(msg.sender, target);
     }
 
-    function createChallenge(uint64 assertionNum) external onlyValidator whenNotPaused returns (bytes32) {
-        revert("DEPRECATED");
-    }
-
-    /**
-     * @notice Inform the rollup that the challenge between the given stakers is completed
-     * @param winningStaker Address of the winning staker
-     * @param losingStaker Address of the losing staker
-     */
-    function completeChallenge(uint256 challengeIndex, address winningStaker, address losingStaker)
-        external
-        override
-        whenNotPaused
-    {
-        revert("DEPRECATED");
-    }
-
-    function removeZombie(uint256 zombieNum, uint256 maxAssertions) external onlyValidator whenNotPaused {
-        revert("removeZombie DEPRECATED");
-    }
-
-    function removeOldZombies(uint256 startIndex) public onlyValidator whenNotPaused {
-        revert("removeOldZombies DEPRECATED");
-    }
-
     /**
      * @notice Calculate the current amount of funds required to place a new stake in the rollup
      * @return The current minimum stake requirement
@@ -292,14 +262,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     function currentRequiredStake() public view returns (uint256) {
         return baseStake;
-    }
-
-    function countStakedZombies(uint64 assertionNum) public view override returns (uint256) {
-        revert("countStakedZombies DEPRECATED");
-    }
-
-    function countZombiesStakedOnChildren(uint64 assertionNum) public view override returns (uint256) {
-        revert("countZombiesStakedOnChildren DEPRECATED");
     }
 
     /**
@@ -337,16 +299,6 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
     function initialize(address _stakeToken) external view override onlyProxy {
         require(_stakeToken == address(0), "NO_TOKEN_ALLOWED");
         require(!isERC20Enabled(), "FACET_NOT_ERC20");
-    }
-
-    /**
-     * @notice Create a new stake on an existing assertion
-     * @param assertionNum Number of the assertion your stake will be place one
-     * @param assertionHash Assertion hash of the assertion with the given assertionNum
-     */
-    function newStakeOnExistingAssertion(uint64 assertionNum, bytes32 assertionHash) external payable override {
-        _newStake(msg.value);
-        stakeOnExistingAssertion(assertionNum, assertionHash);
     }
 
     /**
@@ -390,22 +342,6 @@ contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
     function initialize(address _stakeToken) external view override onlyProxy {
         require(_stakeToken != address(0), "NEED_STAKE_TOKEN");
         require(isERC20Enabled(), "FACET_NOT_ERC20");
-    }
-
-    /**
-     * @notice Create a new stake on an existing assertion
-     * @param tokenAmount Amount of the rollups staking token to stake
-     * @param assertionNum Number of the assertion your stake will be place one
-     * @param assertionHash Assertion hash of the assertion with the given assertionNum
-     */
-    function newStakeOnExistingAssertion(uint256 tokenAmount, uint64 assertionNum, bytes32 assertionHash)
-        external
-        override
-    {
-        _newStake(tokenAmount);
-        stakeOnExistingAssertion(assertionNum, assertionHash);
-        /// @dev This is an external call, safe because it's at the end of the function
-        receiveTokens(tokenAmount);
     }
 
     /**
