@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const sleepTime = time.Second * 5
+const sleepTime = time.Second * 1
 
 var log = logrus.WithField("prefix", "util")
 

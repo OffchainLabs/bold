@@ -21,10 +21,6 @@ const (
 	edgeAddingSubchallengeLeaf
 	// The tracker is attempting a bisection move.
 	edgeBisecting
-	// The tracker is confirming an edge.
-	// TODO: There are other ways the edge can be confirmed, and perhaps should
-	// be tracked in a separate goroutine then the tracker.
-	edgeConfirming
 	// Terminal state
 	edgeConfirmed
 )
@@ -42,8 +38,6 @@ func (s edgeTrackerState) String() string {
 		return "adding_subchallenge_leaf"
 	case edgeBisecting:
 		return "bisecting"
-	case edgeConfirming:
-		return "confirming"
 	case edgeConfirmed:
 		return "confirmed"
 	default:
@@ -73,9 +67,6 @@ type edgeOpenSubchallengeLeaf struct{}
 // Tracker will attempt to bisect its edge.
 type edgeBisect struct{}
 
-// Tracker will attempt to confirm a challenge winner.
-type edgeTryToConfirm struct{}
-
 type edgeConfirm struct{}
 
 func (edgeBackToStart) String() string {
@@ -92,9 +83,6 @@ func (edgeOpenSubchallengeLeaf) String() string {
 }
 func (edgeBisect) String() string {
 	return "bisect"
-}
-func (edgeTryToConfirm) String() string {
-	return "trying_to_confirm"
 }
 func (edgeConfirm) String() string {
 	return "confirm"
@@ -113,9 +101,6 @@ func (edgeOpenSubchallengeLeaf) isEdgeTrackerAction() bool {
 	return true
 }
 func (edgeBisect) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeTryToConfirm) isEdgeTrackerAction() bool {
 	return true
 }
 func (edgeConfirm) isEdgeTrackerAction() bool {

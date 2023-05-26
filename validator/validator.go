@@ -39,6 +39,7 @@ type Validator struct {
 	timeRef                   util.TimeReference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
+	chainWatcherInterval      time.Duration
 	chainWatcher              *watcher.Watcher
 }
 
@@ -86,6 +87,14 @@ func WithNewAssertionCheckInterval(d time.Duration) Opt {
 	}
 }
 
+// WithChainWatcherInterval specified how often the chain watcher will be
+// scanning the chain for new edge added or confirmation events.
+func WithChainWatcherInterval(d time.Duration) Opt {
+	return func(val *Validator) {
+		val.chainWatcherInterval = d
+	}
+}
+
 // New sets up a validator client instances provided a protocol, state manager,
 // and additional options.
 func New(
@@ -106,6 +115,7 @@ func New(
 		edgeTrackerWakeInterval:   time.Millisecond * 100,
 		newAssertionCheckInterval: time.Second,
 		postAssertionsInterval:    time.Second * 5,
+		chainWatcherInterval:      time.Second * 5,
 	}
 	for _, o := range opts {
 		o(v)
@@ -132,12 +142,12 @@ func New(
 	v.rollupFilterer = rollupFilterer
 	v.chalManagerAddr = chalManagerAddr
 	v.chalManager = chalManagerFilterer
-	v.chainWatcher = watcher.New(chain, stateManager, backend, time.Millisecond*250, v.name)
-	go v.chainWatcher.Watch(ctx)
+	v.chainWatcher = watcher.New(chain, stateManager, backend, v.chainWatcherInterval, v.name)
 	return v, nil
 }
 
 func (v *Validator) Start(ctx context.Context) {
+	go v.chainWatcher.Watch(ctx)
 	go v.pollForAssertions(ctx)
 	go v.postAssertionsPeriodically(ctx)
 	log.WithField(

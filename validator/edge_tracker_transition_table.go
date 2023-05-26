@@ -47,15 +47,10 @@ func newEdgeTrackerFsm(
 			From: []edgeTrackerState{edgeStarted},
 			To:   edgeBisecting,
 		},
-		{
-			Typ:  edgeTryToConfirm{},
-			From: []edgeTrackerState{edgeStarted, edgeConfirming, edgeBisecting, edgeAtOneStepFork, edgeAddingSubchallengeLeaf},
-			To:   edgeConfirming,
-		},
 		// Terminal state.
 		{
 			Typ:  edgeConfirm{},
-			From: []edgeTrackerState{edgeConfirmed, edgeConfirming, edgeAtOneStepProof},
+			From: []edgeTrackerState{edgeStarted, edgeConfirmed, edgeAtOneStepProof},
 			To:   edgeConfirmed,
 		},
 	}
