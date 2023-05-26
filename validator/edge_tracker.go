@@ -230,14 +230,8 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	start, _ := et.edge.StartCommitment()
 	end, _ := et.edge.EndCommitment()
-	if et.cfg.validatorName == "alice" && start == 0 && end == 2 && et.edge.GetType() == protocol.SmallStepChallengeEdge {
-		log.WithFields(et.uniqueTrackerLogFields()).Infof("Path timer %d", timer)
-	}
-	if et.cfg.validatorName == "bob" && start == 16 && end == 32 && et.edge.GetType() == protocol.BlockChallengeEdge {
-		log.WithFields(et.uniqueTrackerLogFields()).Infof("Bob Path timer %d", timer)
-	}
-	if et.cfg.validatorName == "alice" && start == 16 && end == 32 && et.edge.GetType() == protocol.BlockChallengeEdge {
-		log.WithFields(et.uniqueTrackerLogFields()).Infof("Alice Path timer %d", timer)
+	if et.cfg.validatorName == "alice" && start == 0 && end == 32 {
+		log.WithFields(et.uniqueTrackerLogFields()).Infof("Alice Path timer %d and type %v", timer, et.edge.GetType())
 	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
