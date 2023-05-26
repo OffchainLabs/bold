@@ -68,7 +68,7 @@ type AssertionChain interface {
 		ctx context.Context, seqNum AssertionSequenceNumber,
 	) (*AssertionCreatedInfo, error)
 
-	AssertionUnrivaledTime(ctx context.Context, edgeId EdgeId) (uint64, error)
+	AssertionUnrivaledTime(ctx context.Context, assertionId AssertionId) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId EdgeId) (AssertionId, error)
 	TopLevelClaimHeights(ctx context.Context, edgeId EdgeId) (*OriginHeights, error)
 

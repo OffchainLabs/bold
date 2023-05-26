@@ -48,10 +48,6 @@ func (m *MockAssertion) IsFirstChild() (bool, error) {
 func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {
 	return m.MockInboxMsgCountSeen, nil
 }
-func (m *MockAssertion) CreatedAtBlock() uint64 {
-	return m.MockCreatedAtBlock
-}
-
 func (m *MockAssertion) CreatedAtBlock() (uint64, error) {
 	return m.CreatedAt, nil
 }
@@ -422,8 +418,8 @@ func (m *MockProtocol) GenesisAssertionHashes(
 	return args.Get(0).(common.Hash), args.Get(1).(common.Hash), args.Get(2).(common.Hash), args.Error(3)
 }
 
-func (m *MockProtocol) AssertionUnrivaledTime(ctx context.Context, edgeId protocol.EdgeId) (uint64, error) {
-	args := m.Called(ctx, edgeId)
+func (m *MockProtocol) AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
+	args := m.Called(ctx, assertionId)
 	return args.Get(0).(uint64), args.Error(1)
 }
 

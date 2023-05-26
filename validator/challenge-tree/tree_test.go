@@ -151,7 +151,7 @@ func (m *mockMetadataReader) TopLevelAssertion(
 }
 
 func (*mockMetadataReader) AssertionUnrivaledTime(
-	_ context.Context, _ protocol.EdgeId,
+	_ context.Context, _ protocol.AssertionId,
 ) (uint64, error) {
 	return 0, nil
 }
