@@ -37,7 +37,7 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	stateManager       statemanager.Manager
+	histChecker        statemanager.HistoryChecker
 	chain              protocol.AssertionChain
 	pollEventsInterval time.Duration
 	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
@@ -49,7 +49,7 @@ type Watcher struct {
 // for edge creations and confirmations.
 func New(
 	chain protocol.AssertionChain,
-	manager statemanager.Manager,
+	histChecker statemanager.HistoryChecker,
 	backend bind.ContractBackend,
 	interval time.Duration,
 	validatorName string,
@@ -59,7 +59,7 @@ func New(
 		pollEventsInterval: interval,
 		challenges:         threadsafe.NewMap[protocol.AssertionId, *trackedChallenge](),
 		backend:            backend,
-		stateManager:       manager,
+		histChecker:        histChecker,
 		validatorName:      validatorName,
 	}
 }
@@ -292,7 +292,7 @@ func (w *Watcher) processEdgeAddedEvent(
 		tree := challengetree.New(
 			protocol.AssertionId(event.OriginId),
 			w.chain,
-			w.stateManager,
+			w.histChecker,
 			w.validatorName,
 		)
 		chal = &trackedChallenge{

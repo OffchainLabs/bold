@@ -126,9 +126,9 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	}
 
 	watcher := &Watcher{
-		challenges:   threadsafe.NewMap[protocol.AssertionId, *trackedChallenge](),
-		stateManager: mockStateManager,
-		chain:        mockChain,
+		challenges:  threadsafe.NewMap[protocol.AssertionId, *trackedChallenge](),
+		histChecker: mockStateManager,
+		chain:       mockChain,
 	}
 	err := watcher.processEdgeAddedEvent(ctx, &challengeV2gen.EdgeChallengeManagerEdgeAdded{
 		EdgeId:   edgeId,
