@@ -16,22 +16,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-type challenge struct {
+// Represents a set of honest edges being tracked in a top-level challenge and all the
+// associated subchallenge honest edges along with some more metadata used for
+// computing information needed for confirmations. Each time an edge is created onchain,
+// the challenge watcher service will add it to its respective "trackedChallenge"
+// namespaced under the top-level assertion id the edge belongs to.
+type trackedChallenge struct {
 	honestEdgeTree                 *challengetree.HonestChallengeTree
 	confirmedLevelZeroEdgeClaimIds *threadsafe.Set[protocol.ClaimId]
 }
 
-// Will keep track of ancestor histories for honest
-// branches per challenge.
-// Will scan for all previous events, and poll for new ones.
-// Will scan for level zero edges being confirmed and track
-// their claim id in this struct.
+// The challenge watcher implements a singleton service in the validator runtime
+// that is in charge of scanning through all edge creation events via a polling
+// mechanism
 type challengeWatcher struct {
 	stateManager       statemanager.Manager
 	chain              protocol.AssertionChain
 	pollEventsInterval time.Duration
 	lock               sync.RWMutex
-	challenges         *threadsafe.Map[protocol.AssertionId, *challenge]
+	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
 	backend            bind.ContractBackend
 	validatorName      string
 }
