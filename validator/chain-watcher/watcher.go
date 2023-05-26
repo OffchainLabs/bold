@@ -231,6 +231,7 @@ func (w *Watcher) Watch(ctx context.Context) {
 	}
 }
 
+// Filters for all edge added events within a range and processes them.
 func (w *Watcher) checkForEdgeAdded(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -264,6 +265,7 @@ func (w *Watcher) checkForEdgeAdded(
 	return nil
 }
 
+// Processes an edge added event by adding it to the honest challenge tree if it is honest.
 func (w *Watcher) processEdgeAddedEvent(
 	ctx context.Context,
 	event *challengeV2gen.EdgeChallengeManagerEdgeAdded,
@@ -302,6 +304,8 @@ func (w *Watcher) processEdgeAddedEvent(
 	return chal.honestEdgeTree.AddEdge(ctx, edge)
 }
 
+// Filters for edge confirmed by one step proof events within a range.
+// and processes any events found.
 func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -335,6 +339,8 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 	return nil
 }
 
+// Filters for edge confirmed by time within a range.
+// and processes any events found.
 func (w *Watcher) checkForEdgeConfirmedByTime(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -368,6 +374,8 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 	return nil
 }
 
+// Filters for edge confirmed by children within a range.
+// and processes any events found.
 func (w *Watcher) checkForEdgeConfirmedByChildren(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -401,6 +409,8 @@ func (w *Watcher) checkForEdgeConfirmedByChildren(
 	return nil
 }
 
+// Filters for edge confirmed by claim within a range.
+// and processes any events found.
 func (w *Watcher) checkForEdgeConfirmedByClaim(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -434,6 +444,9 @@ func (w *Watcher) checkForEdgeConfirmedByClaim(
 	return nil
 }
 
+// Processes an edge confirmation event by checking if it claims an edge. If so, we add
+// the claim id to the confirmed, level zero edge claim ids map for the associated
+// assertion-level challenge the edge is a part of.
 func (w *Watcher) processEdgeConfirmation(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
@@ -472,6 +485,8 @@ type filterRange struct {
 	endBlockNum   uint64
 }
 
+// Gets the start and end block numbers for our filter queries, starting from the
+// latest confirmed assertion's block number up to the latest block number.
 func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) {
 	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
 	if err != nil {
