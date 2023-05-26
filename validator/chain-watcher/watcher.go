@@ -438,7 +438,6 @@ func (w *Watcher) processEdgeConfirmation(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) error {
-	log.Infof("***Processed edge confirmation: %#x", edgeId)
 	challengeManager, err := w.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return err
@@ -459,7 +458,10 @@ func (w *Watcher) processEdgeConfirmation(
 		return nil
 	}
 	claimId := edge.ClaimId().Unwrap()
-	chal := w.challenges.Get(prevAssertionId)
+	chal, ok := w.challenges.TryGet(prevAssertionId)
+	if !ok {
+		return nil
+	}
 	chal.confirmedLevelZeroEdgeClaimIds.Insert(claimId)
 	w.challenges.Put(prevAssertionId, chal)
 	return nil
