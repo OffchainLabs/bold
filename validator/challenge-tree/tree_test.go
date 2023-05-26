@@ -6,13 +6,15 @@ import (
 
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"strings"
 )
 
 func TestAddEdge(t *testing.T) {
@@ -55,18 +57,16 @@ func TestAddEdge(t *testing.T) {
 			assertionErr: nil,
 			assertionId:  ht.topLevelAssertionId,
 		}
-		ht.histChecker = &mockHistChecker{
-			agreesErr: errors.New("bad request"),
-		}
+		ht.histChecker = &mocks.MockStateManager{}
 		err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not check if agrees with")
 	})
 	t.Run("fully disagrees with edge", func(t *testing.T) {
-		ht.histChecker = &mockHistChecker{
-			agreement: Agreement{
-				IsHonestEdge:          false,
-				AgreesWithStartCommit: false,
-			},
+		ht.histChecker = &mocks.MockStateManager{
+			// agreement: Agreement{
+			// 	IsHonestEdge:          false,
+			// 	AgreesWithStartCommit: false,
+			// },
 		}
 		badEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.f-16.a", createdAt: 1})
 		err := ht.AddEdge(ctx, badEdge)
@@ -79,10 +79,10 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, false, ok)
 	})
 	t.Run("agrees with edge but is not a level zero edge", func(t *testing.T) {
-		ht.histChecker = &mockHistChecker{
-			agreement: Agreement{
-				IsHonestEdge: true,
-			},
+		ht.histChecker = &mocks.MockStateManager{
+			// agreement: Agreement{
+			// 	IsHonestEdge: true,
+			// },
 		}
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1})
 		err := ht.AddEdge(ctx, edge)
@@ -116,11 +116,11 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, false, ht.honestBlockChalLevelZeroEdge.IsNone())
 	})
 	t.Run("edge is not honest but we agree with start commit and keep it as a rival", func(t *testing.T) {
-		ht.histChecker = &mockHistChecker{
-			agreement: Agreement{
-				IsHonestEdge:          false,
-				AgreesWithStartCommit: true,
-			},
+		ht.histChecker = &mocks.MockStateManager{
+			// agreement: Agreement{
+			// 	IsHonestEdge:          false,
+			// 	AgreesWithStartCommit: true,
+			// },
 		}
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.b", createdAt: 1, claimId: "bar"})
 		err := ht.AddEdge(ctx, edge)
@@ -140,7 +140,7 @@ func TestAddEdge(t *testing.T) {
 type mockMetadataReader struct {
 	assertionId     protocol.AssertionId
 	assertionErr    error
-	claimHeights    *ClaimHeights
+	claimHeights    *protocol.OriginHeights
 	claimHeightsErr error
 }
 
@@ -156,24 +156,22 @@ func (*mockMetadataReader) AssertionUnrivaledTime(
 	return 0, nil
 }
 
-func (m *mockMetadataReader) ClaimHeights(
+func (m *mockMetadataReader) TopLevelClaimHeights(
 	_ context.Context, _ protocol.EdgeId,
-) (*ClaimHeights, error) {
+) (*protocol.OriginHeights, error) {
 	return m.claimHeights, m.claimHeightsErr
 }
 
-type mockHistChecker struct {
-	agreement Agreement
-	agreesErr error
+func (m *mockMetadataReader) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
+	return nil, errors.New("unimplemented")
 }
-
-func (m *mockHistChecker) AgreesWithHistoryCommitment(
-	_ context.Context,
-	_ *ClaimHeights,
-	_,
-	_ util.HistoryCommitment,
-) (Agreement, error) {
-	return m.agreement, m.agreesErr
+func (m *mockMetadataReader) GetAssertionNum(ctx context.Context, assertionHash protocol.AssertionId) (protocol.AssertionSequenceNumber, error) {
+	return 0, errors.New("unimplemented")
+}
+func (m *mockMetadataReader) ReadAssertionCreationInfo(
+	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
+) (*protocol.AssertionCreatedInfo, error) {
+	return nil, errors.New("unimplemented")
 }
 
 var _ = protocol.ReadOnlyEdge(&edge{})

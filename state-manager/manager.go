@@ -13,6 +13,7 @@ import (
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/sirupsen/logrus"
 )
 
 // Defines the ABI encoding structure for submission of prefix proofs to the protocol contracts
@@ -120,6 +121,18 @@ type Manager interface {
 		fromSmallStep,
 		toSmallStep uint64,
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
+	HistoryChecker
+}
+
+type HistoryChecker interface {
+	AgreesWithHistoryCommitment(
+		ctx context.Context,
+		edgeType protocol.EdgeType,
+		prevAssertionInboxMaxCount uint64,
+		heights *protocol.OriginHeights,
+		startCommit,
+		endCommit util.HistoryCommitment,
+	) (protocol.Agreement, error)
 }
 
 // Simulated defines a very naive state manager that is initialized from a list of predetermined
@@ -365,6 +378,19 @@ func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, bl
 		states,
 	)
 }
+
+func (s *Simulated) AgreesWithHistoryCommitment(
+	ctx context.Context,
+	edgeType protocol.EdgeType,
+	prevAssertionInboxMaxCount uint64,
+	heights *protocol.OriginHeights,
+	startCommit,
+	endCommit util.HistoryCommitment,
+) (protocol.Agreement, error) {
+	return protocol.Agreement{}, errors.New("unimplemented")
+}
+
+var log = logrus.WithField("prefix", "manager")
 
 func (s *Simulated) BigStepLeafCommitment(
 	ctx context.Context,
