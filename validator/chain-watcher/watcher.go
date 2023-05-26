@@ -26,7 +26,7 @@ var log = logrus.WithField("prefix", "challenge-watcher")
 // namespaced under the top-level assertion id the edge belongs to.
 type trackedChallenge struct {
 	honestEdgeTree                 *challengetree.HonestChallengeTree
-	confirmedLevelZeroEdgeClaimIds *threadsafe.Set[protocol.ClaimId]
+	confirmedLevelZeroEdgeClaimIds *threadsafe.Map[protocol.ClaimId, protocol.EdgeId]
 }
 
 // The Watcher implements a service in the validator runtime
@@ -66,16 +66,16 @@ func New(
 
 // Checks if a confirmed, level zero edge exists that claims a particular
 // edge id for a tracked challenge. This is used during the confirmation process of edges
-// within edge tracker goroutines.
+// within edge tracker goroutines. Returns the claiming edge id.
 func (w *Watcher) ConfirmedEdgeWithClaimExists(
 	topLevelParentAssertionId protocol.AssertionId,
 	claimId protocol.ClaimId,
-) (bool, error) {
+) (protocol.EdgeId, bool) {
 	challenge, ok := w.challenges.TryGet(topLevelParentAssertionId)
 	if !ok {
-		return false, errors.New("assertion does not have an associated challenge")
+		return protocol.EdgeId{}, false
 	}
-	return challenge.confirmedLevelZeroEdgeClaimIds.Has(claimId), nil
+	return challenge.confirmedLevelZeroEdgeClaimIds.TryGet(claimId)
 }
 
 // Computes the honest path timer for an edge id within an assertion id challenge
@@ -297,7 +297,7 @@ func (w *Watcher) processEdgeAddedEvent(
 		)
 		chal = &trackedChallenge{
 			honestEdgeTree:                 tree,
-			confirmedLevelZeroEdgeClaimIds: threadsafe.NewSet[protocol.ClaimId](),
+			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](),
 		}
 		w.challenges.Put(assertionId, chal)
 	}
@@ -475,7 +475,7 @@ func (w *Watcher) processEdgeConfirmation(
 	if !ok {
 		return nil
 	}
-	chal.confirmedLevelZeroEdgeClaimIds.Insert(claimId)
+	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
 	w.challenges.Put(prevAssertionId, chal)
 	return nil
 }

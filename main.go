@@ -20,7 +20,7 @@ var (
 	// How often the validator polls the chain to see if new assertions have been posted.
 	checkForAssertionsInteral = time.Second
 	// How often the validator will post its latest assertion to the chain.
-	postNewAssertionInterval = time.Second * 5
+	postNewAssertionInterval = time.Hour
 	// How often we advance the blockchain's latest block in the background using a simulated backend.
 	advanceChainInterval = time.Second * 5
 )

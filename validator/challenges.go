@@ -75,7 +75,7 @@ func (v *Validator) challengeAssertion(ctx context.Context, parentSeqNum protoco
 	logFields := logrus.Fields{}
 	logFields["name"] = v.name
 	logFields["parentAssertionSeqNum"] = assertionPrevSeqNum
-	log.WithFields(logFields).Info("Successfully created level zero edge for block challenge, now tracking")
+	log.WithFields(logFields).Info("Successfully created level zero edge")
 	return nil
 }
 
