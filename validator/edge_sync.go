@@ -41,6 +41,9 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 		filterer, err := retryUntilSucceeds[*challengeV2gen.EdgeChallengeManagerFilterer](ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 			return v.getFilterer(ctx)
 		})
+		if err != nil {
+			return err
+		}
 		it, err := filterer.FilterEdgeAdded(&bind.FilterOpts{
 			Start:   currentBlockNum,
 			End:     &latestBlockNum,
