@@ -20,6 +20,8 @@ go_library(
         "//solgen/go/rollupgen",
         "//state-manager",
         "//util",
+        "//validator/chain-watcher",
+        "//validator/challenge-tree",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
