@@ -118,22 +118,12 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		ctx,
 	).Return(assertionId, nil)
 
-	mockStateManager := &mocks.MockStateManager{}
-	mockStateManager.On(
-		"AgreesWithHistoryCommitment",
-		ctx,
-		protocol.BlockChallengeEdge,
-		info.InboxMaxCount.Uint64(),
-		heights,
-		util.HistoryCommitment{
-			Height: 0,
-			Merkle: startCommit,
+	mockStateManager := &mocks.MockStateManager{
+		Agreement: protocol.Agreement{
+			IsHonestEdge:          true,
+			AgreesWithStartCommit: true,
 		},
-		util.HistoryCommitment{
-			Height: 4,
-			Merkle: endCommit,
-		},
-	).Return(protocol.Agreement{IsHonestEdge: true, AgreesWithStartCommit: true}, nil)
+	}
 
 	watcher := &Watcher{
 		challenges:   threadsafe.NewMap[protocol.AssertionId, *trackedChallenge](),

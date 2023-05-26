@@ -17,6 +17,7 @@ import (
 // - Build edge trackers for every edge (retry on fail)
 // - Given block still advances while building all the edges trackers. At the end, it checks if it's on the latest block, or loop from the start
 // - Once gathered all the sync edges from all the blocks, spin of all the edge trackers as part of go routine.
+// nolint:unused
 func (v *Validator) syncEdges(ctx context.Context) error {
 	latestBlockNum, err := v.getLatestBlockNum(ctx)
 	if err != nil {
@@ -84,6 +85,7 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 	return nil
 }
 
+// nolint:unused
 func (v *Validator) getFilterer(ctx context.Context) (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 	cm, err := v.chain.SpecChallengeManager(ctx)
 	if err != nil {
@@ -93,6 +95,7 @@ func (v *Validator) getFilterer(ctx context.Context) (*challengeV2gen.EdgeChalle
 }
 
 // get latest block number from the chain.
+// nolint:unused
 func (v *Validator) getLatestBlockNum(ctx context.Context) (uint64, error) {
 	// Retry until you get the latest block number.
 	latestBlock, err := util.RetryUntilSucceeds(ctx, func() (*types.Header, error) {
@@ -105,6 +108,7 @@ func (v *Validator) getLatestBlockNum(ctx context.Context) (uint64, error) {
 }
 
 // get confirmed block number from the chain.
+// nolint:unused
 func (v *Validator) getConfirmedBlockNum(ctx context.Context) (uint64, error) {
 	// Retry until you get the latest confirmed assertion.
 	assertion, err := util.RetryUntilSucceeds(ctx, func() (protocol.Assertion, error) {
@@ -118,6 +122,7 @@ func (v *Validator) getConfirmedBlockNum(ctx context.Context) (uint64, error) {
 
 // getEdges gets all the edges from edge added events.
 // If fails to get an edge given the edge ID, it'll retry until it succeeds.
+// nolint:unused
 func (v *Validator) getEdges(ctx context.Context, cm protocol.SpecChallengeManager, it *challengeV2gen.EdgeChallengeManagerEdgeAddedIterator) ([]util.Option[protocol.SpecEdge], error) {
 	edges := make([]util.Option[protocol.SpecEdge], 0)
 	for it.Next() {
@@ -133,6 +138,7 @@ func (v *Validator) getEdges(ctx context.Context, cm protocol.SpecChallengeManag
 	return edges, nil
 }
 
+// nolint:unused
 func (v *Validator) getExecutionStateBlockHeight(ctx context.Context, st rollupgen.ExecutionState) (uint64, error) {
 	height, ok := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(st))
 	if !ok {
@@ -143,6 +149,7 @@ func (v *Validator) getExecutionStateBlockHeight(ctx context.Context, st rollupg
 
 // getEdgeTrackers builds edge trackers for every edge.
 // If fails on getting assertion number or creation info, it'll retry until it succeeds.
+// nolint:unused
 func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[protocol.SpecEdge]) ([]*edgeTracker, error) {
 	var assertionIdMap = make(map[protocol.AssertionId][2]uint64)
 	edgeTrackers := make([]*edgeTracker, len(edges))
@@ -164,7 +171,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[pro
 		var inboxMsgCount uint64
 		if !ok {
 			// Retry until you get the assertion number.
-			assertionNum, assertionErr := util.RetryUntilSucceeds[protocol.AssertionSequenceNumber](ctx, func() (protocol.AssertionSequenceNumber, error) {
+			assertionNum, assertionErr := util.RetryUntilSucceeds(ctx, func() (protocol.AssertionSequenceNumber, error) {
 				return v.chain.GetAssertionNum(ctx, assertionId)
 			})
 			if assertionErr != nil {
@@ -172,7 +179,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[pro
 			}
 
 			// Retry until you get the assertion creation info.
-			assertionCreationInfo, creationErr := util.RetryUntilSucceeds[*protocol.AssertionCreatedInfo](ctx, func() (*protocol.AssertionCreatedInfo, error) {
+			assertionCreationInfo, creationErr := util.RetryUntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 				return v.chain.ReadAssertionCreationInfo(ctx, assertionNum)
 			})
 			if creationErr != nil {
@@ -180,7 +187,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[pro
 			}
 
 			// Retry until you get the execution state block height.
-			height, heightErr := util.RetryUntilSucceeds[uint64](ctx, func() (uint64, error) {
+			height, heightErr := util.RetryUntilSucceeds(ctx, func() (uint64, error) {
 				return v.getExecutionStateBlockHeight(ctx, assertionCreationInfo.AfterState)
 			})
 			if heightErr != nil {

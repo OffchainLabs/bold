@@ -387,75 +387,8 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	startCommit,
 	endCommit util.HistoryCommitment,
 ) (protocol.Agreement, error) {
-	agreement := protocol.Agreement{}
-	var localStartCommit util.HistoryCommitment
-	var localEndCommit util.HistoryCommitment
-	var err error
-	switch edgeType {
-	case protocol.BlockChallengeEdge:
-		localStartCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(startCommit.Height), prevAssertionInboxMaxCount)
-		if err != nil {
-			return protocol.Agreement{}, err
-		}
-		localEndCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(endCommit.Height), prevAssertionInboxMaxCount)
-		if err != nil {
-			return protocol.Agreement{}, err
-		}
-	case protocol.BigStepChallengeEdge:
-		localStartCommit, err = s.BigStepCommitmentUpTo(
-			ctx,
-			uint64(heights.BlockChallengeOriginHeight),
-			uint64(heights.BlockChallengeOriginHeight)+1,
-			uint64(startCommit.Height),
-		)
-		if err != nil {
-			return protocol.Agreement{}, err
-		}
-		localEndCommit, err = s.BigStepCommitmentUpTo(
-			ctx,
-			uint64(heights.BlockChallengeOriginHeight),
-			uint64(heights.BlockChallengeOriginHeight)+1,
-			uint64(endCommit.Height),
-		)
-		if err != nil {
-			return protocol.Agreement{}, err
-		}
-	case protocol.SmallStepChallengeEdge:
-		localStartCommit, err = s.SmallStepCommitmentUpTo(
-			ctx,
-			uint64(heights.BlockChallengeOriginHeight),
-			uint64(heights.BlockChallengeOriginHeight)+1,
-			uint64(heights.BigStepChallengeOriginHeight),
-			uint64(heights.BigStepChallengeOriginHeight)+1,
-			startCommit.Height,
-		)
-		if err != nil {
-			return protocol.Agreement{}, err
-		}
-		localEndCommit, err = s.SmallStepCommitmentUpTo(
-			ctx,
-			uint64(heights.BlockChallengeOriginHeight),
-			uint64(heights.BlockChallengeOriginHeight)+1,
-			uint64(heights.BigStepChallengeOriginHeight),
-			uint64(heights.BigStepChallengeOriginHeight)+1,
-			endCommit.Height,
-		)
-		if err != nil {
-			return protocol.Agreement{}, err
-		}
-	default:
-		return agreement, errors.New("unsupported edge type")
-	}
-	if localStartCommit.Height == startCommit.Height && localStartCommit.Merkle == startCommit.Merkle {
-		agreement.AgreesWithStartCommit = true
-	}
-	if localEndCommit.Height == endCommit.Height && localEndCommit.Merkle == endCommit.Merkle {
-		agreement.IsHonestEdge = true
-	}
-	return agreement, nil
+	return protocol.Agreement{}, errors.New("unimplemented")
 }
-
-var log = logrus.WithField("prefix", "manager")
 
 func (s *Simulated) BigStepLeafCommitment(
 	ctx context.Context,

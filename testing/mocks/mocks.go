@@ -3,6 +3,7 @@ package mocks
 import (
 	"context"
 
+	"errors"
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
@@ -54,6 +55,8 @@ func (m *MockAssertion) CreatedAtBlock() (uint64, error) {
 
 type MockStateManager struct {
 	mock.Mock
+	Agreement protocol.Agreement
+	AgreeErr  bool
 }
 
 func (m *MockStateManager) AssertionExecutionState(
@@ -81,8 +84,10 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	startCommit,
 	endCommit util.HistoryCommitment,
 ) (protocol.Agreement, error) {
-	args := m.Called(ctx, edgeType, prevAssertionMaxInboxCount, heights, startCommit, endCommit)
-	return args.Get(0).(protocol.Agreement), args.Error(1)
+	if m.AgreeErr {
+		return protocol.Agreement{}, errors.New("failed")
+	}
+	return m.Agreement, nil
 }
 
 func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, startBlock, endBlock, batchCount uint64) (util.HistoryCommitment, error) {
