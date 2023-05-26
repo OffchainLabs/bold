@@ -164,27 +164,27 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []util.Option[pro
 		var inboxMsgCount uint64
 		if !ok {
 			// Retry until you get the assertion number.
-			assertionNum, err := retryUntilSucceeds[protocol.AssertionSequenceNumber](ctx, func() (protocol.AssertionSequenceNumber, error) {
+			assertionNum, assertionErr := retryUntilSucceeds[protocol.AssertionSequenceNumber](ctx, func() (protocol.AssertionSequenceNumber, error) {
 				return v.chain.GetAssertionNum(ctx, assertionId)
 			})
-			if err != nil {
-				return nil, err
+			if assertionErr != nil {
+				return nil, assertionErr
 			}
 
 			// Retry until you get the assertion creation info.
-			assertionCreationInfo, err := retryUntilSucceeds[*protocol.AssertionCreatedInfo](ctx, func() (*protocol.AssertionCreatedInfo, error) {
+			assertionCreationInfo, creationErr := retryUntilSucceeds[*protocol.AssertionCreatedInfo](ctx, func() (*protocol.AssertionCreatedInfo, error) {
 				return v.chain.ReadAssertionCreationInfo(ctx, assertionNum)
 			})
-			if err != nil {
-				return nil, err
+			if creationErr != nil {
+				return nil, creationErr
 			}
 
 			// Retry until you get the execution state block height.
-			height, err := retryUntilSucceeds[uint64](ctx, func() (uint64, error) {
+			height, heightErr := retryUntilSucceeds[uint64](ctx, func() (uint64, error) {
 				return v.getExecutionStateBlockHeight(ctx, assertionCreationInfo.AfterState)
 			})
-			if err != nil {
-				return nil, err
+			if heightErr != nil {
+				return nil, heightErr
 			}
 			assertionHeight = height
 			inboxMsgCount = assertionCreationInfo.InboxMaxCount.Uint64()
