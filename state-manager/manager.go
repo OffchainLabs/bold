@@ -13,7 +13,6 @@ import (
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/sirupsen/logrus"
 )
 
 // Defines the ABI encoding structure for submission of prefix proofs to the protocol contracts
@@ -389,8 +388,6 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 ) (protocol.Agreement, error) {
 	return protocol.Agreement{}, errors.New("unimplemented")
 }
-
-var log = logrus.WithField("prefix", "manager")
 
 func (s *Simulated) BigStepLeafCommitment(
 	ctx context.Context,

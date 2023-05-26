@@ -8,7 +8,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 // MetadataReader can read certain information about edges from the backend.
@@ -57,8 +56,6 @@ func New(
 		validatorName:                 validatorName,
 	}
 }
-
-var log = logrus.WithField("prefix", "watcher")
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
@@ -137,16 +134,4 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnly
 		mutuals.Put(eg.Id(), creationTime(eg.CreatedAtBlock()))
 	}
 	return nil
-}
-
-func fields(edge protocol.ReadOnlyEdge) logrus.Fields {
-	startHeight, startCommit := edge.StartCommitment()
-	endHeight, endCommit := edge.EndCommitment()
-	return logrus.Fields{
-		"startHeight":   startHeight,
-		"startCommit":   util.Trunc(startCommit.Bytes()),
-		"endHeight":     endHeight,
-		"endCommit":     util.Trunc(endCommit.Bytes()),
-		"challengeType": edge.GetType(),
-	}
 }
