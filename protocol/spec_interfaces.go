@@ -239,6 +239,8 @@ type ReadOnlyEdge interface {
 	OriginId() OriginId
 	// The claim id of the edge, if any
 	ClaimId() util.Option[ClaimId]
+	// Checks if the edge has children.
+	HasChildren(ctx context.Context) (bool, error)
 	// The lower child of the edge, if any.
 	LowerChild(ctx context.Context) (util.Option[EdgeId], error)
 	// The upper child of the edge, if any.

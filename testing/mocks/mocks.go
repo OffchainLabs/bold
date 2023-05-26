@@ -355,6 +355,10 @@ func (m *MockSpecEdge) UpperChild(ctx context.Context) (util.Option[protocol.Edg
 	args := m.Called(ctx)
 	return args.Get(0).(util.Option[protocol.EdgeId]), args.Error(1)
 }
+func (m *MockSpecEdge) HasChildren(ctx context.Context) (bool, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(bool), args.Error(1)
+}
 func (m *MockSpecEdge) LowerChildSnapshot() util.Option[protocol.EdgeId] {
 	args := m.Called()
 	return args.Get(0).(util.Option[protocol.EdgeId])

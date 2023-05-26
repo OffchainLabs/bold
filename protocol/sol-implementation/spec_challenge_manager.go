@@ -67,6 +67,15 @@ func (e *SpecEdge) CreatedAtBlock() uint64 {
 	return e.inner.CreatedAtBlock.Uint64()
 }
 
+// Checks if the edge has children.
+func (e *SpecEdge) HasChildren(ctx context.Context) (bool, error) {
+	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if err != nil {
+		return false, err
+	}
+	return edge.LowerChildId != ([32]byte{}) && edge.UpperChildId != ([32]byte{}), nil
+}
+
 // The lower child of the edge, if any.
 func (e *SpecEdge) LowerChild(ctx context.Context) (util.Option[protocol.EdgeId], error) {
 	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)

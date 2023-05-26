@@ -261,6 +261,10 @@ func (e *edge) UpperChild(_ context.Context) (util.Option[protocol.EdgeId], erro
 	return util.Some(protocol.EdgeId(common.BytesToHash([]byte(e.upperChildId)))), nil
 }
 
+func (e *edge) HasChildren(ctx context.Context) (bool, error) {
+	return e.lowerChildId != "" && e.upperChildId != "", nil
+}
+
 // The ministaker of an edge. Only existing for level zero edges.
 func (*edge) MiniStaker() util.Option[common.Address] {
 	return util.None[common.Address]()

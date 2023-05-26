@@ -307,6 +307,13 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 }
 
 func (et *edgeTracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.SpecEdge, error) {
+	hasChildren, err := et.edge.HasChildren(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if hasChildren {
+		return nil, nil, solimpl.ErrAlreadyExists
+	}
 	historyCommit, proof, err := et.determineBisectionHistoryWithProof(ctx)
 	if err != nil {
 		return nil, nil, err
