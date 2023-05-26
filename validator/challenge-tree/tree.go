@@ -58,25 +58,6 @@ func New(
 	}
 }
 
-func New(
-	prevAssertionId protocol.AssertionId,
-	metadataReader MetadataReader,
-	histChecker statemanager.HistoryChecker,
-	validatorName string,
-) *HonestChallengeTree {
-	return &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
-		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		topLevelAssertionId:           prevAssertionId,
-		honestBlockChalLevelZeroEdge:  util.None[protocol.ReadOnlyEdge](),
-		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
-		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
-		metadataReader:                metadataReader,
-		histChecker:                   histChecker,
-		validatorName:                 validatorName,
-	}
-}
-
 var log = logrus.WithField("prefix", "watcher")
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
