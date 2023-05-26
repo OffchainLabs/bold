@@ -121,7 +121,7 @@ func Test_act(t *testing.T) {
 		require.NoError(t, err)
 		err = tkr.act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, int(edgePresumptive), int(tkr.fsm.Current().State))
+		require.Equal(t, int(edgeBisecting), int(tkr.fsm.Current().State))
 	})
 	t.Run("bisects", func(t *testing.T) {
 		hook := test.NewGlobal()
