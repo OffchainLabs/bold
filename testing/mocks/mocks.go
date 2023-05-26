@@ -26,6 +26,7 @@ type MockAssertion struct {
 	MockInboxMsgCountSeen uint64
 	MockCreatedAtBlock    uint64
 	MockIsFirstChild      bool
+	CreatedAt             uint64
 }
 
 func (m *MockAssertion) SeqNum() protocol.AssertionSequenceNumber {
@@ -49,6 +50,10 @@ func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {
 }
 func (m *MockAssertion) CreatedAtBlock() uint64 {
 	return m.MockCreatedAtBlock
+}
+
+func (m *MockAssertion) CreatedAtBlock() (uint64, error) {
+	return m.CreatedAt, nil
 }
 
 type MockStateManager struct {

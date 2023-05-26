@@ -26,14 +26,6 @@ func (a *Assertion) SeqNum() protocol.AssertionSequenceNumber {
 	return protocol.AssertionSequenceNumber(a.id)
 }
 
-func (a *Assertion) CreatedAtBlock() uint64 {
-	inner, err := a.inner()
-	if err != nil {
-		panic(err)
-	}
-	return inner.CreatedAtBlock
-}
-
 func (a *Assertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
 	inner, err := a.inner()
 	if err != nil {
@@ -66,6 +58,14 @@ func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
 		)
 	}
 	return &assertionNode, nil
+}
+
+func (a *Assertion) CreatedAtBlock() (uint64, error) {
+	inner, err := a.inner()
+	if err != nil {
+		return 0, err
+	}
+	return inner.CreatedAtBlock, nil
 }
 
 type SpecEdge struct {
