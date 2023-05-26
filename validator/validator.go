@@ -11,6 +11,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/validator/chain-watcher"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -38,7 +39,7 @@ type Validator struct {
 	timeRef                   util.TimeReference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
-	watcher                   *challengeWatcher
+	chainWatcher              *watcher.Watcher
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -131,8 +132,8 @@ func New(
 	v.rollupFilterer = rollupFilterer
 	v.chalManagerAddr = chalManagerAddr
 	v.chalManager = chalManagerFilterer
-	v.watcher = newChallengeWatcher(chain, stateManager, backend, time.Millisecond*250, v.name)
-	go v.watcher.watch(ctx)
+	v.chainWatcher = watcher.New(chain, stateManager, backend, time.Millisecond*250, v.name)
+	go v.chainWatcher.Watch(ctx)
 	return v, nil
 }
 

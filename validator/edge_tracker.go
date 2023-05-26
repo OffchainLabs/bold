@@ -10,6 +10,7 @@ import (
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	watcher "github.com/OffchainLabs/challenge-protocol-v2/validator/chain-watcher"
 	"github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -145,7 +146,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			log.WithError(err).Error("Could not get prev assertion id")
 			return et.fsm.Do(edgeTryToConfirm{})
 		}
-		timer, ancestors, err := et.cfg.watcher.computeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
+		timer, ancestors, err := et.cfg.chainWatcher.ComputeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
 		if err != nil {
 			log.WithFields(fields).WithError(err).Error("Did not compute honest path")
 			return et.fsm.Do(edgeTryToConfirm{})
@@ -192,7 +193,7 @@ func (et *edgeTracker) canConfirmByTime(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	timer, _, err := et.cfg.watcher.computeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
+	timer, _, err := et.cfg.chainWatcher.ComputeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
 	if err != nil {
 		return false, err
 	}
@@ -477,7 +478,7 @@ type edgeTrackerConfig struct {
 	stateManager     statemanager.Manager
 	validatorName    string
 	validatorAddress common.Address
-	watcher          *challengeWatcher
+	chainWatcher     *watcher.Watcher
 }
 
 type edgeTracker struct {
