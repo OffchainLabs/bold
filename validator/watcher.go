@@ -1,10 +1,9 @@
-package watcher
+package validator
 
 import (
 	"context"
-	"time"
-
 	"fmt"
+	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
@@ -14,10 +13,7 @@ import (
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
-
-var log = logrus.WithField("prefix", "challenge-watcher")
 
 // Represents a set of honest edges being tracked in a top-level challenge and all the
 // associated subchallenge honest edges along with some more metadata used for
@@ -45,9 +41,9 @@ type Watcher struct {
 	validatorName      string
 }
 
-// New initializes a watcher service for frequently scanning the chain
+// NewWatcher initializes a watcher service for frequently scanning the chain
 // for edge creations and confirmations.
-func New(
+func NewWatcher(
 	chain protocol.AssertionChain,
 	histChecker statemanager.HistoryChecker,
 	backend bind.ContractBackend,
@@ -106,9 +102,9 @@ func (w *Watcher) ComputeHonestPathTimer(
 
 // Starts watching the chain via a polling mechanism for all edge added and confirmation events
 // in order to process some of this data into internal representations for confirmation purposes.
-func (w *Watcher) Watch(ctx context.Context) {
+func (v *Validator) Watch(ctx context.Context) {
 	scanRange, err := util.RetryUntilSucceeds(ctx, func() (filterRange, error) {
-		return w.getStartEndBlockNum(ctx)
+		return v.watcher.getStartEndBlockNum(ctx)
 	})
 	if err != nil {
 		log.Error(err)
@@ -119,14 +115,14 @@ func (w *Watcher) Watch(ctx context.Context) {
 
 	// Get a challenge manager instance and filterer.
 	challengeManager, err := util.RetryUntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
-		return w.chain.SpecChallengeManager(ctx)
+		return v.chain.SpecChallengeManager(ctx)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	filterer, err := util.RetryUntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
-		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
+		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), v.backend)
 	})
 	if err != nil {
 		log.Error(err)
@@ -140,28 +136,28 @@ func (w *Watcher) Watch(ctx context.Context) {
 
 	// Checks for different events right away before we start polling.
 	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeAdded(ctx, filterer, filterOpts)
+		return true, v.watcher.checkForEdgeAdded(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts)
+		return true, v.watcher.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts)
+		return true, v.watcher.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts)
+		return true, v.watcher.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
@@ -170,12 +166,40 @@ func (w *Watcher) Watch(ctx context.Context) {
 
 	fromBlock = toBlock
 
-	ticker := time.NewTicker(w.pollEventsInterval)
+	// Sync edges and challenges from the chain.
+	syncEdges := make([]protocol.SpecEdge, 0)
+	err = v.watcher.challenges.ForEach(func(assertionID protocol.AssertionId, t *trackedChallenge) error {
+		err := t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
+			syncEdges = append(syncEdges, edge)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	trackers, err := v.getEdgeTrackers(ctx, syncEdges)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	for _, tracker := range trackers {
+		go tracker.spawn(ctx)
+	}
+
+	ticker := time.NewTicker(v.watcher.pollEventsInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			latestBlock, err := w.backend.HeaderByNumber(ctx, nil)
+			latestBlock, err := v.watcher.backend.HeaderByNumber(ctx, nil)
 			if err != nil {
 				log.Error(err)
 				continue
@@ -186,14 +210,14 @@ func (w *Watcher) Watch(ctx context.Context) {
 			}
 			// Get a challenge manager instance and filterer.
 			challengeManager, err := util.RetryUntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
-				return w.chain.SpecChallengeManager(ctx)
+				return v.chain.SpecChallengeManager(ctx)
 			})
 			if err != nil {
 				log.Error(err)
 				return
 			}
 			filterer, err = util.RetryUntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
-				return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
+				return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), v.backend)
 			})
 			if err != nil {
 				log.Error(err)
@@ -204,23 +228,23 @@ func (w *Watcher) Watch(ctx context.Context) {
 				End:     &toBlock,
 				Context: ctx,
 			}
-			if err = w.checkForEdgeAdded(ctx, filterer, filterOpts); err != nil {
+			if err = v.watcher.checkForEdgeAdded(ctx, filterer, filterOpts); err != nil {
 				log.Error(err)
 				continue
 			}
-			if err = w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts); err != nil {
+			if err = v.watcher.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts); err != nil {
 				log.Error(err)
 				continue
 			}
-			if err = w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts); err != nil {
+			if err = v.watcher.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts); err != nil {
 				log.Error(err)
 				continue
 			}
-			if err = w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts); err != nil {
+			if err = v.watcher.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts); err != nil {
 				log.Error(err)
 				continue
 			}
-			if err = w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts); err != nil {
+			if err = v.watcher.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts); err != nil {
 				log.Error(err)
 				continue
 			}
@@ -274,7 +298,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if err != nil {
 		return err
 	}
-	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId(event.EdgeId))
+	edgeOpt, err := challengeManager.GetEdge(ctx, event.EdgeId)
 	if err != nil {
 		return err
 	}
@@ -290,7 +314,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	chal, ok := w.challenges.TryGet(assertionId)
 	if !ok {
 		tree := challengetree.New(
-			protocol.AssertionId(event.OriginId),
+			event.OriginId,
 			w.chain,
 			w.histChecker,
 			w.validatorName,

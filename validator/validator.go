@@ -38,6 +38,7 @@ type Validator struct {
 	timeRef                   util.TimeReference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
+	watcher                   Watcher
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -136,6 +137,9 @@ func New(
 func (v *Validator) Start(ctx context.Context) {
 	go v.pollForAssertions(ctx)
 	go v.postAssertionsPeriodically(ctx)
+
+	go v.watcher.Watch(ctx)
+
 	log.WithField(
 		"address",
 		v.address.Hex(),

@@ -1,10 +1,9 @@
-package watcher
+package validator
 
 import (
 	"context"
-	"testing"
-
 	"math/big"
+	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
