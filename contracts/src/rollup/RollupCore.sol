@@ -25,7 +25,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // Rollup Config
     uint64 public confirmPeriodBlocks;
-    uint64 public extraChallengeTimeBlocks;
+    uint64 public extraChallengeTimeBlocks; // TODO: unused
     uint256 public chainId;
     uint256 public baseStake;
     bytes32 public wasmModuleRoot;
@@ -40,7 +40,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     address public validatorUtils;
     address public validatorWalletCreator;
 
-    // when a staker loses a challenge, half of their funds get escrowed in this address
+    // only 1 child can be confirmed, the excess/loser stake will be sent to this address
     address public loserStakeEscrow;
     address public stakeToken;
     uint256 public minimumAssertionPeriod;
