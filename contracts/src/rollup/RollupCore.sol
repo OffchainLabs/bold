@@ -178,8 +178,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return uint64(_stakerList.length);
     }
 
-    // TODO: HN: emit event on genesis assertion creation to return (afterStateHash, genesisHash, wasmModuleRoot)
-
     /**
      * @notice Initialize the core with an initial assertion
      * @param initialAssertion Initial assertion to start the chain with

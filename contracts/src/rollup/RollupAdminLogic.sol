@@ -58,22 +58,19 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         stakeToken = config.stakeToken;
 
-        AssertionNode memory assertion = createInitialAssertion();
-        initializeCore(assertion);
-
-        emit RollupInitialized(config.wasmModuleRoot, config.chainId);
-    }
-
-    function createInitialAssertion() private view returns (AssertionNode memory) {
         GlobalState memory emptyGlobalState;
         ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
+        bytes32 parentAssertionHash = bytes32(0);
+        bytes32 inboxAcc = bytes32(0);
         bytes32 genesisHash = RollupLib.assertionHash({
-            parentAssertionHash: bytes32(0),
+            parentAssertionHash: parentAssertionHash,
             afterState: emptyExecutionState,
-            inboxAcc: bytes32(0)
+            inboxAcc: inboxAcc
         });
-        return AssertionNodeLib.createAssertion(
-            1, // inboxMaxCount - force the first assertion to read a message
+
+        uint64 inboxMaxCount = 1; // force the first assertion to read a message
+        AssertionNode memory initialAssertion = AssertionNodeLib.createAssertion(
+            inboxMaxCount,
             0, // prev assertion
             uint64(block.number), // deadline block (not challengeable)
             genesisHash,
@@ -85,6 +82,21 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
                 confirmPeriodBlocks: confirmPeriodBlocks
             })
         );
+        initializeCore(initialAssertion);
+
+        AssertionInputs memory assertionInputs;
+        assertionInputs.afterState = emptyExecutionState;
+        emit AssertionCreated(
+            latestAssertionCreated(),
+            parentAssertionHash,
+            initialAssertion.assertionHash,
+            assertionInputs,
+            inboxAcc,
+            wasmModuleRoot,
+            inboxMaxCount
+        );
+
+        emit RollupInitialized(config.wasmModuleRoot, config.chainId);
     }
 
     /**
