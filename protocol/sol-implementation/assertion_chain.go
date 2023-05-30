@@ -229,6 +229,9 @@ func (ac *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol
 	if err != nil {
 		return protocol.AssertionId{}, err
 	}
+	if edgeOpt.IsNone() {
+		return protocol.AssertionId{}, errors.New("edge was nil")
+	}
 	return edgeOpt.Unwrap().PrevAssertionId(ctx)
 }
 

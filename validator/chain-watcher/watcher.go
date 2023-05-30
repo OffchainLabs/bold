@@ -167,6 +167,13 @@ func (w *Watcher) Watch(ctx context.Context) {
 		log.Error(err)
 		return
 	}
+	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
+	})
+	if err != nil {
+		log.Error(err)
+		return
+	}
 
 	fromBlock = toBlock
 
