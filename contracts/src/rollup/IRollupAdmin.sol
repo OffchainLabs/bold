@@ -100,15 +100,14 @@ interface IRollupAdmin {
 
     function forceRefundStaker(address[] memory stacker) external;
 
-    function forceCreateAssertion(uint64 prevAssertion, AssertionInputs memory assertion, bytes32 expectedAssertionHash)
+    function forceCreateAssertion(bytes32 prevAssertionId, AssertionInputs memory assertion, bytes32 expectedAssertionHash)
         external;
 
     function forceConfirmAssertion(
-        uint64 assertionNum,
+        bytes32 assertionId,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc,
-        uint256 confirmInboxMaxCount
+        bytes32 inboxAcc
     ) external;
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external;

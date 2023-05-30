@@ -72,7 +72,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             inboxMaxCount,
             0, // prev assertion
             uint64(block.number), // deadline block (not challengeable)
-            genesisHash,
             true,
             RollupLib.configHash({
                 wasmModuleRoot: wasmModuleRoot,
@@ -81,14 +80,13 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
                 confirmPeriodBlocks: confirmPeriodBlocks
             })
         );
-        initializeCore(initialAssertion);
+        initializeCore(initialAssertion, genesisHash);
 
         AssertionInputs memory assertionInputs;
         assertionInputs.afterState = emptyExecutionState;
         emit AssertionCreated(
-            latestAssertionCreated(),
+            genesisHash,
             parentAssertionHash,
-            initialAssertion.assertionHash,
             assertionInputs,
             inboxAcc,
             inboxMaxCount,
@@ -279,26 +277,25 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     }
 
     function forceCreateAssertion(
-        uint64 prevAssertion,
+        bytes32 prevAssertionId,
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash
     ) external override whenPaused {
-        require(prevAssertion == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
+        require(prevAssertionId == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
-        createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+        createNewAssertion(assertion, prevAssertionId, expectedAssertionHash);
 
         emit OwnerFunctionCalled(23);
     }
 
     function forceConfirmAssertion(
-        uint64 assertionNum,
+        bytes32 assertionId,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc,
-        uint256 confirmInboxMaxCount
+        bytes32 inboxAcc
     ) external override whenPaused {
         // this skips deadline, staker and zombie validation
-        confirmAssertion(assertionNum, parentAssertionHash, confirmState, inboxAcc, confirmInboxMaxCount);
+        confirmAssertion(assertionId, parentAssertionHash, confirmState, inboxAcc);
         emit OwnerFunctionCalled(24);
     }
 

@@ -14,17 +14,16 @@ import "../challengeV2/EdgeChallengeManager.sol";
 interface IRollupCore is IAssertionChain {
     struct Staker {
         uint256 amountStaked;
+        bytes32 latestStakedAssertion;
         uint64 index;
-        uint64 latestStakedAssertion;
         bool isStaked;
     }
 
     event RollupInitialized(bytes32 machineHash, uint256 chainId);
 
     event AssertionCreated(
-        uint64 indexed assertionNum,
-        bytes32 indexed parentAssertionHash,
         bytes32 indexed assertionHash,
+        bytes32 indexed parentAssertionHash,
         AssertionInputs assertion,
         bytes32 afterInboxBatchAcc,
         uint256 inboxMaxCount,
@@ -34,9 +33,7 @@ interface IRollupCore is IAssertionChain {
         uint256 confirmPeriodBlocks
     );
 
-    event AssertionConfirmed(uint64 indexed assertionNum, bytes32 blockHash, bytes32 sendRoot);
-
-    event AssertionRejected(uint64 indexed assertionNum);
+    event AssertionConfirmed(bytes32 indexed assertionId, bytes32 blockHash, bytes32 sendRoot);
 
     event RollupChallengeStarted(
         uint64 indexed challengeIndex, address asserter, address challenger, uint64 challengedAssertion
@@ -75,9 +72,9 @@ interface IRollupCore is IAssertionChain {
     function validatorWhitelistDisabled() external view returns (bool);
 
     /**
-     * @notice Get the Assertion for the given index.
+     * @notice Get the Assertion for the given id.
      */
-    function getAssertion(uint64 assertionNum) external view returns (AssertionNode memory);
+    function getAssertion(bytes32 assertionId) external view returns (AssertionNode memory);
 
     /**
      * @notice Get the address of the staker at the given index
@@ -98,7 +95,7 @@ interface IRollupCore is IAssertionChain {
      * @param staker Staker address to lookup
      * @return Latest assertion staked of the staker
      */
-    function latestStakedAssertion(address staker) external view returns (uint64);
+    function latestStakedAssertion(address staker) external view returns (bytes32);
 
     /**
      * @notice Get the amount staked of the given staker
@@ -120,21 +117,8 @@ interface IRollupCore is IAssertionChain {
      * @return Amount of funds withdrawable by owner
      */
     function withdrawableFunds(address owner) external view returns (uint256);
-
-    /**
-     * @return Index of the first unresolved assertion
-     * @dev If all assertions have been resolved, this will be latestAssertionCreated + 1
-     */
-    function firstUnresolvedAssertion() external view returns (uint64);
-
     /// @return Index of the latest confirmed assertion
-    function latestConfirmed() external view returns (uint64);
-
-    /// @return Index of the latest rollup assertion created
-    function latestAssertionCreated() external view returns (uint64);
-
-    /// @return Ethereum block that the most recent stake was created
-    function lastStakeBlock() external view returns (uint64);
+    function latestConfirmed() external view returns (bytes32);
 
     /// @return Number of active stakers currently staked
     function stakerCount() external view returns (uint64);

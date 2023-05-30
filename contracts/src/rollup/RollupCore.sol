@@ -47,13 +47,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     mapping(address => bool) public isValidator;
 
-    uint64 private _latestConfirmed;
-    uint64 private _firstUnresolvedAssertion;
-    uint64 private _latestAssertionCreated;
-    uint64 private _lastStakeBlock;
-    mapping(uint64 => AssertionNode) private _assertions;
-    // HN: TODO: decide if we want index or hash based mapping
-    mapping(bytes32 => uint64) private _assertionHashToNum;
+    bytes32 private _latestConfirmed;
+    mapping(bytes32 => AssertionNode) private _assertions;
 
     address[] private _stakerList;
     mapping(address => Staker) public _stakerMap;
@@ -70,28 +65,21 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     IEdgeChallengeManager public challengeManager;
 
     /**
-     * @notice Get a storage reference to the Assertion for the given assertion index
+     * @notice Get a storage reference to the Assertion for the given assertion id
      * @dev The assertion may not exists
-     * @param assertionNum Index of the assertion
+     * @param assertionId Id of the assertion
      * @return Assertion struct
      */
-    function getAssertionStorage(uint64 assertionNum) internal view returns (AssertionNode storage) {
-        require(assertionNum != 0, "ASSERTION_NUM_CANNOT_BE_ZERO");
-        return _assertions[assertionNum];
+    function getAssertionStorage(bytes32 assertionId) internal view returns (AssertionNode storage) {
+        require(assertionId != bytes32(0), "ASSERTION_ID_CANNOT_BE_ZERO");
+        return _assertions[assertionId];
     }
 
     /**
      * @notice Get the Assertion for the given index.
      */
-    function getAssertion(uint64 assertionNum) public view override returns (AssertionNode memory) {
-        return getAssertionStorage(assertionNum);
-    }
-
-    /**
-     * @notice Get the total number of assertions
-     */
-    function numAssertions() public view returns (uint64) {
-        return _latestAssertionCreated + 1;
+    function getAssertion(bytes32 assertionId) public view override returns (AssertionNode memory) {
+        return getAssertionStorage(assertionId);
     }
 
     /**
@@ -117,7 +105,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param staker Staker address to lookup
      * @return Latest assertion staked of the staker
      */
-    function latestStakedAssertion(address staker) public view override returns (uint64) {
+    function latestStakedAssertion(address staker) public view override returns (bytes32) {
         return _stakerMap[staker].latestStakedAssertion;
     }
 
@@ -148,27 +136,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return _withdrawableFunds[user];
     }
 
-    /**
-     * @return Index of the first unresolved assertion
-     * @dev If all assertions have been resolved, this will be latestAssertionCreated + 1
-     */
-    function firstUnresolvedAssertion() public view override returns (uint64) {
-        return _firstUnresolvedAssertion;
-    }
-
     /// @return Index of the latest confirmed assertion
-    function latestConfirmed() public view override returns (uint64) {
+    function latestConfirmed() public view override returns (bytes32) {
         return _latestConfirmed;
-    }
-
-    /// @return Index of the latest rollup assertion created
-    function latestAssertionCreated() public view override returns (uint64) {
-        return _latestAssertionCreated;
-    }
-
-    /// @return Ethereum block that the most recent stake was created
-    function lastStakeBlock() external view override returns (uint64) {
-        return _lastStakeBlock;
     }
 
     /// @return Number of active stakers currently staked
@@ -180,42 +150,32 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @notice Initialize the core with an initial assertion
      * @param initialAssertion Initial assertion to start the chain with
      */
-    function initializeCore(AssertionNode memory initialAssertion) internal {
+    function initializeCore(AssertionNode memory initialAssertion, bytes32 assertionHash) internal {
         __Pausable_init();
         // TODO: HN: prolly should use the internal function to create genesis
-        _assertions[GENESIS_NODE] = initialAssertion;
-        _latestConfirmed = GENESIS_NODE;
-        _latestAssertionCreated = GENESIS_NODE;
-        _firstUnresolvedAssertion = GENESIS_NODE + 1;
-        _assertionHashToNum[initialAssertion.assertionHash] = GENESIS_NODE;
+        _assertions[assertionHash] = initialAssertion;
+        _latestConfirmed = assertionHash;
     }
 
     /**
      * @notice React to a new assertion being created by storing it an incrementing the latest assertion counter
      * @param assertion Assertion that was newly created
      */
-    function assertionCreated(AssertionNode memory assertion) internal {
-        _latestAssertionCreated++;
-        _assertions[_latestAssertionCreated] = assertion;
-    }
-
-    /// @notice Reject the next unresolved assertion
-    function _rejectNextAssertion() internal {
-        _firstUnresolvedAssertion++;
+    function assertionCreated(AssertionNode memory assertion, bytes32 assertionHash) internal {
+        _assertions[assertionHash] = assertion;
     }
 
     function confirmAssertion(
-        uint64 assertionNum,
+        bytes32 assertionId,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc,
-        uint256 confirmInboxMaxCount
+        bytes32 inboxAcc
     ) internal {
-        AssertionNode storage assertion = getAssertionStorage(assertionNum);
+        AssertionNode storage assertion = getAssertionStorage(assertionId);
 
         // Authenticate data against assertionHash pre-image
         require(
-            assertion.assertionHash
+            assertionId
                 == RollupLib.assertionHash({
                     parentAssertionHash: parentAssertionHash,
                     afterState: confirmState,
@@ -230,10 +190,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // trusted external call to outbox
         outbox.updateSendRoot(sendRoot, blockHash);
 
-        _latestConfirmed = assertionNum;
-        _firstUnresolvedAssertion = assertionNum + 1;
+        _latestConfirmed = assertionId;
+        assertion.status = AssertionStatus.Confirmed;
 
-        emit AssertionConfirmed(assertionNum, blockHash, sendRoot);
+        emit AssertionConfirmed(assertionId, blockHash, sendRoot);
     }
 
     /**
@@ -244,8 +204,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function createNewStake(address stakerAddress, uint256 depositAmount) internal {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
-        _stakerMap[stakerAddress] = Staker(depositAmount, stakerIndex, _latestConfirmed, true);
-        _lastStakeBlock = uint64(block.number);
+        _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true);
         emit UserStakeUpdated(stakerAddress, 0, depositAmount);
     }
 
@@ -297,11 +256,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     /**
      * @notice Advance the given staker to the given assertion
      * @param stakerAddress Address of the staker adding their stake
-     * @param assertionNum Index of the assertion to stake on
+     * @param assertionId Id of the assertion to stake on
      */
-    function stakeOnAssertion(address stakerAddress, uint64 assertionNum) internal {
+    function stakeOnAssertion(address stakerAddress, bytes32 assertionId) internal {
         Staker storage staker = _stakerMap[stakerAddress];
-        staker.latestStakedAssertion = assertionNum;
+        staker.latestStakedAssertion = assertionId;
     }
 
     /**
@@ -356,7 +315,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function createNewAssertion(
         AssertionInputs calldata assertion,
-        uint64 prevAssertionNum,
+        bytes32 prevAssertionId,
         bytes32 expectedAssertionHash
     ) internal returns (bytes32) {
         require(
@@ -365,15 +324,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             "BAD_AFTER_STATUS"
         );
 
-        AssertionNode storage prevAssertion = getAssertionStorage(prevAssertionNum);
-        bytes32 prevAssertionHash = prevAssertion.assertionHash;
+        AssertionNode storage prevAssertion = getAssertionStorage(prevAssertionId);
         // validate the before state
         require(
             RollupLib.assertionHash(
                 assertion.beforeStateData.prevAssertionHash,
                 assertion.beforeState,
                 assertion.beforeStateData.sequencerBatchAcc
-            ) == prevAssertionHash,
+            ) == prevAssertionId,
             "INVALID_BEFORE_STATE"
         );
 
@@ -422,7 +380,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxCount - 1);
         }
 
-        bytes32 newAssertionHash = RollupLib.assertionHash(prevAssertionHash, assertion.afterState, sequencerBatchAcc);
+        bytes32 newAssertionHash = RollupLib.assertionHash(prevAssertionId, assertion.afterState, sequencerBatchAcc);
         require(
             newAssertionHash == expectedAssertionHash || expectedAssertionHash == bytes32(0), "UNEXPECTED_NODE_HASH"
         );
@@ -431,9 +389,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
             uint64(nextInboxPosition),
-            prevAssertionNum,
+            prevAssertionId,
             uint64(block.number) + confirmPeriodBlocks,
-            newAssertionHash,
             prevAssertion.firstChildBlock == 0, // assume block 0 is impossible
             RollupLib.configHash({
                 wasmModuleRoot: wasmModuleRoot,
@@ -444,19 +401,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         );
 
         {
-            uint64 assertionNum = latestAssertionCreated() + 1;
-            _assertionHashToNum[newAssertionHash] = assertionNum;
-
             // Fetch a storage reference to prevAssertion since we copied our other one into memory
             // and we don't have enough stack available to keep to keep the previous storage reference around
-            prevAssertion.childCreated(assertionNum, confirmPeriodBlocks);
-            assertionCreated(newAssertion);
+            prevAssertion.childCreated(confirmPeriodBlocks); // TODO: HN: this should use the prev's confirmPeriodBlocks
+            assertionCreated(newAssertion, newAssertionHash);
         }
 
         emit AssertionCreated(
-            latestAssertionCreated(),
-            prevAssertionHash,
             newAssertionHash,
+            prevAssertionId,
             assertion,
             sequencerBatchAcc,
             nextInboxPosition,
@@ -470,41 +423,37 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
-        uint64 prevNum = getAssertionStorage(getAssertionNum(assertionId)).prevNum;
-        return getAssertionId(prevNum);
+        bytes32 prevId = getAssertionStorage(assertionId).prevId;
+        return prevId;
     }
 
     function proveExecutionState(bytes32 assertionId, ExecutionState memory state, bytes memory proof)
         external
-        view
+        pure
         returns (ExecutionState memory)
     {
         (bytes32 parentAssertionHash, bytes32 inboxAcc) = abi.decode(proof, (bytes32, bytes32));
 
-        require(
-            getAssertionStorage(getAssertionNum(assertionId)).assertionHash
-                == RollupLib.assertionHash(parentAssertionHash, state, inboxAcc),
-            "Invalid assertion hash"
-        );
+        require(assertionId == RollupLib.assertionHash(parentAssertionHash, state, inboxAcc), "Invalid assertion hash");
 
         return state;
     }
 
     function getNextInboxPosition(bytes32 assertionId) external view returns (uint64) {
-        return getAssertionStorage(getAssertionNum(assertionId)).nextInboxPosition;
+        return getAssertionStorage(assertionId).nextInboxPosition;
     }
 
     function hasSibling(bytes32 assertionId) external view returns (bool) {
-        return getAssertionStorage(getAssertionStorage(getAssertionNum(assertionId)).prevNum).secondChildBlock != 0;
+        return getAssertionStorage(getAssertionStorage(assertionId).prevId).secondChildBlock != 0;
     }
 
     // HN: TODO: use block or timestamp?
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
-        return getAssertionStorage(getAssertionNum(assertionId)).firstChildBlock;
+        return getAssertionStorage(assertionId).firstChildBlock;
     }
 
     function getSecondChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
-        return getAssertionStorage(getAssertionNum(assertionId)).secondChildBlock;
+        return getAssertionStorage(assertionId).secondChildBlock;
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof)
@@ -520,34 +469,21 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 requiredStake: requiredStake,
                 challengeManager: _challengeManager,
                 confirmPeriodBlocks: _confirmPeriodBlocks
-            }) == getAssertionStorage(getAssertionNum(assertionId)).configHash,
+            }) == getAssertionStorage(assertionId).configHash,
             "BAD_WASM_MODULE_ROOT_PROOF"
         );
         return root;
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool) {
-        return getAssertionStorage(getAssertionNum(assertionId)).isFirstChild;
+        return getAssertionStorage(assertionId).isFirstChild;
     }
 
     function isPending(bytes32 assertionId) external view returns (bool) {
-        return getAssertionNum(assertionId) >= _firstUnresolvedAssertion;
-    }
-
-    // HN: TODO: decide to keep using index or hash
-    /// @notice Return the assertion number from id, reverts if the assertion does not exist
-    function getAssertionNum(bytes32 id) public view returns (uint64) {
-        uint64 num = _assertionHashToNum[id];
-        require(num > 0, "ASSERTION_NOT_EXIST");
-        return uint64(num);
-    }
-
-    function getAssertionId(uint64 num) public view returns (bytes32) {
-        require(num <= latestAssertionCreated(), "INVALID_ASSERTION_NUM");
-        return getAssertionStorage(num).assertionHash;
+        return getAssertionStorage(assertionId).status == AssertionStatus.Pending;
     }
 
     function isAssertionExists(bytes32 id) public view returns (bool) {
-        return _assertionHashToNum[id] > 0;
+        return _assertions[id].createdAtBlock > 0;
     }
 }

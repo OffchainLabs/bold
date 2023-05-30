@@ -34,9 +34,10 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     uint256 public constant VALIDATOR_AFK_BLOCKS = 45818;
 
     function _validatorIsAfk() internal view returns (bool) {
-        AssertionNode memory latestAssertion = getAssertionStorage(latestAssertionCreated());
-        if (latestAssertion.createdAtBlock == 0) return false;
-        if (latestAssertion.createdAtBlock + confirmPeriodBlocks + VALIDATOR_AFK_BLOCKS < block.number) {
+        AssertionNode memory latestConfirmedAssertion = getAssertionStorage(latestConfirmed());
+        if (latestConfirmedAssertion.createdAtBlock == 0) return false;
+        // We consider the validator is gone if there has not been confirmed assertion in 2 confirmPeriod + 7 days
+        if (latestConfirmedAssertion.createdAtBlock + 2 * confirmPeriodBlocks + VALIDATOR_AFK_BLOCKS < block.number) {
             return true;
         }
         return false;
@@ -59,73 +60,33 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 
     /**
-     * @notice Reject the next unresolved assertion
-     * @param winningEdgeId The winning challenge edge of the prev's succession challenge
-     */
-    function rejectNextAssertion(bytes32 winningEdgeId) external onlyValidator whenNotPaused {
-        requireUnresolvedExists();
-        uint64 latestConfirmedAssertionNum = latestConfirmed();
-        uint64 firstUnresolvedAssertionNum = firstUnresolvedAssertion();
-        AssertionNode storage firstUnresolvedAssertion_ = getAssertionStorage(firstUnresolvedAssertionNum);
-
-        if (firstUnresolvedAssertion_.prevNum == latestConfirmedAssertionNum) {
-            /**
-             * If the first unresolved assertion is a child of the latest confirmed assertion, to prove it can be rejected, we show:
-             * a) Its prev's child confirmation deadline has expired
-             * b) There is more than 1 child on the prev
-             * c) The assertion is not the winner of the prev's succession challenge
-             */
-
-            getAssertionStorage(latestConfirmedAssertionNum).requirePastChildConfirmDeadline();
-            getAssertionStorage(latestConfirmedAssertionNum).requireMoreThanOneChild();
-
-            ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
-            require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
-            require(winningEdge.eType == EdgeType.Block, "EDGE_NOT_BLOCK_TYPE");
-            require(
-                winningEdge.originId == getAssertionStorage(latestConfirmedAssertionNum).assertionHash,
-                "EDGE_NOT_FROM_PREV"
-            );
-            require(winningEdge.claimId != firstUnresolvedAssertion_.assertionHash, "IS_WINNER");
-        }
-        // Simpler case: if the first unreseolved assertion doesn't point to the last confirmed assertion, another branch was confirmed and can simply reject it outright
-        _rejectNextAssertion();
-
-        emit AssertionRejected(firstUnresolvedAssertionNum);
-    }
-
-    /**
-     * @notice Confirm the next unresolved assertion
+     * @notice Confirm a unresolved assertion
      * @param confirmState The state to confirm
-     * @param confirmInboxMaxCount The number of messages in the inbox at the time the assertion was made
      * @param winningEdgeId The winning edge if a challenge is started
      */
-    function confirmNextAssertion(
-        bytes32 parentAssertionHash,
+    function confirmAssertionByHash(
+        bytes32 assertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        uint256 confirmInboxMaxCount,
         bytes32 winningEdgeId
     ) external onlyValidator whenNotPaused {
-        requireUnresolvedExists();
-
-        uint64 assertionNum = firstUnresolvedAssertion();
-        AssertionNode storage assertion = getAssertionStorage(assertionNum);
+        AssertionNode storage assertion = getAssertionStorage(assertionHash);
+        require(assertion.status == AssertionStatus.Pending, "NOT_PENDING");
 
         // Check that prev is latest confirmed
-        assert(assertion.prevNum == latestConfirmed());
+        assert(assertion.prevId == latestConfirmed());
 
-        AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevNum);
+        AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevId);
         prevAssertion.requirePastChildConfirmDeadline();
 
         if (prevAssertion.secondChildBlock > 0) {
             // check if assertion is the challenge winner
             ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
-            require(getAssertionNum(winningEdge.claimId) == assertionNum, "NOT_WINNER");
+            require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
-        confirmAssertion(assertionNum, parentAssertionHash, confirmState, inboxAcc, confirmInboxMaxCount);
+        confirmAssertion(assertionHash, assertion.prevId, confirmState, inboxAcc);
     }
 
     /**
@@ -163,13 +124,12 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // Staker can create new assertion only if
         // a) its last staked assertion is the prev; or
         // b) its last staked assertion have a child
-        uint64 prevAssertion = getAssertionNum(
-            RollupLib.assertionHash(
-                assertion.beforeStateData.prevAssertionHash,
-                assertion.beforeState,
-                assertion.beforeStateData.sequencerBatchAcc
-            )
+        bytes32 prevAssertion = RollupLib.assertionHash(
+            assertion.beforeStateData.prevAssertionHash,
+            assertion.beforeState,
+            assertion.beforeStateData.sequencerBatchAcc
         ); // TODO: HN: we calculated this hash again in createNewAssertion
+        getAssertionStorage(prevAssertion).requireExists();
         require(
             getAssertionStorage(prevAssertion).configHash
                 == RollupLib.configHash(
@@ -181,7 +141,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             "CONFIG_HASH_MISMATCH"
         );
         {
-            uint64 lastAssertion = latestStakedAssertion(msg.sender);
+            bytes32 lastAssertion = latestStakedAssertion(msg.sender);
             require(
                 lastAssertion == prevAssertion || getAssertionStorage(lastAssertion).firstChildBlock > 0,
                 "STAKED_ON_ANOTHER_BRANCH"
@@ -212,9 +172,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             // CHRIS: TODO: this is interesting? How do we recover from errored state?
             require(assertion.beforeState.machineStatus == MachineStatus.FINISHED, "BAD_PREV_STATUS");
         }
-        createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
 
-        stakeOnAssertion(msg.sender, latestAssertionCreated());
+        stakeOnAssertion(msg.sender, newAssertionHash);
 
         if (getAssertionStorage(prevAssertion).secondChildBlock > 0) {
             // only 1 of the children can be confirmed and get their stake refunded
@@ -257,7 +217,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @notice Calculate the current amount of funds required to place a new stake in the rollup
      * @return The current minimum stake requirement
      */
-    function requiredStake(uint256 blockNumber, uint64 firstUnresolvedAssertionNum, uint64 latestCreatedAssertion)
+    function requiredStake()
         external
         view
         returns (uint256)
@@ -270,19 +230,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 
     /**
-     * @notice Verify that there are some number of assertions still unresolved
-     */
-    function requireUnresolvedExists() public view override {
-        uint256 firstUnresolved = firstUnresolvedAssertion();
-        require(firstUnresolved > latestConfirmed() && firstUnresolved <= latestAssertionCreated(), "NO_UNRESOLVED");
-    }
-
-    function requireUnresolved(uint256 assertionNum) public view override {
-        require(assertionNum >= firstUnresolvedAssertion(), "ALREADY_DECIDED");
-        require(assertionNum <= latestAssertionCreated(), "DOESNT_EXIST");
-    }
-
-    /**
      * @notice Verify that the given staker is not active
      * @param stakerAddress Address to check
      */
@@ -291,7 +238,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // A staker is inactive if
         // a) their last staked assertion is the latest confirmed assertion
         // b) their last staked assertion have a child
-        uint64 lastestAssertion = latestStakedAssertion(stakerAddress);
+        bytes32 lastestAssertion = latestStakedAssertion(stakerAddress);
         bool isLatestConfirmed = lastestAssertion == latestConfirmed();
         bool haveChild = getAssertionStorage(lastestAssertion).firstChildBlock > 0;
         require(isLatestConfirmed || haveChild, "STAKE_ACTIVE");

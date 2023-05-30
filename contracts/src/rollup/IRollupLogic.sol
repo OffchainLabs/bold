@@ -20,13 +20,10 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function isERC20Enabled() external view returns (bool);
 
-    function rejectNextAssertion(bytes32 winningEdgeId) external;
-
-    function confirmNextAssertion(
-        bytes32 parentAssertionHash,
+    function confirmAssertionByHash(
+        bytes32 assertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc,
-        uint256 confirmInboxMaxCount,
         bytes32 winningEdge
     ) external;
 
@@ -36,14 +33,10 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function reduceDeposit(uint256 target) external;
 
-    function requiredStake(uint256 blockNumber, uint64 firstUnresolvedAssertionNum, uint64 latestCreatedAssertion)
+    function requiredStake()
         external
         view
         returns (uint256);
-
-    function requireUnresolvedExists() external view;
-
-    function requireUnresolved(uint256 assertionNum) external view;
 
     function withdrawStakerFunds() external returns (uint256);
 }

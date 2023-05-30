@@ -163,7 +163,7 @@ contract RollupTest is Test {
         return count;
     }
 
-    function testSuccessCreateAssertions() public {
+    function testSuccessCreateAssertions() public returns (bytes32, bytes32) {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
@@ -224,6 +224,8 @@ contract RollupTest is Test {
             }),
             expectedAssertionHash: expectedAssertionHash2
         });
+
+        return (expectedAssertionHash, expectedAssertionHash2);
     }
 
     function testRevertIdenticalAssertions() public {
@@ -341,7 +343,15 @@ contract RollupTest is Test {
 
     function testSuccessCreateSecondChild()
         public
-        returns (ExecutionState memory, ExecutionState memory, ExecutionState memory, uint256, uint256)
+        returns (
+            ExecutionState memory,
+            ExecutionState memory,
+            ExecutionState memory,
+            uint256,
+            uint256,
+            bytes32,
+            bytes32
+        )
     {
         uint256 genesisInboxCount = 1;
         uint64 newInboxCount = uint64(_createNewBatch());
@@ -406,78 +416,96 @@ contract RollupTest is Test {
             expectedAssertionHash: expectedAssertionHash2
         });
 
-        assertEq(userRollup.getAssertion(1).secondChildBlock, block.number);
+        assertEq(userRollup.getAssertion(genesisHash).secondChildBlock, block.number);
 
-        return (beforeState, afterState, afterState2, genesisInboxCount, newInboxCount);
+        return (
+            beforeState,
+            afterState,
+            afterState2,
+            genesisInboxCount,
+            newInboxCount,
+            expectedAssertionHash,
+            expectedAssertionHash2
+        );
     }
 
     function testRevertConfirmWrongInput() public {
-        testSuccessCreateAssertions();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
-        bytes32 prevAssertionHash = userRollup.getAssertionId(1);
+        (bytes32 assertionHash1,) = testSuccessCreateAssertions();
+        vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        bytes32 prevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
         vm.expectRevert("CONFIRM_DATA");
-        userRollup.confirmNextAssertion(prevAssertionHash, emptyExecutionState, prevInboxAcc, 0, bytes32(0));
+        userRollup.confirmAssertionByHash(assertionHash1, emptyExecutionState, prevInboxAcc, bytes32(0));
     }
 
     function testSuccessConfirmUnchallengedAssertions() public {
-        testSuccessCreateAssertions();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
-        bytes32 prevAssertionHash = userRollup.getAssertionId(1);
+        (bytes32 assertionHash1,) = testSuccessCreateAssertions();
+        vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        bytes32 prevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        userRollup.confirmNextAssertion(prevAssertionHash, firstState, prevInboxAcc, 2, bytes32(0));
+        userRollup.confirmAssertionByHash(assertionHash1, firstState, prevInboxAcc, bytes32(0));
     }
 
     function testRevertConfirmSiblingedAssertions() public {
-        testSuccessCreateSecondChild();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
-        bytes32 prevAssertionHash = userRollup.getAssertionId(1);
+        (,,,,, bytes32 assertionHash, bytes32 assertionHash2) = testSuccessCreateSecondChild();
+        vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        bytes32 prevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
         vm.expectRevert("Edge does not exist"); // If there is a sibling, you need to supply a winning edge
-        userRollup.confirmNextAssertion(prevAssertionHash, firstState, prevInboxAcc, 2, bytes32(0));
+        userRollup.confirmAssertionByHash(assertionHash, firstState, prevInboxAcc, bytes32(0));
     }
 
-    function testSuccessCreateChallenge()
-        public
-        returns (
-            ExecutionState memory beforeState,
-            uint256 genesisInboxCount,
-            ExecutionState memory afterState2,
-            uint256 newInboxCount,
-            bytes32 e1Id
-        )
-    {
-        ExecutionState memory afterState1;
-        (beforeState, afterState1, afterState2, genesisInboxCount, newInboxCount) = testSuccessCreateSecondChild();
+    struct SuccessCreateChallengeData {
+        ExecutionState beforeState;
+        uint256 genesisInboxCount;
+        ExecutionState afterState1;
+        ExecutionState afterState2;
+        uint256 newInboxCount;
+        bytes32 e1Id;
+        bytes32 assertionHash;
+        bytes32 assertionHash2;
+    }
+
+    function testSuccessCreateChallenge() public returns (SuccessCreateChallengeData memory data) {
+        (
+            data.beforeState,
+            data.afterState1,
+            data.afterState2,
+            data.genesisInboxCount,
+            data.newInboxCount,
+            data.assertionHash,
+            data.assertionHash2
+        ) = testSuccessCreateSecondChild();
 
         bytes32[] memory states;
         {
             IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
-            bytes32 h0 = osp.getMachineHash(beforeState);
-            bytes32 h1 = osp.getMachineHash(afterState1);
+            bytes32 h0 = osp.getMachineHash(data.beforeState);
+            bytes32 h1 = osp.getMachineHash(data.afterState1);
             states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
         }
 
         bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
-        e1Id = challengeManager.createLayerZeroEdge(
+        data.e1Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
                 endHistoryRoot: root,
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
-                claimId: userRollup.getAssertionId(2),
+                claimId: data.assertionHash,
                 prefixProof: abi.encode(
                     ProofUtils.expansionFromLeaves(states, 0, 1),
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
                     ),
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                    ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
+                    ExecutionStateData(data.beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                     ExecutionStateData(
-                        afterState1, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0), WASM_MODULE_ROOT)
+                        data.afterState1,
+                        abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0), WASM_MODULE_ROOT)
                     )
                     )
             })
@@ -485,47 +513,42 @@ contract RollupTest is Test {
     }
 
     function testSuccessCreate2Edge() public returns (bytes32, bytes32) {
-        (
-            ExecutionState memory beforeState,
-            uint256 genesisInboxCount,
-            ExecutionState memory afterState2,
-            uint256 newInboxCount,
-            bytes32 e1Id
-        ) = testSuccessCreateChallenge();
+        SuccessCreateChallengeData memory data = testSuccessCreateChallenge();
+        require(data.genesisInboxCount == 1, "A");
+        require(data.newInboxCount == 2, "B");
 
         bytes32[] memory states;
         {
             IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
-            bytes32 h0 = osp.getMachineHash(beforeState);
-            bytes32 h1 = osp.getMachineHash(afterState2);
+            bytes32 h0 = osp.getMachineHash(data.beforeState);
+            bytes32 h1 = osp.getMachineHash(data.afterState2);
             states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
         }
 
         bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
-        require(genesisInboxCount == 1, "A");
-        require(newInboxCount == 2, "B");
         bytes32 e2Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
                 endHistoryRoot: root,
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
-                claimId: userRollup.getAssertionId(3),
+                claimId: data.assertionHash2,
                 prefixProof: abi.encode(
                     ProofUtils.expansionFromLeaves(states, 0, 1),
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
                     ),
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                    ExecutionStateData(beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
+                    ExecutionStateData(data.beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                     ExecutionStateData(
-                        afterState2, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(1), WASM_MODULE_ROOT)
+                        data.afterState2,
+                        abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(1), WASM_MODULE_ROOT)
                     )
                     )
             })
         );
 
-        return (e1Id, e2Id);
+        return (data.e1Id, e2Id);
     }
 
     function fillStatesInBetween(bytes32 start, bytes32 end, uint256 totalCount) internal returns (bytes32[] memory) {
@@ -542,45 +565,45 @@ contract RollupTest is Test {
     }
 
     function testSuccessConfirmEdgeByTime() public returns (bytes32) {
-        (,,,, bytes32 e1Id) = testSuccessCreateChallenge();
+        SuccessCreateChallengeData memory data = testSuccessCreateChallenge();
 
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
-        userRollup.challengeManager().confirmEdgeByTime(e1Id, new bytes32[](0));
-        bytes32 prevAssertionHash = userRollup.getAssertionId(1);
+        userRollup.challengeManager().confirmEdgeByTime(data.e1Id, new bytes32[](0));
+        bytes32 prevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        userRollup.confirmNextAssertion(prevAssertionHash, firstState, prevInboxAcc, 2, e1Id);
-        return e1Id;
+        userRollup.confirmAssertionByHash(data.assertionHash, firstState, prevInboxAcc, data.e1Id);
+        return data.e1Id;
     }
 
-    function testSuccessRejection() public {
-        bytes32 winningEdgeId = testSuccessConfirmEdgeByTime();
-        vm.prank(validator1);
-        userRollup.rejectNextAssertion(winningEdgeId);
-    }
+    // function testSuccessRejection() public {
+    //     bytes32 winningEdgeId = testSuccessConfirmEdgeByTime();
+    //     vm.prank(validator1);
+    //     userRollup.rejectNextAssertion(winningEdgeId);
+    // }
 
-    function testRevertRejectionNotConfirmed() public {
-        (,,,, bytes32 e1Id) = testSuccessCreateChallenge();
-        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
-        vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
-        vm.prank(validator1);
-        vm.expectRevert("EDGE_NOT_CONFIRMED");
-        userRollup.rejectNextAssertion(e1Id);
-    }
+    // function testRevertRejectionNotConfirmed() public {
+    //     (,,,, bytes32 e1Id) = testSuccessCreateChallenge();
+    //     vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+    //     vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
+    //     vm.prank(validator1);
+    //     vm.expectRevert("EDGE_NOT_CONFIRMED");
+    //     userRollup.rejectNextAssertion(e1Id);
+    // }
 
-    function testRevertRejectionTooRecent() public {
-        testSuccessCreateSecondChild();
-        vm.prank(validator1);
-        vm.expectRevert("CHILD_TOO_RECENT");
-        userRollup.rejectNextAssertion(bytes32(0));
-    }
+    // function testRevertRejectionTooRecent() public {
+    //     testSuccessCreateSecondChild();
+    //     vm.prank(validator1);
+    //     vm.expectRevert("CHILD_TOO_RECENT");
+    //     userRollup.rejectNextAssertion(bytes32(0));
+    // }
 
-    function testRevertRejectionNoUnresolved() public {
-        vm.prank(validator1);
-        vm.expectRevert("NO_UNRESOLVED");
-        userRollup.rejectNextAssertion(bytes32(0));
-    }
+    // function testRevertRejectionNoUnresolved() public {
+    //     vm.prank(validator1);
+    //     vm.expectRevert("NO_UNRESOLVED");
+    //     userRollup.rejectNextAssertion(bytes32(0));
+    // }
 
     function testRevertWithdrawStake() public {
         testSuccessConfirmEdgeByTime();

@@ -8,11 +8,18 @@ import "../state/GlobalState.sol";
 import "../state/Machine.sol";
 import "../osp/IOneStepProofEntry.sol";
 
+enum AssertionStatus {
+    // No assertion at this index
+    NoAssertion,
+    // Assertion is being computed
+    Pending,
+    // Assertion is confirmed
+    Confirmed
+}
+
 struct AssertionNode {
     // The inbox position that the assertion that succeeds should process up to and including
     uint64 nextInboxPosition;
-    // Index of the assertion previous to this one
-    uint64 prevNum;
     // Deadline at which this assertion can be confirmed
     uint64 deadlineBlock;
     // Deadline at which a child of this assertion can be confirmed
@@ -25,8 +32,10 @@ struct AssertionNode {
     uint64 createdAtBlock;
     // True if this assertion is the first child of its prev
     bool isFirstChild;
-    // A hash of all the data needed to determine this assertion's validity, to protect against reorgs
-    bytes32 assertionHash;
+    // Status of the Assertion
+    AssertionStatus status;
+    // Id of the assertion previous to this one
+    bytes32 prevId;
     // A hash of all configuration data when the assertion is created
     bytes32 configHash;
 }
@@ -54,35 +63,33 @@ library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
      * @param _nextInboxPosition The inbox position that the assertion that succeeds should process up to and including
-     * @param _prevNum Initial value of prevNum
+     * @param _prevId Initial value of prevId
      * @param _deadlineBlock Initial value of deadlineBlock
-     * @param _assertionHash Initial value of assertionHash
      */
     function createAssertion(
         uint64 _nextInboxPosition,
-        uint64 _prevNum,
+        bytes32 _prevId,
         uint64 _deadlineBlock,
-        bytes32 _assertionHash,
         bool _isFirstChild,
         bytes32 _configHash
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.nextInboxPosition = _nextInboxPosition;
-        assertion.prevNum = _prevNum;
+        assertion.prevId = _prevId;
         assertion.deadlineBlock = _deadlineBlock;
         assertion.noChildConfirmedBeforeBlock = _deadlineBlock;
         assertion.createdAtBlock = uint64(block.number);
-        assertion.assertionHash = _assertionHash;
         assertion.isFirstChild = _isFirstChild;
         assertion.configHash = _configHash;
+        assertion.status = AssertionStatus.Pending;
         return assertion;
     }
 
     /**
      * @notice Update child properties
-     * @param number The child number to set
+     * @param confirmPeriodBlocks The confirmPeriodBlocks
      */
-    function childCreated(AssertionNode storage self, uint64 number, uint64 confirmPeriodBlocks) internal {
+    function childCreated(AssertionNode storage self, uint64 confirmPeriodBlocks) internal {
         if (self.firstChildBlock == 0) {
             self.firstChildBlock = uint64(block.number);
             self.noChildConfirmedBeforeBlock = uint64(block.number) + confirmPeriodBlocks;
@@ -118,6 +125,6 @@ library AssertionNodeLib {
     }
 
     function requireExists(AssertionNode memory self) internal pure {
-        require(self.createdAtBlock > 0, "ASSERTION_NOT_EXIST");
+        require(self.status != AssertionStatus.NoAssertion, "ASSERTION_NOT_EXIST");
     }
 }
