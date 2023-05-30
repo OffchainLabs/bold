@@ -229,7 +229,8 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @param stakerAddress Address of the staker whose stake is refunded
      */
     function returnOldDeposit(address stakerAddress) external override onlyValidator whenNotPaused {
-        requireInactiveStaker(msg.sender);
+        // TODO: HN: potential greifing vector, do we still need this function?
+        requireInactiveStaker(stakerAddress);
         withdrawStaker(stakerAddress);
     }
 
