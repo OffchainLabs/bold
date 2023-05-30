@@ -274,7 +274,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if err != nil {
 		return err
 	}
-	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId(event.EdgeId))
+	edgeOpt, err := challengeManager.GetEdge(ctx, event.EdgeId)
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	chal, ok := w.challenges.TryGet(assertionId)
 	if !ok {
 		tree := challengetree.New(
-			protocol.AssertionId(event.OriginId),
+			event.OriginId,
 			w.chain,
 			w.histChecker,
 			w.validatorName,

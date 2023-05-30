@@ -215,6 +215,7 @@ func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Sp
 	)
 }
 
+// TODO: Implement this logic.
 func (ac *AssertionChain) AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
 	return 0, nil
 }
