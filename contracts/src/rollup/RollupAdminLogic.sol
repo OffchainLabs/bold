@@ -9,7 +9,6 @@ import "./IRollupLogic.sol";
 import "./RollupCore.sol";
 import "../bridge/IOutbox.sol";
 import "../bridge/ISequencerInbox.sol";
-import "../challenge/IOldChallengeManager.sol";
 import "../libraries/DoubleLogicUUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 

@@ -10,7 +10,6 @@ import "../bridge/IOutbox.sol";
 import "../bridge/IInbox.sol";
 import "./IRollupEventInbox.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
-import "../challenge/IOldChallengeManager.sol";
 
 interface IRollupCore is IAssertionChain {
     struct Staker {
@@ -64,8 +63,6 @@ interface IRollupCore is IAssertionChain {
     function outbox() external view returns (IOutbox);
 
     function rollupEventInbox() external view returns (IRollupEventInbox);
-
-    function oldChallengeManager() external view returns (IOldChallengeManager);
 
     function loserStakeEscrow() external view returns (address);
 

@@ -11,7 +11,6 @@ import "./RollupLib.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupCore.sol";
 
-import "../challenge/IOldChallengeManager.sol";
 import "../state/Machine.sol";
 
 import "../bridge/ISequencerInbox.sol";
@@ -36,7 +35,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     IOutbox public outbox;
     ISequencerInbox public sequencerInbox;
     IRollupEventInbox public rollupEventInbox;
-    IOldChallengeManager public override oldChallengeManager;
 
     // misc useful contracts when interacting with the rollup
     address public validatorUtils;
