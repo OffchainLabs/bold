@@ -581,4 +581,26 @@ contract RollupTest is Test {
         vm.expectRevert("NO_UNRESOLVED");
         userRollup.rejectNextAssertion(bytes32(0));
     }
+
+    function testRevertWithdrawStake() public {
+        testSuccessConfirmEdgeByTime();
+        vm.prank(validator1);
+        vm.expectRevert("NO_FUNDS_TO_WITHDRAW");
+        userRollup.withdrawStakerFunds();
+    }
+
+    function testWithdrawStake() public {
+        testSuccessConfirmEdgeByTime();
+        vm.prank(validator1);
+        userRollup.returnOldDeposit(validator1);
+        vm.prank(validator1);
+        userRollup.withdrawStakerFunds();
+    }
+
+    function testRevertWithdrawActiveStake() public {
+        testSuccessConfirmEdgeByTime();
+        vm.prank(validator1);
+        vm.expectRevert("STAKE_ACTIVE");
+        userRollup.returnOldDeposit(validator2);
+    }
 }

@@ -333,6 +333,7 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
      */
     function withdrawStakerFunds() external override onlyValidator whenNotPaused returns (uint256) {
         uint256 amount = withdrawFunds(msg.sender);
+        require(amount > 0, "NO_FUNDS_TO_WITHDRAW");
         // This is safe because it occurs after all checks and effects
         // solhint-disable-next-line avoid-low-level-calls
         (bool success,) = msg.sender.call{value: amount}("");
