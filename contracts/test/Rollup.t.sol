@@ -560,6 +560,15 @@ contract RollupTest is Test {
         userRollup.rejectNextAssertion(winningEdgeId);
     }
 
+    function testRevertRejectionNotConfirmed() public {
+        (,,,, bytes32 e1Id) = testSuccessCreateChallenge();
+        vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
+        vm.prank(validator1);
+        vm.expectRevert("EDGE_NOT_CONFIRMED");
+        userRollup.rejectNextAssertion(e1Id);
+    }
+
     function testRevertRejectionTooRecent() public {
         testSuccessCreateSecondChild();
         vm.prank(validator1);
