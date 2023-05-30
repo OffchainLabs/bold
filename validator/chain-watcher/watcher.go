@@ -2,9 +2,8 @@ package watcher
 
 import (
 	"context"
-	"time"
-
 	"fmt"
+	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
@@ -37,12 +36,13 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	histChecker        statemanager.HistoryChecker
-	chain              protocol.AssertionChain
-	pollEventsInterval time.Duration
-	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
-	backend            bind.ContractBackend
-	validatorName      string
+	histChecker         statemanager.HistoryChecker
+	chain               protocol.AssertionChain
+	pollEventsInterval  time.Duration
+	challenges          *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
+	backend             bind.ContractBackend
+	validatorName       string
+	initialSyncComplete chan struct{}
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -177,6 +177,9 @@ func (w *Watcher) Watch(ctx context.Context) {
 
 	fromBlock = toBlock
 
+	// Mark all challenges as synced.
+	w.markSynced()
+
 	ticker := time.NewTicker(w.pollEventsInterval)
 	defer ticker.Stop()
 	for {
@@ -240,6 +243,27 @@ func (w *Watcher) Watch(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// GetEdges returns all edges in the watcher.
+func (w *Watcher) GetEdges() ([]protocol.SpecEdge, error) {
+	syncEdges := make([]protocol.SpecEdge, 0)
+
+	err := w.challenges.ForEach(func(assertionID protocol.AssertionId, t *trackedChallenge) error {
+		err := t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
+			syncEdges = append(syncEdges, edge)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return syncEdges, err
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -519,4 +543,9 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 		startBlockNum: startBlock,
 		endBlockNum:   header.Number.Uint64(),
 	}, nil
+}
+
+// markSynced marks watcher as synced and notifies feed listeners.
+func (w *Watcher) markSynced() {
+	close(w.initialSyncComplete)
 }

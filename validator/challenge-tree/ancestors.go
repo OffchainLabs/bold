@@ -3,6 +3,7 @@ package challengetree
 import (
 	"context"
 	"fmt"
+
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
@@ -267,7 +268,7 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 }
 
 // Gets the edge a specified edge claims, if any.
-func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.ReadOnlyEdge) (protocol.ReadOnlyEdge, error) {
+func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.ReadOnlyEdge) (protocol.SpecEdge, error) {
 	if edge.ClaimId().IsNone() {
 		return nil, errors.New("does not claim any edge")
 	}

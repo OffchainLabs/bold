@@ -11,6 +11,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	watcher "github.com/OffchainLabs/challenge-protocol-v2/validator/chain-watcher"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -24,6 +25,7 @@ type Opt = func(val *Validator)
 // Validator defines a validator client instances in the assertion protocol, which will be
 // an active participant in interacting with the on-chain contracts.
 type Validator struct {
+	ctx                       context.Context
 	chain                     protocol.Protocol
 	chalManagerAddr           common.Address
 	rollupAddr                common.Address
@@ -38,6 +40,8 @@ type Validator struct {
 	timeRef                   util.TimeReference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
+	initialSyncComplete       chan struct{}
+	watcher                   watcher.Watcher
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -104,6 +108,7 @@ func New(
 		edgeTrackerWakeInterval:   time.Millisecond * 100,
 		newAssertionCheckInterval: time.Second,
 		postAssertionsInterval:    time.Second * 5,
+		initialSyncComplete:       make(chan struct{}),
 	}
 	for _, o := range opts {
 		o(v)
@@ -298,4 +303,14 @@ func (v *Validator) onLeafCreated(
 	}
 
 	return v.challengeAssertion(ctx, psn)
+}
+
+// waitForSync waits for input `syncChan` to emit before exit.
+func (v *Validator) waitForSync(syncChan chan struct{}) error {
+	select {
+	case <-syncChan:
+		return nil
+	case <-v.ctx.Done():
+		return errors.New("context closed, exiting goroutine")
+	}
 }

@@ -36,7 +36,7 @@ import (
 func TestAncestors_AllChallengeLevels(t *testing.T) {
 	ctx := context.Background()
 	tree := &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
 		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),

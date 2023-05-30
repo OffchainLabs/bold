@@ -27,7 +27,7 @@ type creationTime uint64
 // An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                         *threadsafe.Map[protocol.EdgeId, protocol.ReadOnlyEdge]
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
 	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionId           protocol.AssertionId
 	honestBlockChalLevelZeroEdge  util.Option[protocol.ReadOnlyEdge]
@@ -45,7 +45,7 @@ func New(
 	validatorName string,
 ) *HonestChallengeTree {
 	return &HonestChallengeTree{
-		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.ReadOnlyEdge](),
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		topLevelAssertionId:           prevAssertionId,
 		honestBlockChalLevelZeroEdge:  util.None[protocol.ReadOnlyEdge](),
@@ -59,7 +59,7 @@ func New(
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
-func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnlyEdge) error {
+func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) error {
 	prevAssertionId, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
 		return errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
@@ -110,7 +110,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnly
 		if !eg.ClaimId().IsNone() {
 			switch eg.GetType() {
 			case protocol.BlockChallengeEdge:
-				ht.honestBlockChalLevelZeroEdge = util.Some(eg)
+				ht.honestBlockChalLevelZeroEdge = util.Some(protocol.ReadOnlyEdge(eg))
 			case protocol.BigStepChallengeEdge:
 				ht.honestBigStepLevelZeroEdges.Push(eg)
 			case protocol.SmallStepChallengeEdge:
@@ -133,4 +133,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.ReadOnly
 		mutuals.Put(eg.Id(), creationTime(eg.CreatedAtBlock()))
 	}
 	return nil
+}
+
+func (ht *HonestChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {
+	return ht.edges
 }
