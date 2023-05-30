@@ -187,6 +187,10 @@ func (w *Watcher) Watch(ctx context.Context) {
 				log.Error(err)
 				continue
 			}
+			if !latestBlock.Number.IsUint64() {
+				log.Error("latest block header number is not a uint64")
+				continue
+			}
 			toBlock := latestBlock.Number.Uint64()
 			if fromBlock == toBlock {
 				continue
@@ -507,6 +511,9 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	header, err := w.backend.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return filterRange{}, err
+	}
+	if !header.Number.IsUint64() {
+		return filterRange{}, errors.New("header number is not a uint64")
 	}
 	return filterRange{
 		startBlockNum: startBlock,
