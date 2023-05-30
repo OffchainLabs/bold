@@ -290,7 +290,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function withdrawStaker(address stakerAddress) internal {
         Staker storage staker = _stakerMap[stakerAddress];
-        uint64 latestConfirmedNum = latestConfirmed();
         // TODO: HN: review if we need additional checks here
         //           the user logic already checked if the staker is inactive
         uint256 initialStaked = staker.amountStaked;
