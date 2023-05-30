@@ -92,8 +92,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             initialAssertion.assertionHash,
             assertionInputs,
             inboxAcc,
+            inboxMaxCount,
             wasmModuleRoot,
-            inboxMaxCount
+            baseStake,
+            address(challengeManager),
+            confirmPeriodBlocks
         );
 
         emit RollupInitialized(config.wasmModuleRoot, config.chainId);

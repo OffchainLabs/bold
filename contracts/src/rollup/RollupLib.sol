@@ -92,6 +92,7 @@ library RollupLib {
             );
     }
 
+    // All these should be emited in AssertionCreated event
     function configHash(
         bytes32 wasmModuleRoot,
         uint256 requiredStake,

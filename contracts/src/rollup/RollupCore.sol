@@ -461,8 +461,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             newAssertionHash,
             assertion,
             sequencerBatchAcc,
+            nextInboxPosition,
             wasmModuleRoot,
-            nextInboxPosition
+            baseStake,
+            address(challengeManager),
+            confirmPeriodBlocks
         );
 
         return newAssertionHash;
