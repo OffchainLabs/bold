@@ -215,6 +215,7 @@ func (ac *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Sp
 	)
 }
 
+// TODO: Implement this logic.
 func (ac *AssertionChain) AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
 	return 0, nil
 }
@@ -227,6 +228,9 @@ func (ac *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol
 	edgeOpt, err := cm.GetEdge(ctx, edgeId)
 	if err != nil {
 		return protocol.AssertionId{}, err
+	}
+	if edgeOpt.IsNone() {
+		return protocol.AssertionId{}, errors.New("edge was nil")
 	}
 	return edgeOpt.Unwrap().PrevAssertionId(ctx)
 }

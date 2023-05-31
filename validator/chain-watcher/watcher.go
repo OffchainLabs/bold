@@ -167,6 +167,13 @@ func (w *Watcher) Watch(ctx context.Context) {
 		log.Error(err)
 		return
 	}
+	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
+	})
+	if err != nil {
+		log.Error(err)
+		return
+	}
 
 	fromBlock = toBlock
 
@@ -178,6 +185,10 @@ func (w *Watcher) Watch(ctx context.Context) {
 			latestBlock, err := w.backend.HeaderByNumber(ctx, nil)
 			if err != nil {
 				log.Error(err)
+				continue
+			}
+			if !latestBlock.Number.IsUint64() {
+				log.Error("latest block header number is not a uint64")
 				continue
 			}
 			toBlock := latestBlock.Number.Uint64()
@@ -274,7 +285,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if err != nil {
 		return err
 	}
-	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId(event.EdgeId))
+	edgeOpt, err := challengeManager.GetEdge(ctx, event.EdgeId)
 	if err != nil {
 		return err
 	}
@@ -290,7 +301,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	chal, ok := w.challenges.TryGet(assertionId)
 	if !ok {
 		tree := challengetree.New(
-			protocol.AssertionId(event.OriginId),
+			event.OriginId,
 			w.chain,
 			w.histChecker,
 			w.validatorName,
@@ -500,6 +511,9 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	header, err := w.backend.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return filterRange{}, err
+	}
+	if !header.Number.IsUint64() {
+		return filterRange{}, errors.New("header number is not a uint64")
 	}
 	return filterRange{
 		startBlockNum: startBlock,
