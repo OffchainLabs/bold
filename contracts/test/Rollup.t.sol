@@ -28,6 +28,7 @@ contract RollupTest is Test {
     address constant validator1 = address(100001);
     address constant validator2 = address(100002);
     address constant validator3 = address(100003);
+    address constant loserStakeEscrow = address(200001);
 
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
@@ -101,7 +102,7 @@ contract RollupTest is Test {
             }),
             stakeToken: address(0),
             wasmModuleRoot: WASM_MODULE_ROOT,
-            loserStakeEscrow: address(0),
+            loserStakeEscrow: loserStakeEscrow,
             genesisBlockNum: 0,
             miniStakeValue: 0,
             layerZeroBlockEdgeHeight: 2 ** 5,
@@ -577,34 +578,6 @@ contract RollupTest is Test {
         return data.e1Id;
     }
 
-    // function testSuccessRejection() public {
-    //     bytes32 winningEdgeId = testSuccessConfirmEdgeByTime();
-    //     vm.prank(validator1);
-    //     userRollup.rejectNextAssertion(winningEdgeId);
-    // }
-
-    // function testRevertRejectionNotConfirmed() public {
-    //     (,,,, bytes32 e1Id) = testSuccessCreateChallenge();
-    //     vm.roll(userRollup.getAssertion(1).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
-    //     vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
-    //     vm.prank(validator1);
-    //     vm.expectRevert("EDGE_NOT_CONFIRMED");
-    //     userRollup.rejectNextAssertion(e1Id);
-    // }
-
-    // function testRevertRejectionTooRecent() public {
-    //     testSuccessCreateSecondChild();
-    //     vm.prank(validator1);
-    //     vm.expectRevert("CHILD_TOO_RECENT");
-    //     userRollup.rejectNextAssertion(bytes32(0));
-    // }
-
-    // function testRevertRejectionNoUnresolved() public {
-    //     vm.prank(validator1);
-    //     vm.expectRevert("NO_UNRESOLVED");
-    //     userRollup.rejectNextAssertion(bytes32(0));
-    // }
-
     function testRevertWithdrawStake() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
@@ -625,5 +598,18 @@ contract RollupTest is Test {
         vm.prank(validator1);
         vm.expectRevert("STAKE_ACTIVE");
         userRollup.returnOldDeposit(validator2);
+    }
+
+    function testWithdrawExcessStake() public {
+        testSuccessCreateSecondChild();
+        vm.prank(loserStakeEscrow);
+        userRollup.withdrawStakerFunds();
+    }
+
+    function testRevertWithdrawNoExcessStake() public {
+        testSuccessCreateAssertions();
+        vm.prank(loserStakeEscrow);
+        vm.expectRevert("NO_FUNDS_TO_WITHDRAW");
+        userRollup.withdrawStakerFunds();
     }
 }
