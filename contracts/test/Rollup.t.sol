@@ -390,15 +390,15 @@ contract RollupTest is Test {
 
         ExecutionState memory afterState2;
         afterState2.machineStatus = MachineStatus.FINISHED;
-        afterState2.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
-        afterState2.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
+        afterState2.globalState.bytes32Vals[0] = keccak256(abi.encodePacked(FIRST_ASSERTION_BLOCKHASH)); // blockhash
+        afterState2.globalState.bytes32Vals[1] = keccak256(abi.encodePacked(FIRST_ASSERTION_SENDROOT)); // sendroot
         afterState2.globalState.u64Vals[0] = 1; // inbox count
-        afterState2.globalState.u64Vals[1] = 1; // modify the state
+        afterState2.globalState.u64Vals[1] = 0; // modify the state
 
         bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
             afterState: afterState2,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(1) // 1 because we moved the position within message
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
         vm.prank(validator2);
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
@@ -543,7 +543,7 @@ contract RollupTest is Test {
                     ExecutionStateData(data.beforeState, abi.encode(bytes32(0), bytes32(0), WASM_MODULE_ROOT)),
                     ExecutionStateData(
                         data.afterState2,
-                        abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(1), WASM_MODULE_ROOT)
+                        abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0), WASM_MODULE_ROOT)
                     )
                     )
             })

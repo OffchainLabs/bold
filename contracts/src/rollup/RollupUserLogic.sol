@@ -148,35 +148,14 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             );
         }
 
-        {
-            uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
-            // Verify that assertion meets the minimum Delta time requirement
-            require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
+        uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
+        // Verify that assertion meets the minimum Delta time requirement
+        require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
-            // CHRIS: TODO: this is an extra storage call
-            // CHRIS: TODO: we should be doing this inside the createNewAssertion call
-            //              since otherwise an admin created assertion would be challengeable if created with the wrong count
-            uint64 prevAssertionNextInboxPosition = getAssertionStorage(prevAssertion).nextInboxPosition;
-
-            // Minimum size requirement: any assertion must consume exactly all inbox messages
-            // put into L1 inbox before the prev node’s L1 blocknum.
-            // We make an exception if the machine enters the errored state,
-            // as it can't consume future batches.
-            require(
-                assertion.afterState.machineStatus == MachineStatus.ERRORED
-                    || assertion.afterState.globalState.getInboxPosition() == prevAssertionNextInboxPosition,
-                "WRONG_INBOX_POS"
-            );
-
-            // The rollup cannot advance normally from an errored state
-            // CHRIS: TODO: this is interesting? How do we recover from errored state?
-            require(assertion.beforeState.machineStatus == MachineStatus.FINISHED, "BAD_PREV_STATUS");
-        }
         bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
-
         stakeOnAssertion(msg.sender, newAssertionHash);
 
-        if (getAssertionStorage(prevAssertion).secondChildBlock > 0) {
+        if (!getAssertionStorage(newAssertionHash).isFirstChild) {
             // only 1 of the children can be confirmed and get their stake refunded
             // so we send the other child's stake to the loserStakeEscrow
             // TODO: HN: if the losing staker have staked more than requiredStake, the excess stake will be stuck
