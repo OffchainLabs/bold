@@ -208,14 +208,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         reduceStakeTo(msg.sender, target);
     }
 
-    /**
-     * @notice Calculate the current amount of funds required to place a new stake in the rollup
-     * @return The current minimum stake requirement
-     */
-    function requiredStake() external view returns (uint256) {
-        return baseStake;
-    }
-
     function owner() external view returns (address) {
         return _getAdmin();
     }

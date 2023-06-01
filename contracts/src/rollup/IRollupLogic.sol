@@ -33,11 +33,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function reduceDeposit(uint256 target) external;
 
-    function requiredStake()
-        external
-        view
-        returns (uint256);
-
     function withdrawStakerFunds() external returns (uint256);
 }
 
