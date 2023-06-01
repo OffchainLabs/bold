@@ -13,7 +13,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/simulated-backend"
+	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/util/simulated-backend"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -129,11 +129,12 @@ func CreateTwoValidatorFork(
 }
 
 type ChainSetup struct {
-	Chains   []*solimpl.AssertionChain
-	Accounts []*TestAccount
-	Addrs    *RollupAddresses
-	Backend  *backends.SimulatedBackend
-	L1Reader *headerreader.HeaderReader
+	Chains       []*solimpl.AssertionChain
+	Accounts     []*TestAccount
+	Addrs        *RollupAddresses
+	Backend      *backends.SimulatedBackend
+	L1Reader     *headerreader.HeaderReader
+	RollupConfig rollupgen.Config
 }
 
 func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
@@ -194,11 +195,12 @@ func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	}
 	chains[1] = chain2
 	return &ChainSetup{
-		Chains:   chains,
-		Accounts: accs,
-		Addrs:    addresses,
-		L1Reader: headerReader,
-		Backend:  backend,
+		Chains:       chains,
+		Accounts:     accs,
+		Addrs:        addresses,
+		L1Reader:     headerReader,
+		Backend:      backend,
+		RollupConfig: cfg,
 	}, nil
 }
 

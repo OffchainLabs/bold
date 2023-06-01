@@ -34,6 +34,10 @@ func Test_act(t *testing.T) {
 		p := &mocks.MockProtocol{}
 		manager := &mocks.MockSpecChallengeManager{}
 		edge := &mocks.MockSpecEdge{}
+		edge.On("Status", ctx).Return(protocol.EdgePending, nil)
+		edge.On("LowerChild", ctx).Return(option.None[protocol.EdgeId](), nil)
+		edge.On("UpperChild", ctx).Return(option.None[protocol.EdgeId](), nil)
+		edge.On("PrevAssertionId", ctx).Return(protocol.AssertionId{}, nil)
 		edge.On("StartCommitment").Return(protocol.Height(0), parentHistory.Merkle)
 		edge.On("EndCommitment").Return(protocol.Height(1), history.Merkle)
 		edge.On("Id").Return(protocol.EdgeId([32]byte{}))
@@ -86,6 +90,10 @@ func Test_act(t *testing.T) {
 		p := &mocks.MockProtocol{}
 		manager := &mocks.MockSpecChallengeManager{}
 		edge := &mocks.MockSpecEdge{}
+		edge.On("Status", ctx).Return(protocol.EdgePending, nil)
+		edge.On("LowerChild", ctx).Return(option.None[protocol.EdgeId](), nil)
+		edge.On("UpperChild", ctx).Return(option.None[protocol.EdgeId](), nil)
+		edge.On("PrevAssertionId", ctx).Return(protocol.AssertionId{}, nil)
 		edge.On("StartCommitment").Return(protocol.Height(0), parentHistory.Merkle)
 		edge.On("EndCommitment").Return(protocol.Height(1), history.Merkle)
 		edge.On("Id").Return(protocol.EdgeId([32]byte{}))

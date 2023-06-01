@@ -387,8 +387,8 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	endCommit commitments.History,
 ) (protocol.Agreement, error) {
 	agreement := protocol.Agreement{}
-	var localStartCommit util.HistoryCommitment
-	var localEndCommit util.HistoryCommitment
+	var localStartCommit commitments.History
+	var localEndCommit commitments.History
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
