@@ -620,21 +620,21 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
-		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
-		require.NoError(t, err)
-		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
-		require.NoError(t, err)
-		prefixProof, err := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
-		require.NoError(t, err)
+		startCommit, startErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, startErr)
+		endCommit, endErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+		require.NoError(t, endErr)
+		prefixProof, proofErr := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+		require.NoError(t, proofErr)
 
-		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+		edge, edgeErr := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
 			startCommit,
 			endCommit,
 			prefixProof,
 		)
-		require.NoError(t, err)
+		require.NoError(t, edgeErr)
 		return edge
 	}
 	honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
@@ -801,18 +801,18 @@ func setupOneStepProofScenario(
 
 	// Now opening big step level zero leaves at index 0
 	bigStepAdder := func(stateManager l2stateprovider.Provider, sourceEdge protocol.SpecEdge) protocol.SpecEdge {
-		startCommit, err := stateManager.BigStepCommitmentUpTo(ctx, 0, 1, 0)
-		require.NoError(t, err)
-		endCommit, err := stateManager.BigStepLeafCommitment(ctx, 0, 1)
-		require.NoError(t, err)
+		startCommit, startErr := stateManager.BigStepCommitmentUpTo(ctx, 0, 1, 0)
+		require.NoError(t, startErr)
+		endCommit, endErr := stateManager.BigStepLeafCommitment(ctx, 0, 1)
+		require.NoError(t, endErr)
 		require.Equal(t, startCommit.LastLeaf, endCommit.FirstLeaf)
-		startParentCommitment, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
-		require.NoError(t, err)
-		endParentCommitment, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 1, 1)
-		require.NoError(t, err)
-		startEndPrefixProof, err := stateManager.BigStepPrefixProof(ctx, 0, 1, 0, endCommit.Height)
-		require.NoError(t, err)
-		leaf, err := challengeManager.AddSubChallengeLevelZeroEdge(
+		startParentCommitment, parentErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, parentErr)
+		endParentCommitment, endParentErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 1, 1)
+		require.NoError(t, endParentErr)
+		startEndPrefixProof, proofErr := stateManager.BigStepPrefixProof(ctx, 0, 1, 0, endCommit.Height)
+		require.NoError(t, proofErr)
+		leaf, leafErr := challengeManager.AddSubChallengeLevelZeroEdge(
 			ctx,
 			sourceEdge,
 			startCommit,
@@ -821,7 +821,7 @@ func setupOneStepProofScenario(
 			endParentCommitment.LastLeafProof,
 			startEndPrefixProof,
 		)
-		require.NoError(t, err)
+		require.NoError(t, leafErr)
 		return leaf
 	}
 
