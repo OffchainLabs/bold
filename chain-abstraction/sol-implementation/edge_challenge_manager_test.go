@@ -917,24 +917,24 @@ func setupOneStepProofScenario(
 
 	var smallStepHeight uint64 = protocol.LevelZeroBigStepEdgeHeight
 	for smallStepHeight > 1 {
-		honestBisectCommit, err := honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, smallStepHeight/2)
-		require.NoError(t, err)
-		honestProof, err := honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, smallStepHeight/2, smallStepHeight)
-		require.NoError(t, err)
+		honestBisectCommit, bisectErr := honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, smallStepHeight/2)
+		require.NoError(t, bisectErr)
+		honestProof, proofErr := honestStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, smallStepHeight/2, smallStepHeight)
+		require.NoError(t, proofErr)
 		honestEdge, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
-		evilBisectCommit, err := evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, smallStepHeight/2)
-		require.NoError(t, err)
-		evilProof, err := evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, smallStepHeight/2, smallStepHeight)
-		require.NoError(t, err)
+		evilBisectCommit, evilBisectErr := evilStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, smallStepHeight/2)
+		require.NoError(t, evilBisectErr)
+		evilProof, evilProofErr := evilStateManager.SmallStepPrefixProof(ctx, 0, 1, 0, 1, smallStepHeight/2, smallStepHeight)
+		require.NoError(t, evilProofErr)
 		evilEdge, _, err = evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 		require.NoError(t, err)
 
 		smallStepHeight /= 2
 
-		isOSF, err := honestEdge.HasLengthOneRival(ctx)
-		require.NoError(t, err)
+		isOSF, osfErr := honestEdge.HasLengthOneRival(ctx)
+		require.NoError(t, osfErr)
 		require.Equal(t, smallStepHeight == 1, isOSF)
 		isOSF, err = evilEdge.HasLengthOneRival(ctx)
 		require.NoError(t, err)
