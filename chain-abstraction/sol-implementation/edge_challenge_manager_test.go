@@ -35,21 +35,21 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
-		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
-		require.NoError(t, err)
-		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
-		require.NoError(t, err)
-		prefixProof, err := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
-		require.NoError(t, err)
+		startCommit, startErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		require.NoError(t, startErr)
+		endCommit, endErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+		require.NoError(t, endErr)
+		prefixProof, proofErr := stateManager.PrefixProofUpToBatch(ctx, 0, 0, protocol.LevelZeroBlockEdgeHeight, 1)
+		require.NoError(t, proofErr)
 
-		edge, err := challengeManager.AddBlockChallengeLevelZeroEdge(
+		edge, edgeErr := challengeManager.AddBlockChallengeLevelZeroEdge(
 			ctx,
 			leaf,
 			startCommit,
 			endCommit,
 			prefixProof,
 		)
-		require.NoError(t, err)
+		require.NoError(t, edgeErr)
 		return edge
 	}
 
