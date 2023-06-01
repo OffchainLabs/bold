@@ -67,8 +67,8 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     function confirmAssertionByHash(
         bytes32 assertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc,
-        bytes32 winningEdgeId
+        bytes32 winningEdgeId,
+        BeforeStateData calldata beforeStateData
     ) external onlyValidator whenNotPaused {
         /*
         * To confirm an assertion, the following must be true:
@@ -97,12 +97,13 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
         if (prevAssertion.secondChildBlock > 0) {
             // if the prev has more than 1 child, check if this assertion is the challenge winner
+            RollupLib.validateConfigHash(beforeStateData, prevAssertion.configHash);
             ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
             require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
-        confirmAssertion(assertionHash, assertion.prevId, confirmState, inboxAcc);
+        confirmAssertion(assertionHash, assertion.prevId, confirmState, beforeStateData.sequencerBatchAcc);
     }
 
     /**
@@ -139,7 +140,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         require(amountStaked(msg.sender) >= assertion.beforeStateData.requiredStake, "INSUFFICIENT_STAKE");
 
         bytes32 prevAssertion = RollupLib.assertionHash(
-            assertion.beforeStateData.prevAssertionHash,
+            assertion.beforeStateData.prevprevAssertionHash,
             assertion.beforeState,
             assertion.beforeStateData.sequencerBatchAcc
         ); // TODO: HN: we calculated this hash again in createNewAssertion
@@ -155,22 +156,15 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         );
 
         // Validate the config hash
-        require(
-            getAssertionStorage(prevAssertion).configHash
-                == RollupLib.configHash(
-                    assertion.beforeStateData.wasmRoot,
-                    assertion.beforeStateData.requiredStake,
-                    assertion.beforeStateData.challengeManager,
-                    assertion.beforeStateData.confirmPeriodBlocks
-                ),
-            "CONFIG_HASH_MISMATCH"
-        );
+        RollupLib.validateConfigHash(assertion.beforeStateData, getAssertionStorage(prevAssertion).configHash);
 
         uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
         // Verify that assertion meets the minimum Delta time requirement
         require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
-        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, assertion.beforeStateData.confirmPeriodBlocks, expectedAssertionHash);
+        bytes32 newAssertionHash = createNewAssertion(
+            assertion, prevAssertion, assertion.beforeStateData.confirmPeriodBlocks, expectedAssertionHash
+        );
         stakeOnAssertion(msg.sender, newAssertionHash);
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {

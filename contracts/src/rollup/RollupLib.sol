@@ -101,11 +101,27 @@ library RollupLib {
         return
             keccak256(
                 abi.encodePacked(
-                    wasmModuleRoot,
+                    wasmModuleRoot, // TODO: we might not need this here, since it is defined in the challenge manager
                     requiredStake,
                     challengeManager,
                     confirmPeriodBlocks
                 )
             );
+    }
+
+    function validateConfigHash(
+        BeforeStateData calldata bsd,
+        bytes32 _configHash
+    ) internal pure {
+        require(
+            _configHash
+                == configHash(
+                    bsd.wasmRoot,
+                    bsd.requiredStake,
+                    bsd.challengeManager,
+                    bsd.confirmPeriodBlocks
+                ),
+            "CONFIG_HASH_MISMATCH"
+        );
     }
 }

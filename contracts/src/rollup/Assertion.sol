@@ -41,9 +41,10 @@ struct AssertionNode {
 }
 
 struct BeforeStateData {
-    bytes32 wasmRoot;
-    bytes32 prevAssertionHash;
+    bytes32 prevprevAssertionHash;
     bytes32 sequencerBatchAcc;
+    // below are the components of config hash
+    bytes32 wasmRoot;
     uint256 requiredStake;
     address challengeManager;
     uint64 confirmPeriodBlocks;

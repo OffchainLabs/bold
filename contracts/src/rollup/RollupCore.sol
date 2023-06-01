@@ -24,11 +24,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     using GlobalStateLib for GlobalState;
 
     // Rollup Config
+    uint256 public chainId;
+
+    // These config should be stored into the prev and not used directly
     uint64 public confirmPeriodBlocks;
     uint64 public extraChallengeTimeBlocks; // TODO: unused
-    uint256 public chainId;
     uint256 public baseStake;
     bytes32 public wasmModuleRoot;
+    IEdgeChallengeManager public challengeManager;
 
     IInbox public inbox;
     IBridge public bridge;
@@ -61,8 +64,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     uint64 internal constant GENESIS_NODE = 1;
 
     bool public validatorWhitelistDisabled;
-
-    IEdgeChallengeManager public challengeManager;
 
     /**
      * @notice Get a storage reference to the Assertion for the given assertion id
@@ -320,7 +321,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // validate the provided before state is correct by checking that it's part of the prev assertion hash
         require(
             RollupLib.assertionHash(
-                assertion.beforeStateData.prevAssertionHash,
+                assertion.beforeStateData.prevprevAssertionHash,
                 assertion.beforeState,
                 assertion.beforeStateData.sequencerBatchAcc
             ) == prevAssertionId,
