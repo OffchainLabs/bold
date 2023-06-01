@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/execution"
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"

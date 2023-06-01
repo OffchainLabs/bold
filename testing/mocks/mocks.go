@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
