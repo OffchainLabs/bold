@@ -225,6 +225,9 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not compute honest path timer")
 	}
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		return false, errors.Wrap(err, "could not check the challenge period length")
+	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
 			return false, errors.Wrap(err, "could not confirm by timer")
