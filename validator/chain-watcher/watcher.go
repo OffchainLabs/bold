@@ -36,13 +36,12 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	histChecker         statemanager.HistoryChecker
-	chain               protocol.AssertionChain
-	pollEventsInterval  time.Duration
-	challenges          *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
-	backend             bind.ContractBackend
-	validatorName       string
-	initialSyncComplete chan struct{}
+	histChecker        statemanager.HistoryChecker
+	chain              protocol.AssertionChain
+	pollEventsInterval time.Duration
+	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
+	backend            bind.ContractBackend
+	validatorName      string
 }
 
 // New initializes a watcher service for frequently scanning the chain
