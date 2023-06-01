@@ -70,17 +70,33 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         bytes32 inboxAcc,
         bytes32 winningEdgeId
     ) external onlyValidator whenNotPaused {
+        /*
+        * To confirm an assertion, the following must be true:
+        * 1. The assertion must be pending
+        * 2. The assertion's deadline must have passed
+        * 3. The assertion's prev must be latest confirmed
+        * 4. The assertion's prev's child confirm deadline must have passed
+        * 5. If the assertion's prev has more than 1 child, the assertion must be the winner of the challenge
+        */
+
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
+        // Check that assertion is pending, this also checks that assertion exists
         require(assertion.status == AssertionStatus.Pending, "NOT_PENDING");
+
+        // Check that deadline has passed
+        // TODO: HN: do we need to check this? can we simply relies on the prev's ChildConfirmDeadline?
+        //           ChildConfirmDeadline is set to 1 confirmPeriod after first child is created
+        assertion.requirePastDeadline();
 
         // Check that prev is latest confirmed
         assert(assertion.prevId == latestConfirmed());
 
         AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevId);
+        // Check that prev's child confirm deadline has passed
         prevAssertion.requirePastChildConfirmDeadline();
 
         if (prevAssertion.secondChildBlock > 0) {
-            // check if assertion is the challenge winner
+            // if the prev has more than 1 child, check if this assertion is the challenge winner
             ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
             require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
