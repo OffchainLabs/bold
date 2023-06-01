@@ -22,7 +22,7 @@ var log = logrus.WithField("prefix", "validator")
 
 type Opt = func(val *Manager)
 
-// Manager defines a validator client instances in the assertion protocol, which will be
+// Manager defines an offchain, challenge manager, which will be
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
 	chain                     protocol.Protocol
