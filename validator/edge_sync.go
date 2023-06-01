@@ -14,7 +14,7 @@ import (
 // - Build edge trackers for every edge (retry on fail)
 // - Spin of all the edge trackers as part of go routine.
 func (v *Validator) syncEdges(ctx context.Context) error {
-	if err := v.waitForSync(ctx, v.initialSyncComplete); err != nil {
+	if err := v.waitForSync(ctx); err != nil {
 		return err
 	}
 	edges := v.watcher.GetEdges()

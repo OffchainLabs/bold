@@ -106,7 +106,7 @@ func (w *Watcher) ComputeHonestPathTimer(
 
 // Starts watching the chain via a polling mechanism for all edge added and confirmation events
 // in order to process some of this data into internal representations for confirmation purposes.
-func (w *Watcher) Watch(ctx context.Context) {
+func (w *Watcher) Watch(ctx context.Context, initialSyncCompleted chan<- struct{}) {
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
 		return w.getStartEndBlockNum(ctx)
 	})
@@ -177,8 +177,8 @@ func (w *Watcher) Watch(ctx context.Context) {
 
 	fromBlock = toBlock
 
-	// Mark all challenges as synced.
-	w.markSynced()
+	// Mark all edge events up to the latest block number as synced.
+	markSynced(initialSyncCompleted)
 
 	ticker := time.NewTicker(w.pollEventsInterval)
 	defer ticker.Stop()
@@ -540,6 +540,6 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 }
 
 // markSynced marks watcher as synced and notifies feed listeners.
-func (w *Watcher) markSynced() {
-	close(w.initialSyncComplete)
+func markSynced(initialSyncComplete chan<- struct{}) {
+	close(initialSyncComplete)
 }

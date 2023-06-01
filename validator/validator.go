@@ -39,7 +39,7 @@ type Validator struct {
 	timeRef                   utilTime.Reference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
-	initialSyncComplete       chan struct{}
+	initialSyncCompleted      chan struct{}
 	chainWatcherInterval      time.Duration
 	watcher                   *watcher.Watcher
 }
@@ -116,7 +116,7 @@ func New(
 		newAssertionCheckInterval: time.Second,
 		postAssertionsInterval:    time.Second * 5,
 		chainWatcherInterval:      time.Second * 5,
-		initialSyncComplete:       make(chan struct{}),
+		initialSyncCompleted:      make(chan struct{}),
 	}
 	for _, o := range opts {
 		o(v)
@@ -153,14 +153,14 @@ func (v *Validator) Start(ctx context.Context) {
 		v.address.Hex(),
 	).Info("Started validator client")
 
-	// First, block the main thread and sync all edges from the chain up
-	// since the latest confirmed assertion up to the latest block number.
+	// Start watching for ongoing chain events in the background.
+	go v.watcher.Watch(ctx, v.initialSyncCompleted)
+
+	// Then, block the main thread and wait until the chain event watcher has synced up with
+	// all edges from the chain since the latest confirmed assertion up to the latest block number.
 	if err := v.syncEdges(ctx); err != nil {
 		log.WithError(err).Fatal("Could not sync with onchain edges")
 	}
-
-	// Then, start watching for ongoing chain events in the background.
-	go v.watcher.Watch(ctx)
 
 	// Poll for newly created assertions in the background.
 	go v.pollForAssertions(ctx)
@@ -327,10 +327,10 @@ func (v *Validator) onLeafCreated(
 	return v.challengeAssertion(ctx, psn)
 }
 
-// waitForSync waits for input `syncChan` to emit before exit.
-func (v *Validator) waitForSync(ctx context.Context, syncChan chan struct{}) error {
+// waitForSync waits for a notificataion that initial sync of onchain edges is complete.
+func (v *Validator) waitForSync(ctx context.Context) error {
 	select {
-	case <-syncChan:
+	case <-v.initialSyncCompleted:
 		return nil
 	case <-ctx.Done():
 		return errors.New("context closed, exiting goroutine")
