@@ -10,7 +10,7 @@ go_library(
         "//challenge-manager/challenge-tree",
         "//containers/threadsafe",
         "//layer2-state-provider",
-        "//runtime:retry",
+        "//runtime",
         "//solgen/go/challengeV2gen",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_pkg_errors//:errors",

@@ -15,8 +15,8 @@ go_library(
         "//containers/option",
         "//containers/threadsafe",
         "//layer2-state-provider",
-        "//math:bisection",
-        "//state-commitments/history:commitments",
+        "//math",
+        "//state-commitments/history",
         "@com_github_pkg_errors//:errors",
     ],
 )

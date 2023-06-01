@@ -20,7 +20,7 @@ go_test(
     deps = [
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
-        "//challenge-manager:validator",
+        "//challenge-manager",
         "//layer2-state-provider",
         "//testing/endtoend/internal/backend",
         "//testing/toys",
