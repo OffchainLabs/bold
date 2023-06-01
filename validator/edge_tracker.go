@@ -9,9 +9,12 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/bisection"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/fsm"
+	utilTime "github.com/OffchainLabs/challenge-protocol-v2/util/time"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/validator/chain-watcher"
-	"github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
+	challengetree "github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -22,11 +25,11 @@ func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	endHeight, endCommit := et.edge.EndCommitment()
 	id := et.edge.Id()
 	return logrus.Fields{
-		"id":            util.Trunc(id[:]),
+		"id":            bisection.Trunc(id[:]),
 		"startHeight":   startHeight,
-		"startCommit":   util.Trunc(startCommit.Bytes()),
+		"startCommit":   bisection.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
-		"endCommit":     util.Trunc(endCommit.Bytes()),
+		"endCommit":     bisection.Trunc(endCommit.Bytes()),
 		"validatorName": et.cfg.validatorName,
 		"challengeType": et.edge.GetType(),
 	}
@@ -236,32 +239,32 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 // commitment with a prefix proof for the action based on the challenge type.
 func (et *edgeTracker) determineBisectionHistoryWithProof(
 	ctx context.Context,
-) (util.HistoryCommitment, []byte, error) {
+) (commitments.History, []byte, error) {
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
-	bisectTo, err := util.BisectionPoint(uint64(startHeight), uint64(endHeight))
+	bisectTo, err := bisection.Point(uint64(startHeight), uint64(endHeight))
 	if err != nil {
-		return util.HistoryCommitment{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
+		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
 	if et.edge.GetType() == protocol.BlockChallengeEdge {
 		historyCommit, commitErr := et.cfg.stateManager.HistoryCommitmentUpToBatch(ctx, et.startBlockHeight, et.startBlockHeight+bisectTo, et.topLevelClaimEndBatchCount)
 		if commitErr != nil {
-			return util.HistoryCommitment{}, nil, commitErr
+			return commitments.History{}, nil, commitErr
 		}
 		proof, proofErr := et.cfg.stateManager.PrefixProofUpToBatch(ctx, et.startBlockHeight, bisectTo, uint64(endHeight), et.topLevelClaimEndBatchCount)
 		if proofErr != nil {
-			return util.HistoryCommitment{}, nil, proofErr
+			return commitments.History{}, nil, proofErr
 		}
 		return historyCommit, proof, nil
 	}
-	var historyCommit util.HistoryCommitment
+	var historyCommit commitments.History
 	var commitErr error
 	var proof []byte
 	var proofErr error
 
 	originHeights, err := et.edge.TopLevelClaimHeight(ctx)
 	if err != nil {
-		return util.HistoryCommitment{}, nil, err
+		return commitments.History{}, nil, err
 	}
 
 	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
@@ -278,13 +281,13 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 		historyCommit, commitErr = et.cfg.stateManager.SmallStepCommitmentUpTo(ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, bisectTo)
 		proof, proofErr = et.cfg.stateManager.SmallStepPrefixProof(ctx, fromAssertionHeight, toAssertionHeight, fromBigStep, toBigStep, bisectTo, uint64(endHeight))
 	default:
-		return util.HistoryCommitment{}, nil, fmt.Errorf("unsupported challenge type: %s", et.edge.GetType())
+		return commitments.History{}, nil, fmt.Errorf("unsupported challenge type: %s", et.edge.GetType())
 	}
 	if commitErr != nil {
-		return util.HistoryCommitment{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
+		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
 	}
 	if proofErr != nil {
-		return util.HistoryCommitment{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
+		return commitments.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
 	}
 	return historyCommit, proof, nil
 }
@@ -310,18 +313,18 @@ func (et *edgeTracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.
 			"%s could not bisect to height=%d,commit=%s from height=%d,commit=%s",
 			et.cfg.validatorName,
 			bisectTo,
-			util.Trunc(historyCommit.Merkle.Bytes()),
+			bisection.Trunc(historyCommit.Merkle.Bytes()),
 			endHeight,
-			util.Trunc(endCommit.Bytes()),
+			bisection.Trunc(endCommit.Bytes()),
 		)
 	}
 	log.WithFields(logrus.Fields{
 		"name":               et.cfg.validatorName,
 		"challengeType":      et.edge.GetType(),
 		"bisectedFrom":       endHeight,
-		"bisectedFromMerkle": util.Trunc(endCommit.Bytes()),
+		"bisectedFromMerkle": bisection.Trunc(endCommit.Bytes()),
 		"bisectedTo":         bisectTo,
-		"bisectedToMerkle":   util.Trunc(historyCommit.Merkle.Bytes()),
+		"bisectedToMerkle":   bisection.Trunc(historyCommit.Merkle.Bytes()),
 	}).Info("Successfully bisected edge")
 	return firstChild, secondChild, nil
 }
@@ -346,10 +349,10 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		"toAssertionHeight":   toAssertionHeight,
 	}
 
-	var startHistory util.HistoryCommitment
-	var endHistory util.HistoryCommitment
-	var startParentCommitment util.HistoryCommitment
-	var endParentCommitment util.HistoryCommitment
+	var startHistory commitments.History
+	var endHistory commitments.History
+	var startParentCommitment commitments.History
+	var endParentCommitment commitments.History
 	var startEndPrefixProof []byte
 	switch et.edge.GetType() {
 	case protocol.BlockChallengeEdge:
@@ -417,9 +420,9 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fields["firstLeaf"] = util.Trunc(startHistory.FirstLeaf.Bytes())
+	fields["firstLeaf"] = bisection.Trunc(startHistory.FirstLeaf.Bytes())
 	fields["endHeight"] = endHistory.Height
-	fields["startCommitment"] = util.Trunc(startHistory.Merkle.Bytes())
+	fields["startCommitment"] = bisection.Trunc(startHistory.Merkle.Bytes())
 	fields["subChallengeType"] = addedLeaf.GetType()
 	log.WithFields(fields).Info("Added subchallenge level zero edge")
 	tracker, err := newEdgeTracker(
@@ -494,7 +497,7 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 
 type edgeTrackerConfig struct {
 	actEveryNSeconds time.Duration
-	timeRef          util.TimeReference
+	timeRef          utilTime.Reference
 	chain            protocol.Protocol
 	stateManager     statemanager.Manager
 	validatorName    string
@@ -505,7 +508,7 @@ type edgeTrackerConfig struct {
 type edgeTracker struct {
 	cfg                        *edgeTrackerConfig
 	edge                       protocol.SpecEdge
-	fsm                        *util.Fsm[edgeTrackerAction, edgeTrackerState]
+	fsm                        *fsm.Fsm[edgeTrackerAction, edgeTrackerState]
 	startBlockHeight           uint64
 	topLevelClaimEndBatchCount uint64
 }
@@ -516,9 +519,9 @@ func newEdgeTracker(
 	edge protocol.SpecEdge,
 	startHeightOffset uint64,
 	topLevelClaimEndBatchCount uint64,
-	fsmOpts ...util.FsmOpt[edgeTrackerAction, edgeTrackerState],
+	fsmOpts ...fsm.Opt[edgeTrackerAction, edgeTrackerState],
 ) (*edgeTracker, error) {
-	fsmOpts = append(fsmOpts, util.WithTrackedTransitions[edgeTrackerAction, edgeTrackerState]())
+	fsmOpts = append(fsmOpts, fsm.WithTrackedTransitions[edgeTrackerAction, edgeTrackerState]())
 	fsm, err := newEdgeTrackerFsm(
 		edgeStarted,
 		fsmOpts...,
