@@ -10,7 +10,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	utilTime "github.com/OffchainLabs/challenge-protocol-v2/util/time"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/validator/chain-watcher"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +37,7 @@ type Validator struct {
 	address                   common.Address
 	name                      string
 	postAssertionsInterval    time.Duration
-	timeRef                   util.TimeReference
+	timeRef                   utilTime.Reference
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
 	initialSyncComplete       chan struct{}
@@ -59,7 +59,7 @@ func WithAddress(addr common.Address) Opt {
 }
 
 // WithTimeReference adds a time reference interface to the validator.
-func WithTimeReference(ref util.TimeReference) Opt {
+func WithTimeReference(ref utilTime.Reference) Opt {
 	return func(val *Validator) {
 		val.timeRef = ref
 	}
@@ -103,7 +103,7 @@ func New(
 		chain:                     chain,
 		stateManager:              stateManager,
 		address:                   common.Address{},
-		timeRef:                   util.NewRealTimeReference(),
+		timeRef:                   utilTime.NewRealTimeReference(),
 		rollupAddr:                rollupAddr,
 		edgeTrackerWakeInterval:   time.Millisecond * 100,
 		newAssertionCheckInterval: time.Second,

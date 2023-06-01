@@ -6,7 +6,7 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/retry"
 )
 
 // Sync edges from challenges from confirmed block height to latest block height.
@@ -55,7 +55,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEd
 	var assertionId protocol.AssertionId
 	for i, edge := range edges {
 		// Retry until you get the previous assertion ID.
-		assertionId, err = util.RetryUntilSucceeds(ctx, func() (protocol.AssertionId, error) {
+		assertionId, err = retry.UntilSucceeds(ctx, func() (protocol.AssertionId, error) {
 			return edge.PrevAssertionId(ctx)
 		})
 		if err != nil {
@@ -69,7 +69,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEd
 		var inboxMsgCount uint64
 		if !ok {
 			// Retry until you get the assertion number.
-			assertionNum, assertionErr := util.RetryUntilSucceeds(ctx, func() (protocol.AssertionSequenceNumber, error) {
+			assertionNum, assertionErr := retry.UntilSucceeds(ctx, func() (protocol.AssertionSequenceNumber, error) {
 				return v.chain.GetAssertionNum(ctx, assertionId)
 			})
 			if assertionErr != nil {
@@ -77,7 +77,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEd
 			}
 
 			// Retry until you get the assertion creation info.
-			assertionCreationInfo, creationErr := util.RetryUntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+			assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 				return v.chain.ReadAssertionCreationInfo(ctx, assertionNum)
 			})
 			if creationErr != nil {
@@ -85,7 +85,7 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEd
 			}
 
 			// Retry until you get the execution state block height.
-			height, heightErr := util.RetryUntilSucceeds(ctx, func() (uint64, error) {
+			height, heightErr := retry.UntilSucceeds(ctx, func() (uint64, error) {
 				return v.getExecutionStateBlockHeight(ctx, assertionCreationInfo.AfterState)
 			})
 			if heightErr != nil {

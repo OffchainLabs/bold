@@ -8,7 +8,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
-	"github.com/OffchainLabs/challenge-protocol-v2/util"
+	"github.com/OffchainLabs/challenge-protocol-v2/util/retry"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -107,7 +107,7 @@ func (w *Watcher) ComputeHonestPathTimer(
 // Starts watching the chain via a polling mechanism for all edge added and confirmation events
 // in order to process some of this data into internal representations for confirmation purposes.
 func (w *Watcher) Watch(ctx context.Context) {
-	scanRange, err := util.RetryUntilSucceeds(ctx, func() (filterRange, error) {
+	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
 		return w.getStartEndBlockNum(ctx)
 	})
 	if err != nil {
@@ -118,14 +118,14 @@ func (w *Watcher) Watch(ctx context.Context) {
 	toBlock := scanRange.endBlockNum
 
 	// Get a challenge manager instance and filterer.
-	challengeManager, err := util.RetryUntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
+	challengeManager, err := retry.UntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
 		return w.chain.SpecChallengeManager(ctx)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	filterer, err := util.RetryUntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
+	filterer, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 	})
 	if err != nil {
@@ -139,35 +139,35 @@ func (w *Watcher) Watch(ctx context.Context) {
 	}
 
 	// Checks for different events right away before we start polling.
-	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeAdded(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts)
 	})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	_, err = util.RetryUntilSucceeds(ctx, func() (bool, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
 	})
 	if err != nil {
@@ -199,14 +199,14 @@ func (w *Watcher) Watch(ctx context.Context) {
 				continue
 			}
 			// Get a challenge manager instance and filterer.
-			challengeManager, err := util.RetryUntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
+			challengeManager, err := retry.UntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
 				return w.chain.SpecChallengeManager(ctx)
 			})
 			if err != nil {
 				log.Error(err)
 				return
 			}
-			filterer, err = util.RetryUntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
+			filterer, err = retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 				return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 			})
 			if err != nil {
@@ -290,7 +290,7 @@ func (w *Watcher) checkForEdgeAdded(
 				*filterOpts.End,
 			)
 		}
-		_, processErr := util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
 			return true, w.processEdgeAddedEvent(ctx, it.Event)
 		})
 		if processErr != nil {
@@ -364,7 +364,7 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 				*filterOpts.End,
 			)
 		}
-		_, processErr := util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
 			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
 		})
 		if processErr != nil {
@@ -399,7 +399,7 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 				*filterOpts.End,
 			)
 		}
-		_, processErr := util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
 			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
 		})
 		if processErr != nil {
@@ -434,7 +434,7 @@ func (w *Watcher) checkForEdgeConfirmedByChildren(
 				*filterOpts.End,
 			)
 		}
-		_, processErr := util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
 			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
 		})
 		if processErr != nil {
@@ -469,7 +469,7 @@ func (w *Watcher) checkForEdgeConfirmedByClaim(
 				*filterOpts.End,
 			)
 		}
-		_, processErr := util.RetryUntilSucceeds(ctx, func() (bool, error) {
+		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
 			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
 		})
 		if processErr != nil {
