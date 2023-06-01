@@ -77,6 +77,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         * 3. The assertion's prev must be latest confirmed
         * 4. The assertion's prev's child confirm deadline must have passed
         * 5. If the assertion's prev has more than 1 child, the assertion must be the winner of the challenge
+        *
+        * Note that we do not need to ever reject invalid assertion because they can never confirm
+        *      and the stake on them is swept to the loserStakeEscrow as soon as the leaf is created
         */
 
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
@@ -136,7 +139,12 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         );
 
         require(isStaked(msg.sender), "NOT_STAKED");
+
         // requiredStake is user supplied, will be verified against configHash later
+        // the prev's requiredStake is used to make sure all children have the same stake
+        // the staker may have more than enough stake, and the entire stake will be locked
+        // we cannot do a refund here because the staker may be staker on an unconfirmed ancestor that requires more stake
+        // excess stake can be removed by calling reduceDeposit when the staker is inactive
         require(amountStaked(msg.sender) >= assertion.beforeStateData.requiredStake, "INSUFFICIENT_STAKE");
 
         bytes32 prevAssertion = RollupLib.assertionHash(
