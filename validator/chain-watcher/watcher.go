@@ -18,6 +18,9 @@ import (
 
 var log = logrus.WithField("prefix", "challenge-watcher")
 
+type ConfirmationMetadataChecker interface {
+}
+
 // Represents a set of honest edges being tracked in a top-level challenge and all the
 // associated subchallenge honest edges along with some more metadata used for
 // computing information needed for confirmations. Each time an edge is created onchain,
