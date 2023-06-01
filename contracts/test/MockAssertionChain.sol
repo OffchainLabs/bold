@@ -28,7 +28,7 @@ contract MockAssertionChain is IAssertionChain {
     bytes32 public wasmModuleRoot;
     uint256 public baseStake;
     address public challengeManager;
-    uint256 public confirmPeriodBlocks;
+    uint64 public confirmPeriodBlocks;
 
     function assertionExists(bytes32 assertionId) public view returns (bool) {
         return assertions[assertionId].height != 0;
@@ -69,8 +69,8 @@ contract MockAssertionChain is IAssertionChain {
     }
 
     function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof) external view returns (bytes32){
-        (uint256 requiredStake, address _challengeManager, uint256 _confirmPeriodBlocks) =
-            abi.decode(proof, (uint256, address, uint256));
+        (uint256 requiredStake, address _challengeManager, uint64 _confirmPeriodBlocks) =
+            abi.decode(proof, (uint256, address, uint64));
         require(
             RollupLib.configHash({
                 wasmModuleRoot: root,

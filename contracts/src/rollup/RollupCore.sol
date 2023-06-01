@@ -305,6 +305,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function createNewAssertion(
         AssertionInputs calldata assertion,
         bytes32 prevAssertionId,
+        uint64 prevConfirmPeriodBlocks,
         bytes32 expectedAssertionHash
     ) internal returns (bytes32) {
         // reading inbox messages always terminates in either a finished or errored state
@@ -421,7 +422,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         // Fetch a storage reference to prevAssertion since we copied our other one into memory
         // and we don't have enough stack available to keep to keep the previous storage reference around
-        prevAssertion.childCreated(confirmPeriodBlocks); // TODO: HN: this should use the prev's confirmPeriodBlocks
+        prevAssertion.childCreated(prevConfirmPeriodBlocks);
         assertionCreated(newAssertion, newAssertionHash);
 
         emit AssertionCreated(
@@ -478,8 +479,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         view
         returns (bytes32)
     {
-        (uint256 requiredStake, address _challengeManager, uint256 _confirmPeriodBlocks) =
-            abi.decode(proof, (uint256, address, uint256));
+        (uint256 requiredStake, address _challengeManager, uint64 _confirmPeriodBlocks) =
+            abi.decode(proof, (uint256, address, uint64));
         require(
             RollupLib.configHash({
                 wasmModuleRoot: root,
@@ -502,5 +503,20 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function isAssertionExists(bytes32 id) public view returns (bool) {
         return _assertions[id].createdAtBlock > 0;
+    }
+
+    /**
+     * @notice Verify that the given staker is not active
+     * @param stakerAddress Address to check
+     */
+    function requireInactiveStaker(address stakerAddress) internal view {
+        require(isStaked(stakerAddress), "NOT_STAKED");
+        // A staker is inactive if
+        // a) their last staked assertion is the latest confirmed assertion
+        // b) their last staked assertion have a child
+        bytes32 lastestAssertion = latestStakedAssertion(stakerAddress);
+        bool isLatestConfirmed = lastestAssertion == latestConfirmed();
+        bool haveChild = getAssertionStorage(lastestAssertion).firstChildBlock > 0;
+        require(isLatestConfirmed || haveChild, "STAKE_ACTIVE");
     }
 }

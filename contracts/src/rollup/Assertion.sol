@@ -36,7 +36,7 @@ struct AssertionNode {
     AssertionStatus status;
     // Id of the assertion previous to this one
     bytes32 prevId;
-    // A hash of all configuration data when the assertion is created
+    // A hash of all configuration data when the assertion is created, used for the creation and resolution of its successor
     bytes32 configHash;
 }
 
@@ -46,7 +46,7 @@ struct BeforeStateData {
     bytes32 sequencerBatchAcc;
     uint256 requiredStake;
     address challengeManager;
-    uint256 confirmPeriodBlocks;
+    uint64 confirmPeriodBlocks;
 }
 
 struct AssertionInputs {

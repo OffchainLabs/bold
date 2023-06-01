@@ -243,6 +243,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
          * Note: To avoid loss of funds stakers must remove their funds and claim all the
          * available withdrawable funds before the system is paused.
          */
+        // TODO: HN: should we drop this function?
         bool expectERC20Support = newStakeToken != address(0);
         // this assumes the rollup isn't its own admin. if needed, instead use a ProxyAdmin by OZ!
         bool actualERC20Support = IRollupUser(address(this)).isERC20Enabled();
@@ -253,25 +254,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         emit OwnerFunctionCalled(13);
     }
 
-    /**
-     * @notice Upgrades the implementation of a beacon controlled by the rollup
-     * @param beacon address of beacon to be upgraded
-     * @param newImplementation new address of implementation
-     */
-    function upgradeBeacon(address beacon, address newImplementation) external override {
-        UpgradeableBeacon(beacon).upgradeTo(newImplementation);
-        emit OwnerFunctionCalled(20);
-    }
-
     function forceRefundStaker(address[] calldata staker) external override whenPaused {
         require(staker.length > 0, "EMPTY_ARRAY");
         for (uint256 i = 0; i < staker.length; i++) {
-            // TODO: HN: review this
-            // require(_stakerMap[staker[i]].currentChallenge == NO_CHAL_INDEX, "STAKER_IN_CHALL");
-
+            requireInactiveStaker(staker[i]);
             reduceStakeTo(staker[i], 0);
-            // TODO: HN: review this
-            // turnIntoZombie(staker[i]);
         }
         emit OwnerFunctionCalled(22);
     }
@@ -290,7 +277,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // 5. Unpause the rollup
         // require(prevAssertionId == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
-        createNewAssertion(assertion, prevAssertionId, expectedAssertionHash);
+        // TODO: HN: Normally, a new assertion is created using its prev's confirmPeriodBlocks
+        //           in the case of a force create, we use the rollup's current confirmPeriodBlocks
+        createNewAssertion(assertion, prevAssertionId, confirmPeriodBlocks, expectedAssertionHash);
 
         emit OwnerFunctionCalled(23);
     }
@@ -328,6 +317,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      * @param _sequencerInbox new address of sequencer inbox
      */
     function setSequencerInbox(address _sequencerInbox) external override {
+        // TODO: HN: this is not synced with the bridge
         bridge.setSequencerInbox(_sequencerInbox);
         emit OwnerFunctionCalled(27);
     }
@@ -337,6 +327,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      * @param newInbox new address of inbox
      */
     function setInbox(IInbox newInbox) external {
+        // TODO: HN: this is not synced with the bridge
         inbox = newInbox;
         emit OwnerFunctionCalled(28);
     }

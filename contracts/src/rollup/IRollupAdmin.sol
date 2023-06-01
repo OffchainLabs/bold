@@ -91,13 +91,6 @@ interface IRollupAdmin {
      */
     function setStakeToken(address newStakeToken) external;
 
-    /**
-     * @notice Upgrades the implementation of a beacon controlled by the rollup
-     * @param beacon address of beacon to be upgraded
-     * @param newImplementation new address of implementation
-     */
-    function upgradeBeacon(address beacon, address newImplementation) external;
-
     function forceRefundStaker(address[] memory stacker) external;
 
     function forceCreateAssertion(bytes32 prevAssertionId, AssertionInputs memory assertion, bytes32 expectedAssertionHash)

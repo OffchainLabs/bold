@@ -96,7 +96,7 @@ library RollupLib {
         bytes32 wasmModuleRoot,
         uint256 requiredStake,
         address challengeManager,
-        uint256 confirmPeriodBlocks
+        uint64 confirmPeriodBlocks
     ) internal pure returns (bytes32) {
         return
             keccak256(

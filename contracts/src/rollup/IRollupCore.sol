@@ -30,7 +30,7 @@ interface IRollupCore is IAssertionChain {
         bytes32 wasmModuleRoot,
         uint256 requiredStake,
         address challengeManager,
-        uint256 confirmPeriodBlocks
+        uint64 confirmPeriodBlocks
     );
 
     event AssertionConfirmed(bytes32 indexed assertionId, bytes32 blockHash, bytes32 sendRoot);

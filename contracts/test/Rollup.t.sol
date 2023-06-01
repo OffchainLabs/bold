@@ -32,7 +32,7 @@ contract RollupTest is Test {
 
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
-    uint256 constant CONFIRM_PERIOD_BLOCKS = 100;
+    uint64 constant CONFIRM_PERIOD_BLOCKS = 100;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
@@ -588,16 +588,16 @@ contract RollupTest is Test {
     function testWithdrawStake() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
-        userRollup.returnOldDeposit(validator1);
+        userRollup.returnOldDeposit();
         vm.prank(validator1);
         userRollup.withdrawStakerFunds();
     }
 
     function testRevertWithdrawActiveStake() public {
         testSuccessConfirmEdgeByTime();
-        vm.prank(validator1);
+        vm.prank(validator2);
         vm.expectRevert("STAKE_ACTIVE");
-        userRollup.returnOldDeposit(validator2);
+        userRollup.returnOldDeposit();
     }
 
     function testWithdrawExcessStake() public {

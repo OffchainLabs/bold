@@ -137,15 +137,24 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         require(isStaked(msg.sender), "NOT_STAKED");
         // requiredStake is user supplied, will be verified against configHash later
         require(amountStaked(msg.sender) >= assertion.beforeStateData.requiredStake, "INSUFFICIENT_STAKE");
-        // Staker can create new assertion only if
-        // a) its last staked assertion is the prev; or
-        // b) its last staked assertion have a child
+
         bytes32 prevAssertion = RollupLib.assertionHash(
             assertion.beforeStateData.prevAssertionHash,
             assertion.beforeState,
             assertion.beforeStateData.sequencerBatchAcc
         ); // TODO: HN: we calculated this hash again in createNewAssertion
         getAssertionStorage(prevAssertion).requireExists();
+
+        // Staker can create new assertion only if
+        // a) its last staked assertion is the prev; or
+        // b) its last staked assertion have a child
+        bytes32 lastAssertion = latestStakedAssertion(msg.sender);
+        require(
+            lastAssertion == prevAssertion || getAssertionStorage(lastAssertion).firstChildBlock > 0,
+            "STAKED_ON_ANOTHER_BRANCH"
+        );
+
+        // Validate the config hash
         require(
             getAssertionStorage(prevAssertion).configHash
                 == RollupLib.configHash(
@@ -156,37 +165,28 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
                 ),
             "CONFIG_HASH_MISMATCH"
         );
-        {
-            bytes32 lastAssertion = latestStakedAssertion(msg.sender);
-            require(
-                lastAssertion == prevAssertion || getAssertionStorage(lastAssertion).firstChildBlock > 0,
-                "STAKED_ON_ANOTHER_BRANCH"
-            );
-        }
 
         uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
         // Verify that assertion meets the minimum Delta time requirement
         require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
-        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, assertion.beforeStateData.confirmPeriodBlocks, expectedAssertionHash);
         stakeOnAssertion(msg.sender, newAssertionHash);
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
             // only 1 of the children can be confirmed and get their stake refunded
-            // so we send the other child's stake to the loserStakeEscrow
-            // TODO: HN: if the losing staker have staked more than requiredStake, the excess stake will be stuck
+            // so we send the other children's stake to the loserStakeEscrow
+            // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
             increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.requiredStake);
         }
     }
 
     /**
      * @notice Refund a staker that is currently staked on or before the latest confirmed assertion
-     * @param stakerAddress Address of the staker whose stake is refunded
      */
-    function returnOldDeposit(address stakerAddress) external override onlyValidator whenNotPaused {
-        // TODO: HN: potential greifing vector, do we still need this function?
-        requireInactiveStaker(stakerAddress);
-        withdrawStaker(stakerAddress);
+    function returnOldDeposit() external override onlyValidator whenNotPaused {
+        requireInactiveStaker(msg.sender);
+        withdrawStaker(msg.sender);
     }
 
     /**
@@ -218,21 +218,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     function owner() external view returns (address) {
         return _getAdmin();
-    }
-
-    /**
-     * @notice Verify that the given staker is not active
-     * @param stakerAddress Address to check
-     */
-    function requireInactiveStaker(address stakerAddress) private view {
-        require(isStaked(stakerAddress), "NOT_STAKED");
-        // A staker is inactive if
-        // a) their last staked assertion is the latest confirmed assertion
-        // b) their last staked assertion have a child
-        bytes32 lastestAssertion = latestStakedAssertion(stakerAddress);
-        bool isLatestConfirmed = lastestAssertion == latestConfirmed();
-        bool haveChild = getAssertionStorage(lastestAssertion).firstChildBlock > 0;
-        require(isLatestConfirmed || haveChild, "STAKE_ACTIVE");
     }
 }
 

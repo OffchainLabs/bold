@@ -29,7 +29,7 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function stakeOnNewAssertion(AssertionInputs memory assertion, bytes32 expectedAssertionHash) external;
 
-    function returnOldDeposit(address stakerAddress) external;
+    function returnOldDeposit() external;
 
     function reduceDeposit(uint256 target) external;
 
