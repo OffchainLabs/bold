@@ -25,7 +25,6 @@ type Opt = func(val *Validator)
 // Validator defines a validator client instances in the assertion protocol, which will be
 // an active participant in interacting with the on-chain contracts.
 type Validator struct {
-	ctx                       context.Context
 	chain                     protocol.Protocol
 	chalManagerAddr           common.Address
 	rollupAddr                common.Address
@@ -41,7 +40,8 @@ type Validator struct {
 	edgeTrackerWakeInterval   time.Duration
 	newAssertionCheckInterval time.Duration
 	initialSyncComplete       chan struct{}
-	watcher                   watcher.Watcher
+	chainWatcherInterval      time.Duration
+	watcher                   *watcher.Watcher
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -88,6 +88,13 @@ func WithNewAssertionCheckInterval(d time.Duration) Opt {
 	}
 }
 
+// WithChainWatcherInterval specifies how often the chain watcher will scan for edge events.
+func WithChainWatcherInterval(d time.Duration) Opt {
+	return func(val *Validator) {
+		val.chainWatcherInterval = d
+	}
+}
+
 // New sets up a validator client instances provided a protocol, state manager,
 // and additional options.
 func New(
@@ -108,6 +115,7 @@ func New(
 		edgeTrackerWakeInterval:   time.Millisecond * 100,
 		newAssertionCheckInterval: time.Second,
 		postAssertionsInterval:    time.Second * 5,
+		chainWatcherInterval:      time.Second * 5,
 		initialSyncComplete:       make(chan struct{}),
 	}
 	for _, o := range opts {
@@ -135,16 +143,30 @@ func New(
 	v.rollupFilterer = rollupFilterer
 	v.chalManagerAddr = chalManagerAddr
 	v.chalManager = chalManagerFilterer
+	v.watcher = watcher.New(v.chain, v.stateManager, backend, v.chainWatcherInterval, v.name)
 	return v, nil
 }
 
 func (v *Validator) Start(ctx context.Context) {
-	go v.pollForAssertions(ctx)
-	go v.postAssertionsPeriodically(ctx)
 	log.WithField(
 		"address",
 		v.address.Hex(),
 	).Info("Started validator client")
+
+	// First, block the main thread and sync all edges from the chain up
+	// since the latest confirmed assertion up to the latest block number.
+	if err := v.syncEdges(ctx); err != nil {
+		log.WithError(err).Fatal("Could not sync with onchain edges")
+	}
+
+	// Then, start watching for ongoing chain events in the background.
+	go v.watcher.Watch(ctx)
+
+	// Poll for newly created assertions in the background.
+	go v.pollForAssertions(ctx)
+
+	// Post assertions periodically to the chain.
+	go v.postAssertionsPeriodically(ctx)
 }
 
 func (v *Validator) postAssertionsPeriodically(ctx context.Context) {
@@ -306,11 +328,11 @@ func (v *Validator) onLeafCreated(
 }
 
 // waitForSync waits for input `syncChan` to emit before exit.
-func (v *Validator) waitForSync(syncChan chan struct{}) error {
+func (v *Validator) waitForSync(ctx context.Context, syncChan chan struct{}) error {
 	select {
 	case <-syncChan:
 		return nil
-	case <-v.ctx.Done():
+	case <-ctx.Done():
 		return errors.New("context closed, exiting goroutine")
 	}
 }

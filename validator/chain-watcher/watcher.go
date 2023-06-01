@@ -246,24 +246,18 @@ func (w *Watcher) Watch(ctx context.Context) {
 }
 
 // GetEdges returns all edges in the watcher.
-func (w *Watcher) GetEdges() ([]protocol.SpecEdge, error) {
+func (w *Watcher) GetEdges() []protocol.SpecEdge {
 	syncEdges := make([]protocol.SpecEdge, 0)
-
-	err := w.challenges.ForEach(func(assertionID protocol.AssertionId, t *trackedChallenge) error {
-		err := t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
+	//nolint:err
+	_ = w.challenges.ForEach(func(assertionID protocol.AssertionId, t *trackedChallenge) error {
+		//nolint:err
+		_ = t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
 			syncEdges = append(syncEdges, edge)
 			return nil
 		})
-		if err != nil {
-			return err
-		}
-
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	return syncEdges, err
+	return syncEdges
 }
 
 // Filters for all edge added events within a range and processes them.

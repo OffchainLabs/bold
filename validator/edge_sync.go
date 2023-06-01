@@ -13,22 +13,17 @@ import (
 // - Get all edges from watcher (retry on fail)
 // - Build edge trackers for every edge (retry on fail)
 // - Spin of all the edge trackers as part of go routine.
-// nolint:unused
 func (v *Validator) syncEdges(ctx context.Context) error {
-	if err := v.waitForSync(v.initialSyncComplete); err != nil {
+	if err := v.waitForSync(ctx, v.initialSyncComplete); err != nil {
 		return err
 	}
-	edges, err := v.watcher.GetEdges()
-	if err != nil {
-		return err
-	}
-
+	edges := v.watcher.GetEdges()
 	trackers, err := v.getEdgeTrackers(ctx, edges)
 	if err != nil {
 		return err
 	}
 
-	// Spin off all the edge trackers as part of go routine.
+	// Spin off all the edge trackers in the background.
 	for _, tracker := range trackers {
 		go tracker.spawn(ctx)
 	}
@@ -36,7 +31,6 @@ func (v *Validator) syncEdges(ctx context.Context) error {
 	return nil
 }
 
-// nolint:unused
 func (v *Validator) getExecutionStateBlockHeight(ctx context.Context, st rollupgen.ExecutionState) (uint64, error) {
 	height, ok := v.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(st))
 	if !ok {
@@ -47,7 +41,6 @@ func (v *Validator) getExecutionStateBlockHeight(ctx context.Context, st rollupg
 
 // getEdgeTrackers builds edge trackers for every edge.
 // If fails on getting assertion number or creation info, it'll retry until it succeeds.
-// nolint:unused
 func (v *Validator) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEdge) ([]*edgeTracker, error) {
 	var assertionIdMap = make(map[protocol.AssertionId][2]uint64)
 	edgeTrackers := make([]*edgeTracker, len(edges))
@@ -97,24 +90,26 @@ func (v *Validator) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEd
 		} else {
 			assertionHeight, inboxMsgCount = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
 		}
-		edgeTrackers[i], err = newEdgeTracker(
-			ctx,
-			&edgeTrackerConfig{
-				timeRef:          v.timeRef,
-				actEveryNSeconds: v.edgeTrackerWakeInterval,
-				chain:            v.chain,
-				stateManager:     v.stateManager,
-				validatorName:    v.name,
-				validatorAddress: v.address,
-			},
-			edge,
-			assertionHeight,
-			inboxMsgCount,
-		)
-		if err != nil {
-			log.WithError(err).Error("error creating edge tracker")
-			continue
+		tracker, trackErr := retry.UntilSucceeds(ctx, func() (*edgeTracker, error) {
+			return newEdgeTracker(
+				ctx,
+				&edgeTrackerConfig{
+					timeRef:          v.timeRef,
+					actEveryNSeconds: v.edgeTrackerWakeInterval,
+					chain:            v.chain,
+					stateManager:     v.stateManager,
+					validatorName:    v.name,
+					validatorAddress: v.address,
+				},
+				edge,
+				assertionHeight,
+				inboxMsgCount,
+			)
+		})
+		if trackErr != nil {
+			return nil, trackErr
 		}
+		edgeTrackers[i] = tracker
 	}
 	return edgeTrackers, nil
 }
