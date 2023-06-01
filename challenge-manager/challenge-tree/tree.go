@@ -4,10 +4,10 @@ import (
 	"context"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/pkg/errors"
 )
 

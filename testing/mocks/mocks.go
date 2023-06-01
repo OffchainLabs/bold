@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 )

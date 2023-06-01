@@ -7,7 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
-        "//util/commitments",
+        "//state-commitments/history:commitments",
         "@com_github_ethereum_go_ethereum//common",
     ],
 )

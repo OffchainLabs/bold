@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"

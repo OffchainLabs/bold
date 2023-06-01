@@ -11,7 +11,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	utilTime "github.com/OffchainLabs/challenge-protocol-v2/util/time"
+	utilTime "github.com/OffchainLabs/challenge-protocol-v2/time"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"

@@ -8,8 +8,8 @@ import (
 	"math/big"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )

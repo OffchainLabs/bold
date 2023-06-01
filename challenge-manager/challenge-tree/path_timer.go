@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/bisection"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
+	bisection "github.com/OffchainLabs/challenge-protocol-v2/math"
 )
 
 // Gets the local timer of an edge at a block number, T. If T is earlier than the edge's creation,

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 )
 

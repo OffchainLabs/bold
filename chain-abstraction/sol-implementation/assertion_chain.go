@@ -13,7 +13,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
+	history "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -133,7 +133,7 @@ func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum pro
 	return &Assertion{
 		id:    uint64(seqNum),
 		chain: ac,
-		StateCommitment: commitments.State{
+		StateCommitment: history.State{
 			Height: res.CreatedAtBlock - genesis.CreatedAtBlock,
 		},
 	}, nil

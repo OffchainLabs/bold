@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )

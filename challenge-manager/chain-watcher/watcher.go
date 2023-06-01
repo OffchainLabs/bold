@@ -7,10 +7,10 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/retry"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

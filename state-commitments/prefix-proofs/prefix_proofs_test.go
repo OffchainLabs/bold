@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
+	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
+	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/testing/setup/simulated-backend"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
-	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/util/simulated-backend"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"

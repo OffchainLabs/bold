@@ -9,7 +9,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
+	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"

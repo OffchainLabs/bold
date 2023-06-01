@@ -8,9 +8,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
+        "//containers/option",
         "//layer2-state-provider",
-        "//util/commitments",
-        "//util/option",
+        "//state-commitments/history:commitments",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_stretchr_testify//mock",
     ],

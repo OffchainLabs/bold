@@ -1,9 +1,9 @@
-package bisection
+package math
 
 import (
 	"testing"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +19,7 @@ func TestBisectionPoint(t *testing.T) {
 		{13, 9, 0},
 	}
 	for _, testCase := range errorTestCases {
-		_, err := Point(testCase.pre, testCase.post)
+		_, err := Bisect(testCase.pre, testCase.post)
 		require.ErrorIs(t, err, ErrUnableToBisect, testCase)
 	}
 	testCases := []bpTestCase{
@@ -36,35 +36,9 @@ func TestBisectionPoint(t *testing.T) {
 		{15, 31, 16},
 	}
 	for _, testCase := range testCases {
-		res, err := Point(testCase.pre, testCase.post)
+		res, err := Bisect(testCase.pre, testCase.post)
 		require.NoError(t, err, testCase)
 		require.Equal(t, testCase.expected, res)
-	}
-}
-
-func TestReverse(t *testing.T) {
-	type testCase[T any] struct {
-		items  []T
-		wanted []T
-	}
-	testCases := []testCase[uint64]{
-		{
-			items:  []uint64{},
-			wanted: []uint64{},
-		},
-		{
-			items:  []uint64{1},
-			wanted: []uint64{1},
-		},
-		{
-			items:  []uint64{1, 2, 3},
-			wanted: []uint64{3, 2, 1},
-		},
-	}
-	for _, tt := range testCases {
-		items := tt.items
-		Reverse(items)
-		require.Equal(t, tt.wanted, items)
 	}
 }
 

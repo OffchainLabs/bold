@@ -4,9 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )

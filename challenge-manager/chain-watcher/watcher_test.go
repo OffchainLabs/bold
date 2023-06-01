@@ -7,10 +7,10 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )

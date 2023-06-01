@@ -1,7 +1,7 @@
 package validator
 
 import (
-	"github.com/OffchainLabs/challenge-protocol-v2/util/fsm"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/fsm"
 )
 
 func newEdgeTrackerFsm(

@@ -10,8 +10,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
-        "//util/commitments",
-        "//util/prefix-proofs",
+        "//state-commitments/history:commitments",
+        "//state-commitments/prefix-proofs",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//common",
     ],
@@ -27,7 +27,7 @@ go_test(
     deps = [
         "//chain-abstraction:protocol",
         "//layer2-state-provider",
-        "//util/prefix-proofs",
+        "//state-commitments/prefix-proofs",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//crypto",
         "@com_github_stretchr_testify//require",

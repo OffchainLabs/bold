@@ -1,12 +1,11 @@
-package bisection
+package math
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/bits"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
 )
 
 var ErrUnableToBisect = errors.New("unable to bisect")
@@ -16,7 +15,7 @@ type Unsigned interface {
 	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
-func Point(pre, post uint64) (uint64, error) {
+func Bisect(pre, post uint64) (uint64, error) {
 	if pre+2 > post {
 		return 0, ErrUnableToBisect
 	}
@@ -26,21 +25,6 @@ func Point(pre, post uint64) (uint64, error) {
 	matchingBits := bits.LeadingZeros64((post - 1) ^ pre)
 	mask := uint64(math.MaxUint64) << (63 - matchingBits)
 	return (post - 1) & mask, nil
-}
-
-// Trunc truncates  a byte slice to 4 bytes and pretty-prints as a hex string.
-func Trunc(b []byte) string {
-	if len(b) < 4 {
-		return fmt.Sprintf("%#x", b)
-	}
-	return fmt.Sprintf("%#x", b[:4])
-}
-
-// Reverse a generic slice.
-func Reverse[T any](s []T) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
 }
 
 // Computes the min value of a slice of unsigned elements.

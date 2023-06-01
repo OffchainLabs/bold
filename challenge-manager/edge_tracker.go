@@ -7,11 +7,12 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/fsm"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/bisection"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/fsm"
-	utilTime "github.com/OffchainLabs/challenge-protocol-v2/util/time"
+	"github.com/OffchainLabs/challenge-protocol-v2/math"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	utilTime "github.com/OffchainLabs/challenge-protocol-v2/time"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -22,12 +23,12 @@ func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	endHeight, endCommit := et.edge.EndCommitment()
 	return logrus.Fields{
 		"startHeight":   startHeight,
-		"startCommit":   bisection.Trunc(startCommit.Bytes()),
+		"startCommit":   containers.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
-		"endCommit":     bisection.Trunc(endCommit.Bytes()),
+		"endCommit":     containers.Trunc(endCommit.Bytes()),
 		"validatorName": et.cfg.validatorName,
 		"challengeType": et.edge.GetType(),
-		"address":       bisection.Trunc(et.cfg.validatorAddress.Bytes()),
+		"address":       containers.Trunc(et.cfg.validatorAddress.Bytes()),
 	}
 }
 
@@ -67,7 +68,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		log.WithFields(fields).Infof(
 			"Reached one-step-fork at start height %d and start history commitment %s",
 			startHeight,
-			bisection.Trunc(startCommit.Bytes()),
+			containers.Trunc(startCommit.Bytes()),
 		)
 		return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 	// Edge is at a one-step-proof in a small-step challenge.
@@ -151,7 +152,7 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 ) (commitments.History, []byte, error) {
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
-	bisectTo, err := bisection.Point(uint64(startHeight), uint64(endHeight))
+	bisectTo, err := math.Bisect(uint64(startHeight), uint64(endHeight))
 	if err != nil {
 		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
@@ -215,18 +216,18 @@ func (et *edgeTracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.
 			"%s could not bisect to height=%d,commit=%s from height=%d,commit=%s",
 			et.cfg.validatorName,
 			bisectTo,
-			bisection.Trunc(historyCommit.Merkle.Bytes()),
+			containers.Trunc(historyCommit.Merkle.Bytes()),
 			endHeight,
-			bisection.Trunc(endCommit.Bytes()),
+			containers.Trunc(endCommit.Bytes()),
 		)
 	}
 	log.WithFields(logrus.Fields{
 		"name":               et.cfg.validatorName,
 		"challengeType":      et.edge.GetType(),
 		"bisectedFrom":       endHeight,
-		"bisectedFromMerkle": bisection.Trunc(endCommit.Bytes()),
+		"bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
 		"bisectedTo":         bisectTo,
-		"bisectedToMerkle":   bisection.Trunc(historyCommit.Merkle.Bytes()),
+		"bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
 	}).Info("Successfully bisected edge")
 	return firstChild, secondChild, nil
 }
@@ -324,9 +325,9 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fields["firstLeaf"] = bisection.Trunc(startHistory.FirstLeaf.Bytes())
+	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
 	fields["endHeight"] = endHistory.Height
-	fields["startCommitment"] = bisection.Trunc(startHistory.Merkle.Bytes())
+	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
 	fields["subChallengeType"] = addedLeaf.GetType()
 	log.WithFields(fields).Info("Added subchallenge level zero edge, now tracking it")
 	tracker, err := newEdgeTracker(

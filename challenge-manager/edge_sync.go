@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/retry"
 )
 
 // Sync edges from challenges from confirmed block height to latest block height.
