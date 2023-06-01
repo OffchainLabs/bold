@@ -7,7 +7,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/bisection"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/fsm"
@@ -403,7 +403,7 @@ type edgeTrackerConfig struct {
 	actEveryNSeconds time.Duration
 	timeRef          utilTime.Reference
 	chain            protocol.Protocol
-	stateManager     statemanager.Manager
+	stateManager     l2stateprovider.Provider
 	validatorName    string
 	validatorAddress common.Address
 }

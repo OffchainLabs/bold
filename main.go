@@ -6,8 +6,9 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -112,7 +113,7 @@ func setupValidator(
 	chain protocol.AssertionChain,
 	backend bind.ContractBackend,
 	rollup common.Address,
-	sm statemanager.Manager,
+	sm l2stateprovider.Provider,
 	name string,
 	addr common.Address,
 ) (*validator.Manager, error) {

@@ -6,7 +6,9 @@ import (
 
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/toys"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -88,10 +90,10 @@ func Example() {
 	<-ctx.Done()
 }
 
-func exampleStateManager() statemanager.Manager {
+func exampleStateManager() l2stateprovider.Provider {
 	// This is an example of a state manager that is populated with fake data and complies with the
 	// statemanager.Manager interface.
-	sm, err := statemanager.New(
+	sm, err := toys.New(
 		[]common.Hash{ // stateRoots
 			common.HexToHash("0x1"),
 			common.HexToHash("0x2"),

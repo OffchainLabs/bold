@@ -1,4 +1,4 @@
-package statemanager
+package toys
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"math/big"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/execution"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -25,121 +24,12 @@ var (
 	}
 )
 
-type Manager interface {
-	// Produces the latest state to assert to L1 from the local state manager's perspective.
-	LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error)
-	// If the state manager locally has this execution state, returns its block height and true.
-	// Otherwise, returns false.
-	ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool)
-	// Produces a block challenge history commitment up to and including a certain height.
-	HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (commitments.History, error)
-	// Produces a block challenge history commitment in a certain inclusive block range,
-	// but padding states with duplicates after the first state with a
-	// batch count of at least the specified max.
-	HistoryCommitmentUpToBatch(
-		ctx context.Context,
-		blockStart,
-		blockEnd,
-		batchCount uint64,
-	) (commitments.History, error)
-	// Produces a big step history commitment for all big steps within block
-	// challenge heights H to H+1.
-	BigStepLeafCommitment(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight uint64,
-	) (commitments.History, error)
-	// Produces a big step history commitment from big step 0 to N within block
-	// challenge heights A and B where B = A + 1.
-	BigStepCommitmentUpTo(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		toBigStep uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment for all small steps between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepLeafCommitment(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment from small step 0 to N between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepCommitmentUpTo(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
-		toSmallStep uint64,
-	) (commitments.History, error)
-	// Produces a prefix proof in a block challenge from height A to B.
-	PrefixProof(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight uint64,
-	) ([]byte, error)
-	// Produces a prefix proof in a block challenge from height A to B, but padding states with duplicates after the first state with a batch count of at least the specified max.
-	PrefixProofUpToBatch(
-		ctx context.Context,
-		startHeight,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		batchCount uint64,
-	) ([]byte, error)
-	// Produces a big step prefix proof from height A to B for heights H to H+1
-	// within a block challenge.
-	BigStepPrefixProof(
-		ctx context.Context,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep uint64,
-	) ([]byte, error)
-	// Produces a small step prefix proof from height A to B for big step S to S+1 and
-	// block challenge height heights H to H+1.
-	SmallStepPrefixProof(
-		ctx context.Context,
-		fromAssertionHeight,
-		toAssertionHeight,
-		fromBigStep,
-		toBigStep,
-		fromSmallStep,
-		toSmallStep uint64,
-	) ([]byte, error)
-	OneStepProofData(
-		ctx context.Context,
-		parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromBigStep,
-		toBigStep,
-		fromSmallStep,
-		toSmallStep uint64,
-	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
-	HistoryChecker
-}
-
-type HistoryChecker interface {
-	AgreesWithHistoryCommitment(
-		ctx context.Context,
-		edgeType protocol.EdgeType,
-		prevAssertionInboxMaxCount uint64,
-		heights *protocol.OriginHeights,
-		startCommit,
-		endCommit commitments.History,
-	) (protocol.Agreement, error)
-}
-
-// Simulated defines a very naive state manager that is initialized from a list of predetermined
+// L2StateBackend defines a very naive state manager that is initialized from a list of predetermined
 // state roots. It can produce state and history commitments from those roots.
-type Simulated struct {
+type L2StateBackend struct {
 	stateRoots              []common.Hash
 	executionStates         []*protocol.ExecutionState
-	machineAtBlock          func(context.Context, uint64) (execution.Machine, error)
+	machineAtBlock          func(context.Context, uint64) (Machine, error)
 	maxWavmOpcodes          uint64
 	numOpcodesPerBigStep    uint64
 	blockDivergenceHeight   uint64
@@ -149,13 +39,13 @@ type Simulated struct {
 }
 
 // New simulated manager from a list of predefined state roots, useful for tests and simulations.
-func New(stateRoots []common.Hash, opts ...Opt) (*Simulated, error) {
+func New(stateRoots []common.Hash, opts ...Opt) (*L2StateBackend, error) {
 	if len(stateRoots) == 0 {
 		return nil, errors.New("no state roots provided")
 	}
-	s := &Simulated{
+	s := &L2StateBackend{
 		stateRoots: stateRoots,
-		machineAtBlock: func(context.Context, uint64) (execution.Machine, error) {
+		machineAtBlock: func(context.Context, uint64) (Machine, error) {
 			return nil, errors.New("state manager created with New() cannot provide machines")
 		},
 	}
@@ -165,47 +55,47 @@ func New(stateRoots []common.Hash, opts ...Opt) (*Simulated, error) {
 	return s, nil
 }
 
-type Opt func(*Simulated)
+type Opt func(*L2StateBackend)
 
 func WithMaxWavmOpcodesPerBlock(maxOpcodes uint64) Opt {
-	return func(s *Simulated) {
+	return func(s *L2StateBackend) {
 		s.maxWavmOpcodes = maxOpcodes
 	}
 }
 
 func WithNumOpcodesPerBigStep(numOpcodes uint64) Opt {
-	return func(s *Simulated) {
+	return func(s *L2StateBackend) {
 		s.numOpcodesPerBigStep = numOpcodes
 	}
 }
 
 func WithMachineDivergenceStep(divergenceStep uint64) Opt {
-	return func(s *Simulated) {
+	return func(s *L2StateBackend) {
 		s.machineDivergenceStep = divergenceStep
 	}
 }
 
 func WithBlockDivergenceHeight(divergenceHeight uint64) Opt {
-	return func(s *Simulated) {
+	return func(s *L2StateBackend) {
 		s.blockDivergenceHeight = divergenceHeight
 	}
 }
 
 func WithDivergentBlockHeightOffset(blockHeightOffset int64) Opt {
-	return func(s *Simulated) {
+	return func(s *L2StateBackend) {
 		s.posInBatchDivergence = blockHeightOffset * 150
 	}
 }
 
-func WithMachineAtBlockProvider(machineAtBlock func(ctx context.Context, blockNum uint64) (execution.Machine, error)) Opt {
-	return func(s *Simulated) {
+func WithMachineAtBlockProvider(machineAtBlock func(ctx context.Context, blockNum uint64) (Machine, error)) Opt {
+	return func(s *L2StateBackend) {
 		s.machineAtBlock = machineAtBlock
 	}
 }
 
 // If enabled, forces the machine hash at block boundaries to be the block hash
 func WithForceMachineBlockCompat() Opt {
-	return func(s *Simulated) {
+	return func(s *L2StateBackend) {
 		s.forceMachineBlockCompat = true
 	}
 }
@@ -217,7 +107,7 @@ func WithForceMachineBlockCompat() Opt {
 func NewWithAssertionStates(
 	assertionChainExecutionStates []*protocol.ExecutionState,
 	opts ...Opt,
-) (*Simulated, error) {
+) (*L2StateBackend, error) {
 	if len(assertionChainExecutionStates) == 0 {
 		return nil, errors.New("must have execution states")
 	}
@@ -233,10 +123,10 @@ func NewWithAssertionStates(
 		lastPosInBatch = state.GlobalState.PosInBatch
 		stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
 	}
-	s := &Simulated{
+	s := &L2StateBackend{
 		stateRoots:      stateRoots,
 		executionStates: assertionChainExecutionStates,
-		machineAtBlock: func(context.Context, uint64) (execution.Machine, error) {
+		machineAtBlock: func(context.Context, uint64) (Machine, error) {
 			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
 		},
 	}
@@ -248,8 +138,8 @@ func NewWithAssertionStates(
 
 func NewForSimpleMachine(
 	opts ...Opt,
-) (*Simulated, error) {
-	s := &Simulated{
+) (*L2StateBackend, error) {
+	s := &L2StateBackend{
 		maxWavmOpcodes:       protocol.LevelZeroSmallStepEdgeHeight * protocol.LevelZeroBigStepEdgeHeight,
 		numOpcodesPerBigStep: protocol.LevelZeroSmallStepEdgeHeight,
 	}
@@ -268,7 +158,7 @@ func NewForSimpleMachine(
 	}
 	maxBatchesRead := big.NewInt(1)
 	for block := uint64(0); ; block++ {
-		machine := execution.NewSimpleMachine(nextMachineState, maxBatchesRead)
+		machine := NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
 		machHash := machine.Hash()
 		if machHash != state.GlobalState.Hash() {
@@ -296,17 +186,17 @@ func NewForSimpleMachine(
 		}
 		nextMachineState = machine.GetExecutionState()
 	}
-	s.machineAtBlock = func(_ context.Context, block uint64) (execution.Machine, error) {
+	s.machineAtBlock = func(_ context.Context, block uint64) (Machine, error) {
 		if block >= uint64(len(s.executionStates)) {
 			block = uint64(len(s.executionStates) - 1)
 		}
-		return execution.NewSimpleMachine(s.executionStates[block], maxBatchesRead), nil
+		return NewSimpleMachine(s.executionStates[block], maxBatchesRead), nil
 	}
 	return s, nil
 }
 
 // Produces the latest state to assert to L1 from the local state manager's perspective.
-func (s *Simulated) LatestExecutionState(_ context.Context) (*protocol.ExecutionState, error) {
+func (s *L2StateBackend) LatestExecutionState(_ context.Context) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
@@ -314,7 +204,7 @@ func (s *Simulated) LatestExecutionState(_ context.Context) (*protocol.Execution
 }
 
 // Checks if the execution manager locally has recorded this state
-func (s *Simulated) ExecutionStateBlockHeight(_ context.Context, state *protocol.ExecutionState) (uint64, bool) {
+func (s *L2StateBackend) ExecutionStateBlockHeight(_ context.Context, state *protocol.ExecutionState) (uint64, bool) {
 	for i, r := range s.executionStates {
 		if r.Equals(state) {
 			return uint64(i), true
@@ -323,7 +213,7 @@ func (s *Simulated) ExecutionStateBlockHeight(_ context.Context, state *protocol
 	return 0, false
 }
 
-func (s *Simulated) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeight uint64) (commitments.History, error) {
+func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeight uint64) (commitments.History, error) {
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
 	size := blockChallengeHeight + 1
@@ -333,7 +223,7 @@ func (s *Simulated) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeigh
 	)
 }
 
-func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
@@ -367,7 +257,7 @@ func (s *Simulated) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]c
 	return states, nil
 }
 
-func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, blockEnd, nextBatchCount uint64) (commitments.History, error) {
+func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, blockStart, blockEnd, nextBatchCount uint64) (commitments.History, error) {
 	states, err := s.statesUpTo(blockStart, blockEnd, nextBatchCount)
 	if err != nil {
 		return commitments.History{}, err
@@ -378,7 +268,7 @@ func (s *Simulated) HistoryCommitmentUpToBatch(_ context.Context, blockStart, bl
 	)
 }
 
-func (s *Simulated) AgreesWithHistoryCommitment(
+func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	edgeType protocol.EdgeType,
 	prevAssertionInboxMaxCount uint64,
@@ -389,7 +279,7 @@ func (s *Simulated) AgreesWithHistoryCommitment(
 	return protocol.Agreement{}, errors.New("unimplemented")
 }
 
-func (s *Simulated) BigStepLeafCommitment(
+func (s *L2StateBackend) BigStepLeafCommitment(
 	ctx context.Context,
 	fromAssertionHeight,
 	toAssertionHeight uint64,
@@ -406,7 +296,7 @@ func (s *Simulated) BigStepLeafCommitment(
 	)
 }
 
-func (s *Simulated) BigStepCommitmentUpTo(
+func (s *L2StateBackend) BigStepCommitmentUpTo(
 	ctx context.Context,
 	fromAssertionHeight,
 	toAssertionHeight,
@@ -432,7 +322,7 @@ func (s *Simulated) BigStepCommitmentUpTo(
 	return commitments.New(toBigStep, leaves)
 }
 
-func (s *Simulated) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {
+func (s *L2StateBackend) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {
 	if block+1 == s.blockDivergenceHeight && step == s.maxWavmOpcodes {
 		*state = *s.executionStates[block+1]
 	}
@@ -442,7 +332,7 @@ func (s *Simulated) maybeDivergeState(state *protocol.ExecutionState, block uint
 }
 
 // May modify the machine hash if divergence is enabled
-func (s *Simulated) getMachineHash(machine execution.Machine, block uint64) common.Hash {
+func (s *L2StateBackend) getMachineHash(machine Machine, block uint64) common.Hash {
 	if s.forceMachineBlockCompat {
 		step := machine.CurrentStepNum()
 		if step == 0 {
@@ -460,7 +350,7 @@ func (s *Simulated) getMachineHash(machine execution.Machine, block uint64) comm
 	return protocol.ComputeSimpleMachineChallengeHash(state)
 }
 
-func (s *Simulated) intermediateBigStepLeaves(
+func (s *L2StateBackend) intermediateBigStepLeaves(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -490,7 +380,7 @@ func (s *Simulated) intermediateBigStepLeaves(
 	return leaves, nil
 }
 
-func (s *Simulated) SmallStepLeafCommitment(
+func (s *L2StateBackend) SmallStepLeafCommitment(
 	ctx context.Context,
 	fromAssertionHeight,
 	toAssertionHeight,
@@ -507,7 +397,7 @@ func (s *Simulated) SmallStepLeafCommitment(
 	)
 }
 
-func (s *Simulated) SmallStepCommitmentUpTo(
+func (s *L2StateBackend) SmallStepCommitmentUpTo(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -545,7 +435,7 @@ func (s *Simulated) SmallStepCommitmentUpTo(
 	return commitments.New(toSmallStep, leaves)
 }
 
-func (s *Simulated) intermediateSmallStepLeaves(
+func (s *L2StateBackend) intermediateSmallStepLeaves(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -629,7 +519,7 @@ var ExecutionStateAbi = abi.Arguments{
 	},
 }
 
-func (s *Simulated) OneStepProofData(
+func (s *L2StateBackend) OneStepProofData(
 	ctx context.Context,
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	fromBlockChallengeHeight,
@@ -729,7 +619,7 @@ func (s *Simulated) OneStepProofData(
 	return
 }
 
-func (s *Simulated) prefixProofImpl(_ context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
+func (s *L2StateBackend) prefixProofImpl(_ context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
 	states, err := s.statesUpTo(start, hi, batchCount)
 	if err != nil {
 		return nil, err
@@ -754,15 +644,15 @@ func (s *Simulated) prefixProofImpl(_ context.Context, start, lo, hi, batchCount
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
 }
 
-func (s *Simulated) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, error) {
+func (s *L2StateBackend) PrefixProof(ctx context.Context, lo, hi uint64) ([]byte, error) {
 	return s.prefixProofImpl(ctx, 0, lo, hi, math.MaxUint64)
 }
 
-func (s *Simulated) PrefixProofUpToBatch(ctx context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
+func (s *L2StateBackend) PrefixProofUpToBatch(ctx context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
 	return s.prefixProofImpl(ctx, start, lo, hi, batchCount)
 }
 
-func (s *Simulated) BigStepPrefixProof(
+func (s *L2StateBackend) BigStepPrefixProof(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -785,7 +675,7 @@ func (s *Simulated) BigStepPrefixProof(
 	)
 }
 
-func (s *Simulated) bigStepPrefixProofCalculation(
+func (s *L2StateBackend) bigStepPrefixProofCalculation(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -822,7 +712,7 @@ func (s *Simulated) bigStepPrefixProofCalculation(
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
 }
 
-func (s *Simulated) SmallStepPrefixProof(
+func (s *L2StateBackend) SmallStepPrefixProof(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
@@ -855,7 +745,7 @@ func (s *Simulated) SmallStepPrefixProof(
 	)
 }
 
-func (s *Simulated) smallStepPrefixProofCalculation(
+func (s *L2StateBackend) smallStepPrefixProofCalculation(
 	ctx context.Context,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,

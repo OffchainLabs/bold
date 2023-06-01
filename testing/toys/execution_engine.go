@@ -1,4 +1,4 @@
-package mocks
+package toys
 
 import (
 	"encoding/binary"

@@ -8,9 +8,9 @@ import (
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	utilTime "github.com/OffchainLabs/challenge-protocol-v2/util/time"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -32,7 +32,7 @@ type Manager struct {
 	rollupFilterer            *rollupgen.RollupCoreFilterer
 	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
 	backend                   bind.ContractBackend
-	stateManager              statemanager.Manager
+	stateManager              l2stateprovider.Provider
 	address                   common.Address
 	name                      string
 	postAssertionsInterval    time.Duration
@@ -101,7 +101,7 @@ func New(
 	ctx context.Context,
 	chain protocol.Protocol,
 	backend bind.ContractBackend,
-	stateManager statemanager.Manager,
+	stateManager l2stateprovider.Provider,
 	rollupAddr common.Address,
 	opts ...Opt,
 ) (*Manager, error) {

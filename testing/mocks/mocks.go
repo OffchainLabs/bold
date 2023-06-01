@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +16,7 @@ var (
 	_ = protocol.SpecChallengeManager(&MockSpecChallengeManager{})
 	_ = protocol.SpecEdge(&MockSpecEdge{})
 	_ = protocol.AssertionChain(&MockProtocol{})
-	_ = statemanager.Manager(&MockStateManager{})
+	_ = l2stateprovider.Provider(&MockStateManager{})
 )
 
 type MockAssertion struct {

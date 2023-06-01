@@ -8,8 +8,9 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,7 +34,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager statemanager.Manager, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
 		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
 		require.NoError(t, err)
 		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
@@ -618,7 +619,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager statemanager.Manager, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
 		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
 		require.NoError(t, err)
 		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
@@ -672,8 +673,8 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 // challenge and are ready to bisect.
 type bisectionScenario struct {
 	topLevelFork        *setup.CreatedValidatorFork
-	honestStateManager  statemanager.Manager
-	evilStateManager    statemanager.Manager
+	honestStateManager  l2stateprovider.Provider
+	evilStateManager    l2stateprovider.Provider
 	honestLevelZeroEdge protocol.SpecEdge
 	evilLevelZeroEdge   protocol.SpecEdge
 	honestStartCommit   commitments.History
@@ -692,7 +693,7 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager statemanager.Manager, leaf protocol.Assertion) (commitments.History, protocol.SpecEdge) {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) (commitments.History, protocol.SpecEdge) {
 		startCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
 		require.NoError(t, err)
 		endCommit, err := stateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight, 1)
@@ -750,8 +751,8 @@ func setupBisectionScenario(
 // a one-step-proof to declare a winner.
 type oneStepProofScenario struct {
 	topLevelFork        *setup.CreatedValidatorFork
-	honestStateManager  statemanager.Manager
-	evilStateManager    statemanager.Manager
+	honestStateManager  l2stateprovider.Provider
+	evilStateManager    l2stateprovider.Provider
 	smallStepHonestEdge protocol.SpecEdge
 	smallStepEvilEdge   protocol.SpecEdge
 }
@@ -799,7 +800,7 @@ func setupOneStepProofScenario(
 	}
 
 	// Now opening big step level zero leaves at index 0
-	bigStepAdder := func(stateManager statemanager.Manager, sourceEdge protocol.SpecEdge) protocol.SpecEdge {
+	bigStepAdder := func(stateManager l2stateprovider.Provider, sourceEdge protocol.SpecEdge) protocol.SpecEdge {
 		startCommit, err := stateManager.BigStepCommitmentUpTo(ctx, 0, 1, 0)
 		require.NoError(t, err)
 		endCommit, err := stateManager.BigStepLeafCommitment(ctx, 0, 1)
@@ -871,7 +872,7 @@ func setupOneStepProofScenario(
 	require.Equal(t, true, isAtOneStepFork)
 
 	// Now opening small step level zero leaves at index 0
-	smallStepAdder := func(stateManager statemanager.Manager, edge protocol.SpecEdge) protocol.SpecEdge {
+	smallStepAdder := func(stateManager l2stateprovider.Provider, edge protocol.SpecEdge) protocol.SpecEdge {
 		startCommit, err := stateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, 0)
 		require.NoError(t, err)
 		endCommit, err := stateManager.SmallStepLeafCommitment(ctx, 0, 1, 0, 1)

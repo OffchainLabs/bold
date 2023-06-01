@@ -7,12 +7,13 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/bridgegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys"
 	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/util/simulated-backend"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -35,8 +36,8 @@ type CreatedValidatorFork struct {
 	Chains             []*solimpl.AssertionChain
 	Accounts           []*TestAccount
 	Backend            *backends.SimulatedBackend
-	HonestStateManager statemanager.Manager
-	EvilStateManager   statemanager.Manager
+	HonestStateManager l2stateprovider.Provider
+	EvilStateManager   l2stateprovider.Provider
 	Addrs              *RollupAddresses
 }
 

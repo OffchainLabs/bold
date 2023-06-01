@@ -1,13 +1,15 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "state-manager",
-    srcs = ["manager.go"],
-    importpath = "github.com/OffchainLabs/challenge-protocol-v2/state-manager",
+    name = "toys",
+    srcs = [
+        "execution_engine.go",
+        "layer2_state_provider.go",
+    ],
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/testing/toys",
     visibility = ["//visibility:public"],
     deps = [
-        "//execution",
-        "//protocol",
+        "//chain-abstraction:protocol",
         "//util/commitments",
         "//util/prefix-proofs",
         "@com_github_ethereum_go_ethereum//accounts/abi",
@@ -16,12 +18,15 @@ go_library(
 )
 
 go_test(
-    name = "state-manager_test",
-    srcs = ["manager_test.go"],
-    embed = [":state-manager"],
+    name = "toys_test",
+    srcs = [
+        "execution_engine_test.go",
+        "layer2_state_provider_test.go",
+    ],
+    embed = [":toys"],
     deps = [
-        "//execution",
-        "//protocol",
+        "//chain-abstraction:protocol",
+        "//layer2-state-provider",
         "//util/prefix-proofs",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//crypto",

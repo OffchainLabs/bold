@@ -4,13 +4,13 @@ go_library(
     name = "sol-implementation",
     srcs = [
         "assertion_chain.go",
-        "spec_challenge_manager.go",
+        "edge_challenge_manager.go",
         "types.go",
     ],
     importpath = "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation",
     visibility = ["//visibility:public"],
     deps = [
-        "//protocol",
+        "//chain-abstraction:protocol",
         "//solgen/go/challengeV2gen",
         "//solgen/go/rollupgen",
         "//util/commitments",
@@ -29,13 +29,14 @@ go_test(
     name = "sol-implementation_test",
     srcs = [
         "assertion_chain_test.go",
-        "spec_challenge_manager_test.go",
+        "edge_challenge_manager_test.go",
     ],
     deps = [
         ":sol-implementation",
-        "//protocol",
-        "//state-manager",
+        "//chain-abstraction:protocol",
+        "//layer2-state-provider",
         "//testing/setup:setup_lib",
+        "//testing/toys",
         "//util/commitments",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//crypto",

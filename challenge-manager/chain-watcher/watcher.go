@@ -7,8 +7,8 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/retry"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -36,7 +36,7 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	histChecker        statemanager.HistoryChecker
+	histChecker        l2stateprovider.HistoryChecker
 	chain              protocol.AssertionChain
 	pollEventsInterval time.Duration
 	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
@@ -48,7 +48,7 @@ type Watcher struct {
 // for edge creations and confirmations.
 func New(
 	chain protocol.AssertionChain,
-	histChecker statemanager.HistoryChecker,
+	histChecker l2stateprovider.HistoryChecker,
 	backend bind.ContractBackend,
 	interval time.Duration,
 	validatorName string,

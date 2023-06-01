@@ -4,7 +4,7 @@ import (
 	"context"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/option"
 	"github.com/OffchainLabs/challenge-protocol-v2/util/threadsafe"
@@ -35,14 +35,14 @@ type HonestChallengeTree struct {
 	honestBigStepLevelZeroEdges   *threadsafe.Slice[protocol.ReadOnlyEdge]
 	honestSmallStepLevelZeroEdges *threadsafe.Slice[protocol.ReadOnlyEdge]
 	metadataReader                MetadataReader
-	histChecker                   statemanager.HistoryChecker
+	histChecker                   l2stateprovider.HistoryChecker
 	validatorName                 string
 }
 
 func New(
 	prevAssertionId protocol.AssertionId,
 	metadataReader MetadataReader,
-	histChecker statemanager.HistoryChecker,
+	histChecker l2stateprovider.HistoryChecker,
 	validatorName string,
 ) *HonestChallengeTree {
 	return &HonestChallengeTree{

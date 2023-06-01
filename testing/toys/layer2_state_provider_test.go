@@ -1,4 +1,4 @@
-package statemanager
+package toys
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/execution"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/util/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
-var _ = Manager(&Simulated{})
+var _ = l2stateprovider.Provider(&L2StateBackend{})
 
-func mockMachineAtBlock(_ context.Context, block uint64) (execution.Machine, error) {
+func mockMachineAtBlock(_ context.Context, block uint64) (Machine, error) {
 	blockBytes := make([]uint8, 8)
 	binary.BigEndian.PutUint64(blockBytes, block)
 	startState := &protocol.ExecutionState{
@@ -26,7 +26,7 @@ func mockMachineAtBlock(_ context.Context, block uint64) (execution.Machine, err
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	return execution.NewSimpleMachine(startState, nil), nil
+	return NewSimpleMachine(startState, nil), nil
 }
 
 func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing.T) {

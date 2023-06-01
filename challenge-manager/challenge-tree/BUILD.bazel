@@ -10,8 +10,8 @@ go_library(
     importpath = "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree",
     visibility = ["//visibility:public"],
     deps = [
-        "//protocol",
-        "//state-manager",
+        "//chain-abstraction:protocol",
+        "//layer2-state-provider",
         "//util/bisection",
         "//util/commitments",
         "//util/option",
@@ -29,7 +29,7 @@ go_test(
     ],
     embed = [":challenge-tree"],
     deps = [
-        "//protocol",
+        "//chain-abstraction:protocol",
         "//testing/mocks",
         "//util/option",
         "//util/threadsafe",
