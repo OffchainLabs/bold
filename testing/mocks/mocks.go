@@ -22,8 +22,6 @@ var (
 type MockAssertion struct {
 	Prev                  option.Option[*MockAssertion]
 	MockHeight            uint64
-	MockSeqNum            protocol.AssertionSequenceNumber
-	MockPrevSeqNum        protocol.AssertionSequenceNumber
 	MockStateHash         common.Hash
 	MockInboxMsgCountSeen uint64
 	MockCreatedAtBlock    uint64
@@ -403,20 +401,11 @@ func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *MockProtocol) AssertionBySequenceNum(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.Assertion, error) {
-	args := m.Called(ctx, seqNum)
+func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionId) (protocol.Assertion, error) {
+	args := m.Called(ctx, id)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) GetAssertionId(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.AssertionId, error) {
-	args := m.Called(ctx, seqNum)
-	return args.Get(0).(protocol.AssertionId), args.Error(1)
-}
-
-func (m *MockProtocol) GetAssertionNum(ctx context.Context, assertionHash protocol.AssertionId) (protocol.AssertionSequenceNumber, error) {
-	args := m.Called(ctx, assertionHash)
-	return args.Get(0).(protocol.AssertionSequenceNumber), args.Error(1)
-}
 func (m *MockProtocol) GenesisAssertionHashes(
 	ctx context.Context,
 ) (common.Hash, common.Hash, common.Hash, error) {

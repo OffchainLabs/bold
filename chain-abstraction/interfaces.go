@@ -11,12 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-const GenesisAssertionSeqNum = AssertionSequenceNumber(1)
-
-// AssertionSequenceNumber is a monotonically increasing ID
-// for each assertion in the chain.
-type AssertionSequenceNumber uint64
-
 // AssertionId represents a unique identifier for an assertion
 // constructed as a keccak256 hash of some of its internals.
 type AssertionId common.Hash
@@ -30,8 +24,7 @@ type Protocol interface {
 // chain state created by a validator that stakes on their claim.
 // Assertions can be challenged.
 type Assertion interface {
-	SeqNum() AssertionSequenceNumber
-	PrevSeqNum() (AssertionSequenceNumber, error)
+	Id() AssertionId
 	IsFirstChild() (bool, error)
 	CreatedAtBlock() (uint64, error)
 }
@@ -58,15 +51,13 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 type AssertionChain interface {
 	// Read-only methods.
 	NumAssertions(ctx context.Context) (uint64, error)
-	AssertionBySequenceNum(ctx context.Context, seqNum AssertionSequenceNumber) (Assertion, error)
+	GetAssertion(ctx context.Context, id AssertionId) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
-	GetAssertionId(ctx context.Context, seqNum AssertionSequenceNumber) (AssertionId, error)
-	GetAssertionNum(ctx context.Context, assertionHash AssertionId) (AssertionSequenceNumber, error)
 	GenesisAssertionHashes(
 		ctx context.Context,
 	) (common.Hash, common.Hash, common.Hash, error)
 	ReadAssertionCreationInfo(
-		ctx context.Context, seqNum AssertionSequenceNumber,
+		ctx context.Context, id AssertionId,
 	) (*AssertionCreatedInfo, error)
 
 	AssertionUnrivaledTime(ctx context.Context, assertionId AssertionId) (uint64, error)

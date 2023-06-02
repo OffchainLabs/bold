@@ -529,14 +529,6 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	endCommit commitments.History,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
-	assertionId, err := cm.assertionChain.GetAssertionId(ctx, assertion.SeqNum())
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"could not get id for assertion with sequence num %d",
-			assertion.SeqNum(),
-		)
-	}
 	assertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.SeqNum())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read assertion %v creation info: %w", assertion.SeqNum(), err)
@@ -548,10 +540,6 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, parentAssertionSeqNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read parent assertion %v creation info: %w", parentAssertionSeqNum, err)
-	}
-	parentAssertionId, err := cm.assertionChain.GetAssertionId(ctx, parentAssertionSeqNum)
-	if err != nil {
-		return nil, err
 	}
 	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
 		return nil, fmt.Errorf(
@@ -597,7 +585,7 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 				EdgeType:       uint8(protocol.BlockChallengeEdge),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
-				ClaimId:        assertionId,
+				ClaimId:        assertion.Id(),
 				PrefixProof:    startEndPrefixProof,
 				Proof:          blockEdgeProof,
 			},
@@ -610,7 +598,7 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	edgeId, err := cm.CalculateEdgeId(
 		ctx,
 		protocol.BlockChallengeEdge,
-		protocol.OriginId(parentAssertionId),
+		protocol.OriginId(assertionCreation.ParentAssertionHash),
 		protocol.Height(startCommit.Height),
 		startCommit.Merkle,
 		protocol.Height(endCommit.Height),

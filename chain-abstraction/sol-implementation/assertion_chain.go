@@ -4,7 +4,6 @@
 package solimpl
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	history "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -109,33 +107,21 @@ func NewAssertionChain(
 	return chain, nil
 }
 
-func (ac *AssertionChain) NumAssertions(ctx context.Context) (uint64, error) {
-	return ac.rollup.NumAssertions(&bind.CallOpts{Context: ctx})
-}
-
-// AssertionBySequenceNum --
-func (ac *AssertionChain) AssertionBySequenceNum(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.Assertion, error) {
-	genesis, err := ac.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(1))
+func (ac *AssertionChain) GetAssertion(ctx context.Context, assertionId protocol.AssertionId) (protocol.Assertion, error) {
+	res, err := ac.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, assertionId)
 	if err != nil {
 		return nil, err
 	}
-	res, err := ac.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
-	if err != nil {
-		return nil, err
-	}
-	if bytes.Equal(res.AssertionHash[:], make([]byte, 32)) {
+	if res.Status == uint8(0) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
-			"assertion with id %d",
-			seqNum,
+			"assertion with id %#x",
+			assertionId,
 		)
 	}
 	return &Assertion{
-		id:    uint64(seqNum),
+		id:    assertionId,
 		chain: ac,
-		StateCommitment: history.State{
-			Height: res.CreatedAtBlock - genesis.CreatedAtBlock,
-		},
 	}, nil
 }
 
@@ -144,7 +130,7 @@ func (ac *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Asserti
 	if err != nil {
 		return nil, err
 	}
-	return ac.AssertionBySequenceNum(ctx, protocol.AssertionSequenceNumber(res))
+	return ac.GetAssertion(ctx, res)
 }
 
 // CreateAssertion makes an on-chain claim given a previous assertion id, execution state,
@@ -154,7 +140,7 @@ func (ac *AssertionChain) CreateAssertion(
 	prevAssertionState *protocol.ExecutionState,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	stake, err := ac.userLogic.CurrentRequiredStake(&bind.CallOpts{Context: ctx})
+	stake, err := ac.userLogic.BaseStake(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get current required stake")
 	}
@@ -181,19 +167,7 @@ func (ac *AssertionChain) CreateAssertion(
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse assertion creation log")
 	}
-	return ac.AssertionBySequenceNum(ctx, protocol.AssertionSequenceNumber(assertionCreated.AssertionNum))
-}
-
-func (ac *AssertionChain) GetAssertionId(ctx context.Context, seqNum protocol.AssertionSequenceNumber) (protocol.AssertionId, error) {
-	return ac.userLogic.GetAssertionId(&bind.CallOpts{Context: ctx}, uint64(seqNum))
-}
-
-func (ac *AssertionChain) GetAssertionNum(ctx context.Context, assertionHash protocol.AssertionId) (protocol.AssertionSequenceNumber, error) {
-	res, err := ac.userLogic.GetAssertionNum(&bind.CallOpts{Context: ctx}, assertionHash)
-	if err != nil {
-		return 0, err
-	}
-	return protocol.AssertionSequenceNumber(res), nil
+	return ac.GetAssertion(ctx, assertionCreated.AssertionHash)
 }
 
 // SpecChallengeManager creates a new spec challenge manager
@@ -248,64 +222,6 @@ func (ac *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId proto
 	}
 	edge := edgeOpt.Unwrap()
 	return edge.TopLevelClaimHeight(ctx)
-}
-
-// Confirm creates a confirmation for an assertion at the block hash and send root.
-func (ac *AssertionChain) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
-	receipt, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
-		return ac.userLogic.ConfirmNextAssertion(ac.txOpts, blockHash, sendRoot, [32]byte{}) // TODO(RJ): Add winning edge.
-	})
-	if err != nil {
-		switch {
-		case strings.Contains(err.Error(), "Assertion does not exist"):
-			return errors.Wrapf(ErrNotFound, "block hash %#x", blockHash)
-		case strings.Contains(err.Error(), "Previous assertion not confirmed"):
-			return errors.Wrapf(ErrUnconfirmedParent, "previous assertion not confirmed")
-		case strings.Contains(err.Error(), "NO_UNRESOLVED"):
-			return ErrNoUnresolved
-		case strings.Contains(err.Error(), "CHILD_TOO_RECENT"):
-			return ErrTooSoon
-		default:
-			return err
-		}
-	}
-	if len(receipt.Logs) == 0 {
-		return errors.New("no logs observed from assertion confirmation")
-	}
-	confirmed, err := ac.rollup.ParseAssertionConfirmed(*receipt.Logs[len(receipt.Logs)-1])
-	if err != nil {
-		return errors.Wrap(err, "could not parse assertion confirmation log")
-	}
-	if confirmed.BlockHash != blockHash {
-		return fmt.Errorf(
-			"wanted assertion at block hash %#x confirmed, but block hash was %#x",
-			blockHash,
-			confirmed.BlockHash,
-		)
-	}
-	if confirmed.SendRoot != sendRoot {
-		return fmt.Errorf(
-			"wanted assertion at send root %#x confirmed, but send root was %#x",
-			sendRoot,
-			confirmed.SendRoot,
-		)
-	}
-	return nil
-}
-
-// Reject creates a rejection for the given assertion.
-func (ac *AssertionChain) Reject(ctx context.Context, staker common.Address) error {
-	_, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
-		return ac.userLogic.RejectNextAssertion(ac.txOpts, staker)
-	})
-	switch {
-	case err == nil:
-		return nil
-	case strings.Contains(err.Error(), "NO_UNRESOLVED"):
-		return ErrNoUnresolved
-	default:
-		return err
-	}
 }
 
 func (a *AssertionChain) GenesisAssertionHashes(ctx context.Context) (executionHash, assertionHash, wasmModuleRoot common.Hash, err error) {
