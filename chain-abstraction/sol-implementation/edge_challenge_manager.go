@@ -529,17 +529,13 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	endCommit commitments.History,
 	startEndPrefixProof []byte,
 ) (protocol.SpecEdge, error) {
-	assertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.SeqNum())
+	assertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read assertion %v creation info: %w", assertion.SeqNum(), err)
+		return nil, fmt.Errorf("failed to read assertion %#x creation info: %w", assertion.Id(), err)
 	}
-	parentAssertionSeqNum, err := assertion.PrevSeqNum()
+	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.PrevId())
 	if err != nil {
-		return nil, fmt.Errorf("failed to query assertion %v parent sequence number: %w", assertion.SeqNum(), err)
-	}
-	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, parentAssertionSeqNum)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read parent assertion %v creation info: %w", parentAssertionSeqNum, err)
+		return nil, fmt.Errorf("failed to read parent assertion %#x creation info: %w", assertion.PrevId(), err)
 	}
 	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
 		return nil, fmt.Errorf(

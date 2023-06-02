@@ -5,7 +5,6 @@ package solimpl
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strings"
@@ -224,49 +223,20 @@ func (ac *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId proto
 	return edge.TopLevelClaimHeight(ctx)
 }
 
-func (a *AssertionChain) GenesisAssertionHashes(ctx context.Context) (executionHash, assertionHash, wasmModuleRoot common.Hash, err error) {
-	return a.rollup.GenesisAssertionHashes(&bind.CallOpts{Context: ctx})
-}
-
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
-	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
+	ctx context.Context, id protocol.AssertionId,
 ) (*protocol.AssertionCreatedInfo, error) {
-	if seqNum == protocol.GenesisAssertionSeqNum {
-		executionHash, assertionHash, wasmModuleRoot, err := a.rollup.GenesisAssertionHashes(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return nil, err
-		}
-		emptyExecutionState := rollupgen.ExecutionState{
-			MachineStatus: uint8(protocol.MachineStatusFinished),
-		}
-		info := &protocol.AssertionCreatedInfo{
-			ParentAssertionHash: common.Hash{},
-			BeforeState:         emptyExecutionState,
-			AfterState:          emptyExecutionState,
-			InboxMaxCount:       big.NewInt(1),
-			AfterInboxBatchAcc:  common.Hash{},
-			AssertionHash:       assertionHash,
-			WasmModuleRoot:      wasmModuleRoot,
-		}
-		computedExecutionHash := info.ExecutionHash()
-		if computedExecutionHash != executionHash {
-			return nil, fmt.Errorf("computed genesis assertion execution hash %v but the rollup has the hash %v", computedExecutionHash, executionHash)
-		}
-		return info, nil
-	}
-	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, uint64(seqNum))
+	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
 	if err != nil {
 		return nil, err
 	}
-	var numberAsHash common.Hash
-	binary.BigEndian.PutUint64(numberAsHash[(32-8):], uint64(seqNum))
 	var query = ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(node.CreatedAtBlock),
 		ToBlock:   new(big.Int).SetUint64(node.CreatedAtBlock),
 		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}, {numberAsHash}},
+		Topics:    [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}},
 	}
 	logs, err := a.backend.FilterLogs(ctx, query)
 	if err != nil {

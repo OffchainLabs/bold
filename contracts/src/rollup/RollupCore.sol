@@ -441,6 +441,18 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return newAssertionHash;
     }
 
+    function genesisAssertionId() external pure returns (bytes32) {
+        GlobalState memory emptyGlobalState;
+        ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
+        bytes32 parentAssertionHash = bytes32(0);
+        bytes32 inboxAcc = bytes32(0);
+        return RollupLib.assertionHash({
+            parentAssertionHash: parentAssertionHash,
+            afterState: emptyExecutionState,
+            inboxAcc: inboxAcc
+        });
+    }
+
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
         bytes32 prevId = getAssertionStorage(assertionId).prevId;
         return prevId;

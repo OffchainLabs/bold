@@ -15,12 +15,17 @@ import (
 // to have a smaller API surface area and attach useful
 // methods that callers can use directly.
 type Assertion struct {
-	chain *AssertionChain
-	id    protocol.AssertionId
+	chain  *AssertionChain
+	id     protocol.AssertionId
+	prevId protocol.AssertionId
 }
 
 func (a *Assertion) Id() protocol.AssertionId {
 	return a.id
+}
+
+func (a *Assertion) PrevId() protocol.AssertionId {
+	return a.prevId
 }
 
 func (a *Assertion) IsFirstChild() (bool, error) {

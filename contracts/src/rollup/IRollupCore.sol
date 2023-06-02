@@ -71,6 +71,8 @@ interface IRollupCore is IAssertionChain {
 
     function validatorWhitelistDisabled() external view returns (bool);
 
+    function genesisAssertionId() external pure returns (bytes32);
+
     /**
      * @notice Get the Assertion for the given id.
      */
