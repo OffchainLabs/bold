@@ -102,7 +102,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 			BobStateManager: func() l2stateprovider.Provider {
 				cfg := &challengeProtocolTestConfig{
 					// The heights at which the validators diverge in histories. In this test,
-					// alice and bob start diverging at height 3 at all subchallenge levels.
+					// alice and bob diverge heights at different subchallenge levels.
 					assertionDivergenceHeight: 8,
 					bigStepDivergenceHeight:   6,
 					smallStepDivergenceHeight: 4,
