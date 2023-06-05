@@ -68,6 +68,7 @@ func CreateTwoValidatorFork(
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
+	_ = genesisState
 
 	honestStateManager, err := statemanager.NewForSimpleMachine()
 	if err != nil {
@@ -97,7 +98,7 @@ func CreateTwoValidatorFork(
 	}
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
-		genesisState,
+		nil,
 		honestPostState,
 	)
 	if err != nil {
@@ -110,7 +111,7 @@ func CreateTwoValidatorFork(
 	}
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
-		genesisState,
+		nil,
 		evilPostState,
 	)
 	if err != nil {

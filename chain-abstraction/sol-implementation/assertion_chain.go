@@ -136,7 +136,7 @@ func (ac *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Asserti
 // and a commitment to a post-state.
 func (ac *AssertionChain) CreateAssertion(
 	ctx context.Context,
-	prevAssertionState *protocol.ExecutionState,
+	prevAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
 	stake, err := ac.userLogic.BaseStake(&bind.CallOpts{Context: ctx})
@@ -164,15 +164,18 @@ func (ac *AssertionChain) CreateAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					RequiredStake:       stake,
-					ChallengeManager:    chalManager.Address(),
-					ConfirmPeriodBlocks: chalPeriodBlocks,
-					WasmRoot:            wasmModuleRoot,
+					PrevprevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
+					SequencerBatchAcc:     prevAssertionCreationInfo.AfterInboxBatchAcc,
+					RequiredStake:         stake,
+					ChallengeManager:      chalManager.Address(),
+					ConfirmPeriodBlocks:   chalPeriodBlocks,
+					WasmRoot:              wasmModuleRoot,
 				},
-				BeforeState: prevAssertionState.AsSolidityStruct(),
+				BeforeState: prevAssertionCreationInfo.AfterState,
 				AfterState:  postState.AsSolidityStruct(),
 			},
-			common.Hash{}, // Expected hash. TODO(RJ): Is this fine as empty?
+			// TODO(RJ): Use the expected assertion hash as a sanity check.
+			common.Hash{},
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
