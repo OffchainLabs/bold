@@ -29,14 +29,6 @@ type MockAssertion struct {
 	CreatedAt             uint64
 }
 
-func (m *MockAssertion) SeqNum() protocol.AssertionSequenceNumber {
-	return m.MockSeqNum
-}
-
-func (m *MockAssertion) PrevSeqNum() (protocol.AssertionSequenceNumber, error) {
-	return m.MockPrevSeqNum, nil
-}
-
 func (m *MockAssertion) StateHash() (common.Hash, error) {
 	return m.MockStateHash, nil
 }
@@ -434,9 +426,9 @@ func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion,
 }
 
 func (m *MockProtocol) ReadAssertionCreationInfo(
-	ctx context.Context, seqNum protocol.AssertionSequenceNumber,
+	ctx context.Context, id protocol.AssertionId,
 ) (*protocol.AssertionCreatedInfo, error) {
-	args := m.Called(ctx, seqNum)
+	args := m.Called(ctx, id)
 	return args.Get(0).(*protocol.AssertionCreatedInfo), args.Error(1)
 }
 
@@ -453,11 +445,6 @@ func (m *MockProtocol) CreateAssertion(
 func (m *MockProtocol) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(protocol.SpecChallengeManager), args.Error(1)
-}
-
-func (m *MockProtocol) CreateSpecChallenge(ctx context.Context, seqNum protocol.AssertionSequenceNumber) error {
-	args := m.Called(ctx, seqNum)
-	return args.Error(0)
 }
 
 func (m *MockProtocol) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
