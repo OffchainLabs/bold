@@ -20,6 +20,8 @@ var (
 )
 
 type MockAssertion struct {
+	MockId                protocol.AssertionId
+	MockPrevId            protocol.AssertionId
 	Prev                  option.Option[*MockAssertion]
 	MockHeight            uint64
 	MockStateHash         common.Hash
@@ -27,6 +29,14 @@ type MockAssertion struct {
 	MockCreatedAtBlock    uint64
 	MockIsFirstChild      bool
 	CreatedAt             uint64
+}
+
+func (m *MockAssertion) Id() protocol.AssertionId {
+	return m.MockId
+}
+
+func (m *MockAssertion) PrevId() protocol.AssertionId {
+	return m.MockPrevId
 }
 
 func (m *MockAssertion) StateHash() (common.Hash, error) {

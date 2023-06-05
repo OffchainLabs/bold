@@ -51,12 +51,8 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 // which is used for all challenges in the protocol.
 type AssertionChain interface {
 	// Read-only methods.
-	NumAssertions(ctx context.Context) (uint64, error)
 	GetAssertion(ctx context.Context, id AssertionId) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
-	GenesisAssertionHashes(
-		ctx context.Context,
-	) (common.Hash, common.Hash, common.Hash, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionId,
 	) (*AssertionCreatedInfo, error)
