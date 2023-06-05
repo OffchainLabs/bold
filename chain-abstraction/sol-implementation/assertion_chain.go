@@ -150,6 +150,9 @@ func (ac *AssertionChain) CreateAssertion(
 		return ac.userLogic.NewStakeOnNewAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
+				BeforeStateData: rollupgen.BeforeStateData{
+					RequiredStake: big.NewInt(0),
+				},
 				BeforeState: prevAssertionState.AsSolidityStruct(),
 				AfterState:  postState.AsSolidityStruct(),
 			},

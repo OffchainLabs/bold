@@ -361,11 +361,7 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	prevAssertionNum, err := et.cfg.chain.GetAssertionNum(ctx, prevAssertionId)
-	if err != nil {
-		return err
-	}
-	parentAssertionCreationInfo, err := et.cfg.chain.ReadAssertionCreationInfo(ctx, prevAssertionNum)
+	parentAssertionCreationInfo, err := et.cfg.chain.ReadAssertionCreationInfo(ctx, prevAssertionId)
 	if err != nil {
 		return err
 	}
