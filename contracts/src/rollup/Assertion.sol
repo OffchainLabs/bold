@@ -19,10 +19,13 @@ enum AssertionStatus {
 
 struct AssertionNode {
     // The inbox position that the assertion that succeeds should process up to and including
+    // TODO: HN: move this into configHash or not? we do have extra space in this struct but we can remove the below 2 fields
     uint64 nextInboxPosition;
     // Deadline at which this assertion can be confirmed
+    // TODO: HN: remove this and derive from createdAtBlock?
     uint64 deadlineBlock;
     // Deadline at which a child of this assertion can be confirmed
+    // TODO: HN: remove this and derive from first child?
     uint64 noChildConfirmedBeforeBlock;
     // This value starts at zero and is set to a value when the first child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
     uint64 firstChildBlock;
