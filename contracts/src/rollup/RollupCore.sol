@@ -451,8 +451,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             afterState: emptyExecutionState,
             inboxAcc: inboxAcc
         });
-    }
 
+    }
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
         bytes32 prevId = getAssertionStorage(assertionId).prevId;
         return prevId;

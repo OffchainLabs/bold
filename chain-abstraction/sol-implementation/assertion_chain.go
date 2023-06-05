@@ -146,10 +146,29 @@ func (ac *AssertionChain) CreateAssertion(
 	newOpts := copyTxOpts(ac.txOpts)
 	newOpts.Value = stake
 
+	chalManager, err := ac.SpecChallengeManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	chalPeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	wasmModuleRoot, err := ac.userLogic.WasmModuleRoot(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get current required stake")
+	}
+
 	receipt, err := transact(ctx, ac.backend, ac.headerReader, func() (*types.Transaction, error) {
 		return ac.userLogic.NewStakeOnNewAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
+				BeforeStateData: rollupgen.BeforeStateData{
+					RequiredStake:       stake,
+					ChallengeManager:    chalManager.Address(),
+					ConfirmPeriodBlocks: chalPeriodBlocks,
+					WasmRoot:            wasmModuleRoot,
+				},
 				BeforeState: prevAssertionState.AsSolidityStruct(),
 				AfterState:  postState.AsSolidityStruct(),
 			},
