@@ -77,7 +77,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 				}
 				sm, err := statemanager.NewForSimpleMachine(
 					statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
-					statemanager.WithBlockDvergenceHeight(cfg.assertionDivergenceHeight),
+					statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 					statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 				)
 				if err != nil {
