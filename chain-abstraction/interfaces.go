@@ -64,7 +64,7 @@ type AssertionChain interface {
 	// Mutating methods.
 	CreateAssertion(
 		ctx context.Context,
-		prevAssertionState *ExecutionState,
+		prevAssertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,
 	) (Assertion, error)
 
