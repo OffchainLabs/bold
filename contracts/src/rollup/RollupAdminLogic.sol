@@ -41,7 +41,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         challengeManager = connectedContracts.challengeManager;
 
         confirmPeriodBlocks = config.confirmPeriodBlocks;
-        extraChallengeTimeBlocks = config.extraChallengeTimeBlocks;
         chainId = config.chainId;
         baseStake = config.baseStake;
         wasmModuleRoot = config.wasmModuleRoot;
@@ -208,15 +207,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         require(newConfirmPeriod > 0, "INVALID_CONFIRM_PERIOD");
         confirmPeriodBlocks = newConfirmPeriod;
         emit OwnerFunctionCalled(9);
-    }
-
-    /**
-     * @notice Set number of extra blocks after a challenge
-     * @param newExtraTimeBlocks new number of blocks
-     */
-    function setExtraChallengeTimeBlocks(uint64 newExtraTimeBlocks) external override {
-        extraChallengeTimeBlocks = newExtraTimeBlocks;
-        emit OwnerFunctionCalled(10);
     }
 
     /**

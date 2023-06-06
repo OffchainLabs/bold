@@ -92,7 +92,6 @@ contract RollupTest is Test {
             baseStake: BASE_STAKE,
             chainId: 0,
             confirmPeriodBlocks: uint64(CONFIRM_PERIOD_BLOCKS),
-            extraChallengeTimeBlocks: 100,
             owner: owner,
             sequencerInboxMaxTimeVariation: ISequencerInbox.MaxTimeVariation({
                 delayBlocks: (60 * 60 * 24) / 15,
@@ -679,7 +678,8 @@ contract RollupTest is Test {
     }
 
     function testRevertCreateChildReducedStake() public {
-        (bytes32 prevHash, ExecutionState memory beforeState, uint64 prevInboxCount) = testSuccessConfirmUnchallengedAssertions();
+        (bytes32 prevHash, ExecutionState memory beforeState, uint64 prevInboxCount) =
+            testSuccessConfirmUnchallengedAssertions();
 
         vm.prank(validator1);
         userRollup.reduceDeposit(1);
@@ -712,5 +712,4 @@ contract RollupTest is Test {
             expectedAssertionHash: expectedAssertionHash2
         });
     }
-
 }

@@ -28,7 +28,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // These config should be stored into the prev and not used directly
     uint64 public confirmPeriodBlocks;
-    uint64 public extraChallengeTimeBlocks; // TODO: unused
     uint256 public baseStake;
     bytes32 public wasmModuleRoot;
     IEdgeChallengeManager public challengeManager;
@@ -451,8 +450,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             afterState: emptyExecutionState,
             inboxAcc: inboxAcc
         });
-
     }
+
     function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
         bytes32 prevId = getAssertionStorage(assertionId).prevId;
         return prevId;

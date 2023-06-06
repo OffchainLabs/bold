@@ -72,12 +72,6 @@ interface IRollupAdmin {
     function setConfirmPeriodBlocks(uint64 newConfirmPeriod) external;
 
     /**
-     * @notice Set number of extra blocks after a challenge
-     * @param newExtraTimeBlocks new number of blocks
-     */
-    function setExtraChallengeTimeBlocks(uint64 newExtraTimeBlocks) external;
-
-    /**
      * @notice Set base stake required for an assertion
      * @param newBaseStake maximum avmgas to be used per block
      */
