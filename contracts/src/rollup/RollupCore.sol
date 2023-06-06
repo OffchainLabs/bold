@@ -239,13 +239,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     /**
      * @notice Remove the given staker and return their stake
-     * This should not be called if the staker is staked on a descendent of the latest confirmed assertion
+     * This should only be called when the staker is inactive
      * @param stakerAddress Address of the staker withdrawing their stake
      */
     function withdrawStaker(address stakerAddress) internal {
         Staker storage staker = _stakerMap[stakerAddress];
-        // TODO: HN: review if we need additional checks here
-        //           the user logic already checked if the staker is inactive
         uint256 initialStaked = staker.amountStaked;
         increaseWithdrawableFunds(stakerAddress, initialStaked);
         deleteStaker(stakerAddress);
@@ -466,7 +464,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(getAssertionStorage(assertionId).prevId).secondChildBlock != 0;
     }
 
-    // HN: TODO: use block or timestamp?
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
         return getAssertionStorage(assertionId).firstChildBlock;
     }
