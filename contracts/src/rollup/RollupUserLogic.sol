@@ -218,6 +218,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 }
 
+// TODO: Consider remove this and use WETH with ERC20RollupUserLogic
 contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
     /// @dev the user logic just validated configuration and shouldn't write to state during init
     /// this allows the admin logic to ensure consistency on parameters.
