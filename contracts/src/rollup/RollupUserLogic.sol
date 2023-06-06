@@ -68,7 +68,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @param confirmState The state to confirm
      * @param winningEdgeId The winning edge if a challenge is started
      */
-    function confirmAssertionByHash(
+    function confirmAssertion(
         bytes32 assertionHash,
         ExecutionState calldata confirmState,
         bytes32 winningEdgeId,
@@ -109,7 +109,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
 
-        confirmAssertion(assertionHash, assertion.prevId, confirmState, beforeStateData.sequencerBatchAcc);
+        confirmAssertionInternal(assertionHash, assertion.prevId, confirmState, beforeStateData.sequencerBatchAcc);
     }
 
     /**

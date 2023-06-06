@@ -424,7 +424,7 @@ contract RollupTest is Test {
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
         vm.expectRevert("CONFIRM_DATA");
-        userRollup.confirmAssertionByHash(
+        userRollup.confirmAssertion(
             assertionHash1,
             emptyExecutionState,
             bytes32(0),
@@ -445,7 +445,7 @@ contract RollupTest is Test {
         bytes32 prevPrevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        userRollup.confirmAssertionByHash(
+        userRollup.confirmAssertion(
             assertionHash,
             firstState,
             bytes32(0),
@@ -479,7 +479,7 @@ contract RollupTest is Test {
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
         vm.expectRevert("Edge does not exist"); // If there is a sibling, you need to supply a winning edge
-        userRollup.confirmAssertionByHash(
+        userRollup.confirmAssertion(
             assertionHash,
             firstState,
             bytes32(0),
@@ -609,7 +609,7 @@ contract RollupTest is Test {
         bytes32 prevPrevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        userRollup.confirmAssertionByHash(
+        userRollup.confirmAssertion(
             data.assertionHash,
             firstState,
             data.e1Id,

@@ -20,7 +20,7 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function isERC20Enabled() external view returns (bool);
 
-    function confirmAssertionByHash(
+    function confirmAssertion(
         bytes32 assertionHash,
         ExecutionState calldata confirmState,
         bytes32 winningEdge,

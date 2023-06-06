@@ -280,7 +280,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         bytes32 inboxAcc
     ) external override whenPaused {
         // this skips deadline, staker and zombie validation
-        confirmAssertion(assertionId, parentAssertionHash, confirmState, inboxAcc);
+        confirmAssertionInternal(assertionId, parentAssertionHash, confirmState, inboxAcc);
         emit OwnerFunctionCalled(24);
     }
 

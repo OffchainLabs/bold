@@ -162,7 +162,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _latestConfirmed = assertionHash;
     }
 
-    function confirmAssertion(
+    function confirmAssertionInternal(
         bytes32 assertionId,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
