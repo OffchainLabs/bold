@@ -119,8 +119,9 @@ func (ac *AssertionChain) GetAssertion(ctx context.Context, assertionId protocol
 		)
 	}
 	return &Assertion{
-		id:    assertionId,
-		chain: ac,
+		id:     assertionId,
+		prevId: res.PrevId,
+		chain:  ac,
 	}, nil
 }
 
@@ -184,9 +185,18 @@ func (ac *AssertionChain) CreateAssertion(
 	if len(receipt.Logs) == 0 {
 		return nil, errors.New("no logs observed from assertion creation")
 	}
-	assertionCreated, err := ac.rollup.ParseAssertionCreated(*receipt.Logs[len(receipt.Logs)-1])
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse assertion creation log")
+	var assertionCreated *rollupgen.RollupCoreAssertionCreated
+	var found bool
+	for _, log := range receipt.Logs {
+		creationEvent, err := ac.rollup.ParseAssertionCreated(*log)
+		if err == nil {
+			assertionCreated = creationEvent
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, errors.New("could not find assertion created event in logs")
 	}
 	return ac.GetAssertion(ctx, assertionCreated.AssertionHash)
 }
