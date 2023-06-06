@@ -28,16 +28,19 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 
     /**
-     * @notice Extra number of blocks the validator can remain inactive before considered inactive
+     * @notice Extra number of blocks the validator can remain idle before considered idle
      *         This is 7 days assuming a 13.2 seconds block time
      */
     uint256 public constant VALIDATOR_AFK_BLOCKS = 45818;
 
-    function _validatorIsAfk() internal view returns (bool) {
+    function _validatorIsAfk(uint256 challengePeriodBlocks) internal view returns (bool) {
         AssertionNode memory latestConfirmedAssertion = getAssertionStorage(latestConfirmed());
         if (latestConfirmedAssertion.createdAtBlock == 0) return false;
-        // We consider the validator is gone if there has not been confirmed assertion in 2 confirmPeriod + 7 days
-        if (latestConfirmedAssertion.createdAtBlock + 2 * confirmPeriodBlocks + VALIDATOR_AFK_BLOCKS < block.number) {
+        // We consider the validator is gone if there has not been confirmed assertion in confirmPeriod + challengePeriod + 7 days
+        if (
+            latestConfirmedAssertion.createdAtBlock + confirmPeriodBlocks + challengePeriodBlocks + VALIDATOR_AFK_BLOCKS
+                < block.number
+        ) {
             return true;
         }
         return false;
@@ -49,9 +52,17 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         validatorWhitelistDisabled = true;
     }
 
-    function removeWhitelistAfterValidatorAfk() external {
+    /**
+     * @notice Remove the whitelist after the validator has been inactive for too long
+     * @param confirmStateData Some data from the latest confirmed assertion to prove the challenge config
+     */
+    function removeWhitelistAfterValidatorAfk(BeforeStateData calldata confirmStateData) external {
         require(!validatorWhitelistDisabled, "WHITELIST_DISABLED");
-        require(_validatorIsAfk(), "VALIDATOR_NOT_AFK");
+        RollupLib.validateConfigHash(confirmStateData, getAssertionStorage(latestConfirmed()).configHash);
+        require(
+            _validatorIsAfk(IEdgeChallengeManager(confirmStateData.challengeManager).challengePeriodBlocks()),
+            "VALIDATOR_NOT_AFK"
+        );
         validatorWhitelistDisabled = true;
     }
 
@@ -83,8 +94,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         */
 
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
-        // Check that assertion is pending, this also checks that assertion exists
-        require(assertion.status == AssertionStatus.Pending, "NOT_PENDING");
+        // The assertion's must exists and be pending and will be checked in RollupCore
 
         // Check that deadline has passed
         // TODO: HN: do we need to check this? can we simply relies on the prev's ChildConfirmDeadline?
@@ -116,10 +126,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     function _newStake(uint256 depositAmount) internal onlyValidator whenNotPaused {
         // Verify that sender is not already a staker
         require(!isStaked(msg.sender), "ALREADY_STAKED");
-        // TODO: HN: review this logic
-        // require(!isZombie(msg.sender), "STAKER_IS_ZOMBIE");
         // amount will be checked when creating an assertion
-
         createNewStake(msg.sender, depositAmount);
     }
 
@@ -135,7 +142,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     {
         // Early revert on duplicated assertion if expectedAssertionHash is set
         require(
-            expectedAssertionHash == bytes32(0) || !isAssertionExists(expectedAssertionHash), "EXPECTED_ASSERTION_SEEN"
+            expectedAssertionHash == bytes32(0)
+                || getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
+            "EXPECTED_ASSERTION_SEEN"
         );
 
         require(isStaked(msg.sender), "NOT_STAKED");
@@ -173,7 +182,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         bytes32 newAssertionHash = createNewAssertion(
             assertion, prevAssertion, assertion.beforeStateData.confirmPeriodBlocks, expectedAssertionHash
         );
-        stakeOnAssertion(msg.sender, newAssertionHash);
+        _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
             // only 1 of the children can be confirmed and get their stake refunded
@@ -234,17 +243,17 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
         override
     {
         /**
-        * Validators can create a stake by calling this function (or the ERC20 version).
-        * Each validator can only create one stake, and they can increase or decrease it when the stake is inactive.
-        *   A staker is considered inactive if:
-        *       a) their last staked assertion is the latest confirmed assertion
-        *       b) their last staked assertion has a child (where the staking responsibility is passed to the child)
-        *
-        * If the assertion is the 2nd child or later, since only one of the children can be confirmed and we know the contract 
-        * already have 1 stake from the 1st child to refund the winner, we send the other children's stake to the loserStakeEscrow.
-        *
-        * Stake can be withdrawn by calling `returnOldDeposit` followed by `withdrawStakerFunds` when the staker is inactive.
-        */
+         * Validators can create a stake by calling this function (or the ERC20 version).
+         * Each validator can only create one stake, and they can increase or decrease it when the stake is inactive.
+         *   A staker is considered inactive if:
+         *       a) their last staked assertion is the latest confirmed assertion
+         *       b) their last staked assertion has a child (where the staking responsibility is passed to the child)
+         *
+         * If the assertion is the 2nd child or later, since only one of the children can be confirmed and we know the contract
+         * already have 1 stake from the 1st child to refund the winner, we send the other children's stake to the loserStakeEscrow.
+         *
+         * Stake can be withdrawn by calling `returnOldDeposit` followed by `withdrawStakerFunds` when the staker is inactive.
+         */
         _newStake(msg.value);
         stakeOnNewAssertion(assertion, expectedAssertionHash);
     }

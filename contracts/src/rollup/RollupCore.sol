@@ -26,10 +26,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     // Rollup Config
     uint256 public chainId;
 
-    // These config should be stored into the prev and not used directly
+    // These 4 config should be stored into the prev and not used directly
+    // An assertion can be confirmed after confirmPeriodBlocks when it is unchallenged
     uint64 public confirmPeriodBlocks;
     uint256 public baseStake;
-    bytes32 public wasmModuleRoot;
+    bytes32 public wasmModuleRoot; // TODO: HN: does it make more sense to move this into challengeManager?
+    // When there is a challenge, we trust the challenge manager to determine the winner
     IEdgeChallengeManager public challengeManager;
 
     IInbox public inbox;
@@ -157,14 +159,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _latestConfirmed = assertionHash;
     }
 
-    /**
-     * @notice React to a new assertion being created by storing it an incrementing the latest assertion counter
-     * @param assertion Assertion that was newly created
-     */
-    function assertionCreated(AssertionNode memory assertion, bytes32 assertionHash) internal {
-        _assertions[assertionHash] = assertion;
-    }
-
     function confirmAssertion(
         bytes32 assertionId,
         bytes32 parentAssertionHash,
@@ -172,6 +166,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 inboxAcc
     ) internal {
         AssertionNode storage assertion = getAssertionStorage(assertionId);
+        // Check that assertion is pending, this also checks that assertion exists
+        require(assertion.status == AssertionStatus.Pending, "NOT_PENDING");
 
         // Authenticate data against assertionHash pre-image
         require(
@@ -251,16 +247,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         increaseWithdrawableFunds(stakerAddress, initialStaked);
         deleteStaker(stakerAddress);
         emit UserStakeUpdated(stakerAddress, initialStaked, 0);
-    }
-
-    /**
-     * @notice Advance the given staker to the given assertion
-     * @param stakerAddress Address of the staker adding their stake
-     * @param assertionId Id of the assertion to stake on
-     */
-    function stakeOnAssertion(address stakerAddress, bytes32 assertionId) internal {
-        Staker storage staker = _stakerMap[stakerAddress];
-        staker.latestStakedAssertion = assertionId;
     }
 
     /**
@@ -404,7 +390,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // the assertion hash is unique - it's only possible to have one correct assertion hash
         // per assertion. Therefore we can check if this assertion has already been made, and if so
         // we can revert
-        require(!isAssertionExists(newAssertionHash), "ASSERTION_SEEN");
+        require(getAssertionStorage(newAssertionHash).status == AssertionStatus.NoAssertion, "ASSERTION_SEEN");
 
         // state updates
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
@@ -423,7 +409,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // Fetch a storage reference to prevAssertion since we copied our other one into memory
         // and we don't have enough stack available to keep to keep the previous storage reference around
         prevAssertion.childCreated(prevConfirmPeriodBlocks);
-        assertionCreated(newAssertion, newAssertionHash);
+        _assertions[newAssertionHash] = newAssertion;
 
         emit AssertionCreated(
             newAssertionHash,
@@ -511,10 +497,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function isPending(bytes32 assertionId) external view returns (bool) {
         return getAssertionStorage(assertionId).status == AssertionStatus.Pending;
-    }
-
-    function isAssertionExists(bytes32 id) public view returns (bool) {
-        return _assertions[id].createdAtBlock > 0;
     }
 
     /**
