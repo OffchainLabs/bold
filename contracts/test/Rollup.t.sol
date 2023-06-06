@@ -140,9 +140,10 @@ contract RollupTest is Test {
         firstState.globalState.u64Vals[0] = 1; // inbox count
         firstState.globalState.u64Vals[1] = 0; // pos in msg
 
-        payable(validator1).transfer(1 ether);
-        payable(validator2).transfer(1 ether);
-        payable(validator3).transfer(1 ether);
+        vm.deal(validator1, 1 ether);
+        vm.deal(validator2, 1 ether);
+        vm.deal(validator3, 1 ether);
+        vm.deal( sequencer, 1 ether);
 
         vm.roll(block.number + 75);
     }
@@ -161,6 +162,11 @@ contract RollupTest is Test {
         vm.stopPrank();
         assertEq(userRollup.bridge().sequencerMessageCount(), ++count);
         return count;
+    }
+
+    function testSucessERC20Disabled() public {
+        assertEq(userRollup.owner(), owner);
+        assertEq(userRollup.isERC20Enabled(), false);
     }
 
     function testSuccessRemoveWhitelistAfterFork() public {
@@ -672,6 +678,27 @@ contract RollupTest is Test {
         vm.expectRevert("STAKE_ACTIVE");
         userRollup.reduceDeposit(1);
     }
+
+    function testSuccessAddToDeposit() public {
+        testSuccessConfirmEdgeByTime();
+        vm.prank(validator1);
+        userRollup.addToDeposit{value: 1}(validator1);
+    }
+
+    function testRevertAddToDepositNotValidator() public {
+        testSuccessConfirmEdgeByTime();
+        vm.prank(sequencer);
+        vm.expectRevert("NOT_VALIDATOR");
+        userRollup.addToDeposit{value: 1}(validator1);
+    }
+
+    function testRevertAddToDepositNotStaker() public {
+        testSuccessConfirmEdgeByTime();
+        vm.prank(validator1);
+        vm.expectRevert("NOT_STAKED");
+        userRollup.addToDeposit{value: 1}(sequencer);
+    }
+
 
     function testSuccessCreateChild() public {
         (bytes32 prevHash, ExecutionState memory beforeState, uint64 prevInboxCount) = testSuccessCreateAssertions();

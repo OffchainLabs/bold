@@ -199,6 +199,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
      * @param depositAmount The amount of either eth or tokens deposited
      */
     function _addToDeposit(address stakerAddress, uint256 depositAmount) internal onlyValidator whenNotPaused {
+        require(isStaked(stakerAddress), "NOT_STAKED");
         increaseStakeBy(stakerAddress, depositAmount);
     }
 
