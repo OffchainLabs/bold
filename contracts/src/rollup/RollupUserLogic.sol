@@ -233,6 +233,18 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
         payable
         override
     {
+        /**
+        * Validators can create a stake by calling this function (or the ERC20 version).
+        * Each validator can only create one stake, and they can increase or decrease it when the stake is inactive.
+        *   A staker is considered inactive if:
+        *       a) their last staked assertion is the latest confirmed assertion
+        *       b) their last staked assertion has a child (where the staking responsibility is passed to the child)
+        *
+        * If the assertion is the 2nd child or later, since only one of the children can be confirmed and we know the contract 
+        * already have 1 stake from the 1st child to refund the winner, we send the other children's stake to the loserStakeEscrow.
+        *
+        * Stake can be withdrawn by calling `returnOldDeposit` followed by `withdrawStakerFunds` when the staker is inactive.
+        */
         _newStake(msg.value);
         stakeOnNewAssertion(assertion, expectedAssertionHash);
     }
