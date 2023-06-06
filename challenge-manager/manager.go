@@ -206,7 +206,7 @@ func (v *Manager) postLatestAssertion(ctx context.Context) (protocol.Assertion, 
 	}
 	assertion, err := v.chain.CreateAssertion(
 		ctx,
-		protocol.GoExecutionStateFromSolidity(parentAssertionCreationInfo.AfterState),
+		parentAssertionCreationInfo,
 		newState,
 	)
 	switch {

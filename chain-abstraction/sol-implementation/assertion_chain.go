@@ -165,7 +165,7 @@ func (ac *AssertionChain) CreateAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					PrevprevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
+					PrevPrevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
 					SequencerBatchAcc:     prevAssertionCreationInfo.AfterInboxBatchAcc,
 					RequiredStake:         stake,
 					ChallengeManager:      chalManager.Address(),

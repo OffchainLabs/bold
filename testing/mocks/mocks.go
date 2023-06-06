@@ -408,13 +408,6 @@ func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionId
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) GenesisAssertionHashes(
-	ctx context.Context,
-) (common.Hash, common.Hash, common.Hash, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(common.Hash), args.Get(1).(common.Hash), args.Get(2).(common.Hash), args.Error(3)
-}
-
 func (m *MockProtocol) AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
 	args := m.Called(ctx, assertionId)
 	return args.Get(0).(uint64), args.Error(1)
@@ -445,10 +438,10 @@ func (m *MockProtocol) ReadAssertionCreationInfo(
 // Mutating methods.
 func (m *MockProtocol) CreateAssertion(
 	ctx context.Context,
-	prevAssertionState *protocol.ExecutionState,
+	prevAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	args := m.Called(ctx, prevAssertionState, postState)
+	args := m.Called(ctx, prevAssertionCreationInfo, postState)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
