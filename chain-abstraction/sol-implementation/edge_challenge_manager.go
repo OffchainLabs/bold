@@ -581,7 +581,7 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 				EdgeType:       uint8(protocol.BlockChallengeEdge),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
-				ClaimId:        assertion.Id(),
+				ClaimId:        assertionCreation.AssertionHash,
 				PrefixProof:    startEndPrefixProof,
 				Proof:          blockEdgeProof,
 			},

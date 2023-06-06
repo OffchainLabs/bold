@@ -289,15 +289,31 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 func (a *AssertionChain) ReadAssertionCreationInfo(
 	ctx context.Context, id protocol.AssertionId,
 ) (*protocol.AssertionCreatedInfo, error) {
-	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
-	if err != nil {
-		return nil, err
+	var creationBlock uint64
+	var topics [][]common.Hash
+	if id == (protocol.AssertionId{}) {
+		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return nil, err
+		}
+		if !rollupDeploymentBlock.IsUint64() {
+			return nil, errors.New("rollup deployment block was not a uint64")
+		}
+		creationBlock = rollupDeploymentBlock.Uint64()
+		topics = [][]common.Hash{{assertionCreatedId}}
+	} else {
+		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
+		if err != nil {
+			return nil, err
+		}
+		creationBlock = node.CreatedAtBlock
+		topics = [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}}
 	}
 	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(node.CreatedAtBlock),
-		ToBlock:   new(big.Int).SetUint64(node.CreatedAtBlock),
+		FromBlock: new(big.Int).SetUint64(creationBlock),
+		ToBlock:   new(big.Int).SetUint64(creationBlock),
 		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}},
+		Topics:    topics,
 	}
 	logs, err := a.backend.FilterLogs(ctx, query)
 	if err != nil {
