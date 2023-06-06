@@ -255,6 +255,35 @@ func (ac *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId proto
 	return edge.TopLevelClaimHeight(ctx)
 }
 
+func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
+	latestConfirmed, err := a.LatestConfirmed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	createdAtBlock, err := latestConfirmed.CreatedAtBlock()
+	if err != nil {
+		return nil, err
+	}
+	var query = ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(createdAtBlock),
+		ToBlock:   nil, // Latest block.
+		Addresses: []common.Address{a.rollupAddr},
+		Topics:    [][]common.Hash{{assertionCreatedId}},
+	}
+	logs, err := a.backend.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return nil, errors.New("no assertion creation events found")
+	}
+	creationEvent, err := a.rollup.ParseAssertionCreated(logs[len(logs)-1])
+	if err != nil {
+		return nil, err
+	}
+	return a.GetAssertion(ctx, creationEvent.AssertionHash)
+}
+
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
@@ -275,7 +304,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		return nil, err
 	}
 	if len(logs) == 0 {
-		return nil, errors.New("")
+		return nil, errors.New("no assertion creation logs found")
 	}
 	if len(logs) > 1 {
 		return nil, errors.New("found multiple instances of requested node")

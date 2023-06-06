@@ -53,6 +53,7 @@ type AssertionChain interface {
 	// Read-only methods.
 	GetAssertion(ctx context.Context, id AssertionId) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
+	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionId,
 	) (*AssertionCreatedInfo, error)

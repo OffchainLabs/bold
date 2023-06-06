@@ -423,6 +423,11 @@ func (m *MockProtocol) TopLevelClaimHeights(ctx context.Context, edgeId protocol
 	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
 }
 
+func (m *MockProtocol) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(protocol.Assertion), args.Error(1)
+}
+
 func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
