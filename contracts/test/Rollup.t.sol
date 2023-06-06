@@ -164,6 +164,41 @@ contract RollupTest is Test {
         return count;
     }
 
+    function testSucessPause() public {
+        vm.prank(owner);
+        adminRollup.pause();
+    }
+
+    function testConfirmAssertionWhenPaused() public {
+        (bytes32 assertionHash, ExecutionState memory state, uint64 inboxcount) = testSuccessCreateAssertions();
+        vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
+        bytes32 prevPrevAssertionHash = genesisHash;
+        bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
+        vm.prank(owner);
+        adminRollup.pause();
+        vm.prank(validator1);
+        vm.expectRevert("Pausable: paused");
+        userRollup.confirmAssertion(
+            assertionHash,
+            firstState,
+            bytes32(0),
+            BeforeStateData({
+                wasmRoot: WASM_MODULE_ROOT,
+                sequencerBatchAcc: prevInboxAcc,
+                prevPrevAssertionHash: prevPrevAssertionHash,
+                requiredStake: BASE_STAKE,
+                challengeManager: address(challengeManager),
+                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+            })
+        );
+    }
+
+    function testSucessPauseResume() public {
+        testSucessPause();
+        vm.prank(owner);
+        adminRollup.resume();
+    }
+
     function testSucessERC20Disabled() public {
         assertEq(userRollup.owner(), owner);
         assertEq(userRollup.isERC20Enabled(), false);
