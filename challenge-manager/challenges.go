@@ -16,7 +16,7 @@ import (
 func (v *Manager) challengeAssertion(ctx context.Context, id protocol.AssertionId) error {
 	assertion, err := v.chain.GetAssertion(ctx, id)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "could not get assertion to challenge with id %#x", id)
 	}
 
 	// We then add a level zero edge to initiate a challenge.
@@ -76,7 +76,7 @@ func (v *Manager) addBlockChallengeLevelZeroEdge(
 	prevId := assertion.PrevId()
 	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, prevId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get assertion creation info")
 	}
 	startCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, 0)
 	if err != nil {
