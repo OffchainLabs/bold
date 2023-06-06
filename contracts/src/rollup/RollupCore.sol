@@ -37,7 +37,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     IInbox public inbox;
     IBridge public bridge;
     IOutbox public outbox;
-    ISequencerInbox public sequencerInbox;
     IRollupEventInbox public rollupEventInbox;
 
     // misc useful contracts when interacting with the rollup
@@ -65,6 +64,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     uint64 internal constant GENESIS_NODE = 1;
 
     bool public validatorWhitelistDisabled;
+
+    function sequencerInbox() public view virtual returns (ISequencerInbox) {
+        return ISequencerInbox(bridge.sequencerInbox());
+    }
 
     /**
      * @notice Get a storage reference to the Assertion for the given assertion id

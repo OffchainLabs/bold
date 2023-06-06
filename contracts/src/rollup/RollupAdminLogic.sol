@@ -23,7 +23,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     {
         rollupDeploymentBlock = block.number;
         bridge = connectedContracts.bridge;
-        sequencerInbox = connectedContracts.sequencerInbox;
         connectedContracts.bridge.setDelayedInbox(address(connectedContracts.inbox), true);
         connectedContracts.bridge.setSequencerInbox(address(connectedContracts.sequencerInbox));
 
@@ -307,7 +306,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      * @param _sequencerInbox new address of sequencer inbox
      */
     function setSequencerInbox(address _sequencerInbox) external override {
-        // TODO: HN: this is not synced with the bridge
         bridge.setSequencerInbox(_sequencerInbox);
         emit OwnerFunctionCalled(27);
     }
