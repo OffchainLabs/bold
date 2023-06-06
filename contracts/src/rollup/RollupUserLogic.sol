@@ -29,21 +29,19 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     /**
      * @notice Extra number of blocks the validator can remain idle before considered idle
-     *         This is 7 days assuming a 13.2 seconds block time
+     *         This is 21 days assuming a 13.2 seconds block time // TODO: determine the value here
      */
-    uint256 public constant VALIDATOR_AFK_BLOCKS = 45818;
+    uint256 public constant VALIDATOR_AFK_BLOCKS = 137454;
 
-    function _validatorIsAfk(uint256 challengePeriodBlocks) internal view returns (bool) {
+    function _validatorIsAfk() internal view returns (bool) {
         AssertionNode memory latestConfirmedAssertion = getAssertionStorage(latestConfirmed());
         if (latestConfirmedAssertion.createdAtBlock == 0) return false;
-        // We consider the validator is gone if there has not been confirmed assertion in confirmPeriod + challengePeriod + 7 days
-        if (
-            latestConfirmedAssertion.createdAtBlock + confirmPeriodBlocks + challengePeriodBlocks + VALIDATOR_AFK_BLOCKS
-                < block.number
-        ) {
-            return true;
+        // We consider the validator is gone if the last known assertion is older than VALIDATOR_AFK_BLOCKS
+        // Which is either the latest confirmed assertion or the first child of the latest confirmed assertion
+        if (latestConfirmedAssertion.firstChildBlock > 0) {
+            return latestConfirmedAssertion.firstChildBlock + VALIDATOR_AFK_BLOCKS < block.number;
         }
-        return false;
+        return latestConfirmedAssertion.createdAtBlock + VALIDATOR_AFK_BLOCKS < block.number;
     }
 
     function removeWhitelistAfterFork() external {
@@ -54,15 +52,10 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
     /**
      * @notice Remove the whitelist after the validator has been inactive for too long
-     * @param confirmStateData Some data from the latest confirmed assertion to prove the challenge config
      */
-    function removeWhitelistAfterValidatorAfk(BeforeStateData calldata confirmStateData) external {
+    function removeWhitelistAfterValidatorAfk() external {
         require(!validatorWhitelistDisabled, "WHITELIST_DISABLED");
-        RollupLib.validateConfigHash(confirmStateData, getAssertionStorage(latestConfirmed()).configHash);
-        require(
-            _validatorIsAfk(IEdgeChallengeManager(confirmStateData.challengeManager).challengePeriodBlocks()),
-            "VALIDATOR_NOT_AFK"
-        );
+        require(_validatorIsAfk(), "VALIDATOR_NOT_AFK");
         validatorWhitelistDisabled = true;
     }
 

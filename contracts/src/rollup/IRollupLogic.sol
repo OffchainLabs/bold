@@ -16,7 +16,7 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 
     function removeWhitelistAfterFork() external;
 
-    function removeWhitelistAfterValidatorAfk(BeforeStateData calldata confirmStateData) external;
+    function removeWhitelistAfterValidatorAfk() external;
 
     function isERC20Enabled() external view returns (bool);
 

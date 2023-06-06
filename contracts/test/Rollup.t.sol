@@ -163,6 +163,22 @@ contract RollupTest is Test {
         return count;
     }
 
+    function testSuccessRemoveWhitelistAfterFork() public {
+        vm.chainId(313377);
+        userRollup.removeWhitelistAfterFork();
+    }
+
+    function testRevertRemoveWhitelistAfterFork() public {
+        vm.expectRevert("CHAIN_ID_NOT_CHANGED");
+        userRollup.removeWhitelistAfterFork();
+    }
+
+    function testRevertRemoveWhitelistAfterForkAgain() public {
+        testSuccessRemoveWhitelistAfterFork();
+        vm.expectRevert("WHITELIST_DISABLED");
+        userRollup.removeWhitelistAfterFork();
+    }
+
     function testSuccessCreateAssertions() public returns (bytes32, ExecutionState memory, uint64) {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
@@ -443,6 +459,17 @@ contract RollupTest is Test {
             })
         );
         return (assertionHash, state, inboxcount);
+    }
+
+    function testSuccessRemoveWhitelistAfterValidatorAfk(uint256 afkBlocks) public {
+        (bytes32 assertionHash,,) = testSuccessConfirmUnchallengedAssertions();
+        vm.roll(userRollup.getAssertion(assertionHash).createdAtBlock + userRollup.VALIDATOR_AFK_BLOCKS() + 1);
+        userRollup.removeWhitelistAfterValidatorAfk();
+    }
+
+    function testRevertRemoveWhitelistAfterValidatorAfk(uint256 afkBlocks) public {
+        vm.expectRevert("VALIDATOR_NOT_AFK");
+        userRollup.removeWhitelistAfterValidatorAfk();
     }
 
     function testRevertConfirmSiblingedAssertions() public {
