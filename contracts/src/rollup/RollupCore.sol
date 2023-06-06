@@ -321,7 +321,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // validate the provided before state is correct by checking that it's part of the prev assertion hash
         require(
             RollupLib.assertionHash(
-                assertion.beforeStateData.prevprevAssertionHash,
+                assertion.beforeStateData.prevPrevAssertionHash,
                 assertion.beforeState,
                 assertion.beforeStateData.sequencerBatchAcc
             ) == prevAssertionId,

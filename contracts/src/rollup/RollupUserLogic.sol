@@ -148,7 +148,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         require(amountStaked(msg.sender) >= assertion.beforeStateData.requiredStake, "INSUFFICIENT_STAKE");
 
         bytes32 prevAssertion = RollupLib.assertionHash(
-            assertion.beforeStateData.prevprevAssertionHash,
+            assertion.beforeStateData.prevPrevAssertionHash,
             assertion.beforeState,
             assertion.beforeStateData.sequencerBatchAcc
         ); // TODO: HN: we calculated this hash again in createNewAssertion

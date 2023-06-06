@@ -44,7 +44,9 @@ struct AssertionNode {
 }
 
 struct BeforeStateData {
-    bytes32 prevprevAssertionHash;
+    // The assertion hash of the prev of the beforeState(prev)
+    bytes32 prevPrevAssertionHash;
+    // The sequencer inbox accumulator asserted by the beforeState(prev)
     bytes32 sequencerBatchAcc;
     // below are the components of config hash
     bytes32 wasmRoot;
