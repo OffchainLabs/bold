@@ -447,7 +447,7 @@ contract RollupTest is Test {
     }
 
     function testRevertConfirmSiblingedAssertions() public {
-        (,,,,, bytes32 assertionHash, bytes32 assertionHash2) = testSuccessCreateSecondChild();
+        (,,,,, bytes32 assertionHash,) = testSuccessCreateSecondChild();
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         bytes32 prevprevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
