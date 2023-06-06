@@ -266,8 +266,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // 5. Unpause the rollup
         // require(prevAssertionId == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
-        // TODO: HN: Normally, a new assertion is created using its prev's confirmPeriodBlocks
-        //           in the case of a force create, we use the rollup's current confirmPeriodBlocks
+        // Normally, a new assertion is created using its prev's confirmPeriodBlocks
+        // in the case of a force create, we use the rollup's current confirmPeriodBlocks
         createNewAssertion(assertion, prevAssertionId, confirmPeriodBlocks, expectedAssertionHash);
 
         emit OwnerFunctionCalled(23);

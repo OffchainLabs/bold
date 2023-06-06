@@ -153,7 +153,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             assertion.beforeStateData.prevPrevAssertionHash,
             assertion.beforeState,
             assertion.beforeStateData.sequencerBatchAcc
-        ); // TODO: HN: we calculated this hash again in createNewAssertion
+        );
         getAssertionStorage(prevAssertion).requireExists();
 
         // Staker can create new assertion only if
