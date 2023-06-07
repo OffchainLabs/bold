@@ -133,6 +133,14 @@ func (ac *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Asserti
 	return ac.GetAssertion(ctx, res)
 }
 
+func (ac *AssertionChain) BaseStake(ctx context.Context) (*big.Int, error) {
+	return ac.userLogic.BaseStake(&bind.CallOpts{Context: ctx})
+}
+
+func (ac *AssertionChain) WasmModuleRoot(ctx context.Context) ([32]byte, error) {
+	return ac.userLogic.WasmModuleRoot(&bind.CallOpts{Context: ctx})
+}
+
 // CreateAssertion makes an on-chain claim given a previous assertion id, execution state,
 // and a commitment to a post-state.
 func (ac *AssertionChain) CreateAssertion(

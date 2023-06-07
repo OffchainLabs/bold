@@ -207,22 +207,6 @@ func (e *SpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId)
 	return err
 }
 
-func (e *SpecEdge) ConfirmByOneStepProof(ctx context.Context) error {
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByOneStepProof(
-			e.manager.txOpts,
-			e.id,
-			// TODO: Fill in.
-			challengeV2gen.OneStepData{},
-			// TODO: Add pre/post proofs.
-			challengeV2gen.WasmModuleData{},
-			nil,
-			nil,
-		)
-	})
-	return err
-}
-
 // TopLevelClaimHeight gets the height at the BlockChallenge level that originated a subchallenge.
 // For example, if two validators open a subchallenge S at edge A in a BlockChallenge, the TopLevelClaimHeight of S is the height of A.
 // If two validators open a subchallenge S' at edge B in BigStepChallenge, the TopLevelClaimHeight
