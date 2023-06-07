@@ -99,6 +99,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 
 }
 
+//nolint:unused
 func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
@@ -136,6 +137,8 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 }
 
 // setupValidator initializes a validator with the minimum required configuration.
+//
+//nolint:unused
 func setupValidator(ctx context.Context, be backend.Backend, rollup common.Address, sm l2stateprovider.Provider, txOpts *bind.TransactOpts, name string) (*validator.Manager, error) {
 	hr := headerreader.New(be.Client(), func() *headerreader.Config {
 		return &headerreader.DefaultConfig

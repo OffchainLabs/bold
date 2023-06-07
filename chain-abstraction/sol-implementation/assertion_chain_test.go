@@ -79,6 +79,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
 	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	require.NoError(t, err)
 	_, err = chain.GetAssertion(ctx, latestConfirmed.Id())
 	require.NoError(t, err)
 

@@ -21,6 +21,7 @@ var (
 	_ = protocol.SpecChallengeManager(&solimpl.SpecChallengeManager{})
 )
 
+//nolint:unused
 var genesisOspData = make([]byte, 16)
 
 func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
