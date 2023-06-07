@@ -217,8 +217,16 @@ func TestEdgeChallengeManager_Bisect(t *testing.T) {
 		require.NoError(t, err)
 		honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight/2, protocol.LevelZeroBlockEdgeHeight, 1)
 		require.NoError(t, err)
-		honestEdge, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		_, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
+	})
+	t.Run("Contains children", func(t *testing.T) {
+		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight/2, 1)
+		require.NoError(t, err)
+		honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight/2, protocol.LevelZeroBlockEdgeHeight, 1)
+		require.NoError(t, err)
+		_, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		require.ErrorIs(t, err, solimpl.ErrContainsChildren)
 	})
 }
 
@@ -582,6 +590,14 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		edgeStatus, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, edgeStatus)
+
+		require.NoError(t, challengeManager.ConfirmEdgeByOneStepProof(
+			ctx,
+			honestEdge.Id(),
+			data,
+			startInclusionProof,
+			endInclusionProof,
+		)) // already confirmed should not fail.
 	})
 }
 
@@ -623,6 +639,8 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s0)
+
+	require.NoError(t, honestEdge.ConfirmByChildren(ctx)) // already confirmed should not fail.
 }
 
 func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
@@ -676,11 +694,11 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
 	})
-	t.Run("cannot confirm again", func(t *testing.T) {
+	t.Run("double confirm is a no-op", func(t *testing.T) {
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}), "execution reverted: Edge not pending")
+		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{})) // already confirmed should not fail.
 	})
 }
 
@@ -909,6 +927,18 @@ func setupOneStepProofScenario(
 			startEndPrefixProof,
 		)
 		require.NoError(t, leafErr)
+
+		_, leafErr = challengeManager.AddSubChallengeLevelZeroEdge(
+			ctx,
+			edge,
+			startCommit,
+			endCommit,
+			startParentCommitment.LastLeafProof,
+			endParentCommitment.LastLeafProof,
+			startEndPrefixProof,
+		)
+		require.NoError(t, leafErr) // Already submitted, should be a no-op.
+
 		return leaf
 	}
 
