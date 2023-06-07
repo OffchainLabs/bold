@@ -274,7 +274,7 @@ func (v *Manager) onLeafCreated(
 		log.Info("No fork detected in assertion tree upon leaf creation")
 		return nil
 	}
-	return v.challengeAssertion(ctx, assertion.PrevId())
+	return v.challengeAssertion(ctx, assertion.Id())
 }
 
 // waitForSync waits for a notificataion that initial sync of onchain edges is complete.
