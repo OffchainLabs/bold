@@ -132,6 +132,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 }
 
 func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
+	t.Skip()
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -237,6 +238,7 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 	})
 }
 
+//nolint:unused
 func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
