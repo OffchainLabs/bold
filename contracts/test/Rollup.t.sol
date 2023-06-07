@@ -563,7 +563,8 @@ contract RollupTest is Test {
         bytes32 prevPrevAssertionHash = genesisHash;
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
-        vm.expectRevert("Edge does not exist"); // If there is a sibling, you need to supply a winning edge
+
+        vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, bytes32(0)));
         userRollup.confirmAssertion(
             assertionHash,
             firstState,

@@ -155,8 +155,8 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory states, bytes32[] memory exp) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(a1State), height1);
 
-        vm.expectRevert("Assertion is not in a fork");
-        bytes32 edgeId = challengeManager.createLayerZeroEdge(
+        vm.expectRevert(abi.encodeWithSelector(AssertionNoSibling.selector));
+        challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
@@ -181,8 +181,8 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory states, bytes32[] memory exp) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
 
-        vm.expectRevert("Invalid edge size");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
@@ -480,8 +480,8 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        vm.expectRevert("Prefix proof is empty");
-        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+        vm.expectRevert(abi.encodeWithSelector(EmptyPrefixProof.selector));
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
@@ -536,8 +536,8 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        vm.expectRevert("Claim does not have length 1 rival");
-        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+        vm.expectRevert(abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, edges1[0].lowerChildId));
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
@@ -562,7 +562,7 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        vm.expectRevert("Edge type specific proof is empty");
+        vm.expectRevert(abi.encodeWithSelector(EmptyEdgeSpecificProof.selector));
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
@@ -687,7 +687,7 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory bigStepStates, bytes32[] memory bigStepExp) =
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-        vm.expectRevert("Invalid edge size");
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
@@ -769,7 +769,7 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory smallStepExp1;
             (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
 
-            vm.expectRevert("Invalid claim edge type");
+            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.BigStep, EdgeType.BigStep));
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.BigStep,
@@ -799,7 +799,7 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory bigStepExp1;
             (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-            vm.expectRevert("Invalid claim edge type");
+            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.SmallStep, EdgeType.Block));
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.SmallStep,
@@ -882,7 +882,7 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory smallStepExp1;
             (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
 
-            vm.expectRevert("Invalid edge size");
+            vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
                     edgeType: EdgeType.SmallStep,
@@ -1357,32 +1357,32 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertRefundStakeTwice() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
         ei.challengeManager.refundStake(allWinners[17].lowerChildId);
-        vm.expectRevert("Already refunded");
+        vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyRefunded.selector, allWinners[17].lowerChildId));
         ei.challengeManager.refundStake(allWinners[17].lowerChildId);
     }
 
     function testRevertRefundStakeNotLayerZero() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert("Not layer zero edge");
+        vm.expectRevert(abi.encodeWithSelector(EdgeNotLayerZero.selector, allWinners[16].lowerChildId, 0, 0));
         ei.challengeManager.refundStake(allWinners[16].lowerChildId);
     }
 
     function testRevertRefundStakeBigStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert("Not Block edge type");
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, EdgeType.BigStep));
         ei.challengeManager.refundStake(allWinners[11].lowerChildId);
     }
 
     function testRevertRefundStakeSmallStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert("Not Block edge type");
-        ei.challengeManager.refundStake(allWinners[6].lowerChildId);
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, EdgeType.SmallStep));
+        ei.challengeManager.refundStake(allWinners[5].lowerChildId);
     }
 
     function testRevertRefundStakeNotConfirmed() external {
         (EdgeInitData memory ei,,, bytes32 edgeId) = testCanCreateEdgeWithStake();
 
-        vm.expectRevert("Status not Confirmed");
+        vm.expectRevert(abi.encodeWithSelector(EdgeNotConfirmed.selector, edgeId, EdgeStatus.Pending));
         ei.challengeManager.refundStake(edgeId);
     }
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import {IAssertionChain} from "../src/challengeV2/DataEntities.sol";
+import {IAssertionChain} from "../src/challengeV2/IAssertionChain.sol";
 import { IEdgeChallengeManager } from "../src/challengeV2/EdgeChallengeManager.sol";
 import "../src/bridge/IBridge.sol";
 import "../src/rollup/RollupLib.sol";
