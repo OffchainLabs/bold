@@ -3,10 +3,12 @@ package mocks
 import (
 	"context"
 	"errors"
+	"math/big"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
@@ -179,7 +181,8 @@ func (m *MockStateManager) SmallStepCommitmentUpTo(
 
 func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
-	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
+	cfgSnapshot *l2stateprovider.ConfigSnapshot,
+	postState rollupgen.ExecutionState,
 	fromBlockChallengeHeight,
 	toBlockChallengeHeight,
 	fromBigStep,
@@ -187,7 +190,7 @@ func (m *MockStateManager) OneStepProofData(
 	fromSmallStep,
 	toSmallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, parentAssertionCreationInfo, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
+	args := m.Called(ctx, cfgSnapshot, postState, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
@@ -403,16 +406,19 @@ func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	return args.Get(0).(uint64), args.Error(1)
 }
 
+func (m *MockProtocol) BaseStake(ctx context.Context) (*big.Int, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(*big.Int), args.Error(1)
+}
+
+func (m *MockProtocol) WasmModuleRoot(ctx context.Context) ([32]byte, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([32]byte), args.Error(1)
+}
+
 func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionId) (protocol.Assertion, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
-}
-
-func (m *MockProtocol) GenesisAssertionHashes(
-	ctx context.Context,
-) (common.Hash, common.Hash, common.Hash, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(common.Hash), args.Get(1).(common.Hash), args.Get(2).(common.Hash), args.Error(3)
 }
 
 func (m *MockProtocol) AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
@@ -430,6 +436,11 @@ func (m *MockProtocol) TopLevelClaimHeights(ctx context.Context, edgeId protocol
 	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
 }
 
+func (m *MockProtocol) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(protocol.Assertion), args.Error(1)
+}
+
 func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
@@ -445,10 +456,10 @@ func (m *MockProtocol) ReadAssertionCreationInfo(
 // Mutating methods.
 func (m *MockProtocol) CreateAssertion(
 	ctx context.Context,
-	prevAssertionState *protocol.ExecutionState,
+	prevAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	args := m.Called(ctx, prevAssertionState, postState)
+	args := m.Called(ctx, prevAssertionCreationInfo, postState)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 

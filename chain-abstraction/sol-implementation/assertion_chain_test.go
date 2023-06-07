@@ -19,15 +19,16 @@ func TestCreateAssertion(t *testing.T) {
 	backend := cfg.Backend
 
 	t.Run("OK", func(t *testing.T) {
-
 		latestBlockHash := common.Hash{}
 		for i := uint64(0); i < 100; i++ {
 			latestBlockHash = backend.Commit()
 		}
 
-		prevState := &protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
+		prevCreationInfo := &protocol.AssertionCreatedInfo{
+			AfterState: (&protocol.ExecutionState{
+				GlobalState:   protocol.GoGlobalState{},
+				MachineStatus: protocol.MachineStatusFinished,
+			}).AsSolidityStruct(),
 		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
@@ -38,12 +39,10 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		assertion, err := chain.CreateAssertion(ctx, prevState, postState)
+		_, err := chain.CreateAssertion(ctx, prevCreationInfo, postState)
 		require.NoError(t, err)
-		t.Logf("%+v", assertion)
-		require.Equal(t, 1, 2)
 
-		_, err = chain.CreateAssertion(ctx, prevState, postState)
+		_, err = chain.CreateAssertion(ctx, prevCreationInfo, postState)
 		require.ErrorContains(t, err, "ALREADY_STAKED")
 	})
 	t.Run("can create fork", func(t *testing.T) {
@@ -54,9 +53,11 @@ func TestCreateAssertion(t *testing.T) {
 			backend.Commit()
 		}
 
-		prevState := &protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
+		prevCreationInfo := &protocol.AssertionCreatedInfo{
+			AfterState: (&protocol.ExecutionState{
+				GlobalState:   protocol.GoGlobalState{},
+				MachineStatus: protocol.MachineStatusFinished,
+			}).AsSolidityStruct(),
 		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
@@ -67,7 +68,7 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := assertionChain.CreateAssertion(ctx, prevState, postState)
+		_, err := assertionChain.CreateAssertion(ctx, prevCreationInfo, postState)
 		require.NoError(t, err)
 	})
 }
@@ -78,6 +79,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
 	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	require.NoError(t, err)
 	_, err = chain.GetAssertion(ctx, latestConfirmed.Id())
 	require.NoError(t, err)
 

@@ -91,6 +91,12 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
+	genesisCreationInfo := &protocol.AssertionCreatedInfo{
+		AfterState: (&protocol.ExecutionState{
+			GlobalState:   protocol.GoGlobalState{},
+			MachineStatus: protocol.MachineStatusFinished,
+		}).AsSolidityStruct(),
+	}
 
 	honestPostState, err := honestStateManager.LatestExecutionState(ctx)
 	if err != nil {
@@ -98,7 +104,7 @@ func CreateTwoValidatorFork(
 	}
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
-		nil,
+		genesisCreationInfo,
 		honestPostState,
 	)
 	if err != nil {
@@ -111,7 +117,7 @@ func CreateTwoValidatorFork(
 	}
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
-		nil,
+		genesisCreationInfo,
 		evilPostState,
 	)
 	if err != nil {

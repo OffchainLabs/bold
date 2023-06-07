@@ -157,7 +157,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function initializeCore(AssertionNode memory initialAssertion, bytes32 assertionHash) internal {
         __Pausable_init();
-        // TODO: HN: prolly should use the internal function to create genesis
         _assertions[assertionHash] = initialAssertion;
         _latestConfirmed = assertionHash;
     }

@@ -119,8 +119,9 @@ func (ac *AssertionChain) GetAssertion(ctx context.Context, assertionId protocol
 		)
 	}
 	return &Assertion{
-		id:    assertionId,
-		chain: ac,
+		id:     assertionId,
+		prevId: res.PrevId,
+		chain:  ac,
 	}, nil
 }
 
@@ -130,6 +131,14 @@ func (ac *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Asserti
 		return nil, err
 	}
 	return ac.GetAssertion(ctx, res)
+}
+
+func (ac *AssertionChain) BaseStake(ctx context.Context) (*big.Int, error) {
+	return ac.userLogic.BaseStake(&bind.CallOpts{Context: ctx})
+}
+
+func (ac *AssertionChain) WasmModuleRoot(ctx context.Context) ([32]byte, error) {
+	return ac.userLogic.WasmModuleRoot(&bind.CallOpts{Context: ctx})
 }
 
 // CreateAssertion makes an on-chain claim given a previous assertion id, execution state,
@@ -164,7 +173,7 @@ func (ac *AssertionChain) CreateAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					PrevprevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
+					PrevPrevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
 					SequencerBatchAcc:     prevAssertionCreationInfo.AfterInboxBatchAcc,
 					RequiredStake:         stake,
 					ChallengeManager:      chalManager.Address(),
@@ -184,9 +193,18 @@ func (ac *AssertionChain) CreateAssertion(
 	if len(receipt.Logs) == 0 {
 		return nil, errors.New("no logs observed from assertion creation")
 	}
-	assertionCreated, err := ac.rollup.ParseAssertionCreated(*receipt.Logs[len(receipt.Logs)-1])
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse assertion creation log")
+	var assertionCreated *rollupgen.RollupCoreAssertionCreated
+	var found bool
+	for _, log := range receipt.Logs {
+		creationEvent, err := ac.rollup.ParseAssertionCreated(*log)
+		if err == nil {
+			assertionCreated = creationEvent
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, errors.New("could not find assertion created event in logs")
 	}
 	return ac.GetAssertion(ctx, assertionCreated.AssertionHash)
 }
@@ -245,27 +263,72 @@ func (ac *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId proto
 	return edge.TopLevelClaimHeight(ctx)
 }
 
-// ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
-// event from the rollup contracts.
-func (a *AssertionChain) ReadAssertionCreationInfo(
-	ctx context.Context, id protocol.AssertionId,
-) (*protocol.AssertionCreatedInfo, error) {
-	node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
+func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
+	latestConfirmed, err := a.LatestConfirmed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	createdAtBlock, err := latestConfirmed.CreatedAtBlock()
 	if err != nil {
 		return nil, err
 	}
 	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(node.CreatedAtBlock),
-		ToBlock:   new(big.Int).SetUint64(node.CreatedAtBlock),
+		FromBlock: new(big.Int).SetUint64(createdAtBlock),
+		ToBlock:   nil, // Latest block.
 		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}},
+		Topics:    [][]common.Hash{{assertionCreatedId}},
 	}
 	logs, err := a.backend.FilterLogs(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	if len(logs) == 0 {
-		return nil, errors.New("")
+		return nil, errors.New("no assertion creation events found")
+	}
+	creationEvent, err := a.rollup.ParseAssertionCreated(logs[len(logs)-1])
+	if err != nil {
+		return nil, err
+	}
+	return a.GetAssertion(ctx, creationEvent.AssertionHash)
+}
+
+// ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
+// event from the rollup contracts.
+func (a *AssertionChain) ReadAssertionCreationInfo(
+	ctx context.Context, id protocol.AssertionId,
+) (*protocol.AssertionCreatedInfo, error) {
+	var creationBlock uint64
+	var topics [][]common.Hash
+	if id == (protocol.AssertionId{}) {
+		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return nil, err
+		}
+		if !rollupDeploymentBlock.IsUint64() {
+			return nil, errors.New("rollup deployment block was not a uint64")
+		}
+		creationBlock = rollupDeploymentBlock.Uint64()
+		topics = [][]common.Hash{{assertionCreatedId}}
+	} else {
+		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
+		if err != nil {
+			return nil, err
+		}
+		creationBlock = node.CreatedAtBlock
+		topics = [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}}
+	}
+	var query = ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(creationBlock),
+		ToBlock:   new(big.Int).SetUint64(creationBlock),
+		Addresses: []common.Address{a.rollupAddr},
+		Topics:    topics,
+	}
+	logs, err := a.backend.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return nil, errors.New("no assertion creation logs found")
 	}
 	if len(logs) > 1 {
 		return nil, errors.New("found multiple instances of requested node")
@@ -277,6 +340,8 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	}
 	afterState := parsedLog.Assertion.AfterState
 	return &protocol.AssertionCreatedInfo{
+		ConfirmPeriodBlocks: parsedLog.ConfirmPeriodBlocks,
+		RequiredStake:       parsedLog.RequiredStake,
 		ParentAssertionHash: parsedLog.ParentAssertionHash,
 		BeforeState:         parsedLog.Assertion.BeforeState,
 		AfterState:          afterState,
