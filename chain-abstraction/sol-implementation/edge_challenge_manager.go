@@ -148,7 +148,19 @@ func (e *SpecEdge) Bisect(
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
 ) (protocol.SpecEdge, protocol.SpecEdge, error) {
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	lowerId, err := e.LowerChild(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	upperId, err := e.UpperChild(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !lowerId.IsNone() || !upperId.IsNone() {
+		return nil, nil, ErrContainsChildren
+	}
+
+	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
 		return e.manager.writer.BisectEdge(e.manager.txOpts, e.id, prefixHistoryRoot, prefixProof)
 	})
 	if err != nil {
@@ -182,26 +194,50 @@ func (e *SpecEdge) Bisect(
 }
 
 func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.EdgeId) error {
+	s, err := e.Status(ctx)
+	if err != nil {
+		return err
+	}
+	if s == protocol.EdgeConfirmed {
+		return nil
+	}
+
 	ancestors := make([][32]byte, len(ancestorIds))
 	for i, r := range ancestorIds {
 		ancestors[i] = r
 	}
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByTime(e.manager.txOpts, e.id, ancestors)
 	})
 	return err
 }
 
 func (e *SpecEdge) ConfirmByChildren(ctx context.Context) error {
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	s, err := e.Status(ctx)
+	if err != nil {
+		return err
+	}
+	if s == protocol.EdgeConfirmed {
+		return nil
+	}
+
+	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByChildren(e.manager.txOpts, e.id)
 	})
 	return err
 }
 
 func (e *SpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId) error {
+	s, err := e.Status(ctx)
+	if err != nil {
+		return err
+	}
+	if s == protocol.EdgeConfirmed {
+		return nil
+	}
+
 	// TODO: Add in fields.
-	_, err := transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByClaim(e.manager.txOpts, e.id, claimId)
 	})
 	return err
@@ -388,6 +424,18 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 	preHistoryInclusionProof []common.Hash,
 	postHistoryInclusionProof []common.Hash,
 ) error {
+	edge, err := cm.GetEdge(ctx, tentativeWinnerId)
+	if err != nil {
+		return err
+	}
+	s, err := edge.Unwrap().Status(ctx)
+	if err != nil {
+		return err
+	}
+	if s == protocol.EdgeConfirmed {
+		return nil
+	}
+
 	pre := make([][32]byte, len(preHistoryInclusionProof))
 	for i, r := range preHistoryInclusionProof {
 		pre[i] = r
@@ -396,7 +444,7 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 	for i, r := range postHistoryInclusionProof {
 		post[i] = r
 	}
-	_, err := transact(
+	_, err = transact(
 		ctx,
 		cm.assertionChain.backend,
 		cm.assertionChain.headerReader,
@@ -638,6 +686,30 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	default:
 		return nil, fmt.Errorf("cannot open level zero edge beneath small step challenge: %s", challengedEdge.GetType())
 	}
+
+	// First check if the edge already exists.
+	challenged, ok := challengedEdge.(*SpecEdge)
+	if !ok {
+		return nil, errors.New("not a *SpecEdge")
+	}
+	mutualId := challenged.MutualId()
+	edgeId, err := cm.CalculateEdgeId(
+		ctx,
+		subChalTyp,
+		protocol.OriginId(mutualId),
+		protocol.Height(startCommit.Height),
+		startCommit.Merkle,
+		protocol.Height(endCommit.Height),
+		endCommit.Merkle,
+	)
+	if err != nil {
+		return nil, err
+	}
+	e, err := cm.GetEdge(ctx, edgeId)
+	if err == nil {
+		return e.Unwrap(), nil
+	}
+
 	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(
 		startCommit.FirstLeaf,
 		endCommit.LastLeaf,
@@ -664,29 +736,13 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	challenged, ok := challengedEdge.(*SpecEdge)
-	if !ok {
-		return nil, errors.New("not a *SpecEdge")
-	}
-	mutualId := challenged.MutualId()
-	edgeId, err := cm.CalculateEdgeId(
-		ctx,
-		subChalTyp,
-		protocol.OriginId(mutualId),
-		protocol.Height(startCommit.Height),
-		startCommit.Merkle,
-		protocol.Height(endCommit.Height),
-		endCommit.Merkle,
-	)
+
+	e, err = cm.GetEdge(ctx, edgeId)
 	if err != nil {
 		return nil, err
 	}
-	someLevelZeroEdge, err := cm.GetEdge(ctx, edgeId)
-	if err != nil {
-		return nil, err
-	}
-	if someLevelZeroEdge.IsNone() {
+	if e.IsNone() {
 		return nil, errors.New("got empty, newly created level zero edge")
 	}
-	return someLevelZeroEdge.Unwrap(), nil
+	return e.Unwrap(), nil
 }
