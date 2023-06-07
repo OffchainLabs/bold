@@ -552,7 +552,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		cfgSnapshot := &l2stateprovider.ConfigSnapshot{
 			RequiredStake:           requiredStake,
 			ChallengeManagerAddress: challengeManager.Address(),
-			ConfirmPeriodBlocks:     big.NewInt(int64(challengePeriod)),
+			ConfirmPeriodBlocks:     challengePeriod,
 			WasmModuleRoot:          wasmRoot,
 			InboxMaxCount:           big.NewInt(1),
 		}

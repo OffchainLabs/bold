@@ -496,7 +496,7 @@ var WasmModuleProofAbi = abi.Arguments{
 	},
 	{
 		Name: "confirmPeriodBlocks",
-		Type: uint256Type,
+		Type: uint64Type,
 	},
 }
 

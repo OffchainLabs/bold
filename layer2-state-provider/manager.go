@@ -13,7 +13,7 @@ import (
 type ConfigSnapshot struct {
 	RequiredStake           *big.Int
 	ChallengeManagerAddress common.Address
-	ConfirmPeriodBlocks     *big.Int
+	ConfirmPeriodBlocks     uint64
 	WasmModuleRoot          [32]byte
 	InboxMaxCount           *big.Int
 }

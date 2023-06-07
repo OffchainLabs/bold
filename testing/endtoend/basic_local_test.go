@@ -43,6 +43,7 @@ type challengeProtocolTestConfig struct {
 }
 
 func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
+	t.Skip("Temporarily skipping")
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)

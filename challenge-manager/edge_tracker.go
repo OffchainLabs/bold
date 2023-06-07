@@ -365,9 +365,21 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	manager, err := et.cfg.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return err
+	}
+	cfgSnapshot := &l2stateprovider.ConfigSnapshot{
+		RequiredStake:           parentAssertionCreationInfo.RequiredStake,
+		ChallengeManagerAddress: manager.Address(),
+		ConfirmPeriodBlocks:     parentAssertionCreationInfo.ConfirmPeriodBlocks,
+		WasmModuleRoot:          parentAssertionCreationInfo.WasmModuleRoot,
+		InboxMaxCount:           parentAssertionCreationInfo.InboxMaxCount,
+	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.cfg.stateManager.OneStepProofData(
 		ctx,
-		parentAssertionCreationInfo,
+		cfgSnapshot,
+		parentAssertionCreationInfo.AfterState,
 		fromAssertionHeight,
 		toAssertionHeight,
 		fromBigStep,
@@ -375,11 +387,6 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 		uint64(pc),
 		uint64(pc)+1,
 	)
-	if err != nil {
-		return err
-	}
-
-	manager, err := et.cfg.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return err
 	}

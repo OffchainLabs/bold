@@ -32,6 +32,8 @@ type Assertion interface {
 
 // AssertionCreatedInfo from an event creation.
 type AssertionCreatedInfo struct {
+	ConfirmPeriodBlocks uint64
+	RequiredStake       *big.Int
 	ParentAssertionHash common.Hash
 	BeforeState         rollupgen.ExecutionState
 	AfterState          rollupgen.ExecutionState

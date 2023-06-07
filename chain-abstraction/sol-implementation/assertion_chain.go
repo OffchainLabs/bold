@@ -340,6 +340,8 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	}
 	afterState := parsedLog.Assertion.AfterState
 	return &protocol.AssertionCreatedInfo{
+		ConfirmPeriodBlocks: parsedLog.ConfirmPeriodBlocks,
+		RequiredStake:       parsedLog.RequiredStake,
 		ParentAssertionHash: parsedLog.ParentAssertionHash,
 		BeforeState:         parsedLog.Assertion.BeforeState,
 		AfterState:          afterState,
