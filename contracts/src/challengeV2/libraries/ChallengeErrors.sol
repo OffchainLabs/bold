@@ -80,3 +80,11 @@ error ChildrenAlreadySet(bytes32 edgeId, bytes32 lowerChildId, bytes32 upperChil
 error EdgeNotLayerZero(bytes32 edgeId, address staker, bytes32 claimId);
 /// @dev The edge staker has already been refunded
 error EdgeAlreadyRefunded(bytes32 edgeId);
+/// @dev No assertion chain address supplied
+error EmptyAssertionChain();
+/// @dev No one step proof entry address supplied
+error EmptyOneStepProofEntry();
+/// @dev No challenge period supplied
+error EmptyChallengePeriod();
+/// @dev No stake receiver address supplied
+error EmptyStakeReceiver();

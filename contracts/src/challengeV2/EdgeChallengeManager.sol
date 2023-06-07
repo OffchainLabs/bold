@@ -307,24 +307,37 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 _stakeAmount,
         address _excessStakeReceiver
     ) public initializer {
-        require(address(assertionChain) == address(0), "ALREADY_INIT");
-        require(address(_assertionChain) != address(0), "Empty assertion chain");
+        if (address(_assertionChain) == address(0)) {
+            revert EmptyAssertionChain();
+        }
         assertionChain = _assertionChain;
-        require(address(_oneStepProofEntry) != address(0), "Empty one step proof");
+        if (address(_oneStepProofEntry) == address(0)) {
+            revert EmptyOneStepProofEntry();
+        }
         oneStepProofEntry = _oneStepProofEntry;
-        require(_challengePeriodBlocks != 0, "Empty challenge period");
+        if (_challengePeriodBlocks == 0) {
+            revert EmptyChallengePeriod();
+        }
         challengePeriodBlocks = _challengePeriodBlocks;
 
         stakeToken = _stakeToken;
         stakeAmount = _stakeAmount;
-        require(_excessStakeReceiver != address(0), "Empty excess stake receiver");
+        if (_excessStakeReceiver == address(0)) {
+            revert EmptyStakeReceiver();
+        }
         excessStakeReceiver = _excessStakeReceiver;
 
-        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight), "Block height not power of 2");
+        if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight)) {
+            revert NotPowerOfTwo(layerZeroBlockEdgeHeight);
+        }
         LAYERZERO_BLOCKEDGE_HEIGHT = layerZeroBlockEdgeHeight;
-        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBigStepEdgeHeight), "Big step height not power of 2");
+        if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBigStepEdgeHeight)) {
+            revert NotPowerOfTwo(layerZeroBigStepEdgeHeight);
+        }
         LAYERZERO_BIGSTEPEDGE_HEIGHT = layerZeroBigStepEdgeHeight;
-        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroSmallStepEdgeHeight), "Small step height not power of 2");
+        if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroSmallStepEdgeHeight)) {
+            revert NotPowerOfTwo(layerZeroSmallStepEdgeHeight);
+        }
         LAYERZERO_SMALLSTEPEDGE_HEIGHT = layerZeroSmallStepEdgeHeight;
     }
 
@@ -339,9 +352,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         AssertionReferenceData memory ard;
         if (args.edgeType == EdgeType.Block) {
             // for block type edges we need to provide some extra assertion data context
-
             bytes32 predecessorId = assertionChain.getPredecessorId(args.claimId);
-            require(args.proof.length != 0, "Block edge specific proof is empty");
+            if (args.proof.length == 0) {
+                revert EmptyEdgeSpecificProof();
+            }
             (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
                 abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
             ard = AssertionReferenceData(
@@ -448,7 +462,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 lastEdgeId = ancestorEdges.length > 0 ? ancestorEdges[ancestorEdges.length - 1] : edgeId;
         ChallengeEdge storage topEdge = store.get(lastEdgeId);
 
-        require(topEdge.eType == EdgeType.Block && topEdge.claimId != 0, "Layer zero block edge not supplied");
+        if (topEdge.eType != EdgeType.Block) {
+            revert EdgeTypeNotBlock(topEdge.eType);
+        }
+        if (!topEdge.isLayerZero()) {
+            revert EdgeNotLayerZero(topEdge.id(), topEdge.staker, topEdge.claimId);
+        }
 
         uint256 assertionBlocks;
         // if the assertion being claiming against was the first child of its predecessor

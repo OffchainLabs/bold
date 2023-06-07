@@ -13,7 +13,7 @@ import "./StateTools.sol";
 contract MockOneStepProofEntry is IOneStepProofEntry {
     function proveOneStep(ExecutionContext calldata, uint256, bytes32, bytes calldata proof)
         external
-        view
+        pure
         returns (bytes32 afterHash)
     {
         return bytes32(proof);
@@ -207,8 +207,8 @@ contract EdgeChallengeManagerTest is Test {
         (bytes32[] memory states, bytes32[] memory exp) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
 
-        vm.expectRevert("Block edge specific proof is empty");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+        vm.expectRevert(abi.encodeWithSelector(EmptyEdgeSpecificProof.selector));
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
@@ -230,7 +230,7 @@ contract EdgeChallengeManagerTest is Test {
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
 
         vm.expectRevert("Invalid inclusion proof");
-        bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.Block,
                 endHistoryRoot: MerkleTreeLib.root(exp),
@@ -284,8 +284,7 @@ contract EdgeChallengeManagerTest is Test {
     }
 
     function testCanConfirmPs() public {
-        (EdgeInitData memory ei, bytes32[] memory states, bytes32[] memory exp, bytes32 edgeId) =
-            testCanCreateEdgeWithStake();
+        (EdgeInitData memory ei,,, bytes32 edgeId) = testCanCreateEdgeWithStake();
 
         vm.roll(challengePeriodBlock + 2);
 
@@ -296,8 +295,7 @@ contract EdgeChallengeManagerTest is Test {
     }
 
     function testCanConfirmByChildren() public {
-        (EdgeInitData memory ei, bytes32[] memory states1, bytes32[] memory exp1, bytes32 edge1Id) =
-            testCanCreateEdgeWithStake();
+        (EdgeInitData memory ei, bytes32[] memory states1,, bytes32 edge1Id) = testCanCreateEdgeWithStake();
 
         vm.roll(block.number + 1);
 
@@ -459,6 +457,7 @@ contract EdgeChallengeManagerTest is Test {
 
     function generateEdgeProof(bytes32[] memory states1, bytes32[] memory bigStepStates)
         internal
+        pure
         returns (bytes memory)
     {
         bytes32[] memory claimStartInclusionProof =
@@ -504,7 +503,7 @@ contract EdgeChallengeManagerTest is Test {
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert("Post expansion root not equal post");
-        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
@@ -563,7 +562,7 @@ contract EdgeChallengeManagerTest is Test {
             appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
         vm.expectRevert(abi.encodeWithSelector(EmptyEdgeSpecificProof.selector));
-        bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
+        ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: EdgeType.BigStep,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
@@ -757,7 +756,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        (BisectionChildren[6] memory bigstepedges1, BisectionChildren[6] memory bigstepedges2) = bisectToForkOnly(
+        (BisectionChildren[6] memory bigstepedges1,) = bisectToForkOnly(
             BisectToForkOnlyArgs(
                 ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false
             )
@@ -870,7 +869,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        (BisectionChildren[6] memory bigstepedges1, BisectionChildren[6] memory bigstepedges2) = bisectToForkOnly(
+        (BisectionChildren[6] memory bigstepedges1,) = bisectToForkOnly(
             BisectToForkOnlyArgs(
                 ei.challengeManager, edge1BigStepId, edge2BigStepId, bigStepStates1, bigStepStates2, false
             )
@@ -1338,7 +1337,7 @@ contract EdgeChallengeManagerTest is Test {
     }
 
     function testExcessStakeReceived() external {
-        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        (EdgeInitData memory ei,) = testCanConfirmByOneStep();
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         assertEq(stakeToken.balanceOf(excessStakeReceiver), ei.challengeManager.stakeAmount(), "Excess stake received");
     }
@@ -1417,12 +1416,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (
-            bytes32[] memory smallStepStates1,
-            ,
-            BisectionChildren[6] memory smallStepEdges1,
-            BisectionChildren[6] memory smallStepEdges2
-        ) = createMachineEdgesAndBisectToFork(
+        (,, BisectionChildren[6] memory smallStepEdges1, BisectionChildren[6] memory smallStepEdges2) =
+        createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
                 EdgeType.SmallStep,
