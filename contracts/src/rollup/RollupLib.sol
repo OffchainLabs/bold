@@ -102,7 +102,7 @@ library RollupLib {
         return
             keccak256(
                 abi.encodePacked(
-                    wasmModuleRoot, // TODO: we might not need this here, since it is defined in the challenge manager
+                    wasmModuleRoot,
                     requiredStake,
                     challengeManager,
                     confirmPeriodBlocks,
