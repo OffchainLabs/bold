@@ -157,7 +157,6 @@ contract MockAssertionChain is IAssertionChain {
         require(!assertionExists(assertionId), "Assertion already exists");
         require(assertionExists(predecessorId), "Predecessor does not exists");
         require(height > assertions[predecessorId].height, "Height too low");
-        // require(nextInboxPosition >= assertions[predecessorId].nextInboxPosition, "Inbox count seen too low");
         require(beforeStateHash == StateToolsLib.hash(assertions[predecessorId].state), "Before state hash does not match predecessor");
 
         return addAssertionUnsafe(predecessorId, height, nextInboxPosition, afterState, successionChallenge);
