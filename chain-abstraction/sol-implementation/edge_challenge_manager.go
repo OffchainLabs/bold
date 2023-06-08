@@ -157,7 +157,21 @@ func (e *SpecEdge) Bisect(
 		return nil, nil, err
 	}
 	if !lowerId.IsNone() || !upperId.IsNone() {
-		return nil, nil, ErrContainsChildren
+		upperEdge, err := e.manager.GetEdge(ctx, upperId.Unwrap())
+		if err != nil {
+			return nil, nil, err
+		}
+		if upperEdge.IsNone() {
+			return nil, nil, errors.New("could not refresh upper edge after bisecting, got empty result")
+		}
+		lowerEdge, err := e.manager.GetEdge(ctx, lowerId.Unwrap())
+		if err != nil {
+			return nil, nil, err
+		}
+		if lowerEdge.IsNone() {
+			return nil, nil, errors.New("could not refresh lower edge after bisecting, got empty result")
+		}
+		return upperEdge.Unwrap(), lowerEdge.Unwrap(), ErrContainsChildren
 	}
 
 	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
