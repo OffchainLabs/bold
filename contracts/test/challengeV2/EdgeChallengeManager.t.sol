@@ -1275,11 +1275,11 @@ contract EdgeChallengeManagerTest is Test {
             allWinners[0].lowerChildId,
             OneStepData({beforeHash: firstStates[0], proof: abi.encodePacked(firstStates[1])}),
             ConfigData({
-                _wasmModuleRoot: bytes32(0),
-                _requiredStake: 0,
-                _challengeManager: address(0),
-                _confirmPeriodBlocks: 0,
-                _nextInboxPosition: inboxMsgCountGenesis
+                wasmModuleRoot: bytes32(0),
+                requiredStake: 0,
+                challengeManager: address(0),
+                confirmPeriodBlocks: 0,
+                nextInboxPosition: inboxMsgCountGenesis
             }),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(genesisStates()), 0),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(firstStates), 1)

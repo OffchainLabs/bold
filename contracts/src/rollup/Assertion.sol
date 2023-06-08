@@ -40,11 +40,7 @@ struct BeforeStateData {
     // The sequencer inbox accumulator asserted by the beforeState(prev)
     bytes32 sequencerBatchAcc;
     // below are the components of config hash
-    bytes32 wasmRoot;
-    uint256 requiredStake;
-    address challengeManager;
-    uint64 confirmPeriodBlocks;
-    uint64 nextInboxPosition;
+    ConfigData configData;
 }
 
 struct AssertionInputs {
@@ -52,6 +48,14 @@ struct AssertionInputs {
     BeforeStateData beforeStateData;
     ExecutionState beforeState;
     ExecutionState afterState;
+}
+
+struct ConfigData {
+    bytes32 wasmModuleRoot;
+    uint256 requiredStake;
+    address challengeManager;
+    uint64 confirmPeriodBlocks;
+    uint64 nextInboxPosition;
 }
 
 /**

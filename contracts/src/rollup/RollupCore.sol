@@ -294,7 +294,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 expectedAssertionHash
     ) internal returns (bytes32) {
         // Validate the config hash
-        RollupLib.validateConfigHash(assertion.beforeStateData, getAssertionStorage(prevAssertionId).configHash);
+        RollupLib.validateConfigHash(
+            assertion.beforeStateData.configData, getAssertionStorage(prevAssertionId).configHash
+        );
 
         // reading inbox messages always terminates in either a finished or errored state
         // although the challenge protocol that any invalid terminal state will be proven incorrect
@@ -343,7 +345,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 // Assertions must consume exactly all inbox messages
                 // that were in the inbox at the time the previous assertion was created
                 require(
-                    assertion.afterState.globalState.getInboxPosition() == assertion.beforeStateData.nextInboxPosition,
+                    assertion.afterState.globalState.getInboxPosition()
+                        == assertion.beforeStateData.configData.nextInboxPosition,
                     "INCORRECT_INBOX_POS"
                 );
                 // Assertions that finish correctly completely consume the message

@@ -112,17 +112,17 @@ library RollupLib {
     }
 
     function validateConfigHash(
-        BeforeStateData calldata bsd,
+        ConfigData calldata configData,
         bytes32 _configHash
     ) internal pure {
         require(
             _configHash
                 == configHash(
-                    bsd.wasmRoot,
-                    bsd.requiredStake,
-                    bsd.challengeManager,
-                    bsd.confirmPeriodBlocks,
-                    bsd.nextInboxPosition
+                    configData.wasmModuleRoot,
+                    configData.requiredStake,
+                    configData.challengeManager,
+                    configData.confirmPeriodBlocks,
+                    configData.nextInboxPosition
                 ),
             "CONFIG_HASH_MISMATCH"
         );

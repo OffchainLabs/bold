@@ -90,10 +90,12 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // The assertion's must exists and be pending and will be checked in RollupCore
 
         AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevId);
-        RollupLib.validateConfigHash(beforeStateData, prevAssertion.configHash);
+        RollupLib.validateConfigHash(beforeStateData.configData, prevAssertion.configHash);
 
         // Check that deadline has passed
-        require(block.number >= assertion.createdAtBlock + beforeStateData.confirmPeriodBlocks, "BEFORE_DEADLINE");
+        require(
+            block.number >= assertion.createdAtBlock + beforeStateData.configData.confirmPeriodBlocks, "BEFORE_DEADLINE"
+        );
 
         // Check that prev is latest confirmed
         assert(assertion.prevId == latestConfirmed());
@@ -143,7 +145,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // the staker may have more than enough stake, and the entire stake will be locked
         // we cannot do a refund here because the staker may be staker on an unconfirmed ancestor that requires more stake
         // excess stake can be removed by calling reduceDeposit when the staker is inactive
-        require(amountStaked(msg.sender) >= assertion.beforeStateData.requiredStake, "INSUFFICIENT_STAKE");
+        require(amountStaked(msg.sender) >= assertion.beforeStateData.configData.requiredStake, "INSUFFICIENT_STAKE");
 
         bytes32 prevAssertion = RollupLib.assertionHash(
             assertion.beforeStateData.prevPrevAssertionHash,
@@ -167,16 +169,14 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // Verify that assertion meets the minimum Delta time requirement
         require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
-        bytes32 newAssertionHash = createNewAssertion(
-            assertion, prevAssertion, expectedAssertionHash
-        );
+        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
         _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
             // only 1 of the children can be confirmed and get their stake refunded
             // so we send the other children's stake to the loserStakeEscrow
             // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
-            increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.requiredStake);
+            increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.configData.requiredStake);
         }
     }
 

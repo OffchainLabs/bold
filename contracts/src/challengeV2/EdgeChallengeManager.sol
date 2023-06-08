@@ -11,14 +11,6 @@ import "../state/Machine.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-struct ConfigData {
-    bytes32 _wasmModuleRoot;
-    uint256 _requiredStake;
-    address _challengeManager;
-    uint64 _confirmPeriodBlocks;
-    uint64 _nextInboxPosition;
-}
-
 /// @notice An execution state and proof to show that it's valid
 struct ExecutionStateData {
     /// @notice An execution state
@@ -503,17 +495,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
         assertionChain.validateConfig(
             prevAssertionId,
-            prevConfig._wasmModuleRoot,
-            prevConfig._requiredStake,
-            prevConfig._challengeManager,
-            prevConfig._confirmPeriodBlocks,
-            prevConfig._nextInboxPosition
+            prevConfig.wasmModuleRoot,
+            prevConfig.requiredStake,
+            prevConfig.challengeManager,
+            prevConfig.confirmPeriodBlocks,
+            prevConfig.nextInboxPosition
         );
 
         ExecutionContext memory execCtx = ExecutionContext({
-            maxInboxMessagesRead: prevConfig._nextInboxPosition,
+            maxInboxMessagesRead: prevConfig.nextInboxPosition,
             bridge: assertionChain.bridge(),
-            initialWasmModuleRoot: prevConfig._wasmModuleRoot
+            initialWasmModuleRoot: prevConfig.wasmModuleRoot
         });
 
         store.confirmEdgeByOneStepProof(
