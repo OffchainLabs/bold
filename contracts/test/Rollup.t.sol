@@ -183,12 +183,15 @@ contract RollupTest is Test {
             firstState,
             bytes32(0),
             BeforeStateData({
-                wasmRoot: WASM_MODULE_ROOT,
                 sequencerBatchAcc: prevInboxAcc,
                 prevPrevAssertionHash: prevPrevAssertionHash,
-                requiredStake: BASE_STAKE,
-                challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                configData: ConfigData({
+                    wasmModuleRoot: WASM_MODULE_ROOT,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: firstState.globalState.u64Vals[0]
+                })
             })
         );
     }
@@ -241,12 +244,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -285,12 +291,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -315,12 +324,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -333,12 +345,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -368,12 +383,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -400,12 +418,15 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: prevInboxAcc,
                     prevPrevAssertionHash: genesisHash,
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState2.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: afterState,
                 afterState: afterState2
@@ -447,12 +468,15 @@ contract RollupTest is Test {
         userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -477,12 +501,15 @@ contract RollupTest is Test {
             assertion: AssertionInputs({
                 beforeState: beforeState,
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: bytes32(0),
                     prevPrevAssertionHash: bytes32(0),
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState2.globalState.u64Vals[0]
+                    })
                 }),
                 afterState: afterState2
             }),
@@ -514,12 +541,15 @@ contract RollupTest is Test {
             emptyExecutionState,
             bytes32(0),
             BeforeStateData({
-                wasmRoot: WASM_MODULE_ROOT,
                 sequencerBatchAcc: prevInboxAcc,
                 prevPrevAssertionHash: prevPrevAssertionHash,
-                requiredStake: BASE_STAKE,
-                challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                configData: ConfigData({
+                    wasmModuleRoot: WASM_MODULE_ROOT,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: firstState.globalState.u64Vals[0]
+                })
             })
         );
     }
@@ -535,12 +565,15 @@ contract RollupTest is Test {
             firstState,
             bytes32(0),
             BeforeStateData({
-                wasmRoot: WASM_MODULE_ROOT,
                 sequencerBatchAcc: prevInboxAcc,
                 prevPrevAssertionHash: prevPrevAssertionHash,
-                requiredStake: BASE_STAKE,
-                challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                configData: ConfigData({
+                    wasmModuleRoot: WASM_MODULE_ROOT,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: firstState.globalState.u64Vals[0]
+                })
             })
         );
         return (assertionHash, state, inboxcount);
@@ -570,12 +603,15 @@ contract RollupTest is Test {
             firstState,
             bytes32(0),
             BeforeStateData({
-                wasmRoot: WASM_MODULE_ROOT,
                 sequencerBatchAcc: prevInboxAcc,
                 prevPrevAssertionHash: prevPrevAssertionHash,
-                requiredStake: BASE_STAKE,
-                challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                configData: ConfigData({
+                    wasmModuleRoot: WASM_MODULE_ROOT,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: firstState.globalState.u64Vals[0]
+                })
             })
         );
     }
@@ -700,12 +736,15 @@ contract RollupTest is Test {
             firstState,
             data.e1Id,
             BeforeStateData({
-                wasmRoot: WASM_MODULE_ROOT,
                 sequencerBatchAcc: prevInboxAcc,
                 prevPrevAssertionHash: prevPrevAssertionHash,
-                requiredStake: BASE_STAKE,
-                challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                configData: ConfigData({
+                    wasmModuleRoot: WASM_MODULE_ROOT,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: firstState.globalState.u64Vals[0]
+                })
             })
         );
         return data.e1Id;
@@ -797,12 +836,15 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: prevInboxAcc,
                     prevPrevAssertionHash: genesisHash,
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -833,12 +875,15 @@ contract RollupTest is Test {
         userRollup.stakeOnNewAssertion({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
-                    wasmRoot: WASM_MODULE_ROOT,
                     sequencerBatchAcc: prevInboxAcc,
                     prevPrevAssertionHash: genesisHash,
-                    requiredStake: BASE_STAKE,
-                    challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState.globalState.u64Vals[0]
+                    })
                 }),
                 beforeState: beforeState,
                 afterState: afterState

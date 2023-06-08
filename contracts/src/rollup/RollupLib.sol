@@ -96,7 +96,8 @@ library RollupLib {
         bytes32 wasmModuleRoot,
         uint256 requiredStake,
         address challengeManager,
-        uint64 confirmPeriodBlocks
+        uint64 confirmPeriodBlocks,
+        uint64 nextInboxPosition
     ) internal pure returns (bytes32) {
         return
             keccak256(
@@ -104,22 +105,24 @@ library RollupLib {
                     wasmModuleRoot, // TODO: we might not need this here, since it is defined in the challenge manager
                     requiredStake,
                     challengeManager,
-                    confirmPeriodBlocks
+                    confirmPeriodBlocks,
+                    nextInboxPosition
                 )
             );
     }
 
     function validateConfigHash(
-        BeforeStateData calldata bsd,
+        ConfigData calldata configData,
         bytes32 _configHash
     ) internal pure {
         require(
             _configHash
                 == configHash(
-                    bsd.wasmRoot,
-                    bsd.requiredStake,
-                    bsd.challengeManager,
-                    bsd.confirmPeriodBlocks
+                    configData.wasmModuleRoot,
+                    configData.requiredStake,
+                    configData.challengeManager,
+                    configData.confirmPeriodBlocks,
+                    configData.nextInboxPosition
                 ),
             "CONFIG_HASH_MISMATCH"
         );
