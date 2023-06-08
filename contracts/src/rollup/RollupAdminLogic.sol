@@ -233,10 +233,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     ) external override whenPaused {
         // CHRIS: TODO: the process should be (and ideally done in a single tx):
         // 0. update the wasm module root var in the contract
-        // 1. update the wasm module root on the last confirmed and wipe the child created blocks there
-        // 2. remove all children above that wasm module root
-        // 3. refund stakers on assertions above the last confirmed where relevant
-        // 4. continue as normal from the last confirmed node
+        // 1. remove the assertion previous to the one that we want to replace from
+        // 2. recreate that same assertion - it will have the new correct wasm root now
+        // 3. force confirm that assertion
+        // 4. delete any now obsolete downstream assertions, and refund any relevant stakes
+        // 5. continue as normal from the last confirmed node
 
         // require(prevAssertionId == latestConfirmed(), "ONLY_LATEST_CONFIRMED");
 
