@@ -156,15 +156,17 @@ func (e *SpecEdge) Bisect(
 	if err != nil {
 		return nil, nil, err
 	}
+	var upperEdge option.Option[protocol.SpecEdge]
+	var lowerEdge option.Option[protocol.SpecEdge]
 	if !lowerId.IsNone() || !upperId.IsNone() {
-		upperEdge, err := e.manager.GetEdge(ctx, upperId.Unwrap())
+		upperEdge, err = e.manager.GetEdge(ctx, upperId.Unwrap())
 		if err != nil {
 			return nil, nil, err
 		}
 		if upperEdge.IsNone() {
 			return nil, nil, errors.New("could not refresh upper edge after bisecting, got empty result")
 		}
-		lowerEdge, err := e.manager.GetEdge(ctx, lowerId.Unwrap())
+		lowerEdge, err = e.manager.GetEdge(ctx, lowerId.Unwrap())
 		if err != nil {
 			return nil, nil, err
 		}
