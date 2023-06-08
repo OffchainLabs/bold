@@ -32,6 +32,8 @@ type Assertion interface {
 
 // AssertionCreatedInfo from an event creation.
 type AssertionCreatedInfo struct {
+	ConfirmPeriodBlocks uint64
+	RequiredStake       *big.Int
 	ParentAssertionHash common.Hash
 	BeforeState         rollupgen.ExecutionState
 	AfterState          rollupgen.ExecutionState
@@ -53,6 +55,9 @@ type AssertionChain interface {
 	// Read-only methods.
 	GetAssertion(ctx context.Context, id AssertionId) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
+	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
+	BaseStake(ctx context.Context) (*big.Int, error)
+	WasmModuleRoot(ctx context.Context) ([32]byte, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionId,
 	) (*AssertionCreatedInfo, error)
@@ -64,7 +69,7 @@ type AssertionChain interface {
 	// Mutating methods.
 	CreateAssertion(
 		ctx context.Context,
-		prevAssertionState *ExecutionState,
+		prevAssertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,
 	) (Assertion, error)
 
