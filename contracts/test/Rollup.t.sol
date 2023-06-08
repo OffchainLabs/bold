@@ -529,7 +529,7 @@ contract RollupTest is Test {
                 requiredStake: BASE_STAKE,
                 challengeManager: address(challengeManager),
                 confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
-                nextInboxPosition: 0
+                nextInboxPosition: firstState.globalState.u64Vals[0]
             })
         );
     }

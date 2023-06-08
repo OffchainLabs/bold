@@ -399,7 +399,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // state updates
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
             prevAssertionId,
-            uint64(block.number) + confirmPeriodBlocks,
             prevAssertion.firstChildBlock == 0, // assumes block 0 is impossible
             RollupLib.configHash({
                 wasmModuleRoot: wasmModuleRoot,

@@ -89,17 +89,17 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
         // The assertion's must exists and be pending and will be checked in RollupCore
 
+        AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevId);
+        RollupLib.validateConfigHash(beforeStateData, prevAssertion.configHash);
+
         // Check that deadline has passed
-        assertion.requirePastDeadline();
+        require(block.number >= assertion.createdAtBlock + beforeStateData.confirmPeriodBlocks, "BEFORE_DEADLINE");
 
         // Check that prev is latest confirmed
         assert(assertion.prevId == latestConfirmed());
 
-        AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevId);
-
         if (prevAssertion.secondChildBlock > 0) {
             // if the prev has more than 1 child, check if this assertion is the challenge winner
-            RollupLib.validateConfigHash(beforeStateData, prevAssertion.configHash);
             ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
             require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");

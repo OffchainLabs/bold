@@ -18,9 +18,6 @@ enum AssertionStatus {
 }
 
 struct AssertionNode {
-    // Deadline at which this assertion can be confirmed
-    // TODO: HN: remove this and derive from createdAtBlock?
-    uint64 deadlineBlock;
     // This value starts at zero and is set to a value when the first child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
     uint64 firstChildBlock;
     // This value starts at zero and is set to a value when the second child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
@@ -64,17 +61,14 @@ library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
      * @param _prevId Initial value of prevId
-     * @param _deadlineBlock Initial value of deadlineBlock
      */
     function createAssertion(
         bytes32 _prevId,
-        uint64 _deadlineBlock,
         bool _isFirstChild,
         bytes32 _configHash
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
         assertion.prevId = _prevId;
-        assertion.deadlineBlock = _deadlineBlock;
         assertion.createdAtBlock = uint64(block.number);
         assertion.isFirstChild = _isFirstChild;
         assertion.configHash = _configHash;
@@ -91,13 +85,6 @@ library AssertionNodeLib {
         } else if (self.secondChildBlock == 0) {
             self.secondChildBlock = uint64(block.number);
         }
-    }
-
-    /**
-     * @notice Check whether the current block number has met or passed the assertion's deadline
-     */
-    function requirePastDeadline(AssertionNode memory self) internal view {
-        require(block.number >= self.deadlineBlock, "BEFORE_DEADLINE");
     }
 
     function requireMoreThanOneChild(AssertionNode memory self) internal pure {
