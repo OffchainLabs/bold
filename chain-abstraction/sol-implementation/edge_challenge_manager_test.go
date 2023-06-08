@@ -217,16 +217,13 @@ func TestEdgeChallengeManager_Bisect(t *testing.T) {
 		require.NoError(t, err)
 		honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight/2, protocol.LevelZeroBlockEdgeHeight, 1)
 		require.NoError(t, err)
-		_, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
+		lower, upper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
-	})
-	t.Run("Contains children", func(t *testing.T) {
-		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight/2, 1)
+
+		gotLower, gotUpper, err := honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
-		honestProof, err := honestStateManager.PrefixProofUpToBatch(ctx, 0, protocol.LevelZeroBlockEdgeHeight/2, protocol.LevelZeroBlockEdgeHeight, 1)
-		require.NoError(t, err)
-		_, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
-		require.ErrorIs(t, err, solimpl.ErrContainsChildren)
+		require.Equal(t, lower.Id(), gotLower.Id())
+		require.Equal(t, upper.Id(), gotUpper.Id())
 	})
 }
 

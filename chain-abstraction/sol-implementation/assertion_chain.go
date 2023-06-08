@@ -29,7 +29,6 @@ var (
 	ErrTooLate          = errors.New("too late to create assertion sibling")
 	ErrTooSoon          = errors.New("too soon to confirm assertion")
 	ErrInvalidHeight    = errors.New("invalid assertion height")
-	ErrContainsChildren = errors.New("edge contains children")
 )
 
 var assertionCreatedId common.Hash

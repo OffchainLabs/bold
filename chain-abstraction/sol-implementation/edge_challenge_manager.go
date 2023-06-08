@@ -173,7 +173,7 @@ func (e *SpecEdge) Bisect(
 		if lowerEdge.IsNone() {
 			return nil, nil, errors.New("could not refresh lower edge after bisecting, got empty result")
 		}
-		return upperEdge.Unwrap(), lowerEdge.Unwrap(), ErrContainsChildren
+		return lowerEdge.Unwrap(), upperEdge.Unwrap(), nil
 	}
 
 	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
