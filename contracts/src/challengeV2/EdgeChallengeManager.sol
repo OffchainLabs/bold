@@ -495,11 +495,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
         assertionChain.validateConfig(
             prevAssertionId,
-            prevConfig.wasmModuleRoot,
-            prevConfig.requiredStake,
-            prevConfig.challengeManager,
-            prevConfig.confirmPeriodBlocks,
-            prevConfig.nextInboxPosition
+            prevConfig
         );
 
         ExecutionContext memory execCtx = ExecutionContext({

@@ -11,7 +11,7 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 
     function proveOneStep(ExecutionContext calldata, uint256, bytes32, bytes calldata proof)
         external
-        view
+        pure
         returns (bytes32 afterHash)
     {
         return bytes32(proof);

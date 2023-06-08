@@ -42,7 +42,7 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].predecessorId;
     }
 
-    function proveExecutionState(bytes32 assertionId, ExecutionState memory state, bytes memory proof) external view returns (ExecutionState memory) {
+    function proveExecutionState(bytes32 assertionId, ExecutionState calldata state, bytes calldata proof) external view returns (ExecutionState memory) {
         require(assertionExists(assertionId), "Assertion does not exist");
         return assertions[assertionId].state;
     }
@@ -64,19 +64,15 @@ contract MockAssertionChain is IAssertionChain {
 
     function validateConfig(
         bytes32 assertionId,
-        bytes32 _wasmModuleRoot,
-        uint256 _requiredStake,
-        address _challengeManager,
-        uint64 _confirmPeriodBlocks,
-        uint64 _nextInboxPosition
+        ConfigData calldata configData
     ) external view {
         require(
             RollupLib.configHash({
-                wasmModuleRoot: _wasmModuleRoot,
-                requiredStake: _requiredStake,
-                challengeManager: _challengeManager,
-                confirmPeriodBlocks: _confirmPeriodBlocks,
-                nextInboxPosition: _nextInboxPosition
+                wasmModuleRoot: configData.wasmModuleRoot,
+                requiredStake: configData.requiredStake,
+                challengeManager: configData.challengeManager,
+                confirmPeriodBlocks: configData.confirmPeriodBlocks,
+                nextInboxPosition: configData.nextInboxPosition
             }) == assertions[assertionId].configHash,
             "BAD_CONFIG"
         );

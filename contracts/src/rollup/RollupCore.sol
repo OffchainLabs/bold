@@ -447,7 +447,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return prevId;
     }
 
-    function proveExecutionState(bytes32 assertionId, ExecutionState memory state, bytes memory proof)
+    function proveExecutionState(bytes32 assertionId, ExecutionState calldata state, bytes calldata proof)
         external
         pure
         returns (ExecutionState memory)
@@ -473,22 +473,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function validateConfig(
         bytes32 assertionId,
-        bytes32 _wasmModuleRoot,
-        uint256 _requiredStake,
-        address _challengeManager,
-        uint64 _confirmPeriodBlocks,
-        uint64 _nextInboxPosition
+        ConfigData calldata configData
     ) external view {
-        require(
-            RollupLib.configHash({
-                wasmModuleRoot: _wasmModuleRoot,
-                requiredStake: _requiredStake,
-                challengeManager: _challengeManager,
-                confirmPeriodBlocks: _confirmPeriodBlocks,
-                nextInboxPosition: _nextInboxPosition
-            }) == getAssertionStorage(assertionId).configHash,
-            "BAD_CONFIG"
-        );
+        RollupLib.validateConfigHash(configData, getAssertionStorage(assertionId).configHash);
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool) {
