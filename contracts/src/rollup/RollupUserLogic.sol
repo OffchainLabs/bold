@@ -161,9 +161,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
             "STAKED_ON_ANOTHER_BRANCH"
         );
 
-        // Validate the config hash
-        // TODO: HN: consider removing this as this will be checked in RollupCore
-        RollupLib.validateConfigHash(assertion.beforeStateData, getAssertionStorage(prevAssertion).configHash);
+        // We assume assertion.beforeStateData is valid here as it will be validated in createNewAssertion
 
         uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
         // Verify that assertion meets the minimum Delta time requirement
