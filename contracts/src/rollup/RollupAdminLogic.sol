@@ -67,7 +67,6 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         uint64 inboxMaxCount = 1; // force the first assertion to read a message
         AssertionNode memory initialAssertion = AssertionNodeLib.createAssertion(
-            inboxMaxCount,
             0, // prev assertion
             uint64(block.number), // deadline block (not challengeable)
             true,
@@ -75,7 +74,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
                 wasmModuleRoot: wasmModuleRoot,
                 requiredStake: baseStake,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: confirmPeriodBlocks
+                confirmPeriodBlocks: confirmPeriodBlocks,
+                nextInboxPosition: inboxMaxCount
             })
         );
         initializeCore(initialAssertion, genesisHash);

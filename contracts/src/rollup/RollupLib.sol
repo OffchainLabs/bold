@@ -96,7 +96,8 @@ library RollupLib {
         bytes32 wasmModuleRoot,
         uint256 requiredStake,
         address challengeManager,
-        uint64 confirmPeriodBlocks
+        uint64 confirmPeriodBlocks,
+        uint64 nextInboxPosition
     ) internal pure returns (bytes32) {
         return
             keccak256(
@@ -104,7 +105,8 @@ library RollupLib {
                     wasmModuleRoot, // TODO: we might not need this here, since it is defined in the challenge manager
                     requiredStake,
                     challengeManager,
-                    confirmPeriodBlocks
+                    confirmPeriodBlocks,
+                    nextInboxPosition
                 )
             );
     }
@@ -119,7 +121,8 @@ library RollupLib {
                     bsd.wasmRoot,
                     bsd.requiredStake,
                     bsd.challengeManager,
-                    bsd.confirmPeriodBlocks
+                    bsd.confirmPeriodBlocks,
+                    bsd.nextInboxPosition
                 ),
             "CONFIG_HASH_MISMATCH"
         );

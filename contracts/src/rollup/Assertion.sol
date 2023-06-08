@@ -18,9 +18,6 @@ enum AssertionStatus {
 }
 
 struct AssertionNode {
-    // The inbox position that the assertion that succeeds should process up to and including
-    // TODO: HN: move this into configHash or not? we do have extra space in this struct but we can remove the below 2 fields
-    uint64 nextInboxPosition;
     // Deadline at which this assertion can be confirmed
     // TODO: HN: remove this and derive from createdAtBlock?
     uint64 deadlineBlock;
@@ -53,6 +50,7 @@ struct BeforeStateData {
     uint256 requiredStake;
     address challengeManager;
     uint64 confirmPeriodBlocks;
+    uint64 nextInboxPosition;
 }
 
 struct AssertionInputs {
@@ -68,19 +66,16 @@ struct AssertionInputs {
 library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
-     * @param _nextInboxPosition The inbox position that the assertion that succeeds should process up to and including
      * @param _prevId Initial value of prevId
      * @param _deadlineBlock Initial value of deadlineBlock
      */
     function createAssertion(
-        uint64 _nextInboxPosition,
         bytes32 _prevId,
         uint64 _deadlineBlock,
         bool _isFirstChild,
         bytes32 _configHash
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
-        assertion.nextInboxPosition = _nextInboxPosition;
         assertion.prevId = _prevId;
         assertion.deadlineBlock = _deadlineBlock;
         assertion.noChildConfirmedBeforeBlock = _deadlineBlock;

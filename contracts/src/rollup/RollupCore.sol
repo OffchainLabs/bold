@@ -295,6 +295,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint64 prevConfirmPeriodBlocks,
         bytes32 expectedAssertionHash
     ) internal returns (bytes32) {
+        // Validate the config hash
+        RollupLib.validateConfigHash(assertion.beforeStateData, getAssertionStorage(prevAssertionId).configHash);
+
         // reading inbox messages always terminates in either a finished or errored state
         // although the challenge protocol that any invalid terminal state will be proven incorrect
         // we can do a quick sanity check here
@@ -342,7 +345,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 // Assertions must consume exactly all inbox messages
                 // that were in the inbox at the time the previous assertion was created
                 require(
-                    assertion.afterState.globalState.getInboxPosition() == prevAssertion.nextInboxPosition,
+                    assertion.afterState.globalState.getInboxPosition() == assertion.beforeStateData.nextInboxPosition,
                     "INCORRECT_INBOX_POS"
                 );
                 // Assertions that finish correctly completely consume the message
@@ -395,7 +398,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         // state updates
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
-            uint64(nextInboxPosition),
             prevAssertionId,
             uint64(block.number) + confirmPeriodBlocks,
             prevAssertion.firstChildBlock == 0, // assumes block 0 is impossible
@@ -403,7 +405,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 wasmModuleRoot: wasmModuleRoot,
                 requiredStake: baseStake,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: confirmPeriodBlocks
+                confirmPeriodBlocks: confirmPeriodBlocks,
+                nextInboxPosition: uint64(nextInboxPosition)
             })
         );
 
@@ -456,10 +459,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return state;
     }
 
-    function getNextInboxPosition(bytes32 assertionId) external view returns (uint64) {
-        return getAssertionStorage(assertionId).nextInboxPosition;
-    }
-
     function hasSibling(bytes32 assertionId) external view returns (bool) {
         return getAssertionStorage(getAssertionStorage(assertionId).prevId).secondChildBlock != 0;
     }
@@ -472,23 +471,24 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(assertionId).secondChildBlock;
     }
 
-    function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof)
-        external
-        view
-        returns (bytes32)
-    {
-        (uint256 requiredStake, address _challengeManager, uint64 _confirmPeriodBlocks) =
-            abi.decode(proof, (uint256, address, uint64));
+    function validateConfig(
+        bytes32 assertionId,
+        bytes32 _wasmModuleRoot,
+        uint256 _requiredStake,
+        address _challengeManager,
+        uint64 _confirmPeriodBlocks,
+        uint64 _nextInboxPosition
+    ) external view {
         require(
             RollupLib.configHash({
-                wasmModuleRoot: root,
-                requiredStake: requiredStake,
+                wasmModuleRoot: _wasmModuleRoot,
+                requiredStake: _requiredStake,
                 challengeManager: _challengeManager,
-                confirmPeriodBlocks: _confirmPeriodBlocks
+                confirmPeriodBlocks: _confirmPeriodBlocks,
+                nextInboxPosition: _nextInboxPosition
             }) == getAssertionStorage(assertionId).configHash,
-            "BAD_WASM_MODULE_ROOT_PROOF"
+            "BAD_CONFIG"
         );
-        return root;
     }
 
     function isFirstChild(bytes32 assertionId) external view returns (bool) {

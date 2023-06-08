@@ -188,7 +188,8 @@ contract RollupTest is Test {
                 prevPrevAssertionHash: prevPrevAssertionHash,
                 requiredStake: BASE_STAKE,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                nextInboxPosition: firstState.globalState.u64Vals[0]
             })
         );
     }
@@ -246,7 +247,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -290,7 +292,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -320,7 +323,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -338,7 +342,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -373,7 +378,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -405,7 +411,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: genesisHash,
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState2.globalState.u64Vals[0]
                 }),
                 beforeState: afterState,
                 afterState: afterState2
@@ -452,7 +459,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -482,7 +490,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: bytes32(0),
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState2.globalState.u64Vals[0]
                 }),
                 afterState: afterState2
             }),
@@ -519,7 +528,8 @@ contract RollupTest is Test {
                 prevPrevAssertionHash: prevPrevAssertionHash,
                 requiredStake: BASE_STAKE,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                nextInboxPosition: 0
             })
         );
     }
@@ -540,7 +550,8 @@ contract RollupTest is Test {
                 prevPrevAssertionHash: prevPrevAssertionHash,
                 requiredStake: BASE_STAKE,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                nextInboxPosition: firstState.globalState.u64Vals[0]
             })
         );
         return (assertionHash, state, inboxcount);
@@ -575,7 +586,8 @@ contract RollupTest is Test {
                 prevPrevAssertionHash: prevPrevAssertionHash,
                 requiredStake: BASE_STAKE,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                nextInboxPosition: firstState.globalState.u64Vals[0]
             })
         );
     }
@@ -705,7 +717,8 @@ contract RollupTest is Test {
                 prevPrevAssertionHash: prevPrevAssertionHash,
                 requiredStake: BASE_STAKE,
                 challengeManager: address(challengeManager),
-                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                nextInboxPosition: firstState.globalState.u64Vals[0]
             })
         );
         return data.e1Id;
@@ -802,7 +815,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: genesisHash,
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState
@@ -838,7 +852,8 @@ contract RollupTest is Test {
                     prevPrevAssertionHash: genesisHash,
                     requiredStake: BASE_STAKE,
                     challengeManager: address(challengeManager),
-                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
                 }),
                 beforeState: beforeState,
                 afterState: afterState

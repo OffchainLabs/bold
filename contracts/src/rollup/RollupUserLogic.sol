@@ -166,6 +166,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         );
 
         // Validate the config hash
+        // TODO: HN: consider removing this as this will be checked in RollupCore
         RollupLib.validateConfigHash(assertion.beforeStateData, getAssertionStorage(prevAssertion).configHash);
 
         uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;

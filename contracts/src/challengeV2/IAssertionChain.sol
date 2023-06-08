@@ -13,14 +13,17 @@ interface IAssertionChain {
         external
         view
         returns (ExecutionState memory);
-    function getNextInboxPosition(bytes32 assertionId) external view returns (uint64);
+    function validateConfig(
+        bytes32 assertionId,
+        bytes32 _wasmModuleRoot,
+        uint256 _requiredStake,
+        address _challengeManager,
+        uint64 _confirmPeriodBlocks,
+        uint64 _nextInboxPosition
+    ) external view;
     function hasSibling(bytes32 assertionId) external view returns (bool);
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256);
     function getSecondChildCreationBlock(bytes32 assertionId) external view returns (uint256);
-    function proveWasmModuleRoot(bytes32 assertionId, bytes32 root, bytes memory proof)
-        external
-        view
-        returns (bytes32);
     function isFirstChild(bytes32 assertionId) external view returns (bool);
     function isPending(bytes32 assertionId) external view returns (bool);
 }

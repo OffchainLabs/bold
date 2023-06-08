@@ -11,12 +11,12 @@ import "../state/Machine.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-///@notice A wasm module root and proof to show that it's valid
-struct WasmModuleData {
-    /// @notice A wasm module root value
-    bytes32 wasmModuleRoot;
-    /// @notice Used to prove wasm module root
-    bytes wasmModuleRootProof;
+struct ConfigData {
+    bytes32 _wasmModuleRoot;
+    uint256 _requiredStake;
+    address _challengeManager;
+    uint64 _confirmPeriodBlocks;
+    uint64 _nextInboxPosition;
 }
 
 /// @notice An execution state and proof to show that it's valid
@@ -103,12 +103,13 @@ interface IEdgeChallengeManager {
     /// @dev    One step proofs can only be executed against edges that have length one and of type SmallStep
     /// @param edgeId                       The id of the edge to confirm
     /// @param oneStepData                  Input data to the one step proof
+    /// @param prevConfig                     Data about the config set in prev
     /// @param beforeHistoryInclusionProof  Proof that the state which is the start of the edge is committed to by the startHistoryRoot
     /// @param afterHistoryInclusionProof   Proof that the state which is the end of the edge is committed to by the endHistoryRoot
     function confirmEdgeByOneStepProof(
         bytes32 edgeId,
         OneStepData calldata oneStepData,
-        WasmModuleData calldata wasmData,
+        ConfigData calldata prevConfig,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
@@ -494,17 +495,25 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     function confirmEdgeByOneStepProof(
         bytes32 edgeId,
         OneStepData calldata oneStepData,
-        WasmModuleData calldata wasmData,
+        ConfigData calldata prevConfig,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
         bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
+
+        assertionChain.validateConfig(
+            prevAssertionId,
+            prevConfig._wasmModuleRoot,
+            prevConfig._requiredStake,
+            prevConfig._challengeManager,
+            prevConfig._confirmPeriodBlocks,
+            prevConfig._nextInboxPosition
+        );
+
         ExecutionContext memory execCtx = ExecutionContext({
-            maxInboxMessagesRead: assertionChain.getNextInboxPosition(prevAssertionId),
+            maxInboxMessagesRead: prevConfig._nextInboxPosition,
             bridge: assertionChain.bridge(),
-            initialWasmModuleRoot: assertionChain.proveWasmModuleRoot(
-                prevAssertionId, wasmData.wasmModuleRoot, wasmData.wasmModuleRootProof
-                )
+            initialWasmModuleRoot: prevConfig._wasmModuleRoot
         });
 
         store.confirmEdgeByOneStepProof(
