@@ -292,7 +292,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function createNewAssertion(
         AssertionInputs calldata assertion,
         bytes32 prevAssertionId,
-        uint64 prevConfirmPeriodBlocks,
         bytes32 expectedAssertionHash
     ) internal returns (bytes32) {
         // Validate the config hash

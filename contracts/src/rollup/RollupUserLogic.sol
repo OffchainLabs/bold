@@ -170,7 +170,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
         bytes32 newAssertionHash = createNewAssertion(
-            assertion, prevAssertion, assertion.beforeStateData.confirmPeriodBlocks, expectedAssertionHash
+            assertion, prevAssertion, expectedAssertionHash
         );
         _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
 
