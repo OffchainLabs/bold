@@ -721,6 +721,9 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	}
 	e, err := cm.GetEdge(ctx, edgeId)
 	if err == nil {
+		if e.IsNone() {
+			return nil, errors.New("got empty, newly created level zero edge")
+		}
 		return e.Unwrap(), nil
 	}
 
