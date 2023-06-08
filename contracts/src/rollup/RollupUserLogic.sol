@@ -90,16 +90,12 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         // The assertion's must exists and be pending and will be checked in RollupCore
 
         // Check that deadline has passed
-        // TODO: HN: do we need to check this? can we simply relies on the prev's ChildConfirmDeadline?
-        //           ChildConfirmDeadline is set to 1 confirmPeriod after first child is created
         assertion.requirePastDeadline();
 
         // Check that prev is latest confirmed
         assert(assertion.prevId == latestConfirmed());
 
         AssertionNode storage prevAssertion = getAssertionStorage(assertion.prevId);
-        // Check that prev's child confirm deadline has passed
-        prevAssertion.requirePastChildConfirmDeadline();
 
         if (prevAssertion.secondChildBlock > 0) {
             // if the prev has more than 1 child, check if this assertion is the challenge winner

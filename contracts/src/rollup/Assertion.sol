@@ -21,9 +21,6 @@ struct AssertionNode {
     // Deadline at which this assertion can be confirmed
     // TODO: HN: remove this and derive from createdAtBlock?
     uint64 deadlineBlock;
-    // Deadline at which a child of this assertion can be confirmed
-    // TODO: HN: remove this and derive from first child?
-    uint64 noChildConfirmedBeforeBlock;
     // This value starts at zero and is set to a value when the first child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
     uint64 firstChildBlock;
     // This value starts at zero and is set to a value when the second child is created. After that it is constant until the assertion is destroyed or the owner destroys pending assertions
@@ -78,7 +75,6 @@ library AssertionNodeLib {
         AssertionNode memory assertion;
         assertion.prevId = _prevId;
         assertion.deadlineBlock = _deadlineBlock;
-        assertion.noChildConfirmedBeforeBlock = _deadlineBlock;
         assertion.createdAtBlock = uint64(block.number);
         assertion.isFirstChild = _isFirstChild;
         assertion.configHash = _configHash;
@@ -88,23 +84,13 @@ library AssertionNodeLib {
 
     /**
      * @notice Update child properties
-     * @param confirmPeriodBlocks The confirmPeriodBlocks
      */
-    function childCreated(AssertionNode storage self, uint64 confirmPeriodBlocks) internal {
+    function childCreated(AssertionNode storage self) internal {
         if (self.firstChildBlock == 0) {
             self.firstChildBlock = uint64(block.number);
-            self.noChildConfirmedBeforeBlock = uint64(block.number) + confirmPeriodBlocks;
         } else if (self.secondChildBlock == 0) {
             self.secondChildBlock = uint64(block.number);
         }
-    }
-
-    /**
-     * @notice Update the child confirmed deadline
-     * @param deadline The new deadline to set
-     */
-    function newChildConfirmDeadline(AssertionNode storage self, uint64 deadline) internal {
-        self.noChildConfirmedBeforeBlock = deadline;
     }
 
     /**
@@ -112,13 +98,6 @@ library AssertionNodeLib {
      */
     function requirePastDeadline(AssertionNode memory self) internal view {
         require(block.number >= self.deadlineBlock, "BEFORE_DEADLINE");
-    }
-
-    /**
-     * @notice Check whether the current block number has met or passed deadline for children of this assertion to be confirmed
-     */
-    function requirePastChildConfirmDeadline(AssertionNode memory self) internal view {
-        require(block.number >= self.noChildConfirmedBeforeBlock, "CHILD_TOO_RECENT");
     }
 
     function requireMoreThanOneChild(AssertionNode memory self) internal pure {

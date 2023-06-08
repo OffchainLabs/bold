@@ -412,7 +412,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         // Fetch a storage reference to prevAssertion since we copied our other one into memory
         // and we don't have enough stack available to keep to keep the previous storage reference around
-        prevAssertion.childCreated(prevConfirmPeriodBlocks);
+        prevAssertion.childCreated();
         _assertions[newAssertionHash] = newAssertion;
 
         emit AssertionCreated(
