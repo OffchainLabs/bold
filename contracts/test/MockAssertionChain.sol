@@ -45,7 +45,7 @@ contract MockAssertionChain is IAssertionChain {
     ) external view {
         require(assertionExists(assertionId), "Assertion does not exist");
         // TODO: HN: This is not how the real assertion chain calculate assertion id
-        require(assertionId == calculateAssertionId(prevAssertionId, state), "Invalid assertion hash");
+        require(assertionId == calculateAssertionId(prevAssertionId, state), "INVALID_ASSERTION_HASH");
     }
 
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
