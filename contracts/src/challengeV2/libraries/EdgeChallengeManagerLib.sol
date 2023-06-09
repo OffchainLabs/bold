@@ -106,7 +106,7 @@ library EdgeChallengeManagerLib {
     using GlobalStateLib for GlobalState;
 
     /// @dev Magic string hash to represent that a edges with a given mutual id have no rivals
-    bytes32 constant UNRIVALED = keccak256(abi.encodePacked("UNRIVALED"));
+    bytes32 public constant UNRIVALED = keccak256(abi.encodePacked("UNRIVALED"));
 
     /// @notice Get an edge from the store
     /// @dev    Throws if the edge does not exist in the store
@@ -754,10 +754,10 @@ library EdgeChallengeManagerLib {
         EdgeStore storage store,
         bytes32 edgeId,
         IOneStepProofEntry oneStepProofEntry,
-        OneStepData memory oneStepData,
+        OneStepData calldata oneStepData,
         ExecutionContext memory execCtx,
-        bytes32[] memory beforeHistoryInclusionProof,
-        bytes32[] memory afterHistoryInclusionProof
+        bytes32[] calldata beforeHistoryInclusionProof,
+        bytes32[] calldata afterHistoryInclusionProof
     ) internal {
         // get checks existence
         uint256 machineStep = get(store, edgeId).startHeight;
