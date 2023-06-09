@@ -48,10 +48,10 @@ contract EdgeChallengeManagerLibAccess {
     function confirmEdgeByOneStepProof(
         bytes32 edgeId,
         IOneStepProofEntry oneStepProofEntry,
-        OneStepData memory oneStepData,
+        OneStepData calldata oneStepData,
         ExecutionContext memory execCtx,
-        bytes32[] memory beforeHistoryInclusionProof,
-        bytes32[] memory afterHistoryInclusionProof
+        bytes32[] calldata beforeHistoryInclusionProof,
+        bytes32[] calldata afterHistoryInclusionProof
     ) public {
         store.confirmEdgeByOneStepProof(
             edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
@@ -60,7 +60,7 @@ contract EdgeChallengeManagerLibAccess {
 
     function createLayerZeroEdge(
         CreateEdgeArgs calldata args,
-        AssertionReferenceData memory ard,
+        AssertionReferenceData calldata ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
         uint256 challengePeriodBlocks,

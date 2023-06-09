@@ -57,7 +57,7 @@ interface IEdgeChallengeManager {
     /// @param prefixProof          A proof to show that the bisectionHistoryRoot commits to a prefix of the current endHistoryRoot
     /// @return lowerChildId        The id of the newly created lower child edge
     /// @return upperChildId        The id of the newly created upper child edge
-    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes memory prefixProof)
+    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes calldata prefixProof)
         external
         returns (bytes32, bytes32);
 
@@ -76,7 +76,7 @@ interface IEdgeChallengeManager {
     ///                                 great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
     function confirmEdgeByTime(
         bytes32 edgeId,
-        bytes32[] memory ancestorEdgeIds,
+        bytes32[] calldata ancestorEdgeIds,
         ExecutionStateData calldata claimStateData
     ) external;
 
@@ -401,7 +401,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes memory prefixProof)
+    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes calldata prefixProof)
         external
         returns (bytes32, bytes32)
     {
