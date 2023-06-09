@@ -648,8 +648,8 @@ contract RollupTest is Test {
                     ),
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                    ExecutionStateData(data.beforeState, abi.encode(bytes32(0), bytes32(0))),
-                    ExecutionStateData(data.afterState1, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0)))
+                    ExecutionStateData(data.beforeState, bytes32(0), bytes32(0)),
+                    ExecutionStateData(data.afterState1, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
                     )
             })
         );
@@ -682,8 +682,8 @@ contract RollupTest is Test {
                     ),
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
-                    ExecutionStateData(data.beforeState, abi.encode(bytes32(0), bytes32(0))),
-                    ExecutionStateData(data.afterState2, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0)))
+                    ExecutionStateData(data.beforeState, bytes32(0), bytes32(0)),
+                    ExecutionStateData(data.afterState2, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
                     )
             })
         );
@@ -712,7 +712,7 @@ contract RollupTest is Test {
         userRollup.challengeManager().confirmEdgeByTime(
             data.e1Id,
             new bytes32[](0),
-            ExecutionStateData(firstState, abi.encode(genesisHash, userRollup.bridge().sequencerInboxAccs(0)))
+            ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);

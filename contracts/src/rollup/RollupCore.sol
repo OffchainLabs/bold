@@ -449,12 +449,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         });
     }
 
-    function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
-        // bytes32 prevId = getAssertionStorage(assertionId).prevId;
-        // return prevId;
-        revert("WIP getPredecessorId");
-    }
-
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
         return getAssertionStorage(assertionId).firstChildBlock;
     }
@@ -469,7 +463,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 prevAssertionId,
         bytes32 inboxAcc
     ) external pure {
-        require(assertionId == RollupLib.assertionHash(prevAssertionId, state, inboxAcc), "Invalid assertion hash");
+        require(assertionId == RollupLib.assertionHash(prevAssertionId, state, inboxAcc), "INVALID_ASSERTION_HASH");
     }
 
     function validateConfig(bytes32 assertionId, ConfigData calldata configData) external view {

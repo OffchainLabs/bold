@@ -11,14 +11,6 @@ import "../state/Machine.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @notice An execution state and proof to show that it's valid
-struct ExecutionStateData {
-    /// @notice An execution state
-    ExecutionState executionState;
-    /// @notice Proof to show the execution state is valid (bytes32 prevAssertionHash, bytes32 inboxAcc)
-    bytes proof; // TODO: HN: should we flatten this proof?
-}
-
 /// @title EdgeChallengeManager interface
 interface IEdgeChallengeManager {
     /// @notice Initialize the EdgeChallengeManager. EdgeChallengeManagers are upgradeable
@@ -355,20 +347,22 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
                 abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
 
-            (bytes32 prevAssertionHash, bytes32 inboxAcc) = abi.decode(claimStateData.proof, (bytes32, bytes32));
-            assertionChain.validateAssertionId(args.claimId, claimStateData.executionState, prevAssertionHash, inboxAcc);
-
-            (bytes32 prevPrevAssertionHash, bytes32 prevInboxAcc) =
-                abi.decode(predecessorStateData.proof, (bytes32, bytes32));
             assertionChain.validateAssertionId(
-                prevAssertionHash, predecessorStateData.executionState, prevPrevAssertionHash, prevInboxAcc
+                args.claimId, claimStateData.executionState, claimStateData.prevAssertionHash, claimStateData.inboxAcc
+            );
+
+            assertionChain.validateAssertionId(
+                claimStateData.prevAssertionHash,
+                predecessorStateData.executionState,
+                predecessorStateData.prevAssertionHash,
+                predecessorStateData.inboxAcc
             );
 
             ard = AssertionReferenceData(
                 args.claimId,
-                prevAssertionHash,
+                claimStateData.prevAssertionHash,
                 assertionChain.isPending(args.claimId),
-                assertionChain.getSecondChildCreationBlock(prevAssertionHash) > 0,
+                assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash) > 0,
                 predecessorStateData.executionState,
                 claimStateData.executionState
             );
@@ -483,12 +477,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // the this edge
         bool isFirstChild = assertionChain.isFirstChild(topEdge.claimId);
         if (isFirstChild) {
-            (bytes32 prevAssertionHash, bytes32 inboxAcc) = abi.decode(claimStateData.proof, (bytes32, bytes32));
             assertionChain.validateAssertionId(
-                topEdge.claimId, claimStateData.executionState, prevAssertionHash, inboxAcc
+                topEdge.claimId,
+                claimStateData.executionState,
+                claimStateData.prevAssertionHash,
+                claimStateData.inboxAcc
             );
-            assertionBlocks = assertionChain.getSecondChildCreationBlock(prevAssertionHash)
-                - assertionChain.getFirstChildCreationBlock(prevAssertionHash);
+            assertionBlocks = assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash)
+                - assertionChain.getFirstChildCreationBlock(claimStateData.prevAssertionHash);
         } else {
             // if the assertion being claimed is not the first child, then it had siblings from the moment
             // it was created, so it has no time unrivaled

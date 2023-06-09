@@ -1570,8 +1570,8 @@ contract EdgeChallengeManagerLibTest is Test {
 
         bytes memory proof = abi.encode(
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(roots.states), expectedEndHeight),
-            ExecutionStateData(ard.startState, ""),
-            ExecutionStateData(ard.endState, "")
+            ExecutionStateData(ard.startState, bytes32(0), bytes32(0)),
+            ExecutionStateData(ard.endState, bytes32(0), bytes32(0))
         );
         if (mode == 140) {
             bytes32[] memory b = new bytes32[](1);

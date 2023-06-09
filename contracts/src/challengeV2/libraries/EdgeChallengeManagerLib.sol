@@ -6,8 +6,17 @@ import "./MerkleTreeLib.sol";
 import "./ChallengeEdgeLib.sol";
 import "../../osp/IOneStepProofEntry.sol";
 import "../../libraries/Constants.sol";
-import "../../rollup/RollupLib.sol";
 import "./ChallengeErrors.sol";
+
+/// @notice An execution state and proof to show that it's valid
+struct ExecutionStateData {
+    /// @notice An execution state
+    ExecutionState executionState;
+    /// @notice Assertion id of the prev assertion
+    bytes32 prevAssertionHash;
+    /// @notice Inbox accumulator of the assertion
+    bytes32 inboxAcc;
+}
 
 /// @notice Data for creating a layer zero edge
 struct CreateEdgeArgs {
