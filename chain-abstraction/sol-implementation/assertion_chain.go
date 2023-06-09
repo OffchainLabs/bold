@@ -175,24 +175,15 @@ func (a *AssertionChain) CreateAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-<<<<<<< HEAD
-					PrevPrevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     prevAssertionCreationInfo.AfterInboxBatchAcc,
+					PrevPrevAssertionHash: assertionCreationInfo.ParentAssertionHash,
+					SequencerBatchAcc:     assertionCreationInfo.AfterInboxBatchAcc,
 					ConfigData: rollupgen.ConfigData{
 						RequiredStake:       stake,
 						ChallengeManager:    chalManager.Address(),
 						ConfirmPeriodBlocks: chalPeriodBlocks,
 						WasmModuleRoot:      wasmModuleRoot,
-						NextInboxPosition:   prevAssertionCreationInfo.InboxMaxCount.Uint64(),
+						NextInboxPosition:   assertionCreationInfo.InboxMaxCount.Uint64(),
 					},
-=======
-					PrevPrevAssertionHash: assertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     assertionCreationInfo.AfterInboxBatchAcc,
-					RequiredStake:         stake,
-					ChallengeManager:      chalManager.Address(),
-					ConfirmPeriodBlocks:   chalPeriodBlocks,
-					WasmRoot:              wasmModuleRoot,
->>>>>>> main
 				},
 				BeforeState: assertionCreationInfo.AfterState,
 				AfterState:  postState.AsSolidityStruct(),
