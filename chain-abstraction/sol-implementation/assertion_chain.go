@@ -148,6 +148,9 @@ func (a *AssertionChain) CreateAssertion(
 	prevAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
+	if !prevAssertionCreationInfo.InboxMaxCount.IsUint64() {
+		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
+	}
 	stake, err := a.userLogic.BaseStake(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get current required stake")
@@ -167,7 +170,6 @@ func (a *AssertionChain) CreateAssertion(
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get current required stake")
 	}
-
 	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(
 			newOpts,
@@ -175,10 +177,13 @@ func (a *AssertionChain) CreateAssertion(
 				BeforeStateData: rollupgen.BeforeStateData{
 					PrevPrevAssertionHash: prevAssertionCreationInfo.ParentAssertionHash,
 					SequencerBatchAcc:     prevAssertionCreationInfo.AfterInboxBatchAcc,
-					RequiredStake:         stake,
-					ChallengeManager:      chalManager.Address(),
-					ConfirmPeriodBlocks:   chalPeriodBlocks,
-					WasmRoot:              wasmModuleRoot,
+					ConfigData: rollupgen.ConfigData{
+						RequiredStake:       stake,
+						ChallengeManager:    chalManager.Address(),
+						ConfirmPeriodBlocks: chalPeriodBlocks,
+						WasmModuleRoot:      wasmModuleRoot,
+						NextInboxPosition:   prevAssertionCreationInfo.InboxMaxCount.Uint64(),
+					},
 				},
 				BeforeState: prevAssertionCreationInfo.AfterState,
 				AfterState:  postState.AsSolidityStruct(),

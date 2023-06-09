@@ -452,6 +452,18 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 		return nil
 	}
 
+	assertionId, err := edge.Unwrap().PrevAssertionId(ctx)
+	if err != nil {
+		return err
+	}
+	creationInfo, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertionId)
+	if err != nil {
+		return err
+	}
+	if !creationInfo.InboxMaxCount.IsUint64() {
+		return errors.New("inbox max count not a uint64")
+	}
+
 	pre := make([][32]byte, len(preHistoryInclusionProof))
 	for i, r := range preHistoryInclusionProof {
 		pre[i] = r
@@ -472,9 +484,12 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 					BeforeHash: oneStepData.BeforeHash,
 					Proof:      oneStepData.Proof,
 				},
-				challengeV2gen.WasmModuleData{
+				challengeV2gen.ConfigData{
 					WasmModuleRoot:      oneStepData.WasmModuleRoot,
-					WasmModuleRootProof: oneStepData.WasmModuleRootProof,
+					RequiredStake:       creationInfo.RequiredStake,
+					ChallengeManager:    cm.addr,
+					ConfirmPeriodBlocks: creationInfo.ConfirmPeriodBlocks,
+					NextInboxPosition:   creationInfo.InboxMaxCount.Uint64(),
 				},
 				pre,
 				post,
