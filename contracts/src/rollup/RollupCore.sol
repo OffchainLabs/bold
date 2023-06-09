@@ -449,12 +449,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         });
     }
 
-    function getPredecessorId(bytes32 assertionId) external view returns (bytes32) {
-        // bytes32 prevId = getAssertionStorage(assertionId).prevId;
-        // return prevId;
-        revert("WIP getPredecessorId");
-    }
-
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
         return getAssertionStorage(assertionId).firstChildBlock;
     }

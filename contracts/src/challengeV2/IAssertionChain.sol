@@ -9,7 +9,6 @@ import "../rollup/Assertion.sol";
 /// @notice The interface required by the EdgeChallengeManager for requesting assertion data from the AssertionChain
 interface IAssertionChain {
     function bridge() external view returns (IBridge);
-    function getPredecessorId(bytes32 assertionId) external view returns (bytes32);
     function validateAssertionId(
         bytes32 assertionId,
         ExecutionState calldata state,
