@@ -82,7 +82,11 @@ interface IEdgeChallengeManager {
     /// @param edgeId                   The id of the edge to confirm
     /// @param ancestorEdgeIds          The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
     ///                                 great-grandparent etc. The chain can extend only as far as the zero layer edge of type Block.
-    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdgeIds) external;
+    function confirmEdgeByTime(
+        bytes32 edgeId,
+        bytes32[] memory ancestorEdgeIds,
+        ExecutionStateData calldata claimStateData
+    ) external;
 
     /// @notice If a confirmed edge exists whose claim id is equal to this edge, then this edge can be confirmed
     /// @dev    When zero layer edges are created they reference an edge, or assertion, in the level above. If a zero layer
@@ -345,21 +349,28 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         AssertionReferenceData memory ard;
         if (args.edgeType == EdgeType.Block) {
             // for block type edges we need to provide some extra assertion data context
-            bytes32 predecessorId = assertionChain.getPredecessorId(args.claimId);
             if (args.proof.length == 0) {
                 revert EmptyEdgeSpecificProof();
             }
             (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
                 abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
+
+            (bytes32 prevAssertionHash, bytes32 inboxAcc) = abi.decode(claimStateData.proof, (bytes32, bytes32));
+            assertionChain.validateAssertionId(args.claimId, claimStateData.executionState, prevAssertionHash, inboxAcc);
+
+            (bytes32 prevPrevAssertionHash, bytes32 prevInboxAcc) =
+                abi.decode(predecessorStateData.proof, (bytes32, bytes32));
+            assertionChain.validateAssertionId(
+                prevAssertionHash, predecessorStateData.executionState, prevPrevAssertionHash, prevInboxAcc
+            );
+
             ard = AssertionReferenceData(
                 args.claimId,
-                predecessorId,
+                prevAssertionHash,
                 assertionChain.isPending(args.claimId),
-                assertionChain.hasSibling(args.claimId),
-                assertionChain.proveExecutionState(
-                    predecessorId, predecessorStateData.executionState, predecessorStateData.proof
-                ),
-                assertionChain.proveExecutionState(args.claimId, claimStateData.executionState, claimStateData.proof)
+                assertionChain.getSecondChildCreationBlock(prevAssertionHash) > 0,
+                predecessorStateData.executionState,
+                claimStateData.executionState
             );
 
             edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight);
@@ -450,7 +461,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory ancestorEdges) public {
+    function confirmEdgeByTime(
+        bytes32 edgeId,
+        bytes32[] memory ancestorEdges,
+        ExecutionStateData calldata claimStateData
+    ) public {
         // if there are no ancestors provided, then the top edge is the edge we're confirming itself
         bytes32 lastEdgeId = ancestorEdges.length > 0 ? ancestorEdges[ancestorEdges.length - 1] : edgeId;
         ChallengeEdge storage topEdge = store.get(lastEdgeId);
@@ -468,9 +483,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // the this edge
         bool isFirstChild = assertionChain.isFirstChild(topEdge.claimId);
         if (isFirstChild) {
-            bytes32 predecessorId = assertionChain.getPredecessorId(topEdge.claimId);
-            assertionBlocks = assertionChain.getSecondChildCreationBlock(predecessorId)
-                - assertionChain.getFirstChildCreationBlock(predecessorId);
+            (bytes32 prevAssertionHash, bytes32 inboxAcc) = abi.decode(claimStateData.proof, (bytes32, bytes32));
+            assertionChain.validateAssertionId(
+                topEdge.claimId, claimStateData.executionState, prevAssertionHash, inboxAcc
+            );
+            assertionBlocks = assertionChain.getSecondChildCreationBlock(prevAssertionHash)
+                - assertionChain.getFirstChildCreationBlock(prevAssertionHash);
         } else {
             // if the assertion being claimed is not the first child, then it had siblings from the moment
             // it was created, so it has no time unrivaled

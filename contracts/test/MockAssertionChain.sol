@@ -42,14 +42,14 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionId].predecessorId;
     }
 
-    function proveExecutionState(bytes32 assertionId, ExecutionState calldata state, bytes calldata proof) external view returns (ExecutionState memory) {
+    function validateAssertionId(
+        bytes32 assertionId,
+        ExecutionState calldata state,
+        bytes32 prevAssertionId,
+        bytes32 inboxAcc
+    ) external view {
         require(assertionExists(assertionId), "Assertion does not exist");
-        return assertions[assertionId].state;
-    }
-    
-    function hasSibling(bytes32 assertionId) external view returns (bool) {
-        require(assertionExists(assertionId), "Assertion does not exist");
-        return (assertions[getPredecessorId(assertionId)].secondChildCreationBlock != 0);
+        require(keccak256(abi.encode(state)) == keccak256(abi.encode(assertions[assertionId].state)), "Invalid assertion hash");
     }
 
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {
