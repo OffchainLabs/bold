@@ -28,8 +28,6 @@ struct AssertionNode {
     bool isFirstChild;
     // Status of the Assertion
     AssertionStatus status;
-    // Id of the assertion previous to this one
-    bytes32 prevId;
     // A hash of all configuration data when the assertion is created, used for the creation and resolution of its successor
     bytes32 configHash;
 }
@@ -64,15 +62,12 @@ struct ConfigData {
 library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
-     * @param _prevId Initial value of prevId
      */
     function createAssertion(
-        bytes32 _prevId,
         bool _isFirstChild,
         bytes32 _configHash
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
-        assertion.prevId = _prevId;
         assertion.createdAtBlock = uint64(block.number);
         assertion.isFirstChild = _isFirstChild;
         assertion.configHash = _configHash;
