@@ -35,7 +35,9 @@ struct AssertionNode {
     // changes we need to know that previous assertions were made under a different root, so that we can understand that they
     // were valid at the time. So when resolving a challenge by one step, the edge challenge manager finds the wasm module root
     // that was recorded on the prev of the assertions being disputed and uses it to resolve the one step proof.
+    // Id of the assertion previous to this one
     bytes32 configHash;
+    bytes32 prevId;
 }
 
 struct BeforeStateData {
@@ -68,12 +70,15 @@ struct ConfigData {
 library AssertionNodeLib {
     /**
      * @notice Initialize a Assertion
+     * @param _prevId Initial value of prevId
      */
     function createAssertion(
+        bytes32 _prevId,
         bool _isFirstChild,
         bytes32 _configHash
     ) internal view returns (AssertionNode memory) {
         AssertionNode memory assertion;
+        assertion.prevId = _prevId;
         assertion.createdAtBlock = uint64(block.number);
         assertion.isFirstChild = _isFirstChild;
         assertion.configHash = _configHash;
