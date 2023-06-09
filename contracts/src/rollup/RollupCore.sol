@@ -333,7 +333,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
             if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
                 // the errored position must still be within the correct message bounds
-                require(afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "ERRORED_INBOX_TOO_FAR");
+                require(
+                    afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition,
+                    "ERRORED_INBOX_TOO_FAR"
+                );
 
                 // and cannot go backwards
                 require(afterInboxPosition >= prevInboxPosition, "ERRORED_INBOX_TOO_FEW");
@@ -472,10 +475,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(assertionId).secondChildBlock;
     }
 
-    function validateConfig(
-        bytes32 assertionId,
-        ConfigData calldata configData
-    ) external view {
+    function validateConfig(bytes32 assertionId, ConfigData calldata configData) external view {
         RollupLib.validateConfigHash(configData, getAssertionStorage(assertionId).configHash);
     }
 

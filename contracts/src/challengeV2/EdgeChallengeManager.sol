@@ -493,10 +493,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ) public {
         bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
 
-        assertionChain.validateConfig(
-            prevAssertionId,
-            prevConfig
-        );
+        assertionChain.validateConfig(prevAssertionId, prevConfig);
 
         ExecutionContext memory execCtx = ExecutionContext({
             maxInboxMessagesRead: prevConfig.nextInboxPosition,
