@@ -110,8 +110,8 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
 
         if (prevAssertion.secondChildBlock > 0) {
             // if the prev has more than 1 child, check if this assertion is the challenge winner
-            RollupLib.validateConfigHash(beforeStateData, prevAssertion.configHash);
-            ChallengeEdge memory winningEdge = IEdgeChallengeManager(beforeStateData.challengeManager).getEdge(winningEdgeId);
+            RollupLib.validateConfigHash(beforeStateData.configData, prevAssertion.configHash);
+            ChallengeEdge memory winningEdge = challengeManager.getEdge(winningEdgeId);
             require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
         }
