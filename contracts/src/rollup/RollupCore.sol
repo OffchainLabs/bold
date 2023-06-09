@@ -66,8 +66,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // Updating stake amount
     // ------------------------------
-    // The stake required to create an assertion can be updated by the DAO. This required stake is stored
-    // on each assertion, and shows how much stake was required to created it. Since we only store the last
+    // The stake required to create an assertion can be updated by the DAO. A required stake value is stored on each
+    // assertion, and shows how much stake is required to create the next assertion it. Since we only store the last
     // assertion made by a validator, we don't know if it has previously staked on lower/higher amounts and
     // therefore offer partial withdrawals due to this difference. Instead we enforce that either all of the
     // validators stake is locked, or none of it.
