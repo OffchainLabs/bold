@@ -148,7 +148,7 @@ func (a *AssertionChain) CreateAssertion(
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	if !prevAssertionCreationInfo.InboxMaxCount.IsUint64() {
+	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
 	}
 	stake, err := a.userLogic.BaseStake(&bind.CallOpts{Context: ctx})
