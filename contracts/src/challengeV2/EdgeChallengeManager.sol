@@ -11,14 +11,6 @@ import "../state/Machine.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @notice An execution state and proof to show that it's valid
-struct ExecutionStateData {
-    /// @notice An execution state
-    ExecutionState executionState;
-    /// @notice Proof to show the execution state is valid (bytes32 prevAssertionHash, bytes32 inboxAcc)
-    bytes proof; // TODO: HN: should we flatten this proof?
-}
-
 /// @title EdgeChallengeManager interface
 interface IEdgeChallengeManager {
     /// @notice Initialize the EdgeChallengeManager. EdgeChallengeManagers are upgradeable
