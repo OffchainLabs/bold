@@ -143,22 +143,21 @@ func (e *SpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	return ok, nil
 }
 
+// Bisect the edge, returning the upper and lower edges.
+// If the upper child exists, both edges will be returned.
+// Lower child may optionally exist so the method will bisect regardless.
 func (e *SpecEdge) Bisect(
 	ctx context.Context,
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
 ) (protocol.SpecEdge, protocol.SpecEdge, error) {
-	lowerId, err := e.LowerChild(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
+
 	upperId, err := e.UpperChild(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	var upperEdge option.Option[protocol.SpecEdge]
-	var lowerEdge option.Option[protocol.SpecEdge]
-	if !lowerId.IsNone() || !upperId.IsNone() {
+	if !upperId.IsNone() {
 		upperEdge, err = e.manager.GetEdge(ctx, upperId.Unwrap())
 		if err != nil {
 			return nil, nil, err
@@ -166,7 +165,11 @@ func (e *SpecEdge) Bisect(
 		if upperEdge.IsNone() {
 			return nil, nil, errors.New("could not refresh upper edge after bisecting, got empty result")
 		}
-		lowerEdge, err = e.manager.GetEdge(ctx, lowerId.Unwrap())
+		lowerId, err := e.LowerChild(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		lowerEdge, err := e.manager.GetEdge(ctx, lowerId.Unwrap())
 		if err != nil {
 			return nil, nil, err
 		}
