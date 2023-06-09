@@ -12,8 +12,10 @@ import "./ChallengeErrors.sol";
 struct ExecutionStateData {
     /// @notice An execution state
     ExecutionState executionState;
-    /// @notice Proof to show the execution state is valid (bytes32 prevAssertionHash, bytes32 inboxAcc)
-    bytes proof; // TODO: HN: should we flatten this proof?
+    /// @notice Assertion id of the prev assertion
+    bytes32 prevAssertionHash;
+    /// @notice Inbox accumulator of the assertion
+    bytes32 inboxAcc;
 }
 
 /// @notice Data for creating a layer zero edge

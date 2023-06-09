@@ -31,7 +31,7 @@ contract EdgeChallengeManagerTest is Test {
     ExecutionState genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.mockMachineHash(genesisState);
     bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState);
-    ExecutionStateData genesisStateData = ExecutionStateData(genesisState, abi.encode(bytes32(0), bytes32(0)));
+    ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
 
     bytes32 genesisAssertionHash;
 
@@ -143,8 +143,8 @@ contract EdgeChallengeManagerTest is Test {
             a2: a2,
             a1State: a1State,
             a2State: a2State,
-            a1Data: ExecutionStateData(a1State, abi.encode(genesis, bytes32(0))),
-            a2Data: ExecutionStateData(a2State, abi.encode(genesis, bytes32(0)))
+            a1Data: ExecutionStateData(a1State, genesis, bytes32(0)),
+            a2Data: ExecutionStateData(a2State, genesis, bytes32(0))
         });
     }
 
@@ -176,7 +176,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
                     genesisStateData,
-                    ExecutionStateData(a1State, abi.encode(genesisAssertionHash, bytes32(0)))
+                    ExecutionStateData(a1State, genesisAssertionHash, bytes32(0))
                     )
             })
         );
@@ -991,7 +991,7 @@ contract EdgeChallengeManagerTest is Test {
         bytes memory typeSpecificProof1 = abi.encode(
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
             genesisStateData,
-            ExecutionStateData(endState, abi.encode(genesisAssertionHash, bytes32(0)))
+            ExecutionStateData(endState, genesisAssertionHash, bytes32(0))
         );
 
         return challengeManager.createLayerZeroEdge(
