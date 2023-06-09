@@ -49,7 +49,8 @@ contract MockAssertionChain is IAssertionChain {
         bytes32 inboxAcc
     ) external view {
         require(assertionExists(assertionId), "Assertion does not exist");
-        require(keccak256(abi.encode(state)) == keccak256(abi.encode(assertions[assertionId].state)), "Invalid assertion hash");
+        // TODO: HN: This is not how the real assertion chain calculate assertion id
+        require(assertionId == calculateAssertionId(prevAssertionId, state), "Invalid assertion hash");
     }
 
     function getFirstChildCreationBlock(bytes32 assertionId) external view returns (uint256) {

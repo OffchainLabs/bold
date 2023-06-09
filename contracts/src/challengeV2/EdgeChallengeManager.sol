@@ -15,8 +15,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 struct ExecutionStateData {
     /// @notice An execution state
     ExecutionState executionState;
-    /// @notice Proof to show the execution state is valid
-    bytes proof;
+    /// @notice Proof to show the execution state is valid (bytes32 prevAssertionHash, bytes32 inboxAcc)
+    bytes proof; // TODO: HN: should we flatten this proof?
 }
 
 /// @title EdgeChallengeManager interface
