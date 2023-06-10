@@ -238,7 +238,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // 4. create a new assertion useing the assertion with the updated config has as a prev
         // 5. force confirm it - this is necessary to set latestConfirmed on the correct line
         // 6. unpause the contract
-        
+
         // Normally, a new assertion is created using its prev's confirmPeriodBlocks
         // in the case of a force create, we use the rollup's current confirmPeriodBlocks
         createNewAssertion(assertion, prevAssertionId, confirmPeriodBlocks, expectedAssertionHash);
