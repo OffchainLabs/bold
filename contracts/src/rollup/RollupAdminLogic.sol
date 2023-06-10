@@ -241,7 +241,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         // Normally, a new assertion is created using its prev's confirmPeriodBlocks
         // in the case of a force create, we use the rollup's current confirmPeriodBlocks
-        createNewAssertion(assertion, prevAssertionId, confirmPeriodBlocks, expectedAssertionHash);
+        createNewAssertion(assertion, prevAssertionId, expectedAssertionHash);
 
         emit OwnerFunctionCalled(23);
     }
