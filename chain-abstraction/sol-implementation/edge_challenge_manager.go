@@ -143,28 +143,33 @@ func (e *SpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	return ok, nil
 }
 
+// Bisect the edge, returning the upper and lower edges.
+// If the upper child exists, both edges will be returned.
+// Lower child may optionally exist so the method will bisect regardless.
 func (e *SpecEdge) Bisect(
 	ctx context.Context,
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
 ) (protocol.SpecEdge, protocol.SpecEdge, error) {
-	lowerId, err := e.LowerChild(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
+
 	upperId, err := e.UpperChild(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	var upperEdge option.Option[protocol.SpecEdge]
+	var lowerId option.Option[protocol.EdgeId]
 	var lowerEdge option.Option[protocol.SpecEdge]
-	if !lowerId.IsNone() || !upperId.IsNone() {
+	if !upperId.IsNone() {
 		upperEdge, err = e.manager.GetEdge(ctx, upperId.Unwrap())
 		if err != nil {
 			return nil, nil, err
 		}
 		if upperEdge.IsNone() {
 			return nil, nil, errors.New("could not refresh upper edge after bisecting, got empty result")
+		}
+		lowerId, err = e.LowerChild(ctx)
+		if err != nil {
+			return nil, nil, err
 		}
 		lowerEdge, err = e.manager.GetEdge(ctx, lowerId.Unwrap())
 		if err != nil {
@@ -452,6 +457,18 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 		return nil
 	}
 
+	assertionId, err := edge.Unwrap().AssertionId(ctx)
+	if err != nil {
+		return err
+	}
+	creationInfo, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertionId)
+	if err != nil {
+		return err
+	}
+	if !creationInfo.InboxMaxCount.IsUint64() {
+		return errors.New("inbox max count not a uint64")
+	}
+
 	pre := make([][32]byte, len(preHistoryInclusionProof))
 	for i, r := range preHistoryInclusionProof {
 		pre[i] = r
@@ -472,9 +489,12 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 					BeforeHash: oneStepData.BeforeHash,
 					Proof:      oneStepData.Proof,
 				},
-				challengeV2gen.WasmModuleData{
+				challengeV2gen.ConfigData{
 					WasmModuleRoot:      oneStepData.WasmModuleRoot,
-					WasmModuleRootProof: oneStepData.WasmModuleRootProof,
+					RequiredStake:       creationInfo.RequiredStake,
+					ChallengeManager:    cm.addr,
+					ConfirmPeriodBlocks: creationInfo.ConfirmPeriodBlocks,
+					NextInboxPosition:   creationInfo.InboxMaxCount.Uint64(),
 				},
 				pre,
 				post,
@@ -622,6 +642,23 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize block edge proof: %w", err)
 	}
+
+	edgeId, err := cm.CalculateEdgeId(
+		ctx,
+		protocol.BlockChallengeEdge,
+		protocol.OriginId(assertionCreation.ParentAssertionHash),
+		protocol.Height(startCommit.Height),
+		startCommit.Merkle,
+		protocol.Height(endCommit.Height),
+		endCommit.Merkle,
+	)
+	if err != nil {
+		return nil, err
+	}
+	someLevelZeroEdge, err := cm.GetEdge(ctx, edgeId)
+	if err == nil && !someLevelZeroEdge.IsNone() {
+		return someLevelZeroEdge.Unwrap(), nil
+	}
 	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
@@ -638,25 +675,12 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create layer zero edge: %w", err)
 	}
-
-	edgeId, err := cm.CalculateEdgeId(
-		ctx,
-		protocol.BlockChallengeEdge,
-		protocol.OriginId(assertionCreation.ParentAssertionHash),
-		protocol.Height(startCommit.Height),
-		startCommit.Merkle,
-		protocol.Height(endCommit.Height),
-		endCommit.Merkle,
-	)
-	if err != nil {
-		return nil, err
-	}
-	someLevelZeroEdge, err := cm.GetEdge(ctx, edgeId)
+	someLevelZeroEdge, err = cm.GetEdge(ctx, edgeId)
 	if err != nil {
 		return nil, err
 	}
 	if someLevelZeroEdge.IsNone() {
-		return nil, errors.New("got empty, newly created level zero edge")
+		return nil, fmt.Errorf("edge with id %#x was not found onchain", edgeId)
 	}
 	return someLevelZeroEdge.Unwrap(), nil
 }
