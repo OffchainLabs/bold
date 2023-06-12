@@ -23,23 +23,21 @@ type Opt = func(val *Manager)
 // Manager defines an offchain, challenge manager, which will be
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
-	chain                     protocol.Protocol
-	chalManagerAddr           common.Address
-	rollupAddr                common.Address
-	rollup                    *rollupgen.RollupCore
-	rollupFilterer            *rollupgen.RollupCoreFilterer
-	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                   bind.ContractBackend
-	stateManager              l2stateprovider.Provider
-	address                   common.Address
-	name                      string
-	postAssertionsInterval    time.Duration
-	timeRef                   utilTime.Reference
-	edgeTrackerWakeInterval   time.Duration
-	newAssertionCheckInterval time.Duration
-	initialSyncCompleted      chan struct{}
-	chainWatcherInterval      time.Duration
-	watcher                   *watcher.Watcher
+	chain                   protocol.Protocol
+	chalManagerAddr         common.Address
+	rollupAddr              common.Address
+	rollup                  *rollupgen.RollupCore
+	rollupFilterer          *rollupgen.RollupCoreFilterer
+	chalManager             *challengeV2gen.EdgeChallengeManagerFilterer
+	backend                 bind.ContractBackend
+	stateManager            l2stateprovider.Provider
+	address                 common.Address
+	name                    string
+	timeRef                 utilTime.Reference
+	edgeTrackerWakeInterval time.Duration
+	initialSyncCompleted    chan struct{}
+	chainWatcherInterval    time.Duration
+	watcher                 *watcher.Watcher
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -56,15 +54,6 @@ func WithAddress(addr common.Address) Opt {
 	}
 }
 
-// WithTimeReference adds a time reference interface to the validator.
-
-// WithPostAssertionsInterval specifies how often the validator should try to post assertions.
-func WithPostAssertionsInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.postAssertionsInterval = d
-	}
-}
-
 // WithEdgeTrackerWakeInterval specifies how often each edge tracker goroutine will
 // act on its responsibilities.
 func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
@@ -72,16 +61,6 @@ func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
 		val.edgeTrackerWakeInterval = d
 	}
 }
-
-// WithNewAssertionCheckInterval specifies how often handle assertions goroutine will
-// act on its responsibilities.
-func WithNewAssertionCheckInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.newAssertionCheckInterval = d
-	}
-}
-
-// WithChainWatcherInterval specifies how often the chain watcher will scan for edge events.
 
 // New sets up a validator client instances provided a protocol, state manager,
 // and additional options.
@@ -94,17 +73,15 @@ func New(
 	opts ...Opt,
 ) (*Manager, error) {
 	v := &Manager{
-		backend:                   backend,
-		chain:                     chain,
-		stateManager:              stateManager,
-		address:                   common.Address{},
-		timeRef:                   utilTime.NewRealTimeReference(),
-		rollupAddr:                rollupAddr,
-		edgeTrackerWakeInterval:   time.Millisecond * 100,
-		newAssertionCheckInterval: time.Second,
-		postAssertionsInterval:    time.Second * 5,
-		chainWatcherInterval:      time.Second * 5,
-		initialSyncCompleted:      make(chan struct{}),
+		backend:                 backend,
+		chain:                   chain,
+		stateManager:            stateManager,
+		address:                 common.Address{},
+		timeRef:                 utilTime.NewRealTimeReference(),
+		rollupAddr:              rollupAddr,
+		edgeTrackerWakeInterval: time.Millisecond * 100,
+		chainWatcherInterval:    time.Second * 5,
+		initialSyncCompleted:    make(chan struct{}),
 	}
 	for _, o := range opts {
 		o(v)

@@ -8,6 +8,7 @@ import (
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +20,7 @@ var (
 	// How often an edge tracker needs to wake and perform its responsibilities.
 	edgeTrackerWakeInterval = time.Second
 	// How often the validator polls the chain to see if new assertions have been posted.
-	checkForAssertionsInteral = time.Second
+	checkForAssertionsInterval = time.Second
 	// How often the validator will post its latest assertion to the chain.
 	postNewAssertionInterval = time.Hour
 	// How often we advance the blockchain's latest block in the background using a simulated backend.
@@ -87,6 +88,22 @@ func main() {
 		panic(err)
 	}
 
+	// Post assertions in the background.
+	alicePoster := assertions.NewPoster(chains[0], aliceStateManager, "alice", postNewAssertionInterval)
+	bobPoster := assertions.NewPoster(chains[1], bobStateManager, "bob", postNewAssertionInterval)
+
+	go alicePoster.Start(ctx)
+	go bobPoster.Start(ctx)
+
+	time.Sleep(time.Second)
+
+	// Scan for created assertions in the background.
+	aliceScanner := assertions.NewScanner(chains[0], backend, a, addrs.Rollup, "alice", checkForAssertionsInterval)
+	bobScanner := assertions.NewScanner(chains[1], backend, b, addrs.Rollup, "bob", checkForAssertionsInterval)
+
+	go aliceScanner.Scan(ctx)
+	go bobScanner.Scan(ctx)
+
 	// Advance the blockchain in the background.
 	go func() {
 		tick := time.NewTicker(advanceChainInterval)
@@ -126,8 +143,6 @@ func setupValidator(
 		validator.WithAddress(addr),
 		validator.WithName(name),
 		validator.WithEdgeTrackerWakeInterval(edgeTrackerWakeInterval),
-		validator.WithNewAssertionCheckInterval(checkForAssertionsInteral),
-		validator.WithPostAssertionsInterval(postNewAssertionInterval),
 	)
 	if err != nil {
 		return nil, err
