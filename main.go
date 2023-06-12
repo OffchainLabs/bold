@@ -22,7 +22,7 @@ var (
 	// How often the validator polls the chain to see if new assertions have been posted.
 	checkForAssertionsInterval = time.Second
 	// How often the validator will post its latest assertion to the chain.
-	postNewAssertionInterval = time.Second * 5
+	postNewAssertionInterval = time.Hour
 	// How often we advance the blockchain's latest block in the background using a simulated backend.
 	advanceChainInterval = time.Second * 5
 )
@@ -88,19 +88,21 @@ func main() {
 		panic(err)
 	}
 
-	// Scan for created assertions in the background.
-	aliceScanner := assertions.NewScanner(chains[0], backend, a, addrs.Rollup, "alice", checkForAssertionsInterval)
-	bobScanner := assertions.NewScanner(chains[1], backend, b, addrs.Rollup, "bob", checkForAssertionsInterval)
-
-	go aliceScanner.Scan(ctx)
-	go bobScanner.Scan(ctx)
-
 	// Post assertions in the background.
 	alicePoster := assertions.NewPoster(chains[0], aliceStateManager, "alice", postNewAssertionInterval)
 	bobPoster := assertions.NewPoster(chains[1], bobStateManager, "bob", postNewAssertionInterval)
 
 	go alicePoster.Start(ctx)
 	go bobPoster.Start(ctx)
+
+	time.Sleep(time.Second)
+
+	// Scan for created assertions in the background.
+	aliceScanner := assertions.NewScanner(chains[0], backend, a, addrs.Rollup, "alice", checkForAssertionsInterval)
+	bobScanner := assertions.NewScanner(chains[1], backend, b, addrs.Rollup, "bob", checkForAssertionsInterval)
+
+	go aliceScanner.Scan(ctx)
+	go bobScanner.Scan(ctx)
 
 	// Advance the blockchain in the background.
 	go func() {
