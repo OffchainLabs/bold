@@ -1,3 +1,6 @@
+// Package assertions contains testing utilities for posting and scanning for
+// assertions on chain, which are useful for simulating the responsibilities
+// of Arbitrum Nitro and initiating challenges as needed using our challenge manager.
 package assertions
 
 import (
@@ -16,6 +19,9 @@ import (
 
 var log = logrus.WithField("prefix", "assertion-scanner")
 
+// Scanner checks for posted, onchain assertions via a polling mechanism since the latest confirmed,
+// up to the latest block, and keeps doing so as the chain advances. With each observed assertion,
+// it determines whether or not it should challenge it.
 type Scanner struct {
 	chain            protocol.AssertionChain
 	backend          bind.ContractBackend
@@ -25,20 +31,27 @@ type Scanner struct {
 	validatorName    string
 }
 
+// NewScanner creates a scanner from the required dependencies.
 func NewScanner(
 	chain protocol.AssertionChain,
 	backend bind.ContractBackend,
 	challengeManager challengemanager.ChallengeCreator,
 	rollupAddr common.Address,
+	validatorName string,
+	pollInterval time.Duration,
 ) *Scanner {
 	return &Scanner{
 		chain:            chain,
 		backend:          backend,
 		challengeManager: challengeManager,
 		rollupAddr:       rollupAddr,
+		validatorName:    validatorName,
+		pollInterval:     pollInterval,
 	}
 }
 
+// Scan the blockchain for assertion creation events in a polling manner
+// from the latest confirmed assertion.
 func (s *Scanner) Scan(ctx context.Context) {
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
 		return s.getStartEndBlockNum(ctx)

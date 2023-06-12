@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	challengemanager "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
@@ -39,7 +40,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		p.On("SpecChallengeManager", ctx).Return(&mocks.MockSpecChallengeManager{}, nil)
 		p.On("GetAssertion", ctx, mockId(2)).Return(ev, nil)
 		p.On("GetAssertion", ctx, mockId(1)).Return(prev, nil)
-		scanner := assertions.NewScanner(p, cfg.Backend, manager, cfg.Addrs.Rollup)
+		scanner := assertions.NewScanner(p, cfg.Backend, manager, cfg.Addrs.Rollup, "", time.Second)
 
 		err := scanner.ProcessAssertionCreation(ctx, ev.Id())
 		require.NoError(t, err)
@@ -62,7 +63,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 			createdData.Addrs.Rollup,
 		)
 		require.NoError(t, err)
-		scanner := assertions.NewScanner(createdData.Chains[1], createdData.Backend, manager, createdData.Addrs.Rollup)
+		scanner := assertions.NewScanner(createdData.Chains[1], createdData.Backend, manager, createdData.Addrs.Rollup, "", time.Second)
 
 		err = scanner.ProcessAssertionCreation(ctx, createdData.Leaf1.Id())
 		require.NoError(t, err)
@@ -76,7 +77,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		otherScanner := assertions.NewScanner(createdData.Chains[0], createdData.Backend, otherManager, createdData.Addrs.Rollup)
+		otherScanner := assertions.NewScanner(createdData.Chains[0], createdData.Backend, otherManager, createdData.Addrs.Rollup, "", time.Second)
 
 		err = otherScanner.ProcessAssertionCreation(ctx, createdData.Leaf2.Id())
 		require.NoError(t, err)

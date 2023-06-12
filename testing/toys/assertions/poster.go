@@ -11,11 +11,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Poster defines a service which frequently posts assertions onchain at some intervals,
+// given the latest execution state it can find in its local state manager.
 type Poster struct {
 	validatorName string
 	chain         protocol.Protocol
 	stateManager  l2stateprovider.Provider
 	postInterval  time.Duration
+}
+
+// NewPoster creates a poster from required dependencies.
+func NewPoster(
+	chain protocol.Protocol,
+	stateManager l2stateprovider.Provider,
+	validatorName string,
+	postInterval time.Duration,
+) *Poster {
+	return &Poster{
+		chain:         chain,
+		stateManager:  stateManager,
+		validatorName: validatorName,
+		postInterval:  postInterval,
+	}
 }
 
 func (p *Poster) Start(ctx context.Context) {
