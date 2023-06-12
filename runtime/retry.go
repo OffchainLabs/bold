@@ -19,7 +19,7 @@ func UntilSucceeds[T any](ctx context.Context, fn func() (T, error)) (T, error) 
 		}
 		got, err := fn()
 		if err != nil {
-			log.Error(err)
+			log.WithError(err).Error("Failed to call function")
 			time.Sleep(sleepTime)
 			continue
 		}

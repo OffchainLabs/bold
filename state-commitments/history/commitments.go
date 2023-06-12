@@ -69,6 +69,7 @@ func New(
 	if err != nil {
 		return emptyCommit, err
 	}
+
 	exp := prefixproofs.NewEmptyMerkleExpansion()
 	for _, r := range leaves {
 		exp, err = prefixproofs.AppendLeaf(exp, r)

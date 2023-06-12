@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers"
+	inclusionproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/inclusion-proofs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -27,7 +29,7 @@ func (v *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionI
 	// We then add a level zero edge to initiate a challenge.
 	levelZeroEdge, err := v.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
-		return fmt.Errorf("failed to created block challenge layer zero edge: %w", err)
+		return fmt.Errorf("could not add block challenge level zero eddge %v: %w", v.name, err)
 	}
 
 	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, id)
@@ -69,7 +71,7 @@ func (v *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionI
 
 	logFields := logrus.Fields{}
 	logFields["name"] = v.name
-	logFields["assertionId"] = id
+	logFields["assertionId"] = containers.Trunc(id[:])
 	log.WithFields(logFields).Info("Successfully created level zero edge for block challenge")
 	return nil
 }
@@ -96,6 +98,16 @@ func (v *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+
+	computed, err := inclusionproofs.CalculateRootFromProof(endCommit.LastLeafProof, protocol.LevelZeroBlockEdgeHeight, endCommit.LastLeaf)
+	if err != nil {
+		return nil, err
+	}
+	if computed != endCommit.Merkle {
+		return nil, fmt.Errorf("got %#x, wanted %#x", computed, endCommit.Merkle)
+	}
+	log.Infof("Passing inclusion checks: %v", v.name)
+
 	startEndPrefixProof, err := v.stateManager.PrefixProofUpToBatch(
 		ctx,
 		0,
