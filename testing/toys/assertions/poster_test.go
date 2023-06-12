@@ -16,29 +16,29 @@ import (
 
 func Test_findLatestValidAssertion(t *testing.T) {
 	ctx := context.Background()
+	numAssertions := 10
 	t.Run("only valid latest assertion is genesis", func(t *testing.T) {
-		v, p, s := setupValidator(t)
-		setupAssertions(ctx, p, s, 10, func(int) bool { return false })
-		p.On("LatestConfirmed", ctx).Return(0, nil)
-		latestValid, err := v.findLatestValidAssertion(ctx)
+		poster, chain, stateManager := setupPoster(t)
+		setupAssertions(ctx, chain, stateManager, numAssertions, func(int) bool { return false })
+		chain.On("LatestConfirmed", ctx).Return(0, nil)
+		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, mockId(0), latestValid)
 	})
 	t.Run("all are valid, latest one is picked", func(t *testing.T) {
-		v, p, s := setupValidator(t)
-		numAssertions := 10
-		setupAssertions(ctx, p, s, numAssertions, func(int) bool { return true })
+		poster, chain, stateManager := setupPoster(t)
+		setupAssertions(ctx, chain, stateManager, numAssertions, func(int) bool { return true })
 
-		latestValid, err := v.findLatestValidAssertion(ctx)
+		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, mockId(10), latestValid)
 	})
 	t.Run("latest valid is behind", func(t *testing.T) {
-		v, p, s := setupValidator(t)
-		setupAssertions(ctx, p, s, 10, func(i int) bool { return i <= 5 })
-		p.On("LatestConfirmed", ctx).Return(1, nil)
+		poster, chain, stateManager := setupPoster(t)
+		setupAssertions(ctx, chain, stateManager, numAssertions, func(i int) bool { return i <= 5 })
+		chain.On("LatestConfirmed", ctx).Return(1, nil)
 
-		latestValid, err := v.findLatestValidAssertion(ctx)
+		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, mockId(5), latestValid)
 	})
@@ -48,7 +48,13 @@ func mockId(x uint64) protocol.AssertionId {
 	return protocol.AssertionId(common.BytesToHash([]byte(fmt.Sprintf("%d", x))))
 }
 
-func setupAssertions(ctx context.Context, p *mocks.MockProtocol, s *mocks.MockStateManager, num int, validity func(int) bool) []protocol.Assertion {
+func setupAssertions(
+	ctx context.Context,
+	p *mocks.MockProtocol,
+	s *mocks.MockStateManager,
+	num int,
+	validity func(int) bool,
+) []protocol.Assertion {
 	if num == 0 {
 		return make([]protocol.Assertion, 0)
 	}
@@ -110,16 +116,18 @@ func setupAssertions(ctx context.Context, p *mocks.MockProtocol, s *mocks.MockSt
 	return assertions
 }
 
-func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockStateManager) {
+func setupPoster(t *testing.T) (*Poster, *mocks.MockProtocol, *mocks.MockStateManager) {
 	t.Helper()
-	p := &mocks.MockProtocol{}
+	chain := &mocks.MockProtocol{}
 	ctx := context.Background()
-	p.On("CurrentChallengeManager", ctx).Return(&mocks.MockChallengeManager{}, nil)
-	p.On("SpecChallengeManager", ctx).Return(&mocks.MockSpecChallengeManager{}, nil)
-	s := &mocks.MockStateManager{}
-	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	chain.On("CurrentChallengeManager", ctx).Return(&mocks.MockChallengeManager{}, nil)
+	chain.On("SpecChallengeManager", ctx).Return(&mocks.MockSpecChallengeManager{}, nil)
+	stateProvider := &mocks.MockStateManager{}
+	_, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
-	v, err := New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup)
-	require.NoError(t, err)
-	return v, p, s
+	p := &Poster{
+		chain:        chain,
+		stateManager: stateProvider,
+	}
+	return p, chain, stateProvider
 }

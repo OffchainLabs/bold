@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ChallengeCreator defines a struct which can initiate a challenge on an assertion id
+// by creating a level zero, block challenge edge onchain.
 type ChallengeCreator interface {
 	ChallengeAssertion(ctx context.Context, id protocol.AssertionId) error
 }

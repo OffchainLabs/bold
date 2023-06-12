@@ -25,6 +25,20 @@ type Scanner struct {
 	validatorName    string
 }
 
+func NewScanner(
+	chain protocol.AssertionChain,
+	backend bind.ContractBackend,
+	challengeManager challengemanager.ChallengeCreator,
+	rollupAddr common.Address,
+) *Scanner {
+	return &Scanner{
+		chain:            chain,
+		backend:          backend,
+		challengeManager: challengeManager,
+		rollupAddr:       rollupAddr,
+	}
+}
+
 func (s *Scanner) Scan(ctx context.Context) {
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
 		return s.getStartEndBlockNum(ctx)
@@ -144,7 +158,7 @@ func (s *Scanner) checkForAssertionAdded(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, s.processAssertionCreation(ctx, it.Event)
+			return true, s.ProcessAssertionCreation(ctx, it.Event.AssertionHash)
 		})
 		if processErr != nil {
 			return processErr
@@ -153,14 +167,14 @@ func (s *Scanner) checkForAssertionAdded(
 	return nil
 }
 
-func (s *Scanner) processAssertionCreation(
+func (s *Scanner) ProcessAssertionCreation(
 	ctx context.Context,
-	event *rollupgen.RollupUserLogicAssertionCreated,
+	assertionId protocol.AssertionId,
 ) error {
 	log.WithFields(logrus.Fields{
 		"validatorName": s.validatorName,
 	}).Info("Processed assertion creation event")
-	assertion, err := s.chain.GetAssertion(ctx, event.AssertionHash)
+	assertion, err := s.chain.GetAssertion(ctx, assertionId)
 	if err != nil {
 		return err
 	}
@@ -169,6 +183,9 @@ func (s *Scanner) processAssertionCreation(
 		return err
 	}
 	if isFirstChild {
+		log.WithFields(logrus.Fields{
+			"validatorName": s.validatorName,
+		}).Info("No fork detected in assertion chain")
 		return nil
 	}
 	return s.challengeManager.ChallengeAssertion(ctx, assertion.Id())
