@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "layer2-state-provider",
+    srcs = ["manager.go"],
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//chain-abstraction:protocol",
+        "//solgen/go/rollupgen",
+        "//state-commitments/history",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)

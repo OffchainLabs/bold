@@ -3,7 +3,7 @@ package challenge_testing
 import (
 	"math/big"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -24,15 +24,14 @@ func GenerateRollupConfig(
 	}
 
 	return rollupgen.Config{
-		MiniStakeValue:           miniStakeValue,
-		ConfirmPeriodBlocks:      confirmPeriod,
-		ExtraChallengeTimeBlocks: 200,
-		StakeToken:               common.Address{},
-		BaseStake:                big.NewInt(100),
-		WasmModuleRoot:           wasmModuleRoot,
-		Owner:                    rollupOwner,
-		LoserStakeEscrow:         loserStakeEscrow,
-		ChainId:                  chainId,
+		MiniStakeValue:      miniStakeValue,
+		ConfirmPeriodBlocks: confirmPeriod,
+		StakeToken:          common.Address{},
+		BaseStake:           big.NewInt(100),
+		WasmModuleRoot:      wasmModuleRoot,
+		Owner:               rollupOwner,
+		LoserStakeEscrow:    loserStakeEscrow,
+		ChainId:             chainId,
 		SequencerInboxMaxTimeVariation: rollupgen.ISequencerInboxMaxTimeVariation{
 			DelayBlocks:   big.NewInt(60 * 60 * 24 / 15),
 			FutureBlocks:  big.NewInt(12),

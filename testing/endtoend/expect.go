@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
 )
 
@@ -15,6 +15,8 @@ type expect func(t *testing.T, ctx context.Context, be backend.Backend) error
 
 // expectChallengeCompletedByOneStepProof by waiting for a log to be received where any edge emits
 // a EdgeConfirmedByOneStepProof event and that edge has a status of finished.
+//
+//nolint:unused
 func expectChallengeCompletedByOneStepProof(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("challenge completed by one step proof", func(t *testing.T) {
 		ecm, err := edgeManager(be)
@@ -51,6 +53,8 @@ func expectChallengeCompletedByOneStepProof(t *testing.T, ctx context.Context, b
 
 // expectAliceAndBobStaked monitors EdgeAdded events until Alice and Bob are observed adding edges
 // with a stake.
+//
+//nolint:unused
 func expectAliceAndBobStaked(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("alice and bob staked", func(t *testing.T) {
 		ecm, err := edgeManager(be)

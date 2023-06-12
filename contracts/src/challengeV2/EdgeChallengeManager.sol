@@ -3,21 +3,13 @@ pragma solidity ^0.8.17;
 
 import "../rollup/Assertion.sol";
 import "./libraries/UintUtilsLib.sol";
-import "./DataEntities.sol";
+import "./IAssertionChain.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
 import "../libraries/Constants.sol";
 import "../state/Machine.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-///@notice A wasm module root and proof to show that it's valid
-struct WasmModuleData {
-    /// @notice A wasm module root value
-    bytes32 wasmModuleRoot;
-    /// @notice Used to prove wasm module root
-    bytes wasmModuleRootProof;
-}
 
 /// @notice An execution state and proof to show that it's valid
 struct ExecutionStateData {
@@ -32,7 +24,7 @@ interface IEdgeChallengeManager {
     /// @notice Initialize the EdgeChallengeManager. EdgeChallengeManagers are upgradeable
     ///         so use the initializer paradigm
     /// @param _assertionChain              The assertion chain contract
-    /// @param _challengePeriodBlocks       The amount of cumalitive time an edge must spend unrivaled before it can be confirmed
+    /// @param _challengePeriodBlocks       The amount of cumulative time an edge must spend unrivaled before it can be confirmed
     /// @param _oneStepProofEntry           The one step proof logic
     /// @param layerZeroBlockEdgeHeight     The end height of layer zero edges of type Block
     /// @param layerZeroBigStepEdgeHeight   The end height of layer zero edges of type BigStep
@@ -52,6 +44,8 @@ interface IEdgeChallengeManager {
         address _excessStakeReceiver
     ) external;
 
+    function challengePeriodBlocks() external view returns (uint256);
+
     /// @notice The one step proof resolver used to decide between rival SmallStep edges of length 1
     function oneStepProofEntry() external view returns (IOneStepProofEntry);
 
@@ -59,7 +53,7 @@ interface IEdgeChallengeManager {
     /// @param args             Edge creation args
     function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32);
 
-    /// @notice Bisect and edge. This creates two child edges:
+    /// @notice Bisect an edge. This creates two child edges:
     ///         lowerChild: has the same start root and height as this edge, but a different end root and height
     ///         upperChild: has the same end root and height as this edge, but a different start root and height
     ///         The lower child end root and height are equal to the upper child start root and height. This height
@@ -83,7 +77,7 @@ interface IEdgeChallengeManager {
     /// @dev    Edges inherit time from their parents, so the sum of unrivaled timers is compared against the threshold.
     ///         Given that an edge cannot become unrivaled after becoming rivaled, once the threshold is passed
     ///         it will always remain passed. The direct ancestors of an edge are linked by parent-child links for edges
-    ///         of the same edgeType, and claimId-edgeid links for zero layer edges that claim an edge in the level above.
+    ///         of the same edgeType, and claimId-edgeId links for zero layer edges that claim an edge in the level above.
     ///         This method also includes the amount of time the assertion being claimed spent without a sibling
     /// @param edgeId                   The id of the edge to confirm
     /// @param ancestorEdgeIds          The ids of the direct ancestors of an edge. These are ordered from the parent first, then going to grand-parent,
@@ -101,12 +95,13 @@ interface IEdgeChallengeManager {
     /// @dev    One step proofs can only be executed against edges that have length one and of type SmallStep
     /// @param edgeId                       The id of the edge to confirm
     /// @param oneStepData                  Input data to the one step proof
+    /// @param prevConfig                     Data about the config set in prev
     /// @param beforeHistoryInclusionProof  Proof that the state which is the start of the edge is committed to by the startHistoryRoot
     /// @param afterHistoryInclusionProof   Proof that the state which is the end of the edge is committed to by the endHistoryRoot
     function confirmEdgeByOneStepProof(
         bytes32 edgeId,
         OneStepData calldata oneStepData,
-        WasmModuleData calldata wasmData,
+        ConfigData calldata prevConfig,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
@@ -305,24 +300,37 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 _stakeAmount,
         address _excessStakeReceiver
     ) public initializer {
-        require(address(assertionChain) == address(0), "ALREADY_INIT");
-        require(address(_assertionChain) != address(0), "Empty assertion chain");
+        if (address(_assertionChain) == address(0)) {
+            revert EmptyAssertionChain();
+        }
         assertionChain = _assertionChain;
-        require(address(_oneStepProofEntry) != address(0), "Empty one step proof");
+        if (address(_oneStepProofEntry) == address(0)) {
+            revert EmptyOneStepProofEntry();
+        }
         oneStepProofEntry = _oneStepProofEntry;
-        require(_challengePeriodBlocks != 0, "Empty challenge period");
+        if (_challengePeriodBlocks == 0) {
+            revert EmptyChallengePeriod();
+        }
         challengePeriodBlocks = _challengePeriodBlocks;
 
         stakeToken = _stakeToken;
         stakeAmount = _stakeAmount;
-        require(_excessStakeReceiver != address(0), "Empty excess stake receiver");
+        if (_excessStakeReceiver == address(0)) {
+            revert EmptyStakeReceiver();
+        }
         excessStakeReceiver = _excessStakeReceiver;
 
-        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight), "Block height not power of 2");
+        if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight)) {
+            revert NotPowerOfTwo(layerZeroBlockEdgeHeight);
+        }
         LAYERZERO_BLOCKEDGE_HEIGHT = layerZeroBlockEdgeHeight;
-        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBigStepEdgeHeight), "Big step height not power of 2");
+        if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBigStepEdgeHeight)) {
+            revert NotPowerOfTwo(layerZeroBigStepEdgeHeight);
+        }
         LAYERZERO_BIGSTEPEDGE_HEIGHT = layerZeroBigStepEdgeHeight;
-        require(EdgeChallengeManagerLib.isPowerOfTwo(layerZeroSmallStepEdgeHeight), "Small step height not power of 2");
+        if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroSmallStepEdgeHeight)) {
+            revert NotPowerOfTwo(layerZeroSmallStepEdgeHeight);
+        }
         LAYERZERO_SMALLSTEPEDGE_HEIGHT = layerZeroSmallStepEdgeHeight;
     }
 
@@ -337,9 +345,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         AssertionReferenceData memory ard;
         if (args.edgeType == EdgeType.Block) {
             // for block type edges we need to provide some extra assertion data context
-
             bytes32 predecessorId = assertionChain.getPredecessorId(args.claimId);
-            require(args.proof.length != 0, "Block edge specific proof is empty");
+            if (args.proof.length == 0) {
+                revert EmptyEdgeSpecificProof();
+            }
             (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
                 abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
             ard = AssertionReferenceData(
@@ -354,23 +363,24 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             );
 
             edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight);
-
-            IERC20 edgeStakeToken = stakeToken;
-            uint256 edgeStakeAmount = stakeAmount;
-            // when a zero layer block edge is created it must include a stake. Each time a zero layer block
-            // edge is created it forces the honest participants to do some work, so we want to discentivise
-            // their creation. The amount should also be enough to pay for the gas costs incurred by the honest
-            // participant. This can be arranged out of bound by the excess stake receiver.
-            // the assertion chain can disable challenge staking by setting a zero stake token or amount
-            if (address(edgeStakeToken) != address(0) && stakeAmount != 0) {
-                // since only one edge in a group of rivals can ever be confirmed, we know that we
-                // will never need to refund more than one edge. Therefore we can immediately send
-                // all stakes provided after the first one to an excess stake receiver.
-                address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
-                edgeStakeToken.safeTransferFrom(msg.sender, receiver, stakeAmount);
-            }
         } else {
             edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight);
+        }
+
+        IERC20 st = stakeToken;
+        uint256 sa = stakeAmount;
+        // when a zero layer edge is created it must include stake amount. Each time a zero layer
+        // edge is created it forces the honest participants to do some work, so we want to disincentive
+        // their creation. The amount should also be enough to pay for the gas costs incurred by the honest
+        // participant. This can be arranged out of bound by the excess stake receiver.
+        // The contract initializer can disable staking by setting zeros for token or amount, to change
+        // this a new challenge manager needs to be deployed and its address updated in the assertion chain
+        if (address(st) != address(0) && sa != 0) {
+            // since only one edge in a group of rivals can ever be confirmed, we know that we
+            // will never need to refund more than one edge. Therefore we can immediately send
+            // all stakes provided after the first one to an excess stake receiver.
+            address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
+            st.safeTransferFrom(msg.sender, receiver, sa);
         }
 
         emit EdgeAdded(
@@ -446,7 +456,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 lastEdgeId = ancestorEdges.length > 0 ? ancestorEdges[ancestorEdges.length - 1] : edgeId;
         ChallengeEdge storage topEdge = store.get(lastEdgeId);
 
-        require(topEdge.eType == EdgeType.Block && topEdge.claimId != 0, "Layer zero block edge not supplied");
+        if (topEdge.eType != EdgeType.Block) {
+            revert EdgeTypeNotBlock(topEdge.eType);
+        }
+        if (!topEdge.isLayerZero()) {
+            revert EdgeNotLayerZero(topEdge.id(), topEdge.staker, topEdge.claimId);
+        }
 
         uint256 assertionBlocks;
         // if the assertion being claiming against was the first child of its predecessor
@@ -473,17 +488,18 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     function confirmEdgeByOneStepProof(
         bytes32 edgeId,
         OneStepData calldata oneStepData,
-        WasmModuleData calldata wasmData,
+        ConfigData calldata prevConfig,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
         bytes32 prevAssertionId = store.getPrevAssertionId(edgeId);
+
+        assertionChain.validateConfig(prevAssertionId, prevConfig);
+
         ExecutionContext memory execCtx = ExecutionContext({
-            maxInboxMessagesRead: assertionChain.getNextInboxPosition(prevAssertionId),
+            maxInboxMessagesRead: prevConfig.nextInboxPosition,
             bridge: assertionChain.bridge(),
-            initialWasmModuleRoot: assertionChain.proveWasmModuleRoot(
-                prevAssertionId, wasmData.wasmModuleRoot, wasmData.wasmModuleRootProof
-                )
+            initialWasmModuleRoot: prevConfig.wasmModuleRoot
         });
 
         store.confirmEdgeByOneStepProof(

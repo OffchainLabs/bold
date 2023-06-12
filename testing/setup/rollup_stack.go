@@ -5,15 +5,16 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/bridgegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/state-manager"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/util/simulated-backend"
+	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/testing/setup/simulated-backend"
+	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,8 +36,8 @@ type CreatedValidatorFork struct {
 	Chains             []*solimpl.AssertionChain
 	Accounts           []*TestAccount
 	Backend            *backends.SimulatedBackend
-	HonestStateManager statemanager.Manager
-	EvilStateManager   statemanager.Manager
+	HonestStateManager l2stateprovider.Provider
+	EvilStateManager   l2stateprovider.Provider
 	Addrs              *RollupAddresses
 }
 
@@ -50,7 +51,7 @@ func CreateTwoValidatorFork(
 	ctx context.Context,
 	cfg *CreateForkConfig,
 ) (*CreatedValidatorFork, error) {
-	setup, err := SetupChainsWithEdgeChallengeManager()
+	setup, err := ChainsWithEdgeChallengeManager()
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +68,7 @@ func CreateTwoValidatorFork(
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
+	_ = genesisState
 
 	honestStateManager, err := statemanager.NewForSimpleMachine()
 	if err != nil {
@@ -89,6 +91,13 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
+	genesisCreationInfo := &protocol.AssertionCreatedInfo{
+		AfterState: (&protocol.ExecutionState{
+			GlobalState:   protocol.GoGlobalState{},
+			MachineStatus: protocol.MachineStatusFinished,
+		}).AsSolidityStruct(),
+		InboxMaxCount: big.NewInt(1),
+	}
 
 	honestPostState, err := honestStateManager.LatestExecutionState(ctx)
 	if err != nil {
@@ -96,7 +105,7 @@ func CreateTwoValidatorFork(
 	}
 	assertion, err := setup.Chains[0].CreateAssertion(
 		ctx,
-		genesisState,
+		genesisCreationInfo,
 		honestPostState,
 	)
 	if err != nil {
@@ -109,7 +118,7 @@ func CreateTwoValidatorFork(
 	}
 	forkedAssertion, err := setup.Chains[1].CreateAssertion(
 		ctx,
-		genesisState,
+		genesisCreationInfo,
 		evilPostState,
 	)
 	if err != nil {
@@ -137,9 +146,9 @@ type ChainSetup struct {
 	RollupConfig rollupgen.Config
 }
 
-func SetupChainsWithEdgeChallengeManager() (*ChainSetup, error) {
+func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	ctx := context.Background()
-	accs, backend, err := SetupAccounts(3)
+	accs, backend, err := Accounts(3)
 	if err != nil {
 		return nil, err
 	}
@@ -456,15 +465,6 @@ func deployRollupCreator(
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployRollupCreator")
 	}
 
-	validatorUtils, tx, _, err := rollupgen.DeployValidatorUtils(auth, backend)
-	if err != nil {
-		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
-	}
-	err = challenge_testing.TxSucceeded(ctx, tx, validatorUtils, backend, err)
-	if err != nil {
-		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "rollupgen.DeployValidatorUtils")
-	}
-
 	validatorWalletCreator, tx, _, err := rollupgen.DeployValidatorWalletCreator(auth, backend)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
@@ -481,7 +481,7 @@ func deployRollupCreator(
 		challengeManagerAddr,
 		rollupAdminLogic,
 		rollupUserLogic,
-		validatorUtils,
+		common.Address{},
 		validatorWalletCreator,
 	)
 	if err != nil {
@@ -490,7 +490,7 @@ func deployRollupCreator(
 	if err := challenge_testing.WaitForTx(ctx, backend, tx); err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, errors.Wrap(err, "failed waiting for rollupCreator.SetTemplates transaction")
 	}
-	return rollupCreator, rollupUserLogic, rollupCreatorAddress, validatorUtils, validatorWalletCreator, nil
+	return rollupCreator, rollupUserLogic, rollupCreatorAddress, common.Address{}, validatorWalletCreator, nil
 }
 
 // Represents a test EOA account in the simulated backend,
@@ -499,7 +499,7 @@ type TestAccount struct {
 	TxOpts      *bind.TransactOpts
 }
 
-func SetupAccounts(numAccounts uint64) ([]*TestAccount, *backends.SimulatedBackend, error) {
+func Accounts(numAccounts uint64) ([]*TestAccount, *backends.SimulatedBackend, error) {
 	genesis := make(core.GenesisAlloc)
 	gasLimit := uint64(100000000)
 

@@ -1,0 +1,44 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "assertions",
+    srcs = [
+        "poster.go",
+        "scanner.go",
+    ],
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//chain-abstraction:protocol",
+        "//chain-abstraction/sol-implementation",
+        "//challenge-manager",
+        "//layer2-state-provider",
+        "//runtime",
+        "//solgen/go/rollupgen",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_pkg_errors//:errors",
+        "@com_github_sirupsen_logrus//:logrus",
+    ],
+)
+
+go_test(
+    name = "assertions_test",
+    srcs = [
+        "poster_test.go",
+        "scanner_test.go",
+    ],
+    embed = [":assertions"],
+    deps = [
+        "//chain-abstraction:protocol",
+        "//challenge-manager",
+        "//containers/option",
+        "//solgen/go/rollupgen",
+        "//testing/logging",
+        "//testing/mocks",
+        "//testing/setup:setup_lib",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_sirupsen_logrus//hooks/test",
+        "@com_github_stretchr_testify//require",
+    ],
+)
