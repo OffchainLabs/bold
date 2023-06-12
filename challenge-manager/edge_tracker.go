@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
+	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
+	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/fsm"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/math"
-	"github.com/OffchainLabs/challenge-protocol-v2/protocol"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/protocol/sol-implementation"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/bisection"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/commitments"
-	"github.com/OffchainLabs/challenge-protocol-v2/util/fsm"
-	utilTime "github.com/OffchainLabs/challenge-protocol-v2/util/time"
-	watcher "github.com/OffchainLabs/challenge-protocol-v2/validator/chain-watcher"
-	challengetree "github.com/OffchainLabs/challenge-protocol-v2/validator/challenge-tree"
+	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	utilTime "github.com/OffchainLabs/challenge-protocol-v2/time"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@ func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	endHeight, endCommit := et.edge.EndCommitment()
 	id := et.edge.Id()
 	return logrus.Fields{
-		"id":            bisection.Trunc(id[:]),
+		"id":            containers.Trunc(id[:]),
 		"startHeight":   startHeight,
 		"startCommit":   containers.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
@@ -185,7 +185,7 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if status == protocol.EdgeConfirmed {
 		return true, nil
 	}
-	prevAssertionId, err := et.edge.PrevAssertionId(ctx)
+	assertionId, err := et.edge.AssertionId(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get prev assertion id")
 	}
@@ -209,7 +209,7 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 
 	// Check if we can confirm by claim.
 	claimingEdge, ok := et.cfg.chainWatcher.ConfirmedEdgeWithClaimExists(
-		prevAssertionId,
+		assertionId,
 		protocol.ClaimId(et.edge.Id()),
 	)
 	if ok {
@@ -221,7 +221,7 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 	}
 
 	// Check if we can confirm by time.
-	timer, ancestors, err := et.cfg.chainWatcher.ComputeHonestPathTimer(ctx, prevAssertionId, et.edge.Id())
+	timer, ancestors, err := et.cfg.chainWatcher.ComputeHonestPathTimer(ctx, assertionId, et.edge.Id())
 	if err != nil {
 		return false, errors.Wrap(err, "could not compute honest path timer")
 	}

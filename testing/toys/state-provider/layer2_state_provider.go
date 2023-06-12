@@ -271,12 +271,12 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, blockStar
 }
 
 func (s *L2StateBackend) AgreesWithHistoryCommitment(
-	_ context.Context,
-	_ protocol.EdgeType,
-	_ uint64,
-	_ *protocol.OriginHeights,
-	_,
-	_ commitments.History,
+	ctx context.Context,
+	edgeType protocol.EdgeType,
+	prevAssertionInboxMaxCount uint64,
+	heights *protocol.OriginHeights,
+	startCommit,
+	endCommit commitments.History,
 ) (protocol.Agreement, error) {
 	agreement := protocol.Agreement{}
 	var localStartCommit commitments.History
