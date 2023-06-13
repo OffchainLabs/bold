@@ -29,7 +29,7 @@ type MockAssertion struct {
 	MockStateHash         common.Hash
 	MockInboxMsgCountSeen uint64
 	MockCreatedAtBlock    uint64
-	MockIsFirstChild      bool
+	MockHasSecondChild    bool
 	CreatedAt             uint64
 }
 
@@ -45,8 +45,8 @@ func (m *MockAssertion) StateHash() (common.Hash, error) {
 	return m.MockStateHash, nil
 }
 
-func (m *MockAssertion) IsFirstChild() (bool, error) {
-	return m.MockIsFirstChild, nil
+func (m *MockAssertion) HasSecondChild() (bool, error) {
+	return m.MockHasSecondChild, nil
 }
 
 func (m *MockAssertion) InboxMsgCountSeen() (uint64, error) {

@@ -27,24 +27,19 @@ func (v *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionI
 	}
 
 	// We then add a level zero edge to initiate a challenge.
-	levelZeroEdge, err := v.addBlockChallengeLevelZeroEdge(ctx, assertion)
+	levelZeroEdge, creationInfo, err := v.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
-		return fmt.Errorf("could not add block challenge level zero eddge %v: %w", v.name, err)
+		return fmt.Errorf("could not add block challenge level zero edge %v: %w", v.name, err)
 	}
-
-	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, id)
-	if err != nil {
-		return err
-	}
-	assertionPrevHeight, ok := v.stateManager.ExecutionStateBlockHeight(
+	assertionHeight, ok := v.stateManager.ExecutionStateBlockHeight(
 		ctx,
-		protocol.GoExecutionStateFromSolidity(prevCreationInfo.AfterState),
+		protocol.GoExecutionStateFromSolidity(creationInfo.AfterState),
 	)
 	if !ok {
 		return fmt.Errorf(
 			"missing previous assertion %v after execution %+v in local state manager",
 			id,
-			prevCreationInfo.AfterState,
+			creationInfo.AfterState,
 		)
 	}
 
@@ -61,8 +56,8 @@ func (v *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionI
 			chainWatcher:     v.watcher,
 		},
 		levelZeroEdge,
-		assertionPrevHeight,
-		prevCreationInfo.InboxMaxCount.Uint64(),
+		assertionHeight,
+		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
 		return err
@@ -79,32 +74,31 @@ func (v *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionI
 func (v *Manager) addBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
-) (protocol.SpecEdge, error) {
-	prevId := assertion.PrevId()
-	prevCreationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, prevId)
+) (protocol.SpecEdge, *protocol.AssertionCreatedInfo, error) {
+	creationInfo, err := v.chain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get assertion creation info")
+		return nil, nil, errors.Wrap(err, "could not get assertion creation info")
 	}
 	startCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, 0)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	endCommit, err := v.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
 		0,
 		protocol.LevelZeroBlockEdgeHeight,
-		prevCreationInfo.InboxMaxCount.Uint64(),
+		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	computed, err := inclusionproofs.CalculateRootFromProof(endCommit.LastLeafProof, protocol.LevelZeroBlockEdgeHeight, endCommit.LastLeaf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if computed != endCommit.Merkle {
-		return nil, fmt.Errorf("got %#x, wanted %#x", computed, endCommit.Merkle)
+		return nil, nil, fmt.Errorf("got %#x, wanted %#x", computed, endCommit.Merkle)
 	}
 	log.Infof("Passing inclusion checks: %v", v.name)
 
@@ -113,14 +107,18 @@ func (v *Manager) addBlockChallengeLevelZeroEdge(
 		0,
 		0,
 		protocol.LevelZeroBlockEdgeHeight,
-		prevCreationInfo.InboxMaxCount.Uint64(),
+		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	manager, err := v.chain.SpecChallengeManager(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
+	edge, err := manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
+	if err != nil {
+		return nil, nil, err
+	}
+	return edge, creationInfo, nil
 }
