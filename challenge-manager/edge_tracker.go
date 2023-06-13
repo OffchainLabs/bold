@@ -350,7 +350,6 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		"edgeStartHeight":     startHeight,
 		"edgeEndHeight":       endHeight,
 		"fromAssertionHeight": fromAssertionHeight,
-		"toAssertionHeight":   toAssertionHeight,
 	}
 
 	var startHistory commitments.History
@@ -425,10 +424,9 @@ func (et *edgeTracker) openSubchallengeLeaf(ctx context.Context) error {
 		return err
 	}
 	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
-	fields["endHeight"] = endHistory.Height
 	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
 	fields["subChallengeType"] = addedLeaf.GetType()
-	log.WithFields(fields).Info("Added subchallenge level zero edge")
+	log.WithFields(fields).Info("Created subchallenge edge")
 	tracker, err := newEdgeTracker(
 		ctx,
 		et.cfg,
