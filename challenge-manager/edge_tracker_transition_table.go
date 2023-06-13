@@ -49,7 +49,7 @@ func newEdgeTrackerFsm(
 		// Terminal state.
 		{
 			Typ:  edgeConfirm{},
-			From: []edgeTrackerState{edgeStarted, edgeConfirmed, edgeAtOneStepProof},
+			From: []edgeTrackerState{edgeStarted, edgeConfirming, edgeConfirmed, edgeAtOneStepProof},
 			To:   edgeConfirmed,
 		},
 	}

@@ -501,6 +501,7 @@ type edgeTrackerConfig struct {
 	validatorName    string
 	validatorAddress common.Address
 	chainWatcher     *watcher.Watcher
+	challengeManager *Manager
 }
 
 type edgeTracker struct {
@@ -537,9 +538,13 @@ func newEdgeTracker(
 }
 
 func (et *edgeTracker) spawn(ctx context.Context) {
+	// No-op if we are already tracking this edge in our challenge manager.
+	if et.cfg.challengeManager.trackedEdgeIds.Has(et.edge.Id()) {
+		return
+	}
 	fields := et.uniqueTrackerLogFields()
 	log.WithFields(fields).Info("Tracking edge")
-
+	et.cfg.challengeManager.trackedEdgeIds.Insert(et.edge.Id())
 	t := et.cfg.timeRef.NewTicker(et.cfg.actEveryNSeconds)
 	defer t.Stop()
 	for {

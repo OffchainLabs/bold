@@ -142,7 +142,6 @@ func (e *SpecEdge) Bisect(
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
 ) (protocol.SpecEdge, protocol.SpecEdge, error) {
-
 	upperId, err := e.UpperChild(ctx)
 	if err != nil {
 		return nil, nil, err

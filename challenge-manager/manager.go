@@ -6,6 +6,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
@@ -38,6 +39,7 @@ type Manager struct {
 	initialSyncCompleted    chan struct{}
 	chainWatcherInterval    time.Duration
 	watcher                 *watcher.Watcher
+	trackedEdgeIds          *threadsafe.Set[protocol.EdgeId]
 }
 
 // WithName is a human-readable identifier for this validator client for logging purposes.
@@ -82,6 +84,7 @@ func New(
 		edgeTrackerWakeInterval: time.Millisecond * 100,
 		chainWatcherInterval:    time.Second * 5,
 		initialSyncCompleted:    make(chan struct{}),
+		trackedEdgeIds:          threadsafe.NewSet[protocol.EdgeId](),
 	}
 	for _, o := range opts {
 		o(v)

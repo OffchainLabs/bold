@@ -93,6 +93,7 @@ func (v *Manager) getEdgeTrackers(ctx context.Context, edges []protocol.SpecEdge
 					validatorName:    v.name,
 					validatorAddress: v.address,
 					chainWatcher:     v.watcher,
+					challengeManager: v,
 				},
 				edge,
 				assertionHeight,
