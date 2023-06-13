@@ -7,7 +7,6 @@ import (
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers"
@@ -71,12 +70,9 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if atOneStepFork {
-			return et.fsm.Do(edgeHandleOneStepFork{})
+			return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 		}
 		return et.fsm.Do(edgeBisect{})
-	// Edge is the source of a one-step-fork.
-	case edgeAtOneStepFork:
-		return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
@@ -90,20 +86,14 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			if strings.Contains(err.Error(), "Edge already exists") {
-				return et.fsm.Do(edgeBackToStart{})
-			}
 			log.WithFields(fields).WithError(err).Error("could not open subchallenge leaf")
 			return et.fsm.Do(edgeBackToStart{})
 		}
-		return et.fsm.Do(edgeBackToStart{})
+		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
 	case edgeBisecting:
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
-			if errors.Is(err, solimpl.ErrAlreadyExists) {
-				return et.fsm.Do(edgeBackToStart{})
-			}
 			log.WithError(err).WithFields(fields).Error("Could not bisect")
 			return et.fsm.Do(edgeBackToStart{})
 		}
@@ -131,7 +121,17 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		go firstTracker.spawn(ctx)
 		go secondTracker.spawn(ctx)
-		return et.fsm.Do(edgeBackToStart{})
+		return et.fsm.Do(edgeAwaitConfirmation{})
+	case edgeConfirming:
+		wasConfirmed, err := et.tryToConfirm(ctx)
+		if err != nil {
+			log.WithFields(fields).WithError(err).Debug("Could not confirm edge yet")
+			return et.fsm.Do(edgeAwaitConfirmation{})
+		}
+		if !wasConfirmed {
+			return et.fsm.Do(edgeAwaitConfirmation{})
+		}
+		return et.fsm.Do(edgeConfirm{})
 	case edgeConfirmed:
 		log.WithFields(fields).Info("Edge reached confirmed state")
 		return et.fsm.Do(edgeConfirm{})
@@ -297,13 +297,6 @@ func (et *edgeTracker) determineBisectionHistoryWithProof(
 }
 
 func (et *edgeTracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.SpecEdge, error) {
-	hasChildren, err := et.edge.HasChildren(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	if hasChildren {
-		return nil, nil, solimpl.ErrAlreadyExists
-	}
 	historyCommit, proof, err := et.determineBisectionHistoryWithProof(ctx)
 	if err != nil {
 		return nil, nil, err

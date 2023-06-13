@@ -75,7 +75,7 @@ func Test_act(t *testing.T) {
 		require.NoError(t, err)
 		err = tkr.act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, int(edgeAtOneStepFork), int(tkr.fsm.Current().State))
+		require.Equal(t, int(edgeAddingSubchallengeLeaf), int(tkr.fsm.Current().State))
 		err = tkr.act(ctx)
 		require.NoError(t, err)
 		require.Equal(t, int(edgeAddingSubchallengeLeaf), int(tkr.fsm.Current().State))

@@ -21,13 +21,6 @@ func newEdgeTrackerFsm(
 			},
 			To: edgeStarted,
 		},
-		// One-step-proof states.
-		{
-			// The tracker will take some action if it has reached a one-step-fork.
-			Typ:  edgeHandleOneStepFork{},
-			From: []edgeTrackerState{edgeStarted},
-			To:   edgeAtOneStepFork,
-		},
 		{
 			// The tracker will take some action if it has reached a one-step-proof
 			// in a small step challenge.
@@ -38,7 +31,7 @@ func newEdgeTrackerFsm(
 		{
 			// The tracker will add a subchallenge leaf to its edge's subchallenge.
 			Typ:  edgeOpenSubchallengeLeaf{},
-			From: []edgeTrackerState{edgeAtOneStepFork, edgeAddingSubchallengeLeaf},
+			From: []edgeTrackerState{edgeStarted, edgeAddingSubchallengeLeaf},
 			To:   edgeAddingSubchallengeLeaf,
 		},
 		// Challenge moves.
@@ -46,6 +39,12 @@ func newEdgeTrackerFsm(
 			Typ:  edgeBisect{},
 			From: []edgeTrackerState{edgeStarted},
 			To:   edgeBisecting,
+		},
+		// Awaiting confirmation.
+		{
+			Typ:  edgeAwaitConfirmation{},
+			From: []edgeTrackerState{edgeStarted, edgeBisecting, edgeAddingSubchallengeLeaf, edgeConfirming},
+			To:   edgeConfirming,
 		},
 		// Terminal state.
 		{

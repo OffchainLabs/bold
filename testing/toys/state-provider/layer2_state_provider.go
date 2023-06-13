@@ -689,6 +689,12 @@ func (s *L2StateBackend) OneStepProofData(
 }
 
 func (s *L2StateBackend) prefixProofImpl(_ context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
+	if lo+1 < start {
+		return nil, fmt.Errorf("lo %d + 1 < start %d", lo, start)
+	}
+	if hi+1 < start {
+		return nil, fmt.Errorf("hi %d + 1 < start %d", hi, start)
+	}
 	states, err := s.statesUpTo(start, hi, batchCount)
 	if err != nil {
 		return nil, err
