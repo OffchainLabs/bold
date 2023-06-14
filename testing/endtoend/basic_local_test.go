@@ -218,7 +218,6 @@ func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
 	}
 }
 
-//nolint:unused
 func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
