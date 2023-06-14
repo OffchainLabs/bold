@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/nitro/util/headerreader"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -199,6 +200,57 @@ func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
 	for _, scenario := range scenarios {
 		testChallengeProtocol_AliceAndBobAndCharlie(t, be, scenario)
 	}
+}
+
+func TestChallengeProtocolSyncing(t *testing.T) {
+	be, err := backend.NewAnvilLocal(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, be.Start())
+	rollup, err := be.DeployRollup()
+	require.NoError(t, err)
+
+	hr := headerreader.New(be.Client(), func() *headerreader.Config {
+		return &headerreader.DefaultConfig
+	})
+	ctx := context.Background()
+	aChain, err := solimpl.NewAssertionChain(
+		ctx,
+		rollup,
+		be.Alice(),
+		be.Client(),
+		hr,
+	)
+	require.NoError(t, err)
+
+	sm, err := statemanager.NewForSimpleMachine(
+		statemanager.WithMachineDivergenceStep(4*protocol.LevelZeroSmallStepEdgeHeight+4),
+		statemanager.WithBlockDivergenceHeight(4),
+		statemanager.WithDivergentBlockHeightOffset(4),
+	)
+	require.NoError(t, err)
+	alice, err := validator.New(ctx, aChain, be.Client(), sm, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"))
+	require.NoError(t, err)
+
+	bChain, err := solimpl.NewAssertionChain(
+		ctx,
+		rollup,
+		be.Bob(),
+		be.Client(),
+		hr,
+	)
+	require.NoError(t, err)
+	sm1, err := statemanager.NewForSimpleMachine()
+	require.NoError(t, err)
+	bob, err := validator.New(ctx, bChain, be.Client(), sm1, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"))
+	require.NoError(t, err)
+
+	alice.Start(ctx)
+	bob.Start(ctx)
+
+	_, err = edgeManager(be)
+	require.NoError(t, err)
+
+	//TODO: Add scenario and Charlie
 }
 
 //nolint:unused
