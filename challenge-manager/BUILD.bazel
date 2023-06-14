@@ -14,11 +14,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
-        "//chain-abstraction/sol-implementation",
         "//challenge-manager/chain-watcher",
         "//challenge-manager/challenge-tree",
         "//containers",
         "//containers/fsm",
+        "//containers/threadsafe",
         "//layer2-state-provider",
         "//math",
         "//runtime",

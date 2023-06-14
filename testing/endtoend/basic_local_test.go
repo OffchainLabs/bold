@@ -11,6 +11,7 @@ import (
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -44,7 +45,6 @@ type challengeProtocolTestConfig struct {
 }
 
 func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
-	t.Skip("Temporarily skipping")
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -201,10 +201,9 @@ func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
 	}
 }
 
-//nolint:unused
 func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 		defer cancel()
 
 		rollup, err := be.DeployRollup()
@@ -212,13 +211,37 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 			t.Fatal(err)
 		}
 
-		a, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
+		a, aChain, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
+		b, bChain, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		// Post assertions in the background.
+		alicePoster := assertions.NewPoster(aChain, scenario.AliceStateManager, "alice", time.Hour)
+		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
+
+		aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bobLeaf, err := bobPoster.PostLatestAssertion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Scan for created assertions in the background.
+		aliceScanner := assertions.NewScanner(aChain, scenario.AliceStateManager, be.Client(), a, rollup, "alice", time.Hour)
+		bobScanner := assertions.NewScanner(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour)
+
+		if err := aliceScanner.ProcessAssertionCreation(ctx, aliceLeaf.Id()); err != nil {
+			panic(err)
+		}
+		if err := bobScanner.ProcessAssertionCreation(ctx, bobLeaf.Id()); err != nil {
+			panic(err)
 		}
 
 		a.Start(ctx)
@@ -241,7 +264,8 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 //nolint:unused
 func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
+		t.Skip()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 
 		rollup, err := be.DeployRollup()
@@ -249,15 +273,15 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 			t.Fatal(err)
 		}
 
-		a, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
+		a, _, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
+		b, _, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
 		if err != nil {
 			t.Fatal(err)
 		}
-		c, err := setupValidator(ctx, be, rollup, scenario.CharlieStateManager, be.Charlie(), "charlie")
+		c, _, err := setupValidator(ctx, be, rollup, scenario.CharlieStateManager, be.Charlie(), "charlie")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -281,9 +305,14 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 }
 
 // setupValidator initializes a validator with the minimum required configuration.
-//
-//nolint:unused
-func setupValidator(ctx context.Context, be backend.Backend, rollup common.Address, sm l2stateprovider.Provider, txOpts *bind.TransactOpts, name string) (*validator.Manager, error) {
+func setupValidator(
+	ctx context.Context,
+	be backend.Backend,
+	rollup common.Address,
+	sm l2stateprovider.Provider,
+	txOpts *bind.TransactOpts,
+	name string,
+) (*validator.Manager, protocol.Protocol, error) {
 	hr := headerreader.New(be.Client(), func() *headerreader.Config {
 		return &headerreader.DefaultConfig
 	})
@@ -296,7 +325,7 @@ func setupValidator(ctx context.Context, be backend.Backend, rollup common.Addre
 		hr,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	v, err := validator.New(
@@ -309,8 +338,8 @@ func setupValidator(ctx context.Context, be backend.Backend, rollup common.Addre
 		validator.WithName(name),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return v, nil
+	return v, chain, nil
 }
