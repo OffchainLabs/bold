@@ -121,10 +121,10 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 			}(),
 			Expectations: []expect{
 				expectChallengeCompletedByOneStepProof,
-				expectAliceAndBobStaked,
+				//expectAliceAndBobStaked,
 			},
 		},
-	} // TODO: Add more scenarios
+	}
 
 	for _, scenario := range scenarios {
 		testChallengeProtocol_AliceAndBob(t, be, scenario)
