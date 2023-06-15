@@ -35,7 +35,7 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 				if e.Status != uint8(protocol.EdgeConfirmed) {
 					t.Fatal("Confirmed edge with unfinished state")
 				}
-				isLevelZero := e.StartHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight && e.EndHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight
+				isLevelZero := e.StartHeight.Uint64() == 0 && e.EndHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight
 				isBlockEdge := e.EType == uint8(protocol.BlockChallengeEdge)
 				if isLevelZero && isBlockEdge {
 					edgeConfirmed = true
