@@ -18,7 +18,21 @@ import (
 
 var log = logrus.WithField("prefix", "challenge-watcher")
 
+// ConfirmationMetadataChecker defines a struct which can retrieve information about
+// an edge to determine if it can be confirmed via different means. For example,
+// checking if a confirmed edge exists that claims a specified edge id as its claim id,
+// or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
+// This information is used in order to confirm edges onchain.
 type ConfirmationMetadataChecker interface {
+	ConfirmedEdgeWithClaimExists(
+		topLevelAssertionId protocol.AssertionId,
+		claimId protocol.ClaimId,
+	) (protocol.EdgeId, bool)
+	ComputeHonestPathTimer(
+		ctx context.Context,
+		topLevelAssertionId protocol.AssertionId,
+		edgeId protocol.EdgeId,
+	) (challengetree.PathTimer, challengetree.HonestAncestors, error)
 }
 
 // Represents a set of honest edges being tracked in a top-level challenge and all the
@@ -70,10 +84,10 @@ func New(
 // edge id for a tracked challenge. This is used during the confirmation process of edges
 // within edge tracker goroutines. Returns the claiming edge id.
 func (w *Watcher) ConfirmedEdgeWithClaimExists(
-	topLevelParentAssertionId protocol.AssertionId,
+	topLevelAssertionId protocol.AssertionId,
 	claimId protocol.ClaimId,
 ) (protocol.EdgeId, bool) {
-	challenge, ok := w.challenges.TryGet(topLevelParentAssertionId)
+	challenge, ok := w.challenges.TryGet(topLevelAssertionId)
 	if !ok {
 		return protocol.EdgeId{}, false
 	}
@@ -85,7 +99,7 @@ func (w *Watcher) ConfirmedEdgeWithClaimExists(
 // edge tracker goroutine logic.
 func (w *Watcher) ComputeHonestPathTimer(
 	ctx context.Context,
-	topLevelParentAssertionId protocol.AssertionId,
+	topLevelAssertionId protocol.AssertionId,
 	edgeId protocol.EdgeId,
 ) (challengetree.PathTimer, challengetree.HonestAncestors, error) {
 	header, err := w.backend.HeaderByNumber(ctx, nil)
@@ -96,11 +110,11 @@ func (w *Watcher) ComputeHonestPathTimer(
 		return 0, nil, errors.New("latest block header number is not a uint64")
 	}
 	blockNumber := header.Number.Uint64()
-	chal, ok := w.challenges.TryGet(topLevelParentAssertionId)
+	chal, ok := w.challenges.TryGet(topLevelAssertionId)
 	if !ok {
 		return 0, nil, fmt.Errorf(
 			"could not get challenge for top level assertion %#x",
-			topLevelParentAssertionId,
+			topLevelAssertionId,
 		)
 	}
 	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)

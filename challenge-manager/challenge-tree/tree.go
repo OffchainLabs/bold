@@ -80,7 +80,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if err != nil {
 		return errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
-	//log.Infof("%s checking %#x", ht.validatorName, eg.Id())
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		eg.GetType(),
