@@ -19,10 +19,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	ErrBadOneStepProof = errors.New("bad one step proof submitted")
-)
-
 func (e *SpecEdge) Id() protocol.EdgeId {
 	return e.id
 }
@@ -486,13 +482,8 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 				post,
 			)
 		})
-	if err != nil {
-		if strings.Contains(err.Error(), "machine executed to end step") {
-			return ErrBadOneStepProof
-		}
-	}
 	// TODO: Handle receipt.
-	return nil
+	return err
 }
 
 // Like abi.NewType but panics if it fails for use in constants
