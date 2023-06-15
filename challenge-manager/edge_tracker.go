@@ -74,6 +74,9 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
+			if errors.Is(err, solimpl.ErrBadOneStepProof) {
+				return et.fsm.Do(edgeBackToStart{})
+			}
 			log.WithFields(fields).WithError(err).Error("could not submit one step proof")
 			return et.fsm.Do(edgeBackToStart{})
 		}
