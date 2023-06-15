@@ -43,8 +43,7 @@ go_test(
     embed = [":challenge-manager"],
     deps = [
         "//chain-abstraction:protocol",
-        "//containers/option",
-        "//state-commitments/history",
+        "//challenge-manager/chain-watcher",
         "//testing/logging",
         "//testing/mocks",
         "//testing/setup:setup_lib",
