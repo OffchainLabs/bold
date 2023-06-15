@@ -501,7 +501,7 @@ type edgeTrackerConfig struct {
 	stateManager     l2stateprovider.Provider
 	validatorName    string
 	validatorAddress common.Address
-	chainWatcher     *watcher.Watcher
+	chainWatcher     watcher.ConfirmationMetadataChecker
 	challengeManager *Manager
 }
 
