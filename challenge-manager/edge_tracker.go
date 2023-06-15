@@ -201,8 +201,8 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not check if children are confirmed")
 	}
 	if childrenConfirmed {
-		if err := et.edge.ConfirmByChildren(ctx); err != nil {
-			return false, errors.Wrap(err, "could not confirm by children")
+		if confirmErr := et.edge.ConfirmByChildren(ctx); confirmErr != nil {
+			return false, errors.Wrap(confirmErr, "could not confirm by children")
 		}
 		log.WithFields(et.uniqueTrackerLogFields()).Info("Confirmed by children")
 		return true, nil
@@ -214,8 +214,8 @@ func (et *edgeTracker) tryToConfirm(ctx context.Context) (bool, error) {
 		protocol.ClaimId(et.edge.Id()),
 	)
 	if ok {
-		if err := et.edge.ConfirmByClaim(ctx, protocol.ClaimId(claimingEdge)); err != nil {
-			return false, errors.Wrap(err, "could not confirm by claim")
+		if confirmClaimErr := et.edge.ConfirmByClaim(ctx, protocol.ClaimId(claimingEdge)); confirmClaimErr != nil {
+			return false, errors.Wrap(confirmClaimErr, "could not confirm by claim")
 		}
 		log.WithFields(et.uniqueTrackerLogFields()).Info("Confirmed by claim")
 		return true, nil
