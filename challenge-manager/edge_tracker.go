@@ -44,7 +44,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	case edgeStarted:
 		canOsp, err := canOneStepProve(et.edge)
 		if err != nil {
-			log.WithFields(fields).WithError(err).Error("could not check if edge can be one step proven")
+			log.WithFields(fields).WithError(err).Error("Could not check if edge can be one step proven")
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if canOsp {
@@ -52,7 +52,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			log.WithFields(fields).WithError(err).Info("could not confirm edge yet")
+			log.WithFields(fields).WithError(err).Debug("Could not confirm edge yet")
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if wasConfirmed {
@@ -67,7 +67,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
-			log.WithFields(fields).WithError(err).Error("could not check if edge has length one rival")
+			log.WithFields(fields).WithError(err).Error("Could not check if edge has length one rival")
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if atOneStepFork {
@@ -80,14 +80,14 @@ func (et *edgeTracker) act(ctx context.Context) error {
 			if errors.Is(err, errBadOneStepProof) {
 				return et.fsm.Do(edgeConfirm{})
 			}
-			log.WithFields(fields).WithError(err).Error("could not submit one step proof")
+			log.WithFields(fields).WithError(err).Error("Could not submit one step proof")
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			log.WithFields(fields).WithError(err).Error("could not open subchallenge leaf")
+			log.WithFields(fields).WithError(err).Error("Could not open subchallenge leaf")
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeAwaitConfirmation{})
