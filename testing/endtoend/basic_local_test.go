@@ -369,6 +369,7 @@ func setupValidator(
 		rollup,
 		validator.WithAddress(txOpts.From),
 		validator.WithName(name),
+		validator.WithEdgeTrackerWakeInterval(time.Millisecond*250),
 	)
 	if err != nil {
 		return nil, nil, err
