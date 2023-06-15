@@ -219,7 +219,7 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 			t.Fatal(err)
 		}
 
-		// Post assertions in the background.
+		// Post assertions.
 		alicePoster := assertions.NewPoster(aChain, scenario.AliceStateManager, "alice", time.Hour)
 		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
 
@@ -232,7 +232,7 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 			t.Fatal(err)
 		}
 
-		// Scan for created assertions in the background.
+		// Scan for created assertions.
 		aliceScanner := assertions.NewScanner(aChain, scenario.AliceStateManager, be.Client(), a, rollup, "alice", time.Hour)
 		bobScanner := assertions.NewScanner(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour)
 
@@ -283,7 +283,7 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 			t.Fatal(err)
 		}
 
-		// Post assertions in the background.
+		// Post assertions.
 		alicePoster := assertions.NewPoster(aChain, scenario.AliceStateManager, "alice", time.Hour)
 		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
 		charliePoster := assertions.NewPoster(cChain, scenario.CharlieStateManager, "charlie", time.Hour)
@@ -301,7 +301,7 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 			t.Fatal(err)
 		}
 
-		// Scan for created assertions in the background.
+		// Scan for created assertions.
 		aliceScanner := assertions.NewScanner(aChain, scenario.AliceStateManager, be.Client(), a, rollup, "alice", time.Hour)
 		bobScanner := assertions.NewScanner(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour)
 		charlieScanner := assertions.NewScanner(cChain, scenario.CharlieStateManager, be.Client(), c, rollup, "charlie", time.Hour)
