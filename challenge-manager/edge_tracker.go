@@ -3,7 +3,6 @@ package validator
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -19,6 +18,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+var errBadOneStepProof = errors.New("bad one step proof data")
 
 func (et *edgeTracker) uniqueTrackerLogFields() logrus.Fields {
 	startHeight, startCommit := et.edge.StartCommitment()
@@ -76,7 +77,7 @@ func (et *edgeTracker) act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
-			if strings.Contains(err.Error(), "Edge not pending") || strings.Contains(err.Error(), "machine executed to end step") {
+			if errors.Is(err, errBadOneStepProof) {
 				return et.fsm.Do(edgeConfirm{})
 			}
 			log.WithFields(fields).WithError(err).Error("could not submit one step proof")
@@ -478,7 +479,7 @@ func (et *edgeTracker) submitOneStepProof(ctx context.Context) error {
 		uint64(pc)+1,
 	)
 	if err != nil {
-		return err
+		return errors.Wrapf(errBadOneStepProof, "could not get one step data: %v", err)
 	}
 	if err = manager.ConfirmEdgeByOneStepProof(
 		ctx,

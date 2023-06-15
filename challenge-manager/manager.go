@@ -124,11 +124,13 @@ func (v *Manager) Start(ctx context.Context) {
 	// Start watching for ongoing chain events in the background.
 	go v.watcher.Watch(ctx, v.initialSyncCompleted)
 
-	// Then, block the main thread and wait until the chain event watcher has synced up with
+	// Then, wait until the chain event watcher has synced up with
 	// all edges from the chain since the latest confirmed assertion up to the latest block number.
+	//go func() {
 	if err := v.syncEdges(ctx); err != nil {
-		log.WithError(err).Fatal("Could not sync with onchain edges")
+		log.WithError(err).Errorf("Could sync with edges")
 	}
+	//}()
 }
 
 // waitForSync waits for a notificataion that initial sync of onchain edges is complete.

@@ -8,6 +8,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	challengemanager "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/logging"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
@@ -27,17 +28,21 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 			MockPrevId:         mockId(1),
 			MockId:             mockId(1),
 			MockStateHash:      common.Hash{},
-			MockHasSecondChild: true,
+			MockHasSecondChild: false,
 		}
 		ev := &mocks.MockAssertion{
 			MockPrevId:         mockId(1),
 			MockId:             mockId(2),
 			MockStateHash:      common.BytesToHash([]byte("bar")),
-			MockHasSecondChild: true,
+			MockHasSecondChild: false,
 		}
 
 		p := &mocks.MockProtocol{}
 		p.On("SpecChallengeManager", ctx).Return(&mocks.MockSpecChallengeManager{}, nil)
+		p.On("ReadAssertionCreationInfo", ctx, mockId(2)).Return(&protocol.AssertionCreatedInfo{
+			ParentAssertionHash: common.Hash(mockId(1)),
+			AfterState:          rollupgen.ExecutionState{},
+		}, nil)
 		p.On("GetAssertion", ctx, mockId(2)).Return(ev, nil)
 		p.On("GetAssertion", ctx, mockId(1)).Return(prev, nil)
 		scanner := assertions.NewScanner(p, mockStateProvider, cfg.Backend, manager, cfg.Addrs.Rollup, "", time.Second)
