@@ -270,6 +270,10 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, blockStar
 	)
 }
 
+// AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
+// history commitment for a type of edge under a specified assertion challenge. It returns an agreement struct
+// which informs the caller whether (a) we agree with the start commitment, and whether (b) the edge is honest, meaning
+// that we also agree with the end commitment.
 func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	edgeType protocol.EdgeType,

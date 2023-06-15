@@ -52,7 +52,6 @@ func (et *edgeTracker) act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			fmt.Println(err)
 			log.WithFields(fields).WithError(err).Info("could not confirm edge yet")
 			return et.fsm.Do(edgeBackToStart{})
 		}
