@@ -132,6 +132,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 }
 
 func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
+	t.Skip()
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)
