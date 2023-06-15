@@ -132,7 +132,6 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 }
 
 func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
-	t.Skip()
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -261,11 +260,9 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 	})
 }
 
-//nolint:unused
 func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
-		t.Skip()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 		defer cancel()
 
 		rollup, err := be.DeployRollup()
@@ -273,17 +270,50 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 			t.Fatal(err)
 		}
 
-		a, _, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
+		a, aChain, err := setupValidator(ctx, be, rollup, scenario.AliceStateManager, be.Alice(), "alice")
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, _, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
+		b, bChain, err := setupValidator(ctx, be, rollup, scenario.BobStateManager, be.Bob(), "bob")
 		if err != nil {
 			t.Fatal(err)
 		}
-		c, _, err := setupValidator(ctx, be, rollup, scenario.CharlieStateManager, be.Charlie(), "charlie")
+		c, cChain, err := setupValidator(ctx, be, rollup, scenario.CharlieStateManager, be.Charlie(), "charlie")
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		// Post assertions in the background.
+		alicePoster := assertions.NewPoster(aChain, scenario.AliceStateManager, "alice", time.Hour)
+		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
+		charliePoster := assertions.NewPoster(cChain, scenario.CharlieStateManager, "charlie", time.Hour)
+
+		aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bobLeaf, err := bobPoster.PostLatestAssertion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		charlieLeaf, err := charliePoster.PostLatestAssertion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Scan for created assertions in the background.
+		aliceScanner := assertions.NewScanner(aChain, scenario.AliceStateManager, be.Client(), a, rollup, "alice", time.Hour)
+		bobScanner := assertions.NewScanner(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour)
+		charlieScanner := assertions.NewScanner(cChain, scenario.CharlieStateManager, be.Client(), c, rollup, "charlie", time.Hour)
+
+		if err := aliceScanner.ProcessAssertionCreation(ctx, aliceLeaf.Id()); err != nil {
+			panic(err)
+		}
+		if err := bobScanner.ProcessAssertionCreation(ctx, bobLeaf.Id()); err != nil {
+			panic(err)
+		}
+		if err := charlieScanner.ProcessAssertionCreation(ctx, charlieLeaf.Id()); err != nil {
+			panic(err)
 		}
 
 		a.Start(ctx)
