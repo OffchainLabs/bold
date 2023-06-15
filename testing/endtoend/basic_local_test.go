@@ -10,7 +10,6 @@ import (
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
@@ -224,15 +223,11 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		alicePoster := assertions.NewPoster(aChain, scenario.AliceStateManager, "alice", time.Hour)
 		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
 
-		aliceLeaf, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
-			return alicePoster.PostLatestAssertion(ctx)
-		})
+		aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bobLeaf, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
-			return bobPoster.PostLatestAssertion(ctx)
-		})
+		bobLeaf, err := bobPoster.PostLatestAssertion(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -293,21 +288,15 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
 		charliePoster := assertions.NewPoster(cChain, scenario.CharlieStateManager, "charlie", time.Hour)
 
-		aliceLeaf, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
-			return alicePoster.PostLatestAssertion(ctx)
-		})
+		aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bobLeaf, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
-			return bobPoster.PostLatestAssertion(ctx)
-		})
+		bobLeaf, err := bobPoster.PostLatestAssertion(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		charlieLeaf, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
-			return charliePoster.PostLatestAssertion(ctx)
-		})
+		charlieLeaf, err := charliePoster.PostLatestAssertion(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
