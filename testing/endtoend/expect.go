@@ -6,6 +6,8 @@ import (
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
 )
 
@@ -23,12 +25,16 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 
 		var edgeConfirmed bool
 		for ctx.Err() == nil && !edgeConfirmed {
-			i, err := ecm.FilterEdgeConfirmedByChildren(nil, nil, nil)
+			i, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerEdgeConfirmedByChildrenIterator, error) {
+				return ecm.FilterEdgeConfirmedByChildren(nil, nil, nil)
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			for i.Next() {
-				e, err := ecm.GetEdge(nil, i.Event.EdgeId)
+				e, err := retry.UntilSucceeds(ctx, func() (challengeV2gen.ChallengeEdge, error) {
+					return ecm.GetEdge(nil, i.Event.EdgeId)
+				})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -57,23 +63,31 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 // edge has a status of finished.
 func expectOneStepProofSuccessful(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("challenge completed by one step proof", func(t *testing.T) {
-		ecm, err := edgeManager(be)
+		ecm, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManager, error) {
+			return edgeManager(be)
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		var edgeConfirmed bool
 		for ctx.Err() == nil && !edgeConfirmed {
-			i, err := ecm.FilterEdgeConfirmedByOneStepProof(nil, nil, nil)
+			i, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerEdgeConfirmedByOneStepProofIterator, error) {
+				return ecm.FilterEdgeConfirmedByOneStepProof(nil, nil, nil)
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			for i.Next() {
 				edgeConfirmed = true
 
-				if e, err := ecm.GetEdge(nil, i.Event.EdgeId); err != nil {
+				e, err := retry.UntilSucceeds(ctx, func() (challengeV2gen.ChallengeEdge, error) {
+					return ecm.GetEdge(nil, i.Event.EdgeId)
+				})
+				if err != nil {
 					t.Fatal(err)
-				} else if e.Status != uint8(protocol.EdgeConfirmed) {
+				}
+				if e.Status != uint8(protocol.EdgeConfirmed) {
 					t.Fatal("Confirmed edge with unfinished state")
 				}
 				break
@@ -93,24 +107,30 @@ func expectOneStepProofSuccessful(t *testing.T, ctx context.Context, be backend.
 // with a stake.
 func expectAliceAndBobStaked(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("alice and bob staked", func(t *testing.T) {
-		ecm, err := edgeManager(be)
+		ecm, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManager, error) {
+			return edgeManager(be)
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		var aliceStaked, bobStaked bool
 		for ctx.Err() == nil && (!aliceStaked || !bobStaked) {
-			i, err := ecm.FilterEdgeAdded(nil, nil, nil, nil)
+			i, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerEdgeAddedIterator, error) {
+				return ecm.FilterEdgeAdded(nil, nil, nil, nil)
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			for i.Next() {
-				edge, err := ecm.GetEdge(nil, i.Event.EdgeId)
+				e, err := retry.UntilSucceeds(ctx, func() (challengeV2gen.ChallengeEdge, error) {
+					return ecm.GetEdge(nil, i.Event.EdgeId)
+				})
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				switch edge.Staker {
+				switch e.Staker {
 				case be.Alice().From:
 					aliceStaked = true
 				case be.Bob().From:
