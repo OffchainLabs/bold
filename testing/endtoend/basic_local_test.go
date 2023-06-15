@@ -88,7 +88,8 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 				return sm
 			}(),
 			Expectations: []expect{
-				expectChallengeCompletedByOneStepProof,
+				expectOneStepProofSuccessful,
+				expectLevelZeroBlockEdgeConfirmed,
 				expectAliceAndBobStaked,
 			},
 		},
@@ -120,7 +121,8 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 				return sm
 			}(),
 			Expectations: []expect{
-				expectChallengeCompletedByOneStepProof,
+				expectOneStepProofSuccessful,
+				expectLevelZeroBlockEdgeConfirmed,
 				expectAliceAndBobStaked,
 			},
 		},
@@ -191,7 +193,7 @@ func TestChallengeProtocol_AliceAndBobAndCharlie_AnvilLocal(t *testing.T) {
 
 			}(),
 			Expectations: []expect{
-				expectChallengeCompletedByOneStepProof,
+				expectOneStepProofSuccessful,
 			},
 		},
 	}

@@ -13,9 +13,49 @@ import (
 // for the given scenario.
 type expect func(t *testing.T, ctx context.Context, be backend.Backend) error
 
-// expectChallengeCompletedByOneStepProof by waiting for a log to be received where any edge emits
-// a EdgeConfirmedByOneStepProof event and that edge has a status of finished.
-func expectChallengeCompletedByOneStepProof(t *testing.T, ctx context.Context, be backend.Backend) error {
+// Expects that a level zero, block challenge edge was successfully confirmed in an e2e run.
+func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be backend.Backend) error {
+	t.Run("level zero block edge confirmed", func(t *testing.T) {
+		ecm, err := edgeManager(be)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var edgeConfirmed bool
+		for ctx.Err() == nil && !edgeConfirmed {
+			i, err := ecm.FilterEdgeConfirmedByChildren(nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i.Next() {
+				e, err := ecm.GetEdge(nil, i.Event.EdgeId)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if e.Status != uint8(protocol.EdgeConfirmed) {
+					t.Fatal("Confirmed edge with unfinished state")
+				}
+				isLevelZero := e.StartHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight && e.EndHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight
+				isBlockEdge := e.EType == uint8(protocol.BlockChallengeEdge)
+				if isLevelZero && isBlockEdge {
+					edgeConfirmed = true
+					break
+				}
+			}
+			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+		}
+
+		if !edgeConfirmed {
+			t.Fatal("level zero, block challenge edge was not confirmed")
+		}
+	})
+
+	return nil
+}
+
+// expectOneStepProofSuccessful by waiting for a EdgeConfirmedByOneStepProof event and that
+// edge has a status of finished.
+func expectOneStepProofSuccessful(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("challenge completed by one step proof", func(t *testing.T) {
 		ecm, err := edgeManager(be)
 		if err != nil {
