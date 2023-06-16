@@ -9,15 +9,14 @@ import (
 	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // expect is a function that will be called asynchronously to verify some success criteria
 // for the given scenario.
-type expect func(t *testing.T, ctx context.Context, be backend.Backend, staker common.Address) error
+type expect func(t *testing.T, ctx context.Context, be backend.Backend) error
 
 // Expects that a level zero, block challenge edge was successfully confirmed in an e2e run.
-func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be backend.Backend, staker common.Address) error {
+func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("level zero block edge confirmed", func(t *testing.T) {
 		ecm, err := edgeManager(be)
 		if err != nil {
@@ -42,9 +41,6 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 				if e.Status != uint8(protocol.EdgeConfirmed) {
 					t.Fatal("Confirmed edge with unfinished state")
 				}
-				if e.Staker != staker {
-					t.Fatal("Confirmed edge with unexpected staker, expected", staker.Hex(), "got", e.Staker.Hex())
-				}
 				isLevelZero := e.StartHeight.Uint64() == 0 && e.EndHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight
 				isBlockEdge := e.EType == uint8(protocol.BlockChallengeEdge)
 				if isLevelZero && isBlockEdge {
@@ -65,7 +61,7 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 
 // expectOneStepProofSuccessful by waiting for a EdgeConfirmedByOneStepProof event and that
 // edge has a status of finished.
-func expectOneStepProofSuccessful(t *testing.T, ctx context.Context, be backend.Backend, _ common.Address) error {
+func expectOneStepProofSuccessful(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("challenge completed by one step proof", func(t *testing.T) {
 		ecm, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManager, error) {
 			return edgeManager(be)
@@ -109,7 +105,7 @@ func expectOneStepProofSuccessful(t *testing.T, ctx context.Context, be backend.
 
 // expectAliceAndBobStaked monitors EdgeAdded events until Alice and Bob are observed adding edges
 // with a stake.
-func expectAliceAndBobStaked(t *testing.T, ctx context.Context, be backend.Backend, _ common.Address) error {
+func expectAliceAndBobStaked(t *testing.T, ctx context.Context, be backend.Backend) error {
 	t.Run("alice and bob staked", func(t *testing.T) {
 		ecm, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManager, error) {
 			return edgeManager(be)

@@ -316,7 +316,7 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		for _, e := range scenario.Expectations {
 			fn := e // loop closure
 			g.Go(func() error {
-				return fn(t, ctx, be, common.Address{})
+				return fn(t, ctx, be)
 			})
 		}
 
@@ -390,7 +390,7 @@ func testChallengeProtocol_AliceAndBobAndCharlie(t *testing.T, be backend.Backen
 		for _, e := range scenario.Expectations {
 			fn := e // loop closure
 			g.Go(func() error {
-				return fn(t, ctx, be, common.Address{})
+				return fn(t, ctx, be)
 			})
 		}
 
@@ -456,9 +456,7 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		for _, e := range s.Expectations {
 			fn := e // loop closure
 			g.Go(func() error {
-				return fn(t, ctx, be, common.Address{})
-				// TODO: Emit correct staker address from `FilterEdgeConfirmedByChildren` log.
-				// return fn(t, ctx, be, be.Charlie().From /* Charlie should be the final winner, not Bob */)
+				return fn(t, ctx, be)
 			})
 		}
 
