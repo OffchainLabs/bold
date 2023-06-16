@@ -231,6 +231,10 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if err != nil {
 		return err
 	}
+	// If the assertion is genesis, return nil.
+	if creationInfo.ParentAssertionHash == [32]byte{} {
+		return nil
+	}
 	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionId(creationInfo.ParentAssertionHash))
 	if err != nil {
 		return err
