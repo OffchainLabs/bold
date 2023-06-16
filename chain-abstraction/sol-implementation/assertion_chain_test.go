@@ -76,6 +76,10 @@ func TestCreateAssertion(t *testing.T) {
 	})
 }
 
+func TestConfirmAssertionByChallengeWinner(t *testing.T) {
+
+}
+
 func TestAssertionBySequenceNum(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := setup.ChainsWithEdgeChallengeManager()

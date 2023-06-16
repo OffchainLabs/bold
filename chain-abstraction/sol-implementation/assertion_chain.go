@@ -267,7 +267,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 		return err
 	}
 	if len(receipt.Logs) == 0 {
-		return errors.New("no logs observed from assertion creation")
+		return errors.New("no logs observed from assertion confirmation")
 	}
 	return nil
 }
