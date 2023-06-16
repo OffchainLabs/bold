@@ -18,11 +18,14 @@ func (v *Manager) syncEdges(ctx context.Context) error {
 		return err
 	}
 	edges := v.watcher.GetEdges()
-	fmt.Println("Got edges", len(edges))
 	trackers, err := v.getEdgeTrackers(ctx, edges)
 	if err != nil {
 		return err
 	}
+
+	log.WithField(
+		"count", len(edges),
+	).Infof("Syncing edges for %v", v.name)
 
 	// Spin off all the edge trackers in the background.
 	for _, tracker := range trackers {
