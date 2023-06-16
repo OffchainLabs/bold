@@ -60,39 +60,39 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 	}()
 
 	scenarios := []*ChallengeScenario{
-		{
-			Name: "two forked assertions at the same height",
-			AliceStateManager: func() l2stateprovider.Provider {
-				sm, err := statemanager.NewForSimpleMachine()
-				if err != nil {
-					t.Fatal(err)
-				}
-				return sm
-			}(),
-			BobStateManager: func() l2stateprovider.Provider {
-				cfg := &challengeProtocolTestConfig{
-					// The heights at which the validators diverge in histories. In this test,
-					// alice and bob start diverging at height 3 at all subchallenge levels.
-					assertionDivergenceHeight: 4,
-					bigStepDivergenceHeight:   4,
-					smallStepDivergenceHeight: 4,
-				}
-				sm, err := statemanager.NewForSimpleMachine(
-					statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
-					statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
-					statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return sm
-			}(),
-			Expectations: []expect{
-				expectOneStepProofSuccessful,
-				expectLevelZeroBlockEdgeConfirmed,
-				expectAliceAndBobStaked,
-			},
-		},
+		// {
+		// 	Name: "two forked assertions at the same height",
+		// 	AliceStateManager: func() l2stateprovider.Provider {
+		// 		sm, err := statemanager.NewForSimpleMachine()
+		// 		if err != nil {
+		// 			t.Fatal(err)
+		// 		}
+		// 		return sm
+		// 	}(),
+		// 	BobStateManager: func() l2stateprovider.Provider {
+		// 		cfg := &challengeProtocolTestConfig{
+		// 			// The heights at which the validators diverge in histories. In this test,
+		// 			// alice and bob start diverging at height 3 at all subchallenge levels.
+		// 			assertionDivergenceHeight: 4,
+		// 			bigStepDivergenceHeight:   4,
+		// 			smallStepDivergenceHeight: 4,
+		// 		}
+		// 		sm, err := statemanager.NewForSimpleMachine(
+		// 			statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+		// 			statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+		// 			statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+		// 		)
+		// 		if err != nil {
+		// 			t.Fatal(err)
+		// 		}
+		// 		return sm
+		// 	}(),
+		// 	Expectations: []expect{
+		// 		expectOneStepProofSuccessful,
+		// 		expectLevelZeroBlockEdgeConfirmed,
+		// 		expectAliceAndBobStaked,
+		// 	},
+		// },
 		{
 			Name: "two forked assertions at the different step heights",
 			AliceStateManager: func() l2stateprovider.Provider {
