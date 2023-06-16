@@ -210,7 +210,7 @@ func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 		ancestors[i] = r
 	}
 	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByTime(e.manager.txOpts, e.id, ancestors)
+		return e.manager.writer.ConfirmEdgeByTime(e.manager.txOpts, e.id, ancestors, challengeV2gen.ExecutionStateData{})
 	})
 	return err
 }
@@ -583,9 +583,13 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to read assertion %#x creation info: %w", assertion.Id(), err)
 	}
-	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.PrevId())
+	prevId, err := assertion.PrevId(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read parent assertion %#x creation info: %w", assertion.PrevId(), err)
+		return nil, err
+	}
+	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, prevId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read parent assertion %#x creation info: %w", prevId, err)
 	}
 	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
 		return nil, fmt.Errorf(
