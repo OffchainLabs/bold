@@ -532,8 +532,12 @@ var executionStateData = newStaticType("tuple", "ExecutionStateData", []abi.Argu
 		},
 	},
 	{
-		Type: "bytes",
-		Name: "proof",
+		Type: "bytes32",
+		Name: "prevAssertionHash",
+	},
+	{
+		Type: "bytes32",
+		Name: "inboxAcc",
 	},
 })
 
@@ -552,24 +556,10 @@ var blockEdgeCreateProofAbi = abi.Arguments{
 	},
 }
 
-var executionStateDataProofAbi = abi.Arguments{
-	{
-		Name: "parentAssertionHash",
-		Type: bytes32Type,
-	},
-	{
-		Name: "inboxAcc",
-		Type: bytes32Type,
-	},
-	{
-		Name: "wasmModuleRootInner",
-		Type: bytes32Type,
-	},
-}
-
 type ExecutionStateData struct {
-	ExecutionState rollupgen.ExecutionState
-	Proof          []byte
+	ExecutionState    rollupgen.ExecutionState
+	PrevAssertionHash [32]byte
+	InboxAcc          [32]byte
 }
 
 func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
@@ -598,31 +588,17 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 			protocol.LevelZeroBlockEdgeHeight,
 		)
 	}
-	preStateProof, err := executionStateDataProofAbi.Pack(
-		parentAssertionCreation.ParentAssertionHash,
-		parentAssertionCreation.AfterInboxBatchAcc,
-		parentAssertionCreation.WasmModuleRoot,
-	)
-	if err != nil {
-		return nil, err
-	}
-	postStateProof, err := executionStateDataProofAbi.Pack(
-		assertionCreation.ParentAssertionHash,
-		assertionCreation.AfterInboxBatchAcc,
-		assertionCreation.WasmModuleRoot,
-	)
-	if err != nil {
-		return nil, err
-	}
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
 		ExecutionStateData{
-			ExecutionState: parentAssertionCreation.AfterState,
-			Proof:          preStateProof,
+			ExecutionState:    parentAssertionCreation.AfterState,
+			PrevAssertionHash: parentAssertionCreation.ParentAssertionHash,
+			InboxAcc:          parentAssertionCreation.AfterInboxBatchAcc,
 		},
 		ExecutionStateData{
-			ExecutionState: assertionCreation.AfterState,
-			Proof:          postStateProof,
+			ExecutionState:    assertionCreation.AfterState,
+			PrevAssertionHash: assertionCreation.ParentAssertionHash,
+			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		},
 	)
 	if err != nil {
