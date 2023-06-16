@@ -207,9 +207,9 @@ func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	var assertionId protocol.AssertionId
 	if len(ancestorIds) != 0 {
 		topLevelAncestorId := ancestorIds[len(ancestorIds)-1]
-		topLevelAncestor, err := e.manager.GetEdge(ctx, topLevelAncestorId)
-		if err != nil {
-			return err
+		topLevelAncestor, topLevelErr := e.manager.GetEdge(ctx, topLevelAncestorId)
+		if topLevelErr != nil {
+			return topLevelErr
 		}
 		if topLevelAncestor.IsNone() {
 			return fmt.Errorf("did not find edge with id %#x for specified top level ancestor", topLevelAncestorId)
