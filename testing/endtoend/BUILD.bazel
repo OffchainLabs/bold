@@ -28,6 +28,7 @@ go_test(
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_offchainlabs_nitro//util/headerreader",
+        "@com_github_stretchr_testify//require",
         "@org_golang_x_sync//errgroup",
     ],
 )
@@ -47,5 +48,6 @@ go_library(
         "//solgen/go/challengeV2gen",
         "//solgen/go/rollupgen",
         "//testing/endtoend/internal/backend",
+        "@com_github_ethereum_go_ethereum//common",
     ],
 )
