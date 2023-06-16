@@ -7,6 +7,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
@@ -512,14 +513,26 @@ func (w *Watcher) processEdgeConfirmation(
 	if err != nil {
 		return err
 	}
+
+	// If the edge is not a level zero edge, we can return.
 	if edge.ClaimId().IsNone() {
 		return nil
 	}
+
 	claimId := edge.ClaimId().Unwrap()
 	chal, ok := w.challenges.TryGet(assertionId)
 	if !ok {
 		return nil
 	}
+
+	// Check if we should confirm the assertion by challenge winner.
+	if edge.GetType() == protocol.BlockChallengeEdge {
+		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionId(claimId), edgeId); confirmAssertionErr != nil {
+			return confirmAssertionErr
+		}
+		log.WithField("assertionId", containers.Trunc(assertionId[:])).Infof("Assertion confirmed by challenge win")
+	}
+
 	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
 	w.challenges.Put(assertionId, chal)
 	return nil

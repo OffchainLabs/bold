@@ -88,6 +88,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 		}(),
 		Expectations: []expect{
 			expectOneStepProofSuccessful,
+			expectAssertionConfirmedByChallengeWinner,
 			expectLevelZeroBlockEdgeConfirmed,
 			expectAliceAndBobStaked,
 		},
@@ -141,6 +142,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_DifferentHeights(t *testing.T)
 		}(),
 		Expectations: []expect{
 			expectOneStepProofSuccessful,
+			expectAssertionConfirmedByChallengeWinner,
 			expectLevelZeroBlockEdgeConfirmed,
 			expectAliceAndBobStaked,
 		},
