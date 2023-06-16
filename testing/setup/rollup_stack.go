@@ -148,7 +148,7 @@ type ChainSetup struct {
 
 func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	ctx := context.Background()
-	accs, backend, err := Accounts(3)
+	accs, backend, err := Accounts(4)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +527,7 @@ func Accounts(numAccounts uint64) ([]*TestAccount, *backends.SimulatedBackend, e
 			return nil, nil, err
 		}
 		startingBalance, _ := new(big.Int).SetString(
-			"100000000000000000000000000000000000000",
+			"1000000000000000000000000000000000000000000000000000",
 			10,
 		)
 		genesis[addr] = core.GenesisAccount{Balance: startingBalance}

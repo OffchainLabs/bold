@@ -346,6 +346,7 @@ func (w *Watcher) processEdgeAddedEvent(
 		}
 		w.challenges.Put(assertionId, chal)
 	}
+
 	return chal.honestEdgeTree.AddEdge(ctx, edge)
 }
 

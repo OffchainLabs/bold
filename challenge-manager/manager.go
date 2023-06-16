@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -129,6 +130,8 @@ func (v *Manager) Start(ctx context.Context) {
 	if err := v.syncEdges(ctx); err != nil {
 		log.WithError(err).Errorf("Could sync with edges")
 	}
+	fmt.Println("syncEdges done")
+	//}()
 }
 
 // waitForSync waits for a notificataion that initial sync of onchain edges is complete.
