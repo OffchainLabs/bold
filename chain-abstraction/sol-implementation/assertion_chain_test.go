@@ -109,11 +109,73 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(102), unrivaledBlocks)
+	// Should have been zero blocks since creation.
+	require.Equal(t, uint64(0), unrivaledBlocks)
+
 	backend.Commit()
 	backend.Commit()
 	backend.Commit()
-	require.Equal(t, uint64(105), unrivaledBlocks)
+
+	unrivaledBlocks, err = chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+
+	// Three blocks since creation.
+	require.Equal(t, uint64(3), unrivaledBlocks)
+
+	// We then post a second child assertion.
+	assertionChain := cfg.Chains[1]
+
+	creationInfo := &protocol.AssertionCreatedInfo{
+		AfterState: (&protocol.ExecutionState{
+			GlobalState:   protocol.GoGlobalState{},
+			MachineStatus: protocol.MachineStatusFinished,
+		}).AsSolidityStruct(),
+		InboxMaxCount: big.NewInt(1),
+	}
+	postState = &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  common.BytesToHash([]byte("evil hash")),
+			SendRoot:   common.Hash{},
+			Batch:      1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	forkedAssertion, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
+	require.NoError(t, err)
+
+	// We advance the chain by three blocks and check the assertion unrivaled times
+	// of both created assertions.
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	unrivaledFirstChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+	unrivaledSecondChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id())
+	require.NoError(t, err)
+
+	// The amount of blocks unrivaled should not change for the first child (except for
+	// the addition of one more block to account for the creation of its rival) and should
+	// be zero for the second child block.
+	require.Equal(t, uint64(4), unrivaledFirstChild)
+	require.Equal(t, uint64(0), unrivaledSecondChild)
+
+	// 100 blocks later, results should be unchanged.
+	for i := 0; i < 100; i++ {
+		backend.Commit()
+	}
+
+	unrivaledFirstChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+	unrivaledSecondChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id())
+	require.NoError(t, err)
+
+	// The amount of blocks unrivaled should not change for the first child (except for
+	// the addition of one more block to account for the creation of its rival) and should
+	// be zero for the second child block.
+	require.Equal(t, uint64(4), unrivaledFirstChild)
+	require.Equal(t, uint64(0), unrivaledSecondChild)
 }
 
 func TestAssertionBySequenceNum(t *testing.T) {
