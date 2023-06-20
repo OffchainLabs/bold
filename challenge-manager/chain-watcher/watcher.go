@@ -347,14 +347,7 @@ func (w *Watcher) processEdgeAddedEvent(
 		}
 		w.challenges.Put(assertionId, chal)
 	}
-	if err := chal.honestEdgeTree.AddEdge(ctx, edge); err != nil {
-		return errors.Wrap(err, "could not add edge to challenge tree")
-	}
-
-	// We spin up an edge tracker for our newly processed edge. This will no-op if there is
-	// already an edge tracker for the specified edge id in our challenge manager.
-
-	return nil
+	return chal.honestEdgeTree.AddEdge(ctx, edge)
 }
 
 // Filters for edge confirmed by one step proof events within a range.
