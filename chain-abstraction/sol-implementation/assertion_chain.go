@@ -111,7 +111,7 @@ func (a *AssertionChain) GetAssertion(ctx context.Context, assertionId protocol.
 	if err != nil {
 		return nil, err
 	}
-	if res.Status == uint8(0) {
+	if res.Status == uint8(protocol.NoAssertion) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %#x",
@@ -302,7 +302,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	if err != nil {
 		return 0, err
 	}
-	if wantNode.Status == uint8(0) {
+	if wantNode.Status == uint8(protocol.NoAssertion) {
 		return 0, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %#x",
@@ -325,7 +325,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	if err != nil {
 		return 0, err
 	}
-	if prevNode.Status == uint8(0) {
+	if prevNode.Status == uint8(protocol.NoAssertion) {
 		return 0, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %#x",
