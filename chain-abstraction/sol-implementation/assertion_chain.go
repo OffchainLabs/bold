@@ -231,9 +231,54 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 	)
 }
 
-// TODO: Implement this logic.
-func (a *AssertionChain) AssertionUnrivaledTime(_ context.Context, _ protocol.AssertionId) (uint64, error) {
-	return 0, nil
+// AssertionUnrivaledBlocks gets the number of blocks an assertion was unrivaled. That is, it looks up the
+// assertion's parent, and from that parent, computes second_child_creation_block - first_child_creation_block.
+// If an assertion is a second child, this function will return 0.
+func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
+	wantNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, assertionId)
+	if err != nil {
+		return 0, err
+	}
+	if wantNode.Status == uint8(0) {
+		return 0, errors.Wrapf(
+			ErrNotFound,
+			"assertion with id %#x",
+			assertionId,
+		)
+	}
+	// If the assertion requested is not the first child, it was never unrivaled.
+	if !wantNode.IsFirstChild {
+		return 0, nil
+	}
+	assertion := &Assertion{
+		id:    assertionId,
+		chain: a,
+	}
+	prevId, err := assertion.PrevId(ctx)
+	if err != nil {
+		return 0, err
+	}
+	prevNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, prevId)
+	if err != nil {
+		return 0, err
+	}
+	if prevNode.Status == uint8(0) {
+		return 0, errors.Wrapf(
+			ErrNotFound,
+			"assertion with id %#x",
+			assertionId,
+		)
+	}
+	// Should never happen.
+	if prevNode.FirstChildBlock > prevNode.SecondChildBlock {
+		return 0, fmt.Errorf(
+			"first child creation block %d > second child creation block %d for assertion id %#x",
+			prevNode.FirstChildBlock,
+			prevNode.SecondChildBlock,
+			prevId,
+		)
+	}
+	return prevNode.SecondChildBlock - prevNode.FirstChildBlock, nil
 }
 
 func (a *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error) {
