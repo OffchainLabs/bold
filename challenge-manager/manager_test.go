@@ -31,14 +31,14 @@ func TestEdgeTracker_act(t *testing.T) {
 		tkr, _ := setupNonPSTracker(ctx, t)
 		err := tkr.Act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, int(1), int(tkr.CurrentState()))
+		require.Equal(t, int(4), int(tkr.CurrentState()))
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, int(1), int(tkr.CurrentState()))
+		require.Equal(t, int(5), int(tkr.CurrentState()))
 		logging.AssertLogsContain(t, hook, "Successfully bisected")
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, int(1), int(tkr.CurrentState()))
+		require.Equal(t, int(5), int(tkr.CurrentState()))
 	})
 }
 
@@ -78,11 +78,12 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	require.Equal(t, false, !hasRival)
 
 	honestWatcher := watcher.New(honestValidator.chain, honestValidator.stateManager, createdData.Backend, time.Second, "alice")
+	honestValidator.watcher = honestWatcher
 	tracker1, err := edgetracker.New(
 		honestEdge,
 		honestValidator.chain,
 		createdData.HonestStateManager,
-		honestValidator.watcher,
+		honestWatcher,
 		honestValidator,
 		edgetracker.HeightConfig{
 			StartBlockHeight:           0,
@@ -99,11 +100,12 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	<-syncCompleted
 
 	evilWatcher := watcher.New(evilValidator.chain, evilValidator.stateManager, createdData.Backend, time.Second, "alice")
+	evilValidator.watcher = evilWatcher
 	tracker2, err := edgetracker.New(
 		evilEdge,
 		evilValidator.chain,
 		createdData.EvilStateManager,
-		evilValidator.watcher,
+		evilWatcher,
 		evilValidator,
 		edgetracker.HeightConfig{
 			StartBlockHeight:           0,

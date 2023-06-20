@@ -38,10 +38,12 @@ go_test(
         "//chain-abstraction:protocol",
         "//challenge-manager/chain-watcher",
         "//challenge-manager/edge-tracker",
+        "//testing/logging",
         "//testing/mocks",
         "//testing/setup:setup_lib",
         "//time",
         "@com_github_sirupsen_logrus//:logrus",
+        "@com_github_sirupsen_logrus//hooks/test",
         "@com_github_stretchr_testify//require",
     ],
 )
