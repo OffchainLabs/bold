@@ -514,7 +514,8 @@ func (w *Watcher) processEdgeConfirmation(
 		return err
 	}
 
-	// If the edge is not a level zero edge, we can return.
+	// If an edge does not have a claim ID, it is not a level zero edge, and thus we can return early,
+	// as the following operations only operate on level zero edges.
 	if edge.ClaimId().IsNone() {
 		return nil
 	}
