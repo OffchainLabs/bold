@@ -311,7 +311,7 @@ func DeployFullRollupStack(
 		return nil, errors.New("receipt failed")
 	}
 
-	if receipt.BlockNumber.IsUint64() {
+	if !receipt.BlockNumber.IsUint64() {
 		return nil, errors.New("block number was not a uint64")
 	}
 
