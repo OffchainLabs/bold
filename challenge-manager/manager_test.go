@@ -3,9 +3,11 @@ package challengemanager
 import (
 	"context"
 	"io"
+	"math/big"
 	"testing"
 	"time"
 
+	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
 	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/logging"
@@ -40,6 +42,22 @@ func TestEdgeTracker_act(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int(5), int(tkr.CurrentState()))
 	})
+}
+
+func Test_getEdgeTrackers(t *testing.T) {
+	ctx := context.Background()
+
+	v, m, s := setupValidator(t)
+	edge := &mocks.MockSpecEdge{}
+	edge.On("AssertionId", ctx).Return(protocol.AssertionId{}, nil)
+	m.On("ReadAssertionCreationInfo", ctx, protocol.AssertionId{}).Return(&protocol.AssertionCreatedInfo{InboxMaxCount: big.NewInt(100)}, nil)
+	s.On("ExecutionStateBlockHeight", ctx, &protocol.ExecutionState{}).Return(uint64(1), true)
+
+	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(1), trk.StartBlockHeight())
+	require.Equal(t, uint64(0x64), trk.TopLevelClaimEndBatchCount())
 }
 
 func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker, *edgetracker.Tracker) {

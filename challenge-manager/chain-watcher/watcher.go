@@ -19,6 +19,11 @@ import (
 
 var log = logrus.WithField("prefix", "challenge-watcher")
 
+// EdgeManager provides a method to track edges, via edge tracker goroutines.
+type EdgeManager interface {
+	TrackEdge(ctx context.Context, edge protocol.SpecEdge) error
+}
+
 // ConfirmationMetadataChecker defines a struct which can retrieve information about
 // an edge to determine if it can be confirmed via different means. For example,
 // checking if a confirmed edge exists that claims a specified edge id as its claim id,
@@ -56,6 +61,7 @@ type trackedChallenge struct {
 type Watcher struct {
 	histChecker        l2stateprovider.HistoryChecker
 	chain              protocol.AssertionChain
+	edgeManager        EdgeManager
 	pollEventsInterval time.Duration
 	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
 	backend            bind.ContractBackend
@@ -66,6 +72,7 @@ type Watcher struct {
 // for edge creations and confirmations.
 func New(
 	chain protocol.AssertionChain,
+	edgeManager EdgeManager,
 	histChecker l2stateprovider.HistoryChecker,
 	backend bind.ContractBackend,
 	interval time.Duration,
@@ -73,6 +80,7 @@ func New(
 ) *Watcher {
 	return &Watcher{
 		chain:              chain,
+		edgeManager:        edgeManager,
 		pollEventsInterval: interval,
 		challenges:         threadsafe.NewMap[protocol.AssertionId, *trackedChallenge](),
 		backend:            backend,
@@ -123,7 +131,7 @@ func (w *Watcher) ComputeHonestPathTimer(
 
 // Starts watching the chain via a polling mechanism for all edge added and confirmation events
 // in order to process some of this data into internal representations for confirmation purposes.
-func (w *Watcher) Watch(ctx context.Context, initialSyncCompleted chan<- struct{}) {
+func (w *Watcher) Watch(ctx context.Context) {
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
 		return w.getStartEndBlockNum(ctx)
 	})
@@ -193,10 +201,6 @@ func (w *Watcher) Watch(ctx context.Context, initialSyncCompleted chan<- struct{
 	}
 
 	fromBlock = toBlock
-
-	// Mark all edge events up to the latest block number as synced.
-	markSynced(initialSyncCompleted)
-
 	ticker := time.NewTicker(w.pollEventsInterval)
 	defer ticker.Stop()
 	for {
@@ -347,7 +351,15 @@ func (w *Watcher) processEdgeAddedEvent(
 		}
 		w.challenges.Put(assertionId, chal)
 	}
-	return chal.honestEdgeTree.AddEdge(ctx, edge)
+	// Check if honest, then spawn.
+	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
+	if err != nil {
+		return errors.Wrap(err, "could not add edge to challenge tree")
+	}
+	if agreement.IsHonestEdge {
+		return w.edgeManager.TrackEdge(ctx, edge)
+	}
+	return nil
 }
 
 // Filters for edge confirmed by one step proof events within a range.
@@ -567,9 +579,4 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 		startBlockNum: startBlock,
 		endBlockNum:   header.Number.Uint64(),
 	}, nil
-}
-
-// markSynced marks watcher as synced and notifies feed listeners.
-func markSynced(initialSyncComplete chan<- struct{}) {
-	close(initialSyncComplete)
 }

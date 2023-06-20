@@ -59,18 +59,18 @@ func New(
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
-func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) error {
+func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (protocol.Agreement, error) {
 	assertionId, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
-		return errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
+		return protocol.Agreement{}, errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
 	}
 	if ht.topLevelAssertionId != assertionId {
 		// Do nothing - this edge should not be part of this challenge tree.
-		return nil
+		return protocol.Agreement{}, nil
 	}
 	prevCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, assertionId)
 	if err != nil {
-		return err
+		return protocol.Agreement{}, err
 	}
 
 	// We only track edges we fully agree with (honest edges).
@@ -78,7 +78,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	endHeight, endCommit := eg.EndCommitment()
 	heights, err := ht.metadataReader.TopLevelClaimHeights(ctx, eg.Id())
 	if err != nil {
-		return errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
+		return protocol.Agreement{}, errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
 	agreement, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
@@ -95,7 +95,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		},
 	)
 	if err != nil {
-		return errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
+		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
 	}
 
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
@@ -128,7 +128,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		}
 		mutuals.Put(eg.Id(), creationTime(eg.CreatedAtBlock()))
 	}
-	return nil
+	return agreement, nil
 }
 
 func (ht *HonestChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {
