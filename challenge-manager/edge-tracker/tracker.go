@@ -138,7 +138,7 @@ func (et *Tracker) Spawn(ctx context.Context) {
 				log.WithFields(fields).Infof("Edge tracker received notice of a confirmation, exiting")
 				return
 			}
-			if err := et.act(ctx); err != nil {
+			if err := et.Act(ctx); err != nil {
 				log.Error(err)
 			}
 		case <-ctx.Done():
@@ -148,26 +148,11 @@ func (et *Tracker) Spawn(ctx context.Context) {
 	}
 }
 
-func (et *Tracker) shouldComplete() bool {
-	return et.fsm.Current().State == edgeConfirmed
+func (et *Tracker) CurrentState() edgeTrackerState {
+	return et.fsm.Current().State
 }
 
-func (et *Tracker) uniqueTrackerLogFields() logrus.Fields {
-	startHeight, startCommit := et.edge.StartCommitment()
-	endHeight, endCommit := et.edge.EndCommitment()
-	id := et.edge.Id()
-	return logrus.Fields{
-		"id":            containers.Trunc(id[:]),
-		"startHeight":   startHeight,
-		"startCommit":   containers.Trunc(startCommit.Bytes()),
-		"endHeight":     endHeight,
-		"endCommit":     containers.Trunc(endCommit.Bytes()),
-		"validatorName": et.validatorName,
-		"challengeType": et.edge.GetType(),
-	}
-}
-
-func (et *Tracker) act(ctx context.Context) error {
+func (et *Tracker) Act(ctx context.Context) error {
 	fields := et.uniqueTrackerLogFields()
 	current := et.fsm.Current()
 	switch current.State {
@@ -281,6 +266,25 @@ func (et *Tracker) act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	default:
 		return fmt.Errorf("invalid state: %s", current.State)
+	}
+}
+
+func (et *Tracker) shouldComplete() bool {
+	return et.fsm.Current().State == edgeConfirmed
+}
+
+func (et *Tracker) uniqueTrackerLogFields() logrus.Fields {
+	startHeight, startCommit := et.edge.StartCommitment()
+	endHeight, endCommit := et.edge.EndCommitment()
+	id := et.edge.Id()
+	return logrus.Fields{
+		"id":            containers.Trunc(id[:]),
+		"startHeight":   startHeight,
+		"startCommit":   containers.Trunc(startCommit.Bytes()),
+		"endHeight":     endHeight,
+		"endCommit":     containers.Trunc(endCommit.Bytes()),
+		"validatorName": et.validatorName,
+		"challengeType": et.edge.GetType(),
 	}
 }
 

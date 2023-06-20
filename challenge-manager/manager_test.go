@@ -8,10 +8,12 @@ import (
 
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
 	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
+	"github.com/OffchainLabs/challenge-protocol-v2/testing/logging"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	customTime "github.com/OffchainLabs/challenge-protocol-v2/time"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,20 +25,20 @@ func init() {
 }
 
 func TestEdgeTracker_act(t *testing.T) {
-	//ctx := context.Background()
+	ctx := context.Background()
 	t.Run("bisects", func(t *testing.T) {
-		// hook := test.NewGlobal()
-		// tkr, _ := setupNonPSTracker(ctx, t)
-		// err := tkr.act(ctx)
-		// require.NoError(t, err)
-		// require.Equal(t, int(0), int(tkr.fsm.Current().State))
-		// err = tkr.act(ctx)
-		// require.NoError(t, err)
-		// require.Equal(t, int(1), int(tkr.fsm.Current().State))
-		// logging.AssertLogsContain(t, hook, "Successfully bisected")
-		// err = tkr.act(ctx)
-		// require.NoError(t, err)
-		// require.Equal(t, int(2), int(tkr.fsm.Current().State))
+		hook := test.NewGlobal()
+		tkr, _ := setupNonPSTracker(ctx, t)
+		err := tkr.Act(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int(1), int(tkr.CurrentState()))
+		err = tkr.Act(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int(1), int(tkr.CurrentState()))
+		logging.AssertLogsContain(t, hook, "Successfully bisected")
+		err = tkr.Act(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int(1), int(tkr.CurrentState()))
 	})
 }
 
