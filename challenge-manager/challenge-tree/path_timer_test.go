@@ -119,14 +119,14 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 
 	t.Run("querying path timer before creation should return zero", func(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
-		timer, _, err := ht.HonestPathTimer(ctx, edge.Id(), 0)
-		require.NoError(t, err)
+		timer, _, pathErr := ht.HonestPathTimer(ctx, edge.Id(), 0)
+		require.NoError(t, pathErr)
 		require.Equal(t, PathTimer(0), timer)
 	})
 	t.Run("at creation time should be zero if no parents", func(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
-		creation, err := edge.CreatedAtBlock()
-		require.NoError(t, err)
+		creation, createErr := edge.CreatedAtBlock()
+		require.NoError(t, createErr)
 		timer, _, err := ht.HonestPathTimer(ctx, edge.Id(), creation)
 		require.NoError(t, err)
 		require.Equal(t, PathTimer(0), timer)
@@ -135,8 +135,8 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		// Top-level edge should have spent 1 second unrivaled
 		// as its rival was created 1 second after its creation.
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
-		creation, err := edge.CreatedAtBlock()
-		require.NoError(t, err)
+		creation, createErr := edge.CreatedAtBlock()
+		require.NoError(t, createErr)
 		timer, _, err := ht.HonestPathTimer(ctx, edge.Id(), creation+1)
 		require.NoError(t, err)
 		require.Equal(t, PathTimer(1), timer)
