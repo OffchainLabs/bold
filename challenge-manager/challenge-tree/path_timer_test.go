@@ -127,8 +127,8 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
 		creation, createErr := edge.CreatedAtBlock()
 		require.NoError(t, createErr)
-		timer, _, err := ht.HonestPathTimer(ctx, edge.Id(), creation)
-		require.NoError(t, err)
+		timer, _, timeErr := ht.HonestPathTimer(ctx, edge.Id(), creation)
+		require.NoError(t, timeErr)
 		require.Equal(t, PathTimer(0), timer)
 	})
 	t.Run("OK", func(t *testing.T) {
@@ -137,8 +137,8 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		edge := ht.edges.Get(id("blk-0.a-16.a"))
 		creation, createErr := edge.CreatedAtBlock()
 		require.NoError(t, createErr)
-		timer, _, err := ht.HonestPathTimer(ctx, edge.Id(), creation+1)
-		require.NoError(t, err)
+		timer, _, timeErr := ht.HonestPathTimer(ctx, edge.Id(), creation+1)
+		require.NoError(t, timeErr)
 		require.Equal(t, PathTimer(1), timer)
 
 		// Now we look at the lower honest child, 0.a-8.a. It will have spent
