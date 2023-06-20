@@ -269,6 +269,29 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 			assertionId,
 		)
 	}
+	// If there is no second child, we simply return the number of blocks
+	// since the assertion was created and its parent.
+	if prevNode.SecondChildBlock == 0 {
+		latestHeader, err := a.backend.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return 0, err
+		}
+		if !latestHeader.Number.IsUint64() {
+			return 0, errors.New("latest header number is not a uint64")
+		}
+		num := latestHeader.Number.Uint64()
+
+		// Should never happen.
+		if wantNode.CreatedAtBlock > num {
+			return 0, fmt.Errorf(
+				"assertion creation block %d > latest block number %d for assertion id %#x",
+				wantNode.CreatedAtBlock,
+				num,
+				assertionId,
+			)
+		}
+		return num - wantNode.CreatedAtBlock, nil
+	}
 	// Should never happen.
 	if prevNode.FirstChildBlock > prevNode.SecondChildBlock {
 		return 0, fmt.Errorf(

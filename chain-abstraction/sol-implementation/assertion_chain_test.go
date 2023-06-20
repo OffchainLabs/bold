@@ -48,7 +48,6 @@ func TestCreateAssertion(t *testing.T) {
 		require.ErrorContains(t, err, "ALREADY_STAKED")
 	})
 	t.Run("can create fork", func(t *testing.T) {
-		t.Skip()
 		assertionChain := cfg.Chains[1]
 
 		for i := uint64(0); i < 100; i++ {
@@ -74,6 +73,47 @@ func TestCreateAssertion(t *testing.T) {
 		_, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
 		require.NoError(t, err)
 	})
+}
+
+func TestAssertionUnrivaledBlocks(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+	backend := cfg.Backend
+
+	latestBlockHash := common.Hash{}
+	for i := uint64(0); i < 100; i++ {
+		latestBlockHash = backend.Commit()
+	}
+
+	createdInfo := &protocol.AssertionCreatedInfo{
+		AfterState: (&protocol.ExecutionState{
+			GlobalState:   protocol.GoGlobalState{},
+			MachineStatus: protocol.MachineStatusFinished,
+		}).AsSolidityStruct(),
+		InboxMaxCount: big.NewInt(1),
+	}
+	postState := &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  latestBlockHash,
+			SendRoot:   common.Hash{},
+			Batch:      1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	assertion, err := chain.CreateAssertion(ctx, createdInfo, postState)
+	require.NoError(t, err)
+
+	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(102), unrivaledBlocks)
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+	require.Equal(t, uint64(105), unrivaledBlocks)
 }
 
 func TestAssertionBySequenceNum(t *testing.T) {
