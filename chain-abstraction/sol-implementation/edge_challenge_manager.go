@@ -394,7 +394,14 @@ func (cm *SpecChallengeManager) Address() common.Address {
 }
 
 func (cm *SpecChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
-	return 0, nil
+	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, err
+	}
+	if !h.IsUint64() {
+		return 0, errors.New("level zero block edge height was not a uint64")
+	}
+	return h.Uint64(), nil
 }
 
 // Duration of the challenge period in blocks.
