@@ -32,11 +32,11 @@ func (e *SpecEdge) MiniStaker() option.Option[common.Address] {
 }
 
 func (e *SpecEdge) StartCommitment() (protocol.Height, common.Hash) {
-	return protocol.Height(e.inner.StartHeight.Uint64()), e.inner.StartHistoryRoot
+	return protocol.Height(e.startHeight), e.inner.StartHistoryRoot
 }
 
 func (e *SpecEdge) EndCommitment() (protocol.Height, common.Hash) {
-	return protocol.Height(e.inner.EndHeight.Uint64()), e.inner.EndHistoryRoot
+	return protocol.Height(e.endHeight), e.inner.EndHistoryRoot
 }
 
 func (e *SpecEdge) AssertionId(ctx context.Context) (protocol.AssertionId, error) {
@@ -47,6 +47,9 @@ func (e *SpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	timer, err := e.manager.caller.TimeUnrivaled(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {
 		return 0, err
+	}
+	if !timer.IsInt64() {
+		return 0, errors.New("time unrivaled result was not a uint64")
 	}
 	return timer.Uint64(), nil
 }
@@ -64,8 +67,11 @@ func (e *SpecEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
 }
 
 // The block number the edge was created at.
-func (e *SpecEdge) CreatedAtBlock() uint64 {
-	return e.inner.CreatedAtBlock.Uint64()
+func (e *SpecEdge) CreatedAtBlock() (uint64, error) {
+	if !e.inner.CreatedAtBlock.IsUint64() {
+		return 0, errors.New("edge created at block was not a uint64")
+	}
+	return e.inner.CreatedAtBlock.Uint64(), nil
 }
 
 // Checks if the edge has children.
@@ -387,6 +393,17 @@ func (cm *SpecChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
+func (cm *SpecChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
+	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, err
+	}
+	if !h.IsUint64() {
+		return 0, errors.New("level zero block edge height was not a uint64")
+	}
+	return h.Uint64(), nil
+}
+
 // Duration of the challenge period in blocks.
 func (cm *SpecChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
@@ -394,6 +411,9 @@ func (cm *SpecChallengeManager) ChallengePeriodBlocks(
 	res, err := cm.caller.ChallengePeriodBlocks(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return 0, err
+	}
+	if !res.IsUint64() {
+		return 0, errors.New("challenge period blocks response was not a uint64")
 	}
 	return res.Uint64(), nil
 }
@@ -422,12 +442,20 @@ func (cm *SpecChallengeManager) GetEdge(
 	if err != nil {
 		return option.None[protocol.SpecEdge](), err
 	}
+	if !edge.StartHeight.IsUint64() {
+		return option.None[protocol.SpecEdge](), errors.New("start height not a uint64")
+	}
+	if !edge.EndHeight.IsUint64() {
+		return option.None[protocol.SpecEdge](), errors.New("end height not a uint64")
+	}
 	return option.Some(protocol.SpecEdge(&SpecEdge{
-		id:         edgeId,
-		mutualId:   mutual,
-		manager:    cm,
-		inner:      edge,
-		miniStaker: miniStaker,
+		id:          edgeId,
+		mutualId:    mutual,
+		manager:     cm,
+		inner:       edge,
+		startHeight: edge.StartHeight.Uint64(),
+		endHeight:   edge.EndHeight.Uint64(),
+		miniStaker:  miniStaker,
 	})), nil
 }
 
@@ -508,9 +536,9 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 					Proof:      oneStepData.Proof,
 				},
 				challengeV2gen.ConfigData{
-					WasmModuleRoot:      oneStepData.WasmModuleRoot,
+					WasmModuleRoot:      creationInfo.WasmModuleRoot,
 					RequiredStake:       creationInfo.RequiredStake,
-					ChallengeManager:    cm.addr,
+					ChallengeManager:    creationInfo.ChallengeManager,
 					ConfirmPeriodBlocks: creationInfo.ConfirmPeriodBlocks,
 					NextInboxPosition:   creationInfo.InboxMaxCount.Uint64(),
 				},
@@ -617,11 +645,18 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to read parent assertion %#x creation info: %w", prevId, err)
 	}
-	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
+	levelZeroBlockHeight, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+	if !levelZeroBlockHeight.IsUint64() {
+		return nil, errors.New("level zero block height not a uint64")
+	}
+	if endCommit.Height != levelZeroBlockHeight.Uint64() {
 		return nil, fmt.Errorf(
 			"end commit has unexpected height %v (expected %v)",
 			endCommit.Height,
-			protocol.LevelZeroBlockEdgeHeight,
+			levelZeroBlockHeight.Uint64(),
 		)
 	}
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(

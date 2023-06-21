@@ -31,6 +31,9 @@ func (v *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionI
 	if err != nil {
 		return fmt.Errorf("could not add block challenge level zero edge %v: %w", v.name, err)
 	}
+	if !creationInfo.InboxMaxCount.IsUint64() {
+		return errors.New("assertion creation info inbox max count was not a uint64")
+	}
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
 		levelZeroEdge,
@@ -67,14 +70,25 @@ func (v *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get assertion creation info")
 	}
+	if !creationInfo.InboxMaxCount.IsUint64() {
+		return nil, nil, errors.New("creation info inbox max count was not a uint64")
+	}
 	startCommit, err := v.stateManager.HistoryCommitmentUpTo(ctx, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	manager, err := v.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	levelZeroBlockEdgeHeight, err := manager.LevelZeroBlockEdgeHeight(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	endCommit, err := v.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
 		0,
-		protocol.LevelZeroBlockEdgeHeight,
+		levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
@@ -84,13 +98,9 @@ func (v *Manager) addBlockChallengeLevelZeroEdge(
 		ctx,
 		0,
 		0,
-		protocol.LevelZeroBlockEdgeHeight,
+		levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
-	if err != nil {
-		return nil, nil, err
-	}
-	manager, err := v.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
