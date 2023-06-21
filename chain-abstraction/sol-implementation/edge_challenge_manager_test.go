@@ -856,7 +856,7 @@ func setupOneStepProofScenario(
 	evilEdge = bigStepAdder(evilStateManager, evilEdge)
 	require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
 
-	var bigStepHeight uint64 = protocol.LevelZeroBigStepEdgeHeight
+	var bigStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
 	for bigStepHeight > 1 {
 		honestBisectCommit, bisectErr := honestStateManager.BigStepCommitmentUpTo(ctx, 0, 1, bigStepHeight/2)
 		require.NoError(t, bisectErr)
@@ -949,7 +949,7 @@ func setupOneStepProofScenario(
 	// Get the lower-level edge of either edge we just bisected.
 	require.Equal(t, protocol.SmallStepChallengeEdge, honestEdge.GetType())
 
-	var smallStepHeight uint64 = protocol.LevelZeroBigStepEdgeHeight
+	var smallStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
 	for smallStepHeight > 1 {
 		honestBisectCommit, bisectErr := honestStateManager.SmallStepCommitmentUpTo(ctx, 0, 1, 0, 1, smallStepHeight/2)
 		require.NoError(t, bisectErr)

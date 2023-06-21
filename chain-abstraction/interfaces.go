@@ -11,9 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Default values for the `initialize()` function of the EdgeChallengeManager contract.
-const LevelZeroBlockEdgeHeight = 1 << 5 // TODO: Need to determine value to be used in prod.
-const LevelZeroBigStepEdgeHeight = 1 << 23
 const LevelZeroSmallStepEdgeHeight = 1 << 20
 
 // AssertionId represents a unique identifier for an assertion
@@ -168,6 +165,8 @@ type OneStepData struct {
 type SpecChallengeManager interface {
 	// Address of the challenge manager contract.
 	Address() common.Address
+	// Heights for level zero edge creation.
+	LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error)
 	// Duration of the challenge period in blocks.
 	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.

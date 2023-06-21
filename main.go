@@ -7,6 +7,7 @@ import (
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
@@ -71,7 +72,7 @@ func main() {
 		smallStepDivergenceHeight: divergeHeightAtL2,
 	}
 	bobStateManager, err := statemanager.NewForSimpleMachine(
-		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
 		statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 		statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 	)

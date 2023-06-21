@@ -393,6 +393,10 @@ func (cm *SpecChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
+func (cm *SpecChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
+	return 0, nil
+}
+
 // Duration of the challenge period in blocks.
 func (cm *SpecChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
