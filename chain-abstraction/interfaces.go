@@ -11,6 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// Default values for the `initialize()` function of the EdgeChallengeManager contract.
+const LevelZeroBlockEdgeHeight = 1 << 5 // TODO: Need to determine value to be used in prod.
+const LevelZeroBigStepEdgeHeight = 1 << 23
+const LevelZeroSmallStepEdgeHeight = 1 << 20
+
 // AssertionId represents a unique identifier for an assertion
 // constructed as a keccak256 hash of some of its internals.
 type AssertionId common.Hash
@@ -207,11 +212,6 @@ type SpecChallengeManager interface {
 // Height if defined as the height of a history commitment in the specification.
 // Heights are 0-indexed.
 type Height uint64
-
-// Also set in the `initialize()` function of the EdgeChallengeManager contract.
-const LevelZeroBlockEdgeHeight = 1 << 5
-const LevelZeroBigStepEdgeHeight = 1 << 5
-const LevelZeroSmallStepEdgeHeight = 1 << 5
 
 // EdgeStatus of an edge in the protocol.
 type EdgeStatus uint8

@@ -634,11 +634,18 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to read parent assertion %#x creation info: %w", prevId, err)
 	}
-	if endCommit.Height != protocol.LevelZeroBlockEdgeHeight {
+	levelZeroBlockHeight, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+	if !levelZeroBlockHeight.IsUint64() {
+		return nil, errors.New("level zero block height not a uint64")
+	}
+	if endCommit.Height != levelZeroBlockHeight.Uint64() {
 		return nil, fmt.Errorf(
 			"end commit has unexpected height %v (expected %v)",
 			endCommit.Height,
-			protocol.LevelZeroBlockEdgeHeight,
+			levelZeroBlockHeight.Uint64(),
 		)
 	}
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
