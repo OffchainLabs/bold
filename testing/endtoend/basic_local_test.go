@@ -84,9 +84,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 			return sm
 		}(),
 		Expectations: []expect{
-			// expectOneStepProofSuccessful,
 			expectAssertionConfirmedByChallengeWinner,
-			// expectLevelZeroBlockEdgeConfirmed,
 			expectAliceAndBobStaked,
 		},
 	}
@@ -128,9 +126,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_DifferentHeights(t *testing.T)
 			return sm
 		}(),
 		Expectations: []expect{
-			// expectOneStepProofSuccessful,
 			expectAssertionConfirmedByChallengeWinner,
-			// expectLevelZeroBlockEdgeConfirmed,
 			expectAliceAndBobStaked,
 		},
 	}
@@ -171,9 +167,7 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 			return sm
 		}(),
 		Expectations: []expect{
-			// expectLevelZeroBlockEdgeConfirmed,
 			expectAssertionConfirmedByChallengeWinner,
-			// expectOneStepProofSuccessful,
 		},
 	}
 
