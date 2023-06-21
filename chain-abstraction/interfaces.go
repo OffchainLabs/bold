@@ -11,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-const LevelZeroSmallStepEdgeHeight = 1 << 20
-
 // AssertionId represents a unique identifier for an assertion
 // constructed as a keccak256 hash of some of its internals.
 type AssertionId common.Hash
