@@ -26,6 +26,10 @@ var (
 	postNewAssertionInterval = time.Hour
 	// How often we advance the blockchain's latest block in the background using a simulated backend.
 	advanceChainInterval = time.Second * 2
+	// Heights
+	levelZeroBlockHeight     = uint64(1 << 5)
+	levelZeroBigStepHeight   = uint64(1 << 5)
+	levelZeroSmallStepHeight = uint64(1 << 5)
 )
 
 type challengeProtocolTestConfig struct {
@@ -60,7 +64,11 @@ func main() {
 		backend.Commit()
 	}
 
-	aliceStateManager, err := statemanager.NewForSimpleMachine()
+	aliceStateManager, err := statemanager.NewForSimpleMachine(statemanager.WithLevelZeroEdgeHeights(&challenge_testing.LevelZeroHeights{
+		BlockChallengeHeight:     uint64(levelZeroBlockHeight),
+		BigStepChallengeHeight:   uint64(levelZeroBigStepHeight),
+		SmallStepChallengeHeight: uint64(levelZeroSmallStepHeight),
+	}))
 	if err != nil {
 		panic(err)
 	}
@@ -72,9 +80,14 @@ func main() {
 		smallStepDivergenceHeight: divergeHeightAtL2,
 	}
 	bobStateManager, err := statemanager.NewForSimpleMachine(
-		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*levelZeroSmallStepHeight+cfg.smallStepDivergenceHeight),
 		statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 		statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+		statemanager.WithLevelZeroEdgeHeights(&challenge_testing.LevelZeroHeights{
+			BlockChallengeHeight:     uint64(levelZeroBlockHeight),
+			BigStepChallengeHeight:   uint64(levelZeroBigStepHeight),
+			SmallStepChallengeHeight: uint64(levelZeroSmallStepHeight),
+		}),
 	)
 	if err != nil {
 		panic(err)
