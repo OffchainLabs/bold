@@ -20,7 +20,7 @@ type expect func(t *testing.T, ctx context.Context, be backend.Backend) error
 
 // Expects that an assertion is confirmed by challenge win.
 func expectAssertionConfirmedByChallengeWinner(t *testing.T, ctx context.Context, be backend.Backend) error {
-	t.Run("assertion confirmed", func(t *testing.T) {
+	t.Run("honest assertion confirmed by challenge win", func(t *testing.T) {
 		rc, err := retry.UntilSucceeds(ctx, func() (*rollupgen.RollupCore, error) {
 			return rollupgen.NewRollupCore(be.ContractAddresses().Rollup, be.Client())
 		})
