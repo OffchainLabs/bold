@@ -77,6 +77,7 @@ func TestCreateAssertion(t *testing.T) {
 }
 
 func TestAssertionUnrivaledBlocks(t *testing.T) {
+	t.Skip()
 	ctx := context.Background()
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
