@@ -3,7 +3,6 @@ package mocks
 import (
 	"context"
 	"errors"
-	"math/big"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
@@ -208,6 +207,11 @@ func (m *MockChallengeManager) Address() common.Address {
 	return m.MockAddr
 }
 
+func (m *MockChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(uint64), args.Error(1)
+}
+
 // MockSpecChallengeManager is a mock implementation of the SpecChallengeManager interface.
 type MockSpecChallengeManager struct {
 	mock.Mock
@@ -216,6 +220,11 @@ type MockSpecChallengeManager struct {
 
 func (m *MockSpecChallengeManager) Address() common.Address {
 	return m.MockAddr
+}
+
+func (m *MockSpecChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(uint64), args.Error(1)
 }
 
 func (m *MockSpecChallengeManager) ChallengePeriodBlocks(ctx context.Context) (uint64, error) {
@@ -335,9 +344,9 @@ func (m *MockSpecEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) 
 	args := m.Called(ctx)
 	return args.Get(0).(protocol.EdgeStatus), args.Error(1)
 }
-func (m *MockSpecEdge) CreatedAtBlock() uint64 {
+func (m *MockSpecEdge) CreatedAtBlock() (uint64, error) {
 	args := m.Called()
-	return args.Get(0).(uint64)
+	return args.Get(0).(uint64), args.Error(1)
 }
 func (m *MockSpecEdge) MutualId() protocol.MutualId {
 	args := m.Called()
@@ -400,16 +409,6 @@ type MockProtocol struct {
 func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(uint64), args.Error(1)
-}
-
-func (m *MockProtocol) BaseStake(ctx context.Context) (*big.Int, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(*big.Int), args.Error(1)
-}
-
-func (m *MockProtocol) WasmModuleRoot(ctx context.Context) ([32]byte, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([32]byte), args.Error(1)
 }
 
 func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionId) (protocol.Assertion, error) {

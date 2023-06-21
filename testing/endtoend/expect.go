@@ -61,6 +61,9 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 		})
 		require.NoError(t, err)
 
+		blockEdgeHeight, err := ecm.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+		require.NoError(t, err)
+
 		var edgeConfirmed bool
 		for ctx.Err() == nil && !edgeConfirmed {
 			i, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerEdgeConfirmedByChildrenIterator, error) {
@@ -75,7 +78,13 @@ func expectLevelZeroBlockEdgeConfirmed(t *testing.T, ctx context.Context, be bac
 				if e.Status != uint8(protocol.EdgeConfirmed) {
 					t.Fatal("Confirmed edge with unfinished state")
 				}
-				isLevelZero := e.StartHeight.Uint64() == 0 && e.EndHeight.Uint64() == protocol.LevelZeroBlockEdgeHeight
+				if !e.StartHeight.IsUint64() {
+					t.Fatal("Start height not a uint64")
+				}
+				if !e.EndHeight.IsUint64() {
+					t.Fatal("Start height not a uint64")
+				}
+				isLevelZero := e.StartHeight.Uint64() == 0 && e.EndHeight.Uint64() == blockEdgeHeight.Uint64()
 				isBlockEdge := e.EType == uint8(protocol.BlockChallengeEdge)
 				if isLevelZero && isBlockEdge {
 					edgeConfirmed = true

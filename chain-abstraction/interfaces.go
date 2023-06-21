@@ -65,8 +65,6 @@ type AssertionChain interface {
 	GetAssertion(ctx context.Context, id AssertionId) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
-	BaseStake(ctx context.Context) (*big.Int, error)
-	WasmModuleRoot(ctx context.Context) ([32]byte, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionId,
 	) (*AssertionCreatedInfo, error)
@@ -165,6 +163,8 @@ type OneStepData struct {
 type SpecChallengeManager interface {
 	// Address of the challenge manager contract.
 	Address() common.Address
+	// Heights for level zero edge creation.
+	LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error)
 	// Duration of the challenge period in blocks.
 	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.
@@ -210,11 +210,6 @@ type SpecChallengeManager interface {
 // Heights are 0-indexed.
 type Height uint64
 
-// Also set in the `initialize()` function of the EdgeChallengeManager contract.
-const LevelZeroBlockEdgeHeight = 1 << 5
-const LevelZeroBigStepEdgeHeight = 1 << 5
-const LevelZeroSmallStepEdgeHeight = 1 << 5
-
 // EdgeStatus of an edge in the protocol.
 type EdgeStatus uint8
 
@@ -240,7 +235,7 @@ type ReadOnlyEdge interface {
 	// The end height and history commitment for an edge.
 	EndCommitment() (Height, common.Hash)
 	// The block number the edge was created at.
-	CreatedAtBlock() uint64
+	CreatedAtBlock() (uint64, error)
 	// The mutual id of the edge.
 	MutualId() MutualId
 	// The origin id of the edge.

@@ -2,6 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "state-provider",
+    testonly = 1,
     srcs = [
         "execution_engine.go",
         "layer2_state_provider.go",
@@ -14,6 +15,7 @@ go_library(
         "//solgen/go/rollupgen",
         "//state-commitments/history",
         "//state-commitments/prefix-proofs",
+        "//testing",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//common",
     ],

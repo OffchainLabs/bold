@@ -11,6 +11,7 @@ import (
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
+	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
@@ -73,7 +74,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 				smallStepDivergenceHeight: 4,
 			}
 			sm, err := statemanager.NewForSimpleMachine(
-				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
 				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 			)
@@ -119,7 +120,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_DifferentHeights(t *testing.T)
 				smallStepDivergenceHeight: 4,
 			}
 			sm, err := statemanager.NewForSimpleMachine(
-				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
 				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 			)
@@ -152,7 +153,7 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 				smallStepDivergenceHeight: 4,
 			}
 			sm, err := statemanager.NewForSimpleMachine(
-				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*protocol.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
 				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
 			)
@@ -171,6 +172,8 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 		}(),
 		Expectations: []expect{
 			expectLevelZeroBlockEdgeConfirmed,
+			expectAssertionConfirmedByChallengeWinner,
+			expectOneStepProofSuccessful,
 		},
 	}
 
