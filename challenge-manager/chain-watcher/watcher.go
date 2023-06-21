@@ -548,20 +548,10 @@ func (w *Watcher) processEdgeConfirmation(
 
 	// Check if we should confirm the assertion by challenge winner.
 	if edge.GetType() == protocol.BlockChallengeEdge {
-		go func() {
-			if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-				confirmErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionId(claimId), edgeId)
-				return false, confirmErr
-			}); err != nil {
-				log.WithError(err).WithField(
-					"assertionId", containers.Trunc(assertionId[:]),
-				).Error("Could not confirm assertion by win")
-				return
-			}
-			log.WithFields(logrus.Fields{
-				"assertionId": containers.Trunc(assertionId[:]),
-			}).WithError(err).Infof("Assertion confirmed by challenge win")
-		}()
+		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionId(claimId), edgeId); confirmAssertionErr != nil {
+			return confirmAssertionErr
+		}
+		log.WithField("assertionId", containers.Trunc(assertionId[:])).Infof("Assertion confirmed by challenge win")
 	}
 
 	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
