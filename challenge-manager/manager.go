@@ -116,15 +116,21 @@ func New(
 	return m, nil
 }
 
+// IsTrackingEdge returns true if we are currently tracking a specified edge id as an edge tracker goroutine.
 func (m *Manager) IsTrackingEdge(edgeId protocol.EdgeId) bool {
 	return m.trackedEdgeIds.Has(edgeId)
 }
 
+// MarkTrackedEdge marks an edge id as being tracked by our challenge manager.
 func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId) {
 	m.trackedEdgeIds.Insert(edgeId)
 }
 
+// TrackEdge spawns an edge tracker for an edge if it is not currently being tracked.
 func (m *Manager) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
+	if m.trackedEdgeIds.Has(edge.Id()) {
+		return nil
+	}
 	trk, err := m.getTrackerForEdge(ctx, edge)
 	if err != nil {
 		return err
@@ -133,6 +139,7 @@ func (m *Manager) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	return nil
 }
 
+// Gets an edge tracker for an edge by retrieving its associated assertion creation info.
 func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge) (*edgetracker.Tracker, error) {
 	// Retry until you get the previous assertion ID.
 	assertionId, err := retry.UntilSucceeds(ctx, func() (protocol.AssertionId, error) {
@@ -198,6 +205,7 @@ func (m *Manager) Start(ctx context.Context) {
 	go m.watcher.Watch(ctx)
 }
 
+// Gets the execution height for a rollup state from our state manager.
 func (m *Manager) getExecutionStateBlockHeight(ctx context.Context, st rollupgen.ExecutionState) (uint64, error) {
 	height, ok := m.stateManager.ExecutionStateBlockHeight(ctx, protocol.GoExecutionStateFromSolidity(st))
 	if !ok {

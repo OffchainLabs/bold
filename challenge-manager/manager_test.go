@@ -95,7 +95,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	require.NoError(t, err)
 	require.Equal(t, false, !hasRival)
 
-	honestWatcher := watcher.New(honestValidator.chain, honestValidator.stateManager, createdData.Backend, time.Second, "alice")
+	honestWatcher := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, "alice")
 	honestValidator.watcher = honestWatcher
 	tracker1, err := edgetracker.New(
 		honestEdge,
@@ -113,11 +113,15 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	)
 	require.NoError(t, err)
 
-	syncCompleted := make(chan struct{})
-	go honestWatcher.Watch(ctx, syncCompleted)
-	<-syncCompleted
+	go honestWatcher.Watch(ctx)
+	for {
+		if honestWatcher.IsSynced() {
+			break
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
 
-	evilWatcher := watcher.New(evilValidator.chain, evilValidator.stateManager, createdData.Backend, time.Second, "alice")
+	evilWatcher := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, "alice")
 	evilValidator.watcher = evilWatcher
 	tracker2, err := edgetracker.New(
 		evilEdge,
@@ -135,9 +139,13 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	)
 	require.NoError(t, err)
 
-	syncCompleted = make(chan struct{})
-	go evilWatcher.Watch(ctx, syncCompleted)
-	<-syncCompleted
+	go evilWatcher.Watch(ctx)
+	for {
+		if evilWatcher.IsSynced() {
+			break
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
 	return tracker1, tracker2
 }
 

@@ -3,6 +3,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -59,13 +60,14 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	histChecker        l2stateprovider.HistoryChecker
-	chain              protocol.AssertionChain
-	edgeManager        EdgeManager
-	pollEventsInterval time.Duration
-	challenges         *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
-	backend            bind.ContractBackend
-	validatorName      string
+	histChecker          l2stateprovider.HistoryChecker
+	chain                protocol.AssertionChain
+	edgeManager          EdgeManager
+	pollEventsInterval   time.Duration
+	challenges           *threadsafe.Map[protocol.AssertionId, *trackedChallenge]
+	backend              bind.ContractBackend
+	validatorName        string
+	initialSyncCompleted atomic.Bool
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -127,6 +129,10 @@ func (w *Watcher) ComputeHonestPathTimer(
 		)
 	}
 	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
+}
+
+func (w *Watcher) IsSynced() bool {
+	return w.initialSyncCompleted.Load()
 }
 
 // Starts watching the chain via a polling mechanism for all edge added and confirmation events
@@ -199,6 +205,8 @@ func (w *Watcher) Watch(ctx context.Context) {
 		log.Error(err)
 		return
 	}
+
+	w.initialSyncCompleted.Store(true)
 
 	fromBlock = toBlock
 	ticker := time.NewTicker(w.pollEventsInterval)
