@@ -213,7 +213,7 @@ func TestSync_HonestCharlieJoinsLate(t *testing.T) {
 			cfg := &challengeProtocolTestConfig{
 				// The heights at which the validators diverge in histories. In this test,
 				// alice and bob start diverging at height 3 at all subchallenge levels.
-				assertionDivergenceHeight: 2,
+				assertionDivergenceHeight: 4,
 				bigStepDivergenceHeight:   4,
 				smallStepDivergenceHeight: 4,
 			}
@@ -229,9 +229,10 @@ func TestSync_HonestCharlieJoinsLate(t *testing.T) {
 		}(),
 		BobStateManager: func() l2stateprovider.Provider {
 			cfg := &challengeProtocolTestConfig{
-				assertionDivergenceHeight: 3,
-				bigStepDivergenceHeight:   5,
-				smallStepDivergenceHeight: 5,
+				assertionDivergenceHeight:      5,
+				bigStepDivergenceHeight:        5,
+				smallStepDivergenceHeight:      5,
+				assertionBlockHeightDifference: 8,
 			}
 			sm, err := statemanager.NewForSimpleMachine(
 				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
