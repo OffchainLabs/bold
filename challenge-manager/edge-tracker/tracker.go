@@ -24,10 +24,10 @@ var errBadOneStepProof = errors.New("bad one step proof data")
 var log = logrus.WithField("prefix", "edge-tracker")
 
 var (
-	spawnedCounter       = metrics.NewRegisteredCounter("arb/challenge-manager/tracker/spawned", nil)
-	bisectedCounter      = metrics.NewRegisteredCounter("arb/challenge-manager/tracker/bisected", nil)
-	confirmedCounter     = metrics.NewRegisteredCounter("arb/challenge-manager/tracker/confirmed", nil)
-	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/challenge-manager/tracker/layer-zero-leaves", nil)
+	spawnedCounter       = metrics.NewRegisteredCounter("arb/validator/tracker/spawned", nil)
+	bisectedCounter      = metrics.NewRegisteredCounter("arb/validator/tracker/bisected", nil)
+	confirmedCounter     = metrics.NewRegisteredCounter("arb/validator/tracker/confirmed", nil)
+	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/validator/tracker/layer-zero-leaves", nil)
 )
 
 // ConfirmationMetadataChecker defines a struct which can retrieve information about

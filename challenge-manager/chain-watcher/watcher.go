@@ -22,11 +22,11 @@ import (
 var log = logrus.WithField("prefix", "challenge-watcher")
 
 var (
-	edgeAddedCounter               = metrics.NewRegisteredCounter("arb/challenge-manager/watcher/edge-added", nil)
-	edgeConfirmedByChildrenCounter = metrics.NewRegisteredCounter("arb/challenge-manager/watcher/confirmed-by-children", nil)
-	edgeConfirmedByTimeCounter     = metrics.NewRegisteredCounter("arb/challenge-manager/watcher/confirmed-by-time", nil)
-	edgeConfirmedByOSPCounter      = metrics.NewRegisteredCounter("arb/challenge-manager/watcher/confirmed-by-osp", nil)
-	edgeConfirmedByClaimCounter    = metrics.NewRegisteredCounter("arb/challenge-manager/watcher/confirmed-by-claim", nil)
+	edgeAddedCounter               = metrics.NewRegisteredCounter("arb/validator/watcher/edge-added", nil)
+	edgeConfirmedByChildrenCounter = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed-by-children", nil)
+	edgeConfirmedByTimeCounter     = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed-by-time", nil)
+	edgeConfirmedByOSPCounter      = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed-by-osp", nil)
+	edgeConfirmedByClaimCounter    = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed-by-claim", nil)
 )
 
 // EdgeManager provides a method to track edges, via edge tracker goroutines.

@@ -12,7 +12,7 @@ const sleepTime = time.Second * 1
 
 var (
 	log          = logrus.WithField("prefix", "util")
-	retryCounter = metrics.NewRegisteredCounter("arb/challenge-manager/runtime/retry", nil)
+	retryCounter = metrics.NewRegisteredCounter("arb/validator/runtime/retry", nil)
 )
 
 // UntilSucceeds retries the given function until it succeeds or the context is cancelled.
