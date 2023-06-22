@@ -92,6 +92,26 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	cfg = &challengeProtocolTestConfig{
+		// The heights at which the validators diverge in histories. In this test,
+		// alice and bob start diverging at height 3 at all subchallenge levels.
+		assertionDivergenceHeight: divergeHeightAtL2 + 2,
+		bigStepDivergenceHeight:   divergeHeightAtL2,
+		smallStepDivergenceHeight: divergeHeightAtL2,
+	}
+	charlieStateManager, err := statemanager.NewForSimpleMachine(
+		statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*levelZeroSmallStepHeight+cfg.smallStepDivergenceHeight),
+		statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+		statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+		statemanager.WithLevelZeroEdgeHeights(&challenge_testing.LevelZeroHeights{
+			BlockChallengeHeight:     uint64(levelZeroBlockHeight),
+			BigStepChallengeHeight:   uint64(levelZeroBigStepHeight),
+			SmallStepChallengeHeight: uint64(levelZeroSmallStepHeight),
+		}),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	a, err := setupValidator(ctx, chains[0], backend, addrs.Rollup, aliceStateManager, "alice", accs[0].TxOpts.From)
 	if err != nil {
@@ -101,49 +121,66 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	// Post assertions in the background.
-	alicePoster := assertions.NewPoster(chains[0], aliceStateManager, "alice", postNewAssertionInterval)
-	bobPoster := assertions.NewPoster(chains[1], bobStateManager, "bob", postNewAssertionInterval)
-
-	aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
+	_, err = setupValidator(ctx, chains[2], backend, addrs.Rollup, charlieStateManager, "charlie", accs[2].TxOpts.From)
 	if err != nil {
 		panic(err)
 	}
+
+	// Post assertions in the background.
+	//alicePoster := assertions.NewPoster(chains[0], aliceStateManager, "alice", postNewAssertionInterval)
+	bobPoster := assertions.NewPoster(chains[1], bobStateManager, "bob", postNewAssertionInterval)
+	charliePoster := assertions.NewPoster(chains[2], charlieStateManager, "charlie", postNewAssertionInterval)
+
+	// aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
 	bobLeaf, err := bobPoster.PostLatestAssertion(ctx)
 	if err != nil {
 		panic(err)
 	}
-
-	// Scan for created assertions in the background.
-	aliceScanner := assertions.NewScanner(chains[0], aliceStateManager, backend, a, addrs.Rollup, "alice", checkForAssertionsInterval)
-	bobScanner := assertions.NewScanner(chains[1], bobStateManager, backend, b, addrs.Rollup, "bob", checkForAssertionsInterval)
-
-	if err := aliceScanner.ProcessAssertionCreation(ctx, aliceLeaf.Id()); err != nil {
+	for i := 0; i < 100; i++ {
+		backend.Commit()
+	}
+	charlieLeaf, err := charliePoster.PostLatestAssertion(ctx)
+	if err != nil {
 		panic(err)
 	}
-	if err := bobScanner.ProcessAssertionCreation(ctx, bobLeaf.Id()); err != nil {
-		panic(err)
-	}
+	_ = a
+	_ = b
+	//_ = aliceLeaf
+	_ = bobLeaf
+	_ = charlieLeaf
 
-	// Advance the blockchain in the background.
-	go func() {
-		tick := time.NewTicker(advanceChainInterval)
-		defer tick.Stop()
-		for {
-			select {
-			case <-tick.C:
-				backend.Commit()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	// // Scan for created assertions in the background.
+	// aliceScanner := assertions.NewScanner(chains[0], aliceStateManager, backend, a, addrs.Rollup, "alice", checkForAssertionsInterval)
+	// bobScanner := assertions.NewScanner(chains[1], bobStateManager, backend, b, addrs.Rollup, "bob", checkForAssertionsInterval)
 
-	a.Start(ctx)
-	b.Start(ctx)
+	// if err := aliceScanner.ProcessAssertionCreation(ctx, aliceLeaf.Id()); err != nil {
+	// 	panic(err)
+	// }
+	// if err := bobScanner.ProcessAssertionCreation(ctx, bobLeaf.Id()); err != nil {
+	// 	panic(err)
+	// }
 
-	<-ctx.Done()
+	// // Advance the blockchain in the background.
+	// go func() {
+	// 	tick := time.NewTicker(advanceChainInterval)
+	// 	defer tick.Stop()
+	// 	for {
+	// 		select {
+	// 		case <-tick.C:
+	// 			backend.Commit()
+	// 		case <-ctx.Done():
+	// 			return
+	// 		}
+	// 	}
+	// }()
+
+	// a.Start(ctx)
+	// b.Start(ctx)
+
+	// <-ctx.Done()
 }
 
 // setupValidator initializes a validator with the minimum required configuration.
