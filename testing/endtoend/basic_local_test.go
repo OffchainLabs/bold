@@ -199,6 +199,65 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 	testSyncBobStopsCharlieJoins(t, be, scenario)
 }
 
+func TestSync_HonestCharlieJoinsLate(t *testing.T) {
+	be, err := backend.NewAnvilLocal(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, be.Start())
+	defer func() {
+		require.NoError(t, be.Stop(), "error stopping backend")
+	}()
+
+	scenario := &ChallengeScenario{
+		Name: "honest party joins late",
+		AliceStateManager: func() l2stateprovider.Provider {
+			cfg := &challengeProtocolTestConfig{
+				// The heights at which the validators diverge in histories. In this test,
+				// alice and bob start diverging at height 3 at all subchallenge levels.
+				assertionDivergenceHeight: 2,
+				bigStepDivergenceHeight:   4,
+				smallStepDivergenceHeight: 4,
+			}
+			sm, err := statemanager.NewForSimpleMachine(
+				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return sm
+		}(),
+		BobStateManager: func() l2stateprovider.Provider {
+			cfg := &challengeProtocolTestConfig{
+				assertionDivergenceHeight: 3,
+				bigStepDivergenceHeight:   5,
+				smallStepDivergenceHeight: 5,
+			}
+			sm, err := statemanager.NewForSimpleMachine(
+				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
+				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return sm
+		}(),
+		CharlieStateManager: func() l2stateprovider.Provider {
+			sm, err := statemanager.NewForSimpleMachine()
+			if err != nil {
+				t.Fatal(err)
+			}
+			return sm
+		}(),
+		Expectations: []expect{
+			expectAssertionConfirmedByChallengeWinner,
+		},
+	}
+
+	testHonestPartyJoinsLate(t, be, scenario)
+}
+
 func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
 	t.Run(scenario.Name, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
@@ -309,6 +368,80 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		require.NoError(t, err)
 		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.DefensiveMode)) // Defensive is good enough here.
 		require.NoError(t, err)
+		charlie.Start(ctx)
+
+		g, ctx := errgroup.WithContext(ctx)
+		for _, e := range s.Expectations {
+			fn := e // loop closure
+			g.Go(func() error {
+				return fn(t, ctx, be)
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			t.Fatal(err)
+		}
+
+	})
+}
+
+func testHonestPartyJoinsLate(t *testing.T, be backend.Backend, s *ChallengeScenario) {
+	t.Run(s.Name, func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+		defer cancel()
+
+		rollup, err := be.DeployRollup()
+		require.NoError(t, err)
+
+		hr := headerreader.New(be.Client(), func() *headerreader.Config {
+			return &headerreader.DefaultConfig
+		})
+
+		// Bad Alice
+		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client(), hr)
+		require.NoError(t, err)
+		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"))
+		require.NoError(t, err)
+
+		// Bad Bob
+		bChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Bob(), be.Client(), hr)
+		require.NoError(t, err)
+		bob, err := validator.New(ctx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"))
+		require.NoError(t, err)
+
+		alicePoster := assertions.NewPoster(aChain, s.AliceStateManager, "alice", time.Hour)
+		bobPoster := assertions.NewPoster(bChain, s.BobStateManager, "bob", time.Hour)
+		aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
+		require.NoError(t, err)
+
+		require.NoError(t, be.MineBlocks(80))
+
+		bobLeaf, err := bobPoster.PostLatestAssertion(ctx)
+		require.NoError(t, err)
+		aliceScanner := assertions.NewScanner(aChain, s.AliceStateManager, be.Client(), alice, rollup, "alice", time.Hour)
+		bobScanner := assertions.NewScanner(bChain, s.BobStateManager, be.Client(), bob, rollup, "bob", time.Hour)
+		require.NoError(t, aliceScanner.ProcessAssertionCreation(ctx, aliceLeaf.Id()))
+		require.NoError(t, bobScanner.ProcessAssertionCreation(ctx, bobLeaf.Id()))
+
+		// Alice and bob starts to challenge each other.
+		alice.Start(ctx)
+		bob.Start(ctx)
+
+		// 30s later, Honest charlie starts
+		time.Sleep(30 * time.Second)
+
+		// Good Charlie joins
+		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client(), hr)
+		require.NoError(t, err)
+		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"))
+		require.NoError(t, err)
+
+		charliePoster := assertions.NewPoster(aChain, s.CharlieStateManager, "charlie", time.Hour)
+		charlieLeaf, err := charliePoster.PostLatestAssertion(ctx)
+		require.NoError(t, err)
+		charlieScanner := assertions.NewScanner(cChain, s.CharlieStateManager, be.Client(), charlie, rollup, "charlie", time.Hour)
+		require.NoError(t, charlieScanner.ProcessAssertionCreation(ctx, charlieLeaf.Id()))
+
 		charlie.Start(ctx)
 
 		g, ctx := errgroup.WithContext(ctx)

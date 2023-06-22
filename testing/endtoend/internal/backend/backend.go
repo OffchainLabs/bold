@@ -33,4 +33,6 @@ type Backend interface {
 
 	// Contract addresses relevant to the challenge protocol.
 	ContractAddresses() *setup.RollupAddresses
+
+	MineBlocks(n uint64) error
 }
