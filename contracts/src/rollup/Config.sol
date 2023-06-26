@@ -22,12 +22,15 @@ struct Config {
     address owner;
     address loserStakeEscrow;
     uint256 chainId;
-    uint64 genesisBlockNum;
     uint256 miniStakeValue;
     ISequencerInbox.MaxTimeVariation sequencerInboxMaxTimeVariation;
     uint256 layerZeroBlockEdgeHeight;
     uint256 layerZeroBigStepEdgeHeight;
     uint256 layerZeroSmallStepEdgeHeight;
+    /// @notice The execution state to be used in the genesis assertion
+    ExecutionState genesisExecutionState;
+    /// @notice The inbox size at the time the genesis execution state was created
+    uint256 genesisInboxCount;
 }
 
 struct ContractDependencies {

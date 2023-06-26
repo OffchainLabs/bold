@@ -44,6 +44,10 @@ contract BridgeStub is IBridge {
         revert("NOT_IMPLEMENTED");
     }
 
+    function updateRollupAddress(IOwnable) external pure {
+        revert("NOT_IMPLEMENTED");
+    }
+
     function enqueueDelayedMessage(
         uint8 kind,
         address sender,

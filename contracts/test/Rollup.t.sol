@@ -88,6 +88,8 @@ contract RollupTest is Test {
             address(0)
         );
 
+        ExecutionState memory emptyState =
+            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
@@ -102,11 +104,12 @@ contract RollupTest is Test {
             stakeToken: address(0),
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: loserStakeEscrow,
-            genesisBlockNum: 0,
             miniStakeValue: 0,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
-            layerZeroSmallStepEdgeHeight: 2 ** 5
+            layerZeroSmallStepEdgeHeight: 2 ** 5,
+            genesisExecutionState: emptyState,
+            genesisInboxCount: 0
         });
 
         address expectedRollupAddr = address(

@@ -30,6 +30,11 @@ contract RollupEventInbox is IRollupEventInbox, IDelayedMessageProvider, Delegat
         rollup = address(_bridge.rollup());
     }
 
+    /// @notice Allows the proxy owner to set the rollup address
+    function updateRollupAddress() external onlyDelegated onlyProxyOwner {
+        rollup = address(bridge.rollup());
+    }
+
     function rollupInitialized(uint256 chainId) external override onlyRollup {
         bytes memory initMsg = abi.encodePacked(chainId);
         uint256 num = bridge.enqueueDelayedMessage(
