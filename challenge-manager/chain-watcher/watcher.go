@@ -278,7 +278,7 @@ func (w *Watcher) Watch(ctx context.Context) {
 func (w *Watcher) GetEdges() []protocol.SpecEdge {
 	syncEdges := make([]protocol.SpecEdge, 0)
 	//nolint:err
-	_ = w.challenges.ForEach(func(assertionID protocol.AssertionHash, t *trackedChallenge) error {
+	_ = w.challenges.ForEach(func(AssertionHash protocol.AssertionHash, t *trackedChallenge) error {
 		//nolint:err
 		_ = t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
 			syncEdges = append(syncEdges, edge)
