@@ -27,7 +27,7 @@ var (
 	spawnedCounter       = metrics.NewRegisteredCounter("arb/validator/tracker/spawned", nil)
 	bisectedCounter      = metrics.NewRegisteredCounter("arb/validator/tracker/bisected", nil)
 	confirmedCounter     = metrics.NewRegisteredCounter("arb/validator/tracker/confirmed", nil)
-	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/validator/tracker/layer-zero-leaves", nil)
+	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/validator/tracker/layer_zero_leaves", nil)
 )
 
 // ConfirmationMetadataChecker defines a struct which can retrieve information about
