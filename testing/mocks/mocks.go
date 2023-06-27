@@ -131,9 +131,9 @@ func (m *MockStateManager) SmallStepPrefixProof(
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (m *MockStateManager) ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool) {
+func (m *MockStateManager) ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool, error) {
 	args := m.Called(ctx, state)
-	return args.Get(0).(uint64), args.Bool(1)
+	return args.Get(0).(uint64), args.Bool(1), nil
 }
 
 func (m *MockStateManager) BigStepLeafCommitment(

@@ -224,13 +224,13 @@ func (s *L2StateBackend) LatestExecutionState(_ context.Context) (*protocol.Exec
 }
 
 // Checks if the execution manager locally has recorded this state
-func (s *L2StateBackend) ExecutionStateBlockHeight(_ context.Context, state *protocol.ExecutionState) (uint64, bool) {
+func (s *L2StateBackend) ExecutionStateBlockHeight(_ context.Context, state *protocol.ExecutionState) (uint64, bool, error) {
 	for i, r := range s.executionStates {
 		if r.Equals(state) {
-			return uint64(i), true
+			return uint64(i), true, nil
 		}
 	}
-	return 0, false
+	return 0, false, nil
 }
 
 func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, blockChallengeHeight uint64) (commitments.History, error) {

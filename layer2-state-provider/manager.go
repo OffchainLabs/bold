@@ -23,7 +23,8 @@ type Provider interface {
 	LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error)
 	// If the state manager locally has this execution state, returns its block height and true.
 	// Otherwise, returns false.
-	ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool)
+	// Returns error if catching up to chain.
+	ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool, error)
 	// Produces a block challenge history commitment up to and including a certain height.
 	HistoryCommitmentUpTo(ctx context.Context, blockChallengeHeight uint64) (commitments.History, error)
 	// Produces a block challenge history commitment in a certain inclusive block range,
