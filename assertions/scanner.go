@@ -78,37 +78,35 @@ func (s *Scanner) Scan(ctx context.Context) {
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 	for {
-		for {
-			select {
-			case <-ticker.C:
-				latestBlock, err := s.backend.HeaderByNumber(ctx, nil)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				if !latestBlock.Number.IsUint64() {
-					log.Fatal("Latest block number was not a uint64")
-				}
-				toBlock := latestBlock.Number.Uint64()
-				if fromBlock == toBlock {
-					continue
-				}
-				filterOpts := &bind.FilterOpts{
-					Start:   fromBlock,
-					End:     &toBlock,
-					Context: ctx,
-				}
-				_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-					return true, s.checkForAssertionAdded(ctx, filterer, filterOpts)
-				})
-				if err != nil {
-					log.Error(err)
-					return
-				}
-				fromBlock = toBlock
-			case <-ctx.Done():
+		select {
+		case <-ticker.C:
+			latestBlock, err := s.backend.HeaderByNumber(ctx, nil)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			if !latestBlock.Number.IsUint64() {
+				log.Fatal("Latest block number was not a uint64")
+			}
+			toBlock := latestBlock.Number.Uint64()
+			if fromBlock == toBlock {
+				continue
+			}
+			filterOpts := &bind.FilterOpts{
+				Start:   fromBlock,
+				End:     &toBlock,
+				Context: ctx,
+			}
+			_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+				return true, s.checkForAssertionAdded(ctx, filterer, filterOpts)
+			})
+			if err != nil {
+				log.Error(err)
 				return
 			}
+			fromBlock = toBlock
+		case <-ctx.Done():
+			return
 		}
 	}
 }
