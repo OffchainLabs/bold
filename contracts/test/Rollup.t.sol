@@ -915,7 +915,7 @@ contract RollupTest is Test {
         userRollup.fastConfirmAssertion(assertionHash, genesisHash, firstState, inboxAccs);
     }
 
-    function testSuccessFastConfirmNewAssertion() public {
+    function _testFastConfirmNewAssertion(address by, string memory err) internal {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
@@ -932,7 +932,10 @@ contract RollupTest is Test {
             inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
 
-        vm.prank(anyTrustFastConfirmer);
+        if (bytes(err).length > 0) {
+            vm.expectRevert(bytes(err));
+        }
+        vm.prank(by);
         userRollup.fastConfirmNewAssertion({
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
@@ -951,45 +954,16 @@ contract RollupTest is Test {
             }),
             expectedAssertionHash: expectedAssertionHash
         });
-        assertEq(userRollup.latestConfirmed(), expectedAssertionHash);
+        if (bytes(err).length == 0) {
+            assertEq(userRollup.latestConfirmed(), expectedAssertionHash);
+        }
+    }
+
+    function testSuccessFastConfirmNewAssertion() public {
+        _testFastConfirmNewAssertion(anyTrustFastConfirmer, "");
     }
 
     function testRevertFastConfirmNewAssertionNotConfirmer() public {
-        uint64 inboxcount = uint64(_createNewBatch());
-        ExecutionState memory beforeState;
-        beforeState.machineStatus = MachineStatus.FINISHED;
-        ExecutionState memory afterState;
-        afterState.machineStatus = MachineStatus.FINISHED;
-        afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash
-        afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
-        afterState.globalState.u64Vals[0] = 1; // inbox count
-        afterState.globalState.u64Vals[1] = 0; // pos in msg
-
-        bytes32 expectedAssertionHash = RollupLib.assertionHash({
-            parentAssertionHash: genesisHash,
-            afterState: afterState,
-            inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
-        });
-
-        vm.expectRevert("NOT_FAST_CONFIRMER");
-        vm.prank(validator1);
-        userRollup.fastConfirmNewAssertion({
-            assertion: AssertionInputs({
-                beforeStateData: BeforeStateData({
-                    sequencerBatchAcc: bytes32(0),
-                    prevPrevAssertionHash: bytes32(0),
-                    configData: ConfigData({
-                        wasmModuleRoot: WASM_MODULE_ROOT,
-                        requiredStake: BASE_STAKE,
-                        challengeManager: address(challengeManager),
-                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
-                        nextInboxPosition: afterState.globalState.u64Vals[0]
-                    })
-                }),
-                beforeState: beforeState,
-                afterState: afterState
-            }),
-            expectedAssertionHash: expectedAssertionHash
-        });
+        _testFastConfirmNewAssertion(validator1, "NOT_FAST_CONFIRMER");
     }
 }
