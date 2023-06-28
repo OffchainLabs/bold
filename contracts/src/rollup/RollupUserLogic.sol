@@ -218,6 +218,22 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         reduceStakeTo(msg.sender, target);
     }
 
+    /**
+     * @notice This allow the anyTrustFastConfirmer to force confirm any pending assertion
+     *         the anyTrustFastConfirmer is supposed to be set only on an AnyTrust chain to
+     *         a contract that can call this function when received sufficient signatures
+     */
+    function fastConfirmAssertion(
+        bytes32 assertionHash,
+        bytes32 parentAssertionHash,
+        ExecutionState calldata confirmState,
+        bytes32 inboxAcc
+    ) external whenNotPaused {
+        require(msg.sender == anyTrustFastConfirmer, "NOT_FAST_CONFIRMER");
+        // this skip deadline, prev, challenge validations
+        confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc);
+    }
+
     function owner() external view returns (address) {
         return _getAdmin();
     }

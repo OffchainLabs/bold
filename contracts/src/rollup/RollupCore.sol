@@ -104,6 +104,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     uint256 public rollupDeploymentBlock;
 
     bool public validatorWhitelistDisabled;
+    address public anyTrustFastConfirmer;
 
     function sequencerInbox() public view virtual returns (ISequencerInbox) {
         return ISequencerInbox(bridge.sequencerInbox());
