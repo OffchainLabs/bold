@@ -52,7 +52,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	edge := &mocks.MockSpecEdge{}
 	edge.On("AssertionHash", ctx).Return(protocol.AssertionHash{}, nil)
 	m.On("ReadAssertionCreationInfo", ctx, protocol.AssertionHash{}).Return(&protocol.AssertionCreatedInfo{InboxMaxCount: big.NewInt(100)}, nil)
-	s.On("ExecutionStateBlockHeight", ctx, &protocol.ExecutionState{}).Return(uint64(1), true)
+	s.On("ExecutionStateMsgCount", ctx, &protocol.ExecutionState{}).Return(uint64(1), true)
 
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)
