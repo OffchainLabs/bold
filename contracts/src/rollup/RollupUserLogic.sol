@@ -246,9 +246,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     {
         // Early revert on duplicated assertion if expectedAssertionHash is set
         require(
-            expectedAssertionHash == bytes32(0)
-                || getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
-            "EXPECTED_ASSERTION_SEEN"
+            getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion, "EXPECTED_ASSERTION_SEEN"
         );
 
         bytes32 prevAssertion = RollupLib.assertionHash(
