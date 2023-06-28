@@ -246,7 +246,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     {
         // Early revert on duplicated assertion if expectedAssertionHash is set
         require(
-            getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion, "EXPECTED_ASSERTION_SEEN"
+            expectedAssertionHash == bytes32(0)
+                || getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
+            "EXPECTED_ASSERTION_SEEN"
         );
 
         bytes32 prevAssertion = RollupLib.assertionHash(
@@ -257,7 +259,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         getAssertionStorage(prevAssertion).requireExists();
 
         bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
-
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
             // only 1 of the children can be confirmed and get their stake refunded
             // so we send the other children's stake to the loserStakeEscrow
@@ -266,7 +267,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         }
 
         fastConfirmAssertion(
-            expectedAssertionHash,
+            newAssertionHash,
             prevAssertion,
             assertion.afterState,
             bridge.sequencerInboxAccs(assertion.afterState.globalState.getInboxPosition() - 1)
