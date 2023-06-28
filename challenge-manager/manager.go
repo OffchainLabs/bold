@@ -178,6 +178,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	}
 	return retry.UntilSucceeds(ctx, func() (*edgetracker.Tracker, error) {
 		return edgetracker.New(
+			ctx,
 			edge,
 			m.chain,
 			m.stateManager,
