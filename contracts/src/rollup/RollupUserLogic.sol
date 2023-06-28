@@ -228,10 +228,51 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc
-    ) external whenNotPaused {
+    ) public whenNotPaused {
         require(msg.sender == anyTrustFastConfirmer, "NOT_FAST_CONFIRMER");
         // this skip deadline, prev, challenge validations
         confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc);
+    }
+
+    /**
+     * @notice This allow the anyTrustFastConfirmer to immediately create and confirm an assertion
+     *         the anyTrustFastConfirmer is supposed to be set only on an AnyTrust chain to
+     *         a contract that can call this function when received sufficient signatures
+     *         The logic in this function is similar to stakeOnNewAssertion, but without staker checks
+     */
+    function fastConfirmNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
+        external
+        whenNotPaused
+    {
+        // Early revert on duplicated assertion if expectedAssertionHash is set
+        require(
+            expectedAssertionHash == bytes32(0)
+                || getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
+            "EXPECTED_ASSERTION_SEEN"
+        );
+
+        bytes32 prevAssertion = RollupLib.assertionHash(
+            assertion.beforeStateData.prevPrevAssertionHash,
+            assertion.beforeState,
+            assertion.beforeStateData.sequencerBatchAcc
+        );
+        getAssertionStorage(prevAssertion).requireExists();
+
+        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+
+        if (!getAssertionStorage(newAssertionHash).isFirstChild) {
+            // only 1 of the children can be confirmed and get their stake refunded
+            // so we send the other children's stake to the loserStakeEscrow
+            // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
+            increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.configData.requiredStake);
+        }
+
+        fastConfirmAssertion(
+            expectedAssertionHash,
+            prevAssertion,
+            assertion.afterState,
+            bridge.sequencerInboxAccs(assertion.afterState.globalState.getInboxPosition() - 1)
+        );
     }
 
     function owner() external view returns (address) {
