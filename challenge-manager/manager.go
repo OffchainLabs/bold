@@ -216,7 +216,7 @@ func (m *Manager) Start(ctx context.Context) {
 	).Info("Started challenge manager")
 
 	// Watcher tower and resolve modes don't monitor challenges.
-	if m.mode <= ResolveMode {
+	if m.mode == WatchTowerMode || m.mode == ResolveMode {
 		return
 	}
 

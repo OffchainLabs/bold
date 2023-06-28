@@ -180,10 +180,11 @@ func (s *Scanner) ProcessAssertionCreation(
 		return nil
 	}
 
-	if s.challengeModeReader.Mode() >= challengemanager.DefensiveMode {
+	if s.challengeModeReader.Mode() == challengemanager.DefensiveMode || s.challengeModeReader.Mode() == challengemanager.MakeMode {
 		if err := s.challengeCreator.ChallengeAssertion(ctx, assertionHash); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	log.WithFields(logrus.Fields{
