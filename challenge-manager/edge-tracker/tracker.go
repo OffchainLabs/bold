@@ -467,9 +467,6 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 
 	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
 
-	if err != nil {
-		return commitments.History{}, nil, err
-	}
 	switch et.edge.GetType() {
 	case protocol.BigStepChallengeEdge:
 		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo)
