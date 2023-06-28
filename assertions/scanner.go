@@ -180,14 +180,16 @@ func (s *Scanner) ProcessAssertionCreation(
 		return nil
 	}
 
-	if s.challengeModeReader.Mode() == challengemanager.WatchTowerMode {
-		log.WithFields(logrus.Fields{
-			"parentAssertionHash":   creationInfo.ParentAssertionHash,
-			"detectedAssertionHash": assertionHash,
-			"messageCount":          msgCount,
-		}).Error("Detected invalid assertion, but not configured to challenge")
-		return nil
+	if s.challengeModeReader.Mode() >= challengemanager.DefensiveMode {
+		if err := s.challengeCreator.ChallengeAssertion(ctx, assertionHash); err != nil {
+			return err
+		}
 	}
 
-	return s.challengeCreator.ChallengeAssertion(ctx, assertionHash)
+	log.WithFields(logrus.Fields{
+		"parentAssertionHash":   creationInfo.ParentAssertionHash,
+		"detectedAssertionHash": assertionHash,
+		"msgCount":              msgCount,
+	}).Error("Detected invalid assertion, but not configured to challenge")
+	return nil
 }

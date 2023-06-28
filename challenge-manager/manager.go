@@ -215,6 +215,11 @@ func (m *Manager) Start(ctx context.Context) {
 		m.address.Hex(),
 	).Info("Started challenge manager")
 
+	// Watcher tower and resolve modes don't monitor challenges.
+	if m.mode <= ResolveMode {
+		return
+	}
+
 	// Start watching for ongoing chain events in the background.
 	go m.watcher.Watch(ctx)
 }
