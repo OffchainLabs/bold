@@ -43,12 +43,14 @@ type Provider interface {
 	// challenge heights H to H+1.
 	BigStepLeafCommitment(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		blockHeight uint64,
 	) (commitments.History, error)
 	// Produces a big step history commitment from big step 0 to N within block
 	// challenge heights A and B where B = A + 1.
 	BigStepCommitmentUpTo(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		blockHeight,
 		toBigStep uint64,
 	) (commitments.History, error)
@@ -56,6 +58,7 @@ type Provider interface {
 	// big steps S to S+1 within block challenge heights H to H+1.
 	SmallStepLeafCommitment(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		blockHeight,
 		bigStep uint64,
 	) (commitments.History, error)
@@ -63,6 +66,7 @@ type Provider interface {
 	// big steps S to S+1 within block challenge heights H to H+1.
 	SmallStepCommitmentUpTo(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		blockHeight,
 		bigStep,
 		toSmallStep uint64,
@@ -85,6 +89,7 @@ type Provider interface {
 	// within a block challenge.
 	BigStepPrefixProof(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		blockHeight,
 		fromBigStep,
 		toBigStep uint64,
@@ -93,6 +98,7 @@ type Provider interface {
 	// block challenge height heights H to H+1.
 	SmallStepPrefixProof(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		blockHeight,
 		bigStep,
 		fromSmallStep,
@@ -113,6 +119,7 @@ type Provider interface {
 type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
 		edgeType protocol.EdgeType,
 		prevAssertionInboxMaxCount uint64,
 		heights *protocol.OriginHeights,
