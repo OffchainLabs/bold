@@ -244,12 +244,9 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         external
         whenNotPaused
     {
-        // Early revert on duplicated assertion if expectedAssertionHash is set
-        require(
-            expectedAssertionHash == bytes32(0)
-                || getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
-            "EXPECTED_ASSERTION_SEEN"
-        );
+        // Must supply expectedAssertionHash to fastConfirmNewAssertion
+        require(expectedAssertionHash != bytes32(0), "EXPECTED_ASSERTION_HASH");
+        AssertionStatus status = getAssertionStorage(expectedAssertionHash).status;
 
         bytes32 prevAssertion = RollupLib.assertionHash(
             assertion.beforeStateData.prevPrevAssertionHash,
@@ -258,16 +255,20 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
         );
         getAssertionStorage(prevAssertion).requireExists();
 
-        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
-        if (!getAssertionStorage(newAssertionHash).isFirstChild) {
-            // only 1 of the children can be confirmed and get their stake refunded
-            // so we send the other children's stake to the loserStakeEscrow
-            // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
-            increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.configData.requiredStake);
+        if (status == AssertionStatus.NoAssertion) {
+            // If not exists, we create the new assertion
+            bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+            if (!getAssertionStorage(newAssertionHash).isFirstChild) {
+                // only 1 of the children can be confirmed and get their stake refunded
+                // so we send the other children's stake to the loserStakeEscrow
+                // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
+                increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.configData.requiredStake);
+            }
         }
 
+        // This would revert if the assertion is already confirmed
         fastConfirmAssertion(
-            newAssertionHash,
+            expectedAssertionHash,
             prevAssertion,
             assertion.afterState,
             bridge.sequencerInboxAccs(assertion.afterState.globalState.getInboxPosition() - 1)
