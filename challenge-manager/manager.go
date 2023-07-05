@@ -31,25 +31,27 @@ type Opt = func(val *Manager)
 // Manager defines an offchain, challenge manager, which will be
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
-	chain                   protocol.Protocol
-	chalManagerAddr         common.Address
-	rollupAddr              common.Address
-	rollup                  *rollupgen.RollupCore
-	rollupFilterer          *rollupgen.RollupCoreFilterer
-	chalManager             *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                 bind.ContractBackend
-	stateManager            l2stateprovider.Provider
-	address                 common.Address
-	name                    string
-	timeRef                 utilTime.Reference
-	edgeTrackerWakeInterval time.Duration
-	chainWatcherInterval    time.Duration
-	watcher                 *watcher.Watcher
-	trackedEdgeIds          *threadsafe.Set[protocol.EdgeId]
-	assertionHashCache      *threadsafe.Map[protocol.AssertionHash, [2]uint64]
-	poster                  *assertions.Poster
-	scanner                 *assertions.Scanner
-	mode                    types.Mode
+	chain                     protocol.Protocol
+	chalManagerAddr           common.Address
+	rollupAddr                common.Address
+	rollup                    *rollupgen.RollupCore
+	rollupFilterer            *rollupgen.RollupCoreFilterer
+	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
+	backend                   bind.ContractBackend
+	stateManager              l2stateprovider.Provider
+	address                   common.Address
+	name                      string
+	timeRef                   utilTime.Reference
+	edgeTrackerWakeInterval   time.Duration
+	chainWatcherInterval      time.Duration
+	watcher                   *watcher.Watcher
+	trackedEdgeIds            *threadsafe.Set[protocol.EdgeId]
+	assertionHashCache        *threadsafe.Map[protocol.AssertionHash, [2]uint64]
+	poster                    *assertions.Poster
+	scanner                   *assertions.Scanner
+	assertionPostingInterval  time.Duration
+	assertionScanningInterval time.Duration
+	mode                      types.Mode
 }
 
 // WithName is a human-readable identifier for this challenge manager for logging purposes.
@@ -81,6 +83,21 @@ func WithMode(m types.Mode) Opt {
 	}
 }
 
+// WithAssertionPostingInterval specifies how often to post new assertions, if in MakeMode.
+// act on its responsibilities.
+func WithAssertionPostingInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionPostingInterval = d
+	}
+}
+
+// WithAssertionScanningInterval specifies how often to scan for new assertions.
+func WithAssertionScanningInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionScanningInterval = d
+	}
+}
+
 // New sets up a challenge manager instance provided a protocol, state manager, and additional options.
 func New(
 	ctx context.Context,
@@ -91,16 +108,18 @@ func New(
 	opts ...Opt,
 ) (*Manager, error) {
 	m := &Manager{
-		backend:                 backend,
-		chain:                   chain,
-		stateManager:            stateManager,
-		address:                 common.Address{},
-		timeRef:                 utilTime.NewRealTimeReference(),
-		rollupAddr:              rollupAddr,
-		edgeTrackerWakeInterval: time.Millisecond * 100,
-		chainWatcherInterval:    time.Millisecond * 500,
-		trackedEdgeIds:          threadsafe.NewSet[protocol.EdgeId](),
-		assertionHashCache:      threadsafe.NewMap[protocol.AssertionHash, [2]uint64](),
+		backend:                   backend,
+		chain:                     chain,
+		stateManager:              stateManager,
+		address:                   common.Address{},
+		timeRef:                   utilTime.NewRealTimeReference(),
+		rollupAddr:                rollupAddr,
+		edgeTrackerWakeInterval:   time.Millisecond * 100,
+		chainWatcherInterval:      time.Millisecond * 500,
+		trackedEdgeIds:            threadsafe.NewSet[protocol.EdgeId](),
+		assertionHashCache:        threadsafe.NewMap[protocol.AssertionHash, [2]uint64](),
+		assertionPostingInterval:  time.Hour,
+		assertionScanningInterval: time.Minute,
 	}
 	for _, o := range opts {
 		o(m)
@@ -133,7 +152,7 @@ func New(
 		m.chain,
 		m.stateManager,
 		m.name,
-		time.Second*5,
+		m.assertionPostingInterval,
 	)
 	m.scanner = assertions.NewScanner(
 		m.chain,
@@ -142,7 +161,7 @@ func New(
 		m,
 		m.rollupAddr,
 		m.name,
-		time.Second,
+		m.assertionScanningInterval,
 	)
 	return m, nil
 }
