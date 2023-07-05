@@ -92,13 +92,6 @@ type AssertionChain interface {
 	SpecChallengeManager(ctx context.Context) (SpecChallengeManager, error)
 }
 
-// Agreement encompasses whether or not a local node agrees with a edge's commitments.
-// Either the edge is honest, we agree with its start commit, or disagree entirely.
-type Agreement struct {
-	IsHonestEdge          bool
-	AgreesWithStartCommit bool
-}
-
 // EdgeType corresponds to the three different challenge
 // levels in the protocol: block challenges, big step challenges,
 // and small step challenges.
