@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/assertions"
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
 	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
+	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
@@ -45,7 +47,9 @@ type Manager struct {
 	watcher                 *watcher.Watcher
 	trackedEdgeIds          *threadsafe.Set[protocol.EdgeId]
 	assertionHashCache      *threadsafe.Map[protocol.AssertionHash, [2]uint64]
-	mode                    Mode
+	poster                  *assertions.Poster
+	scanner                 *assertions.Scanner
+	mode                    types.Mode
 }
 
 // WithName is a human-readable identifier for this challenge manager for logging purposes.
@@ -71,7 +75,7 @@ func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
 }
 
 // WithMode specifies the mode of the challenge manager.
-func WithMode(m Mode) Opt {
+func WithMode(m types.Mode) Opt {
 	return func(val *Manager) {
 		val.mode = m
 	}
@@ -119,11 +123,27 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+
 	m.rollup = rollup
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
 	m.watcher = watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, m.name)
+	m.poster = assertions.NewPoster(
+		m.chain,
+		m.stateManager,
+		m.name,
+		time.Second*5,
+	)
+	m.scanner = assertions.NewScanner(
+		m.chain,
+		m.stateManager,
+		m.backend,
+		m,
+		m.rollupAddr,
+		m.name,
+		time.Second,
+	)
 	return m, nil
 }
 
@@ -138,7 +158,7 @@ func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId) {
 }
 
 // Mode returns the mode of the challenge manager.
-func (m *Manager) Mode() Mode {
+func (m *Manager) Mode() types.Mode {
 	return m.mode
 }
 
@@ -218,13 +238,21 @@ func (m *Manager) Start(ctx context.Context) {
 		m.address.Hex(),
 	).Info("Started challenge manager")
 
+	// Start the assertion scanner.
+	go m.scanner.Start(ctx)
+
 	// Watcher tower and resolve modes don't monitor challenges.
-	if m.mode == WatchTowerMode || m.mode == ResolveMode {
+	if m.mode == types.WatchTowerMode || m.mode == types.ResolveMode {
 		return
 	}
 
+	// Start the assertion poster if we are in make mode.
+	if m.mode == types.MakeMode {
+		go m.poster.Start(ctx)
+	}
+
 	// Start watching for ongoing chain events in the background.
-	go m.watcher.Watch(ctx)
+	go m.watcher.Start(ctx)
 }
 
 // Gets the execution height for a rollup state from our state manager.
