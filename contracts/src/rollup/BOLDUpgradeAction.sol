@@ -95,7 +95,7 @@ contract StateHashPreImageLookup {
 ///         rollup admin logic. We create a separate forwarder contract here that just relays
 ///         information, since it's not the admin it can access rollup user logic.
 contract RollupReader is IOldRollup {
-    IOldRollup rollup;
+    IOldRollup public immutable rollup;
 
     constructor(IOldRollup _rollup) {
         rollup = _rollup;
