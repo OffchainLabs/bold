@@ -5,7 +5,6 @@ package mocks
 
 import (
 	"context"
-	"errors"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
@@ -75,17 +74,15 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uin
 }
 
 func (m *MockStateManager) AgreesWithHistoryCommitment(
-	_ context.Context,
-	_ common.Hash,
-	_ uint64,
-	_ protocol.EdgeType,
-	_ protocol.OriginHeights,
-	_ l2stateprovider.History,
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	prevInboxMaxCount uint64,
+	edgeType protocol.EdgeType,
+	originHeights protocol.OriginHeights,
+	history l2stateprovider.History,
 ) (bool, error) {
-	if m.AgreeErr {
-		return false, errors.New("failed")
-	}
-	return m.Agrees, nil
+	args := m.Called(ctx, wasmModuleRoot, prevInboxMaxCount, edgeType, originHeights, history)
+	return args.Get(0).(bool), args.Error(1)
 }
 
 func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, startBlock, endBlock, batchCount uint64) (commitments.History, error) {
