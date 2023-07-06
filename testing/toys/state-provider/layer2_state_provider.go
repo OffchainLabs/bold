@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -116,45 +115,6 @@ func WithLevelZeroEdgeHeights(heights *challenge_testing.LevelZeroHeights) Opt {
 	}
 }
 
-// NewWithAssertionStates creates a simulated state manager from a list of predefined state roots for
-// the top-level assertion chain, useful for tests and simulation purposes in block challenges.
-// This also allows for specifying the honest states for big and small step subchallenges along
-// with the point at which the state manager should diverge from the honest computation.
-func NewWithAssertionStates(
-	assertionChainExecutionStates []*protocol.ExecutionState,
-	opts ...Opt,
-) (*L2StateBackend, error) {
-	if len(assertionChainExecutionStates) == 0 {
-		return nil, errors.New("must have execution states")
-	}
-	stateRoots := make([]common.Hash, len(assertionChainExecutionStates))
-	var lastBatch uint64 = math.MaxUint64
-	var lastPosInBatch uint64 = math.MaxUint64
-	for i := 0; i < len(stateRoots); i++ {
-		state := assertionChainExecutionStates[i]
-		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
-			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
-		}
-		lastBatch = state.GlobalState.Batch
-		lastPosInBatch = state.GlobalState.PosInBatch
-		stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
-	}
-	s := &L2StateBackend{
-		stateRoots:      stateRoots,
-		executionStates: assertionChainExecutionStates,
-		machineAtBlock: func(context.Context, uint64) (Machine, error) {
-			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
-		},
-		levelZeroBlockEdgeHeight:     challenge_testing.LevelZeroBlockEdgeHeight,
-		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
-		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
-	}
-	for _, o := range opts {
-		o(s)
-	}
-	return s, nil
-}
-
 func NewForSimpleMachine(
 	opts ...Opt,
 ) (*L2StateBackend, error) {
@@ -222,7 +182,10 @@ func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, mess
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
-	return s.executionStates[len(s.executionStates)-1], nil
+	if messageNumber >= uint64(len(s.executionStates)) {
+		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", messageNumber, len(s.executionStates))
+	}
+	return s.executionStates[messageNumber], nil
 }
 
 // Checks if the execution manager locally has recorded this state

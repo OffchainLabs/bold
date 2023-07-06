@@ -347,13 +347,10 @@ func TestAllPrefixProofs(t *testing.T) {
 
 func TestDivergenceGranularity(t *testing.T) {
 	ctx := context.Background()
-	numStates := uint64(10)
 	bigStepSize := uint64(10)
 	maxOpcodesPerBlock := uint64(100)
 
-	honestStates, _ := setupStates(t, numStates, 0 /* honest */)
-	honestManager, err := NewWithAssertionStates(
-		honestStates,
+	honestManager, err := NewForSimpleMachine(
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
 		WithMachineAtBlockProvider(mockMachineAtBlock),
@@ -373,10 +370,8 @@ func TestDivergenceGranularity(t *testing.T) {
 	t.Log("Big step leaf commitment height", honestCommit.Height)
 
 	divergenceHeight := toBlock
-	evilStates, _ := setupStates(t, numStates, divergenceHeight)
 
-	evilManager, err := NewWithAssertionStates(
-		evilStates,
+	evilManager, err := NewForSimpleMachine(
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
 		WithBlockDivergenceHeight(toBlock),
