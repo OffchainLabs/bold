@@ -120,10 +120,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	).Return(assertionHash, nil)
 
 	mockStateManager := &mocks.MockStateManager{
-		Agreement: protocol.Agreement{
-			IsHonestEdge:          true,
-			AgreesWithStartCommit: true,
-		},
+		Agrees: true,
 	}
 
 	mockManager := &mocks.MockEdgeTracker{}

@@ -162,7 +162,7 @@ func TestAddEdge(t *testing.T) {
 type mockMetadataReader struct {
 	assertionHash            protocol.AssertionHash
 	assertionErr             error
-	claimHeights             *protocol.OriginHeights
+	claimHeights             protocol.OriginHeights
 	claimHeightsErr          error
 	unrivaledAssertionBlocks uint64
 }
@@ -181,7 +181,7 @@ func (m *mockMetadataReader) AssertionUnrivaledBlocks(
 
 func (m *mockMetadataReader) TopLevelClaimHeights(
 	_ context.Context, _ protocol.EdgeId,
-) (*protocol.OriginHeights, error) {
+) (protocol.OriginHeights, error) {
 	return m.claimHeights, m.claimHeightsErr
 }
 
@@ -315,8 +315,8 @@ func (*edge) HasLengthOneRival(_ context.Context) (bool, error) {
 
 // The history commitment for the top-level edge the current edge's challenge is made upon.
 // This is used at subchallenge creation boundaries.
-func (*edge) TopLevelClaimHeight(_ context.Context) (*protocol.OriginHeights, error) {
-	return nil, errors.New("unimplemented")
+func (*edge) TopLevelClaimHeight(_ context.Context) (protocol.OriginHeights, error) {
+	return protocol.OriginHeights{}, errors.New("unimplemented")
 }
 
 func (*edge) Bisect(

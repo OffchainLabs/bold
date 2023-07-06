@@ -100,7 +100,6 @@ type PrefixProver interface {
 	PrefixProofUpToBatch(
 		ctx context.Context,
 		startHeight,
-		fromBlockChallengeHeight,
 		fromMessageNumber,
 		toMessageNumber,
 		maxBatchCount uint64,
