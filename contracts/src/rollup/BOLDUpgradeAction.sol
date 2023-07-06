@@ -339,6 +339,9 @@ contract BOLDUpgradeAction {
         // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
         // to set of the new rollup address
         bytes32 rollupSalt = keccak256(abi.encode(config));
+        // CHRIS: TODO: as it stands we have the address wrong here since we dont append params to the creation code
+        //              however in nitro we've moved away from this and have an initializer
+        //              So this line and the new RollupProxy below need to be updated after updating from nitro
         address expectedRollupAddress =
             Create2Upgradeable.computeAddress(rollupSalt, keccak256(type(RollupProxy).creationCode));
         upgradeSurroundingContracts(expectedRollupAddress);
