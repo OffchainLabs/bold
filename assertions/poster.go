@@ -123,13 +123,13 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 		_, err = p.stateManager.ExecutionStateMsgCount(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState))
 		switch {
 		case errors.Is(err, l2stateprovider.ErrNoExecutionState):
-			prevId, err := curr.PrevId(ctx)
-			if err != nil {
-				return protocol.AssertionHash{}, err
+			prevId, prevErr := curr.PrevId(ctx)
+			if prevErr != nil {
+				return protocol.AssertionHash{}, prevErr
 			}
-			prev, err := p.chain.GetAssertion(ctx, prevId)
-			if err != nil {
-				return protocol.AssertionHash{}, err
+			prev, getErr := p.chain.GetAssertion(ctx, prevId)
+			if getErr != nil {
+				return protocol.AssertionHash{}, getErr
 			}
 			curr = prev
 		case err != nil:
