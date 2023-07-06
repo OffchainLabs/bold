@@ -33,6 +33,7 @@ go_test(
         "//chain-abstraction:protocol",
         "//challenge-manager",
         "//containers/option",
+        "//layer2-state-provider",
         "//solgen/go/rollupgen",
         "//testing/logging",
         "//testing/mocks",
