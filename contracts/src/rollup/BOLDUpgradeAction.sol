@@ -70,7 +70,7 @@ interface IOldRollupAdmin {
 contract StateHashPreImageLookup {
     using GlobalStateLib for GlobalState;
 
-    mapping(bytes32 => bytes) preImages;
+    mapping(bytes32 => bytes) internal preImages;
 
     function stateHash(ExecutionState calldata execState, uint256 inboxMaxCount) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(execState.globalState.hash(), inboxMaxCount, execState.machineStatus));
