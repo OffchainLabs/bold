@@ -70,15 +70,18 @@ interface IOldRollupAdmin {
 contract StateHashPreImageLookup {
     using GlobalStateLib for GlobalState;
 
+    event HashSet(bytes32 h, ExecutionState execState, uint inboxMaxCount);
+
     mapping(bytes32 => bytes) internal preImages;
 
-    function stateHash(ExecutionState calldata execState, uint256 inboxMaxCount) internal pure returns (bytes32) {
+    function stateHash(ExecutionState calldata execState, uint256 inboxMaxCount) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(execState.globalState.hash(), inboxMaxCount, execState.machineStatus));
     }
 
     function set(bytes32 h, ExecutionState calldata execState, uint256 inboxMaxCount) public {
         require(h == stateHash(execState, inboxMaxCount), "Invalid hash");
         preImages[h] = abi.encode(execState, inboxMaxCount);
+        emit HashSet(h, execState, inboxMaxCount);
     }
 
     function get(bytes32 h) public view returns (ExecutionState memory execState, uint256 inboxMaxCount) {
