@@ -1,8 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "logging",
-    srcs = ["assert.go"],
-    importpath = "github.com/OffchainLabs/challenge-protocol-v2/testing/logging",
-    visibility = ["//visibility:public"],
-)

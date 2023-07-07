@@ -31,7 +31,6 @@ func TestEdgeTracker_act(t *testing.T) {
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 5, int(tkr.CurrentState()))
-		//logging.AssertLogsContain(t, hook, "Successfully bisected")
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 5, int(tkr.CurrentState()))
