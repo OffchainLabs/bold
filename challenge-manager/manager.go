@@ -22,10 +22,8 @@ import (
 	utilTime "github.com/OffchainLabs/challenge-protocol-v2/time"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/sirupsen/logrus"
+	"github.com/ethereum/go-ethereum/log"
 )
-
-var log = logrus.WithField("prefix", "challenge-manager")
 
 type Opt = func(val *Manager)
 
@@ -266,10 +264,9 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 }
 
 func (m *Manager) Start(ctx context.Context) {
-	log.WithField(
-		"address",
-		m.address.Hex(),
-	).Info("Started challenge manager")
+	log.Info("Started challenge manager", log.Ctx{
+		"validatorAddress": m.address.Hex(),
+	})
 
 	// Start the assertion scanner.
 	go m.scanner.Start(ctx)

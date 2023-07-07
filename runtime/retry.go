@@ -7,14 +7,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/sirupsen/logrus"
 )
 
 const sleepTime = time.Second * 1
 
 var (
-	log          = logrus.WithField("prefix", "util")
 	retryCounter = metrics.NewRegisteredCounter("arb/validator/runtime/retry", nil)
 )
 
@@ -28,7 +27,9 @@ func UntilSucceeds[T any](ctx context.Context, fn func() (T, error)) (T, error) 
 		got, err := fn()
 		if err != nil {
 			count++
-			log.WithError(err).Errorf("Failed to call function after %d attempts", count)
+			log.Error("Failed to call function after retries", log.Ctx{
+				"retryCount": count,
+			})
 			retryCounter.Inc(1)
 			time.Sleep(sleepTime)
 			continue

@@ -1757,7 +1757,7 @@ def go_dependencies():
         sum = "h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=",
         version = "v3.21.11+incompatible",
     )
-    
+
     go_repository(
         name = "com_github_spacemonkeygo_spacelog",
         importpath = "github.com/spacemonkeygo/spacelog",
