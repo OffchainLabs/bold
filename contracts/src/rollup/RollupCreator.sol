@@ -14,11 +14,7 @@ import "./RollupProxy.sol";
 
 contract RollupCreator is Ownable {
     event RollupCreated(
-        address indexed rollupAddress,
-        address inboxAddress,
-        address adminProxy,
-        address sequencerInbox,
-        address bridge
+        address indexed rollupAddress, address inboxAddress, address adminProxy, address sequencerInbox, address bridge
     );
     event TemplatesUpdated();
 
@@ -52,54 +48,23 @@ contract RollupCreator is Ownable {
         emit TemplatesUpdated();
     }
 
-    struct CreateRollupFrame {
-        ProxyAdmin admin;
-        IBridge bridge;
-        ISequencerInbox sequencerInbox;
-        IInbox inbox;
-        IRollupEventInbox rollupEventInbox;
-        IOutbox outbox;
-        RollupProxy rollup;
-    }
-
-    // After this setup:
-    // Rollup should be the owner of bridge
-    // RollupOwner should be the owner of Rollup's ProxyAdmin
-    // RollupOwner should be the owner of Rollup
-    // Bridge should have a single inbox and outbox
-    function createRollup(Config memory config, address expectedRollupAddr)
-        external
-        returns (address)
+    // internal function to workaround stack limit
+    function createChallengeManager(address rollupAddr, address proxyAdminAddr, Config memory config)
+        internal
+        returns (IEdgeChallengeManager)
     {
-        CreateRollupFrame memory frame;
-        frame.admin = new ProxyAdmin();
-
-        (
-            frame.bridge,
-            frame.sequencerInbox,
-            frame.inbox,
-            frame.rollupEventInbox,
-            frame.outbox
-        ) = bridgeCreator.createBridge(
-            address(frame.admin),
-            expectedRollupAddr,
-            config.sequencerInboxMaxTimeVariation
-        );
-
-        frame.admin.transferOwnership(config.owner);
-
         IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
             address(
                 new TransparentUpgradeableProxy(
                     address(challengeManagerTemplate),
-                    address(frame.admin),
+                    proxyAdminAddr,
                     ""
                 )
             )
         );
-        
+
         challengeManager.initialize({
-            _assertionChain: IAssertionChain(expectedRollupAddr),
+            _assertionChain: IAssertionChain(rollupAddr),
             _challengePeriodBlocks: config.confirmPeriodBlocks,
             _oneStepProofEntry: osp,
             layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
@@ -110,14 +75,39 @@ contract RollupCreator is Ownable {
             _excessStakeReceiver: config.owner
         });
 
-        frame.rollup = new RollupProxy(
+        return challengeManager;
+    }
+
+    // After this setup:
+    // Rollup should be the owner of bridge
+    // RollupOwner should be the owner of Rollup's ProxyAdmin
+    // RollupOwner should be the owner of Rollup
+    // Bridge should have a single inbox and outbox
+    function createRollup(Config calldata config) external returns (address) {
+        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        proxyAdmin.transferOwnership(config.owner);
+
+        // Create the rollup proxy to figure out the address and initialize it later
+        RollupProxy rollup = new RollupProxy{salt: keccak256(abi.encode(config))}();
+
+        (
+            IBridge bridge,
+            ISequencerInbox sequencerInbox,
+            IInbox inbox,
+            IRollupEventInbox rollupEventInbox,
+            IOutbox outbox
+        ) = bridgeCreator.createBridge(address(proxyAdmin), address(rollup), config.sequencerInboxMaxTimeVariation);
+
+        IEdgeChallengeManager challengeManager = createChallengeManager(address(rollup), address(proxyAdmin), config);
+
+        rollup.initializeProxy(
             config,
             ContractDependencies({
-                bridge: frame.bridge,
-                sequencerInbox: frame.sequencerInbox,
-                inbox: frame.inbox,
-                outbox: frame.outbox,
-                rollupEventInbox: frame.rollupEventInbox,
+                bridge: bridge,
+                sequencerInbox: sequencerInbox,
+                inbox: inbox,
+                outbox: outbox,
+                rollupEventInbox: rollupEventInbox,
                 challengeManager: challengeManager,
                 rollupAdminLogic: address(rollupAdminLogic),
                 rollupUserLogic: rollupUserLogic,
@@ -125,15 +115,10 @@ contract RollupCreator is Ownable {
                 validatorWalletCreator: validatorWalletCreator
             })
         );
-        require(address(frame.rollup) == expectedRollupAddr, "WRONG_ROLLUP_ADDR");
 
         emit RollupCreated(
-            address(frame.rollup),
-            address(frame.inbox),
-            address(frame.admin),
-            address(frame.sequencerInbox),
-            address(frame.bridge)
+            address(rollup), address(inbox), address(proxyAdmin), address(sequencerInbox), address(bridge)
         );
-        return address(frame.rollup);
+        return address(rollup);
     }
 }
