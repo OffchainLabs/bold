@@ -95,7 +95,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 
 		require.Equal(t, uint64(2), otherScanner.AssertionsProcessed())
 		require.Equal(t, uint64(2), otherScanner.ForksDetected())
-		require.Equal(t, uint64(1), otherScanner.ChallengesSubmitted())
+		require.Equal(t, uint64(2), otherScanner.ChallengesSubmitted())
 	})
 	t.Run("defensive validator can still challenge leaf", func(t *testing.T) {
 		ctx := context.Background()
@@ -137,8 +137,8 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, uint64(2), otherScanner.AssertionsProcessed())
-		require.Equal(t, uint64(1), otherScanner.ForksDetected())
-		require.Equal(t, uint64(1), otherScanner.ChallengesSubmitted())
+		require.Equal(t, uint64(2), otherScanner.ForksDetected())
+		require.Equal(t, uint64(2), otherScanner.ChallengesSubmitted())
 	})
 }
 
