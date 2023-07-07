@@ -352,7 +352,7 @@ func (s *L2StateBackend) maybeDivergeState(state *protocol.ExecutionState, block
 		*state = *s.executionStates[block+1]
 	}
 	if block+1 > s.blockDivergenceHeight || step >= s.machineDivergenceStep {
-		state.GlobalState.BlockHash[0] = 1
+		state.GlobalState.BlockHash[s.maliciousMachineIndex] = 1
 	}
 }
 
