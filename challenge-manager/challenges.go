@@ -53,7 +53,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	}
 	go tracker.Spawn(ctx)
 
-	log.Info("Successfully created level zero edge for block challenge", log.Ctx{
+	srvlog.Info("Successfully created level zero edge for block challenge", log.Ctx{
 		"name":          m.name,
 		"assertionHash": containers.Trunc(id[:]),
 	})

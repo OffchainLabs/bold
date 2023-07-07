@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	srvlog = log.New("service", "assertions/scanner")
+	srvlog = log.New("service", "assertions")
 )
 
 // Scanner checks for posted, onchain assertions via a polling mechanism since the latest confirmed,

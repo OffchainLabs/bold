@@ -15,6 +15,7 @@ const sleepTime = time.Second * 1
 
 var (
 	retryCounter = metrics.NewRegisteredCounter("arb/validator/runtime/retry", nil)
+	pkglog       = log.New("package", "retry")
 )
 
 // UntilSucceeds retries the given function until it succeeds or the context is cancelled.
@@ -27,7 +28,7 @@ func UntilSucceeds[T any](ctx context.Context, fn func() (T, error)) (T, error) 
 		got, err := fn()
 		if err != nil {
 			count++
-			log.Error("Failed to call function after retries", log.Ctx{
+			pkglog.Error("Failed to call function after retries", log.Ctx{
 				"retryCount": count,
 			})
 			retryCounter.Inc(1)

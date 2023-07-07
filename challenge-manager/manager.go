@@ -25,6 +25,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+var (
+	srvlog = log.New("service", "challenge-manager")
+)
+
 type Opt = func(val *Manager)
 
 // Manager defines an offchain, challenge manager, which will be
@@ -264,7 +268,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 }
 
 func (m *Manager) Start(ctx context.Context) {
-	log.Info("Started challenge manager", log.Ctx{
+	srvlog.Info("Started challenge manager", log.Ctx{
 		"validatorAddress": m.address.Hex(),
 	})
 
