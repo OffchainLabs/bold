@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/assertions"
@@ -28,6 +29,10 @@ import (
 var (
 	srvlog = log.New("service", "challenge-manager")
 )
+
+func init() {
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+}
 
 type Opt = func(val *Manager)
 

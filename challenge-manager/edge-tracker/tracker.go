@@ -6,6 +6,7 @@ package edgetracker
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -30,6 +31,10 @@ var (
 	confirmedCounter     = metrics.NewRegisteredCounter("arb/validator/tracker/confirmed", nil)
 	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/validator/tracker/layer_zero_leaves", nil)
 )
+
+func init() {
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+}
 
 // ConfirmationMetadataChecker defines a struct which can retrieve information about
 // an edge to determine if it can be confirmed via different means. For example,

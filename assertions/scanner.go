@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
+	"os"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -26,6 +27,10 @@ import (
 var (
 	srvlog = log.New("service", "assertions")
 )
+
+func init() {
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+}
 
 // Scanner checks for posted, onchain assertions via a polling mechanism since the latest confirmed,
 // up to the latest block, and keeps doing so as the chain advances. With each observed assertion,
