@@ -4,7 +4,6 @@ package toys
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"testing"
@@ -482,38 +481,6 @@ func TestDivergenceGranularity(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, honestCommit, evilCommit)
-}
-
-func setupStates(t *testing.T, numStates, divergenceHeight uint64) ([]*protocol.ExecutionState, []common.Hash) {
-	t.Helper()
-	states := make([]*protocol.ExecutionState, numStates)
-	roots := make([]common.Hash, numStates)
-	for i := uint64(0); i < numStates; i++ {
-		var blockHash common.Hash
-		if divergenceHeight == 0 || i < divergenceHeight {
-			blockHash = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
-		} else {
-			junkRoot := make([]byte, 32)
-			_, err := rand.Read(junkRoot)
-			require.NoError(t, err)
-			blockHash = crypto.Keccak256Hash(junkRoot)
-		}
-		state := &protocol.ExecutionState{
-			GlobalState: protocol.GoGlobalState{
-				BlockHash:  blockHash,
-				Batch:      0,
-				PosInBatch: i,
-			},
-			MachineStatus: protocol.MachineStatusFinished,
-		}
-		if i+1 == numStates {
-			state.GlobalState.Batch = 1
-			state.GlobalState.PosInBatch = 0
-		}
-		states[i] = state
-		roots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
-	}
-	return states, roots
 }
 
 func TestPrefixProofs(t *testing.T) {
