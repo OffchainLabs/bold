@@ -1,3 +1,5 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
 package toys
 
 import (
@@ -51,6 +53,7 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 	fromAssertionHeight := uint64(0)
 	bigStep, err := manager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromAssertionHeight,
 	)
 	require.NoError(t, err)
@@ -60,6 +63,7 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 	fromBigStep := uint64(0)
 	smallStep, err := manager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromAssertionHeight,
 		fromBigStep,
 	)
@@ -102,12 +106,14 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 
 	start, err = manager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 		toBigStep,
 	)
 	require.NoError(t, err)
 	end, err = manager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 	)
 	require.NoError(t, err)
@@ -119,6 +125,7 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 	toSmallStep := uint64(4)
 	start, err = manager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 		fromBigStep,
 		toSmallStep,
@@ -126,6 +133,7 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 	require.NoError(t, err)
 	end, err = manager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 		fromBigStep,
 	)
@@ -169,12 +177,14 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 
 	start, err = manager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 		toBigStep,
 	)
 	require.NoError(t, err)
 	end, err = manager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 	)
 	require.NoError(t, err)
@@ -185,6 +195,7 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 	toSmallStep := uint64(6)
 	start, err = manager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 		fromBigStep,
 		toSmallStep,
@@ -192,6 +203,7 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 	require.NoError(t, err)
 	end, err = manager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
 		fromBigStep,
 	)
@@ -223,7 +235,7 @@ func TestAllPrefixProofs(t *testing.T) {
 	require.NoError(t, err)
 	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, to)
 	require.NoError(t, err)
-	packedProof, err := manager.PrefixProof(ctx, from, to)
+	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, from, to, 1)
 	require.NoError(t, err)
 
 	data, err := ProofArgs.Unpack(packedProof)
@@ -252,15 +264,15 @@ func TestAllPrefixProofs(t *testing.T) {
 
 	bigFrom := uint64(1)
 
-	bigCommit, err := manager.BigStepLeafCommitment(ctx, from)
+	bigCommit, err := manager.BigStepLeafCommitment(ctx, common.Hash{}, from)
 	require.NoError(t, err)
 
-	bigBisectCommit, err := manager.BigStepCommitmentUpTo(ctx, from, bigFrom)
+	bigBisectCommit, err := manager.BigStepCommitmentUpTo(ctx, common.Hash{}, from, bigFrom)
 	require.NoError(t, err)
 	require.Equal(t, bigFrom, bigBisectCommit.Height)
 	require.Equal(t, bigCommit.FirstLeaf, bigBisectCommit.FirstLeaf)
 
-	bigProof, err := manager.BigStepPrefixProof(ctx, from, bigFrom, bigCommit.Height)
+	bigProof, err := manager.BigStepPrefixProof(ctx, common.Hash{}, from, bigFrom, bigCommit.Height)
 	require.NoError(t, err)
 
 	data, err = ProofArgs.Unpack(bigProof)
@@ -291,17 +303,17 @@ func TestAllPrefixProofs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	smallCommit, err := manager.SmallStepLeafCommitment(ctx, from, bigFrom)
+	smallCommit, err := manager.SmallStepLeafCommitment(ctx, common.Hash{}, from, bigFrom)
 	require.NoError(t, err)
 
 	smallFrom := uint64(2)
 
-	smallBisectCommit, err := manager.SmallStepCommitmentUpTo(ctx, from, bigFrom, smallFrom)
+	smallBisectCommit, err := manager.SmallStepCommitmentUpTo(ctx, common.Hash{}, from, bigFrom, smallFrom)
 	require.NoError(t, err)
 	require.Equal(t, smallFrom, smallBisectCommit.Height)
 	require.Equal(t, smallCommit.FirstLeaf, smallBisectCommit.FirstLeaf)
 
-	smallProof, err := manager.SmallStepPrefixProof(ctx, from, bigFrom, smallFrom, smallCommit.Height)
+	smallProof, err := manager.SmallStepPrefixProof(ctx, common.Hash{}, from, bigFrom, smallFrom, smallCommit.Height)
 	require.NoError(t, err)
 
 	data, err = ProofArgs.Unpack(smallProof)
@@ -353,6 +365,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	toBlock := uint64(2)
 	honestCommit, err := honestManager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
 	)
 	require.NoError(t, err)
@@ -377,6 +390,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	// Big step challenge granularity.
 	evilCommit, err := evilManager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
 	)
 	require.NoError(t, err)
@@ -390,12 +404,14 @@ func TestDivergenceGranularity(t *testing.T) {
 	checkHeight := divergenceHeight - 1
 	honestCommit, err = honestManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		checkHeight,
 	)
 	require.NoError(t, err)
 	evilCommit, err = evilManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		checkHeight,
 	)
@@ -407,12 +423,14 @@ func TestDivergenceGranularity(t *testing.T) {
 	// Check if big step commitments between the validators disagree starting at the divergence height.
 	honestCommit, err = honestManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		divergenceHeight,
 	)
 	require.NoError(t, err)
 	evilCommit, err = evilManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		divergenceHeight,
 	)
@@ -429,6 +447,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	fromBigStep := divergenceHeight - 1
 	honestCommit, err = honestManager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		fromBigStep,
 	)
@@ -436,6 +455,7 @@ func TestDivergenceGranularity(t *testing.T) {
 
 	evilCommit, err = evilManager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		fromBigStep,
 	)
@@ -452,6 +472,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	toSmallStep := divergenceHeight - 1
 	honestCommit, err = honestManager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		fromBigStep,
 		toSmallStep,
@@ -459,6 +480,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	require.NoError(t, err)
 	evilCommit, err = evilManager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
 		fromBigStep,
 		toSmallStep,
@@ -518,7 +540,7 @@ func TestPrefixProofs(t *testing.T) {
 		manager, err := New(leaves)
 		require.NoError(t, err)
 
-		packedProof, err := manager.PrefixProof(ctx, c.lo, c.hi)
+		packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, c.lo, c.hi, 1)
 		require.NoError(t, err)
 
 		data, err := ProofArgs.Unpack(packedProof)

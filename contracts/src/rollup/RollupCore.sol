@@ -103,10 +103,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     uint256 public totalWithdrawableFunds;
     uint256 public rollupDeploymentBlock;
 
-    // The assertion number of the initial assertion
-    uint64 internal constant GENESIS_NODE = 1;
-
     bool public validatorWhitelistDisabled;
+    address public anyTrustFastConfirmer;
 
     function sequencerInbox() public view virtual returns (ISequencerInbox) {
         return ISequencerInbox(bridge.sequencerInbox());
@@ -388,18 +386,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
                 // and cannot go backwards
                 require(afterInboxPosition >= prevInboxPosition, "ERRORED_INBOX_TOO_FEW");
-
-                // See validator/assertion.go ExecutionState RequiredBatches() for
-                // for why we move forward in the batch when the machine ends in an errored state
-                // CHRIS: TODO: remove this
-                afterInboxPosition++;
             } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
                 // Assertions must consume exactly all inbox messages
                 // that were in the inbox at the time the previous assertion was created
                 require(
-                    assertion.afterState.globalState.getInboxPosition()
-                        == assertion.beforeStateData.configData.nextInboxPosition,
-                    "INCORRECT_INBOX_POS"
+                    afterInboxPosition == assertion.beforeStateData.configData.nextInboxPosition, "INCORRECT_INBOX_POS"
                 );
                 // Assertions that finish correctly completely consume the message
                 // Therefore their position in the message is 0
@@ -415,7 +406,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             require(afterInboxPosition <= currentInboxPosition, "INBOX_PAST_END");
 
             // The next assertion must consume all the messages that are currently found in the inbox
-            if (assertion.afterState.globalState.getInboxPosition() == currentInboxPosition) {
+            if (afterInboxPosition == currentInboxPosition) {
                 // No new messages have been added to the inbox since the last assertion
                 // In this case if we set the next inbox position to the current one we would be insisting that
                 // the next assertion process no messages. So instead we increment the next inbox position to current
