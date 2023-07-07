@@ -8,7 +8,8 @@ package assertions
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -192,7 +193,10 @@ func (s *Scanner) ProcessAssertionCreation(
 		if s.challengeReader.MaxDelaySeconds() > 1 {
 			mds = s.challengeReader.MaxDelaySeconds()
 		}
-		randSecs := rand.Intn(mds)
+		randSecs, err := randUint64(uint64(mds))
+		if err != nil {
+			return err
+		}
 		log.WithField("seconds", randSecs).Info("Waiting before challenging")
 		time.Sleep(time.Duration(randSecs) * time.Second)
 
@@ -208,4 +212,15 @@ func (s *Scanner) ProcessAssertionCreation(
 		"msgCount":              msgCount,
 	}).Error("Detected invalid assertion, but not configured to challenge")
 	return nil
+}
+
+func randUint64(max uint64) (uint64, error) {
+	n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(max))
+	if err != nil {
+		return 0, err
+	}
+	if !n.IsUint64() {
+		return 0, errors.New("not a uint64")
+	}
+	return n.Uint64(), nil
 }
