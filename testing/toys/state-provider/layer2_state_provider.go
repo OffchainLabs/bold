@@ -46,8 +46,8 @@ type L2StateBackend struct {
 	maliciousMachineIndex        uint64
 }
 
-// New simulated manager from a list of predefined state roots, useful for tests and simulations.
-func New(stateRoots []common.Hash, opts ...Opt) (*L2StateBackend, error) {
+// Initialize with a list of predefined state roots, useful for tests and simulations.
+func NewWithMockedStateRoots(stateRoots []common.Hash, opts ...Opt) (*L2StateBackend, error) {
 	if len(stateRoots) == 0 {
 		return nil, errors.New("no state roots provided")
 	}
