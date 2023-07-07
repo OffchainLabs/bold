@@ -43,6 +43,7 @@ type L2StateBackend struct {
 	levelZeroBlockEdgeHeight     uint64
 	levelZeroBigStepEdgeHeight   uint64
 	levelZeroSmallStepEdgeHeight uint64
+	maliciousMachineIndex        uint64
 }
 
 // New simulated manager from a list of predefined state roots, useful for tests and simulations.
@@ -115,6 +116,12 @@ func WithLevelZeroEdgeHeights(heights *challenge_testing.LevelZeroHeights) Opt {
 	}
 }
 
+func WithMaliciousMachineIndex(index uint64) Opt {
+	return func(s *L2StateBackend) {
+		s.maliciousMachineIndex = index
+	}
+}
+
 func NewForSimpleMachine(
 	opts ...Opt,
 ) (*L2StateBackend, error) {
@@ -122,6 +129,7 @@ func NewForSimpleMachine(
 		levelZeroBlockEdgeHeight:     challenge_testing.LevelZeroBlockEdgeHeight,
 		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
 		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
+		maliciousMachineIndex:        0,
 	}
 	for _, o := range opts {
 		o(s)
@@ -152,7 +160,7 @@ func NewForSimpleMachine(
 				state.GlobalState.PosInBatch -= uint64(s.posInBatchDivergence)
 			}
 			if block >= s.blockDivergenceHeight {
-				state.GlobalState.BlockHash[0] = 1
+				state.GlobalState.BlockHash[s.maliciousMachineIndex] = 1
 			}
 			machHash = protocol.ComputeSimpleMachineChallengeHash(state)
 		}
