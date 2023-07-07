@@ -231,22 +231,14 @@ func DeployFullRollupStack(
 	sequencer common.Address,
 	config rollupgen.Config,
 ) (*RollupAddresses, error) {
-	rollupCreator, rollupUserAddr, rollupCreatorAddress, validatorUtils, validatorWalletCreator, err := deployRollupCreator(ctx, backend, deployAuth)
+	rollupCreator, rollupUserAddr, _, validatorUtils, validatorWalletCreator, err := deployRollupCreator(ctx, backend, deployAuth)
 	if err != nil {
 		return nil, err
 	}
-
-	nonce, err := backend.PendingNonceAt(ctx, rollupCreatorAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	expectedRollupAddr := crypto.CreateAddress(rollupCreatorAddress, nonce+2)
 
 	tx, err := rollupCreator.CreateRollup(
 		deployAuth,
 		config,
-		expectedRollupAddr,
 	)
 	if err != nil {
 		return nil, err
