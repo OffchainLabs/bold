@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/bridgegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -148,25 +149,42 @@ func (a *AssertionChain) CreateAssertion(
 	newOpts := copyTxOpts(a.txOpts)
 	newOpts.Value = parentAssertionCreationInfo.RequiredStake
 
-	// computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
-	// 	&bind.CallOpts{Context: ctx},
-	// 	parentAssertionCreationInfo.AssertionHash,
-	// 	postState.AsSolidityStruct(),
-	// 	parentAssertionCreationInfo.AfterInboxBatchAcc,
-	// )
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "could not compute assertion hash")
-	// }
-	// existingAssertion, err := a.GetAssertion(ctx, computedHash)
-	// switch {
-	// case err == nil:
-	// 	return existingAssertion, nil
-	// case !errors.Is(err, ErrNotFound):
-	// 	return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
-	// default:
-	// }
-	computedHash := common.Hash{}
-	//fmt.Printf("%+v\n", parentAssertionCreationInfo)
+	if postState.GlobalState.Batch == 0 {
+		return nil, errors.New("assertion post state cannot have a batch count of 0, as only genesis can")
+	}
+	bridgeAddr, err := a.userLogic.Bridge(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not retrieve bridge address for user rollup logic contract")
+	}
+	bridge, err := bridgegen.NewIBridgeCaller(bridgeAddr, a.backend)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
+	}
+	inboxBatchAcc, err := bridge.SequencerInboxAccs(
+		&bind.CallOpts{Context: ctx},
+		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
+	}
+
+	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
+		&bind.CallOpts{Context: ctx},
+		parentAssertionCreationInfo.AssertionHash,
+		postState.AsSolidityStruct(),
+		inboxBatchAcc,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not compute assertion hash")
+	}
+	existingAssertion, err := a.GetAssertion(ctx, computedHash)
+	switch {
+	case err == nil:
+		return existingAssertion, nil
+	case !errors.Is(err, ErrNotFound):
+		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
+	default:
+	}
 
 	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(

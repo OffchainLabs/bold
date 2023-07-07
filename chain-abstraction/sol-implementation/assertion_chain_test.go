@@ -43,11 +43,12 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err = chain.CreateAssertion(ctx, genesisInfo, postState)
+		assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 
-		_, err = chain.CreateAssertion(ctx, genesisInfo, postState)
-		require.ErrorContains(t, err, "ALREADY_STAKED")
+		existingAssertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		require.NoError(t, err)
+		require.Equal(t, assertion.Id(), existingAssertion.Id())
 	})
 	t.Run("can create fork", func(t *testing.T) {
 		assertionChain := cfg.Chains[1]
