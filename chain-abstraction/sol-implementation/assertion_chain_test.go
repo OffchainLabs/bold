@@ -5,7 +5,6 @@ package solimpl_test
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -24,19 +23,17 @@ func TestCreateAssertion(t *testing.T) {
 	chain := cfg.Chains[0]
 	backend := cfg.Backend
 
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash(genesisHash))
+	require.NoError(t, err)
+
 	t.Run("OK", func(t *testing.T) {
 		latestBlockHash := common.Hash{}
 		for i := uint64(0); i < 100; i++ {
 			latestBlockHash = backend.Commit()
 		}
 
-		createdInfo := &protocol.AssertionCreatedInfo{
-			AfterState: (&protocol.ExecutionState{
-				GlobalState:   protocol.GoGlobalState{},
-				MachineStatus: protocol.MachineStatusFinished,
-			}).AsSolidityStruct(),
-			InboxMaxCount: big.NewInt(1),
-		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash:  latestBlockHash,
@@ -46,10 +43,10 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := chain.CreateAssertion(ctx, createdInfo, postState)
+		_, err = chain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 
-		_, err = chain.CreateAssertion(ctx, createdInfo, postState)
+		_, err = chain.CreateAssertion(ctx, genesisInfo, postState)
 		require.ErrorContains(t, err, "ALREADY_STAKED")
 	})
 	t.Run("can create fork", func(t *testing.T) {
@@ -59,13 +56,6 @@ func TestCreateAssertion(t *testing.T) {
 			backend.Commit()
 		}
 
-		creationInfo := &protocol.AssertionCreatedInfo{
-			AfterState: (&protocol.ExecutionState{
-				GlobalState:   protocol.GoGlobalState{},
-				MachineStatus: protocol.MachineStatusFinished,
-			}).AsSolidityStruct(),
-			InboxMaxCount: big.NewInt(1),
-		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash:  common.BytesToHash([]byte("evil hash")),
@@ -75,7 +65,7 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
+		_, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 	})
 }
@@ -91,14 +81,11 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	for i := uint64(0); i < 100; i++ {
 		latestBlockHash = backend.Commit()
 	}
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash(genesisHash))
+	require.NoError(t, err)
 
-	createdInfo := &protocol.AssertionCreatedInfo{
-		AfterState: (&protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
-		}).AsSolidityStruct(),
-		InboxMaxCount: big.NewInt(1),
-	}
 	postState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash:  latestBlockHash,
@@ -108,7 +95,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	assertion, err := chain.CreateAssertion(ctx, createdInfo, postState)
+	assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
@@ -130,13 +117,6 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	// We then post a second child assertion.
 	assertionChain := cfg.Chains[1]
 
-	creationInfo := &protocol.AssertionCreatedInfo{
-		AfterState: (&protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
-		}).AsSolidityStruct(),
-		InboxMaxCount: big.NewInt(1),
-	}
 	postState = &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash:  common.BytesToHash([]byte("evil hash")),
@@ -146,7 +126,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	forkedAssertion, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
+	forkedAssertion, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	// We advance the chain by three blocks and check the assertion unrivaled times

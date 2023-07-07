@@ -284,7 +284,6 @@ func (e *SpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId)
 		return nil
 	}
 
-	// TODO: Add in fields.
 	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByClaim(e.manager.txOpts, e.id, claimId)
 	})

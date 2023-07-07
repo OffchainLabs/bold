@@ -139,41 +139,54 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertio
 // and a commitment to a post-state.
 func (a *AssertionChain) CreateAssertion(
 	ctx context.Context,
-	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
+	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
 	}
-	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash(assertionCreationInfo.ParentAssertionHash))
-	if err != nil {
-		return nil, err
-	}
 	newOpts := copyTxOpts(a.txOpts)
-	newOpts.Value = prevCreationInfo.RequiredStake
-	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
-		return nil, errors.New("inbox max count was not a uint64")
-	}
+	newOpts.Value = parentAssertionCreationInfo.RequiredStake
+
+	// computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
+	// 	&bind.CallOpts{Context: ctx},
+	// 	parentAssertionCreationInfo.AssertionHash,
+	// 	postState.AsSolidityStruct(),
+	// 	parentAssertionCreationInfo.AfterInboxBatchAcc,
+	// )
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "could not compute assertion hash")
+	// }
+	// existingAssertion, err := a.GetAssertion(ctx, computedHash)
+	// switch {
+	// case err == nil:
+	// 	return existingAssertion, nil
+	// case !errors.Is(err, ErrNotFound):
+	// 	return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
+	// default:
+	// }
+	computedHash := common.Hash{}
+	//fmt.Printf("%+v\n", parentAssertionCreationInfo)
+
 	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(
 			newOpts,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					PrevPrevAssertionHash: assertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     assertionCreationInfo.AfterInboxBatchAcc,
+					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+					SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
 					ConfigData: rollupgen.ConfigData{
-						RequiredStake:       prevCreationInfo.RequiredStake,
-						ChallengeManager:    prevCreationInfo.ChallengeManager,
-						ConfirmPeriodBlocks: prevCreationInfo.ConfirmPeriodBlocks,
-						WasmModuleRoot:      prevCreationInfo.WasmModuleRoot,
-						NextInboxPosition:   assertionCreationInfo.InboxMaxCount.Uint64(),
+						RequiredStake:       parentAssertionCreationInfo.RequiredStake,
+						ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
+						ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
+						WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
+						NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
 					},
 				},
-				BeforeState: assertionCreationInfo.AfterState,
+				BeforeState: parentAssertionCreationInfo.AfterState,
 				AfterState:  postState.AsSolidityStruct(),
 			},
-			// TODO(RJ): Use the expected assertion hash as a sanity check.
-			common.Hash{},
+			computedHash,
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
@@ -196,6 +209,10 @@ func (a *AssertionChain) CreateAssertion(
 		return nil, errors.New("could not find assertion created event in logs")
 	}
 	return a.GetAssertion(ctx, assertionCreated.AssertionHash)
+}
+
+func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
+	return a.userLogic.GenesisAssertionHash(&bind.CallOpts{Context: ctx})
 }
 
 // ConfirmAssertionByChallengeWinner attempts to confirm an assertion onchain
