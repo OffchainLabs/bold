@@ -174,7 +174,11 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 
-	headerReader := headerreader.New(simulated_backend.Wrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
+	headerReader, err := headerreader.New(ctx, simulated_backend.Wrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
+	if err != nil {
+		return nil, err
+	}
+
 	headerReader.Start(ctx)
 	chains := make([]*solimpl.AssertionChain, 3)
 	chain1, err := solimpl.NewAssertionChain(
