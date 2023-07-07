@@ -206,21 +206,29 @@ func TestSync_HonestCharlieJoinsLate(t *testing.T) {
 	defer func() {
 		require.NoError(t, be.Stop(), "error stopping backend")
 	}()
+	levelZeroBlockHeight := uint64(1 << 5)
+	levelZeroBigStepHeight := uint64(1 << 5)
+	levelZeroSmallStepHeight := uint64(1 << 5)
 
+	cfg := &challengeProtocolTestConfig{
+		// The heights at which the validators diverge in histories. In this test,
+		// alice and bob start diverging at height 3 at all subchallenge levels.
+		assertionDivergenceHeight: 4,
+		bigStepDivergenceHeight:   4,
+		smallStepDivergenceHeight: 4,
+	}
 	scenario := &ChallengeScenario{
 		Name: "honest party joins late",
 		AliceStateManager: func() l2stateprovider.Provider {
-			cfg := &challengeProtocolTestConfig{
-				// The heights at which the validators diverge in histories. In this test,
-				// alice and bob start diverging at height 3 at all subchallenge levels.
-				assertionDivergenceHeight: 4,
-				bigStepDivergenceHeight:   4,
-				smallStepDivergenceHeight: 4,
-			}
 			sm, err := statemanager.NewForSimpleMachine(
 				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
 				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
 				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+				statemanager.WithLevelZeroEdgeHeights(&challenge_testing.LevelZeroHeights{
+					BlockChallengeHeight:     levelZeroBlockHeight,
+					BigStepChallengeHeight:   levelZeroBigStepHeight,
+					SmallStepChallengeHeight: levelZeroSmallStepHeight,
+				}),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -228,16 +236,16 @@ func TestSync_HonestCharlieJoinsLate(t *testing.T) {
 			return sm
 		}(),
 		BobStateManager: func() l2stateprovider.Provider {
-			cfg := &challengeProtocolTestConfig{
-				assertionDivergenceHeight:      5,
-				bigStepDivergenceHeight:        5,
-				smallStepDivergenceHeight:      5,
-				assertionBlockHeightDifference: 8,
-			}
 			sm, err := statemanager.NewForSimpleMachine(
-				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*challenge_testing.LevelZeroSmallStepEdgeHeight+cfg.smallStepDivergenceHeight),
-				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight),
+				statemanager.WithMachineDivergenceStep(cfg.bigStepDivergenceHeight*levelZeroSmallStepHeight+(cfg.smallStepDivergenceHeight+2)),
+				statemanager.WithBlockDivergenceHeight(cfg.assertionDivergenceHeight+2),
 				statemanager.WithDivergentBlockHeightOffset(cfg.assertionBlockHeightDifference),
+				statemanager.WithLevelZeroEdgeHeights(&challenge_testing.LevelZeroHeights{
+					BlockChallengeHeight:     uint64(levelZeroBlockHeight),
+					BigStepChallengeHeight:   uint64(levelZeroBigStepHeight),
+					SmallStepChallengeHeight: uint64(levelZeroSmallStepHeight),
+				}),
+				statemanager.WithMaliciousMachineIndex(1),
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -245,7 +253,12 @@ func TestSync_HonestCharlieJoinsLate(t *testing.T) {
 			return sm
 		}(),
 		CharlieStateManager: func() l2stateprovider.Provider {
-			sm, err := statemanager.NewForSimpleMachine()
+			sm, err := statemanager.NewForSimpleMachine(
+				statemanager.WithLevelZeroEdgeHeights(&challenge_testing.LevelZeroHeights{
+					BlockChallengeHeight:     uint64(levelZeroBlockHeight),
+					BigStepChallengeHeight:   uint64(levelZeroBigStepHeight),
+					SmallStepChallengeHeight: uint64(levelZeroSmallStepHeight),
+				}))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -401,13 +414,13 @@ func testHonestPartyJoinsLate(t *testing.T, be backend.Backend, s *ChallengeScen
 		// Bad Alice
 		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client(), hr)
 		require.NoError(t, err)
-		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"))
+		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"), validator.WithMode(types.MakeMode))
 		require.NoError(t, err)
 
 		// Bad Bob
 		bChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Bob(), be.Client(), hr)
 		require.NoError(t, err)
-		bob, err := validator.New(ctx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"))
+		bob, err := validator.New(ctx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode))
 		require.NoError(t, err)
 
 		alicePoster := assertions.NewPoster(aChain, s.AliceStateManager, "alice", time.Hour)
@@ -434,10 +447,10 @@ func testHonestPartyJoinsLate(t *testing.T, be backend.Backend, s *ChallengeScen
 		// Good Charlie joins
 		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client(), hr)
 		require.NoError(t, err)
-		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"))
+		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.MakeMode))
 		require.NoError(t, err)
 
-		charliePoster := assertions.NewPoster(aChain, s.CharlieStateManager, "charlie", time.Hour)
+		charliePoster := assertions.NewPoster(cChain, s.CharlieStateManager, "charlie", time.Hour)
 		charlieLeaf, err := charliePoster.PostLatestAssertion(ctx)
 		require.NoError(t, err)
 		charlieScanner := assertions.NewScanner(cChain, s.CharlieStateManager, be.Client(), charlie, rollup, "charlie", time.Hour)

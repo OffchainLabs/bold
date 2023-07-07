@@ -211,6 +211,7 @@ func (s *Scanner) ProcessAssertionCreation(
 		"parentAssertionHash":   creationInfo.ParentAssertionHash,
 		"detectedAssertionHash": assertionHash,
 		"msgCount":              msgCount,
+		"mode":                  s.challengeReader.Mode(),
 	}).Error("Detected invalid assertion, but not configured to challenge")
 	return nil
 }
