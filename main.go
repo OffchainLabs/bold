@@ -10,6 +10,7 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/assertions"
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
+	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
@@ -168,6 +169,7 @@ func setupValidator(
 		validator.WithAddress(addr),
 		validator.WithName(name),
 		validator.WithEdgeTrackerWakeInterval(edgeTrackerWakeInterval),
+		validator.WithMode(types.MakeMode),
 	)
 	if err != nil {
 		return nil, err

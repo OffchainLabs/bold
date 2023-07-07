@@ -185,7 +185,7 @@ func NewForSimpleMachine(
 	return s, nil
 }
 
-// Produces the latest state to assert to L1 from the local state manager's perspective.
+// Produces the l2 state to assert at the message number specified.
 func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
@@ -193,7 +193,12 @@ func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, mess
 	if messageNumber >= uint64(len(s.executionStates)) {
 		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", messageNumber, len(s.executionStates))
 	}
-	return s.executionStates[messageNumber], nil
+	for _, st := range s.executionStates {
+		if st.GlobalState.Batch == messageNumber {
+			return st, nil
+		}
+	}
+	return nil, fmt.Errorf("no execution state at message number %d found", messageNumber)
 }
 
 // Checks if the execution manager locally has recorded this state
