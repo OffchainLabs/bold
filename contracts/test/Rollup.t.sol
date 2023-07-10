@@ -224,9 +224,8 @@ contract RollupTest is Test {
         adminRollup.resume();
     }
 
-    function testSuccessERC20Enabled() public {
+    function testSuccessOwner() public {
         assertEq(userRollup.owner(), owner);
-        assertEq(userRollup.isERC20Enabled(), true);
     }
 
     function testSuccessRemoveWhitelistAfterFork() public {

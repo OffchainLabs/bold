@@ -26,7 +26,6 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     /// this allows the admin logic to ensure consistency on parameters.
     function initialize(address _stakeToken) external view override onlyProxy {
         require(_stakeToken != address(0), "NEED_STAKE_TOKEN");
-        require(isERC20Enabled(), "FACET_NOT_ERC20");
     }
 
     uint256 internal immutable deployTimeChainId = block.chainid;
@@ -73,10 +72,6 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         require(!validatorWhitelistDisabled, "WHITELIST_DISABLED");
         require(_validatorIsAfk(), "VALIDATOR_NOT_AFK");
         validatorWhitelistDisabled = true;
-    }
-
-    function isERC20Enabled() public view override returns (bool) {
-        return stakeToken != address(0);
     }
 
     /**

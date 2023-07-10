@@ -18,8 +18,6 @@ interface IRollupUser is IRollupCore, IOwnable {
 
     function removeWhitelistAfterValidatorAfk() external;
 
-    function isERC20Enabled() external view returns (bool);
-
     function confirmAssertion(
         bytes32 assertionHash,
         bytes32 prevAssertionHash,
