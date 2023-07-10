@@ -9,7 +9,7 @@ import "../bridge/ISequencerInbox.sol";
 import "../bridge/IOutbox.sol";
 import "../bridge/IOwnable.sol";
 
-interface IRollupUserAbs is IRollupCore, IOwnable {
+interface IRollupUser is IRollupCore, IOwnable {
     /// @dev the user logic just validated configuration and shouldn't write to state during init
     /// this allows the admin logic to ensure consistency on parameters.
     function initialize(address stakeToken) external view;
@@ -36,9 +36,7 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
     function reduceDeposit(uint256 target) external;
 
     function withdrawStakerFunds() external returns (uint256);
-}
 
-interface IRollupUser is IRollupUserAbs {
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
         AssertionInputs calldata assertion,

@@ -12,13 +12,21 @@ import "./RollupCore.sol";
 import "./IRollupLogic.sol";
 import {ETH_POS_BLOCK_TIME} from "../libraries/Constants.sol";
 
-abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUserAbs {
+contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     using AssertionNodeLib for AssertionNode;
     using GlobalStateLib for GlobalState;
+    using SafeERC20 for IERC20;
 
     modifier onlyValidator() {
         require(isValidator[msg.sender] || validatorWhitelistDisabled, "NOT_VALIDATOR");
         _;
+    }
+
+    /// @dev the user logic just validated configuration and shouldn't write to state during init
+    /// this allows the admin logic to ensure consistency on parameters.
+    function initialize(address _stakeToken) external view override onlyProxy {
+        require(_stakeToken != address(0), "NEED_STAKE_TOKEN");
+        require(isERC20Enabled(), "FACET_NOT_ERC20");
     }
 
     uint256 internal immutable deployTimeChainId = block.chainid;
@@ -282,16 +290,6 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     function owner() external view returns (address) {
         return _getAdmin();
     }
-}
-
-contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
-    using SafeERC20 for IERC20;
-    /// @dev the user logic just validated configuration and shouldn't write to state during init
-    /// this allows the admin logic to ensure consistency on parameters.
-    function initialize(address _stakeToken) external view override onlyProxy {
-        require(_stakeToken != address(0), "NEED_STAKE_TOKEN");
-        require(isERC20Enabled(), "FACET_NOT_ERC20");
-    }
 
     /**
      * @notice Create a new stake on a new assertion
@@ -303,7 +301,7 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
         uint256 tokenAmount,
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash
-    ) external override {
+    ) external {
         _newStake(tokenAmount);
         stakeOnNewAssertion(assertion, expectedAssertionHash);
         /// @dev This is an external call, safe because it's at the end of the function
