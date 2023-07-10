@@ -16,7 +16,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/testing/setup/simulated-backend"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -24,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
 
@@ -65,13 +63,14 @@ func CreateTwoValidatorFork(
 		setup.Backend.Commit()
 	}
 
-	genesisState := &protocol.ExecutionState{
-		GlobalState: protocol.GoGlobalState{
-			BlockHash: common.Hash{},
-		},
-		MachineStatus: protocol.MachineStatusFinished,
+	genesisHash, err := setup.Chains[1].GenesisAssertionHash(ctx)
+	if err != nil {
+		return nil, err
 	}
-	_ = genesisState
+	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash(genesisHash))
+	if err != nil {
+		return nil, err
+	}
 
 	honestStateManager, err := statemanager.NewForSimpleMachine()
 	if err != nil {
@@ -94,14 +93,6 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	genesisCreationInfo := &protocol.AssertionCreatedInfo{
-		AfterState: (&protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
-		}).AsSolidityStruct(),
-		InboxMaxCount: big.NewInt(1),
-	}
-
 	honestPostState, err := honestStateManager.ExecutionStateAtMessageNumber(ctx, 1)
 	if err != nil {
 		return nil, err
@@ -145,7 +136,6 @@ type ChainSetup struct {
 	Accounts     []*TestAccount
 	Addrs        *RollupAddresses
 	Backend      *backends.SimulatedBackend
-	L1Reader     *headerreader.HeaderReader
 	RollupConfig rollupgen.Config
 }
 
@@ -181,15 +171,12 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 
-	headerReader := headerreader.New(simulated_backend.Wrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
-	headerReader.Start(ctx)
 	chains := make([]*solimpl.AssertionChain, 3)
 	chain1, err := solimpl.NewAssertionChain(
 		ctx,
 		addresses.Rollup,
 		accs[1].TxOpts,
 		backend,
-		headerReader,
 	)
 	if err != nil {
 		return nil, err
@@ -200,7 +187,6 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		addresses.Rollup,
 		accs[2].TxOpts,
 		backend,
-		headerReader,
 	)
 	if err != nil {
 		return nil, err
@@ -211,7 +197,6 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		addresses.Rollup,
 		accs[3].TxOpts,
 		backend,
-		headerReader,
 	)
 	if err != nil {
 		return nil, err
@@ -221,7 +206,6 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		Chains:       chains,
 		Accounts:     accs,
 		Addrs:        addresses,
-		L1Reader:     headerReader,
 		Backend:      backend,
 		RollupConfig: cfg,
 	}, nil

@@ -12,6 +12,7 @@ go_library(
     deps = [
         "//chain-abstraction:protocol",
         "//containers/option",
+        "//solgen/go/bridgegen",
         "//solgen/go/challengeV2gen",
         "//solgen/go/rollupgen",
         "//state-commitments/history",
@@ -20,7 +21,6 @@ go_library(
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
-        "@com_github_offchainlabs_nitro//util/headerreader",
         "@com_github_pkg_errors//:errors",
     ],
 )
