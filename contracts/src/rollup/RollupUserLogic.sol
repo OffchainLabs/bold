@@ -4,7 +4,7 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IRollupUser} from "./IRollupLogic.sol";
 import "../libraries/UUPSNotUpgradeable.sol";
@@ -342,6 +342,7 @@ contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
 }
 
 contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
+    using SafeERC20 for IERC20;
     /// @dev the user logic just validated configuration and shouldn't write to state during init
     /// this allows the admin logic to ensure consistency on parameters.
     function initialize(address _stakeToken) external view override onlyProxy {
@@ -384,11 +385,11 @@ contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
         uint256 amount = withdrawFunds(msg.sender);
         require(amount > 0, "NO_FUNDS_TO_WITHDRAW");
         // This is safe because it occurs after all checks and effects
-        require(IERC20Upgradeable(stakeToken).transfer(msg.sender, amount), "TRANSFER_FAILED");
+        IERC20(stakeToken).safeTransfer(msg.sender, amount);
         return amount;
     }
 
     function receiveTokens(uint256 tokenAmount) private {
-        require(IERC20Upgradeable(stakeToken).transferFrom(msg.sender, address(this), tokenAmount), "TRANSFER_FAIL");
+        IERC20(stakeToken).safeTransferFrom(msg.sender, address(this), tokenAmount);
     }
 }
