@@ -197,6 +197,11 @@ func (m *Manager) Mode() types.Mode {
 	return m.mode
 }
 
+// StateManager returns the stateManager of the challenge manager.
+func (m *Manager) StateManager() l2stateprovider.Provider {
+	return m.stateManager
+}
+
 // MaxDelaySeconds returns the maximum number of seconds that the challenge manager will wait open a challenge.
 func (m *Manager) MaxDelaySeconds() int {
 	return m.maxDelaySeconds
