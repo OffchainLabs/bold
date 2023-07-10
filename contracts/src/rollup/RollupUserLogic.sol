@@ -284,64 +284,7 @@ abstract contract AbsRollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupU
     }
 }
 
-// CHRIS: TODO: Consider remove this and use WETH with ERC20RollupUserLogic
 contract RollupUserLogic is AbsRollupUserLogic, IRollupUser {
-    /// @dev the user logic just validated configuration and shouldn't write to state during init
-    /// this allows the admin logic to ensure consistency on parameters.
-    function initialize(address _stakeToken) external view override onlyProxy {
-        require(_stakeToken == address(0), "NO_TOKEN_ALLOWED");
-        require(!isERC20Enabled(), "FACET_NOT_ERC20");
-    }
-
-    /**
-     * @notice Create a new stake on a new assertion
-     * @param assertion Assertion describing the state change between the old assertion and the new one
-     * @param expectedAssertionHash Assertion hash of the assertion that will be created
-     */
-    function newStakeOnNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
-        external
-        payable
-        override
-    {
-        /**
-         * Validators can create a stake by calling this function (or the ERC20 version).
-         * Each validator can only create one stake, and they can increase or decrease it when the stake is inactive.
-         *   A staker is considered inactive if:
-         *       a) their last staked assertion is the latest confirmed assertion
-         *       b) their last staked assertion has a child (where the staking responsibility is passed to the child)
-         *
-         * If the assertion is the 2nd child or later, since only one of the children can be confirmed and we know the contract
-         * already have 1 stake from the 1st child to refund the winner, we send the other children's stake to the loserStakeEscrow.
-         *
-         * Stake can be withdrawn by calling `returnOldDeposit` followed by `withdrawStakerFunds` when the staker is inactive.
-         */
-        _newStake(msg.value);
-        stakeOnNewAssertion(assertion, expectedAssertionHash);
-    }
-
-    /**
-     * @notice Increase the amount staked eth for the given staker
-     * @param stakerAddress Address of the staker whose stake is increased
-     */
-    function addToDeposit(address stakerAddress) external payable override onlyValidator whenNotPaused {
-        _addToDeposit(stakerAddress, msg.value);
-    }
-
-    /**
-     * @notice Withdraw uncommitted funds owned by sender from the rollup chain
-     */
-    function withdrawStakerFunds() external override whenNotPaused returns (uint256) {
-        uint256 amount = withdrawFunds(msg.sender);
-        require(amount > 0, "NO_FUNDS_TO_WITHDRAW");
-        // This is safe because it occurs after all checks and effects
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success,) = msg.sender.call{value: amount}("");
-        require(success, "TRANSFER_FAILED");
-        return amount;
-    }
-}
-
-contract ERC20RollupUserLogic is AbsRollupUserLogic, IRollupUserERC20 {
     using SafeERC20 for IERC20;
     /// @dev the user logic just validated configuration and shouldn't write to state during init
     /// this allows the admin logic to ensure consistency on parameters.

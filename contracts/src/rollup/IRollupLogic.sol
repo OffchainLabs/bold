@@ -39,14 +39,6 @@ interface IRollupUserAbs is IRollupCore, IOwnable {
 }
 
 interface IRollupUser is IRollupUserAbs {
-    function newStakeOnNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
-        external
-        payable;
-
-    function addToDeposit(address stakerAddress) external payable;
-}
-
-interface IRollupUserERC20 is IRollupUserAbs {
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
         AssertionInputs calldata assertion,

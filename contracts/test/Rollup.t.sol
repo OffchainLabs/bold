@@ -21,6 +21,8 @@ import "./challengeV2/Utils.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
+import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+
 contract RollupTest is Test {
     address constant owner = address(1337);
     address constant sequencer = address(7331);
@@ -40,6 +42,7 @@ contract RollupTest is Test {
 
     uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2 ** 5;
 
+    IERC20 token;
     RollupProxy rollup;
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
@@ -89,6 +92,8 @@ contract RollupTest is Test {
             address(0)
         );
 
+        token = new ERC20PresetFixedSupply("Test", "TEST", 10000 ether, address(this));
+
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
@@ -100,7 +105,7 @@ contract RollupTest is Test {
                 delaySeconds: 60 * 60 * 24,
                 futureSeconds: 60 * 60
             }),
-            stakeToken: address(0),
+            stakeToken: address(token),
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: loserStakeEscrow,
             genesisBlockNum: 0,
@@ -142,9 +147,21 @@ contract RollupTest is Test {
         firstState.globalState.u64Vals[0] = 1; // inbox count
         firstState.globalState.u64Vals[1] = 0; // pos in msg
 
+        token.transfer(validator1, 1 ether);
         vm.deal(validator1, 1 ether);
+        vm.prank(validator1);
+        token.approve(address(userRollup), type(uint256).max);
+
+        token.transfer(validator2, 1 ether);
         vm.deal(validator2, 1 ether);
+        vm.prank(validator2);
+        token.approve(address(userRollup), type(uint256).max);
+
+        token.transfer(validator3, 1 ether);
         vm.deal(validator3, 1 ether);
+        vm.prank(validator3);
+        token.approve(address(userRollup), type(uint256).max);
+
         vm.deal(sequencer, 1 ether);
 
         vm.roll(block.number + 75);
@@ -207,9 +224,9 @@ contract RollupTest is Test {
         adminRollup.resume();
     }
 
-    function testSuccessERC20Disabled() public {
+    function testSuccessERC20Enabled() public {
         assertEq(userRollup.owner(), owner);
-        assertEq(userRollup.isERC20Enabled(), false);
+        assertEq(userRollup.isERC20Enabled(), true);
     }
 
     function testSuccessRemoveWhitelistAfterFork() public {
@@ -246,7 +263,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -293,7 +311,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -326,7 +345,8 @@ contract RollupTest is Test {
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -347,7 +367,8 @@ contract RollupTest is Test {
 
         vm.prank(validator2);
         vm.expectRevert("ASSERTION_SEEN");
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -385,7 +406,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -470,7 +492,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -502,7 +525,8 @@ contract RollupTest is Test {
             inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
         vm.prank(validator2);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeState: beforeState,
                 beforeStateData: BeforeStateData({
@@ -793,21 +817,21 @@ contract RollupTest is Test {
     function testSuccessAddToDeposit() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
-        userRollup.addToDeposit{value: 1}(validator1);
+        userRollup.addToDeposit(validator1, 1);
     }
 
     function testRevertAddToDepositNotValidator() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(sequencer);
         vm.expectRevert("NOT_VALIDATOR");
-        userRollup.addToDeposit{value: 1}(validator1);
+        userRollup.addToDeposit(validator1, 1);
     }
 
     function testRevertAddToDepositNotStaker() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
         vm.expectRevert("NOT_STAKED");
-        userRollup.addToDeposit{value: 1}(sequencer);
+        userRollup.addToDeposit(sequencer, 1);
     }
 
     function testSuccessCreateSecondAssertion() public returns (bytes32, bytes32, ExecutionState memory, bytes32) {
@@ -953,7 +977,8 @@ contract RollupTest is Test {
 
         if (isCreated) {
             vm.prank(validator1);
-            userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+            userRollup.newStakeOnNewAssertion({
+                tokenAmount: BASE_STAKE,
                 assertion: assertion,
                 expectedAssertionHash: expectedAssertionHash
             });
