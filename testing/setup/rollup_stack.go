@@ -201,7 +201,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	if !ok {
 		return nil, errors.New("could not set big int")
 	}
-	for _, acc := range accs[1:] {
+	for _, acc := range accs {
 		transferTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Transfer(accs[0].TxOpts, acc.TxOpts.From, allowance)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not approve account")
