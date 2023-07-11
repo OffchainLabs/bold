@@ -18,10 +18,9 @@ import "../src/osp/OneStepProofEntry.sol";
 import "../src/challengeV2/EdgeChallengeManager.sol";
 import "./challengeV2/Utils.sol";
 
+import "../src/mocks/TestWETH9.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
 contract RollupTest is Test {
     address constant owner = address(1337);
@@ -92,7 +91,8 @@ contract RollupTest is Test {
             address(0)
         );
 
-        token = new ERC20PresetFixedSupply("Test", "TEST", 10000 ether, address(this));
+        token = new TestWETH9("Test", "TEST");
+        IWETH9(address(token)).deposit{value: 10 ether}();
 
         Config memory config = Config({
             baseStake: BASE_STAKE,
