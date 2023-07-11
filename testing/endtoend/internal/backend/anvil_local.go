@@ -143,7 +143,7 @@ func (a *AnvilLocal) Start() error {
 	args := []string{
 		"--block-time=1",
 		"--chain-id=1002",
-		"--gas-limit=5000000000",
+		"--gas-limit=50000000000",
 	}
 
 	cmd := exec.CommandContext(a.ctx, binaryPath, args...) // #nosec G204 -- Test only code.
@@ -232,38 +232,18 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 		"WETH",
 	)
 	if err != nil {
-		return common.Address{}, err
+		return common.Address{}, errors.Wrap(err, "could not deploy test weth")
 	}
 	if waitErr := challenge_testing.WaitForTx(ctx, a.client, tx); waitErr != nil {
 		return common.Address{}, errors.Wrap(waitErr, "failed waiting for transaction")
 	}
 	receipt, err := a.client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
-		return common.Address{}, err
+		return common.Address{}, errors.Wrap(err, "could not get tx hash")
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return common.Address{}, errors.New("receipt failed")
 	}
-	value, ok := new(big.Int).SetString("10000000000000000000000", 10)
-	if !ok {
-		return common.Address{}, errors.New("could not set value")
-	}
-	a.deployer.Value = value
-	mintTx, err := tokenBindings.Deposit(a.deployer)
-	if err != nil {
-		return common.Address{}, err
-	}
-	if waitErr := challenge_testing.WaitForTx(ctx, a.client, mintTx); waitErr != nil {
-		return common.Address{}, errors.Wrap(waitErr, "failed waiting for transaction")
-	}
-	receipt, err = a.client.TransactionReceipt(ctx, mintTx.Hash())
-	if err != nil {
-		return common.Address{}, err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return common.Address{}, errors.New("receipt failed")
-	}
-	a.deployer.Value = big.NewInt(0)
 
 	result, err := setup.DeployFullRollupStack(
 		a.ctx,
@@ -281,9 +261,30 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 		),
 	)
 	if err != nil {
-		return common.Address{}, err
+		return common.Address{}, errors.Wrap(err, "could not deploy rollup stack")
 	}
-	rollupCaller, err := rollupgen.NewRollupUserLogicCaller(a.addresses.Rollup, a.client)
+
+	value, ok := new(big.Int).SetString("100000", 10)
+	if !ok {
+		return common.Address{}, errors.New("could not set value")
+	}
+	a.deployer.Value = value
+	mintTx, err := tokenBindings.Deposit(a.deployer)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "could not mint test weth")
+	}
+	if waitErr := challenge_testing.WaitForTx(ctx, a.client, mintTx); waitErr != nil {
+		return common.Address{}, errors.Wrap(waitErr, "failed waiting for transaction")
+	}
+	receipt, err = a.client.TransactionReceipt(ctx, mintTx.Hash())
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "could not get tx hash")
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return common.Address{}, errors.New("receipt failed")
+	}
+	a.deployer.Value = big.NewInt(0)
+	rollupCaller, err := rollupgen.NewRollupUserLogicCaller(result.Rollup, a.client)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -292,7 +293,7 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 		return common.Address{}, err
 	}
 	accs := []*bind.TransactOpts{a.alice, a.bob, a.charlie}
-	seed, ok := new(big.Int).SetString("10000", 10)
+	seed, ok := new(big.Int).SetString("1000", 10)
 	if !ok {
 		return common.Address{}, errors.New("could not set big int")
 	}
