@@ -11,6 +11,7 @@ go_library(
     visibility = ["//testing/endtoend:__subpackages__"],
     deps = [
         "//solgen/go/mocksgen",
+        "//solgen/go/rollupgen",
         "//testing",
         "//testing/setup:setup_lib",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
