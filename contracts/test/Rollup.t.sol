@@ -34,6 +34,7 @@ contract RollupTest is Test {
 
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
+    uint256 constant MINI_STAKE_VALUE = 2;
     uint64 constant CONFIRM_PERIOD_BLOCKS = 100;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
@@ -109,7 +110,7 @@ contract RollupTest is Test {
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: loserStakeEscrow,
             genesisBlockNum: 0,
-            miniStakeValue: 0,
+            miniStakeValue: MINI_STAKE_VALUE,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
             layerZeroSmallStepEdgeHeight: 2 ** 5,
@@ -147,20 +148,29 @@ contract RollupTest is Test {
         firstState.globalState.u64Vals[0] = 1; // inbox count
         firstState.globalState.u64Vals[1] = 0; // pos in msg
 
+        // TODO: determine if challengeManager should be permissionless at the stage
+        token.approve(address(challengeManager), type(uint256).max);
+
         token.transfer(validator1, 1 ether);
         vm.deal(validator1, 1 ether);
         vm.prank(validator1);
         token.approve(address(userRollup), type(uint256).max);
+        vm.prank(validator1);
+        token.approve(address(challengeManager), type(uint256).max);
 
         token.transfer(validator2, 1 ether);
         vm.deal(validator2, 1 ether);
         vm.prank(validator2);
         token.approve(address(userRollup), type(uint256).max);
+        vm.prank(validator2);
+        token.approve(address(challengeManager), type(uint256).max);
 
         token.transfer(validator3, 1 ether);
         vm.deal(validator3, 1 ether);
         vm.prank(validator3);
         token.approve(address(userRollup), type(uint256).max);
+        vm.prank(validator3);
+        token.approve(address(challengeManager), type(uint256).max);
 
         vm.deal(sequencer, 1 ether);
 
