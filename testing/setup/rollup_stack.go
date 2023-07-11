@@ -156,7 +156,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
-		return nil, errors.Wrap(waitErr, "failed waiting for rollup.SetValidatorWhitelistDisabled transaction")
+		return nil, errors.Wrap(waitErr, "failed waiting for transaction")
 	}
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
@@ -175,7 +175,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 	if waitErr := challenge_testing.WaitForTx(ctx, backend, mintTx); waitErr != nil {
-		return nil, errors.Wrap(waitErr, "failed waiting for rollup.SetValidatorWhitelistDisabled transaction")
+		return nil, errors.Wrap(waitErr, "failed waiting for transaction")
 	}
 	receipt, err = backend.TransactionReceipt(ctx, mintTx.Hash())
 	if err != nil {
