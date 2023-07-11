@@ -146,6 +146,32 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 
+	supply, ok := new(big.Int).SetString("100000000000000000000000", 10)
+	if !ok {
+		return nil, errors.New("could not set big int")
+	}
+	stakeToken, tx, tokenBindings, err := mocksgen.DeployERC20PresetFixedSupply(
+		accs[0].TxOpts,
+		backend,
+		"Weth",
+		"WETH",
+		supply,
+		accs[0].TxOpts.From,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for rollup.SetValidatorWhitelistDisabled transaction")
+	}
+	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return nil, err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, errors.New("receipt failed")
+	}
+
 	prod := false
 	wasmModuleRoot := common.Hash{}
 	rollupOwner := accs[0].AccountAddr
@@ -159,6 +185,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		chainId,
 		loserStakeEscrow,
 		miniStake,
+		stakeToken,
 	)
 	addresses, err := DeployFullRollupStack(
 		ctx,
@@ -169,6 +196,40 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+	allowance, ok := new(big.Int).SetString("10000000000000000000000", 10)
+	if !ok {
+		return nil, errors.New("could not set big int")
+	}
+	for _, acc := range accs[1:] {
+		transferTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Transfer(accs[0].TxOpts, acc.TxOpts.From, allowance)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, transferTx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "failed waiting for transfer transaction")
+		}
+		receipt, err := backend.TransactionReceipt(ctx, transferTx.Hash())
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, errors.New("receipt failed")
+		}
+		approveTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Approve(acc.TxOpts, addresses.Rollup, allowance)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "failed waiting for approval transaction")
+		}
+		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, errors.New("receipt failed")
+		}
 	}
 
 	chains := make([]*solimpl.AssertionChain, 3)

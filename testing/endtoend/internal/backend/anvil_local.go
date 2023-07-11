@@ -12,11 +12,13 @@ import (
 	"path"
 	"time"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -221,6 +223,32 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 	loserStakeEscrow := common.Address{}
 	miniStake := big.NewInt(1)
 
+	ctx := context.TODO()
+	supply, ok := new(big.Int).SetString("100000000000000000000000", 10)
+	if !ok {
+		return common.Address{}, errors.New("could not set big int")
+	}
+	stakeToken, tx, tokenBindings, err := mocksgen.DeployERC20PresetFixedSupply(
+		a.deployer,
+		a.client,
+		"Weth",
+		"WETH",
+		supply,
+		a.deployer.From,
+	)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if waitErr := challenge_testing.WaitForTx(ctx, a.client, tx); waitErr != nil {
+		return common.Address{}, errors.Wrap(waitErr, "failed waiting for rollup.SetValidatorWhitelistDisabled transaction")
+	}
+	receipt, err := a.client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return common.Address{}, err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return common.Address{}, errors.New("receipt failed")
+	}
 	result, err := setup.DeployFullRollupStack(
 		a.ctx,
 		a.client,
@@ -233,11 +261,46 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 			anvilLocalChainID,
 			loserStakeEscrow,
 			miniStake,
+			stakeToken,
 		),
 	)
-
 	if err != nil {
 		return common.Address{}, err
+	}
+	allowance, ok := new(big.Int).SetString("10000000000000000000000", 10)
+	if !ok {
+		return common.Address{}, errors.New("could not set big int")
+	}
+	accs := []*bind.TransactOpts{a.alice, a.bob, a.charlie}
+	for _, acc := range accs {
+		transferTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Transfer(a.deployer, acc.From, allowance)
+		if err != nil {
+			return common.Address{}, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, a.client, transferTx); waitErr != nil {
+			return common.Address{}, errors.Wrap(waitErr, "failed waiting for transfer transaction")
+		}
+		receipt, err := a.client.TransactionReceipt(ctx, transferTx.Hash())
+		if err != nil {
+			return common.Address{}, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return common.Address{}, errors.New("receipt failed")
+		}
+		approveTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Approve(acc, result.Rollup, allowance)
+		if err != nil {
+			return common.Address{}, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, a.client, approveTx); waitErr != nil {
+			return common.Address{}, errors.Wrap(waitErr, "failed waiting for approval transaction")
+		}
+		receipt, err = a.client.TransactionReceipt(ctx, approveTx.Hash())
+		if err != nil {
+			return common.Address{}, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return common.Address{}, errors.New("receipt failed")
+		}
 	}
 
 	a.addresses = result
