@@ -224,17 +224,11 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 	miniStake := big.NewInt(1)
 
 	ctx := context.TODO()
-	supply, ok := new(big.Int).SetString("100000000000000000000000", 10)
-	if !ok {
-		return common.Address{}, errors.New("could not set big int")
-	}
-	stakeToken, tx, tokenBindings, err := mocksgen.DeployERC20PresetFixedSupply(
+	stakeToken, tx, tokenBindings, err := mocksgen.DeployTestWETH9(
 		a.deployer,
 		a.client,
 		"Weth",
 		"WETH",
-		supply,
-		a.deployer.From,
 	)
 	if err != nil {
 		return common.Address{}, err
@@ -273,7 +267,7 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 	}
 	accs := []*bind.TransactOpts{a.alice, a.bob, a.charlie}
 	for _, acc := range accs {
-		transferTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Transfer(a.deployer, acc.From, allowance)
+		transferTx, err := tokenBindings.TestWETH9Transactor.Transfer(a.deployer, acc.From, allowance)
 		if err != nil {
 			return common.Address{}, errors.Wrap(err, "could not approve account")
 		}
@@ -287,7 +281,7 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 		if receipt.Status != types.ReceiptStatusSuccessful {
 			return common.Address{}, errors.New("receipt failed")
 		}
-		approveTx, err := tokenBindings.ERC20PresetFixedSupplyTransactor.Approve(acc, result.Rollup, allowance)
+		approveTx, err := tokenBindings.TestWETH9Transactor.Approve(acc, result.Rollup, allowance)
 		if err != nil {
 			return common.Address{}, errors.Wrap(err, "could not approve account")
 		}

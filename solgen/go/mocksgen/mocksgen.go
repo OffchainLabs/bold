@@ -3214,135 +3214,113 @@ func (_BridgeUnproxied *BridgeUnproxiedFilterer) ParseSequencerInboxUpdated(log 
 	return event, nil
 }
 
-// ERC20PresetFixedSupplyMetaData contains all meta data concerning the ERC20PresetFixedSupply contract.
-var ERC20PresetFixedSupplyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"initialSupply\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burnFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"subtractedValue\",\"type\":\"uint256\"}],\"name\":\"decreaseAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"addedValue\",\"type\":\"uint256\"}],\"name\":\"increaseAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x60806040523480156200001157600080fd5b5060405162000ea638038062000ea6833981016040819052620000349162000224565b8383600362000044838262000347565b50600462000053828262000347565b5050506200006881836200007260201b60201c565b505050506200043b565b6001600160a01b038216620000cd5760405162461bcd60e51b815260206004820152601f60248201527f45524332303a206d696e7420746f20746865207a65726f206164647265737300604482015260640160405180910390fd5b8060026000828254620000e1919062000413565b90915550506001600160a01b038216600090815260208190526040812080548392906200011090849062000413565b90915550506040518181526001600160a01b038316906000907fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef9060200160405180910390a35050565b505050565b634e487b7160e01b600052604160045260246000fd5b600082601f8301126200018757600080fd5b81516001600160401b0380821115620001a457620001a46200015f565b604051601f8301601f19908116603f01168101908282118183101715620001cf57620001cf6200015f565b81604052838152602092508683858801011115620001ec57600080fd5b600091505b83821015620002105785820183015181830184015290820190620001f1565b600093810190920192909252949350505050565b600080600080608085870312156200023b57600080fd5b84516001600160401b03808211156200025357600080fd5b620002618883890162000175565b955060208701519150808211156200027857600080fd5b50620002878782880162000175565b60408701516060880151919550935090506001600160a01b0381168114620002ae57600080fd5b939692955090935050565b600181811c90821680620002ce57607f821691505b602082108103620002ef57634e487b7160e01b600052602260045260246000fd5b50919050565b601f8211156200015a57600081815260208120601f850160051c810160208610156200031e5750805b601f850160051c820191505b818110156200033f578281556001016200032a565b505050505050565b81516001600160401b038111156200036357620003636200015f565b6200037b81620003748454620002b9565b84620002f5565b602080601f831160018114620003b357600084156200039a5750858301515b600019600386901b1c1916600185901b1785556200033f565b600085815260208120601f198616915b82811015620003e457888601518255948401946001909101908401620003c3565b5085821015620004035787850151600019600388901b60f8161c191681555b5050505050600190811b01905550565b808201808211156200043557634e487b7160e01b600052601160045260246000fd5b92915050565b610a5b806200044b6000396000f3fe608060405234801561001057600080fd5b50600436106100bf5760003560e01c806342966c681161007c57806342966c681461014c57806370a082311461016157806379cc67901461018a57806395d89b411461019d578063a457c2d7146101a5578063a9059cbb146101b8578063dd62ed3e146101cb57600080fd5b806306fdde03146100c4578063095ea7b3146100e257806318160ddd1461010557806323b872dd14610117578063313ce5671461012a5780633950935114610139575b600080fd5b6100cc6101de565b6040516100d99190610871565b60405180910390f35b6100f56100f03660046108db565b610270565b60405190151581526020016100d9565b6002545b6040519081526020016100d9565b6100f5610125366004610905565b61028a565b604051601281526020016100d9565b6100f56101473660046108db565b6102ae565b61015f61015a366004610941565b6102d0565b005b61010961016f36600461095a565b6001600160a01b031660009081526020819052604090205490565b61015f6101983660046108db565b6102dd565b6100cc6102f6565b6100f56101b33660046108db565b610305565b6100f56101c63660046108db565b610385565b6101096101d936600461097c565b610393565b6060600380546101ed906109af565b80601f0160208091040260200160405190810160405280929190818152602001828054610219906109af565b80156102665780601f1061023b57610100808354040283529160200191610266565b820191906000526020600020905b81548152906001019060200180831161024957829003601f168201915b5050505050905090565b60003361027e8185856103be565b60019150505b92915050565b6000336102988582856104e3565b6102a385858561055d565b506001949350505050565b60003361027e8185856102c18383610393565b6102cb91906109ff565b6103be565b6102da338261072b565b50565b6102e88233836104e3565b6102f2828261072b565b5050565b6060600480546101ed906109af565b600033816103138286610393565b9050838110156103785760405162461bcd60e51b815260206004820152602560248201527f45524332303a2064656372656173656420616c6c6f77616e63652062656c6f77604482015264207a65726f60d81b60648201526084015b60405180910390fd5b6102a382868684036103be565b60003361027e81858561055d565b6001600160a01b03918216600090815260016020908152604080832093909416825291909152205490565b6001600160a01b0383166104205760405162461bcd60e51b8152602060048201526024808201527f45524332303a20617070726f76652066726f6d20746865207a65726f206164646044820152637265737360e01b606482015260840161036f565b6001600160a01b0382166104815760405162461bcd60e51b815260206004820152602260248201527f45524332303a20617070726f766520746f20746865207a65726f206164647265604482015261737360f01b606482015260840161036f565b6001600160a01b0383811660008181526001602090815260408083209487168084529482529182902085905590518481527f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b92591015b60405180910390a3505050565b60006104ef8484610393565b90506000198114610557578181101561054a5760405162461bcd60e51b815260206004820152601d60248201527f45524332303a20696e73756666696369656e7420616c6c6f77616e6365000000604482015260640161036f565b61055784848484036103be565b50505050565b6001600160a01b0383166105c15760405162461bcd60e51b815260206004820152602560248201527f45524332303a207472616e736665722066726f6d20746865207a65726f206164604482015264647265737360d81b606482015260840161036f565b6001600160a01b0382166106235760405162461bcd60e51b815260206004820152602360248201527f45524332303a207472616e7366657220746f20746865207a65726f206164647260448201526265737360e81b606482015260840161036f565b6001600160a01b0383166000908152602081905260409020548181101561069b5760405162461bcd60e51b815260206004820152602660248201527f45524332303a207472616e7366657220616d6f756e7420657863656564732062604482015265616c616e636560d01b606482015260840161036f565b6001600160a01b038085166000908152602081905260408082208585039055918516815290812080548492906106d29084906109ff565b92505081905550826001600160a01b0316846001600160a01b03167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef8460405161071e91815260200190565b60405180910390a3610557565b6001600160a01b03821661078b5760405162461bcd60e51b815260206004820152602160248201527f45524332303a206275726e2066726f6d20746865207a65726f206164647265736044820152607360f81b606482015260840161036f565b6001600160a01b038216600090815260208190526040902054818110156107ff5760405162461bcd60e51b815260206004820152602260248201527f45524332303a206275726e20616d6f756e7420657863656564732062616c616e604482015261636560f01b606482015260840161036f565b6001600160a01b038316600090815260208190526040812083830390556002805484929061082e908490610a12565b90915550506040518281526000906001600160a01b038516907fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef906020016104d6565b600060208083528351808285015260005b8181101561089e57858101830151858201604001528201610882565b506000604082860101526040601f19601f8301168501019250505092915050565b80356001600160a01b03811681146108d657600080fd5b919050565b600080604083850312156108ee57600080fd5b6108f7836108bf565b946020939093013593505050565b60008060006060848603121561091a57600080fd5b610923846108bf565b9250610931602085016108bf565b9150604084013590509250925092565b60006020828403121561095357600080fd5b5035919050565b60006020828403121561096c57600080fd5b610975826108bf565b9392505050565b6000806040838503121561098f57600080fd5b610998836108bf565b91506109a6602084016108bf565b90509250929050565b600181811c908216806109c357607f821691505b6020821081036109e357634e487b7160e01b600052602260045260246000fd5b50919050565b634e487b7160e01b600052601160045260246000fd5b80820180821115610284576102846109e9565b81810381811115610284576102846109e956fea26469706673582212209e005019b0af9fc8d7d81a53bf5330583eb3e473e29ee6063c086c36f9974fbc64736f6c63430008110033",
+// IWETH9MetaData contains all meta data concerning the IWETH9 contract.
+var IWETH9MetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
-// ERC20PresetFixedSupplyABI is the input ABI used to generate the binding from.
-// Deprecated: Use ERC20PresetFixedSupplyMetaData.ABI instead.
-var ERC20PresetFixedSupplyABI = ERC20PresetFixedSupplyMetaData.ABI
+// IWETH9ABI is the input ABI used to generate the binding from.
+// Deprecated: Use IWETH9MetaData.ABI instead.
+var IWETH9ABI = IWETH9MetaData.ABI
 
-// ERC20PresetFixedSupplyBin is the compiled bytecode used for deploying new contracts.
-// Deprecated: Use ERC20PresetFixedSupplyMetaData.Bin instead.
-var ERC20PresetFixedSupplyBin = ERC20PresetFixedSupplyMetaData.Bin
-
-// DeployERC20PresetFixedSupply deploys a new Ethereum contract, binding an instance of ERC20PresetFixedSupply to it.
-func DeployERC20PresetFixedSupply(auth *bind.TransactOpts, backend bind.ContractBackend, name string, symbol string, initialSupply *big.Int, owner common.Address) (common.Address, *types.Transaction, *ERC20PresetFixedSupply, error) {
-	parsed, err := ERC20PresetFixedSupplyMetaData.GetAbi()
-	if err != nil {
-		return common.Address{}, nil, nil, err
-	}
-	if parsed == nil {
-		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
-	}
-
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(ERC20PresetFixedSupplyBin), backend, name, symbol, initialSupply, owner)
-	if err != nil {
-		return common.Address{}, nil, nil, err
-	}
-	return address, tx, &ERC20PresetFixedSupply{ERC20PresetFixedSupplyCaller: ERC20PresetFixedSupplyCaller{contract: contract}, ERC20PresetFixedSupplyTransactor: ERC20PresetFixedSupplyTransactor{contract: contract}, ERC20PresetFixedSupplyFilterer: ERC20PresetFixedSupplyFilterer{contract: contract}}, nil
+// IWETH9 is an auto generated Go binding around an Ethereum contract.
+type IWETH9 struct {
+	IWETH9Caller     // Read-only binding to the contract
+	IWETH9Transactor // Write-only binding to the contract
+	IWETH9Filterer   // Log filterer for contract events
 }
 
-// ERC20PresetFixedSupply is an auto generated Go binding around an Ethereum contract.
-type ERC20PresetFixedSupply struct {
-	ERC20PresetFixedSupplyCaller     // Read-only binding to the contract
-	ERC20PresetFixedSupplyTransactor // Write-only binding to the contract
-	ERC20PresetFixedSupplyFilterer   // Log filterer for contract events
-}
-
-// ERC20PresetFixedSupplyCaller is an auto generated read-only Go binding around an Ethereum contract.
-type ERC20PresetFixedSupplyCaller struct {
+// IWETH9Caller is an auto generated read-only Go binding around an Ethereum contract.
+type IWETH9Caller struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// ERC20PresetFixedSupplyTransactor is an auto generated write-only Go binding around an Ethereum contract.
-type ERC20PresetFixedSupplyTransactor struct {
+// IWETH9Transactor is an auto generated write-only Go binding around an Ethereum contract.
+type IWETH9Transactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// ERC20PresetFixedSupplyFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
-type ERC20PresetFixedSupplyFilterer struct {
+// IWETH9Filterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type IWETH9Filterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// ERC20PresetFixedSupplySession is an auto generated Go binding around an Ethereum contract,
+// IWETH9Session is an auto generated Go binding around an Ethereum contract,
 // with pre-set call and transact options.
-type ERC20PresetFixedSupplySession struct {
-	Contract     *ERC20PresetFixedSupply // Generic contract binding to set the session for
-	CallOpts     bind.CallOpts           // Call options to use throughout this session
-	TransactOpts bind.TransactOpts       // Transaction auth options to use throughout this session
+type IWETH9Session struct {
+	Contract     *IWETH9           // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
-// ERC20PresetFixedSupplyCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// IWETH9CallerSession is an auto generated read-only Go binding around an Ethereum contract,
 // with pre-set call options.
-type ERC20PresetFixedSupplyCallerSession struct {
-	Contract *ERC20PresetFixedSupplyCaller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts                 // Call options to use throughout this session
+type IWETH9CallerSession struct {
+	Contract *IWETH9Caller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts // Call options to use throughout this session
 }
 
-// ERC20PresetFixedSupplyTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// IWETH9TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 // with pre-set transact options.
-type ERC20PresetFixedSupplyTransactorSession struct {
-	Contract     *ERC20PresetFixedSupplyTransactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts                 // Transaction auth options to use throughout this session
+type IWETH9TransactorSession struct {
+	Contract     *IWETH9Transactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
-// ERC20PresetFixedSupplyRaw is an auto generated low-level Go binding around an Ethereum contract.
-type ERC20PresetFixedSupplyRaw struct {
-	Contract *ERC20PresetFixedSupply // Generic contract binding to access the raw methods on
+// IWETH9Raw is an auto generated low-level Go binding around an Ethereum contract.
+type IWETH9Raw struct {
+	Contract *IWETH9 // Generic contract binding to access the raw methods on
 }
 
-// ERC20PresetFixedSupplyCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
-type ERC20PresetFixedSupplyCallerRaw struct {
-	Contract *ERC20PresetFixedSupplyCaller // Generic read-only contract binding to access the raw methods on
+// IWETH9CallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type IWETH9CallerRaw struct {
+	Contract *IWETH9Caller // Generic read-only contract binding to access the raw methods on
 }
 
-// ERC20PresetFixedSupplyTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
-type ERC20PresetFixedSupplyTransactorRaw struct {
-	Contract *ERC20PresetFixedSupplyTransactor // Generic write-only contract binding to access the raw methods on
+// IWETH9TransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type IWETH9TransactorRaw struct {
+	Contract *IWETH9Transactor // Generic write-only contract binding to access the raw methods on
 }
 
-// NewERC20PresetFixedSupply creates a new instance of ERC20PresetFixedSupply, bound to a specific deployed contract.
-func NewERC20PresetFixedSupply(address common.Address, backend bind.ContractBackend) (*ERC20PresetFixedSupply, error) {
-	contract, err := bindERC20PresetFixedSupply(address, backend, backend, backend)
+// NewIWETH9 creates a new instance of IWETH9, bound to a specific deployed contract.
+func NewIWETH9(address common.Address, backend bind.ContractBackend) (*IWETH9, error) {
+	contract, err := bindIWETH9(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &ERC20PresetFixedSupply{ERC20PresetFixedSupplyCaller: ERC20PresetFixedSupplyCaller{contract: contract}, ERC20PresetFixedSupplyTransactor: ERC20PresetFixedSupplyTransactor{contract: contract}, ERC20PresetFixedSupplyFilterer: ERC20PresetFixedSupplyFilterer{contract: contract}}, nil
+	return &IWETH9{IWETH9Caller: IWETH9Caller{contract: contract}, IWETH9Transactor: IWETH9Transactor{contract: contract}, IWETH9Filterer: IWETH9Filterer{contract: contract}}, nil
 }
 
-// NewERC20PresetFixedSupplyCaller creates a new read-only instance of ERC20PresetFixedSupply, bound to a specific deployed contract.
-func NewERC20PresetFixedSupplyCaller(address common.Address, caller bind.ContractCaller) (*ERC20PresetFixedSupplyCaller, error) {
-	contract, err := bindERC20PresetFixedSupply(address, caller, nil, nil)
+// NewIWETH9Caller creates a new read-only instance of IWETH9, bound to a specific deployed contract.
+func NewIWETH9Caller(address common.Address, caller bind.ContractCaller) (*IWETH9Caller, error) {
+	contract, err := bindIWETH9(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &ERC20PresetFixedSupplyCaller{contract: contract}, nil
+	return &IWETH9Caller{contract: contract}, nil
 }
 
-// NewERC20PresetFixedSupplyTransactor creates a new write-only instance of ERC20PresetFixedSupply, bound to a specific deployed contract.
-func NewERC20PresetFixedSupplyTransactor(address common.Address, transactor bind.ContractTransactor) (*ERC20PresetFixedSupplyTransactor, error) {
-	contract, err := bindERC20PresetFixedSupply(address, nil, transactor, nil)
+// NewIWETH9Transactor creates a new write-only instance of IWETH9, bound to a specific deployed contract.
+func NewIWETH9Transactor(address common.Address, transactor bind.ContractTransactor) (*IWETH9Transactor, error) {
+	contract, err := bindIWETH9(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &ERC20PresetFixedSupplyTransactor{contract: contract}, nil
+	return &IWETH9Transactor{contract: contract}, nil
 }
 
-// NewERC20PresetFixedSupplyFilterer creates a new log filterer instance of ERC20PresetFixedSupply, bound to a specific deployed contract.
-func NewERC20PresetFixedSupplyFilterer(address common.Address, filterer bind.ContractFilterer) (*ERC20PresetFixedSupplyFilterer, error) {
-	contract, err := bindERC20PresetFixedSupply(address, nil, nil, filterer)
+// NewIWETH9Filterer creates a new log filterer instance of IWETH9, bound to a specific deployed contract.
+func NewIWETH9Filterer(address common.Address, filterer bind.ContractFilterer) (*IWETH9Filterer, error) {
+	contract, err := bindIWETH9(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &ERC20PresetFixedSupplyFilterer{contract: contract}, nil
+	return &IWETH9Filterer{contract: contract}, nil
 }
 
-// bindERC20PresetFixedSupply binds a generic wrapper to an already deployed contract.
-func bindERC20PresetFixedSupply(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(ERC20PresetFixedSupplyABI))
+// bindIWETH9 binds a generic wrapper to an already deployed contract.
+func bindIWETH9(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(IWETH9ABI))
 	if err != nil {
 		return nil, err
 	}
@@ -3353,679 +3331,80 @@ func bindERC20PresetFixedSupply(address common.Address, caller bind.ContractCall
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _ERC20PresetFixedSupply.Contract.ERC20PresetFixedSupplyCaller.contract.Call(opts, result, method, params...)
+func (_IWETH9 *IWETH9Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IWETH9.Contract.IWETH9Caller.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.ERC20PresetFixedSupplyTransactor.contract.Transfer(opts)
+func (_IWETH9 *IWETH9Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IWETH9.Contract.IWETH9Transactor.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.ERC20PresetFixedSupplyTransactor.contract.Transact(opts, method, params...)
+func (_IWETH9 *IWETH9Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IWETH9.Contract.IWETH9Transactor.contract.Transact(opts, method, params...)
 }
 
 // Call invokes the (constant) contract method with params as input values and
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _ERC20PresetFixedSupply.Contract.contract.Call(opts, result, method, params...)
+func (_IWETH9 *IWETH9CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IWETH9.Contract.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.contract.Transfer(opts)
+func (_IWETH9 *IWETH9TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IWETH9.Contract.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.contract.Transact(opts, method, params...)
+func (_IWETH9 *IWETH9TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IWETH9.Contract.contract.Transact(opts, method, params...)
 }
 
-// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+// Deposit is a paid mutator transaction binding the contract method 0xd0e30db0.
 //
-// Solidity: function allowance(address owner, address spender) view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCaller) Allowance(opts *bind.CallOpts, owner common.Address, spender common.Address) (*big.Int, error) {
-	var out []interface{}
-	err := _ERC20PresetFixedSupply.contract.Call(opts, &out, "allowance", owner, spender)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
+// Solidity: function deposit() payable returns()
+func (_IWETH9 *IWETH9Transactor) Deposit(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IWETH9.contract.Transact(opts, "deposit")
 }
 
-// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+// Deposit is a paid mutator transaction binding the contract method 0xd0e30db0.
 //
-// Solidity: function allowance(address owner, address spender) view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Allowance(owner common.Address, spender common.Address) (*big.Int, error) {
-	return _ERC20PresetFixedSupply.Contract.Allowance(&_ERC20PresetFixedSupply.CallOpts, owner, spender)
+// Solidity: function deposit() payable returns()
+func (_IWETH9 *IWETH9Session) Deposit() (*types.Transaction, error) {
+	return _IWETH9.Contract.Deposit(&_IWETH9.TransactOpts)
 }
 
-// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+// Deposit is a paid mutator transaction binding the contract method 0xd0e30db0.
 //
-// Solidity: function allowance(address owner, address spender) view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerSession) Allowance(owner common.Address, spender common.Address) (*big.Int, error) {
-	return _ERC20PresetFixedSupply.Contract.Allowance(&_ERC20PresetFixedSupply.CallOpts, owner, spender)
+// Solidity: function deposit() payable returns()
+func (_IWETH9 *IWETH9TransactorSession) Deposit() (*types.Transaction, error) {
+	return _IWETH9.Contract.Deposit(&_IWETH9.TransactOpts)
 }
 
-// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+// Withdraw is a paid mutator transaction binding the contract method 0x2e1a7d4d.
 //
-// Solidity: function balanceOf(address account) view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCaller) BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error) {
-	var out []interface{}
-	err := _ERC20PresetFixedSupply.contract.Call(opts, &out, "balanceOf", account)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
+// Solidity: function withdraw(uint256 _amount) returns()
+func (_IWETH9 *IWETH9Transactor) Withdraw(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
+	return _IWETH9.contract.Transact(opts, "withdraw", _amount)
 }
 
-// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+// Withdraw is a paid mutator transaction binding the contract method 0x2e1a7d4d.
 //
-// Solidity: function balanceOf(address account) view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) BalanceOf(account common.Address) (*big.Int, error) {
-	return _ERC20PresetFixedSupply.Contract.BalanceOf(&_ERC20PresetFixedSupply.CallOpts, account)
+// Solidity: function withdraw(uint256 _amount) returns()
+func (_IWETH9 *IWETH9Session) Withdraw(_amount *big.Int) (*types.Transaction, error) {
+	return _IWETH9.Contract.Withdraw(&_IWETH9.TransactOpts, _amount)
 }
 
-// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+// Withdraw is a paid mutator transaction binding the contract method 0x2e1a7d4d.
 //
-// Solidity: function balanceOf(address account) view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerSession) BalanceOf(account common.Address) (*big.Int, error) {
-	return _ERC20PresetFixedSupply.Contract.BalanceOf(&_ERC20PresetFixedSupply.CallOpts, account)
-}
-
-// Decimals is a free data retrieval call binding the contract method 0x313ce567.
-//
-// Solidity: function decimals() view returns(uint8)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
-	var out []interface{}
-	err := _ERC20PresetFixedSupply.contract.Call(opts, &out, "decimals")
-
-	if err != nil {
-		return *new(uint8), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
-
-	return out0, err
-
-}
-
-// Decimals is a free data retrieval call binding the contract method 0x313ce567.
-//
-// Solidity: function decimals() view returns(uint8)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Decimals() (uint8, error) {
-	return _ERC20PresetFixedSupply.Contract.Decimals(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// Decimals is a free data retrieval call binding the contract method 0x313ce567.
-//
-// Solidity: function decimals() view returns(uint8)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerSession) Decimals() (uint8, error) {
-	return _ERC20PresetFixedSupply.Contract.Decimals(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// Name is a free data retrieval call binding the contract method 0x06fdde03.
-//
-// Solidity: function name() view returns(string)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCaller) Name(opts *bind.CallOpts) (string, error) {
-	var out []interface{}
-	err := _ERC20PresetFixedSupply.contract.Call(opts, &out, "name")
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
-}
-
-// Name is a free data retrieval call binding the contract method 0x06fdde03.
-//
-// Solidity: function name() view returns(string)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Name() (string, error) {
-	return _ERC20PresetFixedSupply.Contract.Name(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// Name is a free data retrieval call binding the contract method 0x06fdde03.
-//
-// Solidity: function name() view returns(string)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerSession) Name() (string, error) {
-	return _ERC20PresetFixedSupply.Contract.Name(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
-//
-// Solidity: function symbol() view returns(string)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCaller) Symbol(opts *bind.CallOpts) (string, error) {
-	var out []interface{}
-	err := _ERC20PresetFixedSupply.contract.Call(opts, &out, "symbol")
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
-}
-
-// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
-//
-// Solidity: function symbol() view returns(string)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Symbol() (string, error) {
-	return _ERC20PresetFixedSupply.Contract.Symbol(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
-//
-// Solidity: function symbol() view returns(string)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerSession) Symbol() (string, error) {
-	return _ERC20PresetFixedSupply.Contract.Symbol(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
-//
-// Solidity: function totalSupply() view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _ERC20PresetFixedSupply.contract.Call(opts, &out, "totalSupply")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
-//
-// Solidity: function totalSupply() view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) TotalSupply() (*big.Int, error) {
-	return _ERC20PresetFixedSupply.Contract.TotalSupply(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
-//
-// Solidity: function totalSupply() view returns(uint256)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyCallerSession) TotalSupply() (*big.Int, error) {
-	return _ERC20PresetFixedSupply.Contract.TotalSupply(&_ERC20PresetFixedSupply.CallOpts)
-}
-
-// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
-//
-// Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) Approve(opts *bind.TransactOpts, spender common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "approve", spender, amount)
-}
-
-// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
-//
-// Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Approve(spender common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.Approve(&_ERC20PresetFixedSupply.TransactOpts, spender, amount)
-}
-
-// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
-//
-// Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) Approve(spender common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.Approve(&_ERC20PresetFixedSupply.TransactOpts, spender, amount)
-}
-
-// Burn is a paid mutator transaction binding the contract method 0x42966c68.
-//
-// Solidity: function burn(uint256 amount) returns()
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) Burn(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "burn", amount)
-}
-
-// Burn is a paid mutator transaction binding the contract method 0x42966c68.
-//
-// Solidity: function burn(uint256 amount) returns()
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Burn(amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.Burn(&_ERC20PresetFixedSupply.TransactOpts, amount)
-}
-
-// Burn is a paid mutator transaction binding the contract method 0x42966c68.
-//
-// Solidity: function burn(uint256 amount) returns()
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) Burn(amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.Burn(&_ERC20PresetFixedSupply.TransactOpts, amount)
-}
-
-// BurnFrom is a paid mutator transaction binding the contract method 0x79cc6790.
-//
-// Solidity: function burnFrom(address account, uint256 amount) returns()
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) BurnFrom(opts *bind.TransactOpts, account common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "burnFrom", account, amount)
-}
-
-// BurnFrom is a paid mutator transaction binding the contract method 0x79cc6790.
-//
-// Solidity: function burnFrom(address account, uint256 amount) returns()
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) BurnFrom(account common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.BurnFrom(&_ERC20PresetFixedSupply.TransactOpts, account, amount)
-}
-
-// BurnFrom is a paid mutator transaction binding the contract method 0x79cc6790.
-//
-// Solidity: function burnFrom(address account, uint256 amount) returns()
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) BurnFrom(account common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.BurnFrom(&_ERC20PresetFixedSupply.TransactOpts, account, amount)
-}
-
-// DecreaseAllowance is a paid mutator transaction binding the contract method 0xa457c2d7.
-//
-// Solidity: function decreaseAllowance(address spender, uint256 subtractedValue) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) DecreaseAllowance(opts *bind.TransactOpts, spender common.Address, subtractedValue *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "decreaseAllowance", spender, subtractedValue)
-}
-
-// DecreaseAllowance is a paid mutator transaction binding the contract method 0xa457c2d7.
-//
-// Solidity: function decreaseAllowance(address spender, uint256 subtractedValue) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) DecreaseAllowance(spender common.Address, subtractedValue *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.DecreaseAllowance(&_ERC20PresetFixedSupply.TransactOpts, spender, subtractedValue)
-}
-
-// DecreaseAllowance is a paid mutator transaction binding the contract method 0xa457c2d7.
-//
-// Solidity: function decreaseAllowance(address spender, uint256 subtractedValue) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) DecreaseAllowance(spender common.Address, subtractedValue *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.DecreaseAllowance(&_ERC20PresetFixedSupply.TransactOpts, spender, subtractedValue)
-}
-
-// IncreaseAllowance is a paid mutator transaction binding the contract method 0x39509351.
-//
-// Solidity: function increaseAllowance(address spender, uint256 addedValue) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) IncreaseAllowance(opts *bind.TransactOpts, spender common.Address, addedValue *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "increaseAllowance", spender, addedValue)
-}
-
-// IncreaseAllowance is a paid mutator transaction binding the contract method 0x39509351.
-//
-// Solidity: function increaseAllowance(address spender, uint256 addedValue) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) IncreaseAllowance(spender common.Address, addedValue *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.IncreaseAllowance(&_ERC20PresetFixedSupply.TransactOpts, spender, addedValue)
-}
-
-// IncreaseAllowance is a paid mutator transaction binding the contract method 0x39509351.
-//
-// Solidity: function increaseAllowance(address spender, uint256 addedValue) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) IncreaseAllowance(spender common.Address, addedValue *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.IncreaseAllowance(&_ERC20PresetFixedSupply.TransactOpts, spender, addedValue)
-}
-
-// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
-//
-// Solidity: function transfer(address to, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) Transfer(opts *bind.TransactOpts, to common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "transfer", to, amount)
-}
-
-// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
-//
-// Solidity: function transfer(address to, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) Transfer(to common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.Transfer(&_ERC20PresetFixedSupply.TransactOpts, to, amount)
-}
-
-// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
-//
-// Solidity: function transfer(address to, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) Transfer(to common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.Transfer(&_ERC20PresetFixedSupply.TransactOpts, to, amount)
-}
-
-// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
-//
-// Solidity: function transferFrom(address from, address to, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactor) TransferFrom(opts *bind.TransactOpts, from common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.contract.Transact(opts, "transferFrom", from, to, amount)
-}
-
-// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
-//
-// Solidity: function transferFrom(address from, address to, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplySession) TransferFrom(from common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.TransferFrom(&_ERC20PresetFixedSupply.TransactOpts, from, to, amount)
-}
-
-// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
-//
-// Solidity: function transferFrom(address from, address to, uint256 amount) returns(bool)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyTransactorSession) TransferFrom(from common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _ERC20PresetFixedSupply.Contract.TransferFrom(&_ERC20PresetFixedSupply.TransactOpts, from, to, amount)
-}
-
-// ERC20PresetFixedSupplyApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the ERC20PresetFixedSupply contract.
-type ERC20PresetFixedSupplyApprovalIterator struct {
-	Event *ERC20PresetFixedSupplyApproval // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ERC20PresetFixedSupplyApprovalIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ERC20PresetFixedSupplyApproval)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ERC20PresetFixedSupplyApproval)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ERC20PresetFixedSupplyApprovalIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ERC20PresetFixedSupplyApprovalIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ERC20PresetFixedSupplyApproval represents a Approval event raised by the ERC20PresetFixedSupply contract.
-type ERC20PresetFixedSupplyApproval struct {
-	Owner   common.Address
-	Spender common.Address
-	Value   *big.Int
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-//
-// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyFilterer) FilterApproval(opts *bind.FilterOpts, owner []common.Address, spender []common.Address) (*ERC20PresetFixedSupplyApprovalIterator, error) {
-
-	var ownerRule []interface{}
-	for _, ownerItem := range owner {
-		ownerRule = append(ownerRule, ownerItem)
-	}
-	var spenderRule []interface{}
-	for _, spenderItem := range spender {
-		spenderRule = append(spenderRule, spenderItem)
-	}
-
-	logs, sub, err := _ERC20PresetFixedSupply.contract.FilterLogs(opts, "Approval", ownerRule, spenderRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ERC20PresetFixedSupplyApprovalIterator{contract: _ERC20PresetFixedSupply.contract, event: "Approval", logs: logs, sub: sub}, nil
-}
-
-// WatchApproval is a free log subscription operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-//
-// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyFilterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *ERC20PresetFixedSupplyApproval, owner []common.Address, spender []common.Address) (event.Subscription, error) {
-
-	var ownerRule []interface{}
-	for _, ownerItem := range owner {
-		ownerRule = append(ownerRule, ownerItem)
-	}
-	var spenderRule []interface{}
-	for _, spenderItem := range spender {
-		spenderRule = append(spenderRule, spenderItem)
-	}
-
-	logs, sub, err := _ERC20PresetFixedSupply.contract.WatchLogs(opts, "Approval", ownerRule, spenderRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ERC20PresetFixedSupplyApproval)
-				if err := _ERC20PresetFixedSupply.contract.UnpackLog(event, "Approval", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-//
-// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyFilterer) ParseApproval(log types.Log) (*ERC20PresetFixedSupplyApproval, error) {
-	event := new(ERC20PresetFixedSupplyApproval)
-	if err := _ERC20PresetFixedSupply.contract.UnpackLog(event, "Approval", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ERC20PresetFixedSupplyTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the ERC20PresetFixedSupply contract.
-type ERC20PresetFixedSupplyTransferIterator struct {
-	Event *ERC20PresetFixedSupplyTransfer // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ERC20PresetFixedSupplyTransferIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ERC20PresetFixedSupplyTransfer)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ERC20PresetFixedSupplyTransfer)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ERC20PresetFixedSupplyTransferIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ERC20PresetFixedSupplyTransferIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ERC20PresetFixedSupplyTransfer represents a Transfer event raised by the ERC20PresetFixedSupply contract.
-type ERC20PresetFixedSupplyTransfer struct {
-	From  common.Address
-	To    common.Address
-	Value *big.Int
-	Raw   types.Log // Blockchain specific contextual infos
-}
-
-// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-//
-// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyFilterer) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*ERC20PresetFixedSupplyTransferIterator, error) {
-
-	var fromRule []interface{}
-	for _, fromItem := range from {
-		fromRule = append(fromRule, fromItem)
-	}
-	var toRule []interface{}
-	for _, toItem := range to {
-		toRule = append(toRule, toItem)
-	}
-
-	logs, sub, err := _ERC20PresetFixedSupply.contract.FilterLogs(opts, "Transfer", fromRule, toRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ERC20PresetFixedSupplyTransferIterator{contract: _ERC20PresetFixedSupply.contract, event: "Transfer", logs: logs, sub: sub}, nil
-}
-
-// WatchTransfer is a free log subscription operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-//
-// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *ERC20PresetFixedSupplyTransfer, from []common.Address, to []common.Address) (event.Subscription, error) {
-
-	var fromRule []interface{}
-	for _, fromItem := range from {
-		fromRule = append(fromRule, fromItem)
-	}
-	var toRule []interface{}
-	for _, toItem := range to {
-		toRule = append(toRule, toItem)
-	}
-
-	logs, sub, err := _ERC20PresetFixedSupply.contract.WatchLogs(opts, "Transfer", fromRule, toRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ERC20PresetFixedSupplyTransfer)
-				if err := _ERC20PresetFixedSupply.contract.UnpackLog(event, "Transfer", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-//
-// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-func (_ERC20PresetFixedSupply *ERC20PresetFixedSupplyFilterer) ParseTransfer(log types.Log) (*ERC20PresetFixedSupplyTransfer, error) {
-	event := new(ERC20PresetFixedSupplyTransfer)
-	if err := _ERC20PresetFixedSupply.contract.UnpackLog(event, "Transfer", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
+// Solidity: function withdraw(uint256 _amount) returns()
+func (_IWETH9 *IWETH9TransactorSession) Withdraw(_amount *big.Int) (*types.Transaction, error) {
+	return _IWETH9.Contract.Withdraw(&_IWETH9.TransactOpts, _amount)
 }
 
 // InboxStubMetaData contains all meta data concerning the InboxStub contract.
@@ -10429,6 +9808,820 @@ func (_SingleExecutionChallenge *SingleExecutionChallengeFilterer) WatchOneStepP
 func (_SingleExecutionChallenge *SingleExecutionChallengeFilterer) ParseOneStepProofCompleted(log types.Log) (*SingleExecutionChallengeOneStepProofCompleted, error) {
 	event := new(SingleExecutionChallengeOneStepProofCompleted)
 	if err := _SingleExecutionChallenge.contract.UnpackLog(event, "OneStepProofCompleted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TestWETH9MetaData contains all meta data concerning the TestWETH9 contract.
+var TestWETH9MetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name_\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol_\",\"type\":\"string\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"subtractedValue\",\"type\":\"uint256\"}],\"name\":\"decreaseAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"addedValue\",\"type\":\"uint256\"}],\"name\":\"increaseAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60806040523480156200001157600080fd5b5060405162000ec138038062000ec1833981016040819052620000349162000123565b818160036200004483826200021c565b5060046200005382826200021c565b5050505050620002e8565b634e487b7160e01b600052604160045260246000fd5b600082601f8301126200008657600080fd5b81516001600160401b0380821115620000a357620000a36200005e565b604051601f8301601f19908116603f01168101908282118183101715620000ce57620000ce6200005e565b81604052838152602092508683858801011115620000eb57600080fd5b600091505b838210156200010f5785820183015181830184015290820190620000f0565b600093810190920192909252949350505050565b600080604083850312156200013757600080fd5b82516001600160401b03808211156200014f57600080fd5b6200015d8683870162000074565b935060208501519150808211156200017457600080fd5b50620001838582860162000074565b9150509250929050565b600181811c90821680620001a257607f821691505b602082108103620001c357634e487b7160e01b600052602260045260246000fd5b50919050565b601f8211156200021757600081815260208120601f850160051c81016020861015620001f25750805b601f850160051c820191505b818110156200021357828155600101620001fe565b5050505b505050565b81516001600160401b038111156200023857620002386200005e565b62000250816200024984546200018d565b84620001c9565b602080601f8311600181146200028857600084156200026f5750858301515b600019600386901b1c1916600185901b17855562000213565b600085815260208120601f198616915b82811015620002b95788860151825594840194600190910190840162000298565b5085821015620002d85787850151600019600388901b60f8161c191681555b5050505050600190811b01905550565b610bc980620002f86000396000f3fe6080604052600436106100b25760003560e01c8063395093511161006f578063395093511461018f57806370a08231146101af57806395d89b41146101e5578063a457c2d7146101fa578063a9059cbb1461021a578063d0e30db01461023a578063dd62ed3e1461024257600080fd5b806306fdde03146100b7578063095ea7b3146100e257806318160ddd1461011257806323b872dd146101315780632e1a7d4d14610151578063313ce56714610173575b600080fd5b3480156100c357600080fd5b506100cc610262565b6040516100d991906109bf565b60405180910390f35b3480156100ee57600080fd5b506101026100fd366004610a29565b6102f4565b60405190151581526020016100d9565b34801561011e57600080fd5b506002545b6040519081526020016100d9565b34801561013d57600080fd5b5061010261014c366004610a53565b61030e565b34801561015d57600080fd5b5061017161016c366004610a8f565b610332565b005b34801561017f57600080fd5b50604051601281526020016100d9565b34801561019b57600080fd5b506101026101aa366004610a29565b61036d565b3480156101bb57600080fd5b506101236101ca366004610aa8565b6001600160a01b031660009081526020819052604090205490565b3480156101f157600080fd5b506100cc61038f565b34801561020657600080fd5b50610102610215366004610a29565b61039e565b34801561022657600080fd5b50610102610235366004610a29565b61041e565b61017161042c565b34801561024e57600080fd5b5061012361025d366004610aca565b610438565b60606003805461027190610afd565b80601f016020809104026020016040519081016040528092919081815260200182805461029d90610afd565b80156102ea5780601f106102bf576101008083540402835291602001916102ea565b820191906000526020600020905b8154815290600101906020018083116102cd57829003601f168201915b5050505050905090565b600033610302818585610463565b60019150505b92915050565b60003361031c858285610588565b610327858585610602565b506001949350505050565b61033c33826107be565b604051339082156108fc029083906000818181858888f19350505050158015610369573d6000803e3d6000fd5b5050565b6000336103028185856103808383610438565b61038a9190610b4d565b610463565b60606004805461027190610afd565b600033816103ac8286610438565b9050838110156104115760405162461bcd60e51b815260206004820152602560248201527f45524332303a2064656372656173656420616c6c6f77616e63652062656c6f77604482015264207a65726f60d81b60648201526084015b60405180910390fd5b6103278286868403610463565b600033610302818585610602565b61043633346108f2565b565b6001600160a01b03918216600090815260016020908152604080832093909416825291909152205490565b6001600160a01b0383166104c55760405162461bcd60e51b8152602060048201526024808201527f45524332303a20617070726f76652066726f6d20746865207a65726f206164646044820152637265737360e01b6064820152608401610408565b6001600160a01b0382166105265760405162461bcd60e51b815260206004820152602260248201527f45524332303a20617070726f766520746f20746865207a65726f206164647265604482015261737360f01b6064820152608401610408565b6001600160a01b0383811660008181526001602090815260408083209487168084529482529182902085905590518481527f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b92591015b60405180910390a3505050565b60006105948484610438565b905060001981146105fc57818110156105ef5760405162461bcd60e51b815260206004820152601d60248201527f45524332303a20696e73756666696369656e7420616c6c6f77616e63650000006044820152606401610408565b6105fc8484848403610463565b50505050565b6001600160a01b0383166106665760405162461bcd60e51b815260206004820152602560248201527f45524332303a207472616e736665722066726f6d20746865207a65726f206164604482015264647265737360d81b6064820152608401610408565b6001600160a01b0382166106c85760405162461bcd60e51b815260206004820152602360248201527f45524332303a207472616e7366657220746f20746865207a65726f206164647260448201526265737360e81b6064820152608401610408565b6001600160a01b038316600090815260208190526040902054818110156107405760405162461bcd60e51b815260206004820152602660248201527f45524332303a207472616e7366657220616d6f756e7420657863656564732062604482015265616c616e636560d01b6064820152608401610408565b6001600160a01b03808516600090815260208190526040808220858503905591851681529081208054849290610777908490610b4d565b92505081905550826001600160a01b0316846001600160a01b0316600080516020610b74833981519152846040516107b191815260200190565b60405180910390a36105fc565b6001600160a01b03821661081e5760405162461bcd60e51b815260206004820152602160248201527f45524332303a206275726e2066726f6d20746865207a65726f206164647265736044820152607360f81b6064820152608401610408565b6001600160a01b038216600090815260208190526040902054818110156108925760405162461bcd60e51b815260206004820152602260248201527f45524332303a206275726e20616d6f756e7420657863656564732062616c616e604482015261636560f01b6064820152608401610408565b6001600160a01b03831660009081526020819052604081208383039055600280548492906108c1908490610b60565b90915550506040518281526000906001600160a01b03851690600080516020610b748339815191529060200161057b565b6001600160a01b0382166109485760405162461bcd60e51b815260206004820152601f60248201527f45524332303a206d696e7420746f20746865207a65726f2061646472657373006044820152606401610408565b806002600082825461095a9190610b4d565b90915550506001600160a01b03821660009081526020819052604081208054839290610987908490610b4d565b90915550506040518181526001600160a01b03831690600090600080516020610b748339815191529060200160405180910390a35050565b600060208083528351808285015260005b818110156109ec578581018301518582016040015282016109d0565b506000604082860101526040601f19601f8301168501019250505092915050565b80356001600160a01b0381168114610a2457600080fd5b919050565b60008060408385031215610a3c57600080fd5b610a4583610a0d565b946020939093013593505050565b600080600060608486031215610a6857600080fd5b610a7184610a0d565b9250610a7f60208501610a0d565b9150604084013590509250925092565b600060208284031215610aa157600080fd5b5035919050565b600060208284031215610aba57600080fd5b610ac382610a0d565b9392505050565b60008060408385031215610add57600080fd5b610ae683610a0d565b9150610af460208401610a0d565b90509250929050565b600181811c90821680610b1157607f821691505b602082108103610b3157634e487b7160e01b600052602260045260246000fd5b50919050565b634e487b7160e01b600052601160045260246000fd5b8082018082111561030857610308610b37565b8181038181111561030857610308610b3756feddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa264697066735822122071f315dfb65b50debec89f2ee06d89546738859ef346e7c90a1b4050e3c6dd4064736f6c63430008110033",
+}
+
+// TestWETH9ABI is the input ABI used to generate the binding from.
+// Deprecated: Use TestWETH9MetaData.ABI instead.
+var TestWETH9ABI = TestWETH9MetaData.ABI
+
+// TestWETH9Bin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use TestWETH9MetaData.Bin instead.
+var TestWETH9Bin = TestWETH9MetaData.Bin
+
+// DeployTestWETH9 deploys a new Ethereum contract, binding an instance of TestWETH9 to it.
+func DeployTestWETH9(auth *bind.TransactOpts, backend bind.ContractBackend, name_ string, symbol_ string) (common.Address, *types.Transaction, *TestWETH9, error) {
+	parsed, err := TestWETH9MetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(TestWETH9Bin), backend, name_, symbol_)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &TestWETH9{TestWETH9Caller: TestWETH9Caller{contract: contract}, TestWETH9Transactor: TestWETH9Transactor{contract: contract}, TestWETH9Filterer: TestWETH9Filterer{contract: contract}}, nil
+}
+
+// TestWETH9 is an auto generated Go binding around an Ethereum contract.
+type TestWETH9 struct {
+	TestWETH9Caller     // Read-only binding to the contract
+	TestWETH9Transactor // Write-only binding to the contract
+	TestWETH9Filterer   // Log filterer for contract events
+}
+
+// TestWETH9Caller is an auto generated read-only Go binding around an Ethereum contract.
+type TestWETH9Caller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// TestWETH9Transactor is an auto generated write-only Go binding around an Ethereum contract.
+type TestWETH9Transactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// TestWETH9Filterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type TestWETH9Filterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// TestWETH9Session is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type TestWETH9Session struct {
+	Contract     *TestWETH9        // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+}
+
+// TestWETH9CallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type TestWETH9CallerSession struct {
+	Contract *TestWETH9Caller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts    // Call options to use throughout this session
+}
+
+// TestWETH9TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type TestWETH9TransactorSession struct {
+	Contract     *TestWETH9Transactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts    // Transaction auth options to use throughout this session
+}
+
+// TestWETH9Raw is an auto generated low-level Go binding around an Ethereum contract.
+type TestWETH9Raw struct {
+	Contract *TestWETH9 // Generic contract binding to access the raw methods on
+}
+
+// TestWETH9CallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type TestWETH9CallerRaw struct {
+	Contract *TestWETH9Caller // Generic read-only contract binding to access the raw methods on
+}
+
+// TestWETH9TransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type TestWETH9TransactorRaw struct {
+	Contract *TestWETH9Transactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewTestWETH9 creates a new instance of TestWETH9, bound to a specific deployed contract.
+func NewTestWETH9(address common.Address, backend bind.ContractBackend) (*TestWETH9, error) {
+	contract, err := bindTestWETH9(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &TestWETH9{TestWETH9Caller: TestWETH9Caller{contract: contract}, TestWETH9Transactor: TestWETH9Transactor{contract: contract}, TestWETH9Filterer: TestWETH9Filterer{contract: contract}}, nil
+}
+
+// NewTestWETH9Caller creates a new read-only instance of TestWETH9, bound to a specific deployed contract.
+func NewTestWETH9Caller(address common.Address, caller bind.ContractCaller) (*TestWETH9Caller, error) {
+	contract, err := bindTestWETH9(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &TestWETH9Caller{contract: contract}, nil
+}
+
+// NewTestWETH9Transactor creates a new write-only instance of TestWETH9, bound to a specific deployed contract.
+func NewTestWETH9Transactor(address common.Address, transactor bind.ContractTransactor) (*TestWETH9Transactor, error) {
+	contract, err := bindTestWETH9(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &TestWETH9Transactor{contract: contract}, nil
+}
+
+// NewTestWETH9Filterer creates a new log filterer instance of TestWETH9, bound to a specific deployed contract.
+func NewTestWETH9Filterer(address common.Address, filterer bind.ContractFilterer) (*TestWETH9Filterer, error) {
+	contract, err := bindTestWETH9(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &TestWETH9Filterer{contract: contract}, nil
+}
+
+// bindTestWETH9 binds a generic wrapper to an already deployed contract.
+func bindTestWETH9(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(TestWETH9ABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_TestWETH9 *TestWETH9Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _TestWETH9.Contract.TestWETH9Caller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_TestWETH9 *TestWETH9Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _TestWETH9.Contract.TestWETH9Transactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_TestWETH9 *TestWETH9Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _TestWETH9.Contract.TestWETH9Transactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_TestWETH9 *TestWETH9CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _TestWETH9.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_TestWETH9 *TestWETH9TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _TestWETH9.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_TestWETH9 *TestWETH9TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _TestWETH9.Contract.contract.Transact(opts, method, params...)
+}
+
+// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+//
+// Solidity: function allowance(address owner, address spender) view returns(uint256)
+func (_TestWETH9 *TestWETH9Caller) Allowance(opts *bind.CallOpts, owner common.Address, spender common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _TestWETH9.contract.Call(opts, &out, "allowance", owner, spender)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+//
+// Solidity: function allowance(address owner, address spender) view returns(uint256)
+func (_TestWETH9 *TestWETH9Session) Allowance(owner common.Address, spender common.Address) (*big.Int, error) {
+	return _TestWETH9.Contract.Allowance(&_TestWETH9.CallOpts, owner, spender)
+}
+
+// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+//
+// Solidity: function allowance(address owner, address spender) view returns(uint256)
+func (_TestWETH9 *TestWETH9CallerSession) Allowance(owner common.Address, spender common.Address) (*big.Int, error) {
+	return _TestWETH9.Contract.Allowance(&_TestWETH9.CallOpts, owner, spender)
+}
+
+// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+//
+// Solidity: function balanceOf(address account) view returns(uint256)
+func (_TestWETH9 *TestWETH9Caller) BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _TestWETH9.contract.Call(opts, &out, "balanceOf", account)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+//
+// Solidity: function balanceOf(address account) view returns(uint256)
+func (_TestWETH9 *TestWETH9Session) BalanceOf(account common.Address) (*big.Int, error) {
+	return _TestWETH9.Contract.BalanceOf(&_TestWETH9.CallOpts, account)
+}
+
+// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+//
+// Solidity: function balanceOf(address account) view returns(uint256)
+func (_TestWETH9 *TestWETH9CallerSession) BalanceOf(account common.Address) (*big.Int, error) {
+	return _TestWETH9.Contract.BalanceOf(&_TestWETH9.CallOpts, account)
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() view returns(uint8)
+func (_TestWETH9 *TestWETH9Caller) Decimals(opts *bind.CallOpts) (uint8, error) {
+	var out []interface{}
+	err := _TestWETH9.contract.Call(opts, &out, "decimals")
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() view returns(uint8)
+func (_TestWETH9 *TestWETH9Session) Decimals() (uint8, error) {
+	return _TestWETH9.Contract.Decimals(&_TestWETH9.CallOpts)
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() view returns(uint8)
+func (_TestWETH9 *TestWETH9CallerSession) Decimals() (uint8, error) {
+	return _TestWETH9.Contract.Decimals(&_TestWETH9.CallOpts)
+}
+
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
+//
+// Solidity: function name() view returns(string)
+func (_TestWETH9 *TestWETH9Caller) Name(opts *bind.CallOpts) (string, error) {
+	var out []interface{}
+	err := _TestWETH9.contract.Call(opts, &out, "name")
+
+	if err != nil {
+		return *new(string), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+
+	return out0, err
+
+}
+
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
+//
+// Solidity: function name() view returns(string)
+func (_TestWETH9 *TestWETH9Session) Name() (string, error) {
+	return _TestWETH9.Contract.Name(&_TestWETH9.CallOpts)
+}
+
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
+//
+// Solidity: function name() view returns(string)
+func (_TestWETH9 *TestWETH9CallerSession) Name() (string, error) {
+	return _TestWETH9.Contract.Name(&_TestWETH9.CallOpts)
+}
+
+// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+//
+// Solidity: function symbol() view returns(string)
+func (_TestWETH9 *TestWETH9Caller) Symbol(opts *bind.CallOpts) (string, error) {
+	var out []interface{}
+	err := _TestWETH9.contract.Call(opts, &out, "symbol")
+
+	if err != nil {
+		return *new(string), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+
+	return out0, err
+
+}
+
+// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+//
+// Solidity: function symbol() view returns(string)
+func (_TestWETH9 *TestWETH9Session) Symbol() (string, error) {
+	return _TestWETH9.Contract.Symbol(&_TestWETH9.CallOpts)
+}
+
+// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+//
+// Solidity: function symbol() view returns(string)
+func (_TestWETH9 *TestWETH9CallerSession) Symbol() (string, error) {
+	return _TestWETH9.Contract.Symbol(&_TestWETH9.CallOpts)
+}
+
+// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
+//
+// Solidity: function totalSupply() view returns(uint256)
+func (_TestWETH9 *TestWETH9Caller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _TestWETH9.contract.Call(opts, &out, "totalSupply")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
+//
+// Solidity: function totalSupply() view returns(uint256)
+func (_TestWETH9 *TestWETH9Session) TotalSupply() (*big.Int, error) {
+	return _TestWETH9.Contract.TotalSupply(&_TestWETH9.CallOpts)
+}
+
+// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
+//
+// Solidity: function totalSupply() view returns(uint256)
+func (_TestWETH9 *TestWETH9CallerSession) TotalSupply() (*big.Int, error) {
+	return _TestWETH9.Contract.TotalSupply(&_TestWETH9.CallOpts)
+}
+
+// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
+//
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9Transactor) Approve(opts *bind.TransactOpts, spender common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "approve", spender, amount)
+}
+
+// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
+//
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9Session) Approve(spender common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.Approve(&_TestWETH9.TransactOpts, spender, amount)
+}
+
+// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
+//
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9TransactorSession) Approve(spender common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.Approve(&_TestWETH9.TransactOpts, spender, amount)
+}
+
+// DecreaseAllowance is a paid mutator transaction binding the contract method 0xa457c2d7.
+//
+// Solidity: function decreaseAllowance(address spender, uint256 subtractedValue) returns(bool)
+func (_TestWETH9 *TestWETH9Transactor) DecreaseAllowance(opts *bind.TransactOpts, spender common.Address, subtractedValue *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "decreaseAllowance", spender, subtractedValue)
+}
+
+// DecreaseAllowance is a paid mutator transaction binding the contract method 0xa457c2d7.
+//
+// Solidity: function decreaseAllowance(address spender, uint256 subtractedValue) returns(bool)
+func (_TestWETH9 *TestWETH9Session) DecreaseAllowance(spender common.Address, subtractedValue *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.DecreaseAllowance(&_TestWETH9.TransactOpts, spender, subtractedValue)
+}
+
+// DecreaseAllowance is a paid mutator transaction binding the contract method 0xa457c2d7.
+//
+// Solidity: function decreaseAllowance(address spender, uint256 subtractedValue) returns(bool)
+func (_TestWETH9 *TestWETH9TransactorSession) DecreaseAllowance(spender common.Address, subtractedValue *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.DecreaseAllowance(&_TestWETH9.TransactOpts, spender, subtractedValue)
+}
+
+// Deposit is a paid mutator transaction binding the contract method 0xd0e30db0.
+//
+// Solidity: function deposit() payable returns()
+func (_TestWETH9 *TestWETH9Transactor) Deposit(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "deposit")
+}
+
+// Deposit is a paid mutator transaction binding the contract method 0xd0e30db0.
+//
+// Solidity: function deposit() payable returns()
+func (_TestWETH9 *TestWETH9Session) Deposit() (*types.Transaction, error) {
+	return _TestWETH9.Contract.Deposit(&_TestWETH9.TransactOpts)
+}
+
+// Deposit is a paid mutator transaction binding the contract method 0xd0e30db0.
+//
+// Solidity: function deposit() payable returns()
+func (_TestWETH9 *TestWETH9TransactorSession) Deposit() (*types.Transaction, error) {
+	return _TestWETH9.Contract.Deposit(&_TestWETH9.TransactOpts)
+}
+
+// IncreaseAllowance is a paid mutator transaction binding the contract method 0x39509351.
+//
+// Solidity: function increaseAllowance(address spender, uint256 addedValue) returns(bool)
+func (_TestWETH9 *TestWETH9Transactor) IncreaseAllowance(opts *bind.TransactOpts, spender common.Address, addedValue *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "increaseAllowance", spender, addedValue)
+}
+
+// IncreaseAllowance is a paid mutator transaction binding the contract method 0x39509351.
+//
+// Solidity: function increaseAllowance(address spender, uint256 addedValue) returns(bool)
+func (_TestWETH9 *TestWETH9Session) IncreaseAllowance(spender common.Address, addedValue *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.IncreaseAllowance(&_TestWETH9.TransactOpts, spender, addedValue)
+}
+
+// IncreaseAllowance is a paid mutator transaction binding the contract method 0x39509351.
+//
+// Solidity: function increaseAllowance(address spender, uint256 addedValue) returns(bool)
+func (_TestWETH9 *TestWETH9TransactorSession) IncreaseAllowance(spender common.Address, addedValue *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.IncreaseAllowance(&_TestWETH9.TransactOpts, spender, addedValue)
+}
+
+// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
+//
+// Solidity: function transfer(address to, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9Transactor) Transfer(opts *bind.TransactOpts, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "transfer", to, amount)
+}
+
+// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
+//
+// Solidity: function transfer(address to, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9Session) Transfer(to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.Transfer(&_TestWETH9.TransactOpts, to, amount)
+}
+
+// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
+//
+// Solidity: function transfer(address to, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9TransactorSession) Transfer(to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.Transfer(&_TestWETH9.TransactOpts, to, amount)
+}
+
+// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
+//
+// Solidity: function transferFrom(address from, address to, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9Transactor) TransferFrom(opts *bind.TransactOpts, from common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "transferFrom", from, to, amount)
+}
+
+// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
+//
+// Solidity: function transferFrom(address from, address to, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9Session) TransferFrom(from common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.TransferFrom(&_TestWETH9.TransactOpts, from, to, amount)
+}
+
+// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
+//
+// Solidity: function transferFrom(address from, address to, uint256 amount) returns(bool)
+func (_TestWETH9 *TestWETH9TransactorSession) TransferFrom(from common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.TransferFrom(&_TestWETH9.TransactOpts, from, to, amount)
+}
+
+// Withdraw is a paid mutator transaction binding the contract method 0x2e1a7d4d.
+//
+// Solidity: function withdraw(uint256 _amount) returns()
+func (_TestWETH9 *TestWETH9Transactor) Withdraw(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.contract.Transact(opts, "withdraw", _amount)
+}
+
+// Withdraw is a paid mutator transaction binding the contract method 0x2e1a7d4d.
+//
+// Solidity: function withdraw(uint256 _amount) returns()
+func (_TestWETH9 *TestWETH9Session) Withdraw(_amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.Withdraw(&_TestWETH9.TransactOpts, _amount)
+}
+
+// Withdraw is a paid mutator transaction binding the contract method 0x2e1a7d4d.
+//
+// Solidity: function withdraw(uint256 _amount) returns()
+func (_TestWETH9 *TestWETH9TransactorSession) Withdraw(_amount *big.Int) (*types.Transaction, error) {
+	return _TestWETH9.Contract.Withdraw(&_TestWETH9.TransactOpts, _amount)
+}
+
+// TestWETH9ApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the TestWETH9 contract.
+type TestWETH9ApprovalIterator struct {
+	Event *TestWETH9Approval // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TestWETH9ApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TestWETH9Approval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TestWETH9Approval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TestWETH9ApprovalIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TestWETH9ApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TestWETH9Approval represents a Approval event raised by the TestWETH9 contract.
+type TestWETH9Approval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_TestWETH9 *TestWETH9Filterer) FilterApproval(opts *bind.FilterOpts, owner []common.Address, spender []common.Address) (*TestWETH9ApprovalIterator, error) {
+
+	var ownerRule []interface{}
+	for _, ownerItem := range owner {
+		ownerRule = append(ownerRule, ownerItem)
+	}
+	var spenderRule []interface{}
+	for _, spenderItem := range spender {
+		spenderRule = append(spenderRule, spenderItem)
+	}
+
+	logs, sub, err := _TestWETH9.contract.FilterLogs(opts, "Approval", ownerRule, spenderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &TestWETH9ApprovalIterator{contract: _TestWETH9.contract, event: "Approval", logs: logs, sub: sub}, nil
+}
+
+// WatchApproval is a free log subscription operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_TestWETH9 *TestWETH9Filterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *TestWETH9Approval, owner []common.Address, spender []common.Address) (event.Subscription, error) {
+
+	var ownerRule []interface{}
+	for _, ownerItem := range owner {
+		ownerRule = append(ownerRule, ownerItem)
+	}
+	var spenderRule []interface{}
+	for _, spenderItem := range spender {
+		spenderRule = append(spenderRule, spenderItem)
+	}
+
+	logs, sub, err := _TestWETH9.contract.WatchLogs(opts, "Approval", ownerRule, spenderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TestWETH9Approval)
+				if err := _TestWETH9.contract.UnpackLog(event, "Approval", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_TestWETH9 *TestWETH9Filterer) ParseApproval(log types.Log) (*TestWETH9Approval, error) {
+	event := new(TestWETH9Approval)
+	if err := _TestWETH9.contract.UnpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TestWETH9TransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the TestWETH9 contract.
+type TestWETH9TransferIterator struct {
+	Event *TestWETH9Transfer // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TestWETH9TransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TestWETH9Transfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TestWETH9Transfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TestWETH9TransferIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TestWETH9TransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TestWETH9Transfer represents a Transfer event raised by the TestWETH9 contract.
+type TestWETH9Transfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
+
+// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_TestWETH9 *TestWETH9Filterer) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*TestWETH9TransferIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _TestWETH9.contract.FilterLogs(opts, "Transfer", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &TestWETH9TransferIterator{contract: _TestWETH9.contract, event: "Transfer", logs: logs, sub: sub}, nil
+}
+
+// WatchTransfer is a free log subscription operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_TestWETH9 *TestWETH9Filterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *TestWETH9Transfer, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _TestWETH9.contract.WatchLogs(opts, "Transfer", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TestWETH9Transfer)
+				if err := _TestWETH9.contract.UnpackLog(event, "Transfer", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_TestWETH9 *TestWETH9Filterer) ParseTransfer(log types.Log) (*TestWETH9Transfer, error) {
+	event := new(TestWETH9Transfer)
+	if err := _TestWETH9.contract.UnpackLog(event, "Transfer", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
