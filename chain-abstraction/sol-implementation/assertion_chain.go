@@ -106,6 +106,10 @@ func NewAssertionChain(
 	return chain, nil
 }
 
+func (a *AssertionChain) RollupAddress() common.Address {
+	return a.rollupAddr
+}
+
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
 	res, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, assertionHash)
 	if err != nil {
@@ -180,25 +184,28 @@ func (a *AssertionChain) CreateAssertion(
 	default:
 	}
 
+	inputs := rollupgen.AssertionInputs{
+		BeforeStateData: rollupgen.BeforeStateData{
+			PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+			SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
+			ConfigData: rollupgen.ConfigData{
+				RequiredStake:       parentAssertionCreationInfo.RequiredStake,
+				ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
+				ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
+				WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
+				NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
+			},
+		},
+		BeforeState: parentAssertionCreationInfo.AfterState,
+		AfterState:  postState.AsSolidityStruct(),
+	}
+	fmt.Printf("%+v\n", inputs)
+
 	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(
 			newOpts,
 			parentAssertionCreationInfo.RequiredStake,
-			rollupgen.AssertionInputs{
-				BeforeStateData: rollupgen.BeforeStateData{
-					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
-					ConfigData: rollupgen.ConfigData{
-						RequiredStake:       parentAssertionCreationInfo.RequiredStake,
-						ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
-						ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
-						WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
-						NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
-					},
-				},
-				BeforeState: parentAssertionCreationInfo.AfterState,
-				AfterState:  postState.AsSolidityStruct(),
-			},
+			inputs,
 			computedHash,
 		)
 	})

@@ -5,10 +5,12 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
+	"github.com/OffchainLabs/challenge-protocol-v2/containers"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
@@ -40,7 +42,7 @@ func NewPoster(
 
 func (p *Poster) Start(ctx context.Context) {
 	if _, err := p.PostLatestAssertion(ctx); err != nil {
-		srvlog.Error("Could not submit latest assertion to L1", err)
+		srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 	}
 	ticker := time.NewTicker(p.postInterval)
 	defer ticker.Stop()
@@ -48,7 +50,7 @@ func (p *Poster) Start(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if _, err := p.PostLatestAssertion(ctx); err != nil {
-				srvlog.Error("Could not submit latest assertion to L1", err)
+				srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 			}
 		case <-ctx.Done():
 			return
@@ -76,10 +78,15 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 		return nil, errors.New("inbox max count not a uint64")
 	}
 	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
+	srvlog.Info("Latest valid assertion seq", log.Ctx{
+		"parentSeq":    containers.Trunc(parentAssertionSeq[:]),
+		"prevMaxCount": prevInboxMaxCount,
+	})
 	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
 	if err != nil {
 		return nil, err
 	}
+	srvlog.Info("Execution new state", log.Ctx{"newState": fmt.Sprintf("%+v", newState)})
 	assertion, err := p.chain.CreateAssertion(
 		ctx,
 		parentAssertionCreationInfo,
