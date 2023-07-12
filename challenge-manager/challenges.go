@@ -87,7 +87,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		ctx,
 		0,
 		levelZeroBlockEdgeHeight,
-		creationInfo.InboxMaxCount.Uint64(),
+		creationInfo.InboxMaxCount.Uint64()-1,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -97,7 +97,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		0,
 		0,
 		levelZeroBlockEdgeHeight,
-		creationInfo.InboxMaxCount.Uint64(),
+		creationInfo.InboxMaxCount.Uint64()-1,
 	)
 	if err != nil {
 		return nil, nil, err

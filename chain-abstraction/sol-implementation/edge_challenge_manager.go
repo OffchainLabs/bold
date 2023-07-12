@@ -656,6 +656,13 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 			levelZeroBlockHeight.Uint64(),
 		)
 	}
+
+	fmt.Println("&&&&&")
+	fmt.Printf("End commitment %+v\n", endCommit)
+	fmt.Printf("End state %+v\n", protocol.GoGlobalStateFromSolidity(assertionCreation.AfterState.GlobalState))
+	fmt.Printf("End state hash computed %#x\n", protocol.GoGlobalStateFromSolidity(assertionCreation.AfterState.GlobalState).Hash())
+	fmt.Println("&&&&&")
+
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
 		ExecutionStateData{

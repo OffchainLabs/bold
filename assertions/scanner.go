@@ -204,6 +204,25 @@ func (s *Scanner) ProcessAssertionCreation(
 	execState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 	srvlog.Info("Checking the after state", log.Ctx{"state": fmt.Sprintf("%+v", execState)})
 
+	msgCount, err := s.stateProvider.ExecutionStateMsgCount(ctx, execState)
+	switch {
+	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
+		srvlog.Warn("Disagreed with execution state of posted assertion", log.Ctx{
+			"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
+			"detectedAssertionHash": containers.Trunc(assertionHash[:]),
+			"msgCount":              msgCount,
+		})
+		return nil
+	case err != nil:
+		srvlog.Error("Could not check execution state msg count for seen assertion", log.Ctx{"err": err})
+		return err
+	default:
+	}
+	srvlog.Info("Agreed with execution state of posted assertion", log.Ctx{
+		"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
+		"detectedAssertionHash": containers.Trunc(assertionHash[:]),
+		"msgCount":              msgCount,
+	})
 	if s.challengeReader.Mode() == types.DefensiveMode || s.challengeReader.Mode() == types.MakeMode {
 		// Generating a random integer between 0 and max delay second to wait before challenging.
 		// This is to avoid all validators challenging at the same time.
@@ -224,25 +243,6 @@ func (s *Scanner) ProcessAssertionCreation(
 		}
 		s.challengesSubmittedCount++
 		return nil
-	}
-	msgCount, err := s.stateProvider.ExecutionStateMsgCount(ctx, execState)
-	switch {
-	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
-		srvlog.Warn("Disagreed with execution state of posted assertion", log.Ctx{
-			"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
-			"detectedAssertionHash": containers.Trunc(assertionHash[:]),
-			"msgCount":              msgCount,
-		})
-		return nil
-	case err != nil:
-		srvlog.Error("Could not check execution state msg count for seen assertion", log.Ctx{"err": err})
-		return err
-	default:
-		srvlog.Info("Agreed with execution state of posted assertion", log.Ctx{
-			"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
-			"detectedAssertionHash": containers.Trunc(assertionHash[:]),
-			"msgCount":              msgCount,
-		})
 	}
 	return nil
 }
