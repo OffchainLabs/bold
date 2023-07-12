@@ -463,6 +463,11 @@ func (m *MockProtocol) SpecChallengeManager(ctx context.Context) (protocol.SpecC
 	return args.Get(0).(protocol.SpecChallengeManager), args.Error(1)
 }
 
+func (m *MockProtocol) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(common.Hash), args.Error(1)
+}
+
 func (m *MockProtocol) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
 	args := m.Called(ctx, blockHash, sendRoot)
 	return args.Error(0)
