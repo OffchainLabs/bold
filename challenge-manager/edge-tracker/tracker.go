@@ -246,8 +246,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
+		srvlog.Info("Opening subchallenge on edge", fields)
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			srvlog.Error("Could not open subchallenge leaf", err, fields)
+			fields["err"] = err
+			srvlog.Error("Could not open subchallenge leaf", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
