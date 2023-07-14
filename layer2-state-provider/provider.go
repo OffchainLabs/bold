@@ -47,12 +47,18 @@ type ExecutionProvider interface {
 
 type HistoryCommitter interface {
 	// Produces a block challenge history commitment up to and including a certain message number.
-	HistoryCommitmentUpTo(ctx context.Context, messageNumber uint64) (commitments.History, error)
+	HistoryCommitmentUpTo(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
+		messageNumber uint64,
+	) (commitments.History, error)
 	// Produces a big step history commitment from big step 0 to N within block
 	// challenge heights A and B where B = A + 1.
 	BigStepCommitmentUpTo(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumber,
 		bigStep uint64,
 	) (commitments.History, error)
@@ -61,6 +67,7 @@ type HistoryCommitter interface {
 	SmallStepCommitmentUpTo(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumber,
 		bigStep,
 		toSmallStep uint64,
@@ -73,6 +80,8 @@ type HistoryLeafCommitter interface {
 	// batch count of at least the specified max.
 	HistoryCommitmentUpToBatch(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumberStart,
 		messageNumberEnd,
 		batchCount uint64,
@@ -82,6 +91,7 @@ type HistoryLeafCommitter interface {
 	BigStepLeafCommitment(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumber uint64,
 	) (commitments.History, error)
 	// Produces a small step history commitment for all small steps between
@@ -89,6 +99,7 @@ type HistoryLeafCommitter interface {
 	SmallStepLeafCommitment(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumber,
 		bigStep uint64,
 	) (commitments.History, error)
@@ -99,6 +110,8 @@ type PrefixProver interface {
 	// first state with a batch count of at least the specified max.
 	PrefixProofUpToBatch(
 		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		startHeight,
 		fromMessageNumber,
 		toMessageNumber,
@@ -109,6 +122,7 @@ type PrefixProver interface {
 	BigStepPrefixProof(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumber,
 		fromBigStep,
 		toBigStep uint64,
@@ -118,6 +132,7 @@ type PrefixProver interface {
 	SmallStepPrefixProof(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionId protocol.AssertionHash,
 		messageNumber,
 		bigStep,
 		fromSmallStep,
@@ -130,6 +145,7 @@ type OneStepProofProvider interface {
 		ctx context.Context,
 		cfgSnapshot *ConfigSnapshot,
 		postState rollupgen.ExecutionState,
+		assertionHash protocol.AssertionHash,
 		messageNumber,
 		bigStep,
 		smallStep uint64,
@@ -145,6 +161,7 @@ type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
+		assertionHash protocol.AssertionHash,
 		prevAssertionInboxMaxCount uint64,
 		edgeType protocol.EdgeType,
 		heights protocol.OriginHeights,
