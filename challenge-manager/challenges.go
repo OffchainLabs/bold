@@ -71,10 +71,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if !creationInfo.InboxMaxCount.IsUint64() {
 		return nil, nil, errors.New("creation info inbox max count was not a uint64")
 	}
-	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, creationInfo.WasmModuleRoot, assertion.Id(), 0)
-	if err != nil {
-		return nil, nil, err
-	}
 	manager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -91,6 +87,10 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64()-1,
 	)
+	if err != nil {
+		return nil, nil, err
+	}
+	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, creationInfo.WasmModuleRoot, assertion.Id(), 0)
 	if err != nil {
 		return nil, nil, err
 	}
