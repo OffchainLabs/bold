@@ -109,6 +109,7 @@ type Tracker struct {
 	challengeManager ChallengeTracker
 	heightConfig     HeightConfig
 	wasmModuleRoot   common.Hash
+	assertionHash    protocol.AssertionHash
 }
 
 func New(
@@ -139,6 +140,7 @@ func New(
 		actInterval:      time.Second,
 		timeRef:          utilTime.NewRealTimeReference(),
 		wasmModuleRoot:   parentAssertionCreationInfo.WasmModuleRoot,
+		assertionHash:    assertionHash,
 	}
 	for _, o := range opts {
 		o(tr)
@@ -451,11 +453,11 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
 	if et.edge.GetType() == protocol.BlockChallengeEdge {
-		historyCommit, commitErr := et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, et.heightConfig.StartBlockHeight+bisectTo, et.heightConfig.TopLevelClaimEndBatchCount)
+		historyCommit, commitErr := et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.wasmModuleRoot, et.assertionHash, et.heightConfig.StartBlockHeight, et.heightConfig.StartBlockHeight+bisectTo, et.heightConfig.TopLevelClaimEndBatchCount)
 		if commitErr != nil {
 			return commitments.History{}, nil, commitErr
 		}
-		proof, proofErr := et.stateProvider.PrefixProofUpToBatch(ctx, et.heightConfig.StartBlockHeight, bisectTo, uint64(endHeight), et.heightConfig.TopLevelClaimEndBatchCount)
+		proof, proofErr := et.stateProvider.PrefixProofUpToBatch(ctx, et.wasmModuleRoot, et.assertionHash, et.heightConfig.StartBlockHeight, bisectTo, uint64(endHeight), et.heightConfig.TopLevelClaimEndBatchCount)
 		if proofErr != nil {
 			return commitments.History{}, nil, proofErr
 		}
@@ -475,13 +477,13 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 
 	switch et.edge.GetType() {
 	case protocol.BigStepChallengeEdge:
-		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo)
-		proof, proofErr = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo, uint64(endHeight))
+		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, et.assertionHash, fromAssertionHeight, bisectTo)
+		proof, proofErr = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, et.assertionHash, fromAssertionHeight, bisectTo, uint64(endHeight))
 	case protocol.SmallStepChallengeEdge:
 		fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
 
-		historyCommit, commitErr = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo)
-		proof, proofErr = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo, uint64(endHeight))
+		historyCommit, commitErr = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, et.assertionHash, fromAssertionHeight, fromBigStep, bisectTo)
+		proof, proofErr = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, et.assertionHash, fromAssertionHeight, fromBigStep, bisectTo, uint64(endHeight))
 	default:
 		return commitments.History{}, nil, fmt.Errorf("unsupported challenge type: %s", et.edge.GetType())
 	}
@@ -552,45 +554,45 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	case protocol.BlockChallengeEdge:
 		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
 		toBlock := toAssertionHeight + et.heightConfig.StartBlockHeight
-		startHistory, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, 0)
+		startHistory, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, 0)
 		if err != nil {
 			return err
 		}
-		endHistory, err = et.stateProvider.BigStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock)
+		endHistory, err = et.stateProvider.BigStepLeafCommitment(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock)
 		if err != nil {
 			return err
 		}
-		startParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, fromBlock, et.heightConfig.TopLevelClaimEndBatchCount)
+		startParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.wasmModuleRoot, et.assertionHash, et.heightConfig.StartBlockHeight, fromBlock, et.heightConfig.TopLevelClaimEndBatchCount)
 		if err != nil {
 			return err
 		}
-		endParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, toBlock, et.heightConfig.TopLevelClaimEndBatchCount)
+		endParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.wasmModuleRoot, et.assertionHash, et.heightConfig.StartBlockHeight, toBlock, et.heightConfig.TopLevelClaimEndBatchCount)
 		if err != nil {
 			return err
 		}
-		startEndPrefixProof, err = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, fromBlock, 0, endHistory.Height)
+		startEndPrefixProof, err = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, 0, endHistory.Height)
 		if err != nil {
 			return err
 		}
 	case protocol.BigStepChallengeEdge:
 		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
-		startHistory, err = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight), 0)
+		startHistory, err = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, uint64(startHeight), 0)
 		if err != nil {
 			return err
 		}
-		endHistory, err = et.stateProvider.SmallStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
+		endHistory, err = et.stateProvider.SmallStepLeafCommitment(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, uint64(startHeight))
 		if err != nil {
 			return err
 		}
-		startParentCommitment, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
+		startParentCommitment, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, uint64(startHeight))
 		if err != nil {
 			return err
 		}
-		endParentCommitment, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(endHeight))
+		endParentCommitment, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, uint64(endHeight))
 		if err != nil {
 			return err
 		}
-		startEndPrefixProof, err = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight), 0, endHistory.Height)
+		startEndPrefixProof, err = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, et.assertionHash, fromBlock, uint64(startHeight), 0, endHistory.Height)
 		if err != nil {
 			return err
 		}
@@ -668,6 +670,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 		ctx,
 		cfgSnapshot,
 		parentAssertionCreationInfo.AfterState,
+		et.assertionHash,
 		fromAssertionHeight,
 		fromBigStep,
 		uint64(pc),

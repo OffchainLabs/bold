@@ -88,6 +88,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		prevCreationInfo.WasmModuleRoot,
+		assertionHash,
 		prevCreationInfo.InboxMaxCount.Uint64(),
 		eg.GetType(),
 		heights,
@@ -102,6 +103,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		prevCreationInfo.WasmModuleRoot,
+		assertionHash,
 		prevCreationInfo.InboxMaxCount.Uint64(),
 		eg.GetType(),
 		heights,
