@@ -214,7 +214,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			srvlog.Debug("Could not confirm edge yet", err, fields)
+			fields["err"] = err
+			srvlog.Debug("Could not confirm edge yet", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if wasConfirmed {
@@ -307,7 +308,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case edgeConfirming:
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			srvlog.Debug("Could not confirm edge yet", err, fields)
+			//srvlog.Debug("Could not confirm edge yet", err, fields)
 			return et.fsm.Do(edgeAwaitConfirmation{})
 		}
 		if !wasConfirmed {
@@ -499,6 +500,7 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 }
 
 func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.SpecEdge, error) {
+	srvlog.Info("Bisecting edge", et.uniqueTrackerLogFields())
 	historyCommit, proof, err := et.determineBisectionHistoryWithProof(ctx)
 	if err != nil {
 		return nil, nil, err

@@ -783,3 +783,49 @@ func (s *L2StateBackend) smallStepPrefixProofCalculation(
 	onlyProof := prefixProof[numRead:]
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
 }
+
+// Produces a block challenge history commitment up to and including a certain message number.
+func (s *L2StateBackend) BisectHistoryCommitmentUpTo(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionId protocol.AssertionHash,
+	messageNumber uint64,
+) (commitments.History, error) {
+	return s.HistoryCommitmentUpTo(ctx, wasmModuleRoot, assertionId, messageNumber)
+}
+
+// Produces a big step history commitment from big step 0 to N within block
+// challenge heights A and B where B = A + 1.
+func (s *L2StateBackend) BisectBigStepCommitmentUpTo(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionId protocol.AssertionHash,
+	messageNumber,
+	bigStep uint64,
+) (commitments.History, error) {
+	return s.BigStepCommitmentUpTo(ctx, wasmModuleRoot, assertionId, messageNumber, bigStep)
+}
+
+// Produces a small step history commitment from small step 0 to N between
+// big steps S to S+1 within block challenge heights H to H+1.
+func (s *L2StateBackend) BisectSmallStepCommitmentUpTo(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionId protocol.AssertionHash,
+	messageNumber,
+	bigStep,
+	toSmallStep uint64,
+) (commitments.History, error) {
+	return s.SmallStepCommitmentUpTo(ctx, wasmModuleRoot, assertionId, messageNumber, bigStep, toSmallStep)
+}
+
+func (s *L2StateBackend) BisectHistoryCommitmentUpToBatch(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionId protocol.AssertionHash,
+	messageNumberStart,
+	messageNumberEnd,
+	batchCount uint64,
+) (commitments.History, error) {
+	return s.HistoryCommitmentUpToBatch(ctx, wasmModuleRoot, assertionId, messageNumberStart, messageNumberEnd, batchCount)
+}

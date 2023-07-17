@@ -185,6 +185,31 @@ func (m *MockStateManager) OneStepProofData(
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
+// Produces a big step history commitment from big step 0 to N within block
+// challenge heights A and B where B = A + 1.
+func (m *MockStateManager) BisectBigStepCommitmentUpTo(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionId protocol.AssertionHash,
+	messageNumber,
+	bigStep uint64,
+) (commitments.History, error) {
+	return m.BigStepCommitmentUpTo(ctx, wasmModuleRoot, assertionId, messageNumber, bigStep)
+}
+
+// Produces a small step history commitment from small step 0 to N between
+// big steps S to S+1 within block challenge heights H to H+1.
+func (m *MockStateManager) BisectSmallStepCommitmentUpTo(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionId protocol.AssertionHash,
+	messageNumber,
+	bigStep,
+	toSmallStep uint64,
+) (commitments.History, error) {
+	return m.SmallStepCommitmentUpTo(ctx, wasmModuleRoot, assertionId, messageNumber, bigStep, toSmallStep)
+}
+
 type MockChallengeManager struct {
 	mock.Mock
 	MockAddr common.Address
