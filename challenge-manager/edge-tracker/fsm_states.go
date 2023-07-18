@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-// Defines a state in a finite state machine that aids
+// EdgeTrackerState defines  a state in a finite state machine that aids
 // in deciding a challenge edge tracker's actions.
 type EdgeTrackerState uint8
 

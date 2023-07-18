@@ -591,7 +591,7 @@ func deployRollupCreator(
 	return rollupCreator, rollupUserLogic, rollupCreatorAddress, common.Address{}, validatorWalletCreator, nil
 }
 
-// Represents a test EOA account in the simulated backend,
+// TestAccount represents a test EOA account in the simulated backend,
 type TestAccount struct {
 	AccountAddr common.Address
 	TxOpts      *bind.TransactOpts
