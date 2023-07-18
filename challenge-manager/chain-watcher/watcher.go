@@ -377,10 +377,21 @@ func (w *Watcher) processEdgeAddedEvent(
 		w.challenges.Put(assertionHash, chal)
 	}
 	// Check if honest, then spawn.
+	start := time.Now()
 	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
 	if err != nil {
 		return errors.Wrap(err, "could not add edge to challenge tree")
 	}
+	_, starting := edge.StartCommitment()
+	_, end := edge.EndCommitment()
+	srvlog.Info("Finished trying to add edge to challenge tree", log.Ctx{
+		"id":        fmt.Sprintf("%#x", edge.Id()),
+		"start":     fmt.Sprintf("%#x", starting),
+		"end":       fmt.Sprintf("%#x", end),
+		"elapsed":   time.Since(start).String(),
+		"agreement": fmt.Sprintf("%+v", agreement),
+		"name":      w.validatorName,
+	})
 	if agreement.IsHonestEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}

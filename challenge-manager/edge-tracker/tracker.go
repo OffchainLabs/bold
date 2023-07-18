@@ -214,7 +214,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			srvlog.Debug("Could not confirm edge yet", err, fields)
+			fields["err"] = err
+			srvlog.Debug("Could not confirm edge yet", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if wasConfirmed {
@@ -519,6 +520,7 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 	}
 	srvlog.Info("Successfully bisected edge", log.Ctx{
 		"name":               et.validatorName,
+		"id":                 containers.Trunc(common.Hash(et.edge.Id()).Bytes()),
 		"challengeType":      et.edge.GetType(),
 		"bisectedFrom":       endHeight,
 		"bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
