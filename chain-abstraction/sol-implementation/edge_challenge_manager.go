@@ -94,7 +94,7 @@ func (e *SpecEdge) LowerChild(ctx context.Context) (option.Option[protocol.EdgeI
 	if edge.LowerChildId == ([32]byte{}) {
 		return option.None[protocol.EdgeId](), nil
 	}
-	return option.Some(edge.LowerChildId), nil
+	return option.Some(protocol.EdgeId(edge.LowerChildId)), nil
 }
 
 // UpperChild of the edge, if any.
@@ -106,7 +106,7 @@ func (e *SpecEdge) UpperChild(ctx context.Context) (option.Option[protocol.EdgeI
 	if edge.LowerChildId == ([32]byte{}) {
 		return option.None[protocol.EdgeId](), nil
 	}
-	return option.Some(edge.UpperChildId), nil
+	return option.Some(protocol.EdgeId(edge.UpperChildId)), nil
 }
 
 // MutualId of the edge.
@@ -123,7 +123,7 @@ func (e *SpecEdge) ClaimId() option.Option[protocol.ClaimId] {
 	if e.inner.ClaimId == [32]byte{} {
 		return option.None[protocol.ClaimId]()
 	}
-	return option.Some(e.inner.ClaimId)
+	return option.Some(protocol.ClaimId(e.inner.ClaimId))
 }
 
 // HasLengthOneRival returns true if there's a length one rival.
