@@ -280,7 +280,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(commit.Height), prevAssertionInboxMaxCount)
+		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, commit.Height, prevAssertionInboxMaxCount)
 		if err != nil {
 			return false, err
 		}
@@ -289,7 +289,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 			ctx,
 			wasmModuleRoot,
 			uint64(heights.BlockChallengeOriginHeight),
-			uint64(commit.Height),
+			commit.Height,
 		)
 		if err != nil {
 			return false, err
