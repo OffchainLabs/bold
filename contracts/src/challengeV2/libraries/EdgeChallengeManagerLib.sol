@@ -287,22 +287,22 @@ library EdgeChallengeManagerLib {
                 bytes32[] memory edgeInclusionProof
             ) = abi.decode(args.proof, (bytes32, bytes32, bytes32[], bytes32[], bytes32[]));
 
-            // // if the start and end states are consistent with the claim edge
-            // // this guarantees that the edge we're creating is a 'continuation' of the claim edge, it is
-            // // a commitment to the states that between start and end states of the claim
-            // MerkleTreeLib.verifyInclusionProof(
-            //     claimEdge.startHistoryRoot, startState, claimEdge.startHeight, claimStartInclusionProof
-            // );
+            // if the start and end states are consistent with the claim edge
+            // this guarantees that the edge we're creating is a 'continuation' of the claim edge, it is
+            // a commitment to the states that between start and end states of the claim
+            MerkleTreeLib.verifyInclusionProof(
+                claimEdge.startHistoryRoot, startState, claimEdge.startHeight, claimStartInclusionProof
+            );
 
-            // // it's doubly important to check the end state since if the end state since the claim id is
-            // // not part of the edge id, so we need to ensure that it's not possible to create two edges of the
-            // // same id, but with different claim id. Ensuring that the end state is linked to the claim,
-            // // and later ensuring that the end state is part of the history commitment of the new edge ensures
-            // // that the end history root of the new edge will be different for different claim ids, and therefore
-            // // the edge ids will be different
-            // MerkleTreeLib.verifyInclusionProof(
-            //     claimEdge.endHistoryRoot, endState, claimEdge.endHeight, claimEndInclusionProof
-            // );
+            // it's doubly important to check the end state since if the end state since the claim id is
+            // not part of the edge id, so we need to ensure that it's not possible to create two edges of the
+            // same id, but with different claim id. Ensuring that the end state is linked to the claim,
+            // and later ensuring that the end state is part of the history commitment of the new edge ensures
+            // that the end history root of the new edge will be different for different claim ids, and therefore
+            // the edge ids will be different
+            MerkleTreeLib.verifyInclusionProof(
+                claimEdge.endHistoryRoot, endState, claimEdge.endHeight, claimEndInclusionProof
+            );
 
             return (ProofData(startState, endState, edgeInclusionProof), originId);
         }

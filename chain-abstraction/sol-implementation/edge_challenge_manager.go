@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -658,9 +659,10 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	}
 
 	fmt.Println("&&&&&")
-	fmt.Printf("End commitment %+v\n", endCommit)
-	fmt.Printf("End state %+v\n", protocol.GoGlobalStateFromSolidity(assertionCreation.AfterState.GlobalState))
-	fmt.Printf("End state hash computed %#x\n", protocol.GoGlobalStateFromSolidity(assertionCreation.AfterState.GlobalState).Hash())
+	startState := protocol.GoGlobalStateFromSolidity(assertionCreation.BeforeState.GlobalState)
+	machineHash := crypto.Keccak256Hash([]byte("Machine finished:"), startState.Hash().Bytes())
+	fmt.Printf("Start state: %+v, machine hash: %#x\n", startState, machineHash)
+	fmt.Printf("First leaf: %#x, last leaf %#x, commit %#x\n", startCommit.FirstLeaf, startCommit.LastLeaf, startCommit.Merkle)
 	fmt.Println("&&&&&")
 
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(

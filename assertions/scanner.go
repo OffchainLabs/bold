@@ -9,7 +9,6 @@ package assertions
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"os"
 	"time"
@@ -173,13 +172,11 @@ func (s *Scanner) ProcessAssertionCreation(
 ) error {
 	srvlog.Info("Processing assertion creation event", log.Ctx{"validatorName": s.validatorName, "hash": containers.Trunc(assertionHash[:])})
 	s.assertionsProcessedCount++
-	srvlog.Info("Checking for creation info", log.Ctx{"hash": containers.Trunc(assertionHash[:])})
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		srvlog.Error("Could not read creation", log.Ctx{"err": err})
 		return err
 	}
-	srvlog.Info("Got info", log.Ctx{"info": fmt.Sprintf("%+v", creationInfo)})
 	prevAssertionHash := creationInfo.ParentAssertionHash
 	// If the assertion is the genesis assertion, we ignore it.
 	if (prevAssertionHash == common.Hash{}) {
@@ -202,7 +199,6 @@ func (s *Scanner) ProcessAssertionCreation(
 	srvlog.Info("Assertion has second child", log.Ctx{"hash": containers.Trunc(prevAssertionHash[:])})
 	s.forksDetectedCount++
 	execState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
-	srvlog.Info("Checking the after state", log.Ctx{"state": fmt.Sprintf("%+v", execState)})
 
 	msgCount, err := s.stateProvider.ExecutionStateMsgCount(ctx, execState)
 	switch {

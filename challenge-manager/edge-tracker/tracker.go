@@ -519,13 +519,15 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 		)
 	}
 	srvlog.Info("Successfully bisected edge", log.Ctx{
-		"name":               et.validatorName,
-		"id":                 containers.Trunc(common.Hash(et.edge.Id()).Bytes()),
-		"challengeType":      et.edge.GetType(),
-		"bisectedFrom":       endHeight,
-		"bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
-		"bisectedTo":         bisectTo,
-		"bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
+		"name":          et.validatorName,
+		"id":            containers.Trunc(common.Hash(et.edge.Id()).Bytes()),
+		"lowerId":       containers.Trunc(common.Hash(firstChild.Id()).Bytes()),
+		"upperId":       containers.Trunc(common.Hash(secondChild.Id()).Bytes()),
+		"challengeType": et.edge.GetType(),
+		// "bisectedFrom":       endHeight,
+		// "bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
+		// "bisectedTo":         bisectTo,
+		// "bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
 	})
 	return firstChild, secondChild, nil
 }
@@ -607,6 +609,11 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
+	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
+	fields["endLeaf"] = containers.Trunc(endHistory.LastLeaf.Bytes())
+	fields["endCommitment"] = containers.Trunc(endHistory.Merkle.Bytes())
+	fields["claimEdgeId"] = containers.Trunc(common.Hash(et.edge.Id()).Bytes())
 	addedLeaf, err := manager.AddSubChallengeLevelZeroEdge(
 		ctx,
 		et.edge,
@@ -617,11 +624,9 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		startEndPrefixProof,
 	)
 	if err != nil {
+		srvlog.Error("Failed at subchallenge", fields)
 		return err
 	}
-	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
-	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
-	fields["subChallengeType"] = addedLeaf.GetType()
 	srvlog.Info("Created subchallenge edge", fields)
 	tracker, err := New(
 		ctx,
