@@ -1,4 +1,4 @@
-package api
+package api_test
 
 import (
 	"net/http"
@@ -7,6 +7,8 @@ import (
 )
 
 func TestHealthzHandler(t *testing.T) {
+	s, _ := NewTestServer(t)
+
 	req, err := http.NewRequest("GET", "/healthz", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -14,11 +16,9 @@ func TestHealthzHandler(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(healthzHandler)
 
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	handler.ServeHTTP(rr, req)
+	// Serve the request with the http recorder.
+	s.Router().ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
 	if status := rr.Code; status != http.StatusOK {
