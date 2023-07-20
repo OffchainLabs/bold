@@ -5,19 +5,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/api/internal/todo/challengetree"
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree/mock"
 )
 
 func TestListEdges(t *testing.T) {
 	s, d := NewTestServer(t)
 
 	d.Edges = []protocol.SpecEdge{
-		&challengetree.Edge{
+		&mock.Edge{
 			ID:            "foo",
 			CreationBlock: 1,
 		},
-		&challengetree.Edge{
+		&mock.Edge{
 			ID:            "bar",
 			CreationBlock: 1,
 		},
