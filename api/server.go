@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -48,10 +47,11 @@ func NewServer(cfg *Config) (*Server, error) {
 
 	s := &Server{
 		srv: &http.Server{
-			Handler:      r,
-			Addr:         cfg.Address,
-			WriteTimeout: 15 * time.Second,
-			ReadTimeout:  15 * time.Second,
+			Handler:           r,
+			Addr:              cfg.Address,
+			WriteTimeout:      15 * time.Second,
+			ReadTimeout:       15 * time.Second,
+			ReadHeaderTimeout: 15 * time.Second,
 		},
 		data:   cfg.DataAccessor,
 		router: r,
@@ -65,9 +65,6 @@ func NewServer(cfg *Config) (*Server, error) {
 }
 
 func (s *Server) Start() error {
-	// DEBUG: Remove this statement
-	fmt.Println("=============Starting API server on", s.srv.Addr)
-
 	return s.srv.ListenAndServe()
 }
 
