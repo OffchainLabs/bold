@@ -8,8 +8,7 @@ import (
 func (s *Server) listEdgesHandler(w http.ResponseWriter, r *http.Request) {
 	e, err := convertSpecEdgeEdgesToEdges(r.Context(), s.data.GetEdges())
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -19,8 +18,7 @@ func (s *Server) listEdgesHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err := writeJSONResponse(w, 200, e); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 }

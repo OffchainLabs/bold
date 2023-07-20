@@ -302,7 +302,14 @@ func (m *Manager) Start(ctx context.Context) {
 	go m.watcher.Start(ctx)
 
 	if m.api != nil {
-		go m.api.Start()
+		go func() {
+			if err := m.api.Start(); err != nil {
+				srvlog.Error("Failed to start API server", log.Ctx{
+					"address": m.apiAddr,
+					"err":     err,
+				})
+			}
+		}()
 	}
 }
 
