@@ -460,10 +460,12 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		if commitErr != nil {
 			return commitments.History{}, nil, commitErr
 		}
+		fmt.Printf("Calling prefix proof start height %d, bisect to %d, end %d, end batch count %d\n", startHeight, bisectTo, endHeight, et.heightConfig.TopLevelClaimEndBatchCount)
 		proof, proofErr := et.stateProvider.PrefixProofUpToBatch(ctx, et.wasmModuleRoot, et.assertionHash, et.heightConfig.StartBlockHeight, bisectTo, uint64(endHeight), et.heightConfig.TopLevelClaimEndBatchCount)
 		if proofErr != nil {
 			return commitments.History{}, nil, proofErr
 		}
+		fmt.Printf("DONE WITH PREFIX PROOF COMPUTATION, commit %+v\n", historyCommit)
 		return historyCommit, proof, nil
 	}
 	var historyCommit commitments.History
