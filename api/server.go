@@ -109,6 +109,6 @@ func writeJSONResponse(w http.ResponseWriter, code int, data any) error {
 func writeError(w http.ResponseWriter, code int, err error) {
 	w.WriteHeader(code)
 	if _, err := w.Write([]byte(err.Error())); err != nil {
-		log.Error("failed to write response body", "err", err, "status", "500")
+		log.Error("failed to write response body", "err", err, "status", code)
 	}
 }

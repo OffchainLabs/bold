@@ -25,5 +25,7 @@ func (s *Server) listEdgesHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getEdgeHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("not implemented"))
+	if _, err := w.Write([]byte("not implemented")); err != nil {
+		log.Error("failed to write response body", "err", err)
+	}
 }
