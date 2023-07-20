@@ -4,6 +4,7 @@ go_library(
     name = "api",
     srcs = [
         "data.go",
+        "edges.go",
         "method_assertions.go",
         "method_edges.go",
         "method_healthz.go",
