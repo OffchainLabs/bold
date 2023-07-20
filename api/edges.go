@@ -17,11 +17,11 @@ type Edge struct {
 	CreatedAtBlock      uint64                 `json:"createdAtBlock"`
 	MutualID            common.Hash            `json:"mutualId"`
 	OriginID            common.Hash            `json:"originId"`
-	ClaimID             common.Hash            `json:"claimId,omitempty"`
+	ClaimID             common.Hash            `json:"claimId"`
 	HasChildren         bool                   `json:"hasChildren"`
-	LowerChildID        common.Hash            `json:"lowerChildId,omitempty"`
-	UpperChildID        common.Hash            `json:"upperChildId,omitempty"`
-	MiniStaker          common.Address         `json:"miniStaker,omitempty"`
+	LowerChildID        common.Hash            `json:"lowerChildId"`
+	UpperChildID        common.Hash            `json:"upperChildId"`
+	MiniStaker          common.Address         `json:"miniStaker"`
 	AssertionHash       common.Hash            `json:"assertionHash"`
 	TimeUnrivaled       uint64                 `json:"timeUnrivaled"`
 	HasRival            bool                   `json:"hasRival"`
