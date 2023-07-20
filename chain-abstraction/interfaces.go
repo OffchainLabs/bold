@@ -219,6 +219,17 @@ const (
 	EdgeConfirmed
 )
 
+func (e EdgeStatus) String() string {
+	switch e {
+	case EdgePending:
+		return "pending"
+	case EdgeConfirmed:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
+}
+
 type OriginHeights struct {
 	BlockChallengeOriginHeight   Height
 	BigStepChallengeOriginHeight Height
