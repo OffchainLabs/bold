@@ -5,6 +5,7 @@ package protocol
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
@@ -117,6 +118,19 @@ func (et EdgeType) String() string {
 		return "small_step_challenge_edge"
 	default:
 		return "unknown"
+	}
+}
+
+func EdgeTypeFromString(s string) (EdgeType, error) {
+	switch s {
+	case "block_challenge_edge":
+		return BlockChallengeEdge, nil
+	case "big_step_challenge_edge":
+		return BigStepChallengeEdge, nil
+	case "small_step_challenge_edge":
+		return SmallStepChallengeEdge, nil
+	default:
+		return 0, fmt.Errorf("unknown edge type string: %s", s)
 	}
 }
 

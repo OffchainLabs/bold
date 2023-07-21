@@ -1,12 +1,16 @@
 package api_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/OffchainLabs/challenge-protocol-v2/api"
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree/mock"
+	"github.com/ethereum/go-ethereum/common"
+	"gopkg.in/d4l3k/messagediff.v1"
 )
 
 func TestListEdges(t *testing.T) {
@@ -14,42 +18,42 @@ func TestListEdges(t *testing.T) {
 
 	d.Edges = []protocol.SpecEdge{
 		&mock.Edge{
-			ID:            "foo",
+			ID:            mock.EdgeId(padHashString("foo")),
 			EdgeType:      protocol.BlockChallengeEdge,
 			StartHeight:   100,
-			StartCommit:   "foo_start_commit",
+			StartCommit:   mock.Commit(padHashString("foo_start_commit")),
 			EndHeight:     150,
-			EndCommit:     "foo_end_commit",
-			OriginID:      "foo_origin_id",
-			ClaimID:       "foo_claim_id",
-			LowerChildID:  "foo_lower_child_id",
-			UpperChildID:  "foo_upper_child_id",
+			EndCommit:     mock.Commit(padHashString("foo_end_commit")),
+			OriginID:      mock.OriginId(padHashString("foo_origin_id")),
+			ClaimID:       padHashString("foo_claim_id"),
+			LowerChildID:  mock.EdgeId(padHashString("foo_lower_child_id")),
+			UpperChildID:  mock.EdgeId(padHashString("foo_upper_child_id")),
 			CreationBlock: 1,
 		},
 		&mock.Edge{
-			ID:            "bar",
+			ID:            mock.EdgeId(padHashString("bar")),
 			EdgeType:      protocol.BigStepChallengeEdge,
 			StartHeight:   110,
-			StartCommit:   "bar_start_commit",
+			StartCommit:   mock.Commit(padHashString("bar_start_commit")),
 			EndHeight:     160,
-			EndCommit:     "bar_end_commit",
-			OriginID:      "bar_origin_id",
-			ClaimID:       "bar_claim_id",
-			LowerChildID:  "bar_lower_child_id",
-			UpperChildID:  "bar_upper_child_id",
+			EndCommit:     mock.Commit(padHashString("bar_end_commit")),
+			OriginID:      mock.OriginId(padHashString("bar_origin_id")),
+			ClaimID:       padHashString("bar_claim_id"),
+			LowerChildID:  mock.EdgeId(padHashString("bar_lower_child_id")),
+			UpperChildID:  mock.EdgeId(padHashString("bar_upper_child_id")),
 			CreationBlock: 2,
 		},
 		&mock.Edge{
-			ID:            "baz",
+			ID:            mock.EdgeId(padHashString("baz")),
 			EdgeType:      protocol.SmallStepChallengeEdge,
 			StartHeight:   111,
-			StartCommit:   "baz_start_commit",
+			StartCommit:   mock.Commit(padHashString("baz_start_commit")),
 			EndHeight:     161,
-			EndCommit:     "baz_end_commit",
-			OriginID:      "baz_origin_id",
-			ClaimID:       "baz_claim_id",
-			LowerChildID:  "baz_lower_child_id",
-			UpperChildID:  "baz_upper_child_id",
+			EndCommit:     mock.Commit(padHashString("baz_end_commit")),
+			OriginID:      mock.OriginId(padHashString("baz_origin_id")),
+			ClaimID:       padHashString("baz_claim_id"),
+			LowerChildID:  mock.EdgeId(padHashString("baz_lower_child_id")),
+			UpperChildID:  mock.EdgeId(padHashString("baz_upper_child_id")),
 			CreationBlock: 5,
 		},
 	}
@@ -72,13 +76,23 @@ func TestListEdges(t *testing.T) {
 	}
 
 	// Check the response body is what we expect.
-	expectedBody := []byte(`[{"id":"0x0000000000000000000000000000000000000000000000000000000000666f6f","type":"block_challenge_edge","startCommitment":{"height":100,"hash":"0x00000000000000000000000000000000666f6f5f73746172745f636f6d6d6974"},"endCommitment":{"height":150,"hash":"0x000000000000000000000000000000000000666f6f5f656e645f636f6d6d6974"},"createdAtBlock":1,"mutualId":"0x6967696e5f69642d3130302d666f6f5f73746172745f636f6d6d69742d313530","originId":"0x00000000000000000000000000000000000000666f6f5f6f726967696e5f6964","claimId":"0x0000000000000000000000000000000000000000666f6f5f636c61696d5f6964","hasChildren":true,"lowerChildId":"0x0000000000000000000000000000666f6f5f6c6f7765725f6368696c645f6964","upperChildId":"0x0000000000000000000000000000666f6f5f75707065725f6368696c645f6964","miniStaker":"0x0000000000000000000000000000000000000000","assertionHash":"0x0000000000000000000000000000000000000000000000000000000000000000","timeUnrivaled":0,"hasRival":false,"status":"pending","hasLengthOneRival":false,"topLevelClaimHeight":{"blockChallengeOriginHeight":0,"bigStepChallengeOriginHeight":0}},{"id":"0x0000000000000000000000000000000000000000000000000000000000626172","type":"big_step_challenge_edge","startCommitment":{"height":110,"hash":"0x000000000000000000000000000000006261725f73746172745f636f6d6d6974"},"endCommitment":{"height":160,"hash":"0x0000000000000000000000000000000000006261725f656e645f636f6d6d6974"},"createdAtBlock":2,"mutualId":"0x6967696e5f69642d3131302d6261725f73746172745f636f6d6d69742d313630","originId":"0x000000000000000000000000000000000000006261725f6f726967696e5f6964","claimId":"0x00000000000000000000000000000000000000006261725f636c61696d5f6964","hasChildren":true,"lowerChildId":"0x00000000000000000000000000006261725f6c6f7765725f6368696c645f6964","upperChildId":"0x00000000000000000000000000006261725f75707065725f6368696c645f6964","miniStaker":"0x0000000000000000000000000000000000000000","assertionHash":"0x0000000000000000000000000000000000000000000000000000000000000000","timeUnrivaled":0,"hasRival":false,"status":"pending","hasLengthOneRival":false,"topLevelClaimHeight":{"blockChallengeOriginHeight":0,"bigStepChallengeOriginHeight":0}},{"id":"0x000000000000000000000000000000000000000000000000000000000062617a","type":"small_step_challenge_edge","startCommitment":{"height":111,"hash":"0x0000000000000000000000000000000062617a5f73746172745f636f6d6d6974"},"endCommitment":{"height":161,"hash":"0x00000000000000000000000000000000000062617a5f656e645f636f6d6d6974"},"createdAtBlock":5,"mutualId":"0x6967696e5f69642d3131312d62617a5f73746172745f636f6d6d69742d313631","originId":"0x0000000000000000000000000000000000000062617a5f6f726967696e5f6964","claimId":"0x000000000000000000000000000000000000000062617a5f636c61696d5f6964","hasChildren":true,"lowerChildId":"0x000000000000000000000000000062617a5f6c6f7765725f6368696c645f6964","upperChildId":"0x000000000000000000000000000062617a5f75707065725f6368696c645f6964","miniStaker":"0x0000000000000000000000000000000000000000","assertionHash":"0x0000000000000000000000000000000000000000000000000000000000000000","timeUnrivaled":0,"hasRival":false,"status":"pending","hasLengthOneRival":false,"topLevelClaimHeight":{"blockChallengeOriginHeight":0,"bigStepChallengeOriginHeight":0}}]`)
 
-	if rr.Body.String() != string(expectedBody) {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), string(expectedBody))
+	var resp []*api.Edge
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
+	respAsMockEdges := edgesToMockEdges(resp)
+
+	if len(respAsMockEdges) != len(d.Edges) {
+		t.Fatalf("Received different number of edges. Want %d, got %d", len(d.Edges), len(respAsMockEdges))
+	}
+
+	for i, re := range respAsMockEdges {
+		if diff, ok := messagediff.PrettyDiff(re, d.Edges[i]); !ok {
+			t.Errorf("Unexpected response at index %d. Diff: %s", i, diff)
+		}
+	}
 }
 
 func TestGetEdge(t *testing.T) {
@@ -99,5 +113,23 @@ func TestGetEdge(t *testing.T) {
 	if status := rr.Code; status != http.StatusNotImplemented {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusNotImplemented)
+	}
+}
+
+func padHashString(s string) string {
+	return string(common.BytesToHash([]byte(s)).Bytes())
+}
+
+func TestPadHashString(t *testing.T) {
+	s := padHashString("foobar")
+
+	cID := protocol.ClaimId(common.BytesToHash([]byte(s)))
+
+	ret := string(common.Hash(cID).Bytes())
+
+	if s != ret {
+		t.Log(len(s))
+		t.Log(len(ret))
+		t.Fatalf("Got %+v, wanted %+v", ret, s)
 	}
 }
