@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -215,8 +216,11 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			srvlog.Debug("Could not confirm edge yet", err, fields)
-			return et.fsm.Do(edgeBackToStart{})
+			if strings.Contains(err.Error(), "InsufficientConfirmationBlocks") {
+				srvlog.Debug("Could not confirm edge yet due to insufficient confirmation blocks", err, fields)
+				return et.fsm.Do(edgeBackToStart{})
+			}
+			srvlog.Debug("Could not confirm edge yet, continue to bisect", err, fields)
 		}
 		if wasConfirmed {
 			return et.fsm.Do(edgeConfirm{})
