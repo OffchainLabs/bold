@@ -74,7 +74,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
-	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, parentAssertionInfo.InboxMaxCount.Uint64())
+	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionInfo.InboxMaxCount.Uint64())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -68,7 +68,7 @@ func (m *MockStateManager) ExecutionStateAtMessageNumber(ctx context.Context, me
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 
-func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uint64) (commitments.History, error) {
+func (m *MockStateManager) HistoryCommitmentAtMessage(ctx context.Context, height uint64) (commitments.History, error) {
 	args := m.Called(ctx, height)
 	return args.Get(0).(commitments.History), args.Error(1)
 }

@@ -211,7 +211,7 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, messageNumber uint64) (commitments.History, error) {
+func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
 	return commitments.New(
 		[]common.Hash{s.stateRoots[messageNumber]},
 	)
