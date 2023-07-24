@@ -70,7 +70,11 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if !creationInfo.InboxMaxCount.IsUint64() {
 		return nil, nil, errors.New("creation info inbox max count was not a uint64")
 	}
-	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, 0)
+	parentAssertionInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		return nil, nil, err
+	}
+	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, parentAssertionInfo.InboxMaxCount.Uint64())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,8 +88,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
-		0,
-		levelZeroBlockEdgeHeight,
+		parentAssertionInfo.InboxMaxCount.Uint64(),
+		parentAssertionInfo.InboxMaxCount.Uint64()+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
@@ -93,9 +97,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	startEndPrefixProof, err := m.stateManager.PrefixProofUpToBatch(
 		ctx,
-		0,
-		0,
-		levelZeroBlockEdgeHeight,
+		parentAssertionInfo.InboxMaxCount.Uint64(),
+		parentAssertionInfo.InboxMaxCount.Uint64(),
+		parentAssertionInfo.InboxMaxCount.Uint64()+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {

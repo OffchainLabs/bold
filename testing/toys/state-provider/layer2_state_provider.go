@@ -212,11 +212,8 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 }
 
 func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, messageNumber uint64) (commitments.History, error) {
-	// The size is the number of elements being committed to. For example, if the height is 7, there will
-	// be 8 elements being committed to from [0, 7] inclusive.
-	size := messageNumber + 1
 	return commitments.New(
-		s.stateRoots[:size],
+		[]common.Hash{s.stateRoots[messageNumber]},
 	)
 }
 
