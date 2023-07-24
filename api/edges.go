@@ -10,24 +10,24 @@ import (
 )
 
 type Edge struct {
-	ID                  common.Hash            `json:"id"`
-	Type                string                 `json:"type"`
-	StartCommitment     *Commitment            `json:"startCommitment"`
-	EndCommitment       *Commitment            `json:"endCommitment"`
-	CreatedAtBlock      uint64                 `json:"createdAtBlock"`
-	MutualID            common.Hash            `json:"mutualId"`
-	OriginID            common.Hash            `json:"originId"`
-	ClaimID             common.Hash            `json:"claimId"`
-	HasChildren         bool                   `json:"hasChildren"`
-	LowerChildID        common.Hash            `json:"lowerChildId"`
-	UpperChildID        common.Hash            `json:"upperChildId"`
-	MiniStaker          common.Address         `json:"miniStaker"`
-	AssertionHash       common.Hash            `json:"assertionHash"`
-	TimeUnrivaled       uint64                 `json:"timeUnrivaled"`
-	HasRival            bool                   `json:"hasRival"`
-	Status              string                 `json:"status"`
-	HasLengthOneRival   bool                   `json:"hasLengthOneRival"`
-	TopLevelClaimHeight protocol.OriginHeights `json:"topLevelClaimHeight"`
+	ID                  common.Hash             `json:"id"`
+	Type                string                  `json:"type"`
+	StartCommitment     *Commitment             `json:"startCommitment"`
+	EndCommitment       *Commitment             `json:"endCommitment"`
+	CreatedAtBlock      uint64                  `json:"createdAtBlock"`
+	MutualID            common.Hash             `json:"mutualId"`
+	OriginID            common.Hash             `json:"originId"`
+	ClaimID             common.Hash             `json:"claimId"`
+	HasChildren         bool                    `json:"hasChildren"`
+	LowerChildID        common.Hash             `json:"lowerChildId"`
+	UpperChildID        common.Hash             `json:"upperChildId"`
+	MiniStaker          common.Address          `json:"miniStaker"`
+	AssertionHash       common.Hash             `json:"assertionHash"`
+	TimeUnrivaled       uint64                  `json:"timeUnrivaled"`
+	HasRival            bool                    `json:"hasRival"`
+	Status              string                  `json:"status"`
+	HasLengthOneRival   bool                    `json:"hasLengthOneRival"`
+	TopLevelClaimHeight *protocol.OriginHeights `json:"topLevelClaimHeight"`
 
 	// Validator's point of view
 	// IsHonest bool `json:"isHonest"`
@@ -170,7 +170,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 		if err != nil {
 			return fmt.Errorf("failed to get edge top level claim height: %w", err)
 		}
-		edge.TopLevelClaimHeight = topLevelClaimHeight
+		edge.TopLevelClaimHeight = &topLevelClaimHeight
 		return nil
 	})
 

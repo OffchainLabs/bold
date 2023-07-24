@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ui",
+    srcs = ["table.go"],
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/cmd/ctl/internal/ui",
+    visibility = ["//cmd/ctl:__subpackages__"],
+    deps = [
+        "//api",
+        "//cmd/ctl/internal/data",
+        "@com_github_rivo_tview//:tview",
+    ],
+)
