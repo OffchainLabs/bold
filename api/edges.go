@@ -34,6 +34,10 @@ type Edge struct {
 	// AgreesWithStartCommitment `json:"agreesWithStartCommitment"`
 }
 
+func (e *Edge) IsRootChallenge() bool {
+	return e.Type == protocol.BlockChallengeEdge.String() && e.ClaimID == common.Hash{}
+}
+
 type Commitment struct {
 	Height uint64      `json:"height"`
 	Hash   common.Hash `json:"hash"`

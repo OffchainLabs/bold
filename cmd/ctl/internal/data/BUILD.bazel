@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "data",
     srcs = ["data.go"],
+    embedsrcs = ["edges.json"],
     importpath = "github.com/OffchainLabs/challenge-protocol-v2/cmd/ctl/internal/data",
     visibility = ["//cmd/ctl:__subpackages__"],
     deps = ["//api"],

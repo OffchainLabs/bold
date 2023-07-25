@@ -8,21 +8,25 @@ import (
 	"github.com/rivo/tview"
 )
 
-func Start() {
-	app := tview.NewApplication()
-
-	table := tview.NewTable().SetBorders(true)
-
+func EdgeTablePage() (title string, content tview.Primitive) {
 	edges, err := data.LoadEdgesFromDisk()
 	if err != nil {
 		panic(err)
 	}
 
+	table := tview.NewTable().SetBorders(true)
 	table.SetContent(&EdgesTableContent{Edges: edges})
 
-	if err := app.SetRoot(table, true /*fullscreen*/).SetFocus(table).Run(); err != nil {
-		panic(err)
-	}
+	mainView := table
+
+	footer := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(tview.NewTextView().SetText("TODO: Filter(s), sort, refresh data, etc"), 1, 0, false)
+
+	footer.SetBorder(true)
+
+	return "Edge Table", tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(mainView, 0, 1, true).
+		AddItem(footer, 6, 0, true)
 }
 
 var _ = tview.TableContent(&EdgesTableContent{})
@@ -38,7 +42,7 @@ type EdgesTableContent struct {
 }
 
 func (e *EdgesTableContent) GetCell(row, column int) *tview.TableCell {
-	if row > len(e.Edges) || column >= len(e.ColumnNames()) {
+	if row > len(e.Edges) || column >= len(e.ColumnNames()) || row < 0 || column < 0 {
 		return tview.NewTableCell("MISSING!")
 	}
 
@@ -82,7 +86,7 @@ func (e *EdgesTableContent) GetCell(row, column int) *tview.TableCell {
 	case ColumnCreatedAtBlock:
 		str = fmt.Sprintf("%d", ee.CreatedAtBlock)
 	case ColumnMutualID:
-		str = ee.MutualID.Hex()
+		str = ee.MutualID.Hex() // Color code hex
 	case ColumnOriginID:
 		str = ee.ClaimID.Hex()
 	case ColumnClaimID:

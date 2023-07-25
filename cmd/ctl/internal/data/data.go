@@ -1,29 +1,24 @@
 package data
 
 import (
+	_ "embed"
 	"encoding/json"
-	"io/ioutil"
-	"os"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/api"
 )
 
+//go:embed edges.json
+var edgesJSON []byte
+
 func LoadEdgesFromDisk() ([]*api.Edge, error) {
-	f, err := os.Open("/home/preston/data/edges.json")
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	b, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
 	var edges []*api.Edge
-	if err := json.Unmarshal(b, &edges); err != nil {
+	if err := json.Unmarshal(edgesJSON, &edges); err != nil {
 		return nil, err
 	}
 
 	return edges, nil
+}
+
+func CurrentBlockNumber() uint {
+	return 103
 }

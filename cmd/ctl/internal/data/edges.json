@@ -1,0 +1,350 @@
+[
+  {
+    "id": "0xd12f3fd1251d3071c1c35839d3cf0fc0bf76870f7c1bce25ceaf0ee49e5e767c",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x0107305d5e5baf8881f9dc0d30bb20c813af5a7217ac51c2a9df6173a782c667"
+    },
+    "endCommitment": {
+      "height": 32,
+      "hash": "0x62699244d7ccfc5405b8135b9dea71edef8d0e5e13d72d699240e112cc2d969b"
+    },
+    "createdAtBlock": 57,
+    "mutualId": "0xe1d03bd12611a3c505e64edb4681db98f02e3b7378c2b35d5a85cc8e8f2a4282",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x7c6867eeed5a97a1765781bc1e375dfad758b32eba8933a998b8d61d25c148c0",
+    "hasChildren": true,
+    "lowerChildId": "0x8d2d645a99af9d0498781cc31bb0be7a6faeff89ba92a36126c5b75564fd5c10",
+    "upperChildId": "0x96671dc0c4f39c8892ed1b305443b0c1a34afc464154a2680b5e21c7c1d89c1f",
+    "miniStaker": "0x391dedcfd7291b557fdccdbb0cb62727eb20bb08",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": true,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x8d2d645a99af9d0498781cc31bb0be7a6faeff89ba92a36126c5b75564fd5c10",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x0107305d5e5baf8881f9dc0d30bb20c813af5a7217ac51c2a9df6173a782c667"
+    },
+    "endCommitment": {
+      "height": 16,
+      "hash": "0xb9c89798bebcba8ec14cfbcff2c1b906ea589f004788522115e9ded6cdf33a08"
+    },
+    "createdAtBlock": 59,
+    "mutualId": "0xa87b0c1185427ae129eb1205789a55dd230c854dc0bbe0e63d009381f24c5cc1",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": true,
+    "lowerChildId": "0xc887dcd0952cc194eb417a8df89f9cd1147a6ddb95ffb619203265ac15d34d88",
+    "upperChildId": "0x8643531c0c36a2a16dcafd5344599cbf29af1ead2a9b4a685e7ae34ebb03dc35",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": true,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x96671dc0c4f39c8892ed1b305443b0c1a34afc464154a2680b5e21c7c1d89c1f",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 16,
+      "hash": "0xb9c89798bebcba8ec14cfbcff2c1b906ea589f004788522115e9ded6cdf33a08"
+    },
+    "endCommitment": {
+      "height": 32,
+      "hash": "0x62699244d7ccfc5405b8135b9dea71edef8d0e5e13d72d699240e112cc2d969b"
+    },
+    "createdAtBlock": 59,
+    "mutualId": "0x414006cce8b1a8cfb603b8191639dfec89a3da8bc748d667981cd3a4957064f4",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 11,
+    "hasRival": false,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 16,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x8643531c0c36a2a16dcafd5344599cbf29af1ead2a9b4a685e7ae34ebb03dc35",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 8,
+      "hash": "0x08a812c3488e56164344f030febe42d4f1a4f97d618b0b25771bc061bbe3cd85"
+    },
+    "endCommitment": {
+      "height": 16,
+      "hash": "0xb9c89798bebcba8ec14cfbcff2c1b906ea589f004788522115e9ded6cdf33a08"
+    },
+    "createdAtBlock": 61,
+    "mutualId": "0x6fb0c4ea2185ab83dec0bf82cebd901d61f3a41d5eeb9c9643096f4660a21e58",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 9,
+    "hasRival": false,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 8,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0xc887dcd0952cc194eb417a8df89f9cd1147a6ddb95ffb619203265ac15d34d88",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x0107305d5e5baf8881f9dc0d30bb20c813af5a7217ac51c2a9df6173a782c667"
+    },
+    "endCommitment": {
+      "height": 8,
+      "hash": "0x08a812c3488e56164344f030febe42d4f1a4f97d618b0b25771bc061bbe3cd85"
+    },
+    "createdAtBlock": 61,
+    "mutualId": "0x00553b56ee6c0f2ec999f3a0292df959b074c535d2e13f47def898424ca54c33",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": true,
+    "lowerChildId": "0xf62c944c2527a4ccf1a1818fb8f6a3fcb62e53e5338a344738fdc60078fa3fa8",
+    "upperChildId": "0x9e321a357eca01bd558d8660fa7065db0d4f3e2077acfd1087685c155a7ed95e",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": true,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0xf62c944c2527a4ccf1a1818fb8f6a3fcb62e53e5338a344738fdc60078fa3fa8",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x0107305d5e5baf8881f9dc0d30bb20c813af5a7217ac51c2a9df6173a782c667"
+    },
+    "endCommitment": {
+      "height": 4,
+      "hash": "0xd59d7b1858f6a7f171ed4ac576dde48e48b641bfa4f47ae41910a75dacb24db9"
+    },
+    "createdAtBlock": 63,
+    "mutualId": "0xf92fd09e673a094f23ee4a6f96e338bc4edb450b8cc6a1e81ee9d58a77f3a1a3",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": true,
+    "lowerChildId": "0x85622dd86557a6c911335fb4a3c4bcfea67bfd6b8a551a79202f8b3d8c80df15",
+    "upperChildId": "0xc37de0138598e45dad5e234da60e0e17c2ff2d9e3c923c1f438c714c744ee14e",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": true,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x9e321a357eca01bd558d8660fa7065db0d4f3e2077acfd1087685c155a7ed95e",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 4,
+      "hash": "0xd59d7b1858f6a7f171ed4ac576dde48e48b641bfa4f47ae41910a75dacb24db9"
+    },
+    "endCommitment": {
+      "height": 8,
+      "hash": "0x08a812c3488e56164344f030febe42d4f1a4f97d618b0b25771bc061bbe3cd85"
+    },
+    "createdAtBlock": 63,
+    "mutualId": "0x75e82cd48409cc817cf17699ca7ab7833130c8ae8ec72d6f7639de0a015eddc2",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 7,
+    "hasRival": false,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 4,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0xc37de0138598e45dad5e234da60e0e17c2ff2d9e3c923c1f438c714c744ee14e",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 2,
+      "hash": "0xdddd42c5d232cc62f5db5a4bc7617493e9cd3ae5a6da7f0a89142654b420e2b5"
+    },
+    "endCommitment": {
+      "height": 4,
+      "hash": "0xd59d7b1858f6a7f171ed4ac576dde48e48b641bfa4f47ae41910a75dacb24db9"
+    },
+    "createdAtBlock": 65,
+    "mutualId": "0x25f7cb2b6179ccf04250c575dc694f5ecbcbfab5d93db438bd56eeed9b3c7e38",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 5,
+    "hasRival": false,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 2,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x85622dd86557a6c911335fb4a3c4bcfea67bfd6b8a551a79202f8b3d8c80df15",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x0107305d5e5baf8881f9dc0d30bb20c813af5a7217ac51c2a9df6173a782c667"
+    },
+    "endCommitment": {
+      "height": 2,
+      "hash": "0xdddd42c5d232cc62f5db5a4bc7617493e9cd3ae5a6da7f0a89142654b420e2b5"
+    },
+    "createdAtBlock": 65,
+    "mutualId": "0x0ca93c35e4535163a87b653272b9a0376289f8c7de66b5b6e1686b301c9ed790",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": true,
+    "lowerChildId": "0x35805c164dc910cec1e29397bd605d1bdf5c25190be21759c6798a00feb9cd72",
+    "upperChildId": "0x5dcec64bea47bf852b35760d0903cf0e86ddaf2569c08da7735be403d78d0946",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": true,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x35805c164dc910cec1e29397bd605d1bdf5c25190be21759c6798a00feb9cd72",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x0107305d5e5baf8881f9dc0d30bb20c813af5a7217ac51c2a9df6173a782c667"
+    },
+    "endCommitment": {
+      "height": 1,
+      "hash": "0x6c5dfdc28011b08ac1d697c1f8dcd7a1f1fa43bca5a04d9fd0a31c0256ab29b0"
+    },
+    "createdAtBlock": 67,
+    "mutualId": "0xb8cce869eac0f55554f9d16a8dd733d681b118a8e3b6aa57e565ce138ef9f30d",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": true,
+    "status": "pending",
+    "hasLengthOneRival": true,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x5dcec64bea47bf852b35760d0903cf0e86ddaf2569c08da7735be403d78d0946",
+    "type": "block_challenge_edge",
+    "startCommitment": {
+      "height": 1,
+      "hash": "0x6c5dfdc28011b08ac1d697c1f8dcd7a1f1fa43bca5a04d9fd0a31c0256ab29b0"
+    },
+    "endCommitment": {
+      "height": 2,
+      "hash": "0xdddd42c5d232cc62f5db5a4bc7617493e9cd3ae5a6da7f0a89142654b420e2b5"
+    },
+    "createdAtBlock": 67,
+    "mutualId": "0xcab613c85febd0c6043d365b41972abd6bb2bf06ca55291f0f930b913be8a549",
+    "originId": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "claimId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x0000000000000000000000000000000000000000",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 3,
+    "hasRival": false,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 1,
+      "BigStepChallengeOriginHeight": 0
+    }
+  },
+  {
+    "id": "0x12a510d93109d9658b494e15e77eb8fc25855f1becb9dc30c393bb080da62b60",
+    "type": "big_step_challenge_edge",
+    "startCommitment": {
+      "height": 0,
+      "hash": "0x044b26c8c40ab64a6a030d6cad949771b32740f04636f48f7ea95adc27b04078"
+    },
+    "endCommitment": {
+      "height": 2048,
+      "hash": "0x6c92d465bd884cd40557c128fe0cdac1481cc0844db8e9aafdd19960d427d76e"
+    },
+    "createdAtBlock": 69,
+    "mutualId": "0x079c65dc14d0e70522843e9a0f52f4b54c972088043e65e128d1c59e762c5b7e",
+    "originId": "0xb8cce869eac0f55554f9d16a8dd733d681b118a8e3b6aa57e565ce138ef9f30d",
+    "claimId": "0x35805c164dc910cec1e29397bd605d1bdf5c25190be21759c6798a00feb9cd72",
+    "hasChildren": false,
+    "lowerChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "upperChildId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "miniStaker": "0x391dedcfd7291b557fdccdbb0cb62727eb20bb08",
+    "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+    "timeUnrivaled": 1,
+    "hasRival": false,
+    "status": "pending",
+    "hasLengthOneRival": false,
+    "topLevelClaimHeight": {
+      "BlockChallengeOriginHeight": 0,
+      "BigStepChallengeOriginHeight": 0
+    }
+  }
+]
