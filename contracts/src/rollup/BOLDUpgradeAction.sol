@@ -47,6 +47,22 @@ struct OldStaker {
 }
 
 interface IOldRollup {
+    struct Assertion {
+        ExecutionState beforeState;
+        ExecutionState afterState;
+        uint64 numBlocks;
+    }
+
+    event NodeCreated(
+        uint64 indexed nodeNum,
+        bytes32 indexed parentNodeHash,
+        bytes32 indexed nodeHash,
+        bytes32 executionHash,
+        Assertion assertion,
+        bytes32 afterInboxBatchAcc,
+        bytes32 wasmModuleRoot,
+        uint256 inboxMaxCount
+    );
     function wasmModuleRoot() external view returns (bytes32);
     function latestConfirmed() external view returns (uint64);
     function getNode(uint64 nodeNum) external view returns (Node memory);

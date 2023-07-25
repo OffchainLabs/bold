@@ -1,0 +1,42 @@
+import { BigNumber } from 'ethers'
+import fs from 'fs'
+export interface DeployedContracts {
+  bridge: string
+  seqInbox: string
+  rei: string
+  outbox: string
+  oldRollupUser: string
+  newRollupUser: string
+  newRollupAdmin: string
+  challengeManager: string
+  boldAction: string
+  rollupReader: string
+  preImageHashLookup: string
+}
+
+export const getJsonFile = (fileLocation: string) => {
+  return JSON.parse(fs.readFileSync(fileLocation).toString())
+}
+
+export interface Config {
+  addressReg: string
+  osp: string
+  proxyAdmins: {
+    outbox: string
+    bridge: string
+    rei: string
+    seqInbox: string
+  }
+  settings: {
+    confirmPeriodBlocks: number
+    stakeToken: string
+    stakeAmt: BigNumber
+    miniStakeAmt: BigNumber
+    chainId: number
+    anyTrustFastConfirmer: string
+  }
+}
+
+export const validateConfig = (config: Config) => {
+  // CHRIS: TODO: ensure vals are valid
+}
