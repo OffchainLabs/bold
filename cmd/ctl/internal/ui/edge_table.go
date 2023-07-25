@@ -5,6 +5,7 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/api"
 	"github.com/OffchainLabs/challenge-protocol-v2/cmd/ctl/internal/data"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -39,6 +40,8 @@ type EdgesTableContent struct {
 
 	// Columns represents the ordered list of columns
 	Columns []string
+
+	Selected string
 }
 
 func (e *EdgesTableContent) GetCell(row, column int) *tview.TableCell {
@@ -86,7 +89,7 @@ func (e *EdgesTableContent) GetCell(row, column int) *tview.TableCell {
 	case ColumnCreatedAtBlock:
 		str = fmt.Sprintf("%d", ee.CreatedAtBlock)
 	case ColumnMutualID:
-		str = ee.MutualID.Hex() // Color code hex
+		str = ee.MutualID.Hex()
 	case ColumnOriginID:
 		str = ee.ClaimID.Hex()
 	case ColumnClaimID:
@@ -126,7 +129,16 @@ func (e *EdgesTableContent) GetCell(row, column int) *tview.TableCell {
 		str = "ERROR: Unhandled field name"
 	}
 
-	return tview.NewTableCell(str)
+	cell := tview.NewTableCell(str).SetSelectable(true).SetClickedFunc(func() bool {
+		e.Selected = str
+		return true
+	})
+
+	if e.Selected != "" && str == e.Selected {
+		cell.SetBackgroundColor(tcell.ColorGrey)
+	}
+
+	return cell
 }
 
 func (e *EdgesTableContent) GetRowCount() int {
