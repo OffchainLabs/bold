@@ -1,16 +1,19 @@
-package validator
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
+package edgetracker
 
 import (
 	"fmt"
 )
 
-// Defines a state in a finite state machine that aids
+// State defines a finite state machine that aids
 // in deciding a challenge edge tracker's actions.
-type edgeTrackerState uint8
+type State uint8
 
 const (
 	// Start state of 0 can never happen to avoid silly mistakes with default Go values.
-	_ edgeTrackerState = iota
+	_ State = iota
 	// The start state of the tracker.
 	edgeStarted
 	// The edge being tracked is at a one step proof.
@@ -27,7 +30,7 @@ const (
 )
 
 // String turns an edge tracker state into a readable string.
-func (s edgeTrackerState) String() string {
+func (s State) String() string {
 	switch s {
 	case edgeStarted:
 		return "started"

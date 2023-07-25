@@ -154,6 +154,7 @@ contract BOLDUpgradeAction {
     uint256 public immutable STAKE_AMOUNT;
     uint256 public immutable MINI_STAKE_AMOUNT;
     uint256 public immutable CHAIN_ID;
+    address public immutable ANY_TRUST_FAST_CONFIRMER;
 
     IOneStepProofEntry public immutable OSP;
     // proxy admins of the contracts to be upgraded
@@ -182,6 +183,7 @@ contract BOLDUpgradeAction {
         uint256 stakeAmt;
         uint256 miniStakeAmt;
         uint256 chainId;
+        address anyTrustFastConfirmer;
     }
 
     // Unfortunately these are not discoverable on-chain, so we need to supply them
@@ -235,6 +237,7 @@ contract BOLDUpgradeAction {
         STAKE_TOKEN = settings.stakeToken;
         STAKE_AMOUNT = settings.stakeAmt;
         MINI_STAKE_AMOUNT = settings.miniStakeAmt;
+        ANY_TRUST_FAST_CONFIRMER = settings.anyTrustFastConfirmer;
     }
 
     /// @dev    Refund the existing stakers, pause and upgrade the current rollup to
@@ -291,7 +294,8 @@ contract BOLDUpgradeAction {
             layerZeroBigStepEdgeHeight: BIGSTEP_LEAF_SIZE,
             layerZeroSmallStepEdgeHeight: SMALLSTEP_LEAF_SIZE,
             genesisExecutionState: genesisExecState,
-            genesisInboxCount: inboxMaxCount
+            genesisInboxCount: inboxMaxCount,
+            anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER
         });
     }
 

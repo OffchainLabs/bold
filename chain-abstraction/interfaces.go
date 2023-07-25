@@ -1,7 +1,11 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package protocol
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
@@ -11,9 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// AssertionId represents a unique identifier for an assertion
+// AssertionHash represents a unique identifier for an assertion
 // constructed as a keccak256 hash of some of its internals.
-type AssertionId common.Hash
+type AssertionHash struct {
+	common.Hash
+}
 
 // Protocol --
 type Protocol interface {
@@ -32,8 +38,8 @@ const (
 // chain state created by a validator that stakes on their claim.
 // Assertions can be challenged.
 type Assertion interface {
-	Id() AssertionId
-	PrevId(ctx context.Context) (AssertionId, error)
+	Id() AssertionHash
+	PrevId(ctx context.Context) (AssertionHash, error)
 	HasSecondChild() (bool, error)
 	CreatedAtBlock() (uint64, error)
 }
@@ -62,16 +68,16 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 // which is used for all challenges in the protocol.
 type AssertionChain interface {
 	// Read-only methods.
-	GetAssertion(ctx context.Context, id AssertionId) (Assertion, error)
+	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
 	ReadAssertionCreationInfo(
-		ctx context.Context, id AssertionId,
+		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
 
-	AssertionUnrivaledTime(ctx context.Context, assertionId AssertionId) (uint64, error)
-	TopLevelAssertion(ctx context.Context, edgeId EdgeId) (AssertionId, error)
-	TopLevelClaimHeights(ctx context.Context, edgeId EdgeId) (*OriginHeights, error)
+	AssertionUnrivaledBlocks(ctx context.Context, assertionHash AssertionHash) (uint64, error)
+	TopLevelAssertion(ctx context.Context, edgeId EdgeId) (AssertionHash, error)
+	TopLevelClaimHeights(ctx context.Context, edgeId EdgeId) (OriginHeights, error)
 
 	// Mutating methods.
 	CreateAssertion(
@@ -81,19 +87,12 @@ type AssertionChain interface {
 	) (Assertion, error)
 	ConfirmAssertionByChallengeWinner(
 		ctx context.Context,
-		assertionId AssertionId,
+		assertionHash AssertionHash,
 		winningEdgeId EdgeId,
 	) error
 
 	// Spec-based implementation methods.
 	SpecChallengeManager(ctx context.Context) (SpecChallengeManager, error)
-}
-
-// Agreement encompasses whether or not a local node agrees with a edge's commitments.
-// Either the edge is honest, we agree with its start commit, or disagree entirely.
-type Agreement struct {
-	IsHonestEdge          bool
-	AgreesWithStartCommit bool
 }
 
 // EdgeType corresponds to the three different challenge
@@ -122,6 +121,24 @@ func (et EdgeType) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func EdgeTypeFromString(s string) (EdgeType, error) {
+	switch s {
+	case "block_challenge_edge":
+		return BlockChallengeEdge, nil
+	case "big_step_challenge_edge":
+		return BigStepChallengeEdge, nil
+	case "small_step_challenge_edge":
+		return SmallStepChallengeEdge, nil
+	default:
+		return 0, fmt.Errorf("unknown edge type string: %s", s)
+	}
+}
+
+type Agreement struct {
+	AgreesWithStartCommit bool
+	IsHonestEdge          bool
 }
 
 // OriginId is the id of the item that originated a challenge an edge
@@ -218,9 +235,20 @@ const (
 	EdgeConfirmed
 )
 
+func (e EdgeStatus) String() string {
+	switch e {
+	case EdgePending:
+		return "pending"
+	case EdgeConfirmed:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
+}
+
 type OriginHeights struct {
-	BlockChallengeOriginHeight   Height
-	BigStepChallengeOriginHeight Height
+	BlockChallengeOriginHeight   Height `json:"blockChallengeOriginHeight"`
+	BigStepChallengeOriginHeight Height `json:"bigStepChallengeOriginHeight"`
 }
 
 // ReadOnlyEdge defines methods that only retrieve data from the chain
@@ -250,9 +278,9 @@ type ReadOnlyEdge interface {
 	UpperChild(ctx context.Context) (option.Option[EdgeId], error)
 	// The ministaker of an edge. Only existing for level zero edges.
 	MiniStaker() option.Option[common.Address]
-	// The assertion id of the parent assertion that originated the challenge
+	// The assertion hash of the parent assertion that originated the challenge
 	// at the top-level.
-	AssertionId(ctx context.Context) (AssertionId, error)
+	AssertionHash(ctx context.Context) (AssertionHash, error)
 	// The time in seconds an edge has been unrivaled.
 	TimeUnrivaled(ctx context.Context) (uint64, error)
 	// Whether or not an edge has rivals.
@@ -263,7 +291,7 @@ type ReadOnlyEdge interface {
 	HasLengthOneRival(ctx context.Context) (bool, error)
 	// The history commitment for the top-level edge the current edge's challenge is made upon.
 	// This is used at subchallenge creation boundaries.
-	TopLevelClaimHeight(ctx context.Context) (*OriginHeights, error)
+	TopLevelClaimHeight(ctx context.Context) (OriginHeights, error)
 }
 
 // SpecEdge according to the protocol specification.

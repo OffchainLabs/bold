@@ -1,3 +1,6 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package solimpl
 
 import (
@@ -15,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
 
@@ -39,8 +41,12 @@ func (e *SpecEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.endHeight), e.inner.EndHistoryRoot
 }
 
-func (e *SpecEdge) AssertionId(ctx context.Context) (protocol.AssertionId, error) {
-	return e.manager.caller.GetPrevAssertionId(&bind.CallOpts{Context: ctx}, e.id)
+func (e *SpecEdge) AssertionHash(ctx context.Context) (protocol.AssertionHash, error) {
+	h, err := e.manager.caller.GetPrevAssertionHash(&bind.CallOpts{Context: ctx}, e.id)
+	if err != nil {
+		return protocol.AssertionHash{}, err
+	}
+	return protocol.AssertionHash{Hash: common.Hash(h)}, nil
 }
 
 func (e *SpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
@@ -66,7 +72,7 @@ func (e *SpecEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
 	return protocol.EdgeStatus(edge.Status), nil
 }
 
-// The block number the edge was created at.
+// CreatedAtBlock the  block number the edge was created at.
 func (e *SpecEdge) CreatedAtBlock() (uint64, error) {
 	if !e.inner.CreatedAtBlock.IsUint64() {
 		return 0, errors.New("edge created at block was not a uint64")
@@ -74,7 +80,7 @@ func (e *SpecEdge) CreatedAtBlock() (uint64, error) {
 	return e.inner.CreatedAtBlock.Uint64(), nil
 }
 
-// Checks if the edge has children.
+// HasChildren checks if the edge has children.
 func (e *SpecEdge) HasChildren(ctx context.Context) (bool, error) {
 	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {
@@ -83,7 +89,7 @@ func (e *SpecEdge) HasChildren(ctx context.Context) (bool, error) {
 	return edge.LowerChildId != ([32]byte{}) && edge.UpperChildId != ([32]byte{}), nil
 }
 
-// The lower child of the edge, if any.
+// LowerChild of the edge, if any.
 func (e *SpecEdge) LowerChild(ctx context.Context) (option.Option[protocol.EdgeId], error) {
 	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {
@@ -95,7 +101,7 @@ func (e *SpecEdge) LowerChild(ctx context.Context) (option.Option[protocol.EdgeI
 	return option.Some(protocol.EdgeId(edge.LowerChildId)), nil
 }
 
-// The upper child of the edge, if any.
+// UpperChild of the edge, if any.
 func (e *SpecEdge) UpperChild(ctx context.Context) (option.Option[protocol.EdgeId], error) {
 	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {
@@ -107,7 +113,7 @@ func (e *SpecEdge) UpperChild(ctx context.Context) (option.Option[protocol.EdgeI
 	return option.Some(protocol.EdgeId(edge.UpperChildId)), nil
 }
 
-// The mutual id of the edge.
+// MutualId of the edge.
 func (e *SpecEdge) MutualId() protocol.MutualId {
 	return e.mutualId
 }
@@ -116,7 +122,7 @@ func (e *SpecEdge) OriginId() protocol.OriginId {
 	return e.inner.OriginId
 }
 
-// The claim id of the edge, if any.
+// ClaimId of the edge, if any.
 func (e *SpecEdge) ClaimId() option.Option[protocol.ClaimId] {
 	if e.inner.ClaimId == [32]byte{} {
 		return option.None[protocol.ClaimId]()
@@ -124,6 +130,7 @@ func (e *SpecEdge) ClaimId() option.Option[protocol.ClaimId] {
 	return option.Some(protocol.ClaimId(e.inner.ClaimId))
 }
 
+// HasLengthOneRival returns true if there's a length one rival.
 func (e *SpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	ok, err := e.manager.caller.HasLengthOneRival(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {
@@ -177,7 +184,7 @@ func (e *SpecEdge) Bisect(
 		return lowerEdge.Unwrap(), upperEdge.Unwrap(), nil
 	}
 
-	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.BisectEdge(e.manager.txOpts, e.id, prefixHistoryRoot, prefixProof)
 	})
 	if err != nil {
@@ -218,7 +225,7 @@ func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	if s == protocol.EdgeConfirmed {
 		return nil
 	}
-	var assertionId protocol.AssertionId
+	var assertionHash protocol.AssertionHash
 	if len(ancestorIds) != 0 {
 		topLevelAncestorId := ancestorIds[len(ancestorIds)-1]
 		topLevelAncestor, topLevelErr := e.manager.GetEdge(ctx, topLevelAncestorId)
@@ -232,11 +239,15 @@ func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 		if topEdge.GetType() != protocol.BlockChallengeEdge {
 			return errors.New("top level ancestor must be a block challenge edge")
 		}
-		assertionId = protocol.AssertionId(topEdge.ClaimId().Unwrap())
+		assertionHash = protocol.AssertionHash{
+			Hash: common.Hash(topEdge.ClaimId().Unwrap()),
+		}
 	} else {
-		assertionId = e.inner.ClaimId
+		assertionHash = protocol.AssertionHash{
+			Hash: e.inner.ClaimId,
+		}
 	}
-	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionId)
+	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return err
 	}
@@ -244,7 +255,7 @@ func (e *SpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	for i, r := range ancestorIds {
 		ancestors[i] = r
 	}
-	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByTime(e.manager.txOpts, e.id, ancestors, challengeV2gen.ExecutionStateData{
 			ExecutionState: challengeV2gen.ExecutionState{
 				GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
@@ -266,7 +277,7 @@ func (e *SpecEdge) ConfirmByChildren(ctx context.Context) error {
 		return nil
 	}
 
-	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByChildren(e.manager.txOpts, e.id)
 	})
 	return err
@@ -281,8 +292,7 @@ func (e *SpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId)
 		return nil
 	}
 
-	// TODO: Add in fields.
-	_, err = transact(ctx, e.manager.backend, e.manager.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, e.manager.backend, func() (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByClaim(e.manager.txOpts, e.id, claimId)
 	})
 	return err
@@ -292,60 +302,60 @@ func (e *SpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId)
 // For example, if two validators open a subchallenge S at edge A in a BlockChallenge, the TopLevelClaimHeight of S is the height of A.
 // If two validators open a subchallenge S' at edge B in BigStepChallenge, the TopLevelClaimHeight
 // is the height of A.
-func (e *SpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHeights, error) {
+func (e *SpecEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeights, error) {
 	switch e.GetType() {
 	case protocol.BigStepChallengeEdge:
 		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
 		if err != nil {
-			return nil, err
+			return protocol.OriginHeights{}, err
 		}
 		blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, rivalId)
 		if err != nil {
-			return nil, errors.Wrapf(err, "block challenge one step fork source does not exist for rival id %#x", rivalId)
+			return protocol.OriginHeights{}, errors.Wrapf(err, "block challenge one step fork source does not exist for rival id %#x", rivalId)
 		}
 		if blockChallengeOneStepForkSource.IsNone() {
-			return nil, errors.New("source edge is none")
+			return protocol.OriginHeights{}, errors.New("source edge is none")
 		}
 		startHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
-		return &protocol.OriginHeights{
+		return protocol.OriginHeights{
 			BlockChallengeOriginHeight: startHeight,
 		}, nil
 	case protocol.SmallStepChallengeEdge:
 		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
 		if err != nil {
-			return nil, err
+			return protocol.OriginHeights{}, err
 		}
 		bigStepChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, rivalId)
 		if err != nil {
-			return nil, errors.Wrap(err, "big step challenge one step fork source does not exist")
+			return protocol.OriginHeights{}, errors.Wrap(err, "big step challenge one step fork source does not exist")
 		}
 		if bigStepChallengeOneStepForkSource.IsNone() {
-			return nil, errors.New("source edge is none")
+			return protocol.OriginHeights{}, errors.New("source edge is none")
 		}
 		bigStepEdge, ok := bigStepChallengeOneStepForkSource.Unwrap().(*SpecEdge)
 		if !ok {
-			return nil, errors.New("not *SpecEdge")
+			return protocol.OriginHeights{}, errors.New("not *SpecEdge")
 		}
 		rivalId, err = e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, bigStepEdge.inner.OriginId)
 		if err != nil {
-			return nil, err
+			return protocol.OriginHeights{}, err
 		}
 		blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, rivalId)
 		if err != nil {
-			return nil, errors.Wrap(err, "block challenge one step fork source does not exist")
+			return protocol.OriginHeights{}, errors.Wrap(err, "block challenge one step fork source does not exist")
 		}
 		if blockChallengeOneStepForkSource.IsNone() {
-			return nil, errors.New("source edge is none")
+			return protocol.OriginHeights{}, errors.New("source edge is none")
 		}
 		bigStepStartHeight, _ := bigStepEdge.StartCommitment()
 		blockChallengeStartHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
-		return &protocol.OriginHeights{
+		return protocol.OriginHeights{
 			BlockChallengeOriginHeight:   blockChallengeStartHeight,
 			BigStepChallengeOriginHeight: bigStepStartHeight,
 		}, nil
 	default:
 		startHeight, _ := e.StartCommitment()
-		return &protocol.OriginHeights{
+		return protocol.OriginHeights{
 			BlockChallengeOriginHeight: startHeight,
 		}, nil
 	}
@@ -356,7 +366,6 @@ type SpecChallengeManager struct {
 	addr           common.Address
 	backend        ChainBackend
 	assertionChain *AssertionChain
-	reader         *headerreader.HeaderReader
 	txOpts         *bind.TransactOpts
 	caller         *challengeV2gen.EdgeChallengeManagerCaller
 	writer         *challengeV2gen.EdgeChallengeManagerTransactor
@@ -370,7 +379,6 @@ func NewSpecChallengeManager(
 	addr common.Address,
 	assertionChain *AssertionChain,
 	backend ChainBackend,
-	reader *headerreader.HeaderReader,
 	txOpts *bind.TransactOpts,
 ) (protocol.SpecChallengeManager, error) {
 	managerBinding, err := challengeV2gen.NewEdgeChallengeManager(addr, backend)
@@ -381,7 +389,6 @@ func NewSpecChallengeManager(
 		addr:           addr,
 		assertionChain: assertionChain,
 		backend:        backend,
-		reader:         reader,
 		txOpts:         txOpts,
 		caller:         &managerBinding.EdgeChallengeManagerCaller,
 		writer:         &managerBinding.EdgeChallengeManagerTransactor,
@@ -503,11 +510,11 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 		return nil
 	}
 
-	assertionId, err := edge.Unwrap().AssertionId(ctx)
+	assertionHash, err := edge.Unwrap().AssertionHash(ctx)
 	if err != nil {
 		return err
 	}
-	creationInfo, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertionId)
+	creationInfo, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return err
 	}
@@ -526,7 +533,6 @@ func (cm *SpecChallengeManager) ConfirmEdgeByOneStepProof(
 	_, err = transact(
 		ctx,
 		cm.assertionChain.backend,
-		cm.assertionChain.headerReader,
 		func() (*types.Transaction, error) {
 			return cm.writer.ConfirmEdgeByOneStepProof(
 				cm.assertionChain.txOpts,
@@ -692,7 +698,7 @@ func (cm *SpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err == nil && !someLevelZeroEdge.IsNone() {
 		return someLevelZeroEdge.Unwrap(), nil
 	}
-	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, cm.backend, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
@@ -796,7 +802,7 @@ func (cm *SpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
-	_, err = transact(ctx, cm.backend, cm.reader, func() (*types.Transaction, error) {
+	_, err = transact(ctx, cm.backend, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{

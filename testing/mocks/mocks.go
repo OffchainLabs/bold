@@ -1,8 +1,10 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package mocks
 
 import (
 	"context"
-	"errors"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
@@ -21,8 +23,8 @@ var (
 )
 
 type MockAssertion struct {
-	MockId                protocol.AssertionId
-	MockPrevId            protocol.AssertionId
+	MockId                protocol.AssertionHash
+	MockPrevId            protocol.AssertionHash
 	Prev                  option.Option[*MockAssertion]
 	MockHeight            uint64
 	MockStateHash         common.Hash
@@ -32,11 +34,11 @@ type MockAssertion struct {
 	CreatedAt             uint64
 }
 
-func (m *MockAssertion) Id() protocol.AssertionId {
+func (m *MockAssertion) Id() protocol.AssertionHash {
 	return m.MockId
 }
 
-func (m *MockAssertion) PrevId(ctx context.Context) (protocol.AssertionId, error) {
+func (m *MockAssertion) PrevId(ctx context.Context) (protocol.AssertionHash, error) {
 	return m.MockPrevId, nil
 }
 
@@ -57,19 +59,12 @@ func (m *MockAssertion) CreatedAtBlock() (uint64, error) {
 
 type MockStateManager struct {
 	mock.Mock
-	Agreement protocol.Agreement
-	AgreeErr  bool
+	Agrees   bool
+	AgreeErr bool
 }
 
-func (m *MockStateManager) AssertionExecutionState(
-	ctx context.Context,
-	assertionStateHash common.Hash,
-) (*protocol.ExecutionState, error) {
-	args := m.Called(ctx, assertionStateHash)
-	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
-}
-func (m *MockStateManager) LatestExecutionState(ctx context.Context) (*protocol.ExecutionState, error) {
-	args := m.Called(ctx)
+func (m *MockStateManager) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
+	args := m.Called(ctx, messageNumber)
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 
@@ -79,27 +74,20 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uin
 }
 
 func (m *MockStateManager) AgreesWithHistoryCommitment(
-	_ context.Context,
-	_ protocol.EdgeType,
-	_ uint64,
-	_ *protocol.OriginHeights,
-	_,
-	_ commitments.History,
-) (protocol.Agreement, error) {
-	if m.AgreeErr {
-		return protocol.Agreement{}, errors.New("failed")
-	}
-	return m.Agreement, nil
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	prevInboxMaxCount uint64,
+	edgeType protocol.EdgeType,
+	originHeights protocol.OriginHeights,
+	history l2stateprovider.History,
+) (bool, error) {
+	args := m.Called(ctx, wasmModuleRoot, prevInboxMaxCount, edgeType, originHeights, history)
+	return args.Get(0).(bool), args.Error(1)
 }
 
 func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, startBlock, endBlock, batchCount uint64) (commitments.History, error) {
 	args := m.Called(ctx, startBlock, endBlock, batchCount)
 	return args.Get(0).(commitments.History), args.Error(1)
-}
-
-func (m *MockStateManager) PrefixProof(ctx context.Context, from, to uint64) ([]byte, error) {
-	args := m.Called(ctx, from, to)
-	return args.Get(0).([]byte), args.Error(1)
 }
 
 func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, start, from, to, batchCount uint64) ([]byte, error) {
@@ -109,72 +97,69 @@ func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, start, from
 
 func (m *MockStateManager) BigStepPrefixProof(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
+	wasmModuleRoot common.Hash,
+	blockHeight,
 	fromBigStep,
 	toBigStep uint64,
 ) ([]byte, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep)
+	args := m.Called(ctx, wasmModuleRoot, blockHeight, fromBigStep, toBigStep)
 	return args.Get(0).([]byte), args.Error(1)
 }
 
 func (m *MockStateManager) SmallStepPrefixProof(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep,
+	wasmModuleRoot common.Hash,
+	blockHeight,
+	bigStep,
 	fromSmallStep,
 	toSmallStep uint64,
 ) ([]byte, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
+	args := m.Called(ctx, wasmModuleRoot, blockHeight, bigStep, fromSmallStep, toSmallStep)
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (m *MockStateManager) ExecutionStateBlockHeight(ctx context.Context, state *protocol.ExecutionState) (uint64, bool) {
+func (m *MockStateManager) ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error) {
 	args := m.Called(ctx, state)
-	return args.Get(0).(uint64), args.Bool(1)
+	return args.Get(0).(uint64), args.Error(1)
 }
 
 func (m *MockStateManager) BigStepLeafCommitment(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight uint64,
+	wasmModuleRoot common.Hash,
+	blockHeight uint64,
 ) (commitments.History, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight)
+	args := m.Called(ctx, wasmModuleRoot, blockHeight)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
 
 func (m *MockStateManager) BigStepCommitmentUpTo(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
+	wasmModuleRoot common.Hash,
+	blockHeight,
 	toBigStep uint64,
 ) (commitments.History, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, toBigStep)
+	args := m.Called(ctx, wasmModuleRoot, blockHeight, toBigStep)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
 
 func (m *MockStateManager) SmallStepLeafCommitment(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep uint64,
+	wasmModuleRoot common.Hash,
+	blockHeight,
+	bigStep uint64,
 ) (commitments.History, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep)
+	args := m.Called(ctx, wasmModuleRoot, blockHeight, bigStep)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
 
 func (m *MockStateManager) SmallStepCommitmentUpTo(
 	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep,
+	wasmModuleRoot common.Hash,
+	blockHeight,
+	bigStep,
 	toSmallStep uint64,
 ) (commitments.History, error) {
-	args := m.Called(ctx, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, toSmallStep)
+	args := m.Called(ctx, wasmModuleRoot, blockHeight, bigStep, toSmallStep)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
 
@@ -182,14 +167,11 @@ func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	cfgSnapshot *l2stateprovider.ConfigSnapshot,
 	postState rollupgen.ExecutionState,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep,
-	fromSmallStep,
-	toSmallStep uint64,
+	blockHeight,
+	bigStep,
+	smallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, cfgSnapshot, postState, fromBlockChallengeHeight, toBlockChallengeHeight, fromBigStep, toBigStep, fromSmallStep, toSmallStep)
+	args := m.Called(ctx, cfgSnapshot, postState, blockHeight, bigStep, smallStep)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
@@ -324,13 +306,13 @@ func (m *MockSpecEdge) EndCommitment() (protocol.Height, common.Hash) {
 	args := m.Called()
 	return args.Get(0).(protocol.Height), args.Get(1).(common.Hash)
 }
-func (m *MockSpecEdge) TopLevelClaimHeight(ctx context.Context) (*protocol.OriginHeights, error) {
+func (m *MockSpecEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeights, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
+	return args.Get(0).(protocol.OriginHeights), args.Error(1)
 }
-func (m *MockSpecEdge) AssertionId(ctx context.Context) (protocol.AssertionId, error) {
+func (m *MockSpecEdge) AssertionHash(ctx context.Context) (protocol.AssertionHash, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(protocol.AssertionId), args.Error(1)
+	return args.Get(0).(protocol.AssertionHash), args.Error(1)
 }
 func (m *MockSpecEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	args := m.Called(ctx)
@@ -401,6 +383,15 @@ func (m *MockSpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	return args.Get(0).(bool), args.Error(1)
 }
 
+type MockEdgeTracker struct {
+	mock.Mock
+}
+
+func (m *MockEdgeTracker) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
+	args := m.Called(ctx, edge)
+	return args.Error(0)
+}
+
 type MockProtocol struct {
 	mock.Mock
 }
@@ -411,24 +402,24 @@ func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionId) (protocol.Assertion, error) {
+func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionHash) (protocol.Assertion, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) AssertionUnrivaledTime(ctx context.Context, assertionId protocol.AssertionId) (uint64, error) {
-	args := m.Called(ctx, assertionId)
+func (m *MockProtocol) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
+	args := m.Called(ctx, assertionHash)
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *MockProtocol) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error) {
+func (m *MockProtocol) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error) {
 	args := m.Called(ctx, edgeId)
-	return args.Get(0).(protocol.AssertionId), args.Error(1)
+	return args.Get(0).(protocol.AssertionHash), args.Error(1)
 }
 
-func (m *MockProtocol) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error) {
+func (m *MockProtocol) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (protocol.OriginHeights, error) {
 	args := m.Called(ctx, edgeId)
-	return args.Get(0).(*protocol.OriginHeights), args.Error(1)
+	return args.Get(0).(protocol.OriginHeights), args.Error(1)
 }
 
 func (m *MockProtocol) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
@@ -442,7 +433,7 @@ func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion,
 }
 
 func (m *MockProtocol) ReadAssertionCreationInfo(
-	ctx context.Context, id protocol.AssertionId,
+	ctx context.Context, id protocol.AssertionHash,
 ) (*protocol.AssertionCreatedInfo, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(*protocol.AssertionCreatedInfo), args.Error(1)
@@ -451,10 +442,10 @@ func (m *MockProtocol) ReadAssertionCreationInfo(
 // Mutating methods.
 func (m *MockProtocol) ConfirmAssertionByChallengeWinner(
 	ctx context.Context,
-	assertionId protocol.AssertionId,
+	assertionHash protocol.AssertionHash,
 	winningEdgeId protocol.EdgeId,
 ) error {
-	args := m.Called(ctx, assertionId)
+	args := m.Called(ctx, assertionHash)
 	return args.Error(0)
 }
 

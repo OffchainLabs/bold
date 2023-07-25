@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: UNLICENSED
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// SPDX-License-Identifier: BUSL-1.1
+//
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
@@ -1411,7 +1414,7 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.refundStake(edgeId);
     }
 
-    function testGetPrevAssertionId() public {
+    function testGetPrevAssertionHash() public {
         EdgeInitData memory ei = deployAndInit();
 
         (
@@ -1459,32 +1462,32 @@ contract EdgeChallengeManagerTest is Test {
 
         for (uint256 i = 0; i < smallStepEdges1.length; i++) {
             bytes32 childId = smallStepEdges1[i].lowerChildId;
-            assertEq(ei.challengeManager.getPrevAssertionId(childId), ei.genesis);
+            assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
         for (uint256 i = 0; i < smallStepEdges2.length; i++) {
             bytes32 childId = smallStepEdges2[i].lowerChildId;
-            assertEq(ei.challengeManager.getPrevAssertionId(childId), ei.genesis);
+            assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
         for (uint256 i = 0; i < bigStepEdges1.length; i++) {
             bytes32 childId = bigStepEdges1[i].lowerChildId;
-            assertEq(ei.challengeManager.getPrevAssertionId(childId), ei.genesis);
+            assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
         for (uint256 i = 0; i < bigStepEdges2.length; i++) {
             bytes32 childId = bigStepEdges2[i].lowerChildId;
-            assertEq(ei.challengeManager.getPrevAssertionId(childId), ei.genesis);
+            assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
         for (uint256 i = 0; i < blockEdges1.length; i++) {
             bytes32 childId = blockEdges1[i].lowerChildId;
-            assertEq(ei.challengeManager.getPrevAssertionId(childId), ei.genesis);
+            assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
         for (uint256 i = 0; i < blockEdges2.length; i++) {
             bytes32 childId = blockEdges2[i].lowerChildId;
-            assertEq(ei.challengeManager.getPrevAssertionId(childId), ei.genesis);
+            assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
     }
 }

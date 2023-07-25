@@ -1,3 +1,6 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package prefixproofs_test
 
 import (
@@ -9,7 +12,6 @@ import (
 
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
-	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/testing/setup/simulated-backend"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -17,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,14 +53,14 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager, err := statemanager.New(hashes)
+	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(t, err)
 
 	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
 	require.NoError(t, err)
 	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 7)
 	require.NoError(t, err)
-	packedProof, err := manager.PrefixProof(ctx, 3, 7)
+	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 7, 1)
 	require.NoError(t, err)
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
@@ -105,14 +106,14 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager, err := statemanager.New(hashes)
+	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(t, err)
 
 	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
 	require.NoError(t, err)
 	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 6)
 	require.NoError(t, err)
-	packedProof, err := manager.PrefixProof(ctx, 3, 6)
+	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 6, 1)
 	require.NoError(t, err)
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
@@ -168,14 +169,14 @@ func FuzzVerifyPrefixProof_Go(f *testing.F) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager, err := statemanager.New(hashes)
+	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(f, err)
 
 	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
 	require.NoError(f, err)
 	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 7)
 	require.NoError(f, err)
-	packedProof, err := manager.PrefixProof(ctx, 3, 7)
+	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 7, 1)
 	require.NoError(f, err)
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
@@ -435,11 +436,8 @@ func runBitEquivalenceTest(
 }
 
 func setupMerkleTreeContract(t testing.TB) (*mocksgen.MerkleTreeAccess, *backends.SimulatedBackend) {
-	ctx := context.Background()
 	numChains := uint64(1)
 	accs, backend := setupAccounts(t, numChains)
-	headerReader := headerreader.New(simulated_backend.Wrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
-	headerReader.Start(ctx)
 	_, _, merkleTreeContract, err := mocksgen.DeployMerkleTreeAccess(accs[0].txOpts, backend)
 	if err != nil {
 		t.Fatal(err)

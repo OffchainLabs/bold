@@ -1,3 +1,6 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package challengetree
 
 import (
@@ -60,7 +63,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 
 	// Get assertion's unrivaled time and use that as the start
 	// of our path timer.
-	timer, err := ht.metadataReader.AssertionUnrivaledTime(ctx, ht.topLevelAssertionId)
+	timer, err := ht.metadataReader.AssertionUnrivaledBlocks(ctx, ht.topLevelAssertionHash)
 	if err != nil {
 		return 0, nil, err
 	}

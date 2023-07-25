@@ -31,6 +31,7 @@ struct Config {
     ExecutionState genesisExecutionState;
     /// @notice The inbox size at the time the genesis execution state was created
     uint256 genesisInboxCount;
+    address anyTrustFastConfirmer;
 }
 
 struct ContractDependencies {

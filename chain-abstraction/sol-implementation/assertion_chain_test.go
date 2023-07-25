@@ -1,8 +1,10 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package solimpl_test
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
@@ -21,19 +23,17 @@ func TestCreateAssertion(t *testing.T) {
 	chain := cfg.Chains[0]
 	backend := cfg.Backend
 
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
+
 	t.Run("OK", func(t *testing.T) {
 		latestBlockHash := common.Hash{}
 		for i := uint64(0); i < 100; i++ {
 			latestBlockHash = backend.Commit()
 		}
 
-		createdInfo := &protocol.AssertionCreatedInfo{
-			AfterState: (&protocol.ExecutionState{
-				GlobalState:   protocol.GoGlobalState{},
-				MachineStatus: protocol.MachineStatusFinished,
-			}).AsSolidityStruct(),
-			InboxMaxCount: big.NewInt(1),
-		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash:  latestBlockHash,
@@ -43,27 +43,20 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := chain.CreateAssertion(ctx, createdInfo, postState)
+		assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 
-		_, err = chain.CreateAssertion(ctx, createdInfo, postState)
-		require.ErrorContains(t, err, "ALREADY_STAKED")
+		existingAssertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		require.NoError(t, err)
+		require.Equal(t, assertion.Id(), existingAssertion.Id())
 	})
 	t.Run("can create fork", func(t *testing.T) {
-		t.Skip()
 		assertionChain := cfg.Chains[1]
 
 		for i := uint64(0); i < 100; i++ {
 			backend.Commit()
 		}
 
-		creationInfo := &protocol.AssertionCreatedInfo{
-			AfterState: (&protocol.ExecutionState{
-				GlobalState:   protocol.GoGlobalState{},
-				MachineStatus: protocol.MachineStatusFinished,
-			}).AsSolidityStruct(),
-			InboxMaxCount: big.NewInt(1),
-		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash:  common.BytesToHash([]byte("evil hash")),
@@ -73,9 +66,102 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
+		_, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 	})
+}
+
+func TestAssertionUnrivaledBlocks(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+	backend := cfg.Backend
+
+	latestBlockHash := common.Hash{}
+	for i := uint64(0); i < 100; i++ {
+		latestBlockHash = backend.Commit()
+	}
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
+
+	postState := &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  latestBlockHash,
+			SendRoot:   common.Hash{},
+			Batch:      1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+	require.NoError(t, err)
+
+	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+
+	// Should have been zero blocks since creation.
+	require.Equal(t, uint64(0), unrivaledBlocks)
+
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	unrivaledBlocks, err = chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+
+	// Three blocks since creation.
+	require.Equal(t, uint64(3), unrivaledBlocks)
+
+	// We then post a second child assertion.
+	assertionChain := cfg.Chains[1]
+
+	postState = &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  common.BytesToHash([]byte("evil hash")),
+			SendRoot:   common.Hash{},
+			Batch:      1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	forkedAssertion, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
+	require.NoError(t, err)
+
+	// We advance the chain by three blocks and check the assertion unrivaled times
+	// of both created assertions.
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	unrivaledFirstChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+	unrivaledSecondChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id())
+	require.NoError(t, err)
+
+	// The amount of blocks unrivaled should not change for the first child (except for
+	// the addition of one more block to account for the creation of its rival) and should
+	// be zero for the second child block.
+	require.Equal(t, uint64(4), unrivaledFirstChild)
+	require.Equal(t, uint64(0), unrivaledSecondChild)
+
+	// 100 blocks later, results should be unchanged.
+	for i := 0; i < 100; i++ {
+		backend.Commit()
+	}
+
+	unrivaledFirstChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id())
+	require.NoError(t, err)
+	unrivaledSecondChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id())
+	require.NoError(t, err)
+
+	// The amount of blocks unrivaled should not change for the first child (except for
+	// the addition of one more block to account for the creation of its rival) and should
+	// be zero for the second child block.
+	require.Equal(t, uint64(4), unrivaledFirstChild)
+	require.Equal(t, uint64(0), unrivaledSecondChild)
 }
 
 func TestConfirmAssertionByChallengeWinner(t *testing.T) {
@@ -170,7 +256,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	_, err = chain.GetAssertion(ctx, latestConfirmed.Id())
 	require.NoError(t, err)
 
-	_, err = chain.GetAssertion(ctx, protocol.AssertionId(common.BytesToHash([]byte("foo"))))
+	_, err = chain.GetAssertion(ctx, protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))})
 	require.ErrorIs(t, err, solimpl.ErrNotFound)
 }
 

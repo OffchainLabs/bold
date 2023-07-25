@@ -1,15 +1,20 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
 package toys
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"math"
 	"testing"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
+	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -36,7 +41,7 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
 	_ = ctx
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(8),
 		WithNumOpcodesPerBigStep(8),
@@ -49,24 +54,21 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 	require.Equal(t, hashes[0], blockChalCommit.FirstLeaf)
 
 	fromAssertionHeight := uint64(0)
-	toAssertionHeight := fromAssertionHeight + 1
 	bigStep, err := manager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromAssertionHeight,
-		toAssertionHeight,
 	)
 	require.NoError(t, err)
 	require.Equal(t, hashes[0], bigStep.FirstLeaf)
 	require.NotEqual(t, bigStep.FirstLeaf, bigStep.LastLeaf)
 
 	fromBigStep := uint64(0)
-	toBigStep := fromBigStep + 1
 	smallStep, err := manager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromAssertionHeight,
-		toAssertionHeight,
 		fromBigStep,
-		toBigStep,
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), bigStep.Height)
@@ -81,7 +83,7 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
 	_ = ctx
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
@@ -103,20 +105,19 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 
 	// Generating a big step challenge commitment
 	// for all big WAVM steps between blocks 4 to 5.
-	toBlockChallengeHeight = fromBlockChallengeHeight + 1
 	toBigStep := uint64(4)
 
 	start, err = manager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 		toBigStep,
 	)
 	require.NoError(t, err)
 	end, err = manager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 	)
 	require.NoError(t, err)
 	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
@@ -124,23 +125,20 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 	require.NotEqual(t, start.Merkle, end.Merkle)
 
 	fromBigStep := uint64(0)
-	toBigStep = fromBigStep + 1
 	toSmallStep := uint64(4)
 	start, err = manager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 		fromBigStep,
-		toBigStep,
 		toSmallStep,
 	)
 	require.NoError(t, err)
 	end, err = manager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 		fromBigStep,
-		toBigStep,
 	)
 	require.NoError(t, err)
 	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
@@ -155,7 +153,7 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
 	_ = ctx
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
@@ -177,21 +175,20 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 
 	// Generating a big step challenge commitment
 	// for all big WAVM steps between blocks 4 to 5.
-	toBlockChallengeHeight = fromBlockChallengeHeight + 1
 	fromBigStep := uint64(2)
 	toBigStep := fromBigStep + 1
 
 	start, err = manager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 		toBigStep,
 	)
 	require.NoError(t, err)
 	end, err = manager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 	)
 	require.NoError(t, err)
 	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
@@ -201,19 +198,17 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 	toSmallStep := uint64(6)
 	start, err = manager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 		fromBigStep,
-		toBigStep,
 		toSmallStep,
 	)
 	require.NoError(t, err)
 	end, err = manager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
 		fromBigStep,
-		toBigStep,
 	)
 	require.NoError(t, err)
 	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
@@ -227,7 +222,7 @@ func TestAllPrefixProofs(t *testing.T) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(20),
 		WithNumOpcodesPerBigStep(4),
@@ -243,7 +238,7 @@ func TestAllPrefixProofs(t *testing.T) {
 	require.NoError(t, err)
 	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, to)
 	require.NoError(t, err)
-	packedProof, err := manager.PrefixProof(ctx, from, to)
+	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, from, to, 1)
 	require.NoError(t, err)
 
 	data, err := ProofArgs.Unpack(packedProof)
@@ -272,15 +267,15 @@ func TestAllPrefixProofs(t *testing.T) {
 
 	bigFrom := uint64(1)
 
-	bigCommit, err := manager.BigStepLeafCommitment(ctx, from, to)
+	bigCommit, err := manager.BigStepLeafCommitment(ctx, common.Hash{}, from)
 	require.NoError(t, err)
 
-	bigBisectCommit, err := manager.BigStepCommitmentUpTo(ctx, from, to, bigFrom)
+	bigBisectCommit, err := manager.BigStepCommitmentUpTo(ctx, common.Hash{}, from, bigFrom)
 	require.NoError(t, err)
 	require.Equal(t, bigFrom, bigBisectCommit.Height)
 	require.Equal(t, bigCommit.FirstLeaf, bigBisectCommit.FirstLeaf)
 
-	bigProof, err := manager.BigStepPrefixProof(ctx, from, to, bigFrom, bigCommit.Height)
+	bigProof, err := manager.BigStepPrefixProof(ctx, common.Hash{}, from, bigFrom, bigCommit.Height)
 	require.NoError(t, err)
 
 	data, err = ProofArgs.Unpack(bigProof)
@@ -311,17 +306,17 @@ func TestAllPrefixProofs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	smallCommit, err := manager.SmallStepLeafCommitment(ctx, from, to, bigFrom, bigFrom+1)
+	smallCommit, err := manager.SmallStepLeafCommitment(ctx, common.Hash{}, from, bigFrom)
 	require.NoError(t, err)
 
 	smallFrom := uint64(2)
 
-	smallBisectCommit, err := manager.SmallStepCommitmentUpTo(ctx, from, to, bigFrom, bigFrom+1, smallFrom)
+	smallBisectCommit, err := manager.SmallStepCommitmentUpTo(ctx, common.Hash{}, from, bigFrom, smallFrom)
 	require.NoError(t, err)
 	require.Equal(t, smallFrom, smallBisectCommit.Height)
 	require.Equal(t, smallCommit.FirstLeaf, smallBisectCommit.FirstLeaf)
 
-	smallProof, err := manager.SmallStepPrefixProof(ctx, from, to, bigFrom, bigFrom+1, smallFrom, smallCommit.Height)
+	smallProof, err := manager.SmallStepPrefixProof(ctx, common.Hash{}, from, bigFrom, smallFrom, smallCommit.Height)
 	require.NoError(t, err)
 
 	data, err = ProofArgs.Unpack(smallProof)
@@ -360,7 +355,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	maxOpcodesPerBlock := uint64(100)
 
 	honestStates, _ := setupStates(t, numStates, 0 /* honest */)
-	honestManager, err := NewWithAssertionStates(
+	honestManager, err := newTestingMachine(
 		honestStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
@@ -373,8 +368,8 @@ func TestDivergenceGranularity(t *testing.T) {
 	toBlock := uint64(2)
 	honestCommit, err := honestManager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 	)
 	require.NoError(t, err)
 
@@ -383,7 +378,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	divergenceHeight := toBlock
 	evilStates, _ := setupStates(t, numStates, divergenceHeight)
 
-	evilManager, err := NewWithAssertionStates(
+	evilManager, err := newTestingMachine(
 		evilStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
@@ -398,8 +393,8 @@ func TestDivergenceGranularity(t *testing.T) {
 	// Big step challenge granularity.
 	evilCommit, err := evilManager.BigStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 	)
 	require.NoError(t, err)
 
@@ -412,15 +407,15 @@ func TestDivergenceGranularity(t *testing.T) {
 	checkHeight := divergenceHeight - 1
 	honestCommit, err = honestManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		checkHeight,
 	)
 	require.NoError(t, err)
 	evilCommit, err = evilManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		checkHeight,
 	)
 	require.NoError(t, err)
@@ -431,15 +426,15 @@ func TestDivergenceGranularity(t *testing.T) {
 	// Check if big step commitments between the validators disagree starting at the divergence height.
 	honestCommit, err = honestManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		divergenceHeight,
 	)
 	require.NoError(t, err)
 	evilCommit, err = evilManager.BigStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		divergenceHeight,
 	)
 	require.NoError(t, err)
@@ -453,22 +448,19 @@ func TestDivergenceGranularity(t *testing.T) {
 
 	// Small step challenge granularity.
 	fromBigStep := divergenceHeight - 1
-	toBigStep := divergenceHeight
 	honestCommit, err = honestManager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		fromBigStep,
-		toBigStep,
 	)
 	require.NoError(t, err)
 
 	evilCommit, err = evilManager.SmallStepLeafCommitment(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		fromBigStep,
-		toBigStep,
 	)
 	require.NoError(t, err)
 
@@ -483,19 +475,17 @@ func TestDivergenceGranularity(t *testing.T) {
 	toSmallStep := divergenceHeight - 1
 	honestCommit, err = honestManager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		fromBigStep,
-		toBigStep,
 		toSmallStep,
 	)
 	require.NoError(t, err)
 	evilCommit, err = evilManager.SmallStepCommitmentUpTo(
 		ctx,
+		common.Hash{},
 		fromBlock,
-		toBlock,
 		fromBigStep,
-		toBigStep,
 		toSmallStep,
 	)
 	require.NoError(t, err)
@@ -550,10 +540,10 @@ func TestPrefixProofs(t *testing.T) {
 		{20, 511},
 	} {
 		leaves := hashesForUints(0, c.hi+1)
-		manager, err := New(leaves)
+		manager, err := NewWithMockedStateRoots(leaves)
 		require.NoError(t, err)
 
-		packedProof, err := manager.PrefixProof(ctx, c.lo, c.hi)
+		packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, c.lo, c.hi, 1)
 		require.NoError(t, err)
 
 		data, err := ProofArgs.Unpack(packedProof)
@@ -587,6 +577,41 @@ func TestPrefixProofs(t *testing.T) {
 		err = prefixproofs.VerifyPrefixProof(cfg)
 		require.NoError(t, err)
 	}
+}
+
+func newTestingMachine(
+	assertionChainExecutionStates []*protocol.ExecutionState,
+	opts ...Opt,
+) (*L2StateBackend, error) {
+	if len(assertionChainExecutionStates) == 0 {
+		return nil, errors.New("must have execution states")
+	}
+	stateRoots := make([]common.Hash, len(assertionChainExecutionStates))
+	var lastBatch uint64 = math.MaxUint64
+	var lastPosInBatch uint64 = math.MaxUint64
+	for i := 0; i < len(stateRoots); i++ {
+		state := assertionChainExecutionStates[i]
+		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
+			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
+		}
+		lastBatch = state.GlobalState.Batch
+		lastPosInBatch = state.GlobalState.PosInBatch
+		stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
+	}
+	s := &L2StateBackend{
+		stateRoots:      stateRoots,
+		executionStates: assertionChainExecutionStates,
+		machineAtBlock: func(context.Context, uint64) (Machine, error) {
+			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
+		},
+		levelZeroBlockEdgeHeight:     challenge_testing.LevelZeroBlockEdgeHeight,
+		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
+		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s, nil
 }
 
 func hashesForUints(lo, hi uint64) []common.Hash {

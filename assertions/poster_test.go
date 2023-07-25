@@ -1,3 +1,6 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package assertions
 
 import (
@@ -7,6 +10,7 @@ import (
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
 	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
+	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
 	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
@@ -44,8 +48,8 @@ func Test_findLatestValidAssertion(t *testing.T) {
 	})
 }
 
-func mockId(x uint64) protocol.AssertionId {
-	return protocol.AssertionId(common.BytesToHash([]byte(fmt.Sprintf("%d", x))))
+func mockId(x uint64) protocol.AssertionHash {
+	return protocol.AssertionHash{Hash: common.BytesToHash([]byte(fmt.Sprintf("%d", x)))}
 }
 
 func setupAssertions(
@@ -101,7 +105,11 @@ func setupAssertions(
 			mockId(uint64(i)),
 		).Return(mockAssertionCreationInfo, nil)
 		valid := validity(i)
-		s.On("ExecutionStateBlockHeight", ctx, protocol.GoExecutionStateFromSolidity(mockState)).Return(uint64(i), valid)
+		var arg error
+		if !valid {
+			arg = l2stateprovider.ErrNoExecutionState
+		}
+		s.On("ExecutionStateMsgCount", ctx, protocol.GoExecutionStateFromSolidity(mockState)).Return(uint64(i), arg)
 
 		if i == 1 {
 			var firstValid protocol.Assertion = genesis

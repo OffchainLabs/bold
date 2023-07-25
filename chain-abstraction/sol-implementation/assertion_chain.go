@@ -1,3 +1,6 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 // Package solimpl includes an easy-to-use abstraction
 // around the challenge protocol contracts using their Go
 // bindings and exposes minimal details of Ethereum's internals.
@@ -10,25 +13,20 @@ import (
 	"strings"
 
 	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/bridgegen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
 
 var (
-	ErrUnconfirmedParent = errors.New("parent assertion is not confirmed")
-	ErrNoUnresolved      = errors.New("no assertion to resolve")
-
 	ErrNotFound         = errors.New("item not found on-chain")
 	ErrAlreadyExists    = errors.New("item already exists on-chain")
 	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
 	ErrTooLate          = errors.New("too late to create assertion sibling")
-	ErrTooSoon          = errors.New("too soon to confirm assertion")
-	ErrInvalidHeight    = errors.New("invalid assertion height")
 )
 
 var assertionCreatedId common.Hash
@@ -66,12 +64,11 @@ type ReceiptFetcher interface {
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	backend      ChainBackend
-	rollup       *rollupgen.RollupCore
-	userLogic    *rollupgen.RollupUserLogic
-	txOpts       *bind.TransactOpts
-	headerReader *headerreader.HeaderReader
-	rollupAddr   common.Address
+	backend    ChainBackend
+	rollup     *rollupgen.RollupCore
+	userLogic  *rollupgen.RollupUserLogic
+	txOpts     *bind.TransactOpts
+	rollupAddr common.Address
 }
 
 // NewAssertionChain instantiates an assertion chain
@@ -81,13 +78,11 @@ func NewAssertionChain(
 	rollupAddr common.Address,
 	txOpts *bind.TransactOpts,
 	backend ChainBackend,
-	headerReader *headerreader.HeaderReader,
 ) (*AssertionChain, error) {
 	chain := &AssertionChain{
-		backend:      backend,
-		txOpts:       txOpts,
-		headerReader: headerReader,
-		rollupAddr:   rollupAddr,
+		backend:    backend,
+		txOpts:     txOpts,
+		rollupAddr: rollupAddr,
 	}
 	coreBinding, err := rollupgen.NewRollupCore(
 		rollupAddr, chain.backend,
@@ -106,20 +101,22 @@ func NewAssertionChain(
 	return chain, nil
 }
 
-func (a *AssertionChain) GetAssertion(ctx context.Context, assertionId protocol.AssertionId) (protocol.Assertion, error) {
-	res, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, assertionId)
+func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
+	var b [32]byte
+	copy(b[:], assertionHash.Bytes())
+	res, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 	if err != nil {
 		return nil, err
 	}
-	if res.Status == uint8(0) {
+	if res.Status == uint8(protocol.NoAssertion) {
 		return nil, errors.Wrapf(
 			ErrNotFound,
 			"assertion with id %#x",
-			assertionId,
+			assertionHash,
 		)
 	}
 	return &Assertion{
-		id:    assertionId,
+		id:    assertionHash,
 		chain: a,
 	}, nil
 }
@@ -129,48 +126,77 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertio
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, res)
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: res})
 }
 
-// CreateAssertion makes an on-chain claim given a previous assertion id, execution state,
+// CreateAssertion makes an on-chain claim given a previous assertion hash, execution state,
 // and a commitment to a post-state.
 func (a *AssertionChain) CreateAssertion(
 	ctx context.Context,
-	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
+	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
 	}
-	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionId(assertionCreationInfo.ParentAssertionHash))
-	if err != nil {
-		return nil, err
-	}
 	newOpts := copyTxOpts(a.txOpts)
-	newOpts.Value = prevCreationInfo.RequiredStake
-	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
-		return nil, errors.New("inbox max count was not a uint64")
+	if postState.GlobalState.Batch == 0 {
+		return nil, errors.New("assertion post state cannot have a batch count of 0, as only genesis can")
 	}
-	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
+	bridgeAddr, err := a.userLogic.Bridge(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not retrieve bridge address for user rollup logic contract")
+	}
+	bridge, err := bridgegen.NewIBridgeCaller(bridgeAddr, a.backend)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
+	}
+	inboxBatchAcc, err := bridge.SequencerInboxAccs(
+		&bind.CallOpts{Context: ctx},
+		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
+	}
+
+	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
+		&bind.CallOpts{Context: ctx},
+		parentAssertionCreationInfo.AssertionHash,
+		postState.AsSolidityStruct(),
+		inboxBatchAcc,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not compute assertion hash")
+	}
+	existingAssertion, err := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+	switch {
+	case err == nil:
+		return existingAssertion, nil
+	case !errors.Is(err, ErrNotFound):
+		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
+	default:
+	}
+
+	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(
 			newOpts,
+			parentAssertionCreationInfo.RequiredStake,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					PrevPrevAssertionHash: assertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     assertionCreationInfo.AfterInboxBatchAcc,
+					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+					SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
 					ConfigData: rollupgen.ConfigData{
-						RequiredStake:       prevCreationInfo.RequiredStake,
-						ChallengeManager:    prevCreationInfo.ChallengeManager,
-						ConfirmPeriodBlocks: prevCreationInfo.ConfirmPeriodBlocks,
-						WasmModuleRoot:      prevCreationInfo.WasmModuleRoot,
-						NextInboxPosition:   assertionCreationInfo.InboxMaxCount.Uint64(),
+						RequiredStake:       parentAssertionCreationInfo.RequiredStake,
+						ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
+						ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
+						WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
+						NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
 					},
 				},
-				BeforeState: assertionCreationInfo.AfterState,
+				BeforeState: parentAssertionCreationInfo.AfterState,
 				AfterState:  postState.AsSolidityStruct(),
 			},
-			// TODO(RJ): Use the expected assertion hash as a sanity check.
-			common.Hash{},
+			computedHash,
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
@@ -192,24 +218,30 @@ func (a *AssertionChain) CreateAssertion(
 	if !found {
 		return nil, errors.New("could not find assertion created event in logs")
 	}
-	return a.GetAssertion(ctx, assertionCreated.AssertionHash)
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
+}
+
+func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
+	return a.userLogic.GenesisAssertionHash(&bind.CallOpts{Context: ctx})
 }
 
 // ConfirmAssertionByChallengeWinner attempts to confirm an assertion onchain
 // if there is a winning, level zero, block challenge edge that claims it.
 func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	ctx context.Context,
-	assertionId protocol.AssertionId,
+	assertionHash protocol.AssertionHash,
 	winningEdgeId protocol.EdgeId,
 ) error {
-	node, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, assertionId)
+	var b [32]byte
+	copy(b[:], assertionHash.Bytes())
+	node, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 	if err != nil {
 		return err
 	}
 	if node.Status == uint8(protocol.AssertionConfirmed) {
 		return nil
 	}
-	creationInfo, err := a.ReadAssertionCreationInfo(ctx, assertionId)
+	creationInfo, err := a.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return err
 	}
@@ -217,7 +249,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if creationInfo.ParentAssertionHash == [32]byte{} {
 		return nil
 	}
-	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionId(creationInfo.ParentAssertionHash))
+	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
 		return err
 	}
@@ -225,7 +257,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if err != nil {
 		return err
 	}
-	if creationInfo.ParentAssertionHash != common.Hash(latestConfirmed.Id()) {
+	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
 		return fmt.Errorf(
 			"parent id %#x is not the latest confirmed assertion %#x",
 			creationInfo.ParentAssertionHash,
@@ -235,10 +267,10 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if !prevCreationInfo.InboxMaxCount.IsUint64() {
 		return errors.New("assertion prev creation info inbox max count was not a uint64")
 	}
-	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
+	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return a.userLogic.RollupUserLogicTransactor.ConfirmAssertion(
 			copyTxOpts(a.txOpts),
-			assertionId,
+			b,
 			creationInfo.ParentAssertionHash,
 			creationInfo.AfterState,
 			winningEdgeId,
@@ -274,42 +306,112 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 		challengeManagerAddr,
 		a,
 		a.backend,
-		a.headerReader,
 		a.txOpts,
 	)
 }
 
-// TODO: Implement this logic.
-func (a *AssertionChain) AssertionUnrivaledTime(_ context.Context, _ protocol.AssertionId) (uint64, error) {
-	return 0, nil
+// AssertionUnrivaledBlocks gets the number of blocks an assertion was unrivaled. That is, it looks up the
+// assertion's parent, and from that parent, computes second_child_creation_block - first_child_creation_block.
+// If an assertion is a second child, this function will return 0.
+func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
+	var b [32]byte
+	copy(b[:], assertionHash.Bytes())
+	wantNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+	if err != nil {
+		return 0, err
+	}
+	if wantNode.Status == uint8(protocol.NoAssertion) {
+		return 0, errors.Wrapf(
+			ErrNotFound,
+			"assertion with id %#x",
+			assertionHash,
+		)
+	}
+	// If the assertion requested is not the first child, it was never unrivaled.
+	if !wantNode.IsFirstChild {
+		return 0, nil
+	}
+	assertion := &Assertion{
+		id:    assertionHash,
+		chain: a,
+	}
+	prevId, err := assertion.PrevId(ctx)
+	if err != nil {
+		return 0, err
+	}
+	copy(b[:], prevId.Bytes())
+	prevNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+	if err != nil {
+		return 0, err
+	}
+	if prevNode.Status == uint8(protocol.NoAssertion) {
+		return 0, errors.Wrapf(
+			ErrNotFound,
+			"assertion with id %#x",
+			assertionHash,
+		)
+	}
+	// If there is no second child, we simply return the number of blocks
+	// since the assertion was created and its parent.
+	if prevNode.SecondChildBlock == 0 {
+		latestHeader, err := a.backend.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return 0, err
+		}
+		if !latestHeader.Number.IsUint64() {
+			return 0, errors.New("latest header number is not a uint64")
+		}
+		num := latestHeader.Number.Uint64()
+
+		// Should never happen.
+		if wantNode.CreatedAtBlock > num {
+			return 0, fmt.Errorf(
+				"assertion creation block %d > latest block number %d for assertion hash %#x",
+				wantNode.CreatedAtBlock,
+				num,
+				assertionHash,
+			)
+		}
+		return num - wantNode.CreatedAtBlock, nil
+	}
+	// Should never happen.
+	if prevNode.FirstChildBlock > prevNode.SecondChildBlock {
+		return 0, fmt.Errorf(
+			"first child creation block %d > second child creation block %d for assertion hash %#x",
+			prevNode.FirstChildBlock,
+			prevNode.SecondChildBlock,
+			prevId,
+		)
+	}
+	return prevNode.SecondChildBlock - prevNode.FirstChildBlock, nil
 }
 
-func (a *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionId, error) {
+func (a *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error) {
 	cm, err := a.SpecChallengeManager(ctx)
 	if err != nil {
-		return protocol.AssertionId{}, err
+		return protocol.AssertionHash{}, err
 	}
 	edgeOpt, err := cm.GetEdge(ctx, edgeId)
 	if err != nil {
-		return protocol.AssertionId{}, err
+		return protocol.AssertionHash{}, err
 	}
 	if edgeOpt.IsNone() {
-		return protocol.AssertionId{}, errors.New("edge was nil")
+		return protocol.AssertionHash{}, errors.New("edge was nil")
 	}
-	return edgeOpt.Unwrap().AssertionId(ctx)
+	return edgeOpt.Unwrap().AssertionHash(ctx)
 }
 
-func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (*protocol.OriginHeights, error) {
+func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (protocol.OriginHeights, error) {
 	cm, err := a.SpecChallengeManager(ctx)
 	if err != nil {
-		return nil, err
+		return protocol.OriginHeights{}, err
 	}
 	edgeOpt, err := cm.GetEdge(ctx, edgeId)
 	if err != nil {
-		return nil, err
+		return protocol.OriginHeights{}, err
 	}
 	if edgeOpt.IsNone() {
-		return nil, errors.New("edge was nil")
+		return protocol.OriginHeights{}, errors.New("edge was nil")
 	}
 	edge := edgeOpt.Unwrap()
 	return edge.TopLevelClaimHeight(ctx)
@@ -341,17 +443,17 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, creationEvent.AssertionHash)
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
 }
 
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
-	ctx context.Context, id protocol.AssertionId,
+	ctx context.Context, id protocol.AssertionHash,
 ) (*protocol.AssertionCreatedInfo, error) {
 	var creationBlock uint64
 	var topics [][]common.Hash
-	if id == (protocol.AssertionId{}) {
+	if id == (protocol.AssertionHash{}) {
 		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return nil, err
@@ -362,12 +464,14 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		creationBlock = rollupDeploymentBlock.Uint64()
 		topics = [][]common.Hash{{assertionCreatedId}}
 	} else {
-		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
+		var b [32]byte
+		copy(b[:], id.Bytes())
+		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 		if err != nil {
 			return nil, err
 		}
 		creationBlock = node.CreatedAtBlock
-		topics = [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}}
+		topics = [][]common.Hash{{assertionCreatedId}, {id.Hash}}
 	}
 	var query = ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(creationBlock),
@@ -432,7 +536,7 @@ func handleCreateAssertionError(err error, blockHash common.Hash) error {
 // an optional transaction receipt. It returns an error if the
 // transaction had a failed status on-chain, or if the execution of the callback
 // failed directly.
-func transact(ctx context.Context, backend ChainBackend, _ *headerreader.HeaderReader, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
+func transact(ctx context.Context, backend ChainBackend, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
 	tx, err := fn()
 	if err != nil {
 		return nil, err

@@ -1,3 +1,6 @@
+// Copyright 2023, Offchain Labs, Inc.
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+
 package setup
 
 import (
@@ -13,7 +16,6 @@ import (
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
 	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	simulated_backend "github.com/OffchainLabs/challenge-protocol-v2/testing/setup/simulated-backend"
 	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -21,11 +23,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
 
-type SetupBackend interface {
+type Backend interface {
 	bind.DeployBackend
 	bind.ContractBackend
 }
@@ -62,13 +63,14 @@ func CreateTwoValidatorFork(
 		setup.Backend.Commit()
 	}
 
-	genesisState := &protocol.ExecutionState{
-		GlobalState: protocol.GoGlobalState{
-			BlockHash: common.Hash{},
-		},
-		MachineStatus: protocol.MachineStatusFinished,
+	genesisHash, err := setup.Chains[1].GenesisAssertionHash(ctx)
+	if err != nil {
+		return nil, err
 	}
-	_ = genesisState
+	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	if err != nil {
+		return nil, err
+	}
 
 	honestStateManager, err := statemanager.NewForSimpleMachine()
 	if err != nil {
@@ -91,15 +93,7 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	genesisCreationInfo := &protocol.AssertionCreatedInfo{
-		AfterState: (&protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
-		}).AsSolidityStruct(),
-		InboxMaxCount: big.NewInt(1),
-	}
-
-	honestPostState, err := honestStateManager.LatestExecutionState(ctx)
+	honestPostState, err := honestStateManager.ExecutionStateAtMessageNumber(ctx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +106,7 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	evilPostState, err := evilStateManager.LatestExecutionState(ctx)
+	evilPostState, err := evilStateManager.ExecutionStateAtMessageNumber(ctx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -142,16 +136,55 @@ type ChainSetup struct {
 	Accounts     []*TestAccount
 	Addrs        *RollupAddresses
 	Backend      *backends.SimulatedBackend
-	L1Reader     *headerreader.HeaderReader
 	RollupConfig rollupgen.Config
 }
 
 func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	ctx := context.Background()
-	accs, backend, err := Accounts(3)
+	accs, backend, err := Accounts(4)
 	if err != nil {
 		return nil, err
 	}
+
+	stakeToken, tx, tokenBindings, err := mocksgen.DeployTestWETH9(
+		accs[0].TxOpts,
+		backend,
+		"Weth",
+		"WETH",
+	)
+	if err != nil {
+		return nil, err
+	}
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for transaction")
+	}
+	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return nil, err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, errors.New("receipt failed")
+	}
+	value, ok := new(big.Int).SetString("10000000000000000000000", 10)
+	if !ok {
+		return nil, errors.New("could not set value")
+	}
+	accs[0].TxOpts.Value = value
+	mintTx, err := tokenBindings.Deposit(accs[0].TxOpts)
+	if err != nil {
+		return nil, err
+	}
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, mintTx); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for transaction")
+	}
+	receipt, err = backend.TransactionReceipt(ctx, mintTx.Hash())
+	if err != nil {
+		return nil, err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, errors.New("receipt failed")
+	}
+	accs[0].TxOpts.Value = big.NewInt(0)
 
 	prod := false
 	wasmModuleRoot := common.Hash{}
@@ -166,6 +199,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		chainId,
 		loserStakeEscrow,
 		miniStake,
+		stakeToken,
 	)
 	addresses, err := DeployFullRollupStack(
 		ctx,
@@ -178,15 +212,12 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		return nil, err
 	}
 
-	headerReader := headerreader.New(simulated_backend.Wrapper{SimulatedBackend: backend}, func() *headerreader.Config { return &headerreader.TestConfig })
-	headerReader.Start(ctx)
-	chains := make([]*solimpl.AssertionChain, 2)
+	chains := make([]*solimpl.AssertionChain, 3)
 	chain1, err := solimpl.NewAssertionChain(
 		ctx,
 		addresses.Rollup,
 		accs[1].TxOpts,
 		backend,
-		headerReader,
 	)
 	if err != nil {
 		return nil, err
@@ -197,17 +228,80 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		addresses.Rollup,
 		accs[2].TxOpts,
 		backend,
-		headerReader,
 	)
 	if err != nil {
 		return nil, err
 	}
 	chains[1] = chain2
+	chain3, err := solimpl.NewAssertionChain(
+		ctx,
+		addresses.Rollup,
+		accs[3].TxOpts,
+		backend,
+	)
+	if err != nil {
+		return nil, err
+	}
+	chains[2] = chain3
+
+	chalManager, err := chains[1].SpecChallengeManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	chalManagerAddr := chalManager.Address()
+	seed, ok := new(big.Int).SetString("10000", 10)
+	if !ok {
+		return nil, errors.New("could not set big int")
+	}
+	for _, acc := range accs {
+		transferTx, err := tokenBindings.TestWETH9Transactor.Transfer(accs[0].TxOpts, acc.TxOpts.From, seed)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, transferTx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "failed waiting for transfer transaction")
+		}
+		receipt, err := backend.TransactionReceipt(ctx, transferTx.Hash())
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, errors.New("receipt failed")
+		}
+		approveTx, err := tokenBindings.TestWETH9Transactor.Approve(acc.TxOpts, addresses.Rollup, value)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "failed waiting for approval transaction")
+		}
+		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, errors.New("receipt failed")
+		}
+		approveTx, err = tokenBindings.TestWETH9Transactor.Approve(acc.TxOpts, chalManagerAddr, value)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not approve account")
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "failed waiting for approval transaction")
+		}
+		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get tx receipt")
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, errors.New("receipt failed")
+		}
+	}
+
 	return &ChainSetup{
 		Chains:       chains,
 		Accounts:     accs,
 		Addrs:        addresses,
-		L1Reader:     headerReader,
 		Backend:      backend,
 		RollupConfig: cfg,
 	}, nil
@@ -226,7 +320,7 @@ type RollupAddresses struct {
 
 func DeployFullRollupStack(
 	ctx context.Context,
-	backend SetupBackend,
+	backend Backend,
 	deployAuth *bind.TransactOpts,
 	sequencer common.Address,
 	config rollupgen.Config,
@@ -330,7 +424,7 @@ func DeployFullRollupStack(
 func deployBridgeCreator(
 	ctx context.Context,
 	auth *bind.TransactOpts,
-	backend SetupBackend,
+	backend Backend,
 ) (common.Address, error) {
 	bridgeTemplate, tx, _, err := bridgegen.DeployBridge(auth, backend)
 	if err != nil {
@@ -406,7 +500,7 @@ func deployBridgeCreator(
 func deployChallengeFactory(
 	ctx context.Context,
 	auth *bind.TransactOpts,
-	backend SetupBackend,
+	backend Backend,
 ) (common.Address, common.Address, error) {
 	ospEntryAddr, tx, _, err := mocksgen.DeploySimpleOneStepProofEntry(auth, backend)
 	err = challenge_testing.TxSucceeded(ctx, tx, ospEntryAddr, backend, err)
@@ -430,7 +524,7 @@ func deployChallengeFactory(
 
 func deployRollupCreator(
 	ctx context.Context,
-	backend SetupBackend,
+	backend Backend,
 	auth *bind.TransactOpts,
 ) (*rollupgen.RollupCreator, common.Address, common.Address, common.Address, common.Address, error) {
 	bridgeCreator, err := deployBridgeCreator(ctx, auth, backend)
@@ -497,7 +591,7 @@ func deployRollupCreator(
 	return rollupCreator, rollupUserLogic, rollupCreatorAddress, common.Address{}, validatorWalletCreator, nil
 }
 
-// Represents a test EOA account in the simulated backend,
+// TestAccount represents a test EOA account in the simulated backend,
 type TestAccount struct {
 	AccountAddr common.Address
 	TxOpts      *bind.TransactOpts

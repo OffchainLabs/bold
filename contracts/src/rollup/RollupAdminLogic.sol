@@ -54,6 +54,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         loserStakeEscrow = config.loserStakeEscrow;
 
         stakeToken = config.stakeToken;
+        anyTrustFastConfirmer = config.anyTrustFastConfirmer;
 
         bytes32 genesisExecutionHash = RollupLib.executionStateHash(config.genesisExecutionState);
         bytes32 parentAssertionHash = bytes32(0);
@@ -228,7 +229,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     }
 
     function forceCreateAssertion(
-        bytes32 prevAssertionId,
+        bytes32 prevAssertionHash,
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash
     ) external override whenPaused {
@@ -243,19 +244,19 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         // Normally, a new assertion is created using its prev's confirmPeriodBlocks
         // in the case of a force create, we use the rollup's current confirmPeriodBlocks
-        createNewAssertion(assertion, prevAssertionId, expectedAssertionHash);
+        createNewAssertion(assertion, prevAssertionHash, expectedAssertionHash);
 
         emit OwnerFunctionCalled(23);
     }
 
     function forceConfirmAssertion(
-        bytes32 assertionId,
+        bytes32 assertionHash,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
         bytes32 inboxAcc
     ) external override whenPaused {
-        // this skips deadline, staker and zombie validation
-        confirmAssertionInternal(assertionId, parentAssertionHash, confirmState, inboxAcc);
+        // this skip deadline, prev, challenge validations
+        confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc);
         emit OwnerFunctionCalled(24);
     }
 
@@ -301,5 +302,14 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function setValidatorWhitelistDisabled(bool _validatorWhitelistDisabled) external {
         validatorWhitelistDisabled = _validatorWhitelistDisabled;
         emit OwnerFunctionCalled(30);
+    }
+
+    /**
+     * @notice set the anyTrustFastConfirmer address
+     * @param _anyTrustFastConfirmer new value of anyTrustFastConfirmer
+     */
+    function setAnyTrustFastConfirmer(address _anyTrustFastConfirmer) external {
+        anyTrustFastConfirmer = _anyTrustFastConfirmer;
+        emit OwnerFunctionCalled(31);
     }
 }

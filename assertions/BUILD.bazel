@@ -6,19 +6,19 @@ go_library(
         "poster.go",
         "scanner.go",
     ],
-    importpath = "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/assertions",
+    importpath = "github.com/OffchainLabs/challenge-protocol-v2/assertions",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
-        "//challenge-manager",
+        "//challenge-manager/types",
         "//layer2-state-provider",
         "//runtime",
         "//solgen/go/rollupgen",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//log",
         "@com_github_pkg_errors//:errors",
-        "@com_github_sirupsen_logrus//:logrus",
     ],
 )
 
@@ -32,13 +32,13 @@ go_test(
     deps = [
         "//chain-abstraction:protocol",
         "//challenge-manager",
+        "//challenge-manager/types",
         "//containers/option",
+        "//layer2-state-provider",
         "//solgen/go/rollupgen",
-        "//testing/logging",
         "//testing/mocks",
         "//testing/setup:setup_lib",
         "@com_github_ethereum_go_ethereum//common",
-        "@com_github_sirupsen_logrus//hooks/test",
         "@com_github_stretchr_testify//require",
     ],
 )

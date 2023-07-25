@@ -14,8 +14,10 @@ go_library(
         "//runtime",
         "//solgen/go/challengeV2gen",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//log",
+        "@com_github_ethereum_go_ethereum//metrics",
         "@com_github_pkg_errors//:errors",
-        "@com_github_sirupsen_logrus//:logrus",
     ],
 )
 
@@ -28,6 +30,7 @@ go_test(
         "//challenge-manager/challenge-tree",
         "//containers/option",
         "//containers/threadsafe",
+        "//layer2-state-provider",
         "//solgen/go/challengeV2gen",
         "//testing/mocks",
         "@com_github_ethereum_go_ethereum//common",
