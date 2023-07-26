@@ -76,12 +76,13 @@ func (m *MockStateManager) HistoryCommitmentAtMessage(ctx context.Context, heigh
 func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	prevInboxMaxCount uint64,
+	inboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	originHeights protocol.OriginHeights,
 	history l2stateprovider.History,
 ) (bool, error) {
-	args := m.Called(ctx, wasmModuleRoot, prevInboxMaxCount, edgeType, originHeights, history)
+	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, edgeType, originHeights, history)
 	return args.Get(0).(bool), args.Error(1)
 }
 

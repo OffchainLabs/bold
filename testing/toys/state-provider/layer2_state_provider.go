@@ -268,7 +268,8 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, messageNu
 func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	prevAssertionInboxMaxCount uint64,
+	assertionInboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	heights protocol.OriginHeights,
 	commit l2stateprovider.History,
@@ -277,7 +278,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, prevAssertionInboxMaxCount, prevAssertionInboxMaxCount+commit.Height, prevAssertionInboxMaxCount)
+		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
 		if err != nil {
 			return false, err
 		}

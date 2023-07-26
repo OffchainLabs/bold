@@ -68,6 +68,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -81,6 +82,7 @@ func TestAddEdge(t *testing.T) {
 			"AgreesWithHistoryCommitment",
 			ctx,
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -108,6 +110,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -122,6 +125,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -159,6 +163,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -173,6 +178,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -216,6 +222,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -230,6 +237,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -267,6 +275,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
@@ -281,6 +290,7 @@ func TestAddEdge(t *testing.T) {
 			ctx,
 			common.Hash{},
 			uint64(1),
+			uint64(0),
 			protocol.BlockChallengeEdge,
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,

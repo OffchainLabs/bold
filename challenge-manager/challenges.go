@@ -74,7 +74,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
-	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionInfo.InboxMaxCount.Uint64())
+	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
+	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionAfterState.GlobalState.Batch)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,8 +89,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
-		parentAssertionInfo.InboxMaxCount.Uint64(),
-		parentAssertionInfo.InboxMaxCount.Uint64()+levelZeroBlockEdgeHeight,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
@@ -97,9 +98,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	startEndPrefixProof, err := m.stateManager.PrefixProofUpToBatch(
 		ctx,
-		parentAssertionInfo.InboxMaxCount.Uint64(),
-		parentAssertionInfo.InboxMaxCount.Uint64(),
-		parentAssertionInfo.InboxMaxCount.Uint64()+levelZeroBlockEdgeHeight,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {

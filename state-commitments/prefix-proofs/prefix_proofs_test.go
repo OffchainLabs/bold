@@ -56,9 +56,9 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(t, err)
 
-	loCommit, err := manager.HistoryCommitmentAtMessage(ctx, 3)
+	loCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 3, 10)
 	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitmentAtMessage(ctx, 7)
+	hiCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 7, 10)
 	require.NoError(t, err)
 	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 7, 1)
 	require.NoError(t, err)
@@ -109,9 +109,9 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(t, err)
 
-	loCommit, err := manager.HistoryCommitmentAtMessage(ctx, 3)
+	loCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 3, 10)
 	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitmentAtMessage(ctx, 6)
+	hiCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 6, 10)
 	require.NoError(t, err)
 	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 6, 1)
 	require.NoError(t, err)

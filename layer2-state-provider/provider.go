@@ -144,7 +144,8 @@ type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
-		prevAssertionInboxMaxCount uint64,
+		assertionInboxMaxCount uint64,
+		parentAssertionAfterStateBatch uint64,
 		edgeType protocol.EdgeType,
 		heights protocol.OriginHeights,
 		history History,
