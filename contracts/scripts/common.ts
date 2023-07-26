@@ -39,4 +39,5 @@ export interface Config {
 
 export const validateConfig = (config: Config) => {
   // CHRIS: TODO: ensure vals are valid
+  // CHRIS: TODO: check the proxy admins are actual contracts
 }
