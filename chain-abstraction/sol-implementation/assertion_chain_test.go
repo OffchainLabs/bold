@@ -337,15 +337,13 @@ func TestLatestCreatedAssertion(t *testing.T) {
 	// Note: *big.Int values cannot be nil.
 	latest := &rollupgen.RollupCoreAssertionCreated{
 		Assertion: rollupgen.AssertionInputs{
-			BeforeStateData: rollupgen.BeforeStateData{ConfigData: rollupgen.ConfigData{RequiredStake: big.NewInt(0)}},
+			BeforeStateData: rollupgen.BeforeStateData{
+				ConfigData: rollupgen.ConfigData{RequiredStake: big.NewInt(0)},
+			},
 		},
 		InboxMaxCount: big.NewInt(0),
 		RequiredStake: big.NewInt(0),
 	}
-
-	// The backend is bad and sent logs in the wrong order and also
-	// sent "removed" logs from a nasty reorg.
-	evtID := abiEvt.ID
 
 	// Use the latest confirmed assertion as the last assertion.
 	expected, err := chain.LatestConfirmed(ctx)
@@ -357,9 +355,13 @@ func TestLatestCreatedAssertion(t *testing.T) {
 	var fakeAssertionID [32]byte
 	copy(fakeAssertionID[:], []byte("fake assertion id as parent"))
 
+	evtID := abiEvt.ID
 	validTopics := []common.Hash{evtID, latestAssertionID, fakeAssertionID}
 	// Invalid topics will return an error when trying to lookup an assertion with the fake ID.
 	invalidTopics := []common.Hash{evtID, fakeAssertionID, fakeAssertionID}
+
+	// The backend is bad and sent logs in the wrong order and also
+	// sent "removed" logs from a nasty reorg.
 	logs := []types.Log{
 		{
 			BlockNumber: 120,
