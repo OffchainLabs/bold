@@ -450,7 +450,8 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 		if l.Removed {
 			continue
 		}
-		if l.BlockNumber > latestBlockNumber || (l.BlockNumber == latestBlockNumber && l.Index >= latestLogIndex) {
+		if l.BlockNumber > latestBlockNumber ||
+			(l.BlockNumber == latestBlockNumber && l.Index >= latestLogIndex) {
 			latestBlockNumber = l.BlockNumber
 			latestLogIndex = l.Index
 			latestLog = &l
