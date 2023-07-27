@@ -77,6 +77,7 @@ async function main() {
   deployedContracts.upgradeExecutor = upExec.address
 
   console.log(`Deployed contracts written to: ${deployedContractsLocation}`)
+  console.log(JSON.stringify(deployedContracts, null, 2))
   fs.writeFileSync(
     deployedContractsLocation,
     JSON.stringify(deployedContracts, null, 2)
