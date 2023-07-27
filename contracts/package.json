@@ -28,11 +28,13 @@
     "build:0.7": "INTERFACE_TESTER_SOLC_VERSION=0.7.0 yarn run build",
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7",
     "test:storage": "./test/storage/test.bash",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "script:local-prepare": "ts-node ./scripts/testLocalPrepareTestNode.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.7.3",
     "@openzeppelin/contracts-upgradeable": "4.7.3",
+    "dotenv": "^16.3.1",
     "hardhat": "^2.6.6"
   },
   "private": false,

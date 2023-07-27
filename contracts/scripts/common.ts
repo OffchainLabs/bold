@@ -19,8 +19,17 @@ export const getJsonFile = (fileLocation: string) => {
 }
 
 export interface Config {
+  contracts: {
+    l1Timelock: string
+    rollup: string
+    bridge: string
+    sequencerInbox: string
+    rollupEventInbox: string
+    outbox: string
+    inbox: string
+    osp: string
+  }
   addressReg: string
-  osp: string
   proxyAdmins: {
     outbox: string
     bridge: string

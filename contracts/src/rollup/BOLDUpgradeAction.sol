@@ -142,17 +142,6 @@ contract RollupReader is IOldRollup {
     }
 }
 
-interface IAddressRegistry {
-    // CHRIS: TODO: consider creating a generic cross chain receiver contract for the escrow funds
-    function l1Timelock() external returns (address);
-    function rollup() external returns (IOldRollup);
-    function bridge() external returns (address);
-    function sequencerInbox() external returns (address);
-    function rollupEventInbox() external returns (address);
-    function outbox() external returns (address);
-    function inbox() external returns (address);
-}
-
 /// @title  Upgrades an Arbitrum rollup to the new challenge protocol
 /// @notice Requires implementation contracts to be pre-deployed and provided in the constructor
 ///         Also requires a lookup contract to be provided that contains the pre-image of the state hash
@@ -163,7 +152,13 @@ contract BOLDUpgradeAction {
     uint256 public constant BIGSTEP_LEAF_SIZE = 2 ^ 23;
     uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ^ 20;
 
-    IAddressRegistry public immutable ADDRESS_REG;
+    address public immutable L1_TIMELOCK;
+    IOldRollup public immutable ROLLUP;
+    address public immutable BRIDGE;
+    address public immutable SEQ_INBOX;
+    address public immutable REI;
+    address public immutable OUTBOX;
+    address public immutable INBOX;
     
     uint64 public immutable CONFIRM_PERIOD_BLOCKS;
     address public immutable STAKE_TOKEN;
@@ -221,23 +216,38 @@ contract BOLDUpgradeAction {
         address challengeManager;
     }
 
+    struct Contracts {
+        address l1Timelock;
+        IOldRollup rollup;
+        address bridge;
+        address sequencerInbox;
+        address rollupEventInbox;
+        address outbox;
+        address inbox;
+        IOneStepProofEntry osp;
+    }
+
     constructor(
-        IAddressRegistry addressReg,
-        IOneStepProofEntry osp,
+        Contracts memory contracts,
         ProxyAdmins memory proxyAdmins,
-        StateHashPreImageLookup lookup,
-        RollupReader rollupReader,
         Implementations memory implementations,
         Settings memory settings
     ) {
-        ADDRESS_REG = addressReg;
-        OSP = osp;
+        L1_TIMELOCK = contracts.l1Timelock;
+        ROLLUP = contracts.rollup;
+        BRIDGE = contracts.bridge;
+        SEQ_INBOX = contracts.sequencerInbox;
+        REI = contracts.rollupEventInbox;
+        OUTBOX = contracts.outbox;
+        INBOX = contracts.inbox;
+        OSP = contracts.osp;
+
         PROXY_ADMIN_OUTBOX = ProxyAdmin(proxyAdmins.outbox);
         PROXY_ADMIN_BRIDGE = ProxyAdmin(proxyAdmins.bridge);
         PROXY_ADMIN_REI = ProxyAdmin(proxyAdmins.rei);
         PROXY_ADMIN_SEQUENCER_INBOX = ProxyAdmin(proxyAdmins.seqInbox);
-        PREIMAGE_LOOKUP = lookup;
-        ROLLUP_READER = rollupReader;
+        PREIMAGE_LOOKUP = new StateHashPreImageLookup();
+        ROLLUP_READER = new RollupReader(contracts.rollup);
 
         IMPL_BRIDGE = implementations.bridge;
         IMPL_SEQUENCER_INBOX = implementations.seqInbox;
@@ -259,7 +269,7 @@ contract BOLDUpgradeAction {
     /// @dev    Refund the existing stakers, pause and upgrade the current rollup to
     ///         allow them to withdraw after pausing
     function cleanupOldRollup() private {
-        IOldRollup oldRollup = ADDRESS_REG.rollup();
+        IOldRollup oldRollup = ROLLUP;
         IOldRollupAdmin(address(oldRollup)).pause();
 
         uint64 stakerCount = ROLLUP_READER.stakerCount();
@@ -285,7 +295,7 @@ contract BOLDUpgradeAction {
 
     /// @dev    Create a config for the new rollup - fetches the latest confirmed
     ///         assertion from the old rollup and uses it as genesis
-    function createConfig() private returns (Config memory) {
+    function createConfig() private view returns (Config memory) {
         // fetch the assertion associated with the latest confirmed state
         bytes32 latestConfirmedStateHash = ROLLUP_READER.getNode(ROLLUP_READER.latestConfirmed()).stateHash;
         (ExecutionState memory genesisExecState, uint256 inboxMaxCount) = PREIMAGE_LOOKUP.get(latestConfirmedStateHash);
@@ -302,7 +312,7 @@ contract BOLDUpgradeAction {
             baseStake: STAKE_AMOUNT,
             wasmModuleRoot: ROLLUP_READER.wasmModuleRoot(),
             owner: address(this), // upgrade executor is the owner
-            loserStakeEscrow: ADDRESS_REG.l1Timelock(), // additional funds get sent to the l1 timelock
+            loserStakeEscrow: L1_TIMELOCK, // additional funds get sent to the l1 timelock
             chainId: CHAIN_ID,
             miniStakeValue: MINI_STAKE_AMOUNT,
             sequencerInboxMaxTimeVariation: maxTimeVariation,
@@ -319,14 +329,14 @@ contract BOLDUpgradeAction {
         // now we upgrade each of the contracts that a reference to the rollup address
         // first we upgrade to an implementation which allows setting, then set the rollup address
         // then we revert to the previous implementation since we dont require this functionality going forward
-        TransparentUpgradeableProxy bridge = TransparentUpgradeableProxy(payable(ADDRESS_REG.bridge()));
+        TransparentUpgradeableProxy bridge = TransparentUpgradeableProxy(payable(BRIDGE));
         address currentBridgeImpl = bridge.implementation();
         PROXY_ADMIN_BRIDGE.upgradeAndCall(
             bridge, IMPL_BRIDGE, abi.encodeWithSelector(IBridge.updateRollupAddress.selector, newRollupAddress)
         );
         PROXY_ADMIN_BRIDGE.upgrade(bridge, currentBridgeImpl);
 
-        TransparentUpgradeableProxy sequencerInbox = TransparentUpgradeableProxy(payable(ADDRESS_REG.sequencerInbox()));
+        TransparentUpgradeableProxy sequencerInbox = TransparentUpgradeableProxy(payable(SEQ_INBOX));
         address currentSequencerInboxImpl = sequencerInbox.implementation();
         PROXY_ADMIN_SEQUENCER_INBOX.upgradeAndCall(
             sequencerInbox, IMPL_SEQUENCER_INBOX, abi.encodeWithSelector(IOutbox.updateRollupAddress.selector)
@@ -334,14 +344,14 @@ contract BOLDUpgradeAction {
         PROXY_ADMIN_SEQUENCER_INBOX.upgrade(sequencerInbox, currentSequencerInboxImpl);
 
         TransparentUpgradeableProxy rollupEventInbox =
-            TransparentUpgradeableProxy(payable(ADDRESS_REG.rollupEventInbox()));
+            TransparentUpgradeableProxy(payable(REI));
         address currentRollupEventInboxImpl = rollupEventInbox.implementation();
         PROXY_ADMIN_REI.upgradeAndCall(
             rollupEventInbox, IMPL_REI, abi.encodeWithSelector(IOutbox.updateRollupAddress.selector)
         );
         PROXY_ADMIN_REI.upgrade(rollupEventInbox, currentRollupEventInboxImpl);
 
-        TransparentUpgradeableProxy outbox = TransparentUpgradeableProxy(payable(ADDRESS_REG.outbox()));
+        TransparentUpgradeableProxy outbox = TransparentUpgradeableProxy(payable(OUTBOX));
         address currentOutboxImpl = outbox.implementation();
         PROXY_ADMIN_OUTBOX.upgradeAndCall(
             outbox, IMPL_OUTBOX, abi.encodeWithSelector(IOutbox.updateRollupAddress.selector)
@@ -386,17 +396,17 @@ contract BOLDUpgradeAction {
             layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
             _stakeToken: IERC20(config.stakeToken),
             _stakeAmount: config.miniStakeValue,
-            _excessStakeReceiver: ADDRESS_REG.l1Timelock()
+            _excessStakeReceiver: L1_TIMELOCK
         });
 
         // now that all the dependent contracts are pointed at the new address we can
         // deploy and init the new rollup
         ContractDependencies memory connectedContracts = ContractDependencies({
-            bridge: IBridge(ADDRESS_REG.bridge()),
-            sequencerInbox: ISequencerInbox(ADDRESS_REG.sequencerInbox()),
-            inbox: IInbox(ADDRESS_REG.inbox()),
-            outbox: IOutbox(ADDRESS_REG.outbox()),
-            rollupEventInbox: IRollupEventInbox(ADDRESS_REG.rollupEventInbox()),
+            bridge: IBridge(BRIDGE),
+            sequencerInbox: ISequencerInbox(SEQ_INBOX),
+            inbox: IInbox(INBOX),
+            outbox: IOutbox(OUTBOX),
+            rollupEventInbox: IRollupEventInbox(REI),
             challengeManager: challengeManager,
             rollupAdminLogic: IMPL_NEW_ROLLUP_ADMIN,
             rollupUserLogic: IRollupUser(IMPL_NEW_ROLLUP_USER),

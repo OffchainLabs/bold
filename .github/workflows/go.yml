@@ -153,3 +153,34 @@ jobs:
       - name: Run tests
         run: forge test
 
+  bold-upgrade:
+    name: BOLD upgrade test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+      
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+        
+      - name: Install packages
+        run: yarn
+      
+      - name: Copy .env
+        run: |
+          cp ./scrips/.env-sample ./.env
+
+      - name: Prepare local node
+        run: yarn script:local-prepare
+
+      
+
