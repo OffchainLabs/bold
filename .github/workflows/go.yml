@@ -185,5 +185,10 @@ jobs:
       - name: Prepare local node
         run: yarn script:local-prepare
 
+      - name: Deploy bold dependencies
+        run: yarn script:prepare-bold
+
+      
+
       
 
