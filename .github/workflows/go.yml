@@ -177,7 +177,7 @@ jobs:
       
       - name: Copy .env
         run: |
-          cp ./scrips/.env-sample ./.env
+          cp ./.env-sample ./.env
 
       - name: Prepare local node
         run: yarn script:local-prepare

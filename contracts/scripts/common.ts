@@ -29,7 +29,6 @@ export interface Config {
     inbox: string
     osp: string
   }
-  addressReg: string
   proxyAdmins: {
     outbox: string
     bridge: string
