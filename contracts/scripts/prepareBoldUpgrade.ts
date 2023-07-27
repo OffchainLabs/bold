@@ -2,13 +2,14 @@ import { ethers, Wallet } from 'ethers'
 import fs from 'fs'
 import {
   Config,
+  DeployedContracts,
   getJsonFile,
   validateConfig,
 } from './common'
 import { deployBoldUpgrade } from './boldUpgradeFunctions'
-import dotenv from "dotenv";
+import dotenv from 'dotenv'
 
-dotenv.config();
+dotenv.config()
 
 async function main() {
   const l1RpcVal = process.env.L1_RPC_URL
@@ -35,12 +36,25 @@ async function main() {
     throw new Error('DEPLOYED_CONTRACTS_LOCATION env variable not set')
   }
 
+  // if the deployed contracts exists then we load it and combine
+  // if not, then we just use the newly created item
+  let existingDeployedContracts = {}
+  try {
+    existingDeployedContracts = getJsonFile(
+      deployedContractsLocation
+    ) as DeployedContracts
+  } catch (err) {}
+
   const deployedAndBold = await deployBoldUpgrade(wallet, config, true)
 
   console.log(`Deployed contracts written to: ${deployedContractsLocation}`)
   fs.writeFileSync(
     deployedContractsLocation,
-    JSON.stringify(deployedAndBold, null, 2)
+    JSON.stringify(
+      { ...existingDeployedContracts, ...deployedAndBold },
+      null,
+      2
+    )
   )
 }
 

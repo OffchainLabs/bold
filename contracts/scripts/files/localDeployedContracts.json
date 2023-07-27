@@ -9,5 +9,6 @@
   "challengeManager": "0x2aA24f3B4646E3F42D30E0d87025883ec5e5a195",
   "boldAction": "0xF49f646F0cbc433a9d0b9a83763d6E4349114664",
   "rollupReader": "0x51C6C9eeF79038A38c060e778239B8aaFD4128A7",
-  "preImageHashLookup": "0xDC803E4bb6ba10ed31F59e0511552feAb68173D8"
+  "preImageHashLookup": "0xDC803E4bb6ba10ed31F59e0511552feAb68173D8",
+  "upgradeExecutor": "0x04EC78dAB7072b57d40F5e53D3E1B8fAbDd050A1"
 }
