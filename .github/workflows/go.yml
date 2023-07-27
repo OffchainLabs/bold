@@ -29,7 +29,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: 1.20
       - name: Run Gosec Security Scanner
         run: | # https://github.com/securego/gosec/issues/469
           export PATH=$PATH:$(go env GOPATH)/bin
@@ -46,7 +46,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: 1.20
           id: go
 
       - name: Golangci-lint
@@ -77,7 +77,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: 1.20
         id: go
         
       # Foundry is required for end to end tests
