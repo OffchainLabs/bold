@@ -1023,4 +1023,82 @@ contract RollupTest is Test {
         vm.prank(anyTrustFastConfirmer);
         userRollup.fastConfirmNewAssertion({assertion: assertion, expectedAssertionHash: expectedAssertionHash});
     }
+
+    bytes32 constant _IMPLEMENTATION_PRIMARY_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    bytes32 constant _IMPLEMENTATION_SECONDARY_SLOT = 0x2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d;
+
+    // should only allow admin to upgrade primary logic
+    function testRevertUpgradeNotAdmin() public {
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.expectRevert();
+        adminRollup.upgradeTo(address(newAdminLogicImpl));
+    }
+
+    function testRevertUpgradeNotUUPS() public {
+        vm.prank(owner);
+        vm.expectRevert();
+        adminRollup.upgradeTo(address(rollup));
+    }
+
+    function testRevertUpgradePrimaryAsSecondary() public {
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.prank(owner);
+        vm.expectRevert("ERC1967Upgrade: unsupported secondary proxiableUUID");
+        adminRollup.upgradeSecondaryTo(address(newAdminLogicImpl));
+    }
+
+    function testRevertUpgradeSecondaryAsPrimary() public {
+        RollupUserLogic newUserLogicImpl = new RollupUserLogic();
+        vm.prank(owner);
+        vm.expectRevert("ERC1967Upgrade: unsupported proxiableUUID");
+        adminRollup.upgradeTo(address(newUserLogicImpl));
+    }
+
+    function testSuccessUpgradePrimary() public {
+        address ori_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.prank(owner);
+        adminRollup.upgradeTo(address(newAdminLogicImpl));
+
+        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address new_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        assertEq(address(newAdminLogicImpl), new_primary_impl);
+        assertEq(ori_secondary_impl, new_secondary_impl);
+    }
+
+    function testSuccessUpgradePrimaryAndCall() public {
+        address ori_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.prank(owner);
+        adminRollup.upgradeToAndCall(address(newAdminLogicImpl), abi.encodeCall(adminRollup.pause, ()));
+        assertEq(adminRollup.paused(), true);
+
+        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address new_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        assertEq(address(newAdminLogicImpl), new_primary_impl);
+        assertEq(ori_secondary_impl, new_secondary_impl);
+    }
+
+    function testSuccessUpgradeSecondary() public {
+        address ori_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+
+        RollupUserLogic newUserLogicImpl = new RollupUserLogic();
+        vm.prank(owner);
+        adminRollup.upgradeSecondaryTo(address(newUserLogicImpl));
+
+        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address new_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        assertEq(ori_primary_impl, new_primary_impl);
+        assertEq(address(newUserLogicImpl), new_secondary_impl);
+    }
 }
