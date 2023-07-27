@@ -1,15 +1,15 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package challengetree
 
 import (
 	"context"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/pkg/errors"
 )
 
@@ -91,21 +91,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
 
-	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
-		ctx,
-		creationInfo.WasmModuleRoot,
-		creationInfo.InboxMaxCount.Uint64(),
-		parentAssertionAfterState.GlobalState.Batch,
-		eg.GetType(),
-		heights,
-		l2stateprovider.History{
-			Height:     uint64(startHeight),
-			MerkleRoot: startCommit,
-		},
-	)
-	if err != nil {
-		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
-	}
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		creationInfo.WasmModuleRoot,
@@ -116,6 +101,21 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		l2stateprovider.History{
 			Height:     uint64(endHeight),
 			MerkleRoot: endCommit,
+		},
+	)
+	if err != nil {
+		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
+	}
+	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
+		ctx,
+		creationInfo.WasmModuleRoot,
+		creationInfo.InboxMaxCount.Uint64(),
+		parentAssertionAfterState.GlobalState.Batch,
+		eg.GetType(),
+		heights,
+		l2stateprovider.History{
+			Height:     uint64(startHeight),
+			MerkleRoot: startCommit,
 		},
 	)
 	if err != nil {
