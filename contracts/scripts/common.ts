@@ -12,6 +12,7 @@ export interface DeployedContracts {
   boldAction: string
   rollupReader: string
   preImageHashLookup: string
+  upgradeExecutor?: string
 }
 
 export const getJsonFile = (fileLocation: string) => {
