@@ -30,7 +30,8 @@
     "test:storage": "./test/storage/test.bash",
     "postinstall": "patch-package",
     "script:local-prepare": "ts-node ./scripts/testLocalPrepareTestNode.ts",
-    "script:prepare-bold": "ts-node ./scripts/prepareBoldUpgrade.ts"
+    "script:prepare-bold": "ts-node ./scripts/prepareBoldUpgrade.ts",
+    "script:populate-lookup": "ts-node ./scripts/populateLookup.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.7.3",

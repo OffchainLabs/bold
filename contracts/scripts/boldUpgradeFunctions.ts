@@ -121,48 +121,28 @@ export const deployBoldUpgrade = async (
 
 export const populateLookup = async (
   wallet: Signer,
-  addressRegAddr: string,
+  rollupAddr: string,
   preImageHashLookupAddr: string,
   rollupReaderAddr: string
 ) => {
-  // find the preimage of the state hash of the latest confirmed node in the rollup
-  // and populate it in the lookup
-  const iAddressReg = new Interface([
-    'function rollup() external returns (address)',
-  ])
-  const rollupAddr: string = await new Contract(
-    addressRegAddr,
-    iAddressReg,
-    wallet
-  ).rollup()
-
-  const nodeCreatedEventString =
-    'event NodeCreated(uint64 indexed nodeNum, bytes32 indexed parentNodeHash, bytes32 indexed nodeHash, bytes32 executionHash, Assertion assertion, bytes32 afterInboxBatchAcc, bytes32 wasmModuleRoot, uint256 inboxMaxCount);'
-  const latestConfirmedString =
-    'function latestConfirmed() external view returns (uint64)'
-  const iOldRollup = new Interface([
-    latestConfirmedString,
-    nodeCreatedEventString,
-  ])
-  const latestConfirmed: number = await new Contract(
-    rollupAddr,
-    iOldRollup,
-    wallet
-  ).latestConfirmed()
-
+  const oldRollup = new Contract(rollupAddr, OldRollupAbi, wallet)
+  const latestConfirmed: number = await oldRollup.latestConfirmed()
   const latestConfirmedLog = await wallet.provider!.getLogs({
     address: rollupAddr,
     fromBlock: 0,
     toBlock: 'latest',
     topics: [
-      iOldRollup.getEventTopic('NodeCreated'),
+      oldRollup.interface.getEventTopic('NodeCreated'),
       ethers.utils.hexZeroPad(ethers.utils.hexlify(latestConfirmed), 32),
     ],
   })
+
   if (latestConfirmedLog.length != 1) {
     throw new Error('Could not find latest confirmed node')
   }
-  const latestConfirmedEvent = iOldRollup.parseLog(latestConfirmedLog[0]).args
+  const latestConfirmedEvent = oldRollup.interface.parseLog(
+    latestConfirmedLog[0]
+  ).args
   const afterState: ExecutionStateStruct =
     latestConfirmedEvent.assertion.afterState
   const inboxCount: BigNumber = latestConfirmedEvent.inboxMaxCount
@@ -171,9 +151,11 @@ export const populateLookup = async (
     preImageHashLookupAddr,
     wallet
   )
-
-  const oldRollup = RollupReader__factory.connect(rollupReaderAddr, wallet)
-  const node = await oldRollup.getNode(latestConfirmed)
+  const oldRollupReader = RollupReader__factory.connect(
+    rollupReaderAddr,
+    wallet
+  )
+  const node = await oldRollupReader.getNode(latestConfirmed)
   const stateHash = await lookup.stateHash(afterState, inboxCount)
   if (node.stateHash != stateHash) {
     throw new Error(`State hash mismatch ${node.stateHash} != ${stateHash}}`)

@@ -188,6 +188,9 @@ jobs:
       - name: Deploy bold dependencies
         run: yarn script:prepare-bold
 
+      - name: Populate state hash lookup
+        run: yarn script:prepare-bold
+
       
 
       

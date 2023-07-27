@@ -1,9 +1,9 @@
 import { ethers, Wallet } from 'ethers'
 import { DeployedContracts, getJsonFile, validateConfig } from './common'
 import { populateLookup } from './boldUpgradeFunctions'
-import dotenv from "dotenv";
+import dotenv from 'dotenv'
 
-dotenv.config();
+dotenv.config()
 
 async function main() {
   const l1RpcVal = process.env.L1_RPC_URL
@@ -40,7 +40,7 @@ async function main() {
 
   await populateLookup(
     wallet,
-    config.addressReg,
+    config.contracts.rollup,
     deployedContracts.preImageHashLookup,
     deployedContracts.rollupReader
   )
