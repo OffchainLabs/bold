@@ -191,6 +191,9 @@ jobs:
       - name: Populate state hash lookup
         run: yarn script:prepare-bold
 
+      - name: Execute bold upgrade
+        run: yarn script:local-execute
+
       
 
       
