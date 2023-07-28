@@ -13,6 +13,7 @@ export interface DeployedContracts {
   rollupReader: string
   preImageHashLookup: string
   upgradeExecutor?: string
+  newEdgeChallengeManager?: string
 }
 
 export const getJsonFile = (fileLocation: string) => {

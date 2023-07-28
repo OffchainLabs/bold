@@ -1,4 +1,10 @@
-import { Contract, ContractFactory, Wallet, ethers } from 'ethers'
+import {
+  Contract,
+  ContractFactory,
+  ContractReceipt,
+  Wallet,
+  ethers,
+} from 'ethers'
 import { DeployedContracts, getJsonFile } from './common'
 import fs from 'fs'
 import path from 'path'
@@ -15,6 +21,7 @@ import {
 } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
 import { HDNode } from 'ethers/lib/utils'
+import { RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
 
 dotenv.config()
 
@@ -58,9 +65,26 @@ async function main() {
   const boldActionPerformData =
     boldAction.interface.encodeFunctionData('perform')
 
-  await (
+  const receipt = (await (
     await upExec.execute(deployedContracts.boldAction, boldActionPerformData)
-  ).wait()
+  ).wait()) as ContractReceipt
+
+  const parsedLog = boldAction.interface.parseLog(
+    receipt.events![receipt.events!.length - 2]
+  ).args as RollupMigratedEvent['args']
+
+  console.log(`Deployed contracts written to: ${deployedContractsLocation}`)
+  fs.writeFileSync(
+    deployedContractsLocation,
+    JSON.stringify(
+      {
+        ...deployedContracts,
+        newEdgeChallengeManager: parsedLog.challengeManager,
+      },
+      null,
+      2
+    )
+  )
 }
 
 main().then(() => console.log('Done.'))
