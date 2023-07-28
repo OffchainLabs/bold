@@ -15,7 +15,7 @@ Most importantly, Arbitrum technology is moving into a more modular architecture
 
 The **BOLD Challenge Manager** above interacts with a few items from an Arbitrum node, allowing it to make challenge moves and submit history commitments to the contracts on Ethereum. In our code, abstract away those L2 node components via a small interface called the **L2 State Provider**. 
 
-Recall the core primitive of the protocol are ***challenge edges**, where an edge represents a start and end history commitment to an Arbitrum chain. Participants in the protocol can make **moves** on challenges, and validators can **participate in many challenges concurrently.** That is, our software needs to track edges within a challenge and their lifecycle in order to win against malicious entities. 
+Recall the core primitive of the protocol are **challenge edges**, where an edge represents a start and end history commitment to an Arbitrum chain. Participants in the protocol can make **moves** on challenges, and validators can **participate in many challenges concurrently.** That is, our software needs to track edges within a challenge and their lifecycle in order to win against malicious entities. 
 
 Our detailed architecture looks like this:
 
