@@ -1137,5 +1137,4 @@ contract RollupTest is Test {
         vm.expectRevert(NotBatchPoster.selector);
         sequencerInbox.addSequencerL2Batch(0, "0x", 0, IGasRefunder(address(0)), 0, 0);
     }
-
 }
