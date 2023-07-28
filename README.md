@@ -49,7 +49,7 @@ time/
 Install [Go v1.19](https://go.dev/doc/install). Then:
 
 ```
-git clone git@github.com:offchainlabs/bold && cd bold
+git clone https://github.com/OffchainLabs/bold.git && cd bold
 ```
 
 The project can be built with either the Go tool or the Bazel build system. We use [Bazel](https://bazel.build) internally because it provides a hermetic, deterministic environment for building our project and gives us access to many tools including a suite of **static analysis checks**, and a great dependency management approach.
