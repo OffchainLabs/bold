@@ -50,12 +50,6 @@ const transferToUpgradeExec = async (
     ])) as ContractTransaction
   ).wait()
 
-  console.log(
-    upExec.address,
-    await ProxyAdmin__factory.connect(proxyAdminAddress, rollupAdmin).owner(),
-    rollupAdmin.address,
-  )
-
   await (
     await RollupAdminLogic__factory.connect(
       rollupAddress,
@@ -69,11 +63,6 @@ const transferToUpgradeExec = async (
       rollupAdmin
     ).transferOwnership(upExec.address)
   ).wait()
-
-  console.log(
-    upExec.address,
-    await ProxyAdmin__factory.connect(proxyAdminAddress, rollupAdmin).owner()
-  )
 
   return upExec
 }
@@ -95,9 +84,6 @@ async function main() {
   const localNetworks = await getJsonFile(localNetworksPath)
   const rollupAddr = localNetworks['l2Network']['ethBridge']['rollup']
   const upExec = await transferToUpgradeExec(wallet, rollupAddr)
-
-  // CHRIS: TODO: it looks like we dont have the correct proxy admin! or we arent transferring power to it
-  // CHRIS: TODO: you own the proxy network! make the upgrade exec the owner
 
   const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
   if (!deployedContractsLocation) {

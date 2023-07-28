@@ -57,8 +57,6 @@ async function main() {
   )
   const boldActionPerformData =
     boldAction.interface.encodeFunctionData('perform')
-  const rollup = await boldAction.ROLLUP()
-  const oldRollup = RollupAdminLogic__factory.connect(rollup, wallet)
 
   await (
     await upExec.execute(deployedContracts.boldAction, boldActionPerformData)
