@@ -63,6 +63,7 @@ interface IOldRollup {
         bytes32 wasmModuleRoot,
         uint256 inboxMaxCount
     );
+
     function wasmModuleRoot() external view returns (bytes32);
     function latestConfirmed() external view returns (uint64);
     function getNode(uint64 nodeNum) external view returns (Node memory);
@@ -74,6 +75,7 @@ interface IOldRollup {
 interface IOldRollupAdmin {
     function forceRefundStaker(address[] memory stacker) external;
     function pause() external;
+    function resume() external;
 }
 
 /// @title  Provides pre-images to a state hash
@@ -86,7 +88,7 @@ interface IOldRollupAdmin {
 contract StateHashPreImageLookup {
     using GlobalStateLib for GlobalState;
 
-    event HashSet(bytes32 h, ExecutionState execState, uint inboxMaxCount);
+    event HashSet(bytes32 h, ExecutionState execState, uint256 inboxMaxCount);
 
     mapping(bytes32 => bytes) internal preImages;
 
@@ -148,9 +150,9 @@ contract RollupReader is IOldRollup {
 ///         that is in the latest confirmed assertion in the current rollup.
 contract BOLDUpgradeAction {
     bytes32 public constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-    uint256 public constant BLOCK_LEAF_SIZE = 2 ^ 26; // CHRIS: TODO: get final number for this
-    uint256 public constant BIGSTEP_LEAF_SIZE = 2 ^ 23;
-    uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ^ 20;
+    uint256 public constant BLOCK_LEAF_SIZE = 2 ** 26; // CHRIS: TODO: get final number for this
+    uint256 public constant BIGSTEP_LEAF_SIZE = 2 ** 23;
+    uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ** 20;
 
     address public immutable L1_TIMELOCK;
     IOldRollup public immutable ROLLUP;
@@ -159,7 +161,7 @@ contract BOLDUpgradeAction {
     address public immutable REI;
     address public immutable OUTBOX;
     address public immutable INBOX;
-    
+
     uint64 public immutable CONFIRM_PERIOD_BLOCKS;
     address public immutable STAKE_TOKEN;
     uint256 public immutable STAKE_AMOUNT;
@@ -290,7 +292,7 @@ contract BOLDUpgradeAction {
         }
 
         // upgrade the rollup to one that allows validators to withdraw even whilst paused
-        UUPSUpgradeable(address(oldRollup)).upgradeTo(IMPL_OLD_ROLLUP_USER);
+        DoubleLogicUUPSUpgradeable(address(oldRollup)).upgradeSecondaryTo(IMPL_OLD_ROLLUP_USER);
     }
 
     /// @dev    Create a config for the new rollup - fetches the latest confirmed
@@ -329,30 +331,30 @@ contract BOLDUpgradeAction {
         // now we upgrade each of the contracts that a reference to the rollup address
         // first we upgrade to an implementation which allows setting, then set the rollup address
         // then we revert to the previous implementation since we dont require this functionality going forward
+
         TransparentUpgradeableProxy bridge = TransparentUpgradeableProxy(payable(BRIDGE));
-        address currentBridgeImpl = bridge.implementation();
+        address currentBridgeImpl = PROXY_ADMIN_BRIDGE.getProxyImplementation(bridge);
         PROXY_ADMIN_BRIDGE.upgradeAndCall(
             bridge, IMPL_BRIDGE, abi.encodeWithSelector(IBridge.updateRollupAddress.selector, newRollupAddress)
         );
         PROXY_ADMIN_BRIDGE.upgrade(bridge, currentBridgeImpl);
 
         TransparentUpgradeableProxy sequencerInbox = TransparentUpgradeableProxy(payable(SEQ_INBOX));
-        address currentSequencerInboxImpl = sequencerInbox.implementation();
+        address currentSequencerInboxImpl = PROXY_ADMIN_BRIDGE.getProxyImplementation(sequencerInbox);
         PROXY_ADMIN_SEQUENCER_INBOX.upgradeAndCall(
             sequencerInbox, IMPL_SEQUENCER_INBOX, abi.encodeWithSelector(IOutbox.updateRollupAddress.selector)
         );
         PROXY_ADMIN_SEQUENCER_INBOX.upgrade(sequencerInbox, currentSequencerInboxImpl);
 
-        TransparentUpgradeableProxy rollupEventInbox =
-            TransparentUpgradeableProxy(payable(REI));
-        address currentRollupEventInboxImpl = rollupEventInbox.implementation();
+        TransparentUpgradeableProxy rollupEventInbox = TransparentUpgradeableProxy(payable(REI));
+        address currentRollupEventInboxImpl = PROXY_ADMIN_REI.getProxyImplementation(rollupEventInbox);
         PROXY_ADMIN_REI.upgradeAndCall(
             rollupEventInbox, IMPL_REI, abi.encodeWithSelector(IOutbox.updateRollupAddress.selector)
         );
         PROXY_ADMIN_REI.upgrade(rollupEventInbox, currentRollupEventInboxImpl);
 
         TransparentUpgradeableProxy outbox = TransparentUpgradeableProxy(payable(OUTBOX));
-        address currentOutboxImpl = outbox.implementation();
+        address currentOutboxImpl = PROXY_ADMIN_REI.getProxyImplementation(outbox);
         PROXY_ADMIN_OUTBOX.upgradeAndCall(
             outbox, IMPL_OUTBOX, abi.encodeWithSelector(IOutbox.updateRollupAddress.selector)
         );
@@ -366,16 +368,6 @@ contract BOLDUpgradeAction {
         // create the config, we do this now so that we compute the expected rollup address
         Config memory config = createConfig();
 
-        // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
-        // to set of the new rollup address
-        bytes32 rollupSalt = keccak256(abi.encode(config));
-        // CHRIS: TODO: as it stands we have the address wrong here since we dont append params to the creation code
-        //              however in nitro we've moved away from this and have an initializer
-        //              So this line and the new RollupProxy below need to be updated after updating from nitro
-        address expectedRollupAddress =
-            Create2Upgradeable.computeAddress(rollupSalt, keccak256(type(RollupProxy).creationCode));
-        upgradeSurroundingContracts(expectedRollupAddress);
-
         // deploy the new challenge manager
         IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
             address(
@@ -386,18 +378,6 @@ contract BOLDUpgradeAction {
                 )
             )
         );
-        challengeManager.initialize({
-            _assertionChain: IAssertionChain(expectedRollupAddress),
-            // confirm period and challenge period are the same atm
-            _challengePeriodBlocks: config.confirmPeriodBlocks,
-            _oneStepProofEntry: OSP,
-            layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
-            layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
-            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
-            _stakeToken: IERC20(config.stakeToken),
-            _stakeAmount: config.miniStakeValue,
-            _excessStakeReceiver: L1_TIMELOCK
-        });
 
         // now that all the dependent contracts are pointed at the new address we can
         // deploy and init the new rollup
@@ -412,6 +392,31 @@ contract BOLDUpgradeAction {
             rollupUserLogic: IRollupUser(IMPL_NEW_ROLLUP_USER),
             validatorUtils: address(0), // CHRIS: TODO: remove this from the admin contract
             validatorWalletCreator: address(0) // CHRIS: TODO: remove this from the admin contract
+        });
+
+        // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
+        // to set of the new rollup address
+        bytes32 rollupSalt = keccak256(abi.encode(config));
+        // CHRIS: TODO: as it stands we have the address wrong here since we dont append params to the creation code
+        //              however in nitro we've moved away from this and have an initializer
+        //              So this line and the new RollupProxy below need to be updated after updating from nitro
+        address expectedRollupAddress = Create2Upgradeable.computeAddress(
+            rollupSalt,
+            keccak256(abi.encodePacked(type(RollupProxy).creationCode, abi.encode(config, connectedContracts)))
+        );
+        upgradeSurroundingContracts(expectedRollupAddress);
+
+        challengeManager.initialize({
+            _assertionChain: IAssertionChain(expectedRollupAddress),
+            // confirm period and challenge period are the same atm
+            _challengePeriodBlocks: config.confirmPeriodBlocks,
+            _oneStepProofEntry: OSP,
+            layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
+            layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
+            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
+            _stakeToken: IERC20(config.stakeToken),
+            _stakeAmount: config.miniStakeValue,
+            _excessStakeReceiver: L1_TIMELOCK
         });
 
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}(

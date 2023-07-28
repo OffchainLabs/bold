@@ -1,4 +1,10 @@
-import { Contract, ContractFactory, Wallet, ethers } from 'ethers'
+import {
+  Contract,
+  ContractFactory,
+  ContractTransaction,
+  Wallet,
+  ethers,
+} from 'ethers'
 import { DeployedContracts, getJsonFile } from './common'
 import fs from 'fs'
 import path from 'path'
@@ -17,7 +23,7 @@ dotenv.config()
 
 const transferToUpgradeExec = async (
   rollupAdmin: Wallet,
-  rollupAddress: string
+  rollupAddress: string,
 ) => {
   const upgradeExecutorImpl = await new ContractFactory(
     UpgradeExecutorAbi,
@@ -26,12 +32,11 @@ const transferToUpgradeExec = async (
   ).deploy()
   await upgradeExecutorImpl.deployed()
 
-  const proxyAdmin = await new ProxyAdmin__factory(rollupAdmin).deploy()
-  await proxyAdmin.deployed()
+  const proxyAdminAddress = "0xa4884de60AEef09b1b35fa255F56ee37198A80B3"
 
   const upExecProxy = await new TransparentUpgradeableProxy__factory(
     rollupAdmin
-  ).deploy(upgradeExecutorImpl.address, proxyAdmin.address, '0x')
+  ).deploy(upgradeExecutorImpl.address, proxyAdminAddress, '0x')
   await upExecProxy.deployed()
 
   const upExec = new Contract(
@@ -39,10 +44,35 @@ const transferToUpgradeExec = async (
     UpgradeExecutorAbi,
     rollupAdmin
   )
-  await upExec.initialize(rollupAdmin.address, [rollupAdmin.address])
+  await (
+    (await upExec.functions.initialize(rollupAdmin.address, [
+      rollupAdmin.address,
+    ])) as ContractTransaction
+  ).wait()
 
-  await RollupAdminLogic__factory.connect(rollupAddress, rollupAdmin).setOwner(
-    upExec.address
+  console.log(
+    upExec.address,
+    await ProxyAdmin__factory.connect(proxyAdminAddress, rollupAdmin).owner(),
+    rollupAdmin.address,
+  )
+
+  await (
+    await RollupAdminLogic__factory.connect(
+      rollupAddress,
+      rollupAdmin
+    ).setOwner(upExec.address)
+  ).wait()
+
+  await (
+    await ProxyAdmin__factory.connect(
+      proxyAdminAddress,
+      rollupAdmin
+    ).transferOwnership(upExec.address)
+  ).wait()
+
+  console.log(
+    upExec.address,
+    await ProxyAdmin__factory.connect(proxyAdminAddress, rollupAdmin).owner()
   )
 
   return upExec
@@ -65,6 +95,9 @@ async function main() {
   const localNetworks = await getJsonFile(localNetworksPath)
   const rollupAddr = localNetworks['l2Network']['ethBridge']['rollup']
   const upExec = await transferToUpgradeExec(wallet, rollupAddr)
+
+  // CHRIS: TODO: it looks like we dont have the correct proxy admin! or we arent transferring power to it
+  // CHRIS: TODO: you own the proxy network! make the upgrade exec the owner
 
   const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
   if (!deployedContractsLocation) {

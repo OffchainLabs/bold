@@ -114,6 +114,7 @@ describe.only('BoldUpgradeTest', () => {
     // do we have the priv key to the rollup owner?
     // i'll assume yes
     const l1Rpc = new JsonRpcProvider(localL1Rpc)
+
     const rollupAdmin = new Wallet(
       HDNode.fromMnemonic(l1mnemonic).derivePath("m/44'/60'/0'/0/1").privateKey
     ).connect(l1Rpc)

@@ -101,7 +101,6 @@ export const deployBoldUpgrade = async (
   const fac = new BOLDUpgradeAction__factory(wallet)
   const boldUpgradeAction = await fac.deploy(
     config.contracts,
-    // CHRIS: TODO: we didnt need any changes in the osp did we? How are we deploying in golang? Lets check that out?
     config.proxyAdmins,
     deployed,
     config.settings

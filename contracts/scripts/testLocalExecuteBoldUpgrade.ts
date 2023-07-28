@@ -7,12 +7,14 @@ import {
   TransparentUpgradeableProxy__factory,
   RollupAdminLogic__factory,
   BOLDUpgradeAction__factory,
+  Bridge__factory,
 } from '../build/types'
 import {
   abi as UpgradeExecutorAbi,
   bytecode as UpgradeExecutorBytecode,
 } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
+import { HDNode } from 'ethers/lib/utils'
 
 dotenv.config()
 
@@ -49,15 +51,18 @@ async function main() {
     UpgradeExecutorAbi,
     wallet
   )
-  const boldActionPerformData = BOLDUpgradeAction__factory.connect(
+  const boldAction = BOLDUpgradeAction__factory.connect(
     deployedContracts.boldAction,
     wallet
-  ).interface.encodeFunctionData("perform")
-
-  await upExec.execute(
-    deployedContracts.boldAction,
-    boldActionPerformData
   )
+  const boldActionPerformData =
+    boldAction.interface.encodeFunctionData('perform')
+  const rollup = await boldAction.ROLLUP()
+  const oldRollup = RollupAdminLogic__factory.connect(rollup, wallet)
+
+  await (
+    await upExec.execute(deployedContracts.boldAction, boldActionPerformData)
+  ).wait()
 }
 
 main().then(() => console.log('Done.'))
