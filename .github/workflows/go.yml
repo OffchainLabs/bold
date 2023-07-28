@@ -183,16 +183,19 @@ jobs:
           cp ./.env-sample ./.env
 
       - name: Prepare local node
-        run: yarn script:local-prepare
+        run: yarn script:bold-local-prepare
 
       - name: Deploy bold dependencies
-        run: yarn script:prepare-bold
+        run: yarn script:bold-prepare
 
       - name: Populate state hash lookup
-        run: yarn script:prepare-bold
+        run: script:bold-populate-lookup
 
       - name: Execute bold upgrade
-        run: yarn script:local-execute
+        run: script:bold-local-execute
+
+      - name: Execute bold upgrade
+        run: script:bold-verify
 
       
 
