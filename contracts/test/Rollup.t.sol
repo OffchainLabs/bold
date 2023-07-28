@@ -18,6 +18,8 @@ import "../src/osp/OneStepProofEntry.sol";
 import "../src/challengeV2/EdgeChallengeManager.sol";
 import "./challengeV2/Utils.sol";
 
+import "../src/libraries/Error.sol";
+
 import "../src/mocks/TestWETH9.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -611,13 +613,13 @@ contract RollupTest is Test {
         return (assertionHash, state, inboxcount);
     }
 
-    function testSuccessRemoveWhitelistAfterValidatorAfk(uint256 afkBlocks) public {
+    function testSuccessRemoveWhitelistAfterValidatorAfk() public {
         (bytes32 assertionHash,,) = testSuccessConfirmUnchallengedAssertions();
         vm.roll(userRollup.getAssertion(assertionHash).createdAtBlock + userRollup.VALIDATOR_AFK_BLOCKS() + 1);
         userRollup.removeWhitelistAfterValidatorAfk();
     }
 
-    function testRevertRemoveWhitelistAfterValidatorAfk(uint256 afkBlocks) public {
+    function testRevertRemoveWhitelistAfterValidatorAfk() public {
         vm.expectRevert("VALIDATOR_NOT_AFK");
         userRollup.removeWhitelistAfterValidatorAfk();
     }
@@ -1101,4 +1103,39 @@ contract RollupTest is Test {
         assertEq(ori_primary_impl, new_primary_impl);
         assertEq(address(newUserLogicImpl), new_secondary_impl);
     }
+
+    function testRevertInitAdminLogicDirectly() public {
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        Config memory c;
+        ContractDependencies memory cd;
+        vm.expectRevert("Function must be called through delegatecall");
+        newAdminLogicImpl.initialize(c, cd);
+    }
+
+    function testRevertInitUserLogicDirectly() public {
+        RollupUserLogic newUserLogicImpl = new RollupUserLogic();
+        vm.expectRevert("Function must be called through delegatecall");
+        newUserLogicImpl.initialize(address(token));
+    }
+
+    function testRevertInitTwice() public {
+        Config memory c;
+        ContractDependencies memory cd;
+        vm.prank(owner);
+        vm.expectRevert("Initializable: contract is already initialized");
+        adminRollup.initialize(c, cd);
+    }
+
+    function testRevertChainIDFork() public {
+        ISequencerInbox sequencerInbox = userRollup.sequencerInbox();
+        vm.expectRevert(NotForked.selector);
+        sequencerInbox.removeDelayAfterFork();
+    }
+
+    function testRevertNotBatchPoster() public {
+        ISequencerInbox sequencerInbox = userRollup.sequencerInbox();
+        vm.expectRevert(NotBatchPoster.selector);
+        sequencerInbox.addSequencerL2Batch(0, "0x", 0, IGasRefunder(address(0)), 0, 0);
+    }
+
 }
