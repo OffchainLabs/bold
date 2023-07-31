@@ -25,7 +25,7 @@ const logoSmall = `██████╗
 ╚═════╝`
 
 const (
-	subtitle   = `Challenge / Edge browser for the BOLD Challenge Protocol for Arbitrum`
+	subtitle   = `Challenge browser for the BOLD Protocol on Arbitrum chains`
 	navigation = `ctrl-C: Exit`
 )
 
