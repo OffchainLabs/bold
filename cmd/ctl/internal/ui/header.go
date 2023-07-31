@@ -34,7 +34,7 @@ func header() tview.Primitive {
 		AddItem(tview.NewTextView().SetText(logoSmall), 9, 0, false)
 
 	flex.SetBorder(true).
-		SetTitle("Challenge V2")
+		SetTitle("BOLD Challenge Browser")
 
 	return flex
 }
