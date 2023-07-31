@@ -1,16 +1,17 @@
+// Package mocks includes simple mocks for unit testing BOLD.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package mocks
 
 import (
 	"context"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 )
@@ -68,7 +69,7 @@ func (m *MockStateManager) ExecutionStateAtMessageNumber(ctx context.Context, me
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 
-func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uint64) (commitments.History, error) {
+func (m *MockStateManager) HistoryCommitmentAtMessage(ctx context.Context, height uint64) (commitments.History, error) {
 	args := m.Called(ctx, height)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
@@ -76,12 +77,13 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, height uin
 func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	prevInboxMaxCount uint64,
+	inboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	originHeights protocol.OriginHeights,
 	history l2stateprovider.History,
 ) (bool, error) {
-	args := m.Called(ctx, wasmModuleRoot, prevInboxMaxCount, edgeType, originHeights, history)
+	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, edgeType, originHeights, history)
 	return args.Get(0).(bool), args.Error(1)
 }
 

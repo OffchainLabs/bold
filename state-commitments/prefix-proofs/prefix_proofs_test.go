@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package prefixproofs_test
 
@@ -10,9 +10,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,9 +56,9 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(t, err)
 
-	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
+	loCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 3, 10)
 	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 7)
+	hiCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 7, 10)
 	require.NoError(t, err)
 	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 7, 1)
 	require.NoError(t, err)
@@ -109,9 +109,9 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(t, err)
 
-	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
+	loCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 3, 10)
 	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 6)
+	hiCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 6, 10)
 	require.NoError(t, err)
 	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 6, 1)
 	require.NoError(t, err)
@@ -163,7 +163,7 @@ func TestMostSignificantBit_GoSolidityEquivalence(t *testing.T) {
 	runBitEquivalenceTest(t, merkleTreeContract.MostSignificantBit, prefixproofs.MostSignificantBit)
 }
 
-func FuzzVerifyPrefixProof_Go(f *testing.F) {
+func FuzzPrefixProof_Verify(f *testing.F) {
 	ctx := context.Background()
 	hashes := make([]common.Hash, 10)
 	for i := 0; i < len(hashes); i++ {
@@ -172,9 +172,9 @@ func FuzzVerifyPrefixProof_Go(f *testing.F) {
 	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 	require.NoError(f, err)
 
-	loCommit, err := manager.HistoryCommitmentUpTo(ctx, 3)
+	loCommit, err := manager.HistoryCommitmentAtMessage(ctx, 3)
 	require.NoError(f, err)
-	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, 7)
+	hiCommit, err := manager.HistoryCommitmentAtMessage(ctx, 7)
 	require.NoError(f, err)
 	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, 3, 7, 1)
 	require.NoError(f, err)
@@ -303,7 +303,7 @@ func FuzzVerifyPrefixProof_Go(f *testing.F) {
 	})
 }
 
-func FuzzMaximumAppendBetween_GoSolidityEquivalence(f *testing.F) {
+func FuzzPrefixProof_MaximumAppendBetween_GoSolidityEquivalence(f *testing.F) {
 	type prePost struct {
 		pre  uint64
 		post uint64
@@ -340,7 +340,7 @@ func FuzzMaximumAppendBetween_GoSolidityEquivalence(f *testing.F) {
 	})
 }
 
-func FuzzBitUtils_GoSolidityEquivalence(f *testing.F) {
+func FuzzPrefixProof_BitUtils_GoSolidityEquivalence(f *testing.F) {
 	testcases := []uint64{
 		0,
 		2,

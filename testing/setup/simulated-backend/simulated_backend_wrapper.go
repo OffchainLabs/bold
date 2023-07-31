@@ -1,5 +1,7 @@
+// Package simulated_backend prepares a wrapper for transaction testing.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package simulated_backend
 
 import (

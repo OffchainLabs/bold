@@ -1,6 +1,9 @@
+// Package stateprovider defines smarter mocks for testing purposes that can simulate a layer 2
+// state provider and and layer 2 state execution.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-package toys
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+package stateprovider
 
 import (
 	"context"
@@ -8,12 +11,12 @@ import (
 	"fmt"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -211,12 +214,9 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, messageNumber uint64) (commitments.History, error) {
-	// The size is the number of elements being committed to. For example, if the height is 7, there will
-	// be 8 elements being committed to from [0, 7] inclusive.
-	size := messageNumber + 1
+func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
 	return commitments.New(
-		s.stateRoots[:size],
+		[]common.Hash{s.stateRoots[messageNumber]},
 	)
 }
 
@@ -271,7 +271,8 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, messageNu
 func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	prevAssertionInboxMaxCount uint64,
+	assertionInboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	heights protocol.OriginHeights,
 	commit l2stateprovider.History,
@@ -280,7 +281,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, commit.Height, prevAssertionInboxMaxCount)
+		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
 		if err != nil {
 			return false, err
 		}

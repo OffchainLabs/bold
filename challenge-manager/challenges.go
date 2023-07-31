@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package challengemanager
 
@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -70,7 +70,12 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if !creationInfo.InboxMaxCount.IsUint64() {
 		return nil, nil, errors.New("creation info inbox max count was not a uint64")
 	}
-	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, 0)
+	parentAssertionInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		return nil, nil, err
+	}
+	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
+	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionAfterState.GlobalState.Batch)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,8 +89,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
-		0,
-		levelZeroBlockEdgeHeight,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
@@ -93,9 +98,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	startEndPrefixProof, err := m.stateManager.PrefixProofUpToBatch(
 		ctx,
-		0,
-		0,
-		levelZeroBlockEdgeHeight,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64(),
 	)
 	if err != nil {
