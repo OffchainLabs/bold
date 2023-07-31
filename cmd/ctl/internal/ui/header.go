@@ -31,7 +31,7 @@ func header() tview.Primitive {
 
 	flex := tview.NewFlex().SetDirection(tview.FlexColumn).
 		AddItem(left, 0, 1, false).
-		AddItem(tview.NewTextView().SetText(logoSmall), 18, 0, false)
+		AddItem(tview.NewTextView().SetText(logoSmall), 9, 0, false)
 
 	flex.SetBorder(true).
 		SetTitle("Challenge V2")
