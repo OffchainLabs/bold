@@ -1,7 +1,7 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
-// package edgetracker contains the logic for tracking an edge in the challenge manager. It keeps
+// Package edgetracker contains the logic for tracking an edge in the challenge manager. It keeps
 // track of edges created and their own state transitions until an eventual confirmation.
 package edgetracker
 
@@ -11,14 +11,14 @@ import (
 	"os"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/fsm"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/math"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
-	utilTime "github.com/OffchainLabs/challenge-protocol-v2/time"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/containers/fsm"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/math"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	utilTime "github.com/OffchainLabs/bold/time"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -72,7 +72,7 @@ func WithActInterval(d time.Duration) Opt {
 
 // WithTimeReference allows setting the timer used by the tracker to determine that time
 // passed in accordance with the act interval set with [WithActInterval]. The default is
-// to use [github.com/offchainlabs/challenge-protocol-v2/time.NewRealTimeReference].
+// to use [github.com/offchainlabs/bold/time.NewRealTimeReference].
 // This is useful for testing with a fake time reference to avoid waiting for real time.
 func WithTimeReference(ref utilTime.Reference) Opt {
 	return func(et *Tracker) {
@@ -481,13 +481,12 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 
 	switch et.edge.GetType() {
 	case protocol.BigStepChallengeEdge:
-		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo)
 		proof, proofErr = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo, uint64(endHeight))
+		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo)
 	case protocol.SmallStepChallengeEdge:
 		fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
-
-		historyCommit, commitErr = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo)
 		proof, proofErr = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo, uint64(endHeight))
+		historyCommit, commitErr = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo)
 	default:
 		return commitments.History{}, nil, fmt.Errorf("unsupported challenge type: %s", et.edge.GetType())
 	}
@@ -558,19 +557,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	case protocol.BlockChallengeEdge:
 		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
 		toBlock := toAssertionHeight + et.heightConfig.StartBlockHeight
-		startHistory, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, 0)
-		if err != nil {
-			return err
-		}
 		endHistory, err = et.stateProvider.BigStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock)
-		if err != nil {
-			return err
-		}
-		startParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, fromBlock, et.heightConfig.TopLevelClaimEndBatchCount)
-		if err != nil {
-			return err
-		}
-		endParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, toBlock, et.heightConfig.TopLevelClaimEndBatchCount)
 		if err != nil {
 			return err
 		}
@@ -578,17 +565,29 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-	case protocol.BigStepChallengeEdge:
-		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
-		startHistory, err = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight), 0)
+		startHistory, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, 0)
 		if err != nil {
 			return err
 		}
+		endParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, toBlock, et.heightConfig.TopLevelClaimEndBatchCount)
+		if err != nil {
+			return err
+		}
+		startParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, fromBlock, et.heightConfig.TopLevelClaimEndBatchCount)
+		if err != nil {
+			return err
+		}
+	case protocol.BigStepChallengeEdge:
+		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
 		endHistory, err = et.stateProvider.SmallStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
 		if err != nil {
 			return err
 		}
-		startParentCommitment, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
+		startEndPrefixProof, err = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight), 0, endHistory.Height)
+		if err != nil {
+			return err
+		}
+		startHistory, err = et.stateProvider.SmallStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight), 0)
 		if err != nil {
 			return err
 		}
@@ -596,7 +595,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		startEndPrefixProof, err = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight), 0, endHistory.Height)
+		startParentCommitment, err = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
 		if err != nil {
 			return err
 		}

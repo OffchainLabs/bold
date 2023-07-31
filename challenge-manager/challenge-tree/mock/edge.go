@@ -1,3 +1,4 @@
+// Package mock includes specific mock setups for edge types used in internal tests.
 package mock
 
 import (
@@ -5,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/ethereum/go-ethereum/common"
 )
 
