@@ -189,13 +189,13 @@ jobs:
         run: yarn script:bold-prepare
 
       - name: Populate state hash lookup
-        run: script:bold-populate-lookup
+        run: yarn script:bold-populate-lookup
 
       - name: Execute bold upgrade
-        run: script:bold-local-execute
+        run: yarn script:bold-local-execute
 
       - name: Execute bold upgrade
-        run: script:bold-verify
+        run: yarn script:bold-verify
 
       
 
