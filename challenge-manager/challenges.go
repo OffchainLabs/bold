@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package challengemanager
 
@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -35,7 +35,7 @@ import (
 
 // 2^43 max wasm opcodes per block
 
-// Initiates a challenge on an assertion added to the protocol by finding its parent assertion
+// ChallengeAssertion initiates a challenge on an assertion added to the protocol by finding its parent assertion
 // and starting a challenge transaction. If the challenge creation is successful, we add a leaf
 // with an associated history commitment to it and spawn a challenge tracker in the background.
 func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionHash) error {
@@ -67,7 +67,6 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),
 		edgetracker.WithValidatorName(m.name),
-		edgetracker.WithValidatorAddress(m.address),
 	)
 	if err != nil {
 		return err
@@ -76,7 +75,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 
 	srvlog.Info("Successfully created level zero edge for block challenge", log.Ctx{
 		"name":          m.name,
-		"assertionHash": containers.Trunc(id[:]),
+		"assertionHash": containers.Trunc(id.Bytes()),
 	})
 	return nil
 }
@@ -92,6 +91,15 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if !creationInfo.InboxMaxCount.IsUint64() {
 		return nil, nil, errors.New("creation info inbox max count was not a uint64")
 	}
+	parentAssertionInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		return nil, nil, err
+	}
+	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
+	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionAfterState.GlobalState.Batch)
+	if err != nil {
+		return nil, nil, err
+	}
 	manager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -102,26 +110,18 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		assertion.Id(),
-		0,
-		levelZeroBlockEdgeHeight,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64()-1,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
-	startCommit, err := m.stateManager.HistoryCommitmentUpTo(ctx, creationInfo.WasmModuleRoot, assertion.Id(), 0)
-	if err != nil {
-		return nil, nil, err
-	}
 	startEndPrefixProof, err := m.stateManager.PrefixProofUpToBatch(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		assertion.Id(),
-		0,
-		0,
-		levelZeroBlockEdgeHeight,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch,
+		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
 		creationInfo.InboxMaxCount.Uint64()-1,
 	)
 	if err != nil {

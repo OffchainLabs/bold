@@ -1,6 +1,7 @@
+// Package setup prepares a simulated backend for testing.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package setup
 
 import (
@@ -8,15 +9,15 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/bridgegen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/mocksgen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
+	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type SetupBackend interface {
+type Backend interface {
 	bind.DeployBackend
 	bind.ContractBackend
 }
@@ -67,7 +68,7 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash(genesisHash))
+	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +321,7 @@ type RollupAddresses struct {
 
 func DeployFullRollupStack(
 	ctx context.Context,
-	backend SetupBackend,
+	backend Backend,
 	deployAuth *bind.TransactOpts,
 	sequencer common.Address,
 	config rollupgen.Config,
@@ -424,7 +425,7 @@ func DeployFullRollupStack(
 func deployBridgeCreator(
 	ctx context.Context,
 	auth *bind.TransactOpts,
-	backend SetupBackend,
+	backend Backend,
 ) (common.Address, error) {
 	bridgeTemplate, tx, _, err := bridgegen.DeployBridge(auth, backend)
 	if err != nil {
@@ -500,7 +501,7 @@ func deployBridgeCreator(
 func deployChallengeFactory(
 	ctx context.Context,
 	auth *bind.TransactOpts,
-	backend SetupBackend,
+	backend Backend,
 ) (common.Address, common.Address, error) {
 	ospEntryAddr, tx, _, err := mocksgen.DeploySimpleOneStepProofEntry(auth, backend)
 	err = challenge_testing.TxSucceeded(ctx, tx, ospEntryAddr, backend, err)
@@ -524,7 +525,7 @@ func deployChallengeFactory(
 
 func deployRollupCreator(
 	ctx context.Context,
-	backend SetupBackend,
+	backend Backend,
 	auth *bind.TransactOpts,
 ) (*rollupgen.RollupCreator, common.Address, common.Address, common.Address, common.Address, error) {
 	bridgeCreator, err := deployBridgeCreator(ctx, auth, backend)
@@ -591,7 +592,7 @@ func deployRollupCreator(
 	return rollupCreator, rollupUserLogic, rollupCreatorAddress, common.Address{}, validatorWalletCreator, nil
 }
 
-// Represents a test EOA account in the simulated backend,
+// TestAccount represents a test EOA account in the simulated backend,
 type TestAccount struct {
 	AccountAddr common.Address
 	TxOpts      *bind.TransactOpts

@@ -1,22 +1,25 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package protocol
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // AssertionHash represents a unique identifier for an assertion
 // constructed as a keccak256 hash of some of its internals.
-type AssertionHash common.Hash
+type AssertionHash struct {
+	common.Hash
+}
 
 // Protocol --
 type Protocol interface {
@@ -126,6 +129,19 @@ func (et EdgeType) String() string {
 	}
 }
 
+func EdgeTypeFromString(s string) (EdgeType, error) {
+	switch s {
+	case "block_challenge_edge":
+		return BlockChallengeEdge, nil
+	case "big_step_challenge_edge":
+		return BigStepChallengeEdge, nil
+	case "small_step_challenge_edge":
+		return SmallStepChallengeEdge, nil
+	default:
+		return 0, fmt.Errorf("unknown edge type string: %s", s)
+	}
+}
+
 type Agreement struct {
 	AgreesWithStartCommit bool
 	IsHonestEdge          bool
@@ -147,7 +163,9 @@ type MutualId common.Hash
 
 // EdgeId is a unique identifier for an edge. Edge IDs encompass the edge type
 // along with the start and end height + commitment for an edge.
-type EdgeId common.Hash
+type EdgeId struct {
+	common.Hash
+}
 
 // ClaimId is the unique identifier of the commitment of a level zero edge corresponds to.
 // For example, if assertion A has two children, B and C, and a block challenge is initiated
@@ -225,9 +243,20 @@ const (
 	EdgeConfirmed
 )
 
+func (e EdgeStatus) String() string {
+	switch e {
+	case EdgePending:
+		return "pending"
+	case EdgeConfirmed:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
+}
+
 type OriginHeights struct {
-	BlockChallengeOriginHeight   Height
-	BigStepChallengeOriginHeight Height
+	BlockChallengeOriginHeight   Height `json:"blockChallengeOriginHeight"`
+	BigStepChallengeOriginHeight Height `json:"bigStepChallengeOriginHeight"`
 }
 
 // ReadOnlyEdge defines methods that only retrieve data from the chain

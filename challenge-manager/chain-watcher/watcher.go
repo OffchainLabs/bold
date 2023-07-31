@@ -1,6 +1,11 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
+// Package watcher implements the main monitoring logic for protocol validators.
+// The challenge watcher is a singleton service available to all spawned edge trackers
+// and it tracks common information such as the edges' ancestors and an edge's time unrivaled.
+//
+// See: [github.com/OffchainLabs/bold/challenge-manager/edge-tracker]
 package watcher
 
 import (
@@ -10,14 +15,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
@@ -107,7 +113,7 @@ func New(
 	}
 }
 
-// Checks if a confirmed, level zero edge exists that claims a particular
+// ConfirmedEdgeWithClaimExists checks if a confirmed, level zero edge exists that claims a particular
 // edge id for a tracked challenge. This is used during the confirmation process of edges
 // within edge tracker goroutines. Returns the claiming edge id.
 func (w *Watcher) ConfirmedEdgeWithClaimExists(
@@ -121,7 +127,7 @@ func (w *Watcher) ConfirmedEdgeWithClaimExists(
 	return challenge.confirmedLevelZeroEdgeClaimIds.TryGet(claimId)
 }
 
-// Computes the honest path timer for an edge id within an assertion hash challenge
+// ComputeHonestPathTimer computes the honest path timer for an edge id within an assertion hash challenge
 // namespace. This is used during the confirmation process for edges in
 // edge tracker goroutine logic.
 func (w *Watcher) ComputeHonestPathTimer(
@@ -151,7 +157,7 @@ func (w *Watcher) IsSynced() bool {
 	return w.initialSyncCompleted.Load()
 }
 
-// Starts watching the chain via a polling mechanism for all edge added and confirmation events
+// Start watching the chain via a polling mechanism for all edge added and confirmation events
 // in order to process some of this data into internal representations for confirmation purposes.
 func (w *Watcher) Start(ctx context.Context) {
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
@@ -349,7 +355,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if err != nil {
 		return err
 	}
-	edgeOpt, err := challengeManager.GetEdge(ctx, event.EdgeId)
+	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId{Hash: event.EdgeId})
 	if err != nil {
 		return err
 	}
@@ -365,7 +371,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	chal, ok := w.challenges.TryGet(assertionHash)
 	if !ok {
 		tree := challengetree.New(
-			event.OriginId,
+			protocol.AssertionHash{Hash: event.OriginId},
 			w.chain,
 			w.histChecker,
 			w.validatorName,
@@ -413,7 +419,9 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -449,7 +457,9 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -485,7 +495,9 @@ func (w *Watcher) checkForEdgeConfirmedByChildren(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -521,7 +533,9 @@ func (w *Watcher) checkForEdgeConfirmedByClaim(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -569,11 +583,11 @@ func (w *Watcher) processEdgeConfirmation(
 
 	// Check if we should confirm the assertion by challenge winner.
 	if edge.GetType() == protocol.BlockChallengeEdge {
-		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash(claimId), edgeId); confirmAssertionErr != nil {
+		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edgeId); confirmAssertionErr != nil {
 			return confirmAssertionErr
 		}
 		srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
-			"assertionHash": containers.Trunc(assertionHash[:]),
+			"assertionHash": containers.Trunc(assertionHash.Bytes()),
 		})
 	}
 

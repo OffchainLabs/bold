@@ -1,16 +1,17 @@
+// Package mocks includes simple mocks for unit testing BOLD.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package mocks
 
 import (
 	"context"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 )
@@ -68,7 +69,7 @@ func (m *MockStateManager) ExecutionStateAtMessageNumber(ctx context.Context, me
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 
-func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, wasmModuleRoot common.Hash, assertionHash protocol.AssertionHash, height uint64) (commitments.History, error) {
+func (m *MockStateManager) HistoryCommitmentAtMessage(ctx context.Context, height uint64) (commitments.History, error) {
 	args := m.Called(ctx, height)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
@@ -76,24 +77,22 @@ func (m *MockStateManager) HistoryCommitmentUpTo(ctx context.Context, wasmModule
 func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
-	prevInboxMaxCount uint64,
+	inboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	originHeights protocol.OriginHeights,
 	history l2stateprovider.History,
 ) (bool, error) {
-	args := m.Called(ctx, wasmModuleRoot, prevInboxMaxCount, edgeType, originHeights, history)
+	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, edgeType, originHeights, history)
 	return args.Get(0).(bool), args.Error(1)
 }
 
-func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash, startBlock, endBlock, batchCount uint64) (commitments.History, error) {
+func (m *MockStateManager) HistoryCommitmentUpToBatch(ctx context.Context, startBlock, endBlock, batchCount uint64) (commitments.History, error) {
 	args := m.Called(ctx, startBlock, endBlock, batchCount)
 	return args.Get(0).(commitments.History), args.Error(1)
 }
 
-func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash, start, from, to, batchCount uint64) ([]byte, error) {
+func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, start, from, to, batchCount uint64) ([]byte, error) {
 	args := m.Called(ctx, start, from, to, batchCount)
 	return args.Get(0).([]byte), args.Error(1)
 }
@@ -101,7 +100,6 @@ func (m *MockStateManager) PrefixProofUpToBatch(ctx context.Context, wasmModuleR
 func (m *MockStateManager) BigStepPrefixProof(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	fromBigStep,
 	toBigStep uint64,
@@ -113,7 +111,6 @@ func (m *MockStateManager) BigStepPrefixProof(
 func (m *MockStateManager) SmallStepPrefixProof(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep,
 	fromSmallStep,
@@ -131,7 +128,6 @@ func (m *MockStateManager) ExecutionStateMsgCount(ctx context.Context, state *pr
 func (m *MockStateManager) BigStepLeafCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight uint64,
 ) (commitments.History, error) {
 	args := m.Called(ctx, wasmModuleRoot, blockHeight)
@@ -141,7 +137,6 @@ func (m *MockStateManager) BigStepLeafCommitment(
 func (m *MockStateManager) BigStepCommitmentUpTo(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	toBigStep uint64,
 ) (commitments.History, error) {
@@ -152,7 +147,6 @@ func (m *MockStateManager) BigStepCommitmentUpTo(
 func (m *MockStateManager) SmallStepLeafCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep uint64,
 ) (commitments.History, error) {
@@ -163,7 +157,6 @@ func (m *MockStateManager) SmallStepLeafCommitment(
 func (m *MockStateManager) SmallStepCommitmentUpTo(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep,
 	toSmallStep uint64,
@@ -176,7 +169,6 @@ func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	cfgSnapshot *l2stateprovider.ConfigSnapshot,
 	postState rollupgen.ExecutionState,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep,
 	smallStep uint64,
@@ -460,6 +452,15 @@ func (m *MockProtocol) ConfirmAssertionByChallengeWinner(
 }
 
 func (m *MockProtocol) CreateAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	args := m.Called(ctx, assertionCreationInfo, postState)
+	return args.Get(0).(protocol.Assertion), args.Error(1)
+}
+
+func (m *MockProtocol) CreateAssertionAndMoveStake(
 	ctx context.Context,
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,

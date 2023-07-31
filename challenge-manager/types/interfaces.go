@@ -1,9 +1,10 @@
+// Package types includes types and interfaces specific to the challenge manager instance.
 package types
 
 import (
 	"context"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 )
 
 // ChallengeManager defines an offchain, challenge manager, which will be

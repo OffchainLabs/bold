@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 // Package threadsafe includes generic utilities for maps and sets that can
 // be safely used concurrently for type-safety at compile time with the
@@ -17,16 +17,6 @@ func NewSet[T comparable]() *Set[T] {
 	return &Set[T]{
 		items: make(map[T]bool),
 	}
-}
-
-func NewSetFromItems[T comparable](items []T) *Set[T] {
-	s := &Set[T]{
-		items: make(map[T]bool),
-	}
-	for _, item := range items {
-		s.items[item] = true
-	}
-	return s
 }
 
 func (s *Set[T]) Insert(t T) {

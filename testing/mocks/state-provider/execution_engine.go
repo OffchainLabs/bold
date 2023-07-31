@@ -1,18 +1,13 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-package toys
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+package stateprovider
 
 import (
 	"encoding/binary"
-	"errors"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
-)
-
-var (
-	ErrOutOfBounds = errors.New("instruction number out of bounds")
 )
 
 type Machine interface {

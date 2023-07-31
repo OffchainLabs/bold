@@ -1,6 +1,9 @@
+// Package fsm defines a generic, finite state machine in Go that is extremely simple
+// and type-safe. It is used by edge tracker goroutines to keep track of the edge states
+// and transition to confirmation.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package fsm
 
 import (
@@ -15,7 +18,7 @@ var (
 	ErrFsmEventNotFound     = errors.New("event not found")
 )
 
-// FsmEvent defines an event in the finite state machine, which includes
+// Event defines an event in the finite state machine, which includes
 // a type, a set of source states, and a destination state
 type Event[E, T fmt.Stringer] struct {
 	Typ  E
@@ -43,7 +46,7 @@ type Fsm[E, T fmt.Stringer] struct {
 	validTransitions    map[internalKey]T
 }
 
-// FsmOpt defines a configuration option for the fsm.
+// Opt defines a configuration option for the fsm.
 type Opt[E, T fmt.Stringer] func(f *Fsm[E, T])
 
 // WithTrackedTransitions configures the fsm to track all executed state

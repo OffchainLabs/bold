@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 // Package assertions contains testing utilities for posting and scanning for
 // assertions on chain, which are useful for simulating the responsibilities
@@ -13,12 +13,12 @@ import (
 	"os"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -75,7 +75,7 @@ func NewScanner(
 	}
 }
 
-// Scan the blockchain for assertion creation events in a polling manner
+// Start scanning the blockchain for assertion creation events in a polling manner
 // from the latest confirmed assertion.
 func (s *Scanner) Start(ctx context.Context) {
 	latestConfirmed, err := s.chain.LatestConfirmed(ctx)
@@ -157,7 +157,7 @@ func (s *Scanner) checkForAssertionAdded(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, s.ProcessAssertionCreation(ctx, it.Event.AssertionHash)
+			return true, s.ProcessAssertionCreation(ctx, protocol.AssertionHash{Hash: it.Event.AssertionHash})
 		})
 		if processErr != nil {
 			return processErr
@@ -170,7 +170,7 @@ func (s *Scanner) ProcessAssertionCreation(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
 ) error {
-	srvlog.Info("Processing assertion creation event", log.Ctx{"validatorName": s.validatorName, "hash": containers.Trunc(assertionHash[:])})
+	srvlog.Info("Processing assertion creation event", log.Ctx{"validatorName": s.validatorName, "hash": containers.Trunc(assertionHash.Hash[:])})
 	s.assertionsProcessedCount++
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
@@ -182,7 +182,7 @@ func (s *Scanner) ProcessAssertionCreation(
 	if (prevAssertionHash == common.Hash{}) {
 		return nil
 	}
-	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash(prevAssertionHash))
+	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: prevAssertionHash})
 	if err != nil {
 		srvlog.Error("Could not get prev assertion", log.Ctx{"err": err})
 		return err
@@ -205,7 +205,7 @@ func (s *Scanner) ProcessAssertionCreation(
 	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
 		srvlog.Warn("Disagreed with execution state of posted assertion", log.Ctx{
 			"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
-			"detectedAssertionHash": containers.Trunc(assertionHash[:]),
+			"detectedAssertionHash": containers.Trunc(assertionHash.Hash[:]),
 			"msgCount":              msgCount,
 		})
 		return nil
@@ -216,7 +216,7 @@ func (s *Scanner) ProcessAssertionCreation(
 	}
 	srvlog.Info("Agreed with execution state of posted assertion", log.Ctx{
 		"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
-		"detectedAssertionHash": containers.Trunc(assertionHash[:]),
+		"detectedAssertionHash": containers.Trunc(assertionHash.Hash[:]),
 		"msgCount":              msgCount,
 	})
 	if s.challengeReader.Mode() == types.DefensiveMode || s.challengeReader.Mode() == types.MakeMode {

@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package assertions
 
@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
+	"github.com/OffchainLabs/bold/containers"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -58,7 +58,7 @@ func (p *Poster) Start(ctx context.Context) {
 	}
 }
 
-// Posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
+// PostLatestAssertion posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
 // TODO: Include leaf creation validity conditions which are more complex than this.
 // For example, a validator must include messages from the inbox that were not included
 // by the last validator in the last leaf's creation.
@@ -79,7 +79,7 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 	}
 	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
 	srvlog.Info("Latest valid assertion seq", log.Ctx{
-		"parentSeq":    containers.Trunc(parentAssertionSeq[:]),
+		"parentSeq":    containers.Trunc(parentAssertionSeq.Hash[:]),
 		"prevMaxCount": prevInboxMaxCount,
 		"name":         p.validatorName,
 		"creationInfo": fmt.Sprintf("%+v", parentAssertionCreationInfo),
@@ -122,7 +122,7 @@ func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assert
 	}
 	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
 	srvlog.Info("Latest valid assertion seq", log.Ctx{
-		"parentSeq":    containers.Trunc(parentAssertionSeq[:]),
+		"parentSeq":    containers.Trunc(parentAssertionSeq.Hash[:]),
 		"prevMaxCount": prevInboxMaxCount,
 		"creationInfo": fmt.Sprintf("%+v", parentAssertionCreationInfo),
 	})

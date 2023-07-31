@@ -1,6 +1,9 @@
+// Package stateprovider defines smarter mocks for testing purposes that can simulate a layer 2
+// state provider and and layer 2 state execution.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-package toys
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+package stateprovider
 
 import (
 	"context"
@@ -8,12 +11,12 @@ import (
 	"fmt"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -46,7 +49,7 @@ type L2StateBackend struct {
 	maliciousMachineIndex        uint64
 }
 
-// Initialize with a list of predefined state roots, useful for tests and simulations.
+// NewWithMockedStateRoots initialize with a list of predefined state roots, useful for tests and simulations.
 func NewWithMockedStateRoots(stateRoots []common.Hash, opts ...Opt) (*L2StateBackend, error) {
 	if len(stateRoots) == 0 {
 		return nil, errors.New("no state roots provided")
@@ -101,7 +104,7 @@ func WithMachineAtBlockProvider(machineAtBlock func(ctx context.Context, blockNu
 	}
 }
 
-// If enabled, forces the machine hash at block boundaries to be the block hash
+// WithForceMachineBlockCompat if enabled, forces the machine hash at block boundaries to be the block hash
 func WithForceMachineBlockCompat() Opt {
 	return func(s *L2StateBackend) {
 		s.forceMachineBlockCompat = true
@@ -185,7 +188,7 @@ func NewForSimpleMachine(
 	return s, nil
 }
 
-// Produces the l2 state to assert at the message number specified.
+// ExecutionStateAtMessageNumber produces the l2 state to assert at the message number specified.
 func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
@@ -201,7 +204,7 @@ func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, mess
 	return nil, fmt.Errorf("no execution state at message number %d found", messageNumber)
 }
 
-// Checks if the execution manager locally has recorded this state
+// ExecutionStateMsgCount returns the execution state message count.
 func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error) {
 	for i, r := range s.executionStates {
 		if r.Equals(state) {
@@ -211,12 +214,9 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, wasmModuleRoot common.Hash, assertionHash protocol.AssertionHash, messageNumber uint64) (commitments.History, error) {
-	// The size is the number of elements being committed to. For example, if the height is 7, there will
-	// be 8 elements being committed to from [0, 7] inclusive.
-	size := messageNumber + 1
+func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
 	return commitments.New(
-		s.stateRoots[:size],
+		[]common.Hash{s.stateRoots[messageNumber]},
 	)
 }
 
@@ -254,8 +254,7 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64)
 	return states, nil
 }
 
-func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash, messageNumberStart, messageNumberEnd, nextBatchCount uint64) (commitments.History, error) {
+func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, messageNumberStart, messageNumberEnd, nextBatchCount uint64) (commitments.History, error) {
 	states, err := s.statesUpTo(messageNumberStart, messageNumberEnd, nextBatchCount)
 	if err != nil {
 		return commitments.History{}, err
@@ -272,8 +271,8 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, wasmModul
 func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
-	prevAssertionInboxMaxCount uint64,
+	assertionInboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	heights protocol.OriginHeights,
 	commit l2stateprovider.History,
@@ -282,7 +281,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, wasmModuleRoot, assertionHash, 0, uint64(commit.Height), prevAssertionInboxMaxCount)
+		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
 		if err != nil {
 			return false, err
 		}
@@ -290,9 +289,8 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 		localCommit, err = s.BigStepCommitmentUpTo(
 			ctx,
 			wasmModuleRoot,
-			assertionHash,
 			uint64(heights.BlockChallengeOriginHeight),
-			uint64(commit.Height),
+			commit.Height,
 		)
 		if err != nil {
 			return false, err
@@ -301,7 +299,6 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 		localCommit, err = s.SmallStepCommitmentUpTo(
 			ctx,
 			wasmModuleRoot,
-			assertionHash,
 			uint64(heights.BlockChallengeOriginHeight),
 			uint64(heights.BigStepChallengeOriginHeight),
 			commit.Height,
@@ -318,7 +315,6 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 func (s *L2StateBackend) BigStepLeafCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight uint64,
 ) (commitments.History, error) {
 	// Number of big steps between assertion heights A and B will be
@@ -328,7 +324,6 @@ func (s *L2StateBackend) BigStepLeafCommitment(
 	return s.BigStepCommitmentUpTo(
 		ctx,
 		wasmModuleRoot,
-		assertionHash,
 		blockHeight,
 		numBigSteps,
 	)
@@ -337,7 +332,6 @@ func (s *L2StateBackend) BigStepLeafCommitment(
 func (s *L2StateBackend) BigStepCommitmentUpTo(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	toBigStep uint64,
 ) (commitments.History, error) {
@@ -415,14 +409,12 @@ func (s *L2StateBackend) intermediateBigStepLeaves(
 func (s *L2StateBackend) SmallStepLeafCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep uint64,
 ) (commitments.History, error) {
 	return s.SmallStepCommitmentUpTo(
 		ctx,
 		wasmModuleRoot,
-		assertionHash,
 		blockHeight,
 		bigStep,
 		s.numOpcodesPerBigStep,
@@ -432,7 +424,6 @@ func (s *L2StateBackend) SmallStepLeafCommitment(
 func (s *L2StateBackend) SmallStepCommitmentUpTo(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep uint64,
 	toSmallStep uint64,
@@ -542,7 +533,6 @@ func (s *L2StateBackend) OneStepProofData(
 	ctx context.Context,
 	cfgSnapshot *l2stateprovider.ConfigSnapshot,
 	postState rollupgen.ExecutionState,
-	assertionHash protocol.AssertionHash,
 	messageNumber,
 	bigStep,
 	smallStep uint64,
@@ -571,7 +561,6 @@ func (s *L2StateBackend) OneStepProofData(
 	startCommit, commitErr := s.SmallStepCommitmentUpTo(
 		ctx,
 		cfgSnapshot.WasmModuleRoot,
-		assertionHash,
 		messageNumber,
 		bigStep,
 		smallStep,
@@ -583,7 +572,6 @@ func (s *L2StateBackend) OneStepProofData(
 	endCommit, commitErr := s.SmallStepCommitmentUpTo(
 		ctx,
 		cfgSnapshot.WasmModuleRoot,
-		assertionHash,
 		messageNumber,
 		bigStep,
 		smallStep+1,
@@ -667,14 +655,13 @@ func (s *L2StateBackend) prefixProofImpl(_ context.Context, start, lo, hi, batch
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
 }
 
-func (s *L2StateBackend) PrefixProofUpToBatch(ctx context.Context, wasmModuleRoot common.Hash, assertionHash protocol.AssertionHash, start, lo, hi, batchCount uint64) ([]byte, error) {
+func (s *L2StateBackend) PrefixProofUpToBatch(ctx context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
 	return s.prefixProofImpl(ctx, start, lo, hi, batchCount)
 }
 
 func (s *L2StateBackend) BigStepPrefixProof(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	fromBigStep,
 	toBigStep uint64,
@@ -728,7 +715,6 @@ func (s *L2StateBackend) bigStepPrefixProofCalculation(
 func (s *L2StateBackend) SmallStepPrefixProof(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	assertionHash protocol.AssertionHash,
 	blockHeight,
 	bigStep,
 	fromSmallStep,
