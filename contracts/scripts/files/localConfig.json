@@ -18,8 +18,8 @@
   "settings": {
     "confirmPeriodBlocks": 100,
     "stakeToken": "0x408Da76E87511429485C32E4Ad647DD14823Fdc4",
-    "stakeAmt": 10000000000000000000,
-    "miniStakeAmt": 5000000000000000000,
+    "stakeAmt": "10000000000000000000",
+    "miniStakeAmt": "5000000000000000000",
     "chainId": 1337,
     "anyTrustFastConfirmer": "0x6d903f6003cca6255D85CcA4D3B5E5146dC33925"
   }
