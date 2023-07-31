@@ -1,10 +1,5 @@
 import { ethers } from 'ethers'
-import {
-  Config,
-  DeployedContracts,
-  getJsonFile,
-  validateConfig,
-} from './common'
+import { DeployedContracts, getConfig, getJsonFile } from './common'
 import dotenv from 'dotenv'
 import {
   EdgeChallengeManager__factory,
@@ -24,8 +19,7 @@ async function main() {
   if (!configLocation) {
     throw new Error('CONFIG_LOCATION env variable not set')
   }
-  const config = getJsonFile(configLocation) as Config
-  validateConfig(config)
+  const config = await getConfig(configLocation, l1Rpc)
 
   const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
   if (!deployedContractsLocation) {
