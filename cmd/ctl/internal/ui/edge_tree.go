@@ -8,7 +8,7 @@ import (
 	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/cmd/ctl/internal/data"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 

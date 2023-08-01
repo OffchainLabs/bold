@@ -7,7 +7,7 @@ import (
 )
 
 func TestListAssertions(t *testing.T) {
-	s, _ := NewTestServer(t)
+	s, _, _ := NewTestServer(t)
 
 	req, err := http.NewRequest("GET", "/assertions", nil)
 	if err != nil {
@@ -28,7 +28,7 @@ func TestListAssertions(t *testing.T) {
 }
 
 func TestGetAssertion(t *testing.T) {
-	s, _ := NewTestServer(t)
+	s, _, _ := NewTestServer(t)
 
 	req, err := http.NewRequest("GET", "/assertions/foo", nil)
 	if err != nil {
