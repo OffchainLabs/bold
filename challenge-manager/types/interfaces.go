@@ -28,10 +28,12 @@ type ChallengeReader interface {
 	MaxDelaySeconds() int
 }
 
+// RPCClient defines a subset of the rpc.Client struct as needed by the challenge manager.
 type RPCClient interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
+// ChallengeManagerBackend defines a subset of the ethclient struct as needed by the challenge manager.
 type ChallengeManagerBackend interface {
 	bind.ContractBackend
 	Client() RPCClient
