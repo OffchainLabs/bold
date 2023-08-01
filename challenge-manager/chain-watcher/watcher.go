@@ -313,8 +313,8 @@ func (w *Watcher) GetEdges() []protocol.SpecEdge {
 
 // AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally
 // tracked challenge trees and spawns an edge tracker for it. Should be called after the challenge
-// manager creates a new edge.
-func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.SpecEdge) error {
+// manager creates a new edge, or bisects an edge and produces two children from that move.
+func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.VerifiedHonestEdge) error {
 	assertionHash, err := edge.AssertionHash(ctx)
 	if err != nil {
 		return err

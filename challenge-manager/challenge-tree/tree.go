@@ -166,7 +166,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 }
 
 // AddHonestEdge known to be honest, such as those created by the local validator.
-func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.SpecEdge) error {
+func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) error {
 	id := eg.Id()
 	ht.edges.Put(id, eg)
 	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
