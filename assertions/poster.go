@@ -41,7 +41,7 @@ func NewPoster(
 }
 
 func (p *Poster) Start(ctx context.Context) {
-	if _, err := p.PostLatestAssertion(ctx); err != nil {
+	if _, err := p.NewStakeOnNewAssertion(ctx); err != nil {
 		srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 	}
 	ticker := time.NewTicker(p.postInterval)
@@ -49,7 +49,7 @@ func (p *Poster) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if _, err := p.PostLatestAssertion(ctx); err != nil {
+			if _, err := p.NewStakeOnNewAssertion(ctx); err != nil {
 				srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 			}
 		case <-ctx.Done():
@@ -58,54 +58,27 @@ func (p *Poster) Start(ctx context.Context) {
 	}
 }
 
-// PostLatestAssertion posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
-// TODO: Include leaf creation validity conditions which are more complex than this.
-// For example, a validator must include messages from the inbox that were not included
-// by the last validator in the last leaf's creation.
-func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, error) {
-	// Ensure that we only build on a valid parent from this validator's perspective.
-	// the validator should also have ready access to historical commitments to make sure it can select
-	// the valid parent based on its commitment state root.
-	parentAssertionSeq, err := p.findLatestValidAssertion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	parentAssertionCreationInfo, err := p.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
-	if err != nil {
-		return nil, err
-	}
-	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
-		return nil, errors.New("inbox max count not a uint64")
-	}
-	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
-	srvlog.Info("Latest valid assertion seq", log.Ctx{
-		"parentSeq":    containers.Trunc(parentAssertionSeq.Hash[:]),
-		"prevMaxCount": prevInboxMaxCount,
-		"name":         p.validatorName,
-		"creationInfo": fmt.Sprintf("%+v", parentAssertionCreationInfo),
-	})
-	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
-	if err != nil {
-		return nil, err
-	}
-	srvlog.Info("Got the new assertion state to post", log.Ctx{"state": fmt.Sprintf("%+v", newState), "name": p.validatorName})
-	assertion, err := p.chain.CreateAssertion(
-		ctx,
-		parentAssertionCreationInfo,
-		newState,
-	)
-	switch {
-	case errors.Is(err, solimpl.ErrAlreadyExists):
-		return nil, errors.Wrap(err, "assertion already exists, was unable to post")
-	case err != nil:
-		return nil, err
-	}
-	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName})
-
-	return assertion, nil
+// NewStakeOnNewAssertion posts the required, next claim to the validator's L2 state
+// to the AssertionChain contracts on L1 and adds a new stake.
+func (p *Poster) NewStakeOnNewAssertion(ctx context.Context) (protocol.Assertion, error) {
+	return p.submitAssertion(ctx, p.chain.CreateAssertion)
 }
 
-func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assertion, error) {
+// StakeOnNewAssertion posts the required, next claim to the validator's L2 state
+// to the AssertionChain contracts on L1 moves the validator's
+// existing stake to that assertion.
+func (p *Poster) StakeOnNewAssertion(ctx context.Context) (protocol.Assertion, error) {
+	return p.submitAssertion(ctx, p.chain.CreateAssertionAndMoveStake)
+}
+
+func (p *Poster) submitAssertion(
+	ctx context.Context,
+	submitFn func(
+		ctx context.Context,
+		parentState *protocol.AssertionCreatedInfo,
+		execState *protocol.ExecutionState,
+	) (protocol.Assertion, error),
+) (protocol.Assertion, error) {
 	// Ensure that we only build on a valid parent from this validator's perspective.
 	// the validator should also have ready access to historical commitments to make sure it can select
 	// the valid parent based on its commitment state root.
@@ -131,7 +104,7 @@ func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assert
 		return nil, err
 	}
 	srvlog.Info("Got the new assertion state to post", log.Ctx{"state": fmt.Sprintf("%+v", newState)})
-	assertion, err := p.chain.CreateAssertionAndMoveStake(
+	assertion, err := submitFn(
 		ctx,
 		parentAssertionCreationInfo,
 		newState,
