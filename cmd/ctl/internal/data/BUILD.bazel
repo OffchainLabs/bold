@@ -4,7 +4,7 @@ go_library(
     name = "data",
     srcs = ["data.go"],
     embedsrcs = ["edges.json"],
-    importpath = "github.com/OffchainLabs/challenge-protocol-v2/cmd/ctl/internal/data",
+    importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/data",
     visibility = ["//cmd/ctl:__subpackages__"],
     deps = ["//api"],
 )

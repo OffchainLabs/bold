@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/cmd/ctl/internal/data"
+	"github.com/OffchainLabs/bold/cmd/ctl/internal/data"
 	"github.com/rivo/tview"
 )
 

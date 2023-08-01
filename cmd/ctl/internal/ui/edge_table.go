@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/api"
-	"github.com/OffchainLabs/challenge-protocol-v2/cmd/ctl/internal/data"
+	"github.com/OffchainLabs/bold/api"
+	"github.com/OffchainLabs/bold/cmd/ctl/internal/data"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )

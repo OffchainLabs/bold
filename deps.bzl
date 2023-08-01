@@ -534,6 +534,25 @@ def go_dependencies():
         version = "v0.0.0-20220902153445-097bd83b7732",
     )
     go_repository(
+        name = "com_github_gdamore_encoding",
+        importpath = "github.com/gdamore/encoding",
+        sum = "h1:+7OoQ1Bc6eTm5niUzBa0Ctsh6JbMW6Ra+YNuAtDBdko=",
+        version = "v1.0.0",
+    )
+    go_repository(
+        name = "com_github_gdamore_tcell",
+        importpath = "github.com/gdamore/tcell",
+        sum = "h1:vUnHwJRvcPQa3tzi+0QI4U9JINXYJlOz9yiaiPQ2wMU=",
+        version = "v1.4.0",
+    )
+    go_repository(
+        name = "com_github_gdamore_tcell_v2",
+        importpath = "github.com/gdamore/tcell/v2",
+        sum = "h1:OKbluoP9VYmJwZwq/iLb4BxwKcwGthaa1YNBJIyCySg=",
+        version = "v2.6.0",
+    )
+
+    go_repository(
         name = "com_github_getsentry_sentry_go",
         importpath = "github.com/getsentry/sentry-go",
         sum = "h1:MtBW5H9QgdcJabtZcuJG80BMOwaBpkRDZkxRkNC1sN0=",
@@ -1076,6 +1095,13 @@ def go_dependencies():
         sum = "h1:BqpAaACuzVSgi/VLzGZIobT2z4v53pjosyNd9Yv6n/w=",
         version = "v1.2.1",
     )
+    go_repository(
+        name = "com_github_lucasb_eyer_go_colorful",
+        importpath = "github.com/lucasb-eyer/go-colorful",
+        sum = "h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=",
+        version = "v1.2.0",
+    )
+
     go_repository(
         name = "com_github_magiconair_properties",
         importpath = "github.com/magiconair/properties",

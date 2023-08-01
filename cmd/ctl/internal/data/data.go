@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/api"
+	"github.com/OffchainLabs/bold/api"
 )
 
 //go:embed edges.json
