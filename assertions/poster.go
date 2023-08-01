@@ -5,6 +5,7 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -80,6 +81,7 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Posting latest assertion new state %+v\n", newState)
 	assertion, err := p.chain.CreateAssertion(
 		ctx,
 		parentAssertionCreationInfo,
@@ -116,7 +118,8 @@ func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assert
 	if err != nil {
 		return nil, err
 	}
-	assertion, err := p.chain.CreateAssertion(
+	fmt.Printf("Posting new state and moving stake %+v\n", newState)
+	assertion, err := p.chain.CreateAssertionAndMoveStake(
 		ctx,
 		parentAssertionCreationInfo,
 		newState,
