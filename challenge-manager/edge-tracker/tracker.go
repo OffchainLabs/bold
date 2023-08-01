@@ -529,13 +529,13 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 		"bisectedTo":         bisectTo,
 		"bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
 	})
-	if err := et.chainWatcher.AddVerifiedHonestEdge(ctx, firstChild); err != nil {
+	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, firstChild); addVerifiedErr != nil {
 		// We simply log an error, as if this fails, it will be added later on by the chain watcher
 		// scraping events from the chain, but this is a helpful optimization.
-		srvlog.Error("Could not add verified honest edge to chain watcher", err)
+		srvlog.Error("Could not add verified honest edge to chain watcher", addVerifiedErr)
 	}
-	if err := et.chainWatcher.AddVerifiedHonestEdge(ctx, secondChild); err != nil {
-		srvlog.Error("Could not add verified honest edge to chain watcher", err)
+	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, secondChild); addVerifiedErr != nil {
+		srvlog.Error("Could not add verified honest edge to chain watcher", addVerifiedErr)
 	}
 	return firstChild, secondChild, nil
 }
@@ -634,10 +634,10 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	fields["subChallengeType"] = addedLeaf.GetType()
 	srvlog.Info("Created subchallenge edge", fields)
 
-	if err := et.chainWatcher.AddVerifiedHonestEdge(ctx, addedLeaf); err != nil {
+	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, addedLeaf); addVerifiedErr != nil {
 		// We simply log an error, as if this fails, it will be added later on by the chain watcher
 		// scraping events from the chain, but this is a helpful optimization.
-		srvlog.Error("Could not add verified honest edge to chain watcher", err)
+		srvlog.Error("Could not add verified honest edge to chain watcher", addVerifiedErr)
 	}
 
 	tracker, err := New(
