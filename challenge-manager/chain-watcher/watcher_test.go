@@ -187,3 +187,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pathTimer, challengetree.PathTimer(blockNumber+assertionUnrivaledBlocks))
 }
+
+func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
+
+}

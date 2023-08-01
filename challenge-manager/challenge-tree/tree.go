@@ -165,6 +165,37 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}, nil
 }
 
+// AddHonestEdge known to be honest, such as those created by the local validator.
+func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.SpecEdge) error {
+	id := eg.Id()
+	ht.edges.Put(id, eg)
+	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
+	if !eg.ClaimId().IsNone() {
+		switch eg.GetType() {
+		case protocol.BlockChallengeEdge:
+			ht.honestBlockChalLevelZeroEdge = option.Some(protocol.ReadOnlyEdge(eg))
+		case protocol.BigStepChallengeEdge:
+			ht.honestBigStepLevelZeroEdges.Push(eg)
+		case protocol.SmallStepChallengeEdge:
+			ht.honestSmallStepLevelZeroEdges.Push(eg)
+		default:
+		}
+	}
+	// We add the edge id to the list of mutual ids we are tracking.
+	mutualId := eg.MutualId()
+	mutuals := ht.mutualIds.Get(mutualId)
+	if mutuals == nil {
+		ht.mutualIds.Put(mutualId, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		mutuals = ht.mutualIds.Get(mutualId)
+	}
+	createdAtBlock, err := eg.CreatedAtBlock()
+	if err != nil {
+		return err
+	}
+	mutuals.Put(eg.Id(), creationTime(createdAtBlock))
+	return nil
+}
+
 func (ht *HonestChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {
 	return ht.edges
 }
