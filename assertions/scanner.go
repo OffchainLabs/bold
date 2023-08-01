@@ -170,8 +170,6 @@ func (s *Scanner) ProcessAssertionCreation(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
 ) error {
-	srvlog.Info("Processing assertion creation event", log.Ctx{"validatorName": s.validatorName, "hash": containers.Trunc(assertionHash.Hash[:])})
-	s.assertionsProcessedCount++
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		srvlog.Error("Could not read creation", log.Ctx{"err": err})
@@ -182,6 +180,9 @@ func (s *Scanner) ProcessAssertionCreation(
 	if (prevAssertionHash == common.Hash{}) {
 		return nil
 	}
+	srvlog.Info("Processing assertion creation event", log.Ctx{"validatorName": s.validatorName, "hash": containers.Trunc(assertionHash.Hash[:])})
+	s.assertionsProcessedCount++
+
 	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: prevAssertionHash})
 	if err != nil {
 		srvlog.Error("Could not get prev assertion", log.Ctx{"err": err})
@@ -198,8 +199,8 @@ func (s *Scanner) ProcessAssertionCreation(
 	}
 	srvlog.Info("Assertion has second child", log.Ctx{"hash": containers.Trunc(prevAssertionHash[:])})
 	s.forksDetectedCount++
-	execState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 
+	execState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 	msgCount, err := s.stateProvider.ExecutionStateMsgCount(ctx, execState)
 	switch {
 	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
