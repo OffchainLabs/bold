@@ -200,6 +200,10 @@ func New(
 		m.assertionScanningInterval,
 	)
 
+	if m.apiAddr != "" && m.client == nil {
+		return nil, errors.New("go-ethereum RPC client required to enable API service")
+	}
+
 	if m.apiAddr != "" {
 		a, err := api.NewServer(&api.Config{
 			Address:      m.apiAddr,
