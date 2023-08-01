@@ -321,11 +321,10 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 	// If a challenge is not yet being tracked locally by the watcher
 	// for the edge's assertion hash, it adds an entry to the map.
-	originId := common.Hash(edge.OriginId())
 	chal, ok := w.challenges.TryGet(assertionHash)
 	if !ok {
 		tree := challengetree.New(
-			protocol.AssertionHash{Hash: originId},
+			assertionHash,
 			w.chain,
 			w.histChecker,
 			w.validatorName,
