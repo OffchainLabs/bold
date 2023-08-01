@@ -110,6 +110,12 @@ func WithAPIEnabled(addr string) Opt {
 	}
 }
 
+func WithRPCClient(client *rpc.Client) Opt {
+	return func(val *Manager) {
+		val.client = client
+	}
+}
+
 // WithAssertionPostingInterval specifies how often to post new assertions, if in MakeMode.
 // act on its responsibilities.
 
@@ -122,7 +128,6 @@ func New(
 	ctx context.Context,
 	chain protocol.Protocol,
 	backend bind.ContractBackend,
-	client *rpc.Client,
 	stateManager l2stateprovider.Provider,
 	rollupAddr common.Address,
 	opts ...Opt,
@@ -130,7 +135,6 @@ func New(
 
 	m := &Manager{
 		backend:                   backend,
-		client:                    client,
 		chain:                     chain,
 		stateManager:              stateManager,
 		address:                   common.Address{},

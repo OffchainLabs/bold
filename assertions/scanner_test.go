@@ -65,7 +65,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 			ctx,
 			createdData.Chains[1],
 			createdData.Backend,
-			nil, // client
 			createdData.HonestStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.MakeMode),
@@ -81,7 +80,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 			ctx,
 			createdData.Chains[0],
 			createdData.Backend,
-			nil, // client
 			createdData.EvilStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.MakeMode),
@@ -112,7 +110,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 			ctx,
 			createdData.Chains[1],
 			createdData.Backend,
-			nil, // client
 			createdData.HonestStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.DefensiveMode),
@@ -128,7 +125,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 			ctx,
 			createdData.Chains[0],
 			createdData.Backend,
-			nil, // client
 			createdData.EvilStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.DefensiveMode),
@@ -159,7 +155,7 @@ func setupChallengeManager(t *testing.T) (*challengemanager.Manager, *mocks.Mock
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
-	v, err := challengemanager.New(context.Background(), p, cfg.Backend, nil /* client */, s, cfg.Addrs.Rollup, challengemanager.WithMode(types.MakeMode), challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond))
+	v, err := challengemanager.New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup, challengemanager.WithMode(types.MakeMode), challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 	require.NoError(t, err)
 	return v, p, s, cfg
 }
