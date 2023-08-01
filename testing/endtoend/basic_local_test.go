@@ -270,14 +270,14 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		// Bad Alice
 		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client())
 		require.NoError(t, err)
-		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
+		alice, err := validator.New(ctx, aChain, be.Client(), be.Client().Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
 
 		// Good Bob
 		bobCtx, bobCancelCtx := context.WithCancel(ctx)
 		bChain, err := solimpl.NewAssertionChain(bobCtx, rollup, be.Bob(), be.Client())
 		require.NoError(t, err)
-		bob, err := validator.New(bobCtx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
+		bob, err := validator.New(bobCtx, bChain, be.Client(), be.Client().Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
 
 		alicePoster := assertions.NewPoster(aChain, s.AliceStateManager, "alice", time.Hour)
@@ -302,7 +302,7 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		// Good Charlie joins
 		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client())
 		require.NoError(t, err)
-		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.DefensiveMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond)) // Defensive is good enough here.
+		charlie, err := validator.New(ctx, cChain, be.Client(), be.Client().Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.DefensiveMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond)) // Defensive is good enough here.
 		require.NoError(t, err)
 		charlie.Start(ctx)
 
@@ -344,6 +344,7 @@ func setupValidator(
 		ctx,
 		chain,
 		be.Client(),
+		be.Client().Client(),
 		sm,
 		rollup,
 		validator.WithAddress(txOpts.From),

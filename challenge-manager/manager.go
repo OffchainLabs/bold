@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var (
@@ -51,6 +52,7 @@ type Manager struct {
 	rollupFilterer            *rollupgen.RollupCoreFilterer
 	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
 	backend                   bind.ContractBackend
+	client                    *rpc.Client
 	stateManager              l2stateprovider.Provider
 	address                   common.Address
 	name                      string
@@ -120,6 +122,7 @@ func New(
 	ctx context.Context,
 	chain protocol.Protocol,
 	backend bind.ContractBackend,
+	client *rpc.Client,
 	stateManager l2stateprovider.Provider,
 	rollupAddr common.Address,
 	opts ...Opt,
@@ -127,6 +130,7 @@ func New(
 
 	m := &Manager{
 		backend:                   backend,
+		client:                    client,
 		chain:                     chain,
 		stateManager:              stateManager,
 		address:                   common.Address{},
