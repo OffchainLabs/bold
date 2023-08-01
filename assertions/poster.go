@@ -5,10 +5,12 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
+	"github.com/OffchainLabs/bold/containers"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
@@ -40,7 +42,7 @@ func NewPoster(
 
 func (p *Poster) Start(ctx context.Context) {
 	if _, err := p.PostLatestAssertion(ctx); err != nil {
-		srvlog.Error("Could not submit latest assertion to L1", err)
+		srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 	}
 	ticker := time.NewTicker(p.postInterval)
 	defer ticker.Stop()
@@ -48,7 +50,7 @@ func (p *Poster) Start(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if _, err := p.PostLatestAssertion(ctx); err != nil {
-				srvlog.Error("Could not submit latest assertion to L1", err)
+				srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 			}
 		case <-ctx.Done():
 			return
@@ -76,11 +78,60 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 		return nil, errors.New("inbox max count not a uint64")
 	}
 	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
+	srvlog.Info("Latest valid assertion seq", log.Ctx{
+		"parentSeq":    containers.Trunc(parentAssertionSeq.Hash[:]),
+		"prevMaxCount": prevInboxMaxCount,
+		"name":         p.validatorName,
+		"creationInfo": fmt.Sprintf("%+v", parentAssertionCreationInfo),
+	})
 	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
 	if err != nil {
 		return nil, err
 	}
+	srvlog.Info("Got the new assertion state to post", log.Ctx{"state": fmt.Sprintf("%+v", newState), "name": p.validatorName})
 	assertion, err := p.chain.CreateAssertion(
+		ctx,
+		parentAssertionCreationInfo,
+		newState,
+	)
+	switch {
+	case errors.Is(err, solimpl.ErrAlreadyExists):
+		return nil, errors.Wrap(err, "assertion already exists, was unable to post")
+	case err != nil:
+		return nil, err
+	}
+	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName})
+
+	return assertion, nil
+}
+
+func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assertion, error) {
+	// Ensure that we only build on a valid parent from this validator's perspective.
+	// the validator should also have ready access to historical commitments to make sure it can select
+	// the valid parent based on its commitment state root.
+	parentAssertionSeq, err := p.findLatestValidAssertion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	parentAssertionCreationInfo, err := p.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
+	if err != nil {
+		return nil, err
+	}
+	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
+		return nil, errors.New("inbox max count not a uint64")
+	}
+	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
+	srvlog.Info("Latest valid assertion seq", log.Ctx{
+		"parentSeq":    containers.Trunc(parentAssertionSeq.Hash[:]),
+		"prevMaxCount": prevInboxMaxCount,
+		"creationInfo": fmt.Sprintf("%+v", parentAssertionCreationInfo),
+	})
+	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
+	if err != nil {
+		return nil, err
+	}
+	srvlog.Info("Got the new assertion state to post", log.Ctx{"state": fmt.Sprintf("%+v", newState)})
+	assertion, err := p.chain.CreateAssertionAndMoveStake(
 		ctx,
 		parentAssertionCreationInfo,
 		newState,
@@ -108,6 +159,7 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 	if err != nil {
 		return protocol.AssertionHash{}, err
 	}
+	fmt.Printf("Latest confirmed %#x, latest created %#x\n", latestConfirmed.Id(), latestCreated.Id())
 	if latestConfirmed == latestCreated {
 		return latestConfirmed.Id(), nil
 	}
@@ -117,7 +169,9 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 		if err != nil {
 			return protocol.AssertionHash{}, err
 		}
+		fmt.Printf("Checking if agrees with %#x\n", info.AfterState)
 		_, err = p.stateManager.ExecutionStateMsgCount(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState))
+		fmt.Println(err)
 		switch {
 		case errors.Is(err, l2stateprovider.ErrNoExecutionState):
 			prevId, prevErr := curr.PrevId(ctx)
@@ -128,9 +182,10 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 			if getErr != nil {
 				return protocol.AssertionHash{}, getErr
 			}
+			fmt.Printf("Getting prev assertion %#x\n", prev.Id())
 			curr = prev
 		case err != nil:
-			return protocol.AssertionHash{}, nil
+			return protocol.AssertionHash{}, err
 		default:
 			return curr.Id(), nil
 		}

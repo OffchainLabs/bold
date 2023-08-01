@@ -257,8 +257,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
+		srvlog.Info("Opening subchallenge on edge", fields)
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			srvlog.Error("Could not open subchallenge leaf", err, fields)
+			fields["err"] = err
+			srvlog.Error("Could not open subchallenge leaf", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
@@ -464,10 +466,12 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		if commitErr != nil {
 			return commitments.History{}, nil, commitErr
 		}
+		fmt.Printf("Calling prefix proof start height %d, bisect to %d, end %d, end batch count %d\n", startHeight, bisectTo, endHeight, et.heightConfig.TopLevelClaimEndBatchCount)
 		proof, proofErr := et.stateProvider.PrefixProofUpToBatch(ctx, et.heightConfig.StartBlockHeight, bisectTo, uint64(endHeight), et.heightConfig.TopLevelClaimEndBatchCount)
 		if proofErr != nil {
 			return commitments.History{}, nil, proofErr
 		}
+		fmt.Printf("DONE WITH PREFIX PROOF COMPUTATION, commit %+v\n", historyCommit)
 		return historyCommit, proof, nil
 	}
 	var historyCommit commitments.History
@@ -522,12 +526,15 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 		)
 	}
 	srvlog.Info("Successfully bisected edge", log.Ctx{
-		"name":               et.validatorName,
-		"challengeType":      et.edge.GetType(),
-		"bisectedFrom":       endHeight,
-		"bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
-		"bisectedTo":         bisectTo,
-		"bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
+		"name":          et.validatorName,
+		"id":            containers.Trunc(et.edge.Id().Hash.Bytes()),
+		"lowerId":       containers.Trunc(firstChild.Id().Hash.Bytes()),
+		"upperId":       containers.Trunc(secondChild.Id().Hash.Bytes()),
+		"challengeType": et.edge.GetType(),
+		// "bisectedFrom":       endHeight,
+		// "bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
+		// "bisectedTo":         bisectTo,
+		// "bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
 	})
 	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, firstChild); addVerifiedErr != nil {
 		// We simply log an error, as if this fails, it will be added later on by the chain watcher
@@ -617,6 +624,11 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
+	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
+	fields["endLeaf"] = containers.Trunc(endHistory.LastLeaf.Bytes())
+	fields["endCommitment"] = containers.Trunc(endHistory.Merkle.Bytes())
+	fields["claimEdgeId"] = containers.Trunc(et.edge.Id().Hash.Bytes())
 	addedLeaf, err := manager.AddSubChallengeLevelZeroEdge(
 		ctx,
 		et.edge,
@@ -627,11 +639,9 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		startEndPrefixProof,
 	)
 	if err != nil {
+		srvlog.Error("Failed at subchallenge", fields)
 		return err
 	}
-	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
-	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
-	fields["subChallengeType"] = addedLeaf.GetType()
 	srvlog.Info("Created subchallenge edge", fields)
 
 	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, addedLeaf); addVerifiedErr != nil {

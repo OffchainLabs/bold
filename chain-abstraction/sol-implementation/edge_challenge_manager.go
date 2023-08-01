@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -674,6 +675,18 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 			levelZeroBlockHeight.Uint64(),
 		)
 	}
+
+	fmt.Println("&&&&&")
+	startState := protocol.GoGlobalStateFromSolidity(assertionCreation.BeforeState.GlobalState)
+	machineHash := crypto.Keccak256Hash([]byte("Machine finished:"), startState.Hash().Bytes())
+	fmt.Printf("Start state: %+v, machine hash: %#x\n", startState, machineHash)
+	fmt.Printf("First leaf: %#x, last leaf %#x, commit %#x\n", startCommit.FirstLeaf, startCommit.LastLeaf, startCommit.Merkle)
+	endState := protocol.GoGlobalStateFromSolidity(assertionCreation.AfterState.GlobalState)
+	machineHash = crypto.Keccak256Hash([]byte("Machine finished:"), endState.Hash().Bytes())
+	fmt.Printf("End state: %+v, machine hash: %#x\n", endState, machineHash)
+	fmt.Printf("First leaf: %#x, last leaf %#x, height %d, commit %#x\n", endCommit.FirstLeaf, endCommit.LastLeaf, endCommit.Height, endCommit.Merkle)
+	fmt.Println("&&&&&")
+
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
 		ExecutionStateData{
@@ -796,6 +809,8 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		}
 		return &honestEdge{e.Unwrap()}, nil
 	}
+
+	fmt.Printf("Submitting subchallenge level zero edge, first leaf %#x, last leaf %#x\n", startCommit.FirstLeaf, endCommit.LastLeaf)
 
 	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(
 		startCommit.FirstLeaf,

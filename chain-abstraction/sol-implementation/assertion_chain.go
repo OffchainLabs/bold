@@ -101,6 +101,10 @@ func NewAssertionChain(
 	return chain, nil
 }
 
+func (a *AssertionChain) RollupAddress() common.Address {
+	return a.rollupAddr
+}
+
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
@@ -171,31 +175,128 @@ func (a *AssertionChain) CreateAssertion(
 	existingAssertion, err := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
 	switch {
 	case err == nil:
+		fmt.Printf("Assertion already existed, not opening a new stake: %+v\n", existingAssertion)
 		return existingAssertion, nil
 	case !errors.Is(err, ErrNotFound):
 		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
 	default:
 	}
 
+	inputs := rollupgen.AssertionInputs{
+		BeforeStateData: rollupgen.BeforeStateData{
+			PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+			SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
+			ConfigData: rollupgen.ConfigData{
+				RequiredStake:       parentAssertionCreationInfo.RequiredStake,
+				ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
+				ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
+				WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
+				NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
+			},
+		},
+		BeforeState: parentAssertionCreationInfo.AfterState,
+		AfterState:  postState.AsSolidityStruct(),
+	}
+
 	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(
 			newOpts,
 			parentAssertionCreationInfo.RequiredStake,
-			rollupgen.AssertionInputs{
-				BeforeStateData: rollupgen.BeforeStateData{
-					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
-					ConfigData: rollupgen.ConfigData{
-						RequiredStake:       parentAssertionCreationInfo.RequiredStake,
-						ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
-						ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
-						WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
-						NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
-					},
-				},
-				BeforeState: parentAssertionCreationInfo.AfterState,
-				AfterState:  postState.AsSolidityStruct(),
+			inputs,
+			computedHash,
+		)
+	})
+	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
+		return nil, fmt.Errorf("failed to create assertion: %w", createErr)
+	}
+	if len(receipt.Logs) == 0 {
+		return nil, errors.New("no logs observed from assertion creation")
+	}
+	var assertionCreated *rollupgen.RollupCoreAssertionCreated
+	var found bool
+	for _, log := range receipt.Logs {
+		creationEvent, err := a.rollup.ParseAssertionCreated(*log)
+		if err == nil {
+			assertionCreated = creationEvent
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, errors.New("could not find assertion created event in logs")
+	}
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
+}
+
+// CreateAssertion makes an on-chain claim given a previous assertion hash, execution state,
+// and a commitment to a post-state.
+func (a *AssertionChain) CreateAssertionAndMoveStake(
+	ctx context.Context,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
+		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
+	}
+	newOpts := copyTxOpts(a.txOpts)
+	if postState.GlobalState.Batch == 0 {
+		return nil, errors.New("assertion post state cannot have a batch count of 0, as only genesis can")
+	}
+	bridgeAddr, err := a.userLogic.Bridge(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not retrieve bridge address for user rollup logic contract")
+	}
+	bridge, err := bridgegen.NewIBridgeCaller(bridgeAddr, a.backend)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
+	}
+	inboxBatchAcc, err := bridge.SequencerInboxAccs(
+		&bind.CallOpts{Context: ctx},
+		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
+	}
+
+	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
+		&bind.CallOpts{Context: ctx},
+		parentAssertionCreationInfo.AssertionHash,
+		postState.AsSolidityStruct(),
+		inboxBatchAcc,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not compute assertion hash")
+	}
+	existingAssertion, err := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+	switch {
+	case err == nil:
+		fmt.Printf("Assertion already existed: %+v\n", existingAssertion)
+		return existingAssertion, nil
+	case !errors.Is(err, ErrNotFound):
+		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
+	default:
+	}
+
+	inputs := rollupgen.AssertionInputs{
+		BeforeStateData: rollupgen.BeforeStateData{
+			PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+			SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
+			ConfigData: rollupgen.ConfigData{
+				RequiredStake:       parentAssertionCreationInfo.RequiredStake,
+				ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
+				ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
+				WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
+				NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
 			},
+		},
+		BeforeState: parentAssertionCreationInfo.AfterState,
+		AfterState:  postState.AsSolidityStruct(),
+	}
+
+	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
+		return a.userLogic.StakeOnNewAssertion(
+			newOpts,
+			inputs,
 			computedHash,
 		)
 	})

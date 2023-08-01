@@ -70,6 +70,7 @@ type AssertionChain interface {
 	// Read-only methods.
 	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
+	GenesisAssertionHash(ctx context.Context) (common.Hash, error)
 	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
@@ -81,6 +82,11 @@ type AssertionChain interface {
 
 	// Mutating methods.
 	CreateAssertion(
+		ctx context.Context,
+		assertionCreationInfo *AssertionCreatedInfo,
+		postState *ExecutionState,
+	) (Assertion, error)
+	CreateAssertionAndMoveStake(
 		ctx context.Context,
 		assertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,

@@ -460,9 +460,23 @@ func (m *MockProtocol) CreateAssertion(
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
+func (m *MockProtocol) CreateAssertionAndMoveStake(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	args := m.Called(ctx, assertionCreationInfo, postState)
+	return args.Get(0).(protocol.Assertion), args.Error(1)
+}
+
 func (m *MockProtocol) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(protocol.SpecChallengeManager), args.Error(1)
+}
+
+func (m *MockProtocol) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(common.Hash), args.Error(1)
 }
 
 func (m *MockProtocol) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {
