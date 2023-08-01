@@ -65,6 +65,10 @@ func New(
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
 func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (protocol.Agreement, error) {
+	if _, ok := ht.edges.TryGet(eg.Id()); ok {
+		// Already being tracked.
+		return protocol.Agreement{}, nil
+	}
 	assertionHash, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
 		return protocol.Agreement{}, errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
@@ -168,6 +172,10 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 // AddHonestEdge known to be honest, such as those created by the local validator.
 func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) error {
 	id := eg.Id()
+	if _, ok := ht.edges.TryGet(id); ok {
+		// Already being tracked.
+		return nil
+	}
 	ht.edges.Put(id, eg)
 	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
 	if !eg.ClaimId().IsNone() {

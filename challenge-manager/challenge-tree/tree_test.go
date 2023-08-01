@@ -320,6 +320,40 @@ func TestAddEdge(t *testing.T) {
 	})
 }
 
+type mockHonestEdge struct {
+	protocol.SpecEdge
+}
+
+func (m *mockHonestEdge) Honest() {}
+
+func TestAddHonestEdge(t *testing.T) {
+	createdAt := uint64(1)
+	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a", createdAt: createdAt, claimId: "foo"})
+	ht := &HonestChallengeTree{
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		mutualIds:                     threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		honestBigStepLevelZeroEdges:   threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+		honestSmallStepLevelZeroEdges: threadsafe.NewSlice[protocol.ReadOnlyEdge](),
+	}
+	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
+	honest := &mockHonestEdge{edge}
+
+	err := ht.AddHonestEdge(honest)
+	require.NoError(t, err)
+
+	// We now check if the the challenge tree has a populated
+	// block challenge level zero edge.
+	require.Equal(t, false, ht.honestBlockChalLevelZeroEdge.IsNone())
+
+	// Check if it exists in the mutual ids mapping.
+	mutualId := edge.MutualId()
+	mutuals, ok := ht.mutualIds.TryGet(mutualId)
+	require.Equal(t, true, ok)
+	gotCreatedAt, ok := mutuals.TryGet(edge.Id())
+	require.Equal(t, true, ok)
+	require.Equal(t, createdAt, uint64(gotCreatedAt))
+}
+
 type mockMetadataReader struct {
 	assertionHash            protocol.AssertionHash
 	assertionErr             error
