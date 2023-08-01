@@ -116,6 +116,18 @@ func WithRPCClient(client *rpc.Client) Opt {
 	}
 }
 
+func WithAssertionPostingInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionPostingInterval = d
+	}
+}
+
+func WithAssertionScanningInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionScanningInterval = d
+	}
+}
+
 // New sets up a challenge manager instance provided a protocol, state manager, and additional options.
 func New(
 	ctx context.Context,

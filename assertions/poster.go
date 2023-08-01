@@ -96,6 +96,42 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 	return assertion, nil
 }
 
+func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assertion, error) {
+	// Ensure that we only build on a valid parent from this validator's perspective.
+	// the validator should also have ready access to historical commitments to make sure it can select
+	// the valid parent based on its commitment state root.
+	parentAssertionSeq, err := p.findLatestValidAssertion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	parentAssertionCreationInfo, err := p.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
+	if err != nil {
+		return nil, err
+	}
+	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
+		return nil, errors.New("inbox max count not a uint64")
+	}
+	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
+	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
+	if err != nil {
+		return nil, err
+	}
+	assertion, err := p.chain.CreateAssertion(
+		ctx,
+		parentAssertionCreationInfo,
+		newState,
+	)
+	switch {
+	case errors.Is(err, solimpl.ErrAlreadyExists):
+		return nil, errors.Wrap(err, "assertion already exists, was unable to post")
+	case err != nil:
+		return nil, err
+	}
+	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName})
+
+	return assertion, nil
+}
+
 // Finds the latest valid assertion sequence num a validator should build their new leaves upon. This walks
 // down from the number of assertions in the protocol down until it finds
 // an assertion that we have a state commitment for.

@@ -87,6 +87,11 @@ type AssertionChain interface {
 		assertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,
 	) (Assertion, error)
+	CreateAssertionAndMoveStake(
+		ctx context.Context,
+		assertionCreationInfo *AssertionCreatedInfo,
+		postState *ExecutionState,
+	) (Assertion, error)
 	ConfirmAssertionByChallengeWinner(
 		ctx context.Context,
 		assertionHash AssertionHash,
