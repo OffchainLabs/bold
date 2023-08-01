@@ -404,6 +404,11 @@ func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	return args.Get(0).(uint64), args.Error(1)
 }
 
+func (m *MockProtocol) RollupAddress() common.Address {
+	args := m.Called()
+	return args.Get(0).(common.Address)
+}
+
 func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionHash) (protocol.Assertion, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
