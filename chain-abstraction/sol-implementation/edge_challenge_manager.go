@@ -776,11 +776,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	}
 
 	// First check if the edge already exists.
-	challenged, ok := challengedEdge.(*specEdge)
-	if !ok {
-		return nil, errors.New("not a *SpecEdge")
-	}
-	mutualId := challenged.MutualId()
+	mutualId := challengedEdge.MutualId()
 	edgeId, err := cm.CalculateEdgeId(
 		ctx,
 		subChalTyp,
