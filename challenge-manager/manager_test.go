@@ -60,7 +60,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	honestValidator, err := New(
 		ctx,
 		createdData.Chains[0],
-		createdData.Backend,
+		mocks.SimulatedBackendToChallangeManagerBackend(createdData.Backend),
 		createdData.HonestStateManager,
 		createdData.Addrs.Rollup,
 		WithName("alice"),
@@ -72,7 +72,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 	evilValidator, err := New(
 		ctx,
 		createdData.Chains[1],
-		createdData.Backend,
+		mocks.SimulatedBackendToChallangeManagerBackend(createdData.Backend),
 		createdData.EvilStateManager,
 		createdData.Addrs.Rollup,
 		WithName("bob"),
@@ -155,7 +155,7 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
-	v, err := New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup, WithMode(types.MakeMode), WithEdgeTrackerWakeInterval(100*time.Millisecond))
+	v, err := New(context.Background(), p, mocks.SimulatedBackendToChallangeManagerBackend(cfg.Backend), s, cfg.Addrs.Rollup, WithMode(types.MakeMode), WithEdgeTrackerWakeInterval(100*time.Millisecond))
 	require.NoError(t, err)
 	return v, p, s
 }

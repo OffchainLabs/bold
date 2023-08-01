@@ -5,6 +5,8 @@ import (
 	"context"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // ChallengeManager defines an offchain, challenge manager, which will be
@@ -24,4 +26,13 @@ type ChallengeCreator interface {
 type ChallengeReader interface {
 	Mode() Mode
 	MaxDelaySeconds() int
+}
+
+type RPCClient interface {
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+}
+
+type ChallengeManagerBackend interface {
+	bind.ContractBackend
+	Client() RPCClient
 }

@@ -8,5 +8,9 @@ go_library(
     ],
     importpath = "github.com/OffchainLabs/bold/challenge-manager/types",
     visibility = ["//visibility:public"],
-    deps = ["//chain-abstraction:protocol"],
+    deps = [
+        "//chain-abstraction:protocol",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//rpc",
+    ],
 )

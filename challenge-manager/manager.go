@@ -26,7 +26,6 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	utilTime "github.com/OffchainLabs/bold/time"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -50,7 +49,7 @@ type Manager struct {
 	rollup                    *rollupgen.RollupCore
 	rollupFilterer            *rollupgen.RollupCoreFilterer
 	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                   bind.ContractBackend
+	backend                   types.ChallengeManagerBackend
 	stateManager              l2stateprovider.Provider
 	address                   common.Address
 	name                      string
@@ -119,7 +118,7 @@ func WithAPIEnabled(addr string) Opt {
 func New(
 	ctx context.Context,
 	chain protocol.Protocol,
-	backend bind.ContractBackend,
+	backend types.ChallengeManagerBackend,
 	stateManager l2stateprovider.Provider,
 	rollupAddr common.Address,
 	opts ...Opt,

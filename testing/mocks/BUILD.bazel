@@ -3,16 +3,22 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "mocks",
     testonly = 1,
-    srcs = ["mocks.go"],
+    srcs = [
+        "challenge-manager-backend.go",
+        "mocks.go",
+    ],
     importpath = "github.com/OffchainLabs/bold/testing/mocks",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
+        "//challenge-manager/types",
         "//containers/option",
         "//layer2-state-provider",
         "//solgen/go/rollupgen",
         "//state-commitments/history",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//rpc",
         "@com_github_stretchr_testify//mock",
     ],
 )
