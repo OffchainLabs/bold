@@ -92,6 +92,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             address(challengeManager),
             confirmPeriodBlocks
         );
+        if (_hostChainIsArbitrum) {
+            _assertionCreatedAtArbSysBlock[genesisHash] = ArbSys(address(100)).arbBlockNumber();
+        }
 
         emit RollupInitialized(config.wasmModuleRoot, config.chainId);
     }
