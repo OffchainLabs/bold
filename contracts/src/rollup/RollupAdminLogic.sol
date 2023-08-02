@@ -309,4 +309,13 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         anyTrustFastConfirmer = _anyTrustFastConfirmer;
         emit OwnerFunctionCalled(31);
     }
+
+    /**
+     * @notice set a new challengeManager contract
+     * @param _challengeManager new value of challengeManager
+     */
+    function setChallengeManager(address _challengeManager) external {
+        challengeManager = IEdgeChallengeManager(_challengeManager);
+        emit OwnerFunctionCalled(32);
+    }
 }
