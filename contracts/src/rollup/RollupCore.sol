@@ -18,7 +18,6 @@ import "../bridge/IBridge.sol";
 import "../bridge/IOutbox.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
 import "../libraries/ArbitrumChecker.sol";
-import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
 
 abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     using AssertionNodeLib for AssertionNode;

@@ -12,8 +12,6 @@ import "../bridge/ISequencerInbox.sol";
 import "../libraries/DoubleLogicUUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
-
 contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeable {
     function initialize(Config calldata config, ContractDependencies calldata connectedContracts)
         external
