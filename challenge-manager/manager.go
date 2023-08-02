@@ -7,8 +7,10 @@ package challengemanager
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var (
@@ -49,6 +52,7 @@ type Manager struct {
 	rollupFilterer            *rollupgen.RollupCoreFilterer
 	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
 	backend                   bind.ContractBackend
+	client                    *rpc.Client
 	stateManager              l2stateprovider.Provider
 	address                   common.Address
 	name                      string
@@ -106,12 +110,11 @@ func WithAPIEnabled(addr string) Opt {
 	}
 }
 
-// WithAssertionPostingInterval specifies how often to post new assertions, if in MakeMode.
-// act on its responsibilities.
-
-// WithAssertionScanningInterval specifies how often to scan for new assertions.
-
-// WithMaxDelaySeconds specifies the maximum number of seconds that the challenge manager will open a challenge.
+func WithRPCClient(client *rpc.Client) Opt {
+	return func(val *Manager) {
+		val.client = client
+	}
+}
 
 // New sets up a challenge manager instance provided a protocol, state manager, and additional options.
 func New(
@@ -122,6 +125,7 @@ func New(
 	rollupAddr common.Address,
 	opts ...Opt,
 ) (*Manager, error) {
+
 	m := &Manager{
 		backend:                   backend,
 		chain:                     chain,
@@ -129,7 +133,6 @@ func New(
 		address:                   common.Address{},
 		timeRef:                   utilTime.NewRealTimeReference(),
 		rollupAddr:                rollupAddr,
-		edgeTrackerWakeInterval:   time.Millisecond * 100,
 		chainWatcherInterval:      time.Millisecond * 500,
 		trackedEdgeIds:            threadsafe.NewSet[protocol.EdgeId](),
 		assertionHashCache:        threadsafe.NewMap[protocol.AssertionHash, [2]uint64](),
@@ -139,6 +142,17 @@ func New(
 	for _, o := range opts {
 		o(m)
 	}
+
+	if m.edgeTrackerWakeInterval == 0 {
+		// Generating a random integer between 0 and 60 second to wake up the edge tracker.
+		// This is to avoid all edge trackers waking up at the same time across participants.
+		n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(60))
+		if err != nil {
+			return nil, err
+		}
+		m.edgeTrackerWakeInterval = time.Second * time.Duration(n.Uint64())
+	}
+
 	chalManager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err
@@ -178,6 +192,10 @@ func New(
 		m.name,
 		m.assertionScanningInterval,
 	)
+
+	if m.apiAddr != "" && m.client == nil {
+		return nil, errors.New("go-ethereum RPC client required to enable API service")
+	}
 
 	if m.apiAddr != "" {
 		a, err := api.NewServer(&api.Config{

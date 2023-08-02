@@ -255,9 +255,9 @@ func (m *MockSpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	startCommit,
 	endCommit commitments.History,
 	startEndPrefixProof []byte,
-) (protocol.SpecEdge, error) {
+) (protocol.VerifiedHonestEdge, error) {
 	args := m.Called(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
-	return args.Get(0).(protocol.SpecEdge), args.Error(1)
+	return args.Get(0).(protocol.VerifiedHonestEdge), args.Error(1)
 }
 
 func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
@@ -268,9 +268,9 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	startParentInclusionProof []common.Hash,
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
-) (protocol.SpecEdge, error) {
+) (protocol.VerifiedHonestEdge, error) {
 	args := m.Called(ctx, challengedEdge, startCommit, endCommit, startParentInclusionProof, endParentInclusionProof, startEndPrefixProof)
-	return args.Get(0).(protocol.SpecEdge), args.Error(1)
+	return args.Get(0).(protocol.VerifiedHonestEdge), args.Error(1)
 }
 func (m *MockSpecChallengeManager) ConfirmEdgeByOneStepProof(
 	ctx context.Context,
@@ -360,9 +360,9 @@ func (m *MockSpecEdge) Bisect(
 	ctx context.Context,
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
-) (protocol.SpecEdge, protocol.SpecEdge, error) {
+) (protocol.VerifiedHonestEdge, protocol.VerifiedHonestEdge, error) {
 	args := m.Called(ctx, prefixHistoryRoot, prefixProof)
-	return args.Get(0).(protocol.SpecEdge), args.Get(1).(protocol.SpecEdge), args.Error(2)
+	return args.Get(0).(protocol.VerifiedHonestEdge), args.Get(1).(protocol.VerifiedHonestEdge), args.Error(2)
 }
 func (m *MockSpecEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.EdgeId) error {
 	args := m.Called(ctx, ancestorIds)
@@ -404,6 +404,11 @@ func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	return args.Get(0).(uint64), args.Error(1)
 }
 
+func (m *MockProtocol) RollupAddress() common.Address {
+	args := m.Called()
+	return args.Get(0).(common.Address)
+}
+
 func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionHash) (protocol.Assertion, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
@@ -417,6 +422,11 @@ func (m *MockProtocol) AssertionUnrivaledBlocks(ctx context.Context, assertionHa
 func (m *MockProtocol) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error) {
 	args := m.Called(ctx, edgeId)
 	return args.Get(0).(protocol.AssertionHash), args.Error(1)
+}
+
+func (m *MockProtocol) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(common.Hash), args.Error(1)
 }
 
 func (m *MockProtocol) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (protocol.OriginHeights, error) {

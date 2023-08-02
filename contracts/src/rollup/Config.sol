@@ -22,6 +22,7 @@ struct Config {
     address owner;
     address loserStakeEscrow;
     uint256 chainId;
+    string chainConfig;
     uint256 miniStakeValue;
     ISequencerInbox.MaxTimeVariation sequencerInboxMaxTimeVariation;
     uint256 layerZeroBlockEdgeHeight;
