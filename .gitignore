@@ -31,3 +31,4 @@ contracts/build
 contracts/test/storage/*-old.dot
 
 .DS_Store
+.env
