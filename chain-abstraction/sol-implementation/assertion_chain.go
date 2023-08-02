@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
@@ -130,7 +131,7 @@ func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protoco
 
 type GetAssertionsResult struct {
 	Hash      protocol.AssertionHash
-	Assertion *protocol.Assertion
+	Assertion protocol.Assertion
 	Error     error
 }
 
@@ -150,24 +151,88 @@ func (a *AssertionChain) getAssertions(ctx context.Context, assertionHashes []pr
 		assertion, err := a.GetAssertion(ctx, assertionHash)
 		results = append(results, &GetAssertionsResult{
 			Hash:      assertionHash,
-			Assertion: &assertion,
+			Assertion: assertion,
 			Error:     err,
 		})
 	}
 	return results
 }
 
+// ToCallArg takes an ethereum.CallMsg and returns a map of arguments that can be passed to the
+// BatchElem args.
+func ToCallArg(msg ethereum.CallMsg) interface{} {
+	arg := map[string]interface{}{
+		"from": msg.From,
+		"to":   msg.To,
+	}
+	if len(msg.Data) > 0 {
+		arg["data"] = hexutil.Bytes(msg.Data)
+	}
+	if msg.Value != nil {
+		arg["value"] = (*hexutil.Big)(msg.Value)
+	}
+	if msg.Gas != 0 {
+		arg["gas"] = hexutil.Uint64(msg.Gas)
+	}
+	if msg.GasPrice != nil {
+		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
+	}
+	return arg
+}
+
 // getAssertionsBatch by batching calls via the rpc client. This method should be better performance
 // when requesting many assertions.
 func (a *AssertionChain) getAssertionsBatch(ctx context.Context, assertionHashes []protocol.AssertionHash) []*GetAssertionsResult {
-	results := make([]*GetAssertionsResult, 0, len(assertionHashes))
-
-	for _, assertionHash := range assertionHashes {
-		results = append(results, &GetAssertionsResult{
-			Hash:  assertionHash,
-			Error: errors.New("not implemented"),
-		})
+	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
+	if err != nil {
+		panic(err) // This should never happen.
 	}
+
+	results := make([]*GetAssertionsResult, 0, len(assertionHashes))
+	batch := make([]rpc.BatchElem, 0, len(assertionHashes))
+	inputErrs := make([]error, len(assertionHashes))
+	for i, assertionHash := range assertionHashes {
+		input, packErr := abi.Pack("getAssertion", assertionHash.Hash)
+		if packErr != nil {
+			inputErrs[i] = packErr
+		}
+		res := &Assertion{}
+		b := rpc.BatchElem{
+			Method: "eth_call",
+			Args: []interface{}{
+				ToCallArg(ethereum.CallMsg{To: &a.rollupAddr, Data: input}),
+			},
+			Result: res,
+		}
+
+		batch = append(batch, b)
+	}
+
+	err = a.client.BatchCallContext(ctx, batch)
+	for i, b := range batch {
+		res := &GetAssertionsResult{
+			Hash:  assertionHashes[i],
+			Error: b.Error,
+		}
+		// If there was a "global" error with the entire request, we set it on each result.
+		if err != nil && b.Error == nil {
+			res.Error = err
+		}
+
+		// If there was any input errors, such as failing to pack the call data, then apply that
+		// error to the result.
+		if inputErrs[i] != nil {
+			res.Error = inputErrs[i]
+		}
+
+		// Apply the resulting assertion to the result.
+		if a, ok := b.Result.(*Assertion); ok {
+			res.Assertion = a
+		}
+
+		results = append(results, res)
+	}
+
 	return results
 }
 
