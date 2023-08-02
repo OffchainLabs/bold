@@ -155,7 +155,7 @@ contract BOLDUpgradeAction {
     uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ** 20;
 
     address public immutable L1_TIMELOCK;
-    IOldRollup public immutable ROLLUP;
+    IOldRollup public immutable OLD_ROLLUP;
     address public immutable BRIDGE;
     address public immutable SEQ_INBOX;
     address public immutable REI;
@@ -236,7 +236,7 @@ contract BOLDUpgradeAction {
         Settings memory settings
     ) {
         L1_TIMELOCK = contracts.l1Timelock;
-        ROLLUP = contracts.rollup;
+        OLD_ROLLUP = contracts.rollup;
         BRIDGE = contracts.bridge;
         SEQ_INBOX = contracts.sequencerInbox;
         REI = contracts.rollupEventInbox;
@@ -271,8 +271,7 @@ contract BOLDUpgradeAction {
     /// @dev    Refund the existing stakers, pause and upgrade the current rollup to
     ///         allow them to withdraw after pausing
     function cleanupOldRollup() private {
-        IOldRollup oldRollup = ROLLUP;
-        IOldRollupAdmin(address(oldRollup)).pause();
+        IOldRollupAdmin(address(OLD_ROLLUP)).pause();
 
         uint64 stakerCount = ROLLUP_READER.stakerCount();
         // since we for-loop these stakers we set an arbitrary limit - we dont
@@ -287,12 +286,12 @@ contract BOLDUpgradeAction {
                 address[] memory stakersToRefund = new address[](1);
                 stakersToRefund[0] = stakerAddr;
 
-                IOldRollupAdmin(address(oldRollup)).forceRefundStaker(stakersToRefund);
+                IOldRollupAdmin(address(OLD_ROLLUP)).forceRefundStaker(stakersToRefund);
             }
         }
 
         // upgrade the rollup to one that allows validators to withdraw even whilst paused
-        DoubleLogicUUPSUpgradeable(address(oldRollup)).upgradeSecondaryTo(IMPL_OLD_ROLLUP_USER);
+        DoubleLogicUUPSUpgradeable(address(OLD_ROLLUP)).upgradeSecondaryTo(IMPL_OLD_ROLLUP_USER);
     }
 
     /// @dev    Create a config for the new rollup - fetches the latest confirmed
