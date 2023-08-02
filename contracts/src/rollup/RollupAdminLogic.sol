@@ -32,7 +32,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         rollupEventInbox = connectedContracts.rollupEventInbox;
         connectedContracts.bridge.setDelayedInbox(address(connectedContracts.rollupEventInbox), true);
 
-        connectedContracts.rollupEventInbox.rollupInitialized(config.chainId);
+        connectedContracts.rollupEventInbox.rollupInitialized(config.chainId, config.chainConfig);
         connectedContracts.sequencerInbox.addSequencerL2Batch(0, "", 1, IGasRefunder(address(0)), 0, 1);
 
         validatorUtils = connectedContracts.validatorUtils;

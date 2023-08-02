@@ -100,6 +100,7 @@ contract RollupTest is Test {
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
+            chainConfig: "{}",
             confirmPeriodBlocks: uint64(CONFIRM_PERIOD_BLOCKS),
             owner: owner,
             sequencerInboxMaxTimeVariation: ISequencerInbox.MaxTimeVariation({
