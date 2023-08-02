@@ -20,7 +20,9 @@ go_library(
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//common/hexutil",
         "@com_github_ethereum_go_ethereum//core/types",
+        "@com_github_ethereum_go_ethereum//rpc",
         "@com_github_pkg_errors//:errors",
     ],
 )
@@ -31,6 +33,7 @@ go_test(
         "assertion_chain_helper_test.go",
         "assertion_chain_test.go",
         "edge_challenge_manager_test.go",
+        "mock_batch_client_test.go",
         "types_test.go",
     ],
     embed = [":sol-implementation"],
@@ -46,6 +49,7 @@ go_test(
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//crypto",
+        "@com_github_ethereum_go_ethereum//rpc",
         "@com_github_stretchr_testify//require",
     ],
 )

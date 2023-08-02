@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
@@ -469,5 +470,96 @@ func TestLatestCreatedAssertionHashes(t *testing.T) {
 	require.Equal(t, 4, len(latest))
 	for i, id := range latest {
 		require.Equal(t, uint64(i), id.Big().Uint64())
+	}
+}
+
+func TestGetAssertions_NoBatching(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+
+	chain.SetClient(nil) // Ensure no batching client is available.
+
+	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	require.NoError(t, err)
+
+	args := []protocol.AssertionHash{latestConfirmed.Id(), {Hash: common.BytesToHash([]byte("foo"))}}
+	res := chain.GetAssertions(ctx, args)
+
+	// The hash field should be populated for all results.
+	require.Equal(t, len(args), len(res))
+	for i, r := range res {
+		require.Equalf(t, args[i], r.Hash, "result %d: expected %v, got %v", i, args[i], r.Hash)
+	}
+
+	// Result 0 should be the latest confirmed assertion
+	require.Equal(t, latestConfirmed, res[0].Assertion)
+	require.NoError(t, res[0].Error)
+
+	// Result 1 should be an error
+	require.ErrorIs(t, res[1].Error, solimpl.ErrNotFound)
+}
+
+func TestGetAssertions_Batching(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+
+	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	require.NoError(t, err)
+
+	mc := &MockBatchClient{
+		Results: []MockResult{
+			{
+				Result: latestConfirmed.(*solimpl.Assertion),
+			},
+			{
+				Error: solimpl.ErrNotFound,
+			},
+		},
+	}
+
+	chain.SetClient(mc)
+
+	args := []protocol.AssertionHash{latestConfirmed.Id(), {Hash: common.BytesToHash([]byte("foo"))}}
+	res := chain.GetAssertions(ctx, args)
+
+	// The hash field should be populated for all results.
+	require.Equal(t, len(args), len(res))
+	for i, r := range res {
+		require.Equalf(t, args[i], r.Hash, "result %d: expected %v, got %v", i, args[i], r.Hash)
+	}
+
+	// Result 0 should be the latest confirmed assertion
+	require.Equal(t, latestConfirmed, res[0].Assertion)
+	require.NoError(t, res[0].Error)
+
+	// Result 1 should be an error
+	require.ErrorIs(t, res[1].Error, solimpl.ErrNotFound)
+
+	// The inputs should have been well formed.
+	// getAssertion(bytes32) and we check that the argument to this method is the desired assertion hash.
+	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, input := range mc.Inputs {
+		calldata := input.Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
+		callArgs, err := abi.Methods["getAssertion"].Inputs.UnpackValues(calldata[len(abi.Methods["getAssertion"].ID):])
+		if err != nil {
+			t.Fatal(err)
+		}
+		require.Equal(t, 1, len(callArgs))
+		b := callArgs[0].([32]byte)
+		require.Equal(t, args[i].Hash.Bytes(), b[:])
+
+		// Every input should be an eth_call.
+		require.Equal(t, "eth_call", input.Method)
+
+		// Every input should be to the rollup contract.
+		to := input.Args[0].(map[string]interface{})["to"].(*common.Address)
+		require.Equal(t, cfg.Addrs.Rollup, *to)
 	}
 }
