@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var (
@@ -51,6 +52,7 @@ type Manager struct {
 	rollupFilterer            *rollupgen.RollupCoreFilterer
 	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
 	backend                   bind.ContractBackend
+	client                    *rpc.Client
 	stateManager              l2stateprovider.Provider
 	address                   common.Address
 	name                      string
@@ -108,12 +110,11 @@ func WithAPIEnabled(addr string) Opt {
 	}
 }
 
-// WithAssertionPostingInterval specifies how often to post new assertions, if in MakeMode.
-// act on its responsibilities.
-
-// WithAssertionScanningInterval specifies how often to scan for new assertions.
-
-// WithMaxDelaySeconds specifies the maximum number of seconds that the challenge manager will open a challenge.
+func WithRPCClient(client *rpc.Client) Opt {
+	return func(val *Manager) {
+		val.client = client
+	}
+}
 
 // New sets up a challenge manager instance provided a protocol, state manager, and additional options.
 func New(
@@ -191,6 +192,10 @@ func New(
 		m.name,
 		m.assertionScanningInterval,
 	)
+
+	if m.apiAddr != "" && m.client == nil {
+		return nil, errors.New("go-ethereum RPC client required to enable API service")
+	}
 
 	if m.apiAddr != "" {
 		a, err := api.NewServer(&api.Config{
