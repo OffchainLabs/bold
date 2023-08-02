@@ -9,11 +9,11 @@ import 'hardhat-gas-reporter'
 const solidity = {
   compilers: [
     {
-      version: '0.8.9',
+      version: '0.8.17',
       settings: {
         optimizer: {
           enabled: true,
-          runs: 100,
+          runs: 2000,
         },
       },
     },
