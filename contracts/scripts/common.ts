@@ -54,6 +54,7 @@ export interface Config {
     chainId: number
     anyTrustFastConfirmer: string
   }
+  validators: string[]
 }
 
 export type RawConfig = Omit<Config, 'settings'> & {
@@ -128,6 +129,10 @@ export const validateConfig = async (
   const miniStakeAmount = BigNumber.from(config.settings.miniStakeAmt)
   if (miniStakeAmount.lt(parseEther('0.1'))) {
     throw new Error('miniStakeAmt is less than 0.1 eth')
+  }
+
+  if (config.validators.length == 0) {
+    throw new Error('no validators')
   }
 
   return {

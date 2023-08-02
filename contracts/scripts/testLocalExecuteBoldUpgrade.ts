@@ -1,26 +1,9 @@
-import {
-  Contract,
-  ContractFactory,
-  ContractReceipt,
-  Wallet,
-  ethers,
-} from 'ethers'
-import { DeployedContracts, getJsonFile } from './common'
+import { Contract, ContractReceipt, Wallet, ethers } from 'ethers'
+import { DeployedContracts, getConfig, getJsonFile } from './common'
 import fs from 'fs'
-import path from 'path'
-import {
-  ProxyAdmin__factory,
-  TransparentUpgradeableProxy__factory,
-  RollupAdminLogic__factory,
-  BOLDUpgradeAction__factory,
-  Bridge__factory,
-} from '../build/types'
-import {
-  abi as UpgradeExecutorAbi,
-  bytecode as UpgradeExecutorBytecode,
-} from './files/UpgradeExecutor.json'
+import { BOLDUpgradeAction__factory } from '../build/types'
+import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
-import { HDNode } from 'ethers/lib/utils'
 import { RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
 
 dotenv.config()
@@ -42,6 +25,11 @@ async function main() {
   if (!deployedContractsLocation) {
     throw new Error('DEPLOYED_CONTRACTS_LOCATION env variable not set')
   }
+  const configLocation = process.env.CONFIG_LOCATION
+  if (!configLocation) {
+    throw new Error('CONFIG_LOCATION env variable not set')
+  }
+  const config = await getConfig(configLocation, l1Rpc)
 
   const deployedContracts = getJsonFile(
     deployedContractsLocation
@@ -62,8 +50,12 @@ async function main() {
     deployedContracts.boldAction,
     wallet
   )
-  const boldActionPerformData =
-    boldAction.interface.encodeFunctionData('perform')
+
+  // what validators did we have in the old rollup?
+  const boldActionPerformData = boldAction.interface.encodeFunctionData(
+    'perform',
+    [config.validators]
+  )
 
   const receipt = (await (
     await upExec.execute(deployedContracts.boldAction, boldActionPerformData)
