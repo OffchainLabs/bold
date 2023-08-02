@@ -268,14 +268,14 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		require.NoError(t, err)
 
 		// Bad Alice
-		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client())
+		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client(), be.Client().Client())
 		require.NoError(t, err)
 		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
 
 		// Good Bob
 		bobCtx, bobCancelCtx := context.WithCancel(ctx)
-		bChain, err := solimpl.NewAssertionChain(bobCtx, rollup, be.Bob(), be.Client())
+		bChain, err := solimpl.NewAssertionChain(bobCtx, rollup, be.Bob(), be.Client(), be.Client().Client())
 		require.NoError(t, err)
 		bob, err := validator.New(bobCtx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
@@ -300,7 +300,7 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		bobCancelCtx()
 
 		// Good Charlie joins
-		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client())
+		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client(), be.Client().Client())
 		require.NoError(t, err)
 		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.DefensiveMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond)) // Defensive is good enough here.
 		require.NoError(t, err)
@@ -335,6 +335,7 @@ func setupValidator(
 		rollup,
 		txOpts,
 		be.Client(),
+		be.Client().Client(),
 	)
 	if err != nil {
 		return nil, nil, err
