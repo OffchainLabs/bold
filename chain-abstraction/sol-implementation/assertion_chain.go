@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 // Package solimpl includes an easy-to-use abstraction
 // around the challenge protocol contracts using their Go
@@ -12,26 +12,21 @@ import (
 	"math/big"
 	"strings"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/pkg/errors"
 )
 
 var (
-	ErrUnconfirmedParent = errors.New("parent assertion is not confirmed")
-	ErrNoUnresolved      = errors.New("no assertion to resolve")
-
 	ErrNotFound         = errors.New("item not found on-chain")
 	ErrAlreadyExists    = errors.New("item already exists on-chain")
 	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
 	ErrTooLate          = errors.New("too late to create assertion sibling")
-	ErrTooSoon          = errors.New("too soon to confirm assertion")
-	ErrInvalidHeight    = errors.New("invalid assertion height")
 )
 
 var assertionCreatedId common.Hash
@@ -69,12 +64,11 @@ type ReceiptFetcher interface {
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	backend      ChainBackend
-	rollup       *rollupgen.RollupCore
-	userLogic    *rollupgen.RollupUserLogic
-	txOpts       *bind.TransactOpts
-	headerReader *headerreader.HeaderReader
-	rollupAddr   common.Address
+	backend    ChainBackend
+	rollup     *rollupgen.RollupCore
+	userLogic  *rollupgen.RollupUserLogic
+	txOpts     *bind.TransactOpts
+	rollupAddr common.Address
 }
 
 // NewAssertionChain instantiates an assertion chain
@@ -84,13 +78,11 @@ func NewAssertionChain(
 	rollupAddr common.Address,
 	txOpts *bind.TransactOpts,
 	backend ChainBackend,
-	headerReader *headerreader.HeaderReader,
 ) (*AssertionChain, error) {
 	chain := &AssertionChain{
-		backend:      backend,
-		txOpts:       txOpts,
-		headerReader: headerReader,
-		rollupAddr:   rollupAddr,
+		backend:    backend,
+		txOpts:     txOpts,
+		rollupAddr: rollupAddr,
 	}
 	coreBinding, err := rollupgen.NewRollupCore(
 		rollupAddr, chain.backend,
@@ -109,8 +101,14 @@ func NewAssertionChain(
 	return chain, nil
 }
 
+func (a *AssertionChain) RollupAddress() common.Address {
+	return a.rollupAddr
+}
+
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
-	res, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, assertionHash)
+	var b [32]byte
+	copy(b[:], assertionHash.Bytes())
+	res, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 	if err != nil {
 		return nil, err
 	}
@@ -132,48 +130,77 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertio
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, res)
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: res})
 }
 
 // CreateAssertion makes an on-chain claim given a previous assertion hash, execution state,
 // and a commitment to a post-state.
 func (a *AssertionChain) CreateAssertion(
 	ctx context.Context,
-	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
-	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
+	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
 	}
-	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash(assertionCreationInfo.ParentAssertionHash))
-	if err != nil {
-		return nil, err
-	}
 	newOpts := copyTxOpts(a.txOpts)
-	newOpts.Value = prevCreationInfo.RequiredStake
-	if !assertionCreationInfo.InboxMaxCount.IsUint64() {
-		return nil, errors.New("inbox max count was not a uint64")
+	if postState.GlobalState.Batch == 0 {
+		return nil, errors.New("assertion post state cannot have a batch count of 0, as only genesis can")
 	}
-	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
+	bridgeAddr, err := a.userLogic.Bridge(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not retrieve bridge address for user rollup logic contract")
+	}
+	bridge, err := bridgegen.NewIBridgeCaller(bridgeAddr, a.backend)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
+	}
+	inboxBatchAcc, err := bridge.SequencerInboxAccs(
+		&bind.CallOpts{Context: ctx},
+		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
+	}
+
+	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
+		&bind.CallOpts{Context: ctx},
+		parentAssertionCreationInfo.AssertionHash,
+		postState.AsSolidityStruct(),
+		inboxBatchAcc,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not compute assertion hash")
+	}
+	existingAssertion, err := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+	switch {
+	case err == nil:
+		return existingAssertion, nil
+	case !errors.Is(err, ErrNotFound):
+		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
+	default:
+	}
+
+	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return a.userLogic.NewStakeOnNewAssertion(
 			newOpts,
+			parentAssertionCreationInfo.RequiredStake,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					PrevPrevAssertionHash: assertionCreationInfo.ParentAssertionHash,
-					SequencerBatchAcc:     assertionCreationInfo.AfterInboxBatchAcc,
+					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+					SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
 					ConfigData: rollupgen.ConfigData{
-						RequiredStake:       prevCreationInfo.RequiredStake,
-						ChallengeManager:    prevCreationInfo.ChallengeManager,
-						ConfirmPeriodBlocks: prevCreationInfo.ConfirmPeriodBlocks,
-						WasmModuleRoot:      prevCreationInfo.WasmModuleRoot,
-						NextInboxPosition:   assertionCreationInfo.InboxMaxCount.Uint64(),
+						RequiredStake:       parentAssertionCreationInfo.RequiredStake,
+						ChallengeManager:    parentAssertionCreationInfo.ChallengeManager,
+						ConfirmPeriodBlocks: parentAssertionCreationInfo.ConfirmPeriodBlocks,
+						WasmModuleRoot:      parentAssertionCreationInfo.WasmModuleRoot,
+						NextInboxPosition:   parentAssertionCreationInfo.InboxMaxCount.Uint64(),
 					},
 				},
-				BeforeState: assertionCreationInfo.AfterState,
+				BeforeState: parentAssertionCreationInfo.AfterState,
 				AfterState:  postState.AsSolidityStruct(),
 			},
-			// TODO(RJ): Use the expected assertion hash as a sanity check.
-			common.Hash{},
+			computedHash,
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
@@ -195,7 +222,11 @@ func (a *AssertionChain) CreateAssertion(
 	if !found {
 		return nil, errors.New("could not find assertion created event in logs")
 	}
-	return a.GetAssertion(ctx, assertionCreated.AssertionHash)
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
+}
+
+func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
+	return a.userLogic.GenesisAssertionHash(&bind.CallOpts{Context: ctx})
 }
 
 // ConfirmAssertionByChallengeWinner attempts to confirm an assertion onchain
@@ -205,7 +236,9 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	assertionHash protocol.AssertionHash,
 	winningEdgeId protocol.EdgeId,
 ) error {
-	node, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, assertionHash)
+	var b [32]byte
+	copy(b[:], assertionHash.Bytes())
+	node, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 	if err != nil {
 		return err
 	}
@@ -220,7 +253,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if creationInfo.ParentAssertionHash == [32]byte{} {
 		return nil
 	}
-	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash(creationInfo.ParentAssertionHash))
+	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
 		return err
 	}
@@ -228,7 +261,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if err != nil {
 		return err
 	}
-	if creationInfo.ParentAssertionHash != common.Hash(latestConfirmed.Id()) {
+	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
 		return fmt.Errorf(
 			"parent id %#x is not the latest confirmed assertion %#x",
 			creationInfo.ParentAssertionHash,
@@ -238,13 +271,13 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if !prevCreationInfo.InboxMaxCount.IsUint64() {
 		return errors.New("assertion prev creation info inbox max count was not a uint64")
 	}
-	receipt, err := transact(ctx, a.backend, a.headerReader, func() (*types.Transaction, error) {
+	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return a.userLogic.RollupUserLogicTransactor.ConfirmAssertion(
 			copyTxOpts(a.txOpts),
-			assertionHash,
+			b,
 			creationInfo.ParentAssertionHash,
 			creationInfo.AfterState,
-			winningEdgeId,
+			winningEdgeId.Hash,
 			rollupgen.ConfigData{
 				WasmModuleRoot:      prevCreationInfo.WasmModuleRoot,
 				ConfirmPeriodBlocks: prevCreationInfo.ConfirmPeriodBlocks,
@@ -277,7 +310,6 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 		challengeManagerAddr,
 		a,
 		a.backend,
-		a.headerReader,
 		a.txOpts,
 	)
 }
@@ -286,7 +318,9 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 // assertion's parent, and from that parent, computes second_child_creation_block - first_child_creation_block.
 // If an assertion is a second child, this function will return 0.
 func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
-	wantNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, assertionHash)
+	var b [32]byte
+	copy(b[:], assertionHash.Bytes())
+	wantNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 	if err != nil {
 		return 0, err
 	}
@@ -309,7 +343,8 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	if err != nil {
 		return 0, err
 	}
-	prevNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, prevId)
+	copy(b[:], prevId.Bytes())
+	prevNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 	if err != nil {
 		return 0, err
 	}
@@ -386,6 +421,9 @@ func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protoc
 	return edge.TopLevelClaimHeight(ctx)
 }
 
+// LatestCreatedAssertion retrieves the latest assertion from the rollup contract by reading the
+// latest confirmed assertion and then querying the contract log events for all assertions created
+// since that block and returning the most recent one.
 func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
 	latestConfirmed, err := a.LatestConfirmed(ctx)
 	if err != nil {
@@ -405,14 +443,34 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 	if err != nil {
 		return nil, err
 	}
-	if len(logs) == 0 {
+
+	// The logs are likely sorted by blockNumber, index, but we find the latest one, just in case,
+	// while ignoring any removed logs from a reorged event.
+	var latestBlockNumber uint64
+	var latestLogIndex uint
+	var latestLog *types.Log
+	for _, log := range logs {
+		l := log
+		if l.Removed {
+			continue
+		}
+		if l.BlockNumber > latestBlockNumber ||
+			(l.BlockNumber == latestBlockNumber && l.Index >= latestLogIndex) {
+			latestBlockNumber = l.BlockNumber
+			latestLogIndex = l.Index
+			latestLog = &l
+		}
+	}
+
+	if latestLog == nil {
 		return nil, errors.New("no assertion creation events found")
 	}
-	creationEvent, err := a.rollup.ParseAssertionCreated(logs[len(logs)-1])
+
+	creationEvent, err := a.rollup.ParseAssertionCreated(*latestLog)
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, creationEvent.AssertionHash)
+	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
 }
 
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
@@ -433,12 +491,14 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		creationBlock = rollupDeploymentBlock.Uint64()
 		topics = [][]common.Hash{{assertionCreatedId}}
 	} else {
-		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, id)
+		var b [32]byte
+		copy(b[:], id.Bytes())
+		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 		if err != nil {
 			return nil, err
 		}
 		creationBlock = node.CreatedAtBlock
-		topics = [][]common.Hash{{assertionCreatedId}, {common.Hash(id)}}
+		topics = [][]common.Hash{{assertionCreatedId}, {id.Hash}}
 	}
 	var query = ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(creationBlock),
@@ -503,7 +563,7 @@ func handleCreateAssertionError(err error, blockHash common.Hash) error {
 // an optional transaction receipt. It returns an error if the
 // transaction had a failed status on-chain, or if the execution of the callback
 // failed directly.
-func transact(ctx context.Context, backend ChainBackend, _ *headerreader.HeaderReader, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
+func transact(ctx context.Context, backend ChainBackend, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
 	tx, err := fn()
 	if err != nil {
 		return nil, err

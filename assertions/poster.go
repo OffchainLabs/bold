@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package assertions
 
@@ -7,11 +7,11 @@ import (
 	"context"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 // Poster defines a service which frequently posts assertions onchain at some intervals,
@@ -40,7 +40,7 @@ func NewPoster(
 
 func (p *Poster) Start(ctx context.Context) {
 	if _, err := p.PostLatestAssertion(ctx); err != nil {
-		log.WithError(err).Error("Could not submit latest assertion to L1")
+		srvlog.Error("Could not submit latest assertion to L1", err)
 	}
 	ticker := time.NewTicker(p.postInterval)
 	defer ticker.Stop()
@@ -48,7 +48,7 @@ func (p *Poster) Start(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if _, err := p.PostLatestAssertion(ctx); err != nil {
-				log.WithError(err).Error("Could not submit latest assertion to L1")
+				srvlog.Error("Could not submit latest assertion to L1", err)
 			}
 		case <-ctx.Done():
 			return
@@ -56,7 +56,7 @@ func (p *Poster) Start(ctx context.Context) {
 	}
 }
 
-// Posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
+// PostLatestAssertion posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
 // TODO: Include leaf creation validity conditions which are more complex than this.
 // For example, a validator must include messages from the inbox that were not included
 // by the last validator in the last leaf's creation.
@@ -75,8 +75,8 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("inbox max count not a uint64")
 	}
-	// TODO: this should really only go up to the prevInboxMaxCount batch state
-	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, parentAssertionCreationInfo.InboxMaxCount.Uint64())
+	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
+	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +91,7 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 	case err != nil:
 		return nil, err
 	}
-	logFields := logrus.Fields{
-		"validatorName": p.validatorName,
-	}
-	log.WithFields(logFields).Info("Submitted latest L2 state claim as an assertion to L1")
+	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName})
 
 	return assertion, nil
 }

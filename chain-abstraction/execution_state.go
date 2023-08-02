@@ -1,13 +1,13 @@
-// Package protocol
-// From: Nitro validator/execution_state.go
+// Package protocol a series of interfaces for interacting with Arbitrum chains' rollup
+// and challenge contracts via a developer-friendly, high-level API.
 package protocol
 
 import (
 	"encoding/binary"
 	"math"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengegen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
+	"github.com/OffchainLabs/bold/solgen/go/challengegen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )

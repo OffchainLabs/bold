@@ -6,18 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/assertions"
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	validator "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager"
-	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/endtoend/internal/backend"
-	statemanager "github.com/OffchainLabs/challenge-protocol-v2/testing/toys/state-provider"
+	"github.com/OffchainLabs/bold/assertions"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
+	validator "github.com/OffchainLabs/bold/challenge-manager"
+	"github.com/OffchainLabs/bold/challenge-manager/types"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
+	"github.com/OffchainLabs/bold/testing/endtoend/internal/backend"
+	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/offchainlabs/nitro/util/headerreader"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
@@ -268,21 +267,17 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		rollup, err := be.DeployRollup()
 		require.NoError(t, err)
 
-		hr := headerreader.New(be.Client(), func() *headerreader.Config {
-			return &headerreader.DefaultConfig
-		})
-
 		// Bad Alice
-		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client(), hr)
+		aChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Alice(), be.Client())
 		require.NoError(t, err)
-		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"), validator.WithMode(types.MakeMode))
+		alice, err := validator.New(ctx, aChain, be.Client(), s.AliceStateManager, rollup, validator.WithAddress(be.Alice().From), validator.WithName("alice"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
 
 		// Good Bob
 		bobCtx, bobCancelCtx := context.WithCancel(ctx)
-		bChain, err := solimpl.NewAssertionChain(bobCtx, rollup, be.Bob(), be.Client(), hr)
+		bChain, err := solimpl.NewAssertionChain(bobCtx, rollup, be.Bob(), be.Client())
 		require.NoError(t, err)
-		bob, err := validator.New(bobCtx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode))
+		bob, err := validator.New(bobCtx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
 
 		alicePoster := assertions.NewPoster(aChain, s.AliceStateManager, "alice", time.Hour)
@@ -305,9 +300,9 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		bobCancelCtx()
 
 		// Good Charlie joins
-		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client(), hr)
+		cChain, err := solimpl.NewAssertionChain(ctx, rollup, be.Charlie(), be.Client())
 		require.NoError(t, err)
-		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.DefensiveMode)) // Defensive is good enough here.
+		charlie, err := validator.New(ctx, cChain, be.Client(), s.CharlieStateManager, rollup, validator.WithAddress(be.Charlie().From), validator.WithName("charlie"), validator.WithMode(types.DefensiveMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond)) // Defensive is good enough here.
 		require.NoError(t, err)
 		charlie.Start(ctx)
 
@@ -335,16 +330,11 @@ func setupValidator(
 	txOpts *bind.TransactOpts,
 	name string,
 ) (*validator.Manager, protocol.Protocol, error) {
-	hr := headerreader.New(be.Client(), func() *headerreader.Config {
-		return &headerreader.DefaultConfig
-	})
-
 	chain, err := solimpl.NewAssertionChain(
 		ctx,
 		rollup,
 		txOpts,
 		be.Client(),
-		hr,
 	)
 	if err != nil {
 		return nil, nil, err

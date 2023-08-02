@@ -1,15 +1,18 @@
+// Package challengetree includes logic for keeping track of honest edges within a challenge
+// with utilities for computing cumulative path timers for said edges. This is helpful during
+// the confirmation process needed by edge trackers.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package challengetree
 
 import (
 	"context"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/pkg/errors"
 )
 
@@ -26,7 +29,7 @@ type MetadataReader interface {
 
 type creationTime uint64
 
-// An honestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
+// HonestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
 	edges                         *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
@@ -62,6 +65,10 @@ func New(
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
 func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (protocol.Agreement, error) {
+	if _, ok := ht.edges.TryGet(eg.Id()); ok {
+		// Already being tracked.
+		return protocol.Agreement{}, nil
+	}
 	assertionHash, err := ht.metadataReader.TopLevelAssertion(ctx, eg.Id())
 	if err != nil {
 		return protocol.Agreement{}, errors.Wrapf(err, "could not get top level assertion for edge %#x", eg.Id())
@@ -70,12 +77,12 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		// Do nothing - this edge should not be part of this challenge tree.
 		return protocol.Agreement{}, nil
 	}
-	prevCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, assertionHash)
+	creationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return protocol.Agreement{}, err
 	}
-	if !prevCreationInfo.InboxMaxCount.IsUint64() {
-		return protocol.Agreement{}, errors.New("prev inbox max count was not a uint64")
+	if !creationInfo.InboxMaxCount.IsUint64() {
+		return protocol.Agreement{}, errors.New("inbox max count was not a uint64")
 	}
 
 	// We only track edges we fully agree with (honest edges).
@@ -85,29 +92,37 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if err != nil {
 		return protocol.Agreement{}, errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
-	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
-		ctx,
-		prevCreationInfo.WasmModuleRoot,
-		prevCreationInfo.InboxMaxCount.Uint64(),
-		eg.GetType(),
-		heights,
-		l2stateprovider.History{
-			Height:     uint64(startHeight),
-			MerkleRoot: startCommit,
-		},
-	)
+	parentAssertionInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
-		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
+		return protocol.Agreement{}, err
 	}
+	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
+
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
-		prevCreationInfo.WasmModuleRoot,
-		prevCreationInfo.InboxMaxCount.Uint64(),
+		creationInfo.WasmModuleRoot,
+		creationInfo.InboxMaxCount.Uint64(),
+		parentAssertionAfterState.GlobalState.Batch,
 		eg.GetType(),
 		heights,
 		l2stateprovider.History{
 			Height:     uint64(endHeight),
 			MerkleRoot: endCommit,
+		},
+	)
+	if err != nil {
+		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
+	}
+	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
+		ctx,
+		creationInfo.WasmModuleRoot,
+		creationInfo.InboxMaxCount.Uint64(),
+		parentAssertionAfterState.GlobalState.Batch,
+		eg.GetType(),
+		heights,
+		l2stateprovider.History{
+			Height:     uint64(startHeight),
+			MerkleRoot: startCommit,
 		},
 	)
 	if err != nil {
@@ -152,6 +167,41 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		IsHonestEdge:          isHonestEdge,
 		AgreesWithStartCommit: agreesWithStart,
 	}, nil
+}
+
+// AddHonestEdge known to be honest, such as those created by the local validator.
+func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) error {
+	id := eg.Id()
+	if _, ok := ht.edges.TryGet(id); ok {
+		// Already being tracked.
+		return nil
+	}
+	ht.edges.Put(id, eg)
+	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
+	if !eg.ClaimId().IsNone() {
+		switch eg.GetType() {
+		case protocol.BlockChallengeEdge:
+			ht.honestBlockChalLevelZeroEdge = option.Some(protocol.ReadOnlyEdge(eg))
+		case protocol.BigStepChallengeEdge:
+			ht.honestBigStepLevelZeroEdges.Push(eg)
+		case protocol.SmallStepChallengeEdge:
+			ht.honestSmallStepLevelZeroEdges.Push(eg)
+		default:
+		}
+	}
+	// We add the edge id to the list of mutual ids we are tracking.
+	mutualId := eg.MutualId()
+	mutuals := ht.mutualIds.Get(mutualId)
+	if mutuals == nil {
+		ht.mutualIds.Put(mutualId, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		mutuals = ht.mutualIds.Get(mutualId)
+	}
+	createdAtBlock, err := eg.CreatedAtBlock()
+	if err != nil {
+		return err
+	}
+	mutuals.Put(eg.Id(), creationTime(createdAtBlock))
+	return nil
 }
 
 func (ht *HonestChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {

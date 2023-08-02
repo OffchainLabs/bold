@@ -53,6 +53,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
+          args: --timeout=10m
 
   build:
     name: Build and Test
@@ -150,6 +151,8 @@ jobs:
       - name: Install packages
         run: yarn
 
-      - name: Run tests
+      - name: Run foundry tests
         run: forge test
 
+      - name: Run hardhat tests
+        run: yarn hardhat compile && yarn hardhat --network hardhat test test/contract/*.spec.ts

@@ -1,31 +1,44 @@
+// Package challengemanager includes the main entrypoint for setting up a BOLD
+// challenge manager instance and challenging assertions onchain.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package challengemanager
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+	"os"
 	"time"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/assertions"
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
-	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
-	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	utilTime "github.com/OffchainLabs/challenge-protocol-v2/time"
+	"github.com/OffchainLabs/bold/api"
+	"github.com/OffchainLabs/bold/assertions"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
+	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	utilTime "github.com/OffchainLabs/bold/time"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/sirupsen/logrus"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
-var log = logrus.WithField("prefix", "challenge-manager")
+var (
+	srvlog = log.New("service", "challenge-manager")
+)
+
+func init() {
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+}
 
 type Opt = func(val *Manager)
 
@@ -39,6 +52,7 @@ type Manager struct {
 	rollupFilterer            *rollupgen.RollupCoreFilterer
 	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
 	backend                   bind.ContractBackend
+	client                    *rpc.Client
 	stateManager              l2stateprovider.Provider
 	address                   common.Address
 	name                      string
@@ -54,6 +68,10 @@ type Manager struct {
 	assertionScanningInterval time.Duration
 	mode                      types.Mode
 	maxDelaySeconds           int
+
+	// API
+	apiAddr string
+	api     *api.Server
 }
 
 // WithName is a human-readable identifier for this challenge manager for logging purposes.
@@ -85,25 +103,16 @@ func WithMode(m types.Mode) Opt {
 	}
 }
 
-// WithAssertionPostingInterval specifies how often to post new assertions, if in MakeMode.
-// act on its responsibilities.
-func WithAssertionPostingInterval(d time.Duration) Opt {
+// WithAPIEnabled specifies whether or not to enable the API and the address to listen on.
+func WithAPIEnabled(addr string) Opt {
 	return func(val *Manager) {
-		val.assertionPostingInterval = d
+		val.apiAddr = addr
 	}
 }
 
-// WithAssertionScanningInterval specifies how often to scan for new assertions.
-func WithAssertionScanningInterval(d time.Duration) Opt {
+func WithRPCClient(client *rpc.Client) Opt {
 	return func(val *Manager) {
-		val.assertionScanningInterval = d
-	}
-}
-
-// WithMaxDelaySeconds specifies the maximum number of seconds that the challenge manager will open a challenge.
-func WithMaxDelaySeconds(maxDelaySeconds int) Opt {
-	return func(val *Manager) {
-		val.maxDelaySeconds = maxDelaySeconds
+		val.client = client
 	}
 }
 
@@ -116,6 +125,7 @@ func New(
 	rollupAddr common.Address,
 	opts ...Opt,
 ) (*Manager, error) {
+
 	m := &Manager{
 		backend:                   backend,
 		chain:                     chain,
@@ -123,7 +133,6 @@ func New(
 		address:                   common.Address{},
 		timeRef:                   utilTime.NewRealTimeReference(),
 		rollupAddr:                rollupAddr,
-		edgeTrackerWakeInterval:   time.Millisecond * 100,
 		chainWatcherInterval:      time.Millisecond * 500,
 		trackedEdgeIds:            threadsafe.NewSet[protocol.EdgeId](),
 		assertionHashCache:        threadsafe.NewMap[protocol.AssertionHash, [2]uint64](),
@@ -133,6 +142,17 @@ func New(
 	for _, o := range opts {
 		o(m)
 	}
+
+	if m.edgeTrackerWakeInterval == 0 {
+		// Generating a random integer between 0 and 60 second to wake up the edge tracker.
+		// This is to avoid all edge trackers waking up at the same time across participants.
+		n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(60))
+		if err != nil {
+			return nil, err
+		}
+		m.edgeTrackerWakeInterval = time.Second * time.Duration(n.Uint64())
+	}
+
 	chalManager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err
@@ -172,6 +192,22 @@ func New(
 		m.name,
 		m.assertionScanningInterval,
 	)
+
+	if m.apiAddr != "" && m.client == nil {
+		return nil, errors.New("go-ethereum RPC client required to enable API service")
+	}
+
+	if m.apiAddr != "" {
+		a, err := api.NewServer(&api.Config{
+			Address:      m.apiAddr,
+			DataAccessor: m.watcher,
+		})
+		if err != nil {
+			return nil, err
+		}
+		m.api = a
+	}
+
 	return m, nil
 }
 
@@ -259,17 +295,15 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			},
 			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
-			edgetracker.WithValidatorAddress(m.address),
 			edgetracker.WithValidatorName(m.name),
 		)
 	})
 }
 
 func (m *Manager) Start(ctx context.Context) {
-	log.WithField(
-		"address",
-		m.address.Hex(),
-	).Info("Started challenge manager")
+	srvlog.Info("Started challenge manager", log.Ctx{
+		"validatorAddress": m.address.Hex(),
+	})
 
 	// Start the assertion scanner.
 	go m.scanner.Start(ctx)
@@ -286,6 +320,17 @@ func (m *Manager) Start(ctx context.Context) {
 
 	// Start watching for ongoing chain events in the background.
 	go m.watcher.Start(ctx)
+
+	if m.api != nil {
+		go func() {
+			if err := m.api.Start(); err != nil {
+				srvlog.Error("Failed to start API server", log.Ctx{
+					"address": m.apiAddr,
+					"err":     err,
+				})
+			}
+		}()
+	}
 }
 
 // Gets the execution height for a rollup state from our state manager.

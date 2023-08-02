@@ -26,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // BridgeTesterMetaData contains all meta data concerning the BridgeTester contract.
@@ -156,11 +157,11 @@ func NewBridgeTesterFilterer(address common.Address, filterer bind.ContractFilte
 
 // bindBridgeTester binds a generic wrapper to an already deployed contract.
 func bindBridgeTester(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(BridgeTesterABI))
+	parsed, err := BridgeTesterMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -1783,11 +1784,11 @@ func NewCryptographyPrimitivesTesterFilterer(address common.Address, filterer bi
 
 // bindCryptographyPrimitivesTester binds a generic wrapper to an already deployed contract.
 func bindCryptographyPrimitivesTester(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(CryptographyPrimitivesTesterABI))
+	parsed, err := CryptographyPrimitivesTesterMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -2018,11 +2019,11 @@ func NewMessageTesterFilterer(address common.Address, filterer bind.ContractFilt
 
 // bindMessageTester binds a generic wrapper to an already deployed contract.
 func bindMessageTester(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(MessageTesterABI))
+	parsed, err := MessageTesterMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -2253,11 +2254,11 @@ func NewOutboxWithoutOptTesterFilterer(address common.Address, filterer bind.Con
 
 // bindOutboxWithoutOptTester binds a generic wrapper to an already deployed contract.
 func bindOutboxWithoutOptTester(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OutboxWithoutOptTesterABI))
+	parsed, err := OutboxWithoutOptTesterMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -3268,11 +3269,11 @@ func NewRollupMockFilterer(address common.Address, filterer bind.ContractFiltere
 
 // bindRollupMock binds a generic wrapper to an already deployed contract.
 func bindRollupMock(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(RollupMockABI))
+	parsed, err := RollupMockMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -3728,11 +3729,11 @@ func NewValueArrayTesterFilterer(address common.Address, filterer bind.ContractF
 
 // bindValueArrayTester binds a generic wrapper to an already deployed contract.
 func bindValueArrayTester(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(ValueArrayTesterABI))
+	parsed, err := ValueArrayTesterMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and

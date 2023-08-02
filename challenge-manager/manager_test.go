@@ -1,39 +1,29 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package challengemanager
 
 import (
 	"context"
-	"io"
 	"math/big"
 	"testing"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	watcher "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/chain-watcher"
-	edgetracker "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/edge-tracker"
-	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/logging"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
-	customTime "github.com/OffchainLabs/challenge-protocol-v2/time"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
+	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/testing/mocks"
+	"github.com/OffchainLabs/bold/testing/setup"
+	customTime "github.com/OffchainLabs/bold/time"
 	"github.com/stretchr/testify/require"
 )
 
 var _ = types.ChallengeManager(&Manager{})
 
-func init() {
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetOutput(io.Discard)
-}
-
 func TestEdgeTracker_act(t *testing.T) {
 	ctx := context.Background()
 	t.Run("bisects", func(t *testing.T) {
-		hook := test.NewGlobal()
 		tkr, _ := setupNonPSTracker(ctx, t)
 		err := tkr.Act(ctx)
 		require.NoError(t, err)
@@ -41,7 +31,6 @@ func TestEdgeTracker_act(t *testing.T) {
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 5, int(tkr.CurrentState()))
-		logging.AssertLogsContain(t, hook, "Successfully bisected")
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 5, int(tkr.CurrentState()))
@@ -76,6 +65,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 		createdData.Addrs.Rollup,
 		WithName("alice"),
 		WithMode(types.MakeMode),
+		WithEdgeTrackerWakeInterval(100*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -87,6 +77,7 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 		createdData.Addrs.Rollup,
 		WithName("bob"),
 		WithMode(types.MakeMode),
+		WithEdgeTrackerWakeInterval(100*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -115,7 +106,6 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 			TopLevelClaimEndBatchCount: 1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
-		edgetracker.WithValidatorAddress(honestValidator.address),
 		edgetracker.WithValidatorName(honestValidator.name),
 	)
 	require.NoError(t, err)
@@ -142,7 +132,6 @@ func setupNonPSTracker(ctx context.Context, t *testing.T) (*edgetracker.Tracker,
 			TopLevelClaimEndBatchCount: 1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
-		edgetracker.WithValidatorAddress(evilValidator.address),
 		edgetracker.WithValidatorName(evilValidator.name),
 	)
 	require.NoError(t, err)
@@ -166,7 +155,7 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
-	v, err := New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup, WithMode(types.MakeMode))
+	v, err := New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup, WithMode(types.MakeMode), WithEdgeTrackerWakeInterval(100*time.Millisecond))
 	require.NoError(t, err)
 	return v, p, s
 }

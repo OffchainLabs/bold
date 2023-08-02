@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package watcher
 
@@ -8,13 +8,13 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/mocks"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/testing/mocks"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -28,15 +28,15 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 		ctx,
 	).Return(mockChallengeManager, nil)
 
-	assertionHash := protocol.AssertionHash(common.BytesToHash([]byte("foo")))
-	edgeId := protocol.EdgeId(common.BytesToHash([]byte("bar")))
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
+	edgeId := protocol.EdgeId{Hash: common.BytesToHash([]byte("bar"))}
 	edge := &mocks.MockSpecEdge{}
 
 	mockChallengeManager.On(
 		"GetEdge", ctx, edgeId,
 	).Return(option.Some(protocol.SpecEdge(edge)), nil)
 
-	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash)))
+	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("Id").Return(edgeId)
 	edge.On("GetType").Return(protocol.BigStepChallengeEdge)
 	edge.On(
@@ -57,7 +57,7 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 
 	chal, ok := watcher.challenges.TryGet(assertionHash)
 	require.Equal(t, true, ok)
-	ok = chal.confirmedLevelZeroEdgeClaimIds.Has(protocol.ClaimId(assertionHash))
+	ok = chal.confirmedLevelZeroEdgeClaimIds.Has(protocol.ClaimId(assertionHash.Hash))
 	require.Equal(t, true, ok)
 }
 
@@ -70,8 +70,9 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		ctx,
 	).Return(mockChallengeManager, nil)
 
-	assertionHash := protocol.AssertionHash(common.BytesToHash([]byte("foo")))
-	edgeId := protocol.EdgeId(common.BytesToHash([]byte("bar")))
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
+	parentAssertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("parent foo"))}
+	edgeId := protocol.EdgeId{Hash: common.BytesToHash([]byte("bar"))}
 	edge := &mocks.MockSpecEdge{}
 
 	mockChain.On(
@@ -81,13 +82,22 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	).Return(assertionHash, nil)
 
 	info := &protocol.AssertionCreatedInfo{
-		InboxMaxCount: big.NewInt(1),
+		InboxMaxCount:       big.NewInt(1),
+		ParentAssertionHash: parentAssertionHash.Hash,
 	}
 	mockChain.On(
 		"ReadAssertionCreationInfo",
 		ctx,
 		assertionHash,
 	).Return(info, nil)
+	parentInfo := &protocol.AssertionCreatedInfo{
+		InboxMaxCount: big.NewInt(1),
+	}
+	mockChain.On(
+		"ReadAssertionCreationInfo",
+		ctx,
+		parentAssertionHash,
+	).Return(parentInfo, nil)
 	heights := protocol.OriginHeights{}
 	mockChain.On(
 		"TopLevelClaimHeights",
@@ -108,7 +118,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 
 	edge.On("Id").Return(edgeId)
 	edge.On("CreatedAtBlock").Return(uint64(0), nil)
-	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash)))
+	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("MutualId").Return(protocol.MutualId{})
 	edge.On("GetType").Return(protocol.BlockChallengeEdge)
 	startCommit := common.BytesToHash([]byte("nyan"))
@@ -126,6 +136,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		ctx,
 		common.Hash{},
 		uint64(1),
+		uint64(0),
 		protocol.BlockChallengeEdge,
 		protocol.OriginHeights{
 			BlockChallengeOriginHeight: 0,
@@ -140,6 +151,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		ctx,
 		common.Hash{},
 		uint64(1),
+		uint64(0),
 		protocol.BlockChallengeEdge,
 		protocol.OriginHeights{
 			BlockChallengeOriginHeight: 0,
@@ -160,8 +172,8 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		edgeManager: mockManager,
 	}
 	err := watcher.processEdgeAddedEvent(ctx, &challengeV2gen.EdgeChallengeManagerEdgeAdded{
-		EdgeId:   edgeId,
-		OriginId: assertionHash,
+		EdgeId:   edgeId.Hash,
+		OriginId: assertionHash.Hash,
 	})
 	require.NoError(t, err)
 
@@ -174,4 +186,58 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	pathTimer, _, err := chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
 	require.NoError(t, err)
 	require.Equal(t, pathTimer, challengetree.PathTimer(blockNumber+assertionUnrivaledBlocks))
+}
+
+type mockHonestEdge struct {
+	protocol.SpecEdge
+}
+
+func (m *mockHonestEdge) Honest() {}
+
+func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
+	ctx := context.Background()
+	mockChain := &mocks.MockProtocol{}
+
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
+	edgeId := protocol.EdgeId{Hash: common.BytesToHash([]byte("bar"))}
+	edge := &mocks.MockSpecEdge{}
+
+	edge.On(
+		"AssertionHash",
+		ctx,
+	).Return(assertionHash, nil)
+	assertionUnrivaledBlocks := uint64(1)
+	mockChain.On("AssertionUnrivaledBlocks", ctx, assertionHash).Return(assertionUnrivaledBlocks, nil)
+
+	edge.On("Id").Return(edgeId)
+	createdAt := uint64(5)
+	edge.On("CreatedAtBlock").Return(createdAt, nil)
+	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
+	edge.On("MutualId").Return(protocol.MutualId{})
+	edge.On("GetType").Return(protocol.BlockChallengeEdge)
+	startCommit := common.BytesToHash([]byte("start"))
+	endCommit := common.BytesToHash([]byte("start"))
+	edge.On("StartCommitment").Return(protocol.Height(0), startCommit)
+	edge.On("EndCommitment").Return(protocol.Height(32), endCommit)
+
+	mockStateManager := &mocks.MockStateManager{}
+	mockManager := &mocks.MockEdgeTracker{}
+	honest := &mockHonestEdge{edge}
+	mockManager.On("TrackEdge", ctx, honest).Return(nil)
+
+	watcher := &Watcher{
+		challenges:  threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
+		histChecker: mockStateManager,
+		chain:       mockChain,
+		edgeManager: mockManager,
+	}
+
+	err := watcher.AddVerifiedHonestEdge(ctx, honest)
+	require.NoError(t, err)
+	chal, ok := watcher.challenges.TryGet(assertionHash)
+	require.Equal(t, true, ok)
+	blockNum := uint64(20)
+	pathTimer, _, err := chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNum)
+	require.NoError(t, err)
+	require.Equal(t, blockNum-createdAt+assertionUnrivaledBlocks, uint64(pathTimer))
 }

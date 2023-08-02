@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 // Package assertions contains testing utilities for posting and scanning for
 // assertions on chain, which are useful for simulating the responsibilities
@@ -10,33 +10,44 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
+	"os"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/types"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.WithField("prefix", "assertion-scanner")
+var (
+	srvlog = log.New("service", "assertions")
+)
+
+func init() {
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+}
 
 // Scanner checks for posted, onchain assertions via a polling mechanism since the latest confirmed,
 // up to the latest block, and keeps doing so as the chain advances. With each observed assertion,
 // it determines whether or not it should challenge it.
 type Scanner struct {
-	chain            protocol.AssertionChain
-	backend          bind.ContractBackend
-	challengeCreator types.ChallengeCreator
-	challengeReader  types.ChallengeReader
-	stateProvider    l2stateprovider.Provider
-	pollInterval     time.Duration
-	rollupAddr       common.Address
-	validatorName    string
+	chain                    protocol.AssertionChain
+	backend                  bind.ContractBackend
+	challengeCreator         types.ChallengeCreator
+	challengeReader          types.ChallengeReader
+	stateProvider            l2stateprovider.Provider
+	pollInterval             time.Duration
+	rollupAddr               common.Address
+	validatorName            string
+	forksDetectedCount       uint64
+	challengesSubmittedCount uint64
+	assertionsProcessedCount uint64
 }
 
 // NewScanner creates a scanner from the required dependencies.
@@ -50,28 +61,31 @@ func NewScanner(
 	pollInterval time.Duration,
 ) *Scanner {
 	return &Scanner{
-		chain:            chain,
-		backend:          backend,
-		stateProvider:    stateProvider,
-		challengeCreator: challengeManager,
-		challengeReader:  challengeManager,
-		rollupAddr:       rollupAddr,
-		validatorName:    validatorName,
-		pollInterval:     pollInterval,
+		chain:                    chain,
+		backend:                  backend,
+		stateProvider:            stateProvider,
+		challengeCreator:         challengeManager,
+		challengeReader:          challengeManager,
+		rollupAddr:               rollupAddr,
+		validatorName:            validatorName,
+		pollInterval:             pollInterval,
+		forksDetectedCount:       0,
+		challengesSubmittedCount: 0,
+		assertionsProcessedCount: 0,
 	}
 }
 
-// Scan the blockchain for assertion creation events in a polling manner
+// Start scanning the blockchain for assertion creation events in a polling manner
 // from the latest confirmed assertion.
 func (s *Scanner) Start(ctx context.Context) {
 	latestConfirmed, err := s.chain.LatestConfirmed(ctx)
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not get latest confirmed assertion", err)
 		return
 	}
 	fromBlock, err := latestConfirmed.CreatedAtBlock()
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not get creation block", err)
 		return
 	}
 
@@ -79,7 +93,7 @@ func (s *Scanner) Start(ctx context.Context) {
 		return rollupgen.NewRollupUserLogicFilterer(s.rollupAddr, s.backend)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not get rollup user logic filterer", err)
 		return
 	}
 	ticker := time.NewTicker(s.pollInterval)
@@ -89,11 +103,12 @@ func (s *Scanner) Start(ctx context.Context) {
 		case <-ticker.C:
 			latestBlock, err := s.backend.HeaderByNumber(ctx, nil)
 			if err != nil {
-				log.Error(err)
+				srvlog.Error("Could not get header by number", err)
 				continue
 			}
 			if !latestBlock.Number.IsUint64() {
-				log.Fatal("Latest block number was not a uint64")
+				srvlog.Error("Latest block number was not a uint64")
+				continue
 			}
 			toBlock := latestBlock.Number.Uint64()
 			if fromBlock == toBlock {
@@ -108,7 +123,7 @@ func (s *Scanner) Start(ctx context.Context) {
 				return true, s.checkForAssertionAdded(ctx, filterer, filterOpts)
 			})
 			if err != nil {
-				log.Error(err)
+				srvlog.Error("Could not check for assertion added", err)
 				return
 			}
 			fromBlock = toBlock
@@ -129,7 +144,7 @@ func (s *Scanner) checkForAssertionAdded(
 	}
 	defer func() {
 		if err = it.Close(); err != nil {
-			log.WithError(err).Error("Could not close filter iterator")
+			srvlog.Error("Could not close filter iterator", err)
 		}
 	}()
 	for it.Next() {
@@ -142,7 +157,7 @@ func (s *Scanner) checkForAssertionAdded(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, s.ProcessAssertionCreation(ctx, it.Event.AssertionHash)
+			return true, s.ProcessAssertionCreation(ctx, protocol.AssertionHash{Hash: it.Event.AssertionHash})
 		})
 		if processErr != nil {
 			return processErr
@@ -155,39 +170,57 @@ func (s *Scanner) ProcessAssertionCreation(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
 ) error {
-	log.WithFields(logrus.Fields{
-		"validatorName": s.validatorName,
-	}).Info("Processed assertion creation event")
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
+		srvlog.Error("Could not read creation", log.Ctx{"err": err})
 		return err
 	}
-	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash(creationInfo.ParentAssertionHash))
+	prevAssertionHash := creationInfo.ParentAssertionHash
+	// If the assertion is the genesis assertion, we ignore it.
+	if (prevAssertionHash == common.Hash{}) {
+		return nil
+	}
+	srvlog.Info("Processing assertion creation event", log.Ctx{"validatorName": s.validatorName, "hash": containers.Trunc(assertionHash.Hash[:])})
+	s.assertionsProcessedCount++
+
+	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: prevAssertionHash})
 	if err != nil {
+		srvlog.Error("Could not get prev assertion", log.Ctx{"err": err})
 		return err
 	}
 	hasSecondChild, err := prevAssertion.HasSecondChild()
 	if err != nil {
+		srvlog.Error("Could not check if has second child", log.Ctx{"err": err})
 		return err
 	}
 	if !hasSecondChild {
-		log.WithFields(logrus.Fields{
-			"validatorName": s.validatorName,
-		}).Info("No fork detected in assertion chain")
+		srvlog.Info("No fork detected in assertion chain", log.Ctx{"validatorName": s.validatorName})
 		return nil
 	}
+	srvlog.Info("Assertion has second child", log.Ctx{"hash": containers.Trunc(prevAssertionHash[:])})
+	s.forksDetectedCount++
+
 	execState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 	msgCount, err := s.stateProvider.ExecutionStateMsgCount(ctx, execState)
 	switch {
 	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
+		srvlog.Warn("Disagreed with execution state of posted assertion", log.Ctx{
+			"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
+			"detectedAssertionHash": containers.Trunc(assertionHash.Hash[:]),
+			"msgCount":              msgCount,
+		})
 		return nil
 	case err != nil:
+		srvlog.Error("Could not check execution state msg count for seen assertion", log.Ctx{"err": err})
 		return err
 	default:
 	}
-
+	srvlog.Info("Agreed with execution state of posted assertion", log.Ctx{
+		"parentAssertionHash":   containers.Trunc(creationInfo.ParentAssertionHash[:]),
+		"detectedAssertionHash": containers.Trunc(assertionHash.Hash[:]),
+		"msgCount":              msgCount,
+	})
 	if s.challengeReader.Mode() == types.DefensiveMode || s.challengeReader.Mode() == types.MakeMode {
-
 		// Generating a random integer between 0 and max delay second to wait before challenging.
 		// This is to avoid all validators challenging at the same time.
 		mds := 1 // default max delay seconds to 1 to avoid panic
@@ -198,21 +231,29 @@ func (s *Scanner) ProcessAssertionCreation(
 		if err != nil {
 			return err
 		}
-		log.WithField("seconds", randSecs).Info("Waiting before challenging")
+		srvlog.Info("Submitting a challenge to assertion with two children", log.Ctx{"assertionHash": containers.Trunc(prevAssertionHash[:])})
+		srvlog.Info("Waiting before challenging", log.Ctx{"delay": randSecs})
 		time.Sleep(time.Duration(randSecs) * time.Second)
 
 		if err := s.challengeCreator.ChallengeAssertion(ctx, assertionHash); err != nil {
 			return err
 		}
+		s.challengesSubmittedCount++
 		return nil
 	}
-
-	log.WithFields(logrus.Fields{
-		"parentAssertionHash":   creationInfo.ParentAssertionHash,
-		"detectedAssertionHash": assertionHash,
-		"msgCount":              msgCount,
-	}).Error("Detected invalid assertion, but not configured to challenge")
 	return nil
+}
+
+func (s *Scanner) ForksDetected() uint64 {
+	return s.forksDetectedCount
+}
+
+func (s *Scanner) ChallengesSubmitted() uint64 {
+	return s.challengesSubmittedCount
+}
+
+func (s *Scanner) AssertionsProcessed() uint64 {
+	return s.assertionsProcessedCount
 }
 
 func randUint64(max uint64) (uint64, error) {

@@ -18,6 +18,9 @@ import "../src/osp/OneStepProofEntry.sol";
 import "../src/challengeV2/EdgeChallengeManager.sol";
 import "./challengeV2/Utils.sol";
 
+import "../src/libraries/Error.sol";
+
+import "../src/mocks/TestWETH9.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -33,6 +36,7 @@ contract RollupTest is Test {
 
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10;
+    uint256 constant MINI_STAKE_VALUE = 2;
     uint64 constant CONFIRM_PERIOD_BLOCKS = 100;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
@@ -40,6 +44,7 @@ contract RollupTest is Test {
 
     uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2 ** 5;
 
+    IERC20 token;
     RollupProxy rollup;
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
@@ -89,6 +94,9 @@ contract RollupTest is Test {
             address(0)
         );
 
+        token = new TestWETH9("Test", "TEST");
+        IWETH9(address(token)).deposit{value: 10 ether}();
+
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
@@ -100,11 +108,11 @@ contract RollupTest is Test {
                 delaySeconds: 60 * 60 * 24,
                 futureSeconds: 60 * 60
             }),
-            stakeToken: address(0),
+            stakeToken: address(token),
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: loserStakeEscrow,
             genesisBlockNum: 0,
-            miniStakeValue: 0,
+            miniStakeValue: MINI_STAKE_VALUE,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
             layerZeroSmallStepEdgeHeight: 2 ** 5,
@@ -136,9 +144,30 @@ contract RollupTest is Test {
         firstState.globalState.u64Vals[0] = 1; // inbox count
         firstState.globalState.u64Vals[1] = 0; // pos in msg
 
+        // TODO: determine if challengeManager should be permissionless at the stage
+        token.approve(address(challengeManager), type(uint256).max);
+
+        token.transfer(validator1, 1 ether);
         vm.deal(validator1, 1 ether);
+        vm.prank(validator1);
+        token.approve(address(userRollup), type(uint256).max);
+        vm.prank(validator1);
+        token.approve(address(challengeManager), type(uint256).max);
+
+        token.transfer(validator2, 1 ether);
         vm.deal(validator2, 1 ether);
+        vm.prank(validator2);
+        token.approve(address(userRollup), type(uint256).max);
+        vm.prank(validator2);
+        token.approve(address(challengeManager), type(uint256).max);
+
+        token.transfer(validator3, 1 ether);
         vm.deal(validator3, 1 ether);
+        vm.prank(validator3);
+        token.approve(address(userRollup), type(uint256).max);
+        vm.prank(validator3);
+        token.approve(address(challengeManager), type(uint256).max);
+
         vm.deal(sequencer, 1 ether);
 
         vm.roll(block.number + 75);
@@ -201,9 +230,8 @@ contract RollupTest is Test {
         adminRollup.resume();
     }
 
-    function testSuccessERC20Disabled() public {
+    function testSuccessOwner() public {
         assertEq(userRollup.owner(), owner);
-        assertEq(userRollup.isERC20Enabled(), false);
     }
 
     function testSuccessRemoveWhitelistAfterFork() public {
@@ -240,7 +268,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -287,7 +316,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -320,7 +350,8 @@ contract RollupTest is Test {
         afterState.globalState.u64Vals[1] = 0; // pos in msg
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -341,7 +372,8 @@ contract RollupTest is Test {
 
         vm.prank(validator2);
         vm.expectRevert("ASSERTION_SEEN");
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -379,7 +411,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -464,7 +497,8 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeStateData: BeforeStateData({
                     sequencerBatchAcc: bytes32(0),
@@ -496,7 +530,8 @@ contract RollupTest is Test {
             inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
         vm.prank(validator2);
-        userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
             assertion: AssertionInputs({
                 beforeState: beforeState,
                 beforeStateData: BeforeStateData({
@@ -572,13 +607,13 @@ contract RollupTest is Test {
         return (assertionHash, state, inboxcount);
     }
 
-    function testSuccessRemoveWhitelistAfterValidatorAfk(uint256 afkBlocks) public {
+    function testSuccessRemoveWhitelistAfterValidatorAfk() public {
         (bytes32 assertionHash,,) = testSuccessConfirmUnchallengedAssertions();
         vm.roll(userRollup.getAssertion(assertionHash).createdAtBlock + userRollup.VALIDATOR_AFK_BLOCKS() + 1);
         userRollup.removeWhitelistAfterValidatorAfk();
     }
 
-    function testRevertRemoveWhitelistAfterValidatorAfk(uint256 afkBlocks) public {
+    function testRevertRemoveWhitelistAfterValidatorAfk() public {
         vm.expectRevert("VALIDATOR_NOT_AFK");
         userRollup.removeWhitelistAfterValidatorAfk();
     }
@@ -787,21 +822,21 @@ contract RollupTest is Test {
     function testSuccessAddToDeposit() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
-        userRollup.addToDeposit{value: 1}(validator1);
+        userRollup.addToDeposit(validator1, 1);
     }
 
     function testRevertAddToDepositNotValidator() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(sequencer);
         vm.expectRevert("NOT_VALIDATOR");
-        userRollup.addToDeposit{value: 1}(validator1);
+        userRollup.addToDeposit(validator1, 1);
     }
 
     function testRevertAddToDepositNotStaker() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
         vm.expectRevert("NOT_STAKED");
-        userRollup.addToDeposit{value: 1}(sequencer);
+        userRollup.addToDeposit(sequencer, 1);
     }
 
     function testSuccessCreateSecondAssertion() public returns (bytes32, bytes32, ExecutionState memory, bytes32) {
@@ -947,7 +982,8 @@ contract RollupTest is Test {
 
         if (isCreated) {
             vm.prank(validator1);
-            userRollup.newStakeOnNewAssertion{value: BASE_STAKE}({
+            userRollup.newStakeOnNewAssertion({
+                tokenAmount: BASE_STAKE,
                 assertion: assertion,
                 expectedAssertionHash: expectedAssertionHash
             });
@@ -982,5 +1018,128 @@ contract RollupTest is Test {
         vm.expectRevert("NOT_PENDING");
         vm.prank(anyTrustFastConfirmer);
         userRollup.fastConfirmNewAssertion({assertion: assertion, expectedAssertionHash: expectedAssertionHash});
+    }
+
+    bytes32 constant _IMPLEMENTATION_PRIMARY_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    bytes32 constant _IMPLEMENTATION_SECONDARY_SLOT = 0x2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d;
+
+    // should only allow admin to upgrade primary logic
+    function testRevertUpgradeNotAdmin() public {
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.expectRevert();
+        adminRollup.upgradeTo(address(newAdminLogicImpl));
+    }
+
+    function testRevertUpgradeNotUUPS() public {
+        vm.prank(owner);
+        vm.expectRevert();
+        adminRollup.upgradeTo(address(rollup));
+    }
+
+    function testRevertUpgradePrimaryAsSecondary() public {
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.prank(owner);
+        vm.expectRevert("ERC1967Upgrade: unsupported secondary proxiableUUID");
+        adminRollup.upgradeSecondaryTo(address(newAdminLogicImpl));
+    }
+
+    function testRevertUpgradeSecondaryAsPrimary() public {
+        RollupUserLogic newUserLogicImpl = new RollupUserLogic();
+        vm.prank(owner);
+        vm.expectRevert("ERC1967Upgrade: unsupported proxiableUUID");
+        adminRollup.upgradeTo(address(newUserLogicImpl));
+    }
+
+    function testSuccessUpgradePrimary() public {
+        address ori_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.prank(owner);
+        adminRollup.upgradeTo(address(newAdminLogicImpl));
+
+        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address new_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        assertEq(address(newAdminLogicImpl), new_primary_impl);
+        assertEq(ori_secondary_impl, new_secondary_impl);
+    }
+
+    function testSuccessUpgradePrimaryAndCall() public {
+        address ori_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        vm.prank(owner);
+        adminRollup.upgradeToAndCall(address(newAdminLogicImpl), abi.encodeCall(adminRollup.pause, ()));
+        assertEq(adminRollup.paused(), true);
+
+        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address new_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        assertEq(address(newAdminLogicImpl), new_primary_impl);
+        assertEq(ori_secondary_impl, new_secondary_impl);
+    }
+
+    function testSuccessUpgradeSecondary() public {
+        address ori_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+
+        RollupUserLogic newUserLogicImpl = new RollupUserLogic();
+        vm.prank(owner);
+        adminRollup.upgradeSecondaryTo(address(newUserLogicImpl));
+
+        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address new_secondary_impl =
+            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+
+        assertEq(ori_primary_impl, new_primary_impl);
+        assertEq(address(newUserLogicImpl), new_secondary_impl);
+    }
+
+    function testRevertInitAdminLogicDirectly() public {
+        RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
+        Config memory c;
+        ContractDependencies memory cd;
+        vm.expectRevert("Function must be called through delegatecall");
+        newAdminLogicImpl.initialize(c, cd);
+    }
+
+    function testRevertInitUserLogicDirectly() public {
+        RollupUserLogic newUserLogicImpl = new RollupUserLogic();
+        vm.expectRevert("Function must be called through delegatecall");
+        newUserLogicImpl.initialize(address(token));
+    }
+
+    function testRevertInitTwice() public {
+        Config memory c;
+        ContractDependencies memory cd;
+        vm.prank(owner);
+        vm.expectRevert("Initializable: contract is already initialized");
+        adminRollup.initialize(c, cd);
+    }
+
+    function testRevertChainIDFork() public {
+        ISequencerInbox sequencerInbox = userRollup.sequencerInbox();
+        vm.expectRevert(NotForked.selector);
+        sequencerInbox.removeDelayAfterFork();
+    }
+
+    function testRevertNotBatchPoster() public {
+        ISequencerInbox sequencerInbox = userRollup.sequencerInbox();
+        vm.expectRevert(NotBatchPoster.selector);
+        sequencerInbox.addSequencerL2Batch(0, "0x", 0, IGasRefunder(address(0)), 0, 0);
+    }
+
+    function testSuccessSetChallengeManager() public {
+        vm.prank(owner);
+        adminRollup.setChallengeManager(address(0xdeadbeef));
+        assertEq(address(userRollup.challengeManager()), address(0xdeadbeef));
+    }
+
+    function testRevertSetChallengeManager() public {
+        vm.expectRevert();
+        adminRollup.setChallengeManager(address(0xdeadbeef));
     }
 }

@@ -26,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // ExecutionContext is an auto generated low-level Go binding around an user-defined struct.
@@ -241,11 +242,11 @@ func NewHashProofHelperFilterer(address common.Address, filterer bind.ContractFi
 
 // bindHashProofHelper binds a generic wrapper to an already deployed contract.
 func bindHashProofHelper(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(HashProofHelperABI))
+	parsed, err := HashProofHelperMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -690,11 +691,11 @@ func NewIOneStepProofEntryFilterer(address common.Address, filterer bind.Contrac
 
 // bindIOneStepProofEntry binds a generic wrapper to an already deployed contract.
 func bindIOneStepProofEntry(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(IOneStepProofEntryABI))
+	parsed, err := IOneStepProofEntryMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -903,11 +904,11 @@ func NewIOneStepProverFilterer(address common.Address, filterer bind.ContractFil
 
 // bindIOneStepProver binds a generic wrapper to an already deployed contract.
 func bindIOneStepProver(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(IOneStepProverABI))
+	parsed, err := IOneStepProverMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -1121,11 +1122,11 @@ func NewOneStepProofEntryFilterer(address common.Address, filterer bind.Contract
 
 // bindOneStepProofEntry binds a generic wrapper to an already deployed contract.
 func bindOneStepProofEntry(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OneStepProofEntryABI))
+	parsed, err := OneStepProofEntryMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -1480,11 +1481,11 @@ func NewOneStepProofEntryLibFilterer(address common.Address, filterer bind.Contr
 
 // bindOneStepProofEntryLib binds a generic wrapper to an already deployed contract.
 func bindOneStepProofEntryLib(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OneStepProofEntryLibABI))
+	parsed, err := OneStepProofEntryLibMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -1653,11 +1654,11 @@ func NewOneStepProver0Filterer(address common.Address, filterer bind.ContractFil
 
 // bindOneStepProver0 binds a generic wrapper to an already deployed contract.
 func bindOneStepProver0(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OneStepProver0ABI))
+	parsed, err := OneStepProver0MetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -1871,11 +1872,11 @@ func NewOneStepProverHostIoFilterer(address common.Address, filterer bind.Contra
 
 // bindOneStepProverHostIo binds a generic wrapper to an already deployed contract.
 func bindOneStepProverHostIo(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OneStepProverHostIoABI))
+	parsed, err := OneStepProverHostIoMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -2089,11 +2090,11 @@ func NewOneStepProverMathFilterer(address common.Address, filterer bind.Contract
 
 // bindOneStepProverMath binds a generic wrapper to an already deployed contract.
 func bindOneStepProverMath(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OneStepProverMathABI))
+	parsed, err := OneStepProverMathMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -2307,11 +2308,11 @@ func NewOneStepProverMemoryFilterer(address common.Address, filterer bind.Contra
 
 // bindOneStepProverMemory binds a generic wrapper to an already deployed contract.
 func bindOneStepProverMemory(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OneStepProverMemoryABI))
+	parsed, err := OneStepProverMemoryMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and

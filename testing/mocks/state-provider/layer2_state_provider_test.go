@@ -1,17 +1,20 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-package toys
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+package stateprovider
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"math"
 	"testing"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -38,7 +41,7 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
 	_ = ctx
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(8),
 		WithNumOpcodesPerBigStep(8),
@@ -46,7 +49,7 @@ func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing
 		WithForceMachineBlockCompat(),
 	)
 	require.NoError(t, err)
-	blockChalCommit, err := manager.HistoryCommitmentUpTo(ctx, 4)
+	blockChalCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, 4, 10)
 	require.NoError(t, err)
 	require.Equal(t, hashes[0], blockChalCommit.FirstLeaf)
 
@@ -80,7 +83,7 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
 	_ = ctx
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
@@ -92,9 +95,9 @@ func TestGranularCommitments_SameStartHistory(t *testing.T) {
 	// Generating top-level, block challenge commitments.
 	fromBlockChallengeHeight := uint64(4)
 	toBlockChallengeHeight := uint64(7)
-	start, err := manager.HistoryCommitmentUpTo(ctx, fromBlockChallengeHeight)
+	start, err := manager.HistoryCommitmentUpToBatch(ctx, 0, fromBlockChallengeHeight, 10)
 	require.NoError(t, err)
-	end, err := manager.HistoryCommitmentUpTo(ctx, toBlockChallengeHeight)
+	end, err := manager.HistoryCommitmentUpToBatch(ctx, 0, toBlockChallengeHeight, 10)
 	require.NoError(t, err)
 	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
 	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
@@ -150,7 +153,7 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
 	_ = ctx
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(56),
 		WithNumOpcodesPerBigStep(8),
@@ -162,9 +165,9 @@ func TestGranularCommitments_DifferentStartPoints(t *testing.T) {
 	// Generating top-level, block challenge commitments.
 	fromBlockChallengeHeight := uint64(4)
 	toBlockChallengeHeight := uint64(7)
-	start, err := manager.HistoryCommitmentUpTo(ctx, fromBlockChallengeHeight)
+	start, err := manager.HistoryCommitmentUpToBatch(ctx, 0, fromBlockChallengeHeight, 10)
 	require.NoError(t, err)
-	end, err := manager.HistoryCommitmentUpTo(ctx, toBlockChallengeHeight)
+	end, err := manager.HistoryCommitmentUpToBatch(ctx, 0, toBlockChallengeHeight, 10)
 	require.NoError(t, err)
 	require.Equal(t, start.FirstLeaf, end.FirstLeaf)
 	require.NotEqual(t, start.LastLeaf, end.LastLeaf)
@@ -219,7 +222,7 @@ func TestAllPrefixProofs(t *testing.T) {
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
 	}
-	manager, err := New(
+	manager, err := NewWithMockedStateRoots(
 		hashes,
 		WithMaxWavmOpcodesPerBlock(20),
 		WithNumOpcodesPerBigStep(4),
@@ -231,9 +234,9 @@ func TestAllPrefixProofs(t *testing.T) {
 	from := uint64(2)
 	to := uint64(3)
 
-	loCommit, err := manager.HistoryCommitmentUpTo(ctx, from)
+	loCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, from, 10)
 	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitmentUpTo(ctx, to)
+	hiCommit, err := manager.HistoryCommitmentUpToBatch(ctx, 0, to, 10)
 	require.NoError(t, err)
 	packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, from, to, 1)
 	require.NoError(t, err)
@@ -352,7 +355,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	maxOpcodesPerBlock := uint64(100)
 
 	honestStates, _ := setupStates(t, numStates, 0 /* honest */)
-	honestManager, err := NewWithAssertionStates(
+	honestManager, err := newTestingMachine(
 		honestStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
@@ -375,7 +378,7 @@ func TestDivergenceGranularity(t *testing.T) {
 	divergenceHeight := toBlock
 	evilStates, _ := setupStates(t, numStates, divergenceHeight)
 
-	evilManager, err := NewWithAssertionStates(
+	evilManager, err := newTestingMachine(
 		evilStates,
 		WithMaxWavmOpcodesPerBlock(maxOpcodesPerBlock),
 		WithNumOpcodesPerBigStep(bigStepSize),
@@ -537,7 +540,7 @@ func TestPrefixProofs(t *testing.T) {
 		{20, 511},
 	} {
 		leaves := hashesForUints(0, c.hi+1)
-		manager, err := New(leaves)
+		manager, err := NewWithMockedStateRoots(leaves)
 		require.NoError(t, err)
 
 		packedProof, err := manager.PrefixProofUpToBatch(ctx, 0, c.lo, c.hi, 1)
@@ -557,7 +560,7 @@ func TestPrefixProofs(t *testing.T) {
 			prefixProof[i] = proof[i]
 		}
 
-		postExpansion, err := manager.HistoryCommitmentUpTo(ctx, c.hi)
+		postExpansion, err := manager.HistoryCommitmentUpToBatch(ctx, 0, c.hi, 1000)
 		require.NoError(t, err)
 
 		root, err := prefixproofs.Root(preExpansionHashes)
@@ -574,6 +577,41 @@ func TestPrefixProofs(t *testing.T) {
 		err = prefixproofs.VerifyPrefixProof(cfg)
 		require.NoError(t, err)
 	}
+}
+
+func newTestingMachine(
+	assertionChainExecutionStates []*protocol.ExecutionState,
+	opts ...Opt,
+) (*L2StateBackend, error) {
+	if len(assertionChainExecutionStates) == 0 {
+		return nil, errors.New("must have execution states")
+	}
+	stateRoots := make([]common.Hash, len(assertionChainExecutionStates))
+	var lastBatch uint64 = math.MaxUint64
+	var lastPosInBatch uint64 = math.MaxUint64
+	for i := 0; i < len(stateRoots); i++ {
+		state := assertionChainExecutionStates[i]
+		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
+			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
+		}
+		lastBatch = state.GlobalState.Batch
+		lastPosInBatch = state.GlobalState.PosInBatch
+		stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
+	}
+	s := &L2StateBackend{
+		stateRoots:      stateRoots,
+		executionStates: assertionChainExecutionStates,
+		machineAtBlock: func(context.Context, uint64) (Machine, error) {
+			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
+		},
+		levelZeroBlockEdgeHeight:     challenge_testing.LevelZeroBlockEdgeHeight,
+		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
+		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s, nil
 }
 
 func hashesForUints(lo, hi uint64) []common.Hash {

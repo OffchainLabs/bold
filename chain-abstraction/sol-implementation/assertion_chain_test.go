@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package solimpl_test
 
@@ -8,12 +8,16 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
+	"github.com/OffchainLabs/bold/testing/setup"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,19 +28,17 @@ func TestCreateAssertion(t *testing.T) {
 	chain := cfg.Chains[0]
 	backend := cfg.Backend
 
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
+
 	t.Run("OK", func(t *testing.T) {
 		latestBlockHash := common.Hash{}
 		for i := uint64(0); i < 100; i++ {
 			latestBlockHash = backend.Commit()
 		}
 
-		createdInfo := &protocol.AssertionCreatedInfo{
-			AfterState: (&protocol.ExecutionState{
-				GlobalState:   protocol.GoGlobalState{},
-				MachineStatus: protocol.MachineStatusFinished,
-			}).AsSolidityStruct(),
-			InboxMaxCount: big.NewInt(1),
-		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash:  latestBlockHash,
@@ -46,11 +48,12 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := chain.CreateAssertion(ctx, createdInfo, postState)
+		assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 
-		_, err = chain.CreateAssertion(ctx, createdInfo, postState)
-		require.ErrorContains(t, err, "ALREADY_STAKED")
+		existingAssertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		require.NoError(t, err)
+		require.Equal(t, assertion.Id(), existingAssertion.Id())
 	})
 	t.Run("can create fork", func(t *testing.T) {
 		assertionChain := cfg.Chains[1]
@@ -59,13 +62,6 @@ func TestCreateAssertion(t *testing.T) {
 			backend.Commit()
 		}
 
-		creationInfo := &protocol.AssertionCreatedInfo{
-			AfterState: (&protocol.ExecutionState{
-				GlobalState:   protocol.GoGlobalState{},
-				MachineStatus: protocol.MachineStatusFinished,
-			}).AsSolidityStruct(),
-			InboxMaxCount: big.NewInt(1),
-		}
 		postState := &protocol.ExecutionState{
 			GlobalState: protocol.GoGlobalState{
 				BlockHash:  common.BytesToHash([]byte("evil hash")),
@@ -75,7 +71,7 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
+		_, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 	})
 }
@@ -91,14 +87,11 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	for i := uint64(0); i < 100; i++ {
 		latestBlockHash = backend.Commit()
 	}
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
 
-	createdInfo := &protocol.AssertionCreatedInfo{
-		AfterState: (&protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
-		}).AsSolidityStruct(),
-		InboxMaxCount: big.NewInt(1),
-	}
 	postState := &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash:  latestBlockHash,
@@ -108,7 +101,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	assertion, err := chain.CreateAssertion(ctx, createdInfo, postState)
+	assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
@@ -130,13 +123,6 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	// We then post a second child assertion.
 	assertionChain := cfg.Chains[1]
 
-	creationInfo := &protocol.AssertionCreatedInfo{
-		AfterState: (&protocol.ExecutionState{
-			GlobalState:   protocol.GoGlobalState{},
-			MachineStatus: protocol.MachineStatusFinished,
-		}).AsSolidityStruct(),
-		InboxMaxCount: big.NewInt(1),
-	}
 	postState = &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash:  common.BytesToHash([]byte("evil hash")),
@@ -146,7 +132,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	forkedAssertion, err := assertionChain.CreateAssertion(ctx, creationInfo, postState)
+	forkedAssertion, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	// We advance the chain by three blocks and check the assertion unrivaled times
@@ -275,7 +261,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	_, err = chain.GetAssertion(ctx, latestConfirmed.Id())
 	require.NoError(t, err)
 
-	_, err = chain.GetAssertion(ctx, protocol.AssertionHash(common.BytesToHash([]byte("foo"))))
+	_, err = chain.GetAssertion(ctx, protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))})
 	require.ErrorIs(t, err, solimpl.ErrNotFound)
 }
 
@@ -291,4 +277,127 @@ func TestChallengePeriodBlocks(t *testing.T) {
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	require.NoError(t, err)
 	require.Equal(t, cfg.RollupConfig.ConfirmPeriodBlocks, chalPeriod)
+}
+
+type mockBackend struct {
+	*backends.SimulatedBackend
+
+	logs []types.Log
+}
+
+func (mb *mockBackend) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	return mb.logs, nil
+}
+
+func TestLatestCreatedAssertion(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+
+	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	abiEvt := abi.Events["AssertionCreated"]
+
+	packLog := func(evt *rollupgen.RollupCoreAssertionCreated) []byte {
+		// event AssertionCreated(
+		// 	bytes32 indexed assertionHash,
+		// 	bytes32 indexed parentAssertionHash,
+		// 	AssertionInputs assertion,
+		// 	bytes32 afterInboxBatchAcc,
+		// 	uint256 inboxMaxCount,
+		// 	bytes32 wasmModuleRoot,
+		// 	uint256 requiredStake,
+		// 	address challengeManager,
+		// 	uint64 confirmPeriodBlocks
+		// );
+		d, packErr := abiEvt.Inputs.Pack(
+			evt.AssertionHash,
+			evt.ParentAssertionHash,
+			// Non-indexed fields.
+			evt.Assertion,
+			evt.AfterInboxBatchAcc,
+			evt.InboxMaxCount,
+			evt.WasmModuleRoot,
+			evt.RequiredStake,
+			evt.ChallengeManager,
+			evt.ConfirmPeriodBlocks,
+		)
+
+		if packErr != nil {
+			t.Fatal(packErr)
+		}
+
+		return d
+	}
+
+	// Minimal event data.
+	// Note: *big.Int values cannot be nil.
+	latest := &rollupgen.RollupCoreAssertionCreated{
+		Assertion: rollupgen.AssertionInputs{
+			BeforeStateData: rollupgen.BeforeStateData{
+				ConfigData: rollupgen.ConfigData{RequiredStake: big.NewInt(0)},
+			},
+		},
+		InboxMaxCount: big.NewInt(0),
+		RequiredStake: big.NewInt(0),
+	}
+
+	// Use the latest confirmed assertion as the last assertion.
+	expected, err := chain.LatestConfirmed(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var latestAssertionID [32]byte
+	copy(latestAssertionID[:], expected.Id().Bytes())
+	var fakeAssertionID [32]byte
+	copy(fakeAssertionID[:], []byte("fake assertion id as parent"))
+
+	evtID := abiEvt.ID
+	validTopics := []common.Hash{evtID, latestAssertionID, fakeAssertionID}
+	// Invalid topics will return an error when trying to lookup an assertion with the fake ID.
+	invalidTopics := []common.Hash{evtID, fakeAssertionID, fakeAssertionID}
+
+	// The backend is bad and sent logs in the wrong order and also
+	// sent "removed" logs from a nasty reorg.
+	logs := []types.Log{
+		{
+			BlockNumber: 120,
+			Index:       0,
+			Topics:      invalidTopics,
+		}, {
+			BlockNumber: 119,
+			Index:       0,
+			Topics:      invalidTopics,
+		}, {
+			BlockNumber: 122,
+			Index:       4,
+			Topics:      invalidTopics,
+			Removed:     true,
+		},
+		{ // This is the latest created assertion.
+			BlockNumber: 122,
+			Index:       3,
+			Topics:      validTopics,
+			Data:        packLog(latest),
+		},
+		{
+			BlockNumber: 122,
+			Index:       2,
+			Topics:      invalidTopics,
+		}, {
+			BlockNumber: 120,
+			Index:       0,
+			Topics:      invalidTopics,
+		},
+	}
+
+	chain.SetBackend(&mockBackend{logs: logs})
+
+	latestCreated, err := chain.LatestCreatedAssertion(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
 }

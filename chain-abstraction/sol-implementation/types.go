@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package solimpl
 
@@ -7,10 +7,10 @@ import (
 	"context"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +52,7 @@ func (a *Assertion) PrevId(ctx context.Context) (protocol.AssertionHash, error) 
 	if err != nil {
 		return protocol.AssertionHash{}, err
 	}
-	return creationEvent.ParentAssertionHash, nil
+	return protocol.AssertionHash{Hash: creationEvent.ParentAssertionHash}, nil
 }
 
 func (a *Assertion) HasSecondChild() (bool, error) {
@@ -64,7 +64,9 @@ func (a *Assertion) HasSecondChild() (bool, error) {
 }
 
 func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
-	assertionNode, err := a.chain.userLogic.GetAssertion(&bind.CallOpts{}, a.id)
+	var b [32]byte
+	copy(b[:], a.id.Bytes())
+	assertionNode, err := a.chain.userLogic.GetAssertion(&bind.CallOpts{}, b)
 	if err != nil {
 		return nil, err
 	}
@@ -86,10 +88,16 @@ func (a *Assertion) CreatedAtBlock() (uint64, error) {
 	return inner.CreatedAtBlock, nil
 }
 
-type SpecEdge struct {
+type honestEdge struct {
+	protocol.SpecEdge
+}
+
+func (h *honestEdge) Honest() {}
+
+type specEdge struct {
 	id          [32]byte
 	mutualId    [32]byte
-	manager     *SpecChallengeManager
+	manager     *specChallengeManager
 	miniStaker  option.Option[common.Address]
 	inner       challengeV2gen.ChallengeEdge
 	startHeight uint64

@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package solimpl_test
 
@@ -9,24 +9,15 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	solimpl "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction/sol-implementation"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
-	"github.com/OffchainLabs/challenge-protocol-v2/testing/setup"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
+	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
-
-var (
-	_ = protocol.SpecEdge(&solimpl.SpecEdge{})
-	_ = protocol.SpecChallengeManager(&solimpl.SpecChallengeManager{})
-)
-
-//nolint:unused
-var genesisOspData = make([]byte, 16)
 
 func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
@@ -160,25 +151,6 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	challengeManager, err := chain1.SpecChallengeManager(ctx)
 	require.NoError(t, err)
 
-	t.Run("claim predecessor does not exist", func(t *testing.T) {
-		t.Skip("Needs Solidity code")
-	})
-	t.Run("invalid height", func(t *testing.T) {
-		t.Skip("Needs Solidity code")
-	})
-	t.Run("last state is not assertion claim block hash", func(t *testing.T) {
-		t.Skip("Needs Solidity code")
-	})
-	t.Run("winner already declared", func(t *testing.T) {
-		t.Skip("Needs Solidity code")
-	})
-	t.Run("last state not in history", func(t *testing.T) {
-		t.Skip("Needs Solidity code")
-	})
-	t.Run("first state not in history", func(t *testing.T) {
-		t.Skip("Needs Solidity code")
-	})
-
 	leaves := make([]common.Hash, 4)
 	for i := range leaves {
 		leaves[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
@@ -206,15 +178,6 @@ func TestEdgeChallengeManager_Bisect(t *testing.T) {
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 
-	t.Run("cannot bisect unrivaled", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-	t.Run("invalid prefix proof", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-	t.Run("edge has children", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
 	t.Run("OK", func(t *testing.T) {
 		honestBisectCommit, err := honestStateManager.HistoryCommitmentUpToBatch(ctx, 0, challenge_testing.LevelZeroBlockEdgeHeight/2, 1)
 		require.NoError(t, err)
@@ -230,24 +193,6 @@ func TestEdgeChallengeManager_Bisect(t *testing.T) {
 	})
 }
 
-func TestEdgeChallengeManager_SubChallenges(t *testing.T) {
-	t.Run("leaf cannot be a fork candidate", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-	t.Run("lowest height not one step fork", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-	t.Run("has presumptive successor", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-	t.Run("empty history root", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-	t.Run("OK", func(t *testing.T) {
-		t.Skip("TODO(RJ): Implement")
-	})
-}
-
 func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	ctx := context.Background()
 	t.Run("edge does not exist", func(t *testing.T) {
@@ -256,7 +201,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		require.NoError(t, err)
 		err = challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
-			protocol.EdgeId(common.BytesToHash([]byte("foo"))),
+			protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))},
 			&protocol.OneStepData{
 				BeforeHash:        common.Hash{},
 				Proof:             make([]byte, 0),
@@ -671,7 +616,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	}
 
 	t.Run("edge not found", func(t *testing.T) {
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{protocol.EdgeId(common.Hash{1})}), "execution reverted")
+		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{{Hash: common.Hash{1}}}), "execution reverted")
 	})
 	t.Run("confirmed by timer", func(t *testing.T) {
 		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}))

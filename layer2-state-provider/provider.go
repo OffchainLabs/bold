@@ -1,6 +1,9 @@
+// Package l2stateprovider defines a dependency which provides L2 states and proofs
+// needed for the challenge manager to interact with Arbitrum chains' rollup and challenge
+// contracts.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package l2stateprovider
 
 import (
@@ -8,14 +11,13 @@ import (
 	"errors"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
-	ErrChainCatchingUp  = errors.New("chain catching up")
 	ErrNoExecutionState = errors.New("chain does not have execution state")
 )
 
@@ -47,7 +49,7 @@ type ExecutionProvider interface {
 
 type HistoryCommitter interface {
 	// Produces a block challenge history commitment up to and including a certain message number.
-	HistoryCommitmentUpTo(ctx context.Context, messageNumber uint64) (commitments.History, error)
+	HistoryCommitmentAtMessage(ctx context.Context, messageNumber uint64) (commitments.History, error)
 	// Produces a big step history commitment from big step 0 to N within block
 	// challenge heights A and B where B = A + 1.
 	BigStepCommitmentUpTo(
@@ -145,7 +147,8 @@ type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
-		prevAssertionInboxMaxCount uint64,
+		assertionInboxMaxCount uint64,
+		parentAssertionAfterStateBatch uint64,
 		edgeType protocol.EdgeType,
 		heights protocol.OriginHeights,
 		history History,

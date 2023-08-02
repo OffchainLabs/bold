@@ -1,22 +1,25 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 package protocol
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/option"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
+	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // AssertionHash represents a unique identifier for an assertion
 // constructed as a keccak256 hash of some of its internals.
-type AssertionHash common.Hash
+type AssertionHash struct {
+	common.Hash
+}
 
 // Protocol --
 type Protocol interface {
@@ -66,7 +69,9 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 type AssertionChain interface {
 	// Read-only methods.
 	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
+	GenesisAssertionHash(ctx context.Context) (common.Hash, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
+	RollupAddress() common.Address
 	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
@@ -120,6 +125,19 @@ func (et EdgeType) String() string {
 	}
 }
 
+func EdgeTypeFromString(s string) (EdgeType, error) {
+	switch s {
+	case "block_challenge_edge":
+		return BlockChallengeEdge, nil
+	case "big_step_challenge_edge":
+		return BigStepChallengeEdge, nil
+	case "small_step_challenge_edge":
+		return SmallStepChallengeEdge, nil
+	default:
+		return 0, fmt.Errorf("unknown edge type string: %s", s)
+	}
+}
+
 type Agreement struct {
 	AgreesWithStartCommit bool
 	IsHonestEdge          bool
@@ -141,7 +159,9 @@ type MutualId common.Hash
 
 // EdgeId is a unique identifier for an edge. Edge IDs encompass the edge type
 // along with the start and end height + commitment for an edge.
-type EdgeId common.Hash
+type EdgeId struct {
+	common.Hash
+}
 
 // ClaimId is the unique identifier of the commitment of a level zero edge corresponds to.
 // For example, if assertion A has two children, B and C, and a block challenge is initiated
@@ -187,7 +207,7 @@ type SpecChallengeManager interface {
 		startCommit,
 		endCommit commitments.History,
 		startEndPrefixProof []byte,
-	) (SpecEdge, error)
+	) (VerifiedHonestEdge, error)
 	// Adds a level-zero edge to subchallenge given a source edge and history commitments.
 	AddSubChallengeLevelZeroEdge(
 		ctx context.Context,
@@ -197,7 +217,7 @@ type SpecChallengeManager interface {
 		startParentInclusionProof []common.Hash,
 		endParentInclusionProof []common.Hash,
 		startEndPrefixProof []byte,
-	) (SpecEdge, error)
+	) (VerifiedHonestEdge, error)
 	ConfirmEdgeByOneStepProof(
 		ctx context.Context,
 		tentativeWinnerId EdgeId,
@@ -219,9 +239,20 @@ const (
 	EdgeConfirmed
 )
 
+func (e EdgeStatus) String() string {
+	switch e {
+	case EdgePending:
+		return "pending"
+	case EdgeConfirmed:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
+}
+
 type OriginHeights struct {
-	BlockChallengeOriginHeight   Height
-	BigStepChallengeOriginHeight Height
+	BlockChallengeOriginHeight   Height `json:"blockChallengeOriginHeight"`
+	BigStepChallengeOriginHeight Height `json:"bigStepChallengeOriginHeight"`
 }
 
 // ReadOnlyEdge defines methods that only retrieve data from the chain
@@ -267,6 +298,15 @@ type ReadOnlyEdge interface {
 	TopLevelClaimHeight(ctx context.Context) (OriginHeights, error)
 }
 
+// VerifiedHonestEdge marks edges that are known to be honest. For example,
+// when a local validator creates an edge, it is known to be honest and several types
+// expensive or duplicate computation can be avoided in methods that take in this type.
+// A sentinel method `Honest()` is used to mark an edge as satisfying this interface.
+type VerifiedHonestEdge interface {
+	SpecEdge
+	Honest()
+}
+
 // SpecEdge according to the protocol specification.
 type SpecEdge interface {
 	ReadOnlyEdge
@@ -276,7 +316,7 @@ type SpecEdge interface {
 		ctx context.Context,
 		prefixHistoryRoot common.Hash,
 		prefixProof []byte,
-	) (SpecEdge, SpecEdge, error)
+	) (VerifiedHonestEdge, VerifiedHonestEdge, error)
 	// Confirms an edge for having a presumptive timer >= one challenge period.
 	ConfirmByTimer(ctx context.Context, ancestorIds []EdgeId) error
 	// Confirms an edge with the specified claim id.

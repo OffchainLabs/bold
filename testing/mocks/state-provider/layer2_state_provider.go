@@ -1,20 +1,22 @@
+// Package stateprovider defines smarter mocks for testing purposes that can simulate a layer 2
+// state provider and and layer 2 state execution.
+//
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
-package toys
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+package stateprovider
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/history"
-	prefixproofs "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs"
-	challenge_testing "github.com/OffchainLabs/challenge-protocol-v2/testing"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -44,10 +46,11 @@ type L2StateBackend struct {
 	levelZeroBlockEdgeHeight     uint64
 	levelZeroBigStepEdgeHeight   uint64
 	levelZeroSmallStepEdgeHeight uint64
+	maliciousMachineIndex        uint64
 }
 
-// New simulated manager from a list of predefined state roots, useful for tests and simulations.
-func New(stateRoots []common.Hash, opts ...Opt) (*L2StateBackend, error) {
+// NewWithMockedStateRoots initialize with a list of predefined state roots, useful for tests and simulations.
+func NewWithMockedStateRoots(stateRoots []common.Hash, opts ...Opt) (*L2StateBackend, error) {
 	if len(stateRoots) == 0 {
 		return nil, errors.New("no state roots provided")
 	}
@@ -101,7 +104,7 @@ func WithMachineAtBlockProvider(machineAtBlock func(ctx context.Context, blockNu
 	}
 }
 
-// If enabled, forces the machine hash at block boundaries to be the block hash
+// WithForceMachineBlockCompat if enabled, forces the machine hash at block boundaries to be the block hash
 func WithForceMachineBlockCompat() Opt {
 	return func(s *L2StateBackend) {
 		s.forceMachineBlockCompat = true
@@ -116,43 +119,10 @@ func WithLevelZeroEdgeHeights(heights *challenge_testing.LevelZeroHeights) Opt {
 	}
 }
 
-// NewWithAssertionStates creates a simulated state manager from a list of predefined state roots for
-// the top-level assertion chain, useful for tests and simulation purposes in block challenges.
-// This also allows for specifying the honest states for big and small step subchallenges along
-// with the point at which the state manager should diverge from the honest computation.
-func NewWithAssertionStates(
-	assertionChainExecutionStates []*protocol.ExecutionState,
-	opts ...Opt,
-) (*L2StateBackend, error) {
-	if len(assertionChainExecutionStates) == 0 {
-		return nil, errors.New("must have execution states")
+func WithMaliciousMachineIndex(index uint64) Opt {
+	return func(s *L2StateBackend) {
+		s.maliciousMachineIndex = index
 	}
-	stateRoots := make([]common.Hash, len(assertionChainExecutionStates))
-	var lastBatch uint64 = math.MaxUint64
-	var lastPosInBatch uint64 = math.MaxUint64
-	for i := 0; i < len(stateRoots); i++ {
-		state := assertionChainExecutionStates[i]
-		if state.GlobalState.Batch == lastBatch && state.GlobalState.PosInBatch == lastPosInBatch {
-			return nil, fmt.Errorf("execution states %v and %v have the same batch %v and position in batch %v", i-1, i, lastBatch, lastPosInBatch)
-		}
-		lastBatch = state.GlobalState.Batch
-		lastPosInBatch = state.GlobalState.PosInBatch
-		stateRoots[i] = protocol.ComputeSimpleMachineChallengeHash(state)
-	}
-	s := &L2StateBackend{
-		stateRoots:      stateRoots,
-		executionStates: assertionChainExecutionStates,
-		machineAtBlock: func(context.Context, uint64) (Machine, error) {
-			return nil, errors.New("state manager created with NewWithAssertionStates() cannot provide machines")
-		},
-		levelZeroBlockEdgeHeight:     challenge_testing.LevelZeroBlockEdgeHeight,
-		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
-		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
-	}
-	for _, o := range opts {
-		o(s)
-	}
-	return s, nil
 }
 
 func NewForSimpleMachine(
@@ -162,6 +132,7 @@ func NewForSimpleMachine(
 		levelZeroBlockEdgeHeight:     challenge_testing.LevelZeroBlockEdgeHeight,
 		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
 		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
+		maliciousMachineIndex:        0,
 	}
 	for _, o := range opts {
 		o(s)
@@ -192,7 +163,7 @@ func NewForSimpleMachine(
 				state.GlobalState.PosInBatch -= uint64(s.posInBatchDivergence)
 			}
 			if block >= s.blockDivergenceHeight {
-				state.GlobalState.BlockHash[0] = 1
+				state.GlobalState.BlockHash[s.maliciousMachineIndex] = 1
 			}
 			machHash = protocol.ComputeSimpleMachineChallengeHash(state)
 		}
@@ -217,15 +188,23 @@ func NewForSimpleMachine(
 	return s, nil
 }
 
-// Produces the latest state to assert to L1 from the local state manager's perspective.
+// ExecutionStateAtMessageNumber produces the l2 state to assert at the message number specified.
 func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
-	return s.executionStates[len(s.executionStates)-1], nil
+	if messageNumber >= uint64(len(s.executionStates)) {
+		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", messageNumber, len(s.executionStates))
+	}
+	for _, st := range s.executionStates {
+		if st.GlobalState.Batch == messageNumber {
+			return st, nil
+		}
+	}
+	return nil, fmt.Errorf("no execution state at message number %d found", messageNumber)
 }
 
-// Checks if the execution manager locally has recorded this state
+// ExecutionStateMsgCount returns the execution state message count.
 func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error) {
 	for i, r := range s.executionStates {
 		if r.Equals(state) {
@@ -235,12 +214,9 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentUpTo(_ context.Context, messageNumber uint64) (commitments.History, error) {
-	// The size is the number of elements being committed to. For example, if the height is 7, there will
-	// be 8 elements being committed to from [0, 7] inclusive.
-	size := messageNumber + 1
+func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
 	return commitments.New(
-		s.stateRoots[:size],
+		[]common.Hash{s.stateRoots[messageNumber]},
 	)
 }
 
@@ -295,7 +271,8 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, messageNu
 func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	prevAssertionInboxMaxCount uint64,
+	assertionInboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
 	edgeType protocol.EdgeType,
 	heights protocol.OriginHeights,
 	commit l2stateprovider.History,
@@ -304,7 +281,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	var err error
 	switch edgeType {
 	case protocol.BlockChallengeEdge:
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, 0, uint64(commit.Height), prevAssertionInboxMaxCount)
+		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
 		if err != nil {
 			return false, err
 		}
@@ -313,7 +290,7 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 			ctx,
 			wasmModuleRoot,
 			uint64(heights.BlockChallengeOriginHeight),
-			uint64(commit.Height),
+			commit.Height,
 		)
 		if err != nil {
 			return false, err
@@ -376,7 +353,7 @@ func (s *L2StateBackend) maybeDivergeState(state *protocol.ExecutionState, block
 		*state = *s.executionStates[block+1]
 	}
 	if block+1 > s.blockDivergenceHeight || step >= s.machineDivergenceStep {
-		state.GlobalState.BlockHash[0] = 1
+		state.GlobalState.BlockHash[s.maliciousMachineIndex] = 1
 	}
 }
 

@@ -6,7 +6,7 @@ go_library(
         "merkle_expansions.go",
         "prefix_proofs.go",
     ],
-    importpath = "github.com/OffchainLabs/challenge-protocol-v2/state-commitments/prefix-proofs",
+    importpath = "github.com/OffchainLabs/bold/state-commitments/prefix-proofs",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_ethereum_go_ethereum//common",
@@ -25,15 +25,13 @@ go_test(
     embed = [":prefix-proofs"],
     deps = [
         "//solgen/go/mocksgen",
-        "//testing/setup/simulated-backend",
-        "//testing/toys/state-provider",
+        "//testing/mocks/state-provider",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//common/hexutil",
         "@com_github_ethereum_go_ethereum//core",
         "@com_github_ethereum_go_ethereum//crypto",
-        "@com_github_offchainlabs_nitro//util/headerreader",
         "@com_github_stretchr_testify//require",
     ],
 )

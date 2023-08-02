@@ -1,36 +1,46 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
+// Package watcher implements the main monitoring logic for protocol validators.
+// The challenge watcher is a singleton service available to all spawned edge trackers
+// and it tracks common information such as the edges' ancestors and an edge's time unrivaled.
+//
+// See: [github.com/OffchainLabs/bold/challenge-manager/edge-tracker]
 package watcher
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync/atomic"
 	"time"
 
-	protocol "github.com/OffchainLabs/challenge-protocol-v2/chain-abstraction"
-	challengetree "github.com/OffchainLabs/challenge-protocol-v2/challenge-manager/challenge-tree"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers"
-	"github.com/OffchainLabs/challenge-protocol-v2/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/challenge-protocol-v2/layer2-state-provider"
-	retry "github.com/OffchainLabs/challenge-protocol-v2/runtime"
-	"github.com/OffchainLabs/challenge-protocol-v2/solgen/go/challengeV2gen"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
+	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.WithField("prefix", "challenge-watcher")
-
 var (
+	srvlog                         = log.New("service", "chain-watcher")
 	edgeAddedCounter               = metrics.NewRegisteredCounter("arb/validator/watcher/edge_added", nil)
 	edgeConfirmedByChildrenCounter = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_children", nil)
 	edgeConfirmedByTimeCounter     = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_time", nil)
 	edgeConfirmedByOSPCounter      = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_osp", nil)
 	edgeConfirmedByClaimCounter    = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_claim", nil)
 )
+
+func init() {
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+}
 
 // EdgeManager provides a method to track edges, via edge tracker goroutines.
 type EdgeManager interface {
@@ -103,7 +113,7 @@ func New(
 	}
 }
 
-// Checks if a confirmed, level zero edge exists that claims a particular
+// ConfirmedEdgeWithClaimExists checks if a confirmed, level zero edge exists that claims a particular
 // edge id for a tracked challenge. This is used during the confirmation process of edges
 // within edge tracker goroutines. Returns the claiming edge id.
 func (w *Watcher) ConfirmedEdgeWithClaimExists(
@@ -117,7 +127,7 @@ func (w *Watcher) ConfirmedEdgeWithClaimExists(
 	return challenge.confirmedLevelZeroEdgeClaimIds.TryGet(claimId)
 }
 
-// Computes the honest path timer for an edge id within an assertion hash challenge
+// ComputeHonestPathTimer computes the honest path timer for an edge id within an assertion hash challenge
 // namespace. This is used during the confirmation process for edges in
 // edge tracker goroutine logic.
 func (w *Watcher) ComputeHonestPathTimer(
@@ -147,14 +157,14 @@ func (w *Watcher) IsSynced() bool {
 	return w.initialSyncCompleted.Load()
 }
 
-// Starts watching the chain via a polling mechanism for all edge added and confirmation events
+// Start watching the chain via a polling mechanism for all edge added and confirmation events
 // in order to process some of this data into internal representations for confirmation purposes.
 func (w *Watcher) Start(ctx context.Context) {
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
 		return w.getStartEndBlockNum(ctx)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not get start and end block num", err)
 		return
 	}
 	fromBlock := scanRange.startBlockNum
@@ -165,14 +175,14 @@ func (w *Watcher) Start(ctx context.Context) {
 		return w.chain.SpecChallengeManager(ctx)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not get spec challenge manager", err)
 		return
 	}
 	filterer, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not initialize edge challenge manager filterer", err)
 		return
 	}
 	filterOpts := &bind.FilterOpts{
@@ -186,35 +196,35 @@ func (w *Watcher) Start(ctx context.Context) {
 		return true, w.checkForEdgeAdded(ctx, filterer, filterOpts)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not check for edge added", err)
 		return
 	}
 	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not check for edge confirmed by osp", err)
 		return
 	}
 	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not check for edge confirmed by children", err)
 		return
 	}
 	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not check for edge confirmed by claim", err)
 		return
 	}
 	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
 	})
 	if err != nil {
-		log.Error(err)
+		srvlog.Error("Could not check for edge confirmed by time", err)
 		return
 	}
 
@@ -228,11 +238,11 @@ func (w *Watcher) Start(ctx context.Context) {
 		case <-ticker.C:
 			latestBlock, err := w.backend.HeaderByNumber(ctx, nil)
 			if err != nil {
-				log.Error(err)
+				srvlog.Error("Could not get latest header", err)
 				continue
 			}
 			if !latestBlock.Number.IsUint64() {
-				log.Error("latest block header number is not a uint64")
+				srvlog.Error("latest block header number is not a uint64")
 				continue
 			}
 			toBlock := latestBlock.Number.Uint64()
@@ -244,14 +254,14 @@ func (w *Watcher) Start(ctx context.Context) {
 				return w.chain.SpecChallengeManager(ctx)
 			})
 			if err != nil {
-				log.Error(err)
+				srvlog.Error("Could not get spec challenge manager", err)
 				return
 			}
 			filterer, err = retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 				return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 			})
 			if err != nil {
-				log.Error(err)
+				srvlog.Error("Could not get challenge manager filterer", err)
 				return
 			}
 			filterOpts := &bind.FilterOpts{
@@ -260,23 +270,23 @@ func (w *Watcher) Start(ctx context.Context) {
 				Context: ctx,
 			}
 			if err = w.checkForEdgeAdded(ctx, filterer, filterOpts); err != nil {
-				log.Error(err)
+				srvlog.Error("Could not check for edge added", err)
 				continue
 			}
 			if err = w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts); err != nil {
-				log.Error(err)
+				srvlog.Error("Could not check for edge confirmed by osp", err)
 				continue
 			}
 			if err = w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts); err != nil {
-				log.Error(err)
+				srvlog.Error("Could not check for edge confirmed by children", err)
 				continue
 			}
 			if err = w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts); err != nil {
-				log.Error(err)
+				srvlog.Error("Could not check for edge confirmed by time", err)
 				continue
 			}
 			if err = w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts); err != nil {
-				log.Error(err)
+				srvlog.Error("Could not check for edge confirmed by claim", err)
 				continue
 			}
 			fromBlock = toBlock
@@ -301,6 +311,38 @@ func (w *Watcher) GetEdges() []protocol.SpecEdge {
 	return syncEdges
 }
 
+// AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally
+// tracked challenge trees and spawns an edge tracker for it. Should be called after the challenge
+// manager creates a new edge, or bisects an edge and produces two children from that move.
+func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.VerifiedHonestEdge) error {
+	assertionHash, err := edge.AssertionHash(ctx)
+	if err != nil {
+		return err
+	}
+	// If a challenge is not yet being tracked locally by the watcher
+	// for the edge's assertion hash, it adds an entry to the map.
+	chal, ok := w.challenges.TryGet(assertionHash)
+	if !ok {
+		tree := challengetree.New(
+			assertionHash,
+			w.chain,
+			w.histChecker,
+			w.validatorName,
+		)
+		chal = &trackedChallenge{
+			honestEdgeTree:                 tree,
+			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](),
+		}
+		w.challenges.Put(assertionHash, chal)
+	}
+	// Add the edge to a local challenge tree of honest edges and, if needed,
+	// we also spawn a tracker for the edge.
+	if err := chal.honestEdgeTree.AddHonestEdge(edge); err != nil {
+		return errors.Wrap(err, "could not add honest edge to challenge tree")
+	}
+	return w.edgeManager.TrackEdge(ctx, edge)
+}
+
 // Filters for all edge added events within a range and processes them.
 func (w *Watcher) checkForEdgeAdded(
 	ctx context.Context,
@@ -313,7 +355,7 @@ func (w *Watcher) checkForEdgeAdded(
 	}
 	defer func() {
 		if err = it.Close(); err != nil {
-			log.WithError(err).Error("Could not close filter iterator")
+			srvlog.Error("Could not close filter iterator", err)
 		}
 	}()
 	for it.Next() {
@@ -345,7 +387,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if err != nil {
 		return err
 	}
-	edgeOpt, err := challengeManager.GetEdge(ctx, event.EdgeId)
+	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId{Hash: event.EdgeId})
 	if err != nil {
 		return err
 	}
@@ -361,7 +403,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	chal, ok := w.challenges.TryGet(assertionHash)
 	if !ok {
 		tree := challengetree.New(
-			event.OriginId,
+			protocol.AssertionHash{Hash: event.OriginId},
 			w.chain,
 			w.histChecker,
 			w.validatorName,
@@ -372,7 +414,8 @@ func (w *Watcher) processEdgeAddedEvent(
 		}
 		w.challenges.Put(assertionHash, chal)
 	}
-	// Check if honest, then spawn.
+	// Add the edge to a local challenge tree of tracked edges. If it is honest,
+	// we also spawn a tracker for the edge.
 	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
 	if err != nil {
 		return errors.Wrap(err, "could not add edge to challenge tree")
@@ -396,7 +439,7 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 	}
 	defer func() {
 		if err = it.Close(); err != nil {
-			log.WithError(err).Error("Could not close filter iterator")
+			srvlog.Error("Could not close filter iterator", err)
 		}
 	}()
 	for it.Next() {
@@ -409,7 +452,9 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -432,7 +477,7 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 	}
 	defer func() {
 		if err = it.Close(); err != nil {
-			log.WithError(err).Error("Could not close filter iterator")
+			srvlog.Error("Could not close filter iterator", err)
 		}
 	}()
 	for it.Next() {
@@ -445,7 +490,9 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -468,7 +515,7 @@ func (w *Watcher) checkForEdgeConfirmedByChildren(
 	}
 	defer func() {
 		if err = it.Close(); err != nil {
-			log.WithError(err).Error("Could not close filter iterator")
+			srvlog.Error("Could not close filter iterator", err)
 		}
 	}()
 	for it.Next() {
@@ -481,7 +528,9 @@ func (w *Watcher) checkForEdgeConfirmedByChildren(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -504,7 +553,7 @@ func (w *Watcher) checkForEdgeConfirmedByClaim(
 	}
 	defer func() {
 		if err = it.Close(); err != nil {
-			log.WithError(err).Error("Could not close filter iterator")
+			srvlog.Error("Could not close filter iterator", err)
 		}
 	}()
 	for it.Next() {
@@ -517,7 +566,9 @@ func (w *Watcher) checkForEdgeConfirmedByClaim(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -565,10 +616,12 @@ func (w *Watcher) processEdgeConfirmation(
 
 	// Check if we should confirm the assertion by challenge winner.
 	if edge.GetType() == protocol.BlockChallengeEdge {
-		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash(claimId), edgeId); confirmAssertionErr != nil {
+		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edgeId); confirmAssertionErr != nil {
 			return confirmAssertionErr
 		}
-		log.WithField("assertionHash", containers.Trunc(assertionHash[:])).Infof("Assertion confirmed by challenge win")
+		srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
+			"assertionHash": containers.Trunc(assertionHash.Bytes()),
+		})
 	}
 
 	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
