@@ -33,7 +33,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         connectedContracts.bridge.setDelayedInbox(address(connectedContracts.rollupEventInbox), true);
 
         connectedContracts.rollupEventInbox.rollupInitialized(config.chainId);
-        connectedContracts.sequencerInbox.addSequencerL2Batch(0, "", 1, IGasRefunder(address(0)), 0, 1);
+        if (connectedContracts.sequencerInbox.totalDelayedMessagesRead() == 0) {
+            connectedContracts.sequencerInbox.addSequencerL2Batch(0, "", 1, IGasRefunder(address(0)), 0, 1);
+        }
 
         validatorUtils = connectedContracts.validatorUtils;
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
@@ -67,7 +69,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
 
         uint256 currentInboxCount = bridge.sequencerMessageCount();
         // ensure to move the inbox forward by at least one message
-        if(currentInboxCount == config.genesisInboxCount) {
+        if (currentInboxCount == config.genesisInboxCount) {
             currentInboxCount += 1;
         }
         AssertionNode memory initialAssertion = AssertionNodeLib.createAssertion(
