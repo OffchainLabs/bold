@@ -219,6 +219,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		addresses.Rollup,
 		accs[1].TxOpts,
 		backend,
+		nil, // Batch client
 	)
 	if err != nil {
 		return nil, err
@@ -229,6 +230,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		addresses.Rollup,
 		accs[2].TxOpts,
 		backend,
+		nil, // Batch client
 	)
 	if err != nil {
 		return nil, err
@@ -239,6 +241,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		addresses.Rollup,
 		accs[3].TxOpts,
 		backend,
+		nil, // Batch client
 	)
 	if err != nil {
 		return nil, err

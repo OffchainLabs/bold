@@ -86,11 +86,13 @@ func NewAssertionChain(
 	rollupAddr common.Address,
 	txOpts *bind.TransactOpts,
 	backend ChainBackend,
+	client BatchClient,
 ) (*AssertionChain, error) {
 	chain := &AssertionChain{
 		backend:    backend,
 		txOpts:     txOpts,
 		rollupAddr: rollupAddr,
+		client:     client,
 	}
 	coreBinding, err := rollupgen.NewRollupCore(
 		rollupAddr, chain.backend,
