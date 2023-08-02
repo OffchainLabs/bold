@@ -70,6 +70,7 @@ interface IOldRollup {
     function getStakerAddress(uint64 stakerNum) external view returns (address);
     function stakerCount() external view returns (uint64);
     function getStaker(address staker) external view returns (OldStaker memory);
+    function isValidator(address validator) external view returns (bool);
 }
 
 interface IOldRollupAdmin {
@@ -143,6 +144,10 @@ contract RollupReader is IOldRollup {
     function getStaker(address staker) external view returns (OldStaker memory) {
         return rollup.getStaker(staker);
     }
+
+    function isValidator(address validator) external view returns(bool) {
+        return rollup.isValidator(validator);
+    }
 }
 
 /// @title  Upgrades an Arbitrum rollup to the new challenge protocol
@@ -198,6 +203,7 @@ contract BOLDUpgradeAction {
         uint256 miniStakeAmt;
         uint256 chainId;
         address anyTrustFastConfirmer;
+        string chainConfig;
     }
 
     // Unfortunately these are not discoverable on-chain, so we need to supply them
@@ -307,8 +313,10 @@ contract BOLDUpgradeAction {
             RollupLib.stateHashMem(genesisExecState, inboxMaxCount) == latestConfirmedStateHash,
             "Invalid latest execution hash"
         );
+        
+        // this isnt used during rollup creation, so we can pass in empty
+        ISequencerInbox.MaxTimeVariation memory maxTimeVariation;
 
-        ISequencerInbox.MaxTimeVariation memory maxTimeVariation; // can be empty as it's not used in rollup creation
         return Config({
             confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
             stakeToken: STAKE_TOKEN,
@@ -317,6 +325,7 @@ contract BOLDUpgradeAction {
             owner: address(this), // upgrade executor is the owner
             loserStakeEscrow: L1_TIMELOCK, // additional funds get sent to the l1 timelock
             chainId: CHAIN_ID,
+            chainConfig: "", // we can use an empty chain config it wont be used in the rollup initialization because we check if the rei is already connected there
             miniStakeValue: MINI_STAKE_AMOUNT,
             sequencerInboxMaxTimeVariation: maxTimeVariation,
             layerZeroBlockEdgeHeight: BLOCK_LEAF_SIZE,
@@ -362,7 +371,7 @@ contract BOLDUpgradeAction {
         PROXY_ADMIN_OUTBOX.upgrade(outbox, currentOutboxImpl);
     }
 
-    function perform() external {
+    function perform(address[] memory validators) external {
         // tidy up the old rollup - pause it and refund stakes
         cleanupOldRollup();
 
@@ -391,19 +400,16 @@ contract BOLDUpgradeAction {
             challengeManager: challengeManager,
             rollupAdminLogic: IMPL_NEW_ROLLUP_ADMIN,
             rollupUserLogic: IRollupUser(IMPL_NEW_ROLLUP_USER),
-            validatorUtils: address(0), // CHRIS: TODO: remove this from the admin contract
+            validatorUtils: address(0), // CHRIS: TODO: remove this from the admin contract - this one for sure right?
             validatorWalletCreator: address(0) // CHRIS: TODO: remove this from the admin contract
         });
 
         // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
         // to set of the new rollup address
         bytes32 rollupSalt = keccak256(abi.encode(config));
-        // CHRIS: TODO: as it stands we have the address wrong here since we dont append params to the creation code
-        //              however in nitro we've moved away from this and have an initializer
-        //              So this line and the new RollupProxy below need to be updated after updating from nitro
         address expectedRollupAddress = Create2Upgradeable.computeAddress(
             rollupSalt,
-            keccak256(abi.encodePacked(type(RollupProxy).creationCode, abi.encode(config, connectedContracts)))
+            keccak256(type(RollupProxy).creationCode)
         );
         upgradeSurroundingContracts(expectedRollupAddress);
 
@@ -420,10 +426,22 @@ contract BOLDUpgradeAction {
             _excessStakeReceiver: L1_TIMELOCK
         });
 
-        RollupProxy rollup = new RollupProxy{ salt: rollupSalt}(
-            config, connectedContracts
-        );
+        RollupProxy rollup = new RollupProxy{ salt: rollupSalt}();
         require(address(rollup) == expectedRollupAddress, "UNEXPCTED_ROLLUP_ADDR");
+
+        if (validators.length != 0) {
+            bool[] memory _vals = new bool[](validators.length);
+            for (uint256 i = 0; i < validators.length; i++) {
+                require(ROLLUP_READER.isValidator(validators[i]), "UNEXPECTED_NEW_VALIDATOR");
+                _vals[i] = true;
+            }
+            IRollupAdmin(address(rollup)).setValidator(validators, _vals);
+        }
+
+        rollup.initializeProxy(
+            config,
+            connectedContracts
+        );
 
         emit RollupMigrated(expectedRollupAddress, address(challengeManager));
     }

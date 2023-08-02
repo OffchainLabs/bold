@@ -12,8 +12,6 @@ import "../bridge/ISequencerInbox.sol";
 import "../libraries/DoubleLogicUUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-import {NO_CHAL_INDEX} from "../libraries/Constants.sol";
-
 contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeable {
     function initialize(Config calldata config, ContractDependencies calldata connectedContracts)
         external
@@ -30,13 +28,17 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         outbox = connectedContracts.outbox;
         connectedContracts.bridge.setOutbox(address(connectedContracts.outbox), true);
         rollupEventInbox = connectedContracts.rollupEventInbox;
-        connectedContracts.bridge.setDelayedInbox(address(connectedContracts.rollupEventInbox), true);
+        
+        // dont need to connect and initialize the event inbox if it's already been initialized
+        if(!bridge.allowedDelayedInboxes(address(connectedContracts.rollupEventInbox))) {
+            connectedContracts.bridge.setDelayedInbox(address(connectedContracts.rollupEventInbox), true);
+            connectedContracts.rollupEventInbox.rollupInitialized(config.chainId, config.chainConfig);
+        }
 
-        connectedContracts.rollupEventInbox.rollupInitialized(config.chainId);
         if (connectedContracts.sequencerInbox.totalDelayedMessagesRead() == 0) {
             connectedContracts.sequencerInbox.addSequencerL2Batch(0, "", 1, IGasRefunder(address(0)), 0, 1);
         }
-
+        
         validatorUtils = connectedContracts.validatorUtils;
         validatorWalletCreator = connectedContracts.validatorWalletCreator;
         challengeManager = connectedContracts.challengeManager;
@@ -97,6 +99,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             address(challengeManager),
             confirmPeriodBlocks
         );
+        if (_hostChainIsArbitrum) {
+            _assertionCreatedAtArbSysBlock[genesisHash] = ArbSys(address(100)).arbBlockNumber();
+        }
 
         emit RollupInitialized(config.wasmModuleRoot, config.chainId);
     }
@@ -313,5 +318,14 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function setAnyTrustFastConfirmer(address _anyTrustFastConfirmer) external {
         anyTrustFastConfirmer = _anyTrustFastConfirmer;
         emit OwnerFunctionCalled(31);
+    }
+
+    /**
+     * @notice set a new challengeManager contract
+     * @param _challengeManager new value of challengeManager
+     */
+    function setChallengeManager(address _challengeManager) external {
+        challengeManager = IEdgeChallengeManager(_challengeManager);
+        emit OwnerFunctionCalled(32);
     }
 }
