@@ -539,12 +539,7 @@ def go_dependencies():
         sum = "h1:+7OoQ1Bc6eTm5niUzBa0Ctsh6JbMW6Ra+YNuAtDBdko=",
         version = "v1.0.0",
     )
-    go_repository(
-        name = "com_github_gdamore_tcell",
-        importpath = "github.com/gdamore/tcell",
-        sum = "h1:vUnHwJRvcPQa3tzi+0QI4U9JINXYJlOz9yiaiPQ2wMU=",
-        version = "v1.4.0",
-    )
+
     go_repository(
         name = "com_github_gdamore_tcell_v2",
         importpath = "github.com/gdamore/tcell/v2",
