@@ -560,6 +560,6 @@ func TestGetAssertions_Batching(t *testing.T) {
 
 		// Every input should be to the rollup contract.
 		to := input.Args[0].(map[string]interface{})["to"].(*common.Address)
-		require.Equal(t, chain.RollupAddress(), *to)
+		require.Equal(t, cfg.Addrs.Rollup, *to)
 	}
 }
