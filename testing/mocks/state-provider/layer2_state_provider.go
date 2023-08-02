@@ -189,19 +189,19 @@ func NewForSimpleMachine(
 }
 
 // ExecutionStateAtMessageNumber produces the l2 state to assert at the message number specified.
-func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
+func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, messageNum uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
-	if messageNumber >= uint64(len(s.executionStates)) {
-		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", messageNumber, len(s.executionStates))
+	if messageNum >= uint64(len(s.executionStates)) {
+		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", messageNum, len(s.executionStates))
 	}
 	for _, st := range s.executionStates {
-		if st.GlobalState.Batch == messageNumber {
+		if st.GlobalState.Batch == messageNum {
 			return st, nil
 		}
 	}
-	return nil, fmt.Errorf("no execution state at message number %d found", messageNumber)
+	return nil, fmt.Errorf("no execution state at message number %d found", messageNum)
 }
 
 // ExecutionStateMsgCount returns the execution state message count.
@@ -214,9 +214,9 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
+func (s *L2StateBackend) HistoryCommitmentAtBatch(_ context.Context, batch uint64) (commitments.History, error) {
 	return commitments.New(
-		[]common.Hash{s.stateRoots[messageNumber]},
+		[]common.Hash{s.stateRoots[batch]},
 	)
 }
 

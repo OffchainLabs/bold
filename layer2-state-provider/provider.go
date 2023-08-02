@@ -48,8 +48,8 @@ type ExecutionProvider interface {
 }
 
 type HistoryCommitter interface {
-	// Produces a block challenge history commitment up to and including a certain message number.
-	HistoryCommitmentAtMessage(ctx context.Context, messageNumber uint64) (commitments.History, error)
+	// Produces a block challenge history commitment for the machine hash at a specific batch.
+	HistoryCommitmentAtBatch(ctx context.Context, batch uint64) (commitments.History, error)
 	// Produces a big step history commitment from big step 0 to N within block
 	// challenge heights A and B where B = A + 1.
 	BigStepCommitmentUpTo(

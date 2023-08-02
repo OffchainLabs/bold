@@ -78,7 +78,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, nil, err
 	}
 	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
-	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionAfterState.GlobalState.Batch)
+	fmt.Printf("Computing start commitment at batch %d\n", parentAssertionAfterState.GlobalState.Batch)
+	startCommit, err := m.stateManager.HistoryCommitmentAtBatch(ctx, parentAssertionAfterState.GlobalState.Batch)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -90,6 +91,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
+	fmt.Printf("Computing end commitment from batch %d to %d, inbox max count %d\n", parentAssertionAfterState.GlobalState.Batch, parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight, creationInfo.InboxMaxCount.Uint64())
 	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
 		parentAssertionAfterState.GlobalState.Batch,
