@@ -54,6 +54,9 @@ type ConfirmationMetadataChecker interface {
 		topLevelAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
 	) (challengetree.PathTimer, challengetree.HonestAncestors, error)
+	AddVerifiedHonestEdge(
+		ctx context.Context, verifiedHonest protocol.VerifiedHonestEdge,
+	) error
 }
 
 type ChallengeTracker interface {
@@ -255,7 +258,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			srvlog.Error("Could not open subchallenge leaf", err, fields)
+			fields["err"] = err
+			srvlog.Error("Could not open subchallenge leaf", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
@@ -333,7 +337,7 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	endHeight, endCommit := et.edge.EndCommitment()
 	id := et.edge.Id()
 	return log.Ctx{
-		"id":            containers.Trunc(id[:]),
+		"id":            id.Hash,
 		"startHeight":   startHeight,
 		"startCommit":   containers.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
@@ -414,10 +418,10 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	// Check if we can confirm by claim.
 	claimingEdge, ok := et.chainWatcher.ConfirmedEdgeWithClaimExists(
 		assertionHash,
-		protocol.ClaimId(et.edge.Id()),
+		protocol.ClaimId(et.edge.Id().Hash),
 	)
 	if ok {
-		if confirmClaimErr := et.edge.ConfirmByClaim(ctx, protocol.ClaimId(claimingEdge)); confirmClaimErr != nil {
+		if confirmClaimErr := et.edge.ConfirmByClaim(ctx, protocol.ClaimId(claimingEdge.Hash)); confirmClaimErr != nil {
 			return false, errors.Wrap(confirmClaimErr, "could not confirm by claim")
 		}
 		srvlog.Info("Confirmed by claim", et.uniqueTrackerLogFields())
@@ -526,6 +530,14 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 		"bisectedTo":         bisectTo,
 		"bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
 	})
+	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, firstChild); addVerifiedErr != nil {
+		// We simply log an error, as if this fails, it will be added later on by the chain watcher
+		// scraping events from the chain, but this is a helpful optimization.
+		srvlog.Error("Could not add verified honest edge to chain watcher", addVerifiedErr)
+	}
+	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, secondChild); addVerifiedErr != nil {
+		srvlog.Error("Could not add verified honest edge to chain watcher", addVerifiedErr)
+	}
 	return firstChild, secondChild, nil
 }
 
@@ -622,6 +634,13 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
 	fields["subChallengeType"] = addedLeaf.GetType()
 	srvlog.Info("Created subchallenge edge", fields)
+
+	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, addedLeaf); addVerifiedErr != nil {
+		// We simply log an error, as if this fails, it will be added later on by the chain watcher
+		// scraping events from the chain, but this is a helpful optimization.
+		srvlog.Error("Could not add verified honest edge to chain watcher", addVerifiedErr)
+	}
+
 	tracker, err := New(
 		ctx,
 		addedLeaf,

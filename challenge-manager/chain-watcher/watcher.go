@@ -311,6 +311,38 @@ func (w *Watcher) GetEdges() []protocol.SpecEdge {
 	return syncEdges
 }
 
+// AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally
+// tracked challenge trees and spawns an edge tracker for it. Should be called after the challenge
+// manager creates a new edge, or bisects an edge and produces two children from that move.
+func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.VerifiedHonestEdge) error {
+	assertionHash, err := edge.AssertionHash(ctx)
+	if err != nil {
+		return err
+	}
+	// If a challenge is not yet being tracked locally by the watcher
+	// for the edge's assertion hash, it adds an entry to the map.
+	chal, ok := w.challenges.TryGet(assertionHash)
+	if !ok {
+		tree := challengetree.New(
+			assertionHash,
+			w.chain,
+			w.histChecker,
+			w.validatorName,
+		)
+		chal = &trackedChallenge{
+			honestEdgeTree:                 tree,
+			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](),
+		}
+		w.challenges.Put(assertionHash, chal)
+	}
+	// Add the edge to a local challenge tree of honest edges and, if needed,
+	// we also spawn a tracker for the edge.
+	if err := chal.honestEdgeTree.AddHonestEdge(edge); err != nil {
+		return errors.Wrap(err, "could not add honest edge to challenge tree")
+	}
+	return w.edgeManager.TrackEdge(ctx, edge)
+}
+
 // Filters for all edge added events within a range and processes them.
 func (w *Watcher) checkForEdgeAdded(
 	ctx context.Context,
@@ -355,7 +387,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if err != nil {
 		return err
 	}
-	edgeOpt, err := challengeManager.GetEdge(ctx, event.EdgeId)
+	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId{Hash: event.EdgeId})
 	if err != nil {
 		return err
 	}
@@ -382,7 +414,8 @@ func (w *Watcher) processEdgeAddedEvent(
 		}
 		w.challenges.Put(assertionHash, chal)
 	}
-	// Check if honest, then spawn.
+	// Add the edge to a local challenge tree of tracked edges. If it is honest,
+	// we also spawn a tracker for the edge.
 	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
 	if err != nil {
 		return errors.Wrap(err, "could not add edge to challenge tree")
@@ -419,7 +452,9 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -455,7 +490,9 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -491,7 +528,9 @@ func (w *Watcher) checkForEdgeConfirmedByChildren(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
@@ -527,7 +566,9 @@ func (w *Watcher) checkForEdgeConfirmedByClaim(
 			)
 		}
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, it.Event.EdgeId)
+			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
+				Hash: it.Event.EdgeId,
+			})
 		})
 		if processErr != nil {
 			return processErr
