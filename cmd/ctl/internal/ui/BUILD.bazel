@@ -16,7 +16,6 @@ go_library(
         "//api",
         "//cmd/ctl/internal/data",
         "@com_github_ethereum_go_ethereum//common",
-        "@com_github_gdamore_tcell//:tcell",
         "@com_github_gdamore_tcell_v2//:tcell",
         "@com_github_rivo_tview//:tview",
     ],

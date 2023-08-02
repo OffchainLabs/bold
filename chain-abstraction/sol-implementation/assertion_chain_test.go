@@ -471,3 +471,31 @@ func TestLatestCreatedAssertionHashes(t *testing.T) {
 		require.Equal(t, uint64(i), id.Big().Uint64())
 	}
 }
+
+func TestGetAssertions_NoBatching(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+
+	chain.SetClient(nil) // Ensure no batching client is available.
+
+	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	require.NoError(t, err)
+
+	args := []protocol.AssertionHash{latestConfirmed.Id(), {Hash: common.BytesToHash([]byte("foo"))}}
+	res := chain.GetAssertions(ctx, args)
+
+	// The hash field should be populated for all results.
+	require.Equal(t, len(args), len(res))
+	for i, r := range res {
+		require.Equalf(t, args[i], r.Hash, "result %d: expected %v, got %v", i, args[i], r.Hash)
+	}
+
+	// Result 0 should be the latest confirmed assertion
+	require.Equal(t, latestConfirmed, *res[0].Assertion)
+	require.NoError(t, res[0].Error)
+
+	// Result 1 should be an error
+	require.ErrorIs(t, res[1].Error, solimpl.ErrNotFound)
+}

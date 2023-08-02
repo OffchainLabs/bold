@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 )
 
@@ -50,6 +51,10 @@ type ChainBackend interface {
 	ReceiptFetcher
 }
 
+type BatchClient interface {
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+}
+
 // ChainCommitter defines a type of chain backend that supports
 // committing changes via a direct method, such as a simulated backend
 // for testing purposes.
@@ -66,6 +71,7 @@ type ReceiptFetcher interface {
 // that implements the protocol interface.
 type AssertionChain struct {
 	backend    ChainBackend
+	client     BatchClient
 	rollup     *rollupgen.RollupCore
 	userLogic  *rollupgen.RollupUserLogic
 	txOpts     *bind.TransactOpts
@@ -120,6 +126,49 @@ func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protoco
 		id:    assertionHash,
 		chain: a,
 	}, nil
+}
+
+type GetAssertionsResult struct {
+	Hash      protocol.AssertionHash
+	Assertion *protocol.Assertion
+	Error     error
+}
+
+func (a *AssertionChain) GetAssertions(ctx context.Context, assertionHashes []protocol.AssertionHash) []*GetAssertionsResult {
+	// If no rpc client is available, we fall back to fetching assertions one by one.
+	if a.client == nil {
+		return a.getAssertions(ctx, assertionHashes)
+	}
+	return a.getAssertionsBatch(ctx, assertionHashes)
+}
+
+// getAssertions one by one without batching.
+func (a *AssertionChain) getAssertions(ctx context.Context, assertionHashes []protocol.AssertionHash) []*GetAssertionsResult {
+	results := make([]*GetAssertionsResult, 0, len(assertionHashes))
+
+	for _, assertionHash := range assertionHashes {
+		assertion, err := a.GetAssertion(ctx, assertionHash)
+		results = append(results, &GetAssertionsResult{
+			Hash:      assertionHash,
+			Assertion: &assertion,
+			Error:     err,
+		})
+	}
+	return results
+}
+
+// getAssertionsBatch by batching calls via the rpc client. This method should be better performance
+// when requesting many assertions.
+func (a *AssertionChain) getAssertionsBatch(ctx context.Context, assertionHashes []protocol.AssertionHash) []*GetAssertionsResult {
+	results := make([]*GetAssertionsResult, 0, len(assertionHashes))
+
+	for _, assertionHash := range assertionHashes {
+		results = append(results, &GetAssertionsResult{
+			Hash:  assertionHash,
+			Error: errors.New("not implemented"),
+		})
+	}
+	return results
 }
 
 func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
