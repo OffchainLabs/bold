@@ -29,11 +29,11 @@
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7",
     "test:storage": "./test/storage/test.bash",
     "postinstall": "patch-package",
-    "script:bold-local-prepare": "ts-node ./scripts/testLocalPrepareTestNode.ts",
-    "script:bold-prepare": "ts-node ./scripts/prepareBoldUpgrade.ts",
-    "script:bold-populate-lookup": "ts-node ./scripts/populateLookup.ts",
-    "script:bold-local-execute": "ts-node ./scripts/testLocalExecuteBoldUpgrade.ts",
-    "script:bold-verify": "ts-node ./scripts/testVerifyBoldUpgrade.ts"
+    "script:bold-local-prepare": "hardhat run ./scripts/testLocalPrepareTestNode.ts",
+    "script:bold-prepare": "hardhat run ./scripts/prepareBoldUpgrade.ts",
+    "script:bold-populate-lookup": "hardhat run ./scripts/populateLookup.ts",
+    "script:bold-local-execute": "hardhat run ./scripts/testLocalExecuteBoldUpgrade.ts",
+    "script:bold-verify": "hardhat run ./scripts/testVerifyBoldUpgrade.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.7.3",

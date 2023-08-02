@@ -149,7 +149,6 @@ contract RollupReader is IOldRollup {
 ///         Also requires a lookup contract to be provided that contains the pre-image of the state hash
 ///         that is in the latest confirmed assertion in the current rollup.
 contract BOLDUpgradeAction {
-    bytes32 public constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
     uint256 public constant BLOCK_LEAF_SIZE = 2 ** 26; // CHRIS: TODO: get final number for this
     uint256 public constant BIGSTEP_LEAF_SIZE = 2 ** 23;
     uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ** 20;
@@ -183,7 +182,8 @@ contract BOLDUpgradeAction {
     address public immutable IMPL_SEQUENCER_INBOX;
     address public immutable IMPL_REI;
     address public immutable IMPL_OUTBOX;
-    address public immutable IMPL_OLD_ROLLUP_USER;
+    // the old rollup, but with whenNotPaused protection removed from stake withdrawal functions
+    address public immutable IMPL_PATCHED_OLD_ROLLUP_USER;
     address public immutable IMPL_NEW_ROLLUP_USER;
     address public immutable IMPL_NEW_ROLLUP_ADMIN;
     address public immutable IMPL_CHALLENGE_MANAGER;
@@ -255,7 +255,7 @@ contract BOLDUpgradeAction {
         IMPL_SEQUENCER_INBOX = implementations.seqInbox;
         IMPL_REI = implementations.rei;
         IMPL_OUTBOX = implementations.outbox;
-        IMPL_OLD_ROLLUP_USER = implementations.oldRollupUser;
+        IMPL_PATCHED_OLD_ROLLUP_USER = implementations.oldRollupUser;
         IMPL_NEW_ROLLUP_USER = implementations.newRollupUser;
         IMPL_NEW_ROLLUP_ADMIN = implementations.newRollupAdmin;
         IMPL_CHALLENGE_MANAGER = implementations.challengeManager;
@@ -291,7 +291,7 @@ contract BOLDUpgradeAction {
         }
 
         // upgrade the rollup to one that allows validators to withdraw even whilst paused
-        DoubleLogicUUPSUpgradeable(address(OLD_ROLLUP)).upgradeSecondaryTo(IMPL_OLD_ROLLUP_USER);
+        DoubleLogicUUPSUpgradeable(address(OLD_ROLLUP)).upgradeSecondaryTo(IMPL_PATCHED_OLD_ROLLUP_USER);
     }
 
     /// @dev    Create a config for the new rollup - fetches the latest confirmed
@@ -418,6 +418,7 @@ contract BOLDUpgradeAction {
             _excessStakeReceiver: L1_TIMELOCK
         });
 
+        // CHRIS: TODO: we need add in the existing validators here
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}(
             config, connectedContracts
         );

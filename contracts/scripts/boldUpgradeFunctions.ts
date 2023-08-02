@@ -12,8 +12,8 @@ import {
   StateHashPreImageLookup__factory,
 } from '../build/types'
 import { DeployedContracts, Config } from './common'
-import { Interface } from 'ethers/lib/utils'
 import { ExecutionStateStruct } from '../build/types/src/challengeV2/IAssertionChain'
+// taken from https://github.com/OffchainLabs/nitro-contracts/blob/210e5b3bc96a513d276deaba90399130a60131d5/src/rollup/RollupUserLogic.sol
 import {
   abi as OldRollupAbi,
   bytecode as OldRollupBytecode,
