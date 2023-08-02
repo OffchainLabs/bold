@@ -401,3 +401,73 @@ func TestLatestCreatedAssertion(t *testing.T) {
 
 	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
 }
+
+func TestLatestCreatedAssertionHashes(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+
+	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	abiEvt := abi.Events["AssertionCreated"]
+	evtID := abiEvt.ID
+
+	// The backend is bad and sent logs in the wrong order and also
+	// sent "removed" logs from a nasty reorg.
+	logs := []types.Log{
+		{
+			BlockNumber: 120,
+			Index:       0,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(1)),
+			},
+		}, {
+			BlockNumber: 119,
+			Index:       0,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(0)),
+			},
+		}, {
+			BlockNumber: 122,
+			Index:       4,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(-1)),
+			},
+			Removed: true,
+		},
+		{
+			BlockNumber: 122,
+			Index:       3,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(3)),
+			},
+		},
+		{
+			BlockNumber: 122,
+			Index:       2,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(2)),
+			},
+		},
+	}
+
+	chain.SetBackend(&mockBackend{logs: logs})
+
+	latest, err := chain.LatestCreatedAssertionHashes(ctx)
+	require.NoError(t, err)
+
+	// The logs received were in the wrong order, but their IDs indicate their expected position
+	// in the return slice.
+	require.Equal(t, 4, len(latest))
+	for i, id := range latest {
+		require.Equal(t, uint64(i), id.Big().Uint64())
+	}
+}
