@@ -104,7 +104,7 @@ contract StateHashPreImageLookup {
     }
 
     function get(bytes32 h) public view returns (ExecutionState memory execState, uint256 inboxMaxCount) {
-        (execState, inboxMaxCount) =  abi.decode(preImages[h], (ExecutionState, uint256));
+        (execState, inboxMaxCount) = abi.decode(preImages[h], (ExecutionState, uint256));
         require(inboxMaxCount != 0, "Hash not yet set");
     }
 }
@@ -145,7 +145,7 @@ contract RollupReader is IOldRollup {
         return rollup.getStaker(staker);
     }
 
-    function isValidator(address validator) external view returns(bool) {
+    function isValidator(address validator) external view returns (bool) {
         return rollup.isValidator(validator);
     }
 }
@@ -311,7 +311,7 @@ contract BOLDUpgradeAction {
             RollupLib.stateHashMem(genesisExecState, inboxMaxCount) == latestConfirmedStateHash,
             "Invalid latest execution hash"
         );
-        
+
         // this isnt used during rollup creation, so we can pass in empty
         ISequencerInbox.MaxTimeVariation memory maxTimeVariation;
 
@@ -405,10 +405,8 @@ contract BOLDUpgradeAction {
         // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
         // to set of the new rollup address
         bytes32 rollupSalt = keccak256(abi.encode(config));
-        address expectedRollupAddress = Create2Upgradeable.computeAddress(
-            rollupSalt,
-            keccak256(type(RollupProxy).creationCode)
-        );
+        address expectedRollupAddress =
+            Create2Upgradeable.computeAddress(rollupSalt, keccak256(type(RollupProxy).creationCode));
         upgradeSurroundingContracts(expectedRollupAddress);
 
         challengeManager.initialize({
@@ -427,6 +425,13 @@ contract BOLDUpgradeAction {
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}();
         require(address(rollup) == expectedRollupAddress, "UNEXPCTED_ROLLUP_ADDR");
 
+        // initialize the rollup with this contract as owner to set batch poster and validators
+        // it will transfer the ownership back to the actual owner later
+        address actualOwner = config.owner;
+        config.owner = address(this);
+
+        rollup.initializeProxy(config, connectedContracts);
+
         if (validators.length != 0) {
             bool[] memory _vals = new bool[](validators.length);
             for (uint256 i = 0; i < validators.length; i++) {
@@ -436,10 +441,7 @@ contract BOLDUpgradeAction {
             IRollupAdmin(address(rollup)).setValidator(validators, _vals);
         }
 
-        rollup.initializeProxy(
-            config,
-            connectedContracts
-        );
+        IRollupAdmin(address(rollup)).setOwner(actualOwner);
 
         emit RollupMigrated(expectedRollupAddress, address(challengeManager));
     }
