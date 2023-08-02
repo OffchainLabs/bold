@@ -80,7 +80,7 @@ contract RollupCreator is Ownable {
     }
 
     function createRollup(Config memory config) external returns (address) {
-        return createRollup(config, address(0), new address[](0));
+        return createRollup(config, address(0), new address[](0), false);
     }
 
     /**
@@ -99,7 +99,8 @@ contract RollupCreator is Ownable {
     function createRollup(
         Config memory config,
         address _batchPoster,
-        address[] memory _validators
+        address[] memory _validators,
+        bool disableValidatorWhitelist
     ) public returns (address) {        
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         proxyAdmin.transferOwnership(config.owner);
@@ -149,6 +150,9 @@ contract RollupCreator is Ownable {
                 _vals[i] = true;
             }
             IRollupAdmin(address(rollup)).setValidator(_validators, _vals);
+        }
+        if(disableValidatorWhitelist == true) {
+            IRollupAdmin(address(rollup)).setValidatorWhitelistDisabled(disableValidatorWhitelist);
         }
         IRollupAdmin(address(rollup)).setOwner(actualOwner);
 

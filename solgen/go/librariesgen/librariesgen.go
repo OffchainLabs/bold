@@ -984,6 +984,179 @@ func (_AdminFallbackProxy *AdminFallbackProxyFilterer) ParseUpgradedSecondary(lo
 	return event, nil
 }
 
+// ArbitrumCheckerMetaData contains all meta data concerning the ArbitrumChecker contract.
+var ArbitrumCheckerMetaData = &bind.MetaData{
+	ABI: "[]",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212203be24be3f9b6f5705e5c47834ebd1553822073bb563e9c9bcd4c4c9e84ae2d8164736f6c63430008110033",
+}
+
+// ArbitrumCheckerABI is the input ABI used to generate the binding from.
+// Deprecated: Use ArbitrumCheckerMetaData.ABI instead.
+var ArbitrumCheckerABI = ArbitrumCheckerMetaData.ABI
+
+// ArbitrumCheckerBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use ArbitrumCheckerMetaData.Bin instead.
+var ArbitrumCheckerBin = ArbitrumCheckerMetaData.Bin
+
+// DeployArbitrumChecker deploys a new Ethereum contract, binding an instance of ArbitrumChecker to it.
+func DeployArbitrumChecker(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *ArbitrumChecker, error) {
+	parsed, err := ArbitrumCheckerMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(ArbitrumCheckerBin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &ArbitrumChecker{ArbitrumCheckerCaller: ArbitrumCheckerCaller{contract: contract}, ArbitrumCheckerTransactor: ArbitrumCheckerTransactor{contract: contract}, ArbitrumCheckerFilterer: ArbitrumCheckerFilterer{contract: contract}}, nil
+}
+
+// ArbitrumChecker is an auto generated Go binding around an Ethereum contract.
+type ArbitrumChecker struct {
+	ArbitrumCheckerCaller     // Read-only binding to the contract
+	ArbitrumCheckerTransactor // Write-only binding to the contract
+	ArbitrumCheckerFilterer   // Log filterer for contract events
+}
+
+// ArbitrumCheckerCaller is an auto generated read-only Go binding around an Ethereum contract.
+type ArbitrumCheckerCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// ArbitrumCheckerTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type ArbitrumCheckerTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// ArbitrumCheckerFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type ArbitrumCheckerFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// ArbitrumCheckerSession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type ArbitrumCheckerSession struct {
+	Contract     *ArbitrumChecker  // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+}
+
+// ArbitrumCheckerCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type ArbitrumCheckerCallerSession struct {
+	Contract *ArbitrumCheckerCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts          // Call options to use throughout this session
+}
+
+// ArbitrumCheckerTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type ArbitrumCheckerTransactorSession struct {
+	Contract     *ArbitrumCheckerTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts          // Transaction auth options to use throughout this session
+}
+
+// ArbitrumCheckerRaw is an auto generated low-level Go binding around an Ethereum contract.
+type ArbitrumCheckerRaw struct {
+	Contract *ArbitrumChecker // Generic contract binding to access the raw methods on
+}
+
+// ArbitrumCheckerCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type ArbitrumCheckerCallerRaw struct {
+	Contract *ArbitrumCheckerCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// ArbitrumCheckerTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type ArbitrumCheckerTransactorRaw struct {
+	Contract *ArbitrumCheckerTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewArbitrumChecker creates a new instance of ArbitrumChecker, bound to a specific deployed contract.
+func NewArbitrumChecker(address common.Address, backend bind.ContractBackend) (*ArbitrumChecker, error) {
+	contract, err := bindArbitrumChecker(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbitrumChecker{ArbitrumCheckerCaller: ArbitrumCheckerCaller{contract: contract}, ArbitrumCheckerTransactor: ArbitrumCheckerTransactor{contract: contract}, ArbitrumCheckerFilterer: ArbitrumCheckerFilterer{contract: contract}}, nil
+}
+
+// NewArbitrumCheckerCaller creates a new read-only instance of ArbitrumChecker, bound to a specific deployed contract.
+func NewArbitrumCheckerCaller(address common.Address, caller bind.ContractCaller) (*ArbitrumCheckerCaller, error) {
+	contract, err := bindArbitrumChecker(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbitrumCheckerCaller{contract: contract}, nil
+}
+
+// NewArbitrumCheckerTransactor creates a new write-only instance of ArbitrumChecker, bound to a specific deployed contract.
+func NewArbitrumCheckerTransactor(address common.Address, transactor bind.ContractTransactor) (*ArbitrumCheckerTransactor, error) {
+	contract, err := bindArbitrumChecker(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbitrumCheckerTransactor{contract: contract}, nil
+}
+
+// NewArbitrumCheckerFilterer creates a new log filterer instance of ArbitrumChecker, bound to a specific deployed contract.
+func NewArbitrumCheckerFilterer(address common.Address, filterer bind.ContractFilterer) (*ArbitrumCheckerFilterer, error) {
+	contract, err := bindArbitrumChecker(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbitrumCheckerFilterer{contract: contract}, nil
+}
+
+// bindArbitrumChecker binds a generic wrapper to an already deployed contract.
+func bindArbitrumChecker(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := ArbitrumCheckerMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_ArbitrumChecker *ArbitrumCheckerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ArbitrumChecker.Contract.ArbitrumCheckerCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_ArbitrumChecker *ArbitrumCheckerRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ArbitrumChecker.Contract.ArbitrumCheckerTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_ArbitrumChecker *ArbitrumCheckerRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ArbitrumChecker.Contract.ArbitrumCheckerTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_ArbitrumChecker *ArbitrumCheckerCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ArbitrumChecker.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_ArbitrumChecker *ArbitrumCheckerTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ArbitrumChecker.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_ArbitrumChecker *ArbitrumCheckerTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ArbitrumChecker.Contract.contract.Transact(opts, method, params...)
+}
+
 // CryptographyPrimitivesMetaData contains all meta data concerning the CryptographyPrimitives contract.
 var CryptographyPrimitivesMetaData = &bind.MetaData{
 	ABI: "[]",
