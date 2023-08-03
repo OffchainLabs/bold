@@ -224,7 +224,7 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		if err != nil {
 			t.Fatal(err)
 		}
-		aliceLeaf, err = alicePoster.PostAssertionAndMoveStake(ctx)
+		aliceLeaf, err = alicePoster.PostLatestAssertion(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -74,6 +74,11 @@ func (m *MockStateManager) HistoryCommitmentAtMessage(ctx context.Context, heigh
 	return args.Get(0).(commitments.History), args.Error(1)
 }
 
+func (m *MockStateManager) HistoryCommitmentAtBatch(ctx context.Context, height uint64) (commitments.History, error) {
+	args := m.Called(ctx, height)
+	return args.Get(0).(commitments.History), args.Error(1)
+}
+
 func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
@@ -462,6 +467,15 @@ func (m *MockProtocol) ConfirmAssertionByChallengeWinner(
 }
 
 func (m *MockProtocol) CreateAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	args := m.Called(ctx, assertionCreationInfo, postState)
+	return args.Get(0).(protocol.Assertion), args.Error(1)
+}
+
+func (m *MockProtocol) CreateAssertionAndMoveStake(
 	ctx context.Context,
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
