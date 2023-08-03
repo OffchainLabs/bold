@@ -56,11 +56,29 @@ func (p *Poster) Start(ctx context.Context) {
 	}
 }
 
-// PostLatestAssertion posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
-// TODO: Include leaf creation validity conditions which are more complex than this.
-// For example, a validator must include messages from the inbox that were not included
-// by the last validator in the last leaf's creation.
-func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, error) {
+// PostLatestAssertion --
+func (p *Poster) PostAssertionAndNewStake(ctx context.Context) (protocol.Assertion, error) {
+	return p.postAssertion(ctx, p.chain.CreateAssertion)
+}
+
+// PostAssertionAndMoveStake --
+func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assertion, error) {
+	return p.postAssertion(ctx, p.chain.CreateAssertion)
+}
+
+// MoveStakeToAssertion --
+func (p *Poster) MoveStakeToAssertion(ctx context.Context) (protocol.Assertion, error) {
+	return p.postAssertion(ctx, p.chain.CreateAssertion)
+}
+
+func (p *Poster) postAssertion(
+	ctx context.Context,
+	submitFn func(
+		ctx context.Context,
+		parentCreationInfo *protocol.AssertionCreatedInfo,
+		newState *protocol.ExecutionState,
+	) (protocol.Assertion, error),
+) (protocol.Assertion, error) {
 	// Ensure that we only build on a valid parent from this validator's perspective.
 	// the validator should also have ready access to historical commitments to make sure it can select
 	// the valid parent based on its commitment state root.
@@ -80,7 +98,7 @@ func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, e
 	if err != nil {
 		return nil, err
 	}
-	assertion, err := p.chain.CreateAssertion(
+	assertion, err := submitFn(
 		ctx,
 		parentAssertionCreationInfo,
 		newState,
