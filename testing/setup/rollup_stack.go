@@ -193,7 +193,7 @@ func CreateTwoValidatorForkNonGenesis(
 	if err != nil {
 		return nil, err
 	}
-	honestPostState2, err := honestStateManager.ExecutionStateAtMessageNumber(ctx, 1)
+	honestPostState2, err := honestStateManager.ExecutionStateAtMessageNumber(ctx, 2)
 	if err != nil {
 		return nil, err
 	}
