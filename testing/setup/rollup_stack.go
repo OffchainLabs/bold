@@ -132,6 +132,121 @@ func CreateTwoValidatorFork(
 	}, nil
 }
 
+func CreateTwoValidatorForkNonGenesis(
+	ctx context.Context,
+	cfg *CreateForkConfig,
+) (*CreatedValidatorFork, error) {
+	setup, err := ChainsWithEdgeChallengeManager()
+	if err != nil {
+		return nil, err
+	}
+
+	// Advance the backend by some blocks to get over time delta failures when
+	// using the assertion chain.
+	for i := 0; i < 1000; i++ {
+		setup.Backend.Commit()
+	}
+
+	genesisHash, err := setup.Chains[1].GenesisAssertionHash(ctx)
+	if err != nil {
+		return nil, err
+	}
+	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	if err != nil {
+		return nil, err
+	}
+
+	honestStateManager, err := statemanager.NewForSimpleMachine()
+	if err != nil {
+		return nil, err
+	}
+
+	// Set defaults (zeroes are not valid here)
+	if cfg.DivergeBlockHeight == 0 {
+		cfg.DivergeBlockHeight = 1
+	}
+	if cfg.DivergeMachineHeight == 0 {
+		cfg.DivergeMachineHeight = 1
+	}
+
+	evilStateManager, err := statemanager.NewForSimpleMachine(
+		statemanager.WithBlockDivergenceHeight(cfg.DivergeBlockHeight),
+		statemanager.WithDivergentBlockHeightOffset(cfg.BlockHeightDifference),
+		statemanager.WithMachineDivergenceStep(cfg.DivergeMachineHeight),
+	)
+	if err != nil {
+		return nil, err
+	}
+	honestPostState1, err := honestStateManager.ExecutionStateAtMessageNumber(ctx, 1)
+	if err != nil {
+		return nil, err
+	}
+	assertion1, err := setup.Chains[0].CreateAssertion(
+		ctx,
+		genesisCreationInfo,
+		honestPostState1,
+	)
+	if err != nil {
+		return nil, err
+	}
+	assertion1CreationInfo, err := setup.Chains[0].ReadAssertionCreationInfo(ctx, assertion1.Id())
+	if err != nil {
+		return nil, err
+	}
+	honestPostState2, err := honestStateManager.ExecutionStateAtMessageNumber(ctx, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	assertion2, err := setup.Chains[0].CreateAssertion(
+		ctx,
+		assertion1CreationInfo,
+		honestPostState2,
+	)
+	if err != nil {
+		return nil, err
+	}
+	evilPostState1, err := evilStateManager.ExecutionStateAtMessageNumber(ctx, 1)
+	if err != nil {
+		return nil, err
+	}
+	forkedAssertion1, err := setup.Chains[1].CreateAssertion(
+		ctx,
+		genesisCreationInfo,
+		evilPostState1,
+	)
+	if err != nil {
+		return nil, err
+	}
+	forkedAssertion1CreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, forkedAssertion1.Id())
+	if err != nil {
+		return nil, err
+	}
+	evilPostState2, err := evilStateManager.ExecutionStateAtMessageNumber(ctx, 2)
+	if err != nil {
+		return nil, err
+	}
+	forkedAssertion2, err := setup.Chains[1].CreateAssertion(
+		ctx,
+		forkedAssertion1CreationInfo,
+		evilPostState2,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreatedValidatorFork{
+		Leaf1:              assertion2,
+		Leaf2:              forkedAssertion2,
+		Chains:             setup.Chains,
+		Accounts:           setup.Accounts,
+		Backend:            setup.Backend,
+		Addrs:              setup.Addrs,
+		HonestStateManager: honestStateManager,
+		EvilStateManager:   evilStateManager,
+	}, nil
+}
+
 type ChainSetup struct {
 	Chains       []*solimpl.AssertionChain
 	Accounts     []*TestAccount
