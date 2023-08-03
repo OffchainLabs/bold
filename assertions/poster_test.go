@@ -6,6 +6,8 @@ package assertions
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/mock"
+	"math/big"
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -45,6 +47,19 @@ func Test_findLatestValidAssertion(t *testing.T) {
 		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, mockId(5), latestValid)
+	})
+}
+
+func Test_PostLatestAssertion(t *testing.T) {
+	ctx := context.Background()
+	numAssertions := 10
+	t.Run("post valid assertion", func(t *testing.T) {
+		poster, chain, stateManager := setupPoster(t)
+		setupAssertions(ctx, chain, stateManager, numAssertions, func(int) bool { return true })
+		chain.On("LatestConfirmed", ctx).Return(0, nil)
+		assertion, err := poster.PostLatestAssertion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, mockId(11), assertion.Id())
 	})
 }
 
@@ -97,7 +112,8 @@ func setupAssertions(
 			}.AsSolidityStruct()),
 		}
 		mockAssertionCreationInfo := &protocol.AssertionCreatedInfo{
-			AfterState: mockState,
+			AfterState:    mockState,
+			InboxMaxCount: big.NewInt(int64(i)),
 		}
 		p.On(
 			"ReadAssertionCreationInfo",
@@ -118,9 +134,14 @@ func setupAssertions(
 			}
 			p.On("LatestConfirmed", ctx).Return(firstValid, nil)
 		}
+		goMockState := protocol.GoExecutionStateFromSolidity(mockState)
+		s.On("ExecutionStateAtMessageNumber", ctx, uint64(i)).Return(goMockState, nil)
 	}
 	p.On("LatestConfirmed", ctx).Return(assertions[0], nil)
 	p.On("LatestCreatedAssertion", ctx).Return(assertions[len(assertions)-1], nil)
+	p.On("CreateAssertion", ctx, mock.Anything, mock.Anything).Return(&mocks.MockAssertion{
+		MockId: mockId(uint64(num + 1)),
+	}, nil)
 	return assertions
 }
 
