@@ -375,12 +375,21 @@ func TestUpgradingConfigMidChallenge(t *testing.T) {
 	// We upgrade the Rollup's config values.
 	adminLogic, err := rollupgen.NewRollupAdminLogic(rollupAddr, backend)
 	require.NoError(t, err)
+
 	newWasmModuleRoot := common.BytesToHash([]byte("nyannyannyan"))
 	tx, err := adminLogic.SetWasmModuleRoot(adminAccount, newWasmModuleRoot)
 	require.NoError(t, err)
 	err = challenge_testing.WaitForTx(ctx, backend, tx)
 	require.NoError(t, err)
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+
+	tx, err = adminLogic.SetConfirmPeriodBlocks(adminAccount, uint64(329094))
+	require.NoError(t, err)
+	err = challenge_testing.WaitForTx(ctx, backend, tx)
+	require.NoError(t, err)
+	receipt, err = backend.TransactionReceipt(ctx, tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 
