@@ -201,7 +201,7 @@ func New(
 		a, err := api.NewServer(&api.Config{
 			Address:            m.apiAddr,
 			EdgesProvider:      m.watcher,
-			AssertionsProvider: nil, // TODO: Set AssertionsProvider
+			AssertionsProvider: m.chain,
 		})
 		if err != nil {
 			return nil, err
