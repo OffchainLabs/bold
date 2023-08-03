@@ -199,8 +199,9 @@ func New(
 
 	if m.apiAddr != "" {
 		a, err := api.NewServer(&api.Config{
-			Address:      m.apiAddr,
-			DataAccessor: m.watcher,
+			Address:            m.apiAddr,
+			EdgesProvider:      m.watcher,
+			AssertionsProvider: nil, // TODO: Set AssertionsProvider
 		})
 		if err != nil {
 			return nil, err
