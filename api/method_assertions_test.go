@@ -31,6 +31,16 @@ func TestListAssertions(t *testing.T) {
 			AssertionHash:       common.HexToHash("0x12"),
 			WasmModuleRoot:      common.HexToHash("0x11"),
 			ChallengeManager:    common.HexToAddress("0x12"),
+			TransactionHash:     common.HexToHash("0x13"),
+			CreationBlock:       1,
+			AfterState: (&protocol.ExecutionState{
+				GlobalState: protocol.GoGlobalState{
+					BlockHash:  common.HexToHash("0xb10"),
+					SendRoot:   common.HexToHash("0xb20"),
+					Batch:      1,
+					PosInBatch: 0,
+				},
+			}).AsSolidityStruct(),
 		},
 		{
 			ConfirmPeriodBlocks: 56,
@@ -41,6 +51,16 @@ func TestListAssertions(t *testing.T) {
 			AssertionHash:       common.HexToHash("0x121"),
 			WasmModuleRoot:      common.HexToHash("0x111"),
 			ChallengeManager:    common.HexToAddress("0x121"),
+			TransactionHash:     common.HexToHash("0x131"),
+			CreationBlock:       2,
+			AfterState: (&protocol.ExecutionState{
+				GlobalState: protocol.GoGlobalState{
+					BlockHash:  common.HexToHash("0xb11"),
+					SendRoot:   common.HexToHash("0xb21"),
+					Batch:      2,
+					PosInBatch: 1,
+				},
+			}).AsSolidityStruct(),
 		},
 		{
 			ConfirmPeriodBlocks: 57,
@@ -51,6 +71,16 @@ func TestListAssertions(t *testing.T) {
 			AssertionHash:       common.HexToHash("0x122"),
 			WasmModuleRoot:      common.HexToHash("0x112"),
 			ChallengeManager:    common.HexToAddress("0x122"),
+			TransactionHash:     common.HexToHash("0x132"),
+			CreationBlock:       3,
+			AfterState: (&protocol.ExecutionState{
+				GlobalState: protocol.GoGlobalState{
+					BlockHash:  common.HexToHash("0xb12"),
+					SendRoot:   common.HexToHash("0xb22"),
+					Batch:      5,
+					PosInBatch: 2,
+				},
+			}).AsSolidityStruct(),
 		},
 	}
 
