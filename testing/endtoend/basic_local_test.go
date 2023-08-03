@@ -98,7 +98,6 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 }
 
 func TestChallengeProtocol_AliceAndBob_AnvilLocal_DifferentHeights(t *testing.T) {
-	t.Skip()
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -222,6 +221,10 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		bobPoster := assertions.NewPoster(bChain, scenario.BobStateManager, "bob", time.Hour)
 
 		aliceLeaf, err := alicePoster.PostLatestAssertion(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		aliceLeaf, err = alicePoster.PostAssertionAndMoveStake(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
