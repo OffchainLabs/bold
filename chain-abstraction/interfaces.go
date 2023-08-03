@@ -56,6 +56,8 @@ type AssertionCreatedInfo struct {
 	AssertionHash       common.Hash
 	WasmModuleRoot      common.Hash
 	ChallengeManager    common.Address
+	TransactionHash     common.Hash
+	CreationBlock       uint64
 }
 
 func (i AssertionCreatedInfo) ExecutionHash() common.Hash {

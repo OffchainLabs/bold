@@ -575,6 +575,8 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		AssertionHash:       parsedLog.AssertionHash,
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 		ChallengeManager:    parsedLog.ChallengeManager,
+		TransactionHash:     ethLog.TxHash,
+		CreationBlock:       ethLog.BlockNumber,
 	}, nil
 }
 

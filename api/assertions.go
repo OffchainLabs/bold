@@ -7,30 +7,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// type AssertionCreatedInfo struct {
-// 	ConfirmPeriodBlocks uint64
-// 	RequiredStake       *big.Int
-// 	ParentAssertionHash common.Hash
-// 	BeforeState         rollupgen.ExecutionState
-// 	AfterState          rollupgen.ExecutionState
-// 	InboxMaxCount       *big.Int
-// 	AfterInboxBatchAcc  common.Hash
-// 	AssertionHash       common.Hash
-// 	WasmModuleRoot      common.Hash
-// 	ChallengeManager    common.Address
-// }
-
 type Assertion struct {
-	ConfirmPeriodBlocks uint64         `json:"confirmPeriodBlocks"`
-	RequiredStake       string         `json:"requiredStake"`
-	ParentAssertionHash common.Hash    `json:"parentAssertionHash"`
-	InboxMaxCount       string         `json:"inboxMaxCount"`
-	AfterInboxBatchAcc  common.Hash    `json:"afterInboxBatchAcc"`
-	AssertionHash       common.Hash    `json:"assertionHash"`
-	WasmModuleRoot      common.Hash    `json:"wasmModuleRoot"`
-	ChallengeManager    common.Address `json:"challengeManager"`
-
-	// TODO: Before / After states?
+	ConfirmPeriodBlocks uint64                 `json:"confirmPeriodBlocks"`
+	RequiredStake       string                 `json:"requiredStake"`
+	ParentAssertionHash common.Hash            `json:"parentAssertionHash"`
+	InboxMaxCount       string                 `json:"inboxMaxCount"`
+	AfterInboxBatchAcc  common.Hash            `json:"afterInboxBatchAcc"`
+	AssertionHash       common.Hash            `json:"assertionHash"`
+	WasmModuleRoot      common.Hash            `json:"wasmModuleRoot"`
+	ChallengeManager    common.Address         `json:"challengeManager"`
+	CreationBlock       uint64                 `json:"creationBlock"`
+	TransactionHash     common.Hash            `json:"transactionHash"`
+	L2State             protocol.GoGlobalState `json:"L2State"`
 }
 
 func AssertionCreatedInfoToAssertion(aci *protocol.AssertionCreatedInfo) *Assertion {
@@ -47,5 +35,8 @@ func AssertionCreatedInfoToAssertion(aci *protocol.AssertionCreatedInfo) *Assert
 		AssertionHash:       aci.AssertionHash,
 		WasmModuleRoot:      aci.WasmModuleRoot,
 		ChallengeManager:    aci.ChallengeManager,
+		CreationBlock:       aci.CreationBlock,
+		TransactionHash:     aci.TransactionHash,
+		L2State:             protocol.GoGlobalStateFromSolidity(aci.AfterState.GlobalState),
 	}
 }
