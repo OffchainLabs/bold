@@ -193,6 +193,12 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
 	miniStake := big.NewInt(1)
+	genesisExecutionState := rollupgen.ExecutionState{
+		GlobalState:   rollupgen.GlobalState{},
+		MachineStatus: 1,
+	}
+	genesisInboxCount := big.NewInt(0)
+	anyTrustFastConfirmer := common.Address{}
 	cfg := challenge_testing.GenerateRollupConfig(
 		prod,
 		wasmModuleRoot,
@@ -201,6 +207,9 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		loserStakeEscrow,
 		miniStake,
 		stakeToken,
+		genesisExecutionState,
+		genesisInboxCount,
+		anyTrustFastConfirmer,
 	)
 	addresses, err := DeployFullRollupStack(
 		ctx,
