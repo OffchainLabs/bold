@@ -340,7 +340,11 @@ func DeployFullRollupStack(
 		return nil, err
 	}
 
+<<<<<<< HEAD
 	tx, err := rollupCreator.CreateRollup(
+=======
+	tx, err := rollupCreator.CreateRollup0(
+>>>>>>> main
 		deployAuth,
 		config,
 	)
