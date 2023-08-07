@@ -167,13 +167,13 @@ func (m *MockStateManager) SmallStepCommitmentUpTo(
 
 func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
-	cfgSnapshot *l2stateprovider.ConfigSnapshot,
+	wasmModuleRoot common.Hash,
 	postState rollupgen.ExecutionState,
 	blockHeight,
 	bigStep,
 	smallStep uint64,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, cfgSnapshot, postState, blockHeight, bigStep, smallStep)
+	args := m.Called(ctx, wasmModuleRoot, postState, blockHeight, bigStep, smallStep)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
@@ -439,6 +439,11 @@ func (m *MockProtocol) ReadAssertionCreationInfo(
 ) (*protocol.AssertionCreatedInfo, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(*protocol.AssertionCreatedInfo), args.Error(1)
+}
+
+func (m *MockProtocol) LatestCreatedAssertionHashes(ctx context.Context) ([]protocol.AssertionHash, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]protocol.AssertionHash), args.Error(1)
 }
 
 // Mutating methods.
