@@ -56,6 +56,8 @@ type AssertionCreatedInfo struct {
 	AssertionHash       common.Hash
 	WasmModuleRoot      common.Hash
 	ChallengeManager    common.Address
+	TransactionHash     common.Hash
+	CreationBlock       uint64
 }
 
 func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
@@ -69,10 +71,9 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 type AssertionChain interface {
 	// Read-only methods.
 	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
-	GenesisAssertionHash(ctx context.Context) (common.Hash, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
-	RollupAddress() common.Address
 	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
+	LatestCreatedAssertionHashes(ctx context.Context) ([]AssertionHash, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
@@ -177,12 +178,8 @@ type ClaimId common.Hash
 
 // OneStepData used for confirming edges by one step proofs.
 type OneStepData struct {
-	BeforeHash             common.Hash
-	Proof                  []byte
-	WasmModuleRoot         common.Hash
-	WasmModuleRootProof    []byte
-	InboxMsgCountSeen      *big.Int
-	InboxMsgCountSeenProof []byte
+	BeforeHash common.Hash
+	Proof      []byte
 }
 
 // SpecChallengeManager implements the research specification.

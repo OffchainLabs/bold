@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -99,10 +100,6 @@ func NewAssertionChain(
 	chain.rollup = coreBinding
 	chain.userLogic = assertionChainBinding
 	return chain, nil
-}
-
-func (a *AssertionChain) RollupAddress() common.Address {
-	return a.rollupAddr
 }
 
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
@@ -561,6 +558,51 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
 }
 
+// LatestCreatedAssertionHashes retrieves the latest assertion hashes posted to the rollup contract
+// since the last confirmed assertion block. The results are ordered in ascending order by block
+// number, log index.
+func (a *AssertionChain) LatestCreatedAssertionHashes(ctx context.Context) ([]protocol.AssertionHash, error) {
+	latestConfirmed, err := a.LatestConfirmed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	createdAtBlock, err := latestConfirmed.CreatedAtBlock()
+	if err != nil {
+		return nil, err
+	}
+	var query = ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(createdAtBlock),
+		ToBlock:   nil, // Latest block.
+		Addresses: []common.Address{a.rollupAddr},
+		Topics:    [][]common.Hash{{assertionCreatedId}},
+	}
+	logs, err := a.backend.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
+
+	var assertionHashes []protocol.AssertionHash
+	for _, l := range logs {
+		if len(l.Topics) < 2 {
+			continue // Should never happen.
+		}
+		if l.Removed {
+			continue
+		}
+		// The first topic is the event id, the second is the indexed assertion hash.
+		assertionHashes = append(assertionHashes, protocol.AssertionHash{Hash: l.Topics[1]})
+	}
+
+	return assertionHashes, nil
+}
+
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
@@ -621,6 +663,8 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		AssertionHash:       parsedLog.AssertionHash,
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 		ChallengeManager:    parsedLog.ChallengeManager,
+		TransactionHash:     ethLog.TxHash,
+		CreationBlock:       ethLog.BlockNumber,
 	}, nil
 }
 
