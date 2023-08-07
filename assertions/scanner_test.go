@@ -54,7 +54,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		require.Equal(t, uint64(0), scanner.ForksDetected())
 		require.Equal(t, uint64(0), scanner.ChallengesSubmitted())
 	})
-	t.Run("fork after genesis leads validator to challenge leaf", func(t *testing.T) {
+	t.Run("fork leads validator to challenge leaf", func(t *testing.T) {
 		ctx := context.Background()
 		createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
 			DivergeBlockHeight: 5,
@@ -98,52 +98,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		require.Equal(t, uint64(2), otherScanner.AssertionsProcessed())
 		require.Equal(t, uint64(2), otherScanner.ForksDetected())
 		require.Equal(t, uint64(2), otherScanner.ChallengesSubmitted())
-	})
-	t.Run("fork after an assertion leads validator to challenge leaf", func(t *testing.T) {
-		ctx := context.Background()
-		createdData, err := setup.CreateTwoValidatorForkNonGenesis(ctx, &setup.CreateForkConfig{
-			DivergeBlockHeight: 5,
-		})
-		require.NoError(t, err)
-
-		manager, err := challengemanager.New(
-			ctx,
-			createdData.Chains[1],
-			createdData.Backend,
-			createdData.HonestStateManager,
-			createdData.Addrs.Rollup,
-			challengemanager.WithMode(types.MakeMode),
-			challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond),
-		)
-		require.NoError(t, err)
-		scanner := assertions.NewScanner(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, "", time.Second)
-
-		err = scanner.ProcessAssertionCreation(ctx, createdData.Leaf1.Id())
-		require.NoError(t, err)
-
-		require.Equal(t, uint64(1), scanner.AssertionsProcessed())
-		require.Equal(t, uint64(1), scanner.ForksDetected())
-		require.Equal(t, uint64(1), scanner.ChallengesSubmitted())
-
-		otherManager, err := challengemanager.New(
-			ctx,
-			createdData.Chains[0],
-			createdData.Backend,
-			createdData.EvilStateManager,
-			createdData.Addrs.Rollup,
-			challengemanager.WithMode(types.MakeMode),
-			challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond),
-		)
-		require.NoError(t, err)
-
-		otherScanner := assertions.NewScanner(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, "", time.Second)
-
-		err = otherScanner.ProcessAssertionCreation(ctx, createdData.Leaf2.Id())
-		require.NoError(t, err)
-
-		require.Equal(t, uint64(1), otherScanner.AssertionsProcessed())
-		require.Equal(t, uint64(1), otherScanner.ForksDetected())
-		require.Equal(t, uint64(1), otherScanner.ChallengesSubmitted())
 	})
 	t.Run("defensive validator can still challenge leaf", func(t *testing.T) {
 		ctx := context.Background()

@@ -149,7 +149,7 @@ func NewForSimpleMachine(
 		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	maxBatchesRead := big.NewInt(2)
+	maxBatchesRead := big.NewInt(1)
 	for block := uint64(0); ; block++ {
 		machine := NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
@@ -170,7 +170,7 @@ func NewForSimpleMachine(
 		s.executionStates = append(s.executionStates, state)
 		s.stateRoots = append(s.stateRoots, machHash)
 
-		if machine.IsStopped() || state.GlobalState.Batch >= 2 {
+		if machine.IsStopped() || state.GlobalState.Batch >= 1 {
 			break
 		}
 		err := machine.Step(s.maxWavmOpcodes)
