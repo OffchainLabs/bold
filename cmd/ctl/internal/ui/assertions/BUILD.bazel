@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "assertions",
+    srcs = ["assertion_tree.go"],
+    importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/ui/assertions",
+    visibility = ["//cmd/ctl:__subpackages__"],
+    deps = [
+        "//api",
+        "//cmd/ctl/internal/data",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_rivo_tview//:tview",
+    ],
+)

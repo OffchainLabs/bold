@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/OffchainLabs/bold/cmd/ctl/internal/ui/assertions"
 	"github.com/OffchainLabs/bold/cmd/ctl/internal/ui/edges"
 	"github.com/rivo/tview"
 )
@@ -17,6 +18,7 @@ func StartPages() {
 		CoverPage,
 		WithHeader(edges.EdgeTreePage),
 		WithHeader(edges.EdgeTablePage),
+		WithHeader(assertions.AssertionTreePage),
 	}
 
 	p := tview.NewPages()
