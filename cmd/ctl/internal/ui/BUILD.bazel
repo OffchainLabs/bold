@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ui",
+    srcs = [
+        "cover.go",
+        "header.go",
+        "pages.go",
+        "theme.go",
+    ],
+    importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/ui",
+    visibility = ["//cmd/ctl:__subpackages__"],
+    deps = [
+        "//cmd/ctl/internal/data",
+        "//cmd/ctl/internal/ui/edges",
+        "@com_github_gdamore_tcell_v2//:tcell",
+        "@com_github_rivo_tview//:tview",
+    ],
+)
