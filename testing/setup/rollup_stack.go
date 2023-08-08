@@ -98,7 +98,7 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	assertion, err := setup.Chains[0].CreateAssertion(
+	assertion, err := setup.Chains[0].NewStakeOnNewAssertion(
 		ctx,
 		genesisCreationInfo,
 		honestPostState,
@@ -111,7 +111,7 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	forkedAssertion, err := setup.Chains[1].CreateAssertion(
+	forkedAssertion, err := setup.Chains[1].NewStakeOnNewAssertion(
 		ctx,
 		genesisCreationInfo,
 		evilPostState,

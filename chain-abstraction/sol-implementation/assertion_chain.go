@@ -129,12 +129,55 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertio
 	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: res})
 }
 
-// CreateAssertion makes an on-chain claim given a previous assertion hash, execution state,
-// and a commitment to a post-state.
-func (a *AssertionChain) CreateAssertion(
+// Returns true if the staker's address is currently staked in the assertion chain.
+func (a *AssertionChain) IsStaked(ctx context.Context) (bool, error) {
+	return a.rollup.IsStaked(&bind.CallOpts{Context: ctx}, a.txOpts.From)
+}
+
+// NewStakeOnNewAssertion makes an onchain claim given a previous assertion hash, execution state,
+// and a commitment to a post-state. It also adds a new stake to the newly created assertion.
+// if the validator is already staked, use StakeOnNewAssertion instead.
+func (a *AssertionChain) NewStakeOnNewAssertion(
 	ctx context.Context,
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	return a.createAndStakeOnAssertion(
+		ctx,
+		parentAssertionCreationInfo,
+		postState,
+		a.userLogic.RollupUserLogicTransactor.NewStakeOnNewAssertion,
+	)
+}
+
+// StakeOnNewAssertion makes an onchain claim given a previous assertion hash, execution state,
+// and a commitment to a post-state. It also adds moves an existing stake to the newly created assertion.
+// if the validator is not staked, use NewStakeOnNewAssertion instead.
+func (a *AssertionChain) StakeOnNewAssertion(
+	ctx context.Context,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	stakeFn := func(opts *bind.TransactOpts, _ *big.Int, assertionInputs rollupgen.AssertionInputs, assertionHash [32]byte) (*types.Transaction, error) {
+		return a.userLogic.RollupUserLogicTransactor.StakeOnNewAssertion(
+			opts,
+			assertionInputs,
+			assertionHash,
+		)
+	}
+	return a.createAndStakeOnAssertion(
+		ctx,
+		parentAssertionCreationInfo,
+		postState,
+		stakeFn,
+	)
+}
+
+func (a *AssertionChain) createAndStakeOnAssertion(
+	ctx context.Context,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+	stakeFn func(opts *bind.TransactOpts, requiredStake *big.Int, assertionInputs rollupgen.AssertionInputs, assertionHash [32]byte) (*types.Transaction, error),
 ) (protocol.Assertion, error) {
 	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
@@ -178,7 +221,7 @@ func (a *AssertionChain) CreateAssertion(
 	}
 
 	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
-		return a.userLogic.NewStakeOnNewAssertion(
+		return stakeFn(
 			newOpts,
 			parentAssertionCreationInfo.RequiredStake,
 			rollupgen.AssertionInputs{

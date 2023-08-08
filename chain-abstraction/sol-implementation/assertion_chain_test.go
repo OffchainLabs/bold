@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateAssertion(t *testing.T) {
+func TestNewStakeOnNewAssertion(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
@@ -48,10 +48,10 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 
-		existingAssertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		existingAssertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 		require.Equal(t, assertion.Id(), existingAssertion.Id())
 	})
@@ -71,7 +71,7 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
+		_, err := assertionChain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 	})
 }
@@ -101,7 +101,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+	assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
@@ -132,7 +132,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	forkedAssertion, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
+	forkedAssertion, err := assertionChain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	// We advance the chain by three blocks and check the assertion unrivaled times

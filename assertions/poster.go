@@ -39,7 +39,7 @@ func NewPoster(
 }
 
 func (p *Poster) Start(ctx context.Context) {
-	if _, err := p.PostLatestAssertion(ctx); err != nil {
+	if _, err := p.PostAssertion(ctx); err != nil {
 		srvlog.Error("Could not submit latest assertion to L1", err)
 	}
 	ticker := time.NewTicker(p.postInterval)
@@ -47,7 +47,7 @@ func (p *Poster) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if _, err := p.PostLatestAssertion(ctx); err != nil {
+			if _, err := p.PostAssertion(ctx); err != nil {
 				srvlog.Error("Could not submit latest assertion to L1", err)
 			}
 		case <-ctx.Done():
@@ -56,22 +56,29 @@ func (p *Poster) Start(ctx context.Context) {
 	}
 }
 
-// PostLatestAssertion --
+// PostAssertion differs depending on whether or not the validator is currently staked.
+func (p *Poster) PostAssertion(ctx context.Context) (protocol.Assertion, error) {
+	staked, err := p.chain.IsStaked(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if staked {
+		return p.PostAssertionAndMoveStake(ctx)
+	}
+	return p.PostAssertionAndNewStake(ctx)
+}
+
+// PostAssertionAndNewStake posts the latest assertion and adds a new stake on it.
 func (p *Poster) PostAssertionAndNewStake(ctx context.Context) (protocol.Assertion, error) {
-	return p.postAssertion(ctx, p.chain.CreateAssertion)
+	return p.postAssertionImpl(ctx, p.chain.NewStakeOnNewAssertion)
 }
 
-// PostAssertionAndMoveStake --
+// PostAssertionAndMoveStake posts the latest assertion and moves an existing stake to it.
 func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assertion, error) {
-	return p.postAssertion(ctx, p.chain.CreateAssertion)
+	return p.postAssertionImpl(ctx, p.chain.StakeOnNewAssertion)
 }
 
-// MoveStakeToAssertion --
-func (p *Poster) MoveStakeToAssertion(ctx context.Context) (protocol.Assertion, error) {
-	return p.postAssertion(ctx, p.chain.CreateAssertion)
-}
-
-func (p *Poster) postAssertion(
+func (p *Poster) postAssertionImpl(
 	ctx context.Context,
 	submitFn func(
 		ctx context.Context,
