@@ -5,6 +5,7 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -134,6 +135,7 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 		return protocol.AssertionHash{}, err
 	}
 	if latestConfirmed == latestCreated {
+		fmt.Println("Matching")
 		return latestConfirmed.Id(), nil
 	}
 	curr := latestCreated

@@ -6,6 +6,7 @@ package assertions
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -17,6 +18,25 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPostAssertion(t *testing.T) {
+	t.Run("new stake", func(t *testing.T) {
+		ctx := context.Background()
+		poster, chain, stateManager := setupPoster(t)
+		_, creationInfo := setupAssertions(ctx, chain, stateManager, 10, func(int) bool { return false })
+		latestValid, err := poster.findLatestValidAssertion(ctx)
+		require.NoError(t, err)
+		chain.On(
+			"ReadAssertionCreationInfo",
+			ctx,
+			latestValid,
+		).Return(creationInfo[len(creationInfo)-1], nil)
+		chain.On("IsStaked", ctx).Return(false, nil)
+		posted, err := poster.PostAssertion(ctx)
+		require.NoError(t, err)
+		t.Logf("%+v", posted)
+	})
+}
 
 func Test_findLatestValidAssertion(t *testing.T) {
 	ctx := context.Background()
@@ -58,9 +78,9 @@ func setupAssertions(
 	s *mocks.MockStateManager,
 	num int,
 	validity func(int) bool,
-) []protocol.Assertion {
+) ([]protocol.Assertion, []*protocol.AssertionCreatedInfo) {
 	if num == 0 {
-		return make([]protocol.Assertion, 0)
+		return make([]protocol.Assertion, 0), make([]*protocol.AssertionCreatedInfo, 0)
 	}
 	genesis := &mocks.MockAssertion{
 		MockId:        mockId(0),
@@ -75,6 +95,7 @@ func setupAssertions(
 		mockId(uint64(0)),
 	).Return(genesis, nil)
 	assertions := []protocol.Assertion{genesis}
+	creationInfo := make([]*protocol.AssertionCreatedInfo, 0)
 	for i := 1; i <= num; i++ {
 		mockHash := common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
 		mockAssertion := &mocks.MockAssertion{
@@ -97,8 +118,10 @@ func setupAssertions(
 			}.AsSolidityStruct()),
 		}
 		mockAssertionCreationInfo := &protocol.AssertionCreatedInfo{
-			AfterState: mockState,
+			AfterState:    mockState,
+			InboxMaxCount: new(big.Int).SetUint64(uint64(i)),
 		}
+		creationInfo = append(creationInfo, mockAssertionCreationInfo)
 		p.On(
 			"ReadAssertionCreationInfo",
 			ctx,
@@ -121,7 +144,7 @@ func setupAssertions(
 	}
 	p.On("LatestConfirmed", ctx).Return(assertions[0], nil)
 	p.On("LatestCreatedAssertion", ctx).Return(assertions[len(assertions)-1], nil)
-	return assertions
+	return assertions, creationInfo
 }
 
 func setupPoster(t *testing.T) (*Poster, *mocks.MockProtocol, *mocks.MockStateManager) {
