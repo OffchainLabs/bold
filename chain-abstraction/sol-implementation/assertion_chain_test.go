@@ -109,40 +109,42 @@ func TestStakeOnNewAssertion(t *testing.T) {
 
 	assertionInfo, err := chain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	require.NoError(t, err)
-	t.Logf("%+v", assertionInfo)
 
 	postState = &protocol.ExecutionState{
 		GlobalState: protocol.GoGlobalState{
 			BlockHash:  common.BytesToHash([]byte("foo")),
 			SendRoot:   common.Hash{},
-			Batch:      2,
+			Batch:      postState.GlobalState.Batch + 1,
 			PosInBatch: 0,
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
 
-	account := cfg.Accounts[0]
-	assertionChain, err := solimpl.NewAssertionChain(
-		ctx,
-		cfg.Addrs.Rollup,
-		account.TxOpts,
-		cfg.Backend,
-	)
-	require.NoError(t, err)
-
-	newDataHash := common.BytesToHash([]byte("foo"))
+	account := cfg.Accounts[1]
+	numNewMessages := uint64(1)
 	submitBatch(
 		t,
 		ctx,
 		account.TxOpts,
 		cfg.Addrs.Bridge,
 		cfg.Backend,
-		newDataHash,
-		1,
+		common.BytesToHash([]byte("foo")), // Datahash, can be junk data.
+		numNewMessages,                    // Total number of messages to include in the batch.
 	)
-	newAssertion, err := assertionChain.StakeOnNewAssertion(ctx, assertionInfo, postState)
+
+	for i := uint64(0); i < 100; i++ {
+		backend.Commit()
+	}
+
+	newAssertion, err := chain.StakeOnNewAssertion(ctx, assertionInfo, postState)
 	require.NoError(t, err)
-	t.Logf("%+v", newAssertion)
+
+	newAssertionCreatedInfo, err := chain.ReadAssertionCreationInfo(ctx, newAssertion.Id())
+	require.NoError(t, err)
+
+	// Expect the post state has indeed the number of messages we expect.
+	gotPostState := protocol.GoExecutionStateFromSolidity(newAssertionCreatedInfo.AfterState)
+	require.Equal(t, postState, gotPostState)
 }
 
 func TestAssertionUnrivaledBlocks(t *testing.T) {
@@ -471,6 +473,10 @@ func TestLatestCreatedAssertion(t *testing.T) {
 	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
 }
 
+type Commiter interface {
+	Commit() common.Hash
+}
+
 func submitBatch(
 	t *testing.T,
 	ctx context.Context,
@@ -485,16 +491,14 @@ func submitBatch(
 
 	delayedCount, err := bridgeStub.DelayedMessageCount(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("DELAYED %d", delayedCount)
 
 	seqMessageCount, err := bridgeStub.SequencerMessageCount(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("SEQ %d", seqMessageCount.Uint64())
 
 	totalNew := new(big.Int).SetUint64(totalNewMessages)
 	newMessageCount := new(big.Int).Add(seqMessageCount, totalNew)
 
-	tx, err := bridgeStub.EnqueueSequencerMessage(
+	_, err = bridgeStub.EnqueueSequencerMessage(
 		txOpts,
 		batchDataHash,
 		delayedCount,
@@ -502,9 +506,16 @@ func submitBatch(
 		newMessageCount,
 	)
 	require.NoError(t, err)
-	deployBackend, ok := backend.(bind.DeployBackend)
+	commiter, ok := backend.(Commiter)
 	require.Equal(t, true, ok)
-	receipt, err := bind.WaitMined(ctx, deployBackend, tx)
+	commiter.Commit()
+
+	gotMessageCount, err := bridgeStub.SequencerMessageCount(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+	require.Equal(
+		t,
+		newMessageCount.Uint64(),
+		gotMessageCount.Uint64(),
+		"message count after posting to bridge stub did not increase",
+	)
 }
