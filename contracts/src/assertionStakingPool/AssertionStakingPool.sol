@@ -24,7 +24,7 @@ contract AssertionStakingPool {
     IERC20 public immutable stakeToken;
     uint256 public immutable baseStake;
 
-    mapping(address => uint256) public depoisttedTokenBalances;
+    mapping(address => uint256) public depositedTokenBalances;
 
     PoolState public poolState = PoolState.PENDING;
 
@@ -56,7 +56,7 @@ contract AssertionStakingPool {
         }
 
         stakeToken.safeTransferFrom(msg.sender, address(this), amountToTransfer);
-        depoisttedTokenBalances[msg.sender] += amountToTransfer;
+        depositedTokenBalances[msg.sender] += amountToTransfer;
     }
 
     function createAssertion(AssertionInputs calldata assertionInputs) external {
@@ -87,11 +87,11 @@ contract AssertionStakingPool {
         if (poolState == PoolState.ASSERTED) {
             revert PoolNotInPendingOrConfirmedState(poolState);
         }
-        if (depoisttedTokenBalances[msg.sender] == 0) {
+        if (depositedTokenBalances[msg.sender] == 0) {
             revert NoBalanceToWithdraw(msg.sender);
         }
 
-        stakeToken.safeTransfer(msg.sender, depoisttedTokenBalances[msg.sender]);
-        depoisttedTokenBalances[msg.sender] = 0;
+        stakeToken.safeTransfer(msg.sender, depositedTokenBalances[msg.sender]);
+        depositedTokenBalances[msg.sender] = 0;
     }
 }
