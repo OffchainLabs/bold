@@ -5,14 +5,13 @@ package solimpl_test
 
 import (
 	"context"
-	"crypto/rand"
 	"math/big"
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
@@ -81,7 +80,7 @@ func TestNewStakeOnNewAssertion(t *testing.T) {
 
 func TestStakeOnNewAssertion(t *testing.T) {
 	ctx := context.Background()
-	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockBridge())
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
 	backend := cfg.Backend
@@ -131,8 +130,16 @@ func TestStakeOnNewAssertion(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	submitBatch(t, ctx, account.TxOpts, cfg.Addrs.SequencerInbox, cfg.Backend)
-
+	newDataHash := common.BytesToHash([]byte("foo"))
+	submitBatch(
+		t,
+		ctx,
+		account.TxOpts,
+		cfg.Addrs.Bridge,
+		cfg.Backend,
+		newDataHash,
+		1,
+	)
 	newAssertion, err := assertionChain.StakeOnNewAssertion(ctx, assertionInfo, postState)
 	require.NoError(t, err)
 	t.Logf("%+v", newAssertion)
@@ -464,52 +471,37 @@ func TestLatestCreatedAssertion(t *testing.T) {
 	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
 }
 
-// func writeTxToBatch(writer io.Writer, tx *types.Transaction) error {
-// 	txData, err := tx.MarshalBinary()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	var segment []byte
-// 	segment = append(segment, arbstate.BatchSegmentKindL2Message)
-// 	segment = append(segment, arbos.L2MessageKind_SignedTx)
-// 	segment = append(segment, txData...)
-// 	err = rlp.Encode(writer, segment)
-// 	return err
-// }
-
-const makeBatch_MsgsPerBatch = int64(5)
-
-// func makeBatch(t *testing.T, l2Node *arbnode.Node, l2Info *BlockchainTestInfo, backend *ethclient.Client, sequencer *bind.TransactOpts, seqInbox *mocksgen.SequencerInboxStub, seqInboxAddr common.Address, modStep int64) {
-// 	ctx := context.Background()
-
-// 	batchBuffer := bytes.NewBuffer([]byte{})
-// 	for i := int64(0); i < makeBatch_MsgsPerBatch; i++ {
-// 		value := i
-// 		if i == modStep {
-// 			value++
-// 		}
-// 		err := writeTxToBatch(batchBuffer, l2Info.PrepareTx("Owner", "Destination", 1000000, big.NewInt(value), []byte{}))
-// 		Require(t, err)
-// 	}
-// 	compressed, err := arbcompress.CompressWell(batchBuffer.Bytes())
-// 	Require(t, err)
-// 	message := append([]byte{0}, compressed...)
-// }
-
-func submitBatch(t *testing.T, ctx context.Context, sequencer *bind.TransactOpts, inboxAddr common.Address, backend bind.ContractBackend) {
-	// Submit some random bytes to the sequencer inbox.
-	buf := make([]byte, 1024*10)
-	_, err := rand.Read(buf)
-	require.NoError(t, err)
-	message := append([]byte{0}, buf...)
-
-	seqInbox, err := bridgegen.NewSequencerInbox(inboxAddr, backend)
-	require.NoError(t, err)
-	seqNum := new(big.Int).Lsh(common.Big1, 256)
-	seqNum.Sub(seqNum, common.Big1)
-	tx, err := seqInbox.AddSequencerL2BatchFromOrigin0(sequencer, seqNum, message, big.NewInt(1), common.Address{}, big.NewInt(0), big.NewInt(0))
+func submitBatch(
+	t *testing.T,
+	ctx context.Context,
+	txOpts *bind.TransactOpts,
+	bridgeStubAddr common.Address,
+	backend bind.ContractBackend,
+	batchDataHash common.Hash,
+	totalNewMessages uint64,
+) {
+	bridgeStub, err := mocksgen.NewBridgeStub(bridgeStubAddr, backend)
 	require.NoError(t, err)
 
+	delayedCount, err := bridgeStub.DelayedMessageCount(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("DELAYED %d", delayedCount)
+
+	seqMessageCount, err := bridgeStub.SequencerMessageCount(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("SEQ %d", seqMessageCount.Uint64())
+
+	totalNew := new(big.Int).SetUint64(totalNewMessages)
+	newMessageCount := new(big.Int).Add(seqMessageCount, totalNew)
+
+	tx, err := bridgeStub.EnqueueSequencerMessage(
+		txOpts,
+		batchDataHash,
+		delayedCount,
+		seqMessageCount,
+		newMessageCount,
+	)
+	require.NoError(t, err)
 	deployBackend, ok := backend.(bind.DeployBackend)
 	require.Equal(t, true, ok)
 	receipt, err := bind.WaitMined(ctx, deployBackend, tx)
