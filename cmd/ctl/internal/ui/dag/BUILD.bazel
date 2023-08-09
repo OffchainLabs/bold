@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "dag",
+    srcs = [
+        "ancestor.go",
+        "dag.go",
+    ],
+    importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/ui/dag",
+    visibility = ["//cmd/ctl:__subpackages__"],
+    deps = ["@com_github_ethereum_go_ethereum//common"],
+)
+
+go_test(
+    name = "dag_test",
+    srcs = ["dag_test.go"],
+    deps = [
+        ":dag",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)
