@@ -20,4 +20,4 @@ error PoolStakeAlreadyReached(uint256 baseStake);
 
 error NotEnoughStake(uint256 balance, uint256 baseStake);
 
-error NoBalanceToWithdraw(uint256 sender);
+error NoBalanceToWithdraw(address sender);
