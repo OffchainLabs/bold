@@ -5,7 +5,6 @@ package assertions
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -104,7 +103,7 @@ func (p *Poster) postAssertionImpl(
 	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
 	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not get execution state at message count %d", prevInboxMaxCount)
 	}
 	assertion, err := submitFn(
 		ctx,
@@ -135,7 +134,6 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 		return protocol.AssertionHash{}, err
 	}
 	if latestConfirmed == latestCreated {
-		fmt.Println("Matching")
 		return latestConfirmed.Id(), nil
 	}
 	curr := latestCreated
