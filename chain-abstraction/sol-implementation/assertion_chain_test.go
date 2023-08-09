@@ -76,6 +76,63 @@ func TestNewStakeOnNewAssertion(t *testing.T) {
 	})
 }
 
+func TestStakeOnNewAssertion(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+	backend := cfg.Backend
+
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
+
+	latestBlockHash := common.Hash{}
+	for i := uint64(0); i < 100; i++ {
+		latestBlockHash = backend.Commit()
+	}
+
+	postState := &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  latestBlockHash,
+			SendRoot:   common.Hash{},
+			Batch:      1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
+	require.NoError(t, err)
+
+	assertionInfo, err := chain.ReadAssertionCreationInfo(ctx, assertion.Id())
+	require.NoError(t, err)
+	t.Logf("%+v", assertionInfo)
+
+	postState = &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  common.BytesToHash([]byte("foo")),
+			SendRoot:   common.Hash{},
+			Batch:      2,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+
+	account := cfg.Accounts[0]
+	assertionChain, err := solimpl.NewAssertionChain(
+		ctx,
+		cfg.Addrs.Rollup,
+		account.TxOpts,
+		cfg.Backend,
+	)
+	require.NoError(t, err)
+
+	newAssertion, err := assertionChain.StakeOnNewAssertion(ctx, assertionInfo, postState)
+	require.NoError(t, err)
+	t.Logf("%+v", newAssertion)
+}
+
 func TestAssertionUnrivaledBlocks(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
@@ -401,3 +458,40 @@ func TestLatestCreatedAssertion(t *testing.T) {
 
 	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
 }
+
+// func makeBatch() {
+// 		ctx := context.Background()
+
+// 		batchBuffer := bytes.NewBuffer([]byte{})
+// 		for i := int64(0); i < makeBatch_MsgsPerBatch; i++ {
+// 			value := i
+// 			if i == modStep {
+// 				value++
+// 			}
+// 			err := writeTxToBatch(batchBuffer, l2Info.PrepareTx("Owner", "Destination", 1000000, big.NewInt(value), []byte{}))
+// 			Require(t, err)
+// 		}
+// 		compressed, err := arbcompress.CompressWell(batchBuffer.Bytes())
+// 		Require(t, err)
+// 		message := append([]byte{0}, compressed...)
+
+// 		seqNum := new(big.Int).Lsh(common.Big1, 256)
+// 		seqNum.Sub(seqNum, common.Big1)
+// 		tx, err := seqInbox.AddSequencerL2BatchFromOrigin0(sequencer, seqNum, message, big.NewInt(1), common.Address{}, big.NewInt(0), big.NewInt(0))
+// 		Require(t, err)
+// 		receipt, err := EnsureTxSucceeded(ctx, backend, tx)
+// 		Require(t, err)
+// }
+
+// func writeTxToBatch(writer io.Writer, tx *types.Transaction) error {
+// 	txData, err := tx.MarshalBinary()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	var segment []byte
+// 	segment = append(segment, arbstate.BatchSegmentKindL2Message)
+// 	segment = append(segment, arbos.L2MessageKind_SignedTx)
+// 	segment = append(segment, txData...)
+// 	err = rlp.Encode(writer, segment)
+// 	return err
+// }

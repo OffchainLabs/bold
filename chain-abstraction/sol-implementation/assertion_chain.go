@@ -201,7 +201,6 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
 	}
-
 	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
 		&bind.CallOpts{Context: ctx},
 		parentAssertionCreationInfo.AssertionHash,
@@ -219,7 +218,6 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
 	default:
 	}
-
 	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
 		return stakeFn(
 			newOpts,
