@@ -206,7 +206,7 @@ func ChainsWithEdgeChallengeManager() (*ChainSetup, error) {
 		ctx,
 		backend,
 		accs[0].TxOpts,
-		common.Address{}, // Sequencer addr.
+		accs[0].TxOpts.From, // Sequencer addr.
 		cfg,
 	)
 	if err != nil {

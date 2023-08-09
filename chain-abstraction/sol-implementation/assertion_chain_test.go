@@ -5,16 +5,19 @@ package solimpl_test
 
 import (
 	"context"
+	"crypto/rand"
 	"math/big"
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -127,6 +130,8 @@ func TestStakeOnNewAssertion(t *testing.T) {
 		cfg.Backend,
 	)
 	require.NoError(t, err)
+
+	submitBatch(t, ctx, account.TxOpts, cfg.Addrs.SequencerInbox, cfg.Backend)
 
 	newAssertion, err := assertionChain.StakeOnNewAssertion(ctx, assertionInfo, postState)
 	require.NoError(t, err)
@@ -459,30 +464,6 @@ func TestLatestCreatedAssertion(t *testing.T) {
 	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
 }
 
-// func makeBatch() {
-// 		ctx := context.Background()
-
-// 		batchBuffer := bytes.NewBuffer([]byte{})
-// 		for i := int64(0); i < makeBatch_MsgsPerBatch; i++ {
-// 			value := i
-// 			if i == modStep {
-// 				value++
-// 			}
-// 			err := writeTxToBatch(batchBuffer, l2Info.PrepareTx("Owner", "Destination", 1000000, big.NewInt(value), []byte{}))
-// 			Require(t, err)
-// 		}
-// 		compressed, err := arbcompress.CompressWell(batchBuffer.Bytes())
-// 		Require(t, err)
-// 		message := append([]byte{0}, compressed...)
-
-// 		seqNum := new(big.Int).Lsh(common.Big1, 256)
-// 		seqNum.Sub(seqNum, common.Big1)
-// 		tx, err := seqInbox.AddSequencerL2BatchFromOrigin0(sequencer, seqNum, message, big.NewInt(1), common.Address{}, big.NewInt(0), big.NewInt(0))
-// 		Require(t, err)
-// 		receipt, err := EnsureTxSucceeded(ctx, backend, tx)
-// 		Require(t, err)
-// }
-
 // func writeTxToBatch(writer io.Writer, tx *types.Transaction) error {
 // 	txData, err := tx.MarshalBinary()
 // 	if err != nil {
@@ -495,3 +476,43 @@ func TestLatestCreatedAssertion(t *testing.T) {
 // 	err = rlp.Encode(writer, segment)
 // 	return err
 // }
+
+const makeBatch_MsgsPerBatch = int64(5)
+
+// func makeBatch(t *testing.T, l2Node *arbnode.Node, l2Info *BlockchainTestInfo, backend *ethclient.Client, sequencer *bind.TransactOpts, seqInbox *mocksgen.SequencerInboxStub, seqInboxAddr common.Address, modStep int64) {
+// 	ctx := context.Background()
+
+// 	batchBuffer := bytes.NewBuffer([]byte{})
+// 	for i := int64(0); i < makeBatch_MsgsPerBatch; i++ {
+// 		value := i
+// 		if i == modStep {
+// 			value++
+// 		}
+// 		err := writeTxToBatch(batchBuffer, l2Info.PrepareTx("Owner", "Destination", 1000000, big.NewInt(value), []byte{}))
+// 		Require(t, err)
+// 	}
+// 	compressed, err := arbcompress.CompressWell(batchBuffer.Bytes())
+// 	Require(t, err)
+// 	message := append([]byte{0}, compressed...)
+// }
+
+func submitBatch(t *testing.T, ctx context.Context, sequencer *bind.TransactOpts, inboxAddr common.Address, backend bind.ContractBackend) {
+	// Submit some random bytes to the sequencer inbox.
+	buf := make([]byte, 1024*10)
+	_, err := rand.Read(buf)
+	require.NoError(t, err)
+	message := append([]byte{0}, buf...)
+
+	seqInbox, err := bridgegen.NewSequencerInbox(inboxAddr, backend)
+	require.NoError(t, err)
+	seqNum := new(big.Int).Lsh(common.Big1, 256)
+	seqNum.Sub(seqNum, common.Big1)
+	tx, err := seqInbox.AddSequencerL2BatchFromOrigin0(sequencer, seqNum, message, big.NewInt(1), common.Address{}, big.NewInt(0), big.NewInt(0))
+	require.NoError(t, err)
+
+	deployBackend, ok := backend.(bind.DeployBackend)
+	require.Equal(t, true, ok)
+	receipt, err := bind.WaitMined(ctx, deployBackend, tx)
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+}
