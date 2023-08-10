@@ -11,17 +11,19 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateAssertion(t *testing.T) {
+func TestNewStakeOnNewAssertion(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
@@ -48,10 +50,10 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 
-		existingAssertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+		existingAssertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 		require.Equal(t, assertion.Id(), existingAssertion.Id())
 	})
@@ -71,9 +73,78 @@ func TestCreateAssertion(t *testing.T) {
 			},
 			MachineStatus: protocol.MachineStatusFinished,
 		}
-		_, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
+		_, err := assertionChain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 		require.NoError(t, err)
 	})
+}
+
+func TestStakeOnNewAssertion(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockBridge())
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+	backend := cfg.Backend
+
+	genesisHash, err := chain.GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisInfo, err := chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
+
+	latestBlockHash := common.Hash{}
+	for i := uint64(0); i < 100; i++ {
+		latestBlockHash = backend.Commit()
+	}
+
+	postState := &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  latestBlockHash,
+			SendRoot:   common.Hash{},
+			Batch:      1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+	assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
+	require.NoError(t, err)
+
+	assertionInfo, err := chain.ReadAssertionCreationInfo(ctx, assertion.Id())
+	require.NoError(t, err)
+
+	postState = &protocol.ExecutionState{
+		GlobalState: protocol.GoGlobalState{
+			BlockHash:  common.BytesToHash([]byte("foo")),
+			SendRoot:   common.Hash{},
+			Batch:      postState.GlobalState.Batch + 1,
+			PosInBatch: 0,
+		},
+		MachineStatus: protocol.MachineStatusFinished,
+	}
+
+	account := cfg.Accounts[1]
+	numNewMessages := uint64(1)
+	submitBatch(
+		t,
+		ctx,
+		account.TxOpts,
+		cfg.Addrs.Bridge,
+		cfg.Backend,
+		common.BytesToHash([]byte("foo")), // Datahash, can be junk data.
+		numNewMessages,                    // Total number of messages to include in the batch.
+	)
+
+	for i := uint64(0); i < 100; i++ {
+		backend.Commit()
+	}
+
+	newAssertion, err := chain.StakeOnNewAssertion(ctx, assertionInfo, postState)
+	require.NoError(t, err)
+
+	newAssertionCreatedInfo, err := chain.ReadAssertionCreationInfo(ctx, newAssertion.Id())
+	require.NoError(t, err)
+
+	// Expect the post state has indeed the number of messages we expect.
+	gotPostState := protocol.GoExecutionStateFromSolidity(newAssertionCreatedInfo.AfterState)
+	require.Equal(t, postState, gotPostState)
 }
 
 func TestAssertionUnrivaledBlocks(t *testing.T) {
@@ -101,7 +172,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	assertion, err := chain.CreateAssertion(ctx, genesisInfo, postState)
+	assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
@@ -132,7 +203,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	forkedAssertion, err := assertionChain.CreateAssertion(ctx, genesisInfo, postState)
+	forkedAssertion, err := assertionChain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
 	// We advance the chain by three blocks and check the assertion unrivaled times
@@ -400,4 +471,121 @@ func TestLatestCreatedAssertion(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
+}
+
+func TestLatestCreatedAssertionHashes(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
+	require.NoError(t, err)
+	chain := cfg.Chains[0]
+
+	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	abiEvt := abi.Events["AssertionCreated"]
+	evtID := abiEvt.ID
+
+	// The backend is bad and sent logs in the wrong order and also
+	// sent "removed" logs from a nasty reorg.
+	logs := []types.Log{
+		{
+			BlockNumber: 120,
+			Index:       0,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(1)),
+			},
+		}, {
+			BlockNumber: 119,
+			Index:       0,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(0)),
+			},
+		}, {
+			BlockNumber: 122,
+			Index:       4,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(-1)),
+			},
+			Removed: true,
+		},
+		{
+			BlockNumber: 122,
+			Index:       3,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(3)),
+			},
+		},
+		{
+			BlockNumber: 122,
+			Index:       2,
+			Topics: []common.Hash{
+				evtID,
+				common.BigToHash(big.NewInt(2)),
+			},
+		},
+	}
+
+	chain.SetBackend(&mockBackend{logs: logs})
+
+	latest, err := chain.LatestCreatedAssertionHashes(ctx)
+	require.NoError(t, err)
+
+	// The logs received were in the wrong order, but their IDs indicate their expected position
+	// in the return slice.
+	require.Equal(t, 4, len(latest))
+	for i, id := range latest {
+		require.Equal(t, uint64(i), id.Big().Uint64())
+	}
+}
+
+type Commiter interface {
+	Commit() common.Hash
+}
+
+func submitBatch(
+	t *testing.T,
+	ctx context.Context,
+	txOpts *bind.TransactOpts,
+	bridgeStubAddr common.Address,
+	backend bind.ContractBackend,
+	batchDataHash common.Hash,
+	totalNewMessages uint64,
+) {
+	bridgeStub, err := mocksgen.NewBridgeStub(bridgeStubAddr, backend)
+	require.NoError(t, err)
+
+	delayedCount, err := bridgeStub.DelayedMessageCount(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	seqMessageCount, err := bridgeStub.SequencerMessageCount(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	totalNew := new(big.Int).SetUint64(totalNewMessages)
+	newMessageCount := new(big.Int).Add(seqMessageCount, totalNew)
+
+	_, err = bridgeStub.EnqueueSequencerMessage(
+		txOpts,
+		batchDataHash,
+		delayedCount,
+		seqMessageCount,
+		newMessageCount,
+	)
+	require.NoError(t, err)
+	commiter, ok := backend.(Commiter)
+	require.Equal(t, true, ok)
+	commiter.Commit()
+
+	gotMessageCount, err := bridgeStub.SequencerMessageCount(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		newMessageCount.Uint64(),
+		gotMessageCount.Uint64(),
+		"message count after posting to bridge stub did not increase",
+	)
 }

@@ -5,7 +5,6 @@ package assertions
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -40,7 +39,7 @@ func NewPoster(
 }
 
 func (p *Poster) Start(ctx context.Context) {
-	if _, err := p.PostLatestAssertion(ctx); err != nil {
+	if _, err := p.PostAssertion(ctx); err != nil {
 		srvlog.Error("Could not submit latest assertion to L1", err)
 	}
 	ticker := time.NewTicker(p.postInterval)
@@ -48,7 +47,7 @@ func (p *Poster) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if _, err := p.PostLatestAssertion(ctx); err != nil {
+			if _, err := p.PostAssertion(ctx); err != nil {
 				srvlog.Error("Could not submit latest assertion to L1", err)
 			}
 		case <-ctx.Done():
@@ -57,48 +56,36 @@ func (p *Poster) Start(ctx context.Context) {
 	}
 }
 
-// PostLatestAssertion posts the latest claim of the Node's L2 state as an assertion to the L1 protocol smart contracts.
-// TODO: Include leaf creation validity conditions which are more complex than this.
-// For example, a validator must include messages from the inbox that were not included
-// by the last validator in the last leaf's creation.
-func (p *Poster) PostLatestAssertion(ctx context.Context) (protocol.Assertion, error) {
-	// Ensure that we only build on a valid parent from this validator's perspective.
-	// the validator should also have ready access to historical commitments to make sure it can select
-	// the valid parent based on its commitment state root.
-	parentAssertionSeq, err := p.findLatestValidAssertion(ctx)
+// PostAssertion differs depending on whether or not the validator is currently staked.
+func (p *Poster) PostAssertion(ctx context.Context) (protocol.Assertion, error) {
+	staked, err := p.chain.IsStaked(ctx)
 	if err != nil {
 		return nil, err
 	}
-	parentAssertionCreationInfo, err := p.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
-	if err != nil {
-		return nil, err
+	if staked {
+		return p.PostAssertionAndMoveStake(ctx)
 	}
-	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
-		return nil, errors.New("inbox max count not a uint64")
-	}
-	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
-	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Posting latest assertion new state %+v\n", newState)
-	assertion, err := p.chain.CreateAssertion(
-		ctx,
-		parentAssertionCreationInfo,
-		newState,
-	)
-	switch {
-	case errors.Is(err, solimpl.ErrAlreadyExists):
-		return nil, errors.Wrap(err, "assertion already exists, was unable to post")
-	case err != nil:
-		return nil, err
-	}
-	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName})
-
-	return assertion, nil
+	return p.PostAssertionAndNewStake(ctx)
 }
 
+// PostAssertionAndNewStake posts the latest assertion and adds a new stake on it.
+func (p *Poster) PostAssertionAndNewStake(ctx context.Context) (protocol.Assertion, error) {
+	return p.postAssertionImpl(ctx, p.chain.NewStakeOnNewAssertion)
+}
+
+// PostAssertionAndMoveStake posts the latest assertion and moves an existing stake to it.
 func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assertion, error) {
+	return p.postAssertionImpl(ctx, p.chain.StakeOnNewAssertion)
+}
+
+func (p *Poster) postAssertionImpl(
+	ctx context.Context,
+	submitFn func(
+		ctx context.Context,
+		parentCreationInfo *protocol.AssertionCreatedInfo,
+		newState *protocol.ExecutionState,
+	) (protocol.Assertion, error),
+) (protocol.Assertion, error) {
 	// Ensure that we only build on a valid parent from this validator's perspective.
 	// the validator should also have ready access to historical commitments to make sure it can select
 	// the valid parent based on its commitment state root.
@@ -116,10 +103,9 @@ func (p *Poster) PostAssertionAndMoveStake(ctx context.Context) (protocol.Assert
 	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
 	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not get execution state at message count %d", prevInboxMaxCount)
 	}
-	fmt.Printf("Posting new state and moving stake %+v\n", newState)
-	assertion, err := p.chain.CreateAssertionAndMoveStake(
+	assertion, err := submitFn(
 		ctx,
 		parentAssertionCreationInfo,
 		newState,

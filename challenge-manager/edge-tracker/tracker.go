@@ -248,9 +248,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
-			if errors.Is(err, errBadOneStepProof) {
-				return et.fsm.Do(edgeConfirm{})
-			}
 			srvlog.Error("Could not submit one step proof", err, fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
@@ -258,8 +255,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not open subchallenge leaf", fields)
+			srvlog.Error("Could not open subchallenge leaf", err, fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
@@ -680,16 +676,9 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	cfgSnapshot := &l2stateprovider.ConfigSnapshot{
-		RequiredStake:           parentAssertionCreationInfo.RequiredStake,
-		ChallengeManagerAddress: parentAssertionCreationInfo.ChallengeManager,
-		ConfirmPeriodBlocks:     parentAssertionCreationInfo.ConfirmPeriodBlocks,
-		WasmModuleRoot:          parentAssertionCreationInfo.WasmModuleRoot,
-		InboxMaxCount:           parentAssertionCreationInfo.InboxMaxCount,
-	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
-		cfgSnapshot,
+		parentAssertionCreationInfo.WasmModuleRoot,
 		parentAssertionCreationInfo.AfterState,
 		fromAssertionHeight,
 		fromBigStep,

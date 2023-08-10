@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -101,10 +102,6 @@ func NewAssertionChain(
 	return chain, nil
 }
 
-func (a *AssertionChain) RollupAddress() common.Address {
-	return a.rollupAddr
-}
-
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
@@ -133,12 +130,55 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertio
 	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: res})
 }
 
-// CreateAssertion makes an on-chain claim given a previous assertion hash, execution state,
-// and a commitment to a post-state.
-func (a *AssertionChain) CreateAssertion(
+// Returns true if the staker's address is currently staked in the assertion chain.
+func (a *AssertionChain) IsStaked(ctx context.Context) (bool, error) {
+	return a.rollup.IsStaked(&bind.CallOpts{Context: ctx}, a.txOpts.From)
+}
+
+// NewStakeOnNewAssertion makes an onchain claim given a previous assertion hash, execution state,
+// and a commitment to a post-state. It also adds a new stake to the newly created assertion.
+// if the validator is already staked, use StakeOnNewAssertion instead.
+func (a *AssertionChain) NewStakeOnNewAssertion(
 	ctx context.Context,
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	return a.createAndStakeOnAssertion(
+		ctx,
+		parentAssertionCreationInfo,
+		postState,
+		a.userLogic.RollupUserLogicTransactor.NewStakeOnNewAssertion,
+	)
+}
+
+// StakeOnNewAssertion makes an onchain claim given a previous assertion hash, execution state,
+// and a commitment to a post-state. It also adds moves an existing stake to the newly created assertion.
+// if the validator is not staked, use NewStakeOnNewAssertion instead.
+func (a *AssertionChain) StakeOnNewAssertion(
+	ctx context.Context,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+) (protocol.Assertion, error) {
+	stakeFn := func(opts *bind.TransactOpts, _ *big.Int, assertionInputs rollupgen.AssertionInputs, assertionHash [32]byte) (*types.Transaction, error) {
+		return a.userLogic.RollupUserLogicTransactor.StakeOnNewAssertion(
+			opts,
+			assertionInputs,
+			assertionHash,
+		)
+	}
+	return a.createAndStakeOnAssertion(
+		ctx,
+		parentAssertionCreationInfo,
+		postState,
+		stakeFn,
+	)
+}
+
+func (a *AssertionChain) createAndStakeOnAssertion(
+	ctx context.Context,
+	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
+	postState *protocol.ExecutionState,
+	stakeFn func(opts *bind.TransactOpts, requiredStake *big.Int, assertionInputs rollupgen.AssertionInputs, assertionHash [32]byte) (*types.Transaction, error),
 ) (protocol.Assertion, error) {
 	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("prev assertion creation info inbox max count not a uint64")
@@ -162,7 +202,6 @@ func (a *AssertionChain) CreateAssertion(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
 	}
-
 	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
 		&bind.CallOpts{Context: ctx},
 		parentAssertionCreationInfo.AssertionHash,
@@ -180,9 +219,8 @@ func (a *AssertionChain) CreateAssertion(
 		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
 	default:
 	}
-
 	receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
-		return a.userLogic.NewStakeOnNewAssertion(
+		return stakeFn(
 			newOpts,
 			parentAssertionCreationInfo.RequiredStake,
 			rollupgen.AssertionInputs{
@@ -561,6 +599,51 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
 }
 
+// LatestCreatedAssertionHashes retrieves the latest assertion hashes posted to the rollup contract
+// since the last confirmed assertion block. The results are ordered in ascending order by block
+// number, log index.
+func (a *AssertionChain) LatestCreatedAssertionHashes(ctx context.Context) ([]protocol.AssertionHash, error) {
+	latestConfirmed, err := a.LatestConfirmed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	createdAtBlock, err := latestConfirmed.CreatedAtBlock()
+	if err != nil {
+		return nil, err
+	}
+	var query = ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(createdAtBlock),
+		ToBlock:   nil, // Latest block.
+		Addresses: []common.Address{a.rollupAddr},
+		Topics:    [][]common.Hash{{assertionCreatedId}},
+	}
+	logs, err := a.backend.FilterLogs(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
+
+	var assertionHashes []protocol.AssertionHash
+	for _, l := range logs {
+		if len(l.Topics) < 2 {
+			continue // Should never happen.
+		}
+		if l.Removed {
+			continue
+		}
+		// The first topic is the event id, the second is the indexed assertion hash.
+		assertionHashes = append(assertionHashes, protocol.AssertionHash{Hash: l.Topics[1]})
+	}
+
+	return assertionHashes, nil
+}
+
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
@@ -621,6 +704,8 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		AssertionHash:       parsedLog.AssertionHash,
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 		ChallengeManager:    parsedLog.ChallengeManager,
+		TransactionHash:     ethLog.TxHash,
+		CreationBlock:       ethLog.BlockNumber,
 	}, nil
 }
 

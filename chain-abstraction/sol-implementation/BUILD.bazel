@@ -37,11 +37,13 @@ go_test(
     deps = [
         "//chain-abstraction:protocol",
         "//layer2-state-provider",
+        "//solgen/go/mocksgen",
         "//solgen/go/rollupgen",
         "//state-commitments/history",
         "//testing",
         "//testing/setup:setup_lib",
         "@com_github_ethereum_go_ethereum//:go-ethereum",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
