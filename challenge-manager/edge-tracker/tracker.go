@@ -255,7 +255,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
-			srvlog.Error("Could not open subchallenge leaf", err, fields)
+			fields["err"] = err
+			srvlog.Error("Could not open subchallenge leaf", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
@@ -539,14 +540,6 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 }
 
 func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
-	originHeights, err := et.edge.TopLevelClaimHeight(ctx)
-	if err != nil {
-		return errors.Wrap(err, "could not get top level claim height")
-	}
-
-	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
-	toAssertionHeight := fromAssertionHeight + 1
-
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
 
@@ -561,11 +554,13 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	var startParentCommitment commitments.History
 	var endParentCommitment commitments.History
 	var startEndPrefixProof []byte
+	var err error
 	switch et.edge.GetType() {
 	case protocol.BlockChallengeEdge:
-		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
-		toBlock := toAssertionHeight + et.heightConfig.StartBlockHeight
+		fromBlock := et.heightConfig.StartBlockHeight + uint64(startHeight)
+		toBlock := fromBlock + uint64(endHeight)
 		fields["fromBlock"] = fromBlock
+		fields["toBlock"] = toBlock
 		srvlog.Info("Preparing to open subchallenge on edge", fields)
 		endHistory, err = et.stateProvider.BigStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock)
 		if err != nil {
@@ -579,16 +574,20 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		endParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, toBlock, et.heightConfig.TopLevelClaimEndBatchCount)
+		endParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, toBlock, et.heightConfig.TopLevelClaimEndBatchCount+1)
 		if err != nil {
 			return err
 		}
-		startParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, fromBlock, et.heightConfig.TopLevelClaimEndBatchCount)
+		startParentCommitment, err = et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, fromBlock, et.heightConfig.TopLevelClaimEndBatchCount+1)
 		if err != nil {
 			return err
 		}
+		fmt.Printf("End %+v\n", endHistory)
+		fmt.Printf("start hist %+v\n", startHistory)
+		fmt.Printf("parent end %+v\n", endParentCommitment)
+		fmt.Printf("parent start %+v\n", startParentCommitment)
 	case protocol.BigStepChallengeEdge:
-		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
+		fromBlock := et.heightConfig.StartBlockHeight + uint64(startHeight)
 		endHistory, err = et.stateProvider.SmallStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
 		if err != nil {
 			return err

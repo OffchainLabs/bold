@@ -11,6 +11,7 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -117,9 +118,11 @@ func (p *Poster) postAssertionImpl(
 	case err != nil:
 		return nil, err
 	}
+	machineHash := crypto.Keccak256Hash([]byte("Machine finished:"), newState.GlobalState.Hash().Bytes())
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
 		"validatorName": p.validatorName,
 		"newState":      fmt.Sprintf("%+v", newState),
+		"machineHash":   machineHash,
 	})
 
 	return assertion, nil
