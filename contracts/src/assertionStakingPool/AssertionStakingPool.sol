@@ -80,6 +80,7 @@ contract AssertionStakingPool {
         }
 
         IRollupUser(rollup).returnOldDeposit();
+        IRollupUser(rollup).withdrawStakerFunds();
         poolState = PoolState.CONFIRMED;
     }
 
