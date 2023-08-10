@@ -87,11 +87,11 @@ contract AssertionStakingPool {
         if (poolState == PoolState.ASSERTED) {
             revert PoolNotInPendingOrConfirmedState(poolState);
         }
-        if (depositedTokenBalances[msg.sender] == 0) {
+        uint256 balance = depositedTokenBalances[msg.sender];
+        if (balance == 0) {
             revert NoBalanceToWithdraw(msg.sender);
         }
-
-        stakeToken.safeTransfer(msg.sender, depositedTokenBalances[msg.sender]);
         depositedTokenBalances[msg.sender] = 0;
+        stakeToken.safeTransfer(msg.sender, balance);
     }
 }
