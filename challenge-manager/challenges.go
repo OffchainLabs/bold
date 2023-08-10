@@ -18,6 +18,9 @@ import (
 // and starting a challenge transaction. If the challenge creation is successful, we add a leaf
 // with an associated history commitment to it and spawn a challenge tracker in the background.
 func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionHash) error {
+	if m.challenged {
+		return nil
+	}
 	assertion, err := m.chain.GetAssertion(ctx, id)
 	if err != nil {
 		return errors.Wrapf(err, "could not get assertion to challenge with id %#x", id)
@@ -78,7 +81,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, nil, err
 	}
 	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
-	fmt.Printf("Computing start commitment at batch %d\n", parentAssertionAfterState.GlobalState.Batch)
 	startCommit, err := m.stateManager.HistoryCommitmentAtBatch(ctx, parentAssertionAfterState.GlobalState.Batch)
 	if err != nil {
 		return nil, nil, err
@@ -91,7 +93,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
-	fmt.Printf("Computing end commitment from batch %d to %d, inbox max count %d\n", parentAssertionAfterState.GlobalState.Batch, parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight, creationInfo.InboxMaxCount.Uint64())
 	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
 		ctx,
 		parentAssertionAfterState.GlobalState.Batch,
@@ -115,5 +116,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
+	m.challenged = true
 	return edge, creationInfo, nil
 }

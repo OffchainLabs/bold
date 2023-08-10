@@ -221,7 +221,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			fields["err"] = err
 			if errors.Is(err, errNotYetConfirmable) {
-				srvlog.Debug("Edge not yet confirmable", fields)
+				//srvlog.Debug("Edge not yet confirmable", fields)
 			} else {
 				srvlog.Error("Could not check if edge can be confirmed", fields)
 			}
@@ -309,7 +309,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case edgeConfirming:
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			srvlog.Debug("Could not confirm edge yet", err, fields)
+			//srvlog.Debug("Could not confirm edge yet", err, fields)
 			return et.fsm.Do(edgeAwaitConfirmation{})
 		}
 		if !wasConfirmed {
@@ -457,11 +457,12 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
 	}
 	if et.edge.GetType() == protocol.BlockChallengeEdge {
-		historyCommit, commitErr := et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, et.heightConfig.StartBlockHeight+bisectTo, et.heightConfig.TopLevelClaimEndBatchCount)
+		historyCommit, commitErr := et.stateProvider.HistoryCommitmentUpToBatch(ctx, et.heightConfig.StartBlockHeight, et.heightConfig.StartBlockHeight+bisectTo, et.heightConfig.TopLevelClaimEndBatchCount+1)
 		if commitErr != nil {
 			return commitments.History{}, nil, commitErr
 		}
-		proof, proofErr := et.stateProvider.PrefixProofUpToBatch(ctx, et.heightConfig.StartBlockHeight, bisectTo, uint64(endHeight), et.heightConfig.TopLevelClaimEndBatchCount)
+		endingHeight := et.heightConfig.StartBlockHeight + uint64(endHeight)
+		proof, proofErr := et.stateProvider.PrefixProofUpToBatch(ctx, et.heightConfig.StartBlockHeight, et.heightConfig.StartBlockHeight+bisectTo, endingHeight, et.heightConfig.TopLevelClaimEndBatchCount+1)
 		if proofErr != nil {
 			return commitments.History{}, nil, proofErr
 		}
@@ -550,10 +551,9 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	endHeight, _ := et.edge.EndCommitment()
 
 	fields := log.Ctx{
-		"name":                et.validatorName,
-		"edgeStartHeight":     startHeight,
-		"edgeEndHeight":       endHeight,
-		"fromAssertionHeight": fromAssertionHeight,
+		"name":            et.validatorName,
+		"edgeStartHeight": startHeight,
+		"edgeEndHeight":   endHeight,
 	}
 
 	var startHistory commitments.History
@@ -565,6 +565,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	case protocol.BlockChallengeEdge:
 		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
 		toBlock := toAssertionHeight + et.heightConfig.StartBlockHeight
+		fields["fromBlock"] = fromBlock
+		srvlog.Info("Preparing to open subchallenge on edge", fields)
 		endHistory, err = et.stateProvider.BigStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock)
 		if err != nil {
 			return err
