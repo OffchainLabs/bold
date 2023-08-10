@@ -484,12 +484,9 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 	switch et.edge.GetType() {
 	case protocol.BigStepChallengeEdge:
 		fromAssertionHeight = et.heightConfig.StartBlockHeight
-		hh := uint64(1)
-		fmt.Printf("Prefix proof request: hh %d, bisect to %d, end %d\n", hh, bisectTo, endHeight)
+		hh := uint64(1) // TODO: Temporary hack.
 		proof, proofErr = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, hh, bisectTo, uint64(endHeight))
-		fmt.Printf("Big step commit request: hh %d, bisect to %d\n", hh, bisectTo)
 		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, hh, bisectTo)
-		fmt.Printf("Prepared commitment for big step bisect %+v\n", historyCommit)
 	case protocol.SmallStepChallengeEdge:
 		fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
 		proof, proofErr = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo, uint64(endHeight))
@@ -587,10 +584,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("End %+v\n", endHistory)
-		fmt.Printf("start hist %+v\n", startHistory)
-		fmt.Printf("parent end %+v\n", endParentCommitment)
-		fmt.Printf("parent start %+v\n", startParentCommitment)
 	case protocol.BigStepChallengeEdge:
 		fromBlock := et.heightConfig.StartBlockHeight + uint64(startHeight)
 		endHistory, err = et.stateProvider.SmallStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
