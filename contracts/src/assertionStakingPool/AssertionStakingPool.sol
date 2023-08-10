@@ -63,8 +63,8 @@ contract AssertionStakingPool {
             amountToTransfer = _amount;
         }
 
-        stakeToken.safeTransferFrom(msg.sender, address(this), amountToTransfer);
         depositedTokenBalances[msg.sender] += amountToTransfer;
+        stakeToken.safeTransferFrom(msg.sender, address(this), amountToTransfer);
     }
 
     function createAssertion() external {
@@ -78,8 +78,8 @@ contract AssertionStakingPool {
             revert NotEnoughStake(balance, requiredStake);
         }
 
-        IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
         poolState = PoolState.ASSERTED;
+        IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
     }
 
     function returnOldStakeBackToPool() external {
@@ -87,9 +87,9 @@ contract AssertionStakingPool {
             revert PoolNotInAssertedState(poolState);
         }
 
+        poolState = PoolState.CONFIRMED;
         IRollupUser(rollup).returnOldDeposit();
         IRollupUser(rollup).withdrawStakerFunds();
-        poolState = PoolState.CONFIRMED;
     }
 
     function withdrawFromPool() external {
