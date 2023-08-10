@@ -11,8 +11,12 @@ import "../rollup/IRollupCore.sol";
 import "./StakingPoolErrors.sol";
 
 contract AssertionStakingPoolCreator {
-    function createPoolForAssertion(address _rollup, bytes32 _expectedAssertionHash) external {
-        new AssertionStakingPool(_rollup, _expectedAssertionHash);
+    function createPoolForAssertion(
+        address _rollup,
+        AssertionInputs memory _assertionInputs,
+        bytes32 _expectedAssertionHash
+    ) external {
+        new AssertionStakingPool(_rollup, _assertionInputs, _expectedAssertionHash);
     }
 }
 
@@ -21,36 +25,40 @@ contract AssertionStakingPool {
 
     address public immutable rollup;
     bytes32 public immutable assertionHash;
+    AssertionInputs public assertionInputs;
     IERC20 public immutable stakeToken;
-    uint256 public immutable baseStake;
-
     mapping(address => uint256) public depositedTokenBalances;
 
     PoolState public poolState = PoolState.PENDING;
 
-    constructor(address _rollup, bytes32 _assertionHash) {
+    constructor(
+        address _rollup,
+        AssertionInputs memory _assertionInputs,
+        bytes32 _assertionHash
+    ) {
         rollup = _rollup;
         assertionHash = _assertionHash;
+        assertionInputs = _assertionInputs;
         stakeToken = IERC20(IRollupCore(rollup).stakeToken());
-        baseStake = IRollupCore(rollup).baseStake();
 
-        stakeToken.approve(rollup, baseStake);
+        stakeToken.approve(rollup, getRequiredStake());
     }
 
     function depositIntoPool(uint256 _amount) external {
         if (poolState != PoolState.PENDING) {
             revert PoolNotInPendingState(poolState);
         }
+        uint256 requiredStake = getRequiredStake();
 
         uint256 currentPoolBalance = stakeToken.balanceOf(address(this));
-        if (currentPoolBalance >= baseStake) {
-            revert PoolStakeAlreadyReached(baseStake);
+        if (currentPoolBalance >= requiredStake) {
+            revert PoolStakeAlreadyReached(requiredStake);
         }
 
         uint256 amountToTransfer;
 
-        if (currentPoolBalance + _amount > baseStake) {
-            amountToTransfer = baseStake - currentPoolBalance;
+        if (currentPoolBalance + _amount > requiredStake) {
+            amountToTransfer = requiredStake - currentPoolBalance;
         } else {
             amountToTransfer = _amount;
         }
@@ -59,18 +67,18 @@ contract AssertionStakingPool {
         depositedTokenBalances[msg.sender] += amountToTransfer;
     }
 
-    function createAssertion(AssertionInputs calldata assertionInputs) external {
+    function createAssertion() external {
         if (poolState != PoolState.PENDING) {
             revert PoolNotInPendingState(poolState);
         }
 
         uint256 balance = stakeToken.balanceOf(address(this));
-
-        if (balance < baseStake) {
-            revert NotEnoughStake(balance, baseStake);
+        uint256 requiredStake = getRequiredStake();
+        if (balance < requiredStake) {
+            revert NotEnoughStake(balance, requiredStake);
         }
 
-        IRollupUser(rollup).newStakeOnNewAssertion(baseStake, assertionInputs, assertionHash);
+        IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
         poolState = PoolState.ASSERTED;
     }
 
@@ -94,5 +102,9 @@ contract AssertionStakingPool {
         }
         depositedTokenBalances[msg.sender] = 0;
         stakeToken.safeTransfer(msg.sender, balance);
+    }
+
+    function getRequiredStake() public view returns (uint256) {
+        return assertionInputs.beforeStateData.configData.requiredStake;
     }
 }
