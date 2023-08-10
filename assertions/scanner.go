@@ -169,16 +169,23 @@ func (s *Scanner) ProcessAssertionCreation(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
 ) error {
-	srvlog.Info("Processed assertion creation event", log.Ctx{"validatorName": s.validatorName})
-	s.assertionsProcessedCount++
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return err
+	}
+	// Skip processing genesis.
+	if creationInfo.ParentAssertionHash == (common.Hash{}) {
+		return nil
 	}
 	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
 		return err
 	}
+	srvlog.Info("Processing assertion creation event", log.Ctx{
+		"validatorName": s.validatorName,
+		"assertionHash": assertionHash,
+	})
+	s.assertionsProcessedCount++
 	hasSecondChild, err := prevAssertion.HasSecondChild()
 	if err != nil {
 		return err
