@@ -483,8 +483,13 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 
 	switch et.edge.GetType() {
 	case protocol.BigStepChallengeEdge:
-		proof, proofErr = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo, uint64(endHeight))
-		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, fromAssertionHeight, bisectTo)
+		fromAssertionHeight = et.heightConfig.StartBlockHeight
+		hh := uint64(1)
+		fmt.Printf("Prefix proof request: hh %d, bisect to %d, end %d\n", hh, bisectTo, endHeight)
+		proof, proofErr = et.stateProvider.BigStepPrefixProof(ctx, et.wasmModuleRoot, hh, bisectTo, uint64(endHeight))
+		fmt.Printf("Big step commit request: hh %d, bisect to %d\n", hh, bisectTo)
+		historyCommit, commitErr = et.stateProvider.BigStepCommitmentUpTo(ctx, et.wasmModuleRoot, hh, bisectTo)
+		fmt.Printf("Prepared commitment for big step bisect %+v\n", historyCommit)
 	case protocol.SmallStepChallengeEdge:
 		fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
 		proof, proofErr = et.stateProvider.SmallStepPrefixProof(ctx, et.wasmModuleRoot, fromAssertionHeight, fromBigStep, bisectTo, uint64(endHeight))
