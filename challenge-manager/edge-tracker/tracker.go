@@ -585,7 +585,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return err
 		}
 	case protocol.BigStepChallengeEdge:
-		fromBlock := et.heightConfig.StartBlockHeight + uint64(startHeight)
+		fromBlock := uint64(1)
 		endHistory, err = et.stateProvider.SmallStepLeafCommitment(ctx, et.wasmModuleRoot, fromBlock, uint64(startHeight))
 		if err != nil {
 			return err
