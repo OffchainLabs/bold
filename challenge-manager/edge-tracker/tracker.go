@@ -606,6 +606,11 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("Start height %d and from block %d\n", startHeight, fromBlock)
+		fmt.Printf("Big step start commit %+v\n", startParentCommitment)
+		fmt.Printf("Big step end commit %+v\n", endParentCommitment)
+		fmt.Printf("Small step start commit %+v\n", startHistory)
+		fmt.Printf("Small step end commit %+v\n", endHistory)
 	default:
 		return errors.New("unsupported subchallenge type for creating leaf commitment")
 	}
