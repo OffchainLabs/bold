@@ -27,6 +27,7 @@ interface IEdgeChallengeManager {
     /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
     /// @param _stakeAmount                 The amount of stake (in units of stake token) required to create a block edge
     /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
+    /// @param _numBigstepLevel              The number of bigstep levels
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodBlocks,
@@ -36,7 +37,8 @@ interface IEdgeChallengeManager {
         uint256 layerZeroSmallStepEdgeHeight,
         IERC20 _stakeToken,
         uint256 _stakeAmount,
-        address _excessStakeReceiver
+        address _excessStakeReceiver,
+        uint256 _numBigstepLevel
     ) external;
 
     function challengePeriodBlocks() external view returns (uint256);
@@ -283,7 +285,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @notice The end height of layer zero SmallStep edges
     uint256 public LAYERZERO_SMALLSTEPEDGE_HEIGHT;
 
-    uint256 public constant NUM_BIGSTEP_LEVEL = 1;
+    uint256 public NUM_BIGSTEP_LEVEL;
 
     constructor() {
         _disableInitializers();
@@ -299,7 +301,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 layerZeroSmallStepEdgeHeight,
         IERC20 _stakeToken,
         uint256 _stakeAmount,
-        address _excessStakeReceiver
+        address _excessStakeReceiver,
+        uint256 _numBigstepLevel
     ) public initializer {
         if (address(_assertionChain) == address(0)) {
             revert EmptyAssertionChain();
@@ -333,6 +336,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             revert NotPowerOfTwo(layerZeroSmallStepEdgeHeight);
         }
         LAYERZERO_SMALLSTEPEDGE_HEIGHT = layerZeroSmallStepEdgeHeight;
+
+        NUM_BIGSTEP_LEVEL = _numBigstepLevel;
     }
 
     /////////////////////////////
