@@ -51,7 +51,7 @@ struct ChallengeEdge {
     ///         Once Confirmed they cannot transition back to Pending
     EdgeStatus status;
     /// @notice The type of edge Block, BigStep or SmallStep that this edge is.
-    EdgeType eType;
+    uint256 eType;
     /// @notice Set to true when the staker has been refunded. Can only be set to true if the status is Confirmed
     ///         and the staker is non zero.
     bool refunded;
@@ -91,7 +91,7 @@ library ChallengeEdgeLib {
         uint256 endHeight,
         bytes32 claimId,
         address staker,
-        EdgeType eType
+        uint256 eType
     ) internal view returns (ChallengeEdge memory) {
         if (staker == address(0)) {
             revert EmptyStaker();
@@ -127,7 +127,7 @@ library ChallengeEdgeLib {
         uint256 startHeight,
         bytes32 endHistoryRoot,
         uint256 endHeight,
-        EdgeType eType
+        uint256 eType
     ) internal view returns (ChallengeEdge memory) {
         newEdgeChecks(originId, startHistoryRoot, startHeight, endHistoryRoot, endHeight);
 
@@ -153,7 +153,7 @@ library ChallengeEdgeLib {
     ///         The difference between rivals is that they have a different endHistoryRoot, so that information
     ///         is not included in this hash.
     function mutualIdComponent(
-        EdgeType eType,
+        uint256 eType,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -172,7 +172,7 @@ library ChallengeEdgeLib {
 
     /// @notice The id of an edge. Edges are uniquely identified by their id, and commit to the same information
     function idComponent(
-        EdgeType eType,
+        uint256 eType,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -248,6 +248,9 @@ library ChallengeEdgeLib {
     function setRefunded(ChallengeEdge storage edge) internal {
         if (edge.status != EdgeStatus.Confirmed) {
             revert EdgeNotConfirmed(ChallengeEdgeLib.id(edge), edge.status);
+        }
+        if (edge.eType != 0) {
+            revert EdgeTypeNotBlock(edge.eType);
         }
         if (!isLayerZero(edge)) {
             revert EdgeNotLayerZero(ChallengeEdgeLib.id(edge), edge.staker, edge.claimId);

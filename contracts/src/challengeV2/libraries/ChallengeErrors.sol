@@ -29,7 +29,7 @@ error ClaimEdgeNotPending();
 /// @dev The claim edge does not have a length one rival
 error ClaimEdgeNotLengthOneRival(bytes32 claimId);
 /// @dev The claim edge has an invalid type
-error ClaimEdgeInvalidType(EdgeType argType, EdgeType claimType);
+error ClaimEdgeInvalidType(uint256 argType, uint256 claimType);
 /// @dev The val is not a power of two
 error NotPowerOfTwo(uint256 val);
 /// @dev The height has an unexpected value
@@ -37,9 +37,9 @@ error InvalidEndHeight(uint256 actualHeight, uint256 expectedHeight);
 /// @dev The prefix proof is empty
 error EmptyPrefixProof();
 /// @dev The edge is not of type Block
-error EdgeTypeNotBlock(EdgeType eType);
+error EdgeTypeNotBlock(uint256 eType);
 /// @dev The edge is not of type SmallStep
-error EdgeTypeNotSmallStep(EdgeType eType);
+error EdgeTypeNotSmallStep(uint256 eType);
 /// @dev The first rival record is empty
 error EmptyFirstRival();
 /// @dev The difference between two heights is less than 2
@@ -51,7 +51,7 @@ error EdgeUnrivaled(bytes32 edgeId);
 /// @dev The edge is not confirmed
 error EdgeNotConfirmed(bytes32 edgeId, EdgeStatus);
 /// @dev The edge type is unexpected
-error EdgeTypeInvalid(bytes32 edgeId1, bytes32 edgeId2, EdgeType type1, EdgeType type2);
+error EdgeTypeInvalid(bytes32 edgeId1, bytes32 edgeId2, uint256 type1, uint256 type2);
 /// @dev The claim id on the claimingEdge does not match the provided edge id
 error EdgeClaimMismatch(bytes32 edgeId, bytes32 claimingEdgeId);
 /// @dev The origin id is not equal to the mutual id
