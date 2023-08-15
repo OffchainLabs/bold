@@ -100,7 +100,8 @@ contract EdgeChallengeManagerTest is Test {
                 1000000 ether
             ),
             miniStakeVal,
-            excessStakeReceiver
+            excessStakeReceiver,
+            NUM_BIGSTEP_LEVEL
         );
 
         challengeManager.stakeToken().approve(address(challengeManager), type(uint256).max);
