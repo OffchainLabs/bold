@@ -111,7 +111,7 @@ interface IEdgeChallengeManager {
 
     /// @notice Zero layer edges have to be a fixed height.
     ///         This function returns the end height for a given edge type
-    function getLayerZeroEndHeight(EdgeType eType) external view returns (uint256);
+    function getLayerZeroEndHeight(uint256 eType) external view returns (uint256);
 
     /// @notice Calculate the unique id of an edge
     /// @param edgeType         The type of edge
@@ -121,7 +121,7 @@ interface IEdgeChallengeManager {
     /// @param endHeight        The end height of the edge
     /// @param endHistoryRoot   The end history root of the edge
     function calculateEdgeId(
-        EdgeType edgeType,
+        uint256 edgeType,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -137,7 +137,7 @@ interface IEdgeChallengeManager {
     /// @param startHistoryRoot The start history root of the edge
     /// @param endHeight        The end height of the edge
     function calculateMutualId(
-        EdgeType edgeType,
+        uint256 edgeType,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -205,7 +205,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 indexed originId,
         bytes32 claimId,
         uint256 length,
-        EdgeType eType,
+        uint256 eType,
         bool hasRival,
         bool isLayerZero
     );
@@ -283,6 +283,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @notice The end height of layer zero SmallStep edges
     uint256 public LAYERZERO_SMALLSTEPEDGE_HEIGHT;
 
+    uint256 public constant NUM_BIGSTEP_LEVEL = 1;
+
     constructor() {
         _disableInitializers();
     }
@@ -342,7 +344,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         EdgeAddedData memory edgeAdded;
         uint256 expectedEndHeight = getLayerZeroEndHeight(args.edgeType);
         AssertionReferenceData memory ard;
-        if (args.edgeType == EdgeType.Block) {
+        if (args.edgeType == 0) {
             // for block type edges we need to provide some extra assertion data context
             if (args.proof.length == 0) {
                 revert EmptyEdgeSpecificProof();
@@ -370,9 +372,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.executionState
             );
 
-            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight);
+            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
         } else {
-            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight);
+            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
         }
 
         IERC20 st = stakeToken;
@@ -453,7 +455,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function confirmEdgeByClaim(bytes32 edgeId, bytes32 claimingEdgeId) public {
-        store.confirmEdgeByClaim(edgeId, claimingEdgeId);
+        store.confirmEdgeByClaim(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
 
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
@@ -468,7 +470,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 lastEdgeId = ancestorEdges.length > 0 ? ancestorEdges[ancestorEdges.length - 1] : edgeId;
         ChallengeEdge storage topEdge = store.get(lastEdgeId);
 
-        if (topEdge.eType != EdgeType.Block) {
+        if (topEdge.eType != 0) {
             revert EdgeTypeNotBlock(topEdge.eType);
         }
         if (!topEdge.isLayerZero()) {
@@ -496,7 +498,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         }
 
         uint256 totalTimeUnrivaled =
-            store.confirmEdgeByTime(edgeId, ancestorEdges, assertionBlocks, challengePeriodBlocks);
+            store.confirmEdgeByTime(edgeId, ancestorEdges, assertionBlocks, challengePeriodBlocks, NUM_BIGSTEP_LEVEL);
 
         emit EdgeConfirmedByTime(edgeId, store.edges[edgeId].mutualId(), totalTimeUnrivaled);
     }
@@ -509,7 +511,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
-        bytes32 prevAssertionHash = store.getPrevAssertionHash(edgeId);
+        bytes32 prevAssertionHash = store.getPrevAssertionHash(edgeId, NUM_BIGSTEP_LEVEL);
 
         assertionChain.validateConfig(prevAssertionHash, prevConfig);
 
@@ -520,7 +522,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         });
 
         store.confirmEdgeByOneStepProof(
-            edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
+            edgeId,
+            oneStepProofEntry,
+            oneStepData,
+            execCtx,
+            beforeHistoryInclusionProof,
+            afterHistoryInclusionProof,
+            NUM_BIGSTEP_LEVEL
         );
 
         emit EdgeConfirmedByOneStepProof(edgeId, store.edges[edgeId].mutualId());
@@ -547,12 +555,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///////////////////////
 
     /// @inheritdoc IEdgeChallengeManager
-    function getLayerZeroEndHeight(EdgeType eType) public view returns (uint256) {
-        if (eType == EdgeType.Block) {
+    function getLayerZeroEndHeight(uint256 eType) public view returns (uint256) {
+        if (eType == 0) {
             return LAYERZERO_BLOCKEDGE_HEIGHT;
-        } else if (eType == EdgeType.BigStep) {
+        } else if (eType <= NUM_BIGSTEP_LEVEL) {
             return LAYERZERO_BIGSTEPEDGE_HEIGHT;
-        } else if (eType == EdgeType.SmallStep) {
+        } else if (eType == NUM_BIGSTEP_LEVEL + 1) {
             return LAYERZERO_SMALLSTEPEDGE_HEIGHT;
         } else {
             revert("Unrecognised edge type");
@@ -561,7 +569,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function calculateEdgeId(
-        EdgeType edgeType,
+        uint256 edgeType,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -574,7 +582,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function calculateMutualId(
-        EdgeType edgeType,
+        uint256 edgeType,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -615,7 +623,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function getPrevAssertionHash(bytes32 edgeId) public view returns (bytes32) {
-        return store.getPrevAssertionHash(edgeId);
+        return store.getPrevAssertionHash(edgeId, NUM_BIGSTEP_LEVEL);
     }
 
     /// @inheritdoc IEdgeChallengeManager
