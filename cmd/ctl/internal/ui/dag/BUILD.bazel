@@ -4,16 +4,27 @@ go_library(
     name = "dag",
     srcs = [
         "ancestor.go",
+        "column.go",
         "dag.go",
+        "graph_row.go",
+        "nodeline.go",
+        "padline.go",
+        "renderer.go",
     ],
     importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/ui/dag",
     visibility = ["//cmd/ctl:__subpackages__"],
-    deps = ["@com_github_ethereum_go_ethereum//common"],
+    deps = [
+        "//cmd/ctl/internal/ui/dag/linkline",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
 )
 
 go_test(
     name = "dag_test",
-    srcs = ["dag_test.go"],
+    srcs = [
+        "dag_test.go",
+        "renderer_test.go",
+    ],
     deps = [
         ":dag",
         "@com_github_ethereum_go_ethereum//common",
