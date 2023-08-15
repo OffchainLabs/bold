@@ -91,7 +91,7 @@ contract EdgeChallengeManagerLibTest is Test {
     EdgeStore store;
     Random rand = new Random();
 
-    uint256 constant NUM_BIGSTEP_LEVEL = 1;
+    uint256 constant NUM_BIGSTEP_LEVEL = 3;
 
     function twoNonRivals() internal returns (ChallengeEdge memory, ChallengeEdge memory) {
         bytes32 originId = rand.hash();
@@ -935,7 +935,7 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testNextEdgeType() public {
-        assertTrue(EdgeChallengeManagerLib.nextEdgeType(0, NUM_BIGSTEP_LEVEL) == NUM_BIGSTEP_LEVEL);
+        assertTrue(EdgeChallengeManagerLib.nextEdgeType(0, NUM_BIGSTEP_LEVEL) == 1);
         assertTrue(EdgeChallengeManagerLib.nextEdgeType(NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL) == NUM_BIGSTEP_LEVEL + 1);
         vm.expectRevert("No next type after SmallStep");
         EdgeChallengeManagerLib.nextEdgeType(NUM_BIGSTEP_LEVEL + 1, NUM_BIGSTEP_LEVEL);
@@ -952,7 +952,7 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            NUM_BIGSTEP_LEVEL
+            1
         );
 
         store.add(ce);
@@ -1017,14 +1017,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
-            rand.hash(),
-            3,
-            rand.hash(),
-            4,
-            rand.hash(),
-            rand.addr(),
-            NUM_BIGSTEP_LEVEL
+            store.get(bargs.upperChildId1).mutualId(), rand.hash(), 3, rand.hash(), 4, rand.hash(), rand.addr(), 1
         );
 
         store.add(ce);
@@ -1067,7 +1060,7 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            NUM_BIGSTEP_LEVEL
+            1
         );
 
         store.add(ce);
@@ -1196,7 +1189,7 @@ contract EdgeChallengeManagerLibTest is Test {
                 100,
                 upperChildId146,
                 rand.addr(),
-                NUM_BIGSTEP_LEVEL
+                1
             );
             if (timeAfterParent1 != 139) {
                 store.add(bigStepZero);
