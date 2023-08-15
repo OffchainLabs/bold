@@ -421,13 +421,13 @@ library EdgeChallengeManagerLib {
         ChallengeEdge storage edge = get(store, edgeId);
 
         // if the edge is small step, find a big step edge that it's linked to
-        while (edge.eType >= numBigstepLevel) {
+        if (edge.eType == numBigstepLevel + 1) {
             bytes32 bigStepEdgeId = store.firstRivals[edge.originId];
             edge = get(store, bigStepEdgeId);
         }
 
         // if the edge is big step, find a block edge that it's linked to
-        if (edge.eType == numBigstepLevel + 1) {
+        while (edge.eType <= numBigstepLevel && edge.eType != 0) {
             bytes32 blockEdgeId = store.firstRivals[edge.originId];
             edge = get(store, blockEdgeId);
         }
