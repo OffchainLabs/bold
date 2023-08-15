@@ -36,7 +36,7 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState);
     ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
 
-    uint256 constant NUM_BIGSTEP_LEVEL = 1;
+    uint256 constant NUM_BIGSTEP_LEVEL = 3;
 
     bytes32 genesisAssertionHash;
 
@@ -493,7 +493,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(EmptyPrefixProof.selector));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -516,7 +516,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Post expansion root not equal post");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -549,7 +549,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, edges1[0].lowerChildId));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -575,7 +575,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(EmptyEdgeSpecificProof.selector));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -606,7 +606,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -639,7 +639,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -672,7 +672,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -700,7 +700,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: 1,
                 claimId: edges1[0].lowerChildId,
@@ -733,7 +733,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL,
+                    edgeType: 1,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId,
@@ -754,7 +754,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL,
+                    edgeType: 1,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId,
@@ -779,10 +779,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory smallStepExp1;
             (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
 
-            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL));
+            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, 1, 1));
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL,
+                    edgeType: 1,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId,
@@ -809,10 +809,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory bigStepExp1;
             (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, NUM_BIGSTEP_LEVEL + 1, 0));
+            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, 2, 0));
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL + 1,
+                    edgeType: 2,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId,
@@ -846,7 +846,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL,
+                    edgeType: 1,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId,
@@ -867,7 +867,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL,
+                    edgeType: 1,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId,
@@ -895,7 +895,7 @@ contract EdgeChallengeManagerTest is Test {
             vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: NUM_BIGSTEP_LEVEL + 1,
+                    edgeType: 2,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId,
@@ -921,7 +921,7 @@ contract EdgeChallengeManagerTest is Test {
 
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: NUM_BIGSTEP_LEVEL,
+                edgeType: 1,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -1042,7 +1042,7 @@ contract EdgeChallengeManagerTest is Test {
 
     function createMachineEdgesAndBisectToFork(CreateMachineEdgesBisectArgs memory args)
         internal
-        returns (bytes32[] memory, bytes32[] memory, BisectionChildren[6] memory, BisectionChildren[6] memory)
+        returns (BisectionData memory)
     {
         (bytes32[] memory states1, bytes32[] memory exp1) =
             appendRandomStatesBetween(genesisStates(), args.endState1, height1);
@@ -1126,12 +1126,11 @@ contract EdgeChallengeManagerTest is Test {
             BisectToForkOnlyArgs(args.challengeManager, edge1Id, edge2Id, states1, states2, args.skipLast)
         );
 
-        return (states1, states2, edges1, edges2);
+        return BisectionData(states1, states2, edges1, edges2);
     }
 
     function testCanConfirmByClaimSubChallenge() public {
         EdgeInitData memory ei = deployAndInit();
-
         (
             bytes32[] memory blockStates1,
             bytes32[] memory blockStates2,
@@ -1141,15 +1140,10 @@ contract EdgeChallengeManagerTest is Test {
             CreateBlockEdgesBisectArgs(ei.challengeManager, ei.a1, ei.a2, ei.a1State, ei.a2State, false)
         );
 
-        (
-            bytes32[] memory bigStepStates1,
-            bytes32[] memory bigStepStates2,
-            BisectionChildren[6] memory bigStepEdges1,
-            BisectionChildren[6] memory bigStepEdges2
-        ) = createMachineEdgesAndBisectToFork(
+        BisectionData memory bsbd = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                NUM_BIGSTEP_LEVEL,
+                1,
                 blockEdges1[0].lowerChildId,
                 blockEdges2[0].lowerChildId,
                 blockStates1[1],
@@ -1160,24 +1154,24 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (,, BisectionChildren[6] memory smallStepEdges1,) = createMachineEdgesAndBisectToFork(
+        BisectionData memory ssbd = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                NUM_BIGSTEP_LEVEL + 1,
-                bigStepEdges1[0].lowerChildId,
-                bigStepEdges2[0].lowerChildId,
-                bigStepStates1[1],
-                bigStepStates2[1],
+                2,
+                bsbd.edges1[0].lowerChildId,
+                bsbd.edges2[0].lowerChildId,
+                bsbd.states1[1],
+                bsbd.states2[1],
                 true,
-                ArrayUtilsLib.slice(bigStepStates1, 0, 2),
-                ArrayUtilsLib.slice(bigStepStates2, 0, 2)
+                ArrayUtilsLib.slice(bsbd.states1, 0, 2),
+                ArrayUtilsLib.slice(bsbd.states2, 0, 2)
             )
         );
 
         vm.roll(challengePeriodBlock + 11);
 
         BisectionChildren[] memory allWinners =
-            concat(concat(toDynamic(smallStepEdges1), toDynamic(bigStepEdges1)), toDynamic(blockEdges1));
+            concat(concat(toDynamic(ssbd.edges1), toDynamic(bsbd.edges1)), toDynamic(blockEdges1));
 
         ei.challengeManager.confirmEdgeByTime(allWinners[0].lowerChildId, getAncestorsAbove(allWinners, 0), ei.a1Data);
         ei.challengeManager.confirmEdgeByTime(allWinners[0].upperChildId, getAncestorsAbove(allWinners, 0), ei.a1Data);
@@ -1235,17 +1229,20 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
+    struct BisectionData {
+        bytes32[] states1;
+        bytes32[] states2;
+        BisectionChildren[6] edges1;
+        BisectionChildren[6] edges2;
+    }
+
     struct CanConfirmByOneStepData {
         bytes32[] blockStates1;
         bytes32[] blockStates2;
         BisectionChildren[6] blockEdges1;
         BisectionChildren[6] blockEdges2;
-        bytes32[] bigStepStates1;
-        bytes32[] bigStepStates2;
-        BisectionChildren[6] bigStepEdges1;
-        BisectionChildren[6] bigStepEdges2;
-        bytes32[] smallStepStates1;
-        BisectionChildren[6] smallStepEdges1;
+        BisectionData[100] bigStepBisections;
+        BisectionData smallStepBisection;
     }
 
     function testCanConfirmByOneStep() public returns (EdgeInitData memory, BisectionChildren[] memory) {
@@ -1256,11 +1253,10 @@ contract EdgeChallengeManagerTest is Test {
             CreateBlockEdgesBisectArgs(ei.challengeManager, ei.a1, ei.a2, ei.a1State, ei.a2State, false)
         );
 
-        (local.bigStepStates1, local.bigStepStates2, local.bigStepEdges1, local.bigStepEdges2) =
-        createMachineEdgesAndBisectToFork(
+        local.bigStepBisections[0] = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                NUM_BIGSTEP_LEVEL,
+                1,
                 local.blockEdges1[0].lowerChildId,
                 local.blockEdges2[0].lowerChildId,
                 local.blockStates1[1],
@@ -1271,29 +1267,47 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (local.smallStepStates1,, local.smallStepEdges1,) = createMachineEdgesAndBisectToFork(
+        for (uint256 i = 1; i < NUM_BIGSTEP_LEVEL; ++i) {
+            local.bigStepBisections[i] = createMachineEdgesAndBisectToFork(
+                CreateMachineEdgesBisectArgs(
+                    ei.challengeManager,
+                    i + 1,
+                    local.bigStepBisections[i - 1].edges1[0].lowerChildId,
+                    local.bigStepBisections[i - 1].edges2[0].lowerChildId,
+                    local.bigStepBisections[i - 1].states1[1],
+                    local.bigStepBisections[i - 1].states2[1],
+                    false,
+                    ArrayUtilsLib.slice(local.bigStepBisections[i - 1].states1, 0, 2),
+                    ArrayUtilsLib.slice(local.bigStepBisections[i - 1].states2, 0, 2)
+                )
+            );
+        }
+
+        local.smallStepBisection = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
                 NUM_BIGSTEP_LEVEL + 1,
-                local.bigStepEdges1[0].lowerChildId,
-                local.bigStepEdges2[0].lowerChildId,
-                local.bigStepStates1[1],
-                local.bigStepStates2[1],
+                local.bigStepBisections[NUM_BIGSTEP_LEVEL - 1].edges1[0].lowerChildId,
+                local.bigStepBisections[NUM_BIGSTEP_LEVEL - 1].edges2[0].lowerChildId,
+                local.bigStepBisections[NUM_BIGSTEP_LEVEL - 1].states1[1],
+                local.bigStepBisections[NUM_BIGSTEP_LEVEL - 1].states2[1],
                 false,
-                ArrayUtilsLib.slice(local.bigStepStates1, 0, 2),
-                ArrayUtilsLib.slice(local.bigStepStates2, 0, 2)
+                ArrayUtilsLib.slice(local.bigStepBisections[NUM_BIGSTEP_LEVEL - 1].states1, 0, 2),
+                ArrayUtilsLib.slice(local.bigStepBisections[NUM_BIGSTEP_LEVEL - 1].states2, 0, 2)
             )
         );
 
         vm.roll(challengePeriodBlock + 11);
 
-        BisectionChildren[] memory allWinners = concat(
-            concat(toDynamic(local.smallStepEdges1), toDynamic(local.bigStepEdges1)), toDynamic(local.blockEdges1)
-        );
+        BisectionChildren[] memory allWinners = toDynamic(local.smallStepBisection.edges1);
+        for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL; ++i) {
+            allWinners = concat(allWinners, toDynamic(local.bigStepBisections[NUM_BIGSTEP_LEVEL - i - 1].edges1));
+        }
+        allWinners = concat(allWinners, toDynamic(local.blockEdges1));
 
         bytes32[] memory firstStates = new bytes32[](2);
-        firstStates[0] = local.smallStepStates1[0];
-        firstStates[1] = local.smallStepStates1[1];
+        firstStates[0] = local.smallStepBisection.states1[0];
+        firstStates[1] = local.smallStepBisection.states1[1];
 
         ei.challengeManager.confirmEdgeByOneStepProof(
             allWinners[0].lowerChildId,
@@ -1311,56 +1325,24 @@ contract EdgeChallengeManagerTest is Test {
         bytes32[] memory above = getAncestorsAbove(allWinners, 0);
         ei.challengeManager.confirmEdgeByTime(allWinners[0].upperChildId, above, ei.a1Data);
 
-        ei.challengeManager.confirmEdgeByChildren(allWinners[1].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[1].upperChildId, getAncestorsAbove(allWinners, 1), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[2].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[2].upperChildId, getAncestorsAbove(allWinners, 2), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[3].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[3].upperChildId, getAncestorsAbove(allWinners, 3), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[4].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[4].upperChildId, getAncestorsAbove(allWinners, 4), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[5].lowerChildId);
-
-        ei.challengeManager.confirmEdgeByClaim(allWinners[6].lowerChildId, allWinners[5].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[6].upperChildId, getAncestorsAbove(allWinners, 6), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[7].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[7].upperChildId, getAncestorsAbove(allWinners, 7), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[8].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[8].upperChildId, getAncestorsAbove(allWinners, 8), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[9].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[9].upperChildId, getAncestorsAbove(allWinners, 9), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[10].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[10].upperChildId, getAncestorsAbove(allWinners, 10), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[11].lowerChildId);
-
-        ei.challengeManager.confirmEdgeByClaim(allWinners[12].lowerChildId, allWinners[11].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[12].upperChildId, getAncestorsAbove(allWinners, 12), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[13].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[13].upperChildId, getAncestorsAbove(allWinners, 13), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[14].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[14].upperChildId, getAncestorsAbove(allWinners, 14), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[15].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[15].upperChildId, getAncestorsAbove(allWinners, 15), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[16].lowerChildId);
-        ei.challengeManager.confirmEdgeByTime(allWinners[16].upperChildId, getAncestorsAbove(allWinners, 16), ei.a1Data);
-
-        ei.challengeManager.confirmEdgeByChildren(allWinners[17].lowerChildId);
+        for (uint256 i = 1; i < allWinners.length; i++) {
+            if ((i + 1) % 6 != 0) {
+                if (i % 6 != 0) {
+                    ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
+                } else {
+                    ei.challengeManager.confirmEdgeByClaim(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
+                }
+                ei.challengeManager.confirmEdgeByTime(
+                    allWinners[i].upperChildId, getAncestorsAbove(allWinners, i), ei.a1Data
+                );
+            } else {
+                ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
+            }
+        }
 
         assertTrue(
-            ei.challengeManager.getEdge(allWinners[17].lowerChildId).status == EdgeStatus.Confirmed, "Edge confirmed"
+            ei.challengeManager.getEdge(allWinners[allWinners.length - 1].lowerChildId).status == EdgeStatus.Confirmed,
+            "Edge confirmed"
         );
 
         return (ei, allWinners);
@@ -1370,7 +1352,9 @@ contract EdgeChallengeManagerTest is Test {
         (EdgeInitData memory ei,) = testCanConfirmByOneStep();
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         assertEq(
-            stakeToken.balanceOf(excessStakeReceiver), ei.challengeManager.stakeAmount() * 3, "Excess stake received"
+            stakeToken.balanceOf(excessStakeReceiver),
+            ei.challengeManager.stakeAmount() * (NUM_BIGSTEP_LEVEL + 2),
+            "Excess stake received"
         );
     }
 
@@ -1380,22 +1364,26 @@ contract EdgeChallengeManagerTest is Test {
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         uint256 beforeBalance = stakeToken.balanceOf(address(this));
         vm.prank(nobody); // call refund as nobody
-        ei.challengeManager.refundStake(allWinners[17].lowerChildId);
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
         uint256 afterBalance = stakeToken.balanceOf(address(this));
         assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
     }
 
     function testRevertRefundStakeTwice() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        ei.challengeManager.refundStake(allWinners[17].lowerChildId);
-        vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyRefunded.selector, allWinners[17].lowerChildId));
-        ei.challengeManager.refundStake(allWinners[17].lowerChildId);
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
+        vm.expectRevert(
+            abi.encodeWithSelector(EdgeAlreadyRefunded.selector, allWinners[allWinners.length - 1].lowerChildId)
+        );
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
     }
 
     function testRevertRefundStakeNotLayerZero() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert(abi.encodeWithSelector(EdgeNotLayerZero.selector, allWinners[16].lowerChildId, 0, 0));
-        ei.challengeManager.refundStake(allWinners[16].lowerChildId);
+        vm.expectRevert(
+            abi.encodeWithSelector(EdgeNotLayerZero.selector, allWinners[allWinners.length - 2].lowerChildId, 0, 0)
+        );
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 2].lowerChildId);
     }
 
     function testRevertRefundStakeBigStep() external {
@@ -1429,15 +1417,10 @@ contract EdgeChallengeManagerTest is Test {
             CreateBlockEdgesBisectArgs(ei.challengeManager, ei.a1, ei.a2, ei.a1State, ei.a2State, false)
         );
 
-        (
-            bytes32[] memory bigStepStates1,
-            bytes32[] memory bigStepStates2,
-            BisectionChildren[6] memory bigStepEdges1,
-            BisectionChildren[6] memory bigStepEdges2
-        ) = createMachineEdgesAndBisectToFork(
+        BisectionData memory bsbd = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                NUM_BIGSTEP_LEVEL,
+                1,
                 blockEdges1[0].lowerChildId,
                 blockEdges2[0].lowerChildId,
                 blockStates1[1],
@@ -1448,38 +1431,37 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        (,, BisectionChildren[6] memory smallStepEdges1, BisectionChildren[6] memory smallStepEdges2) =
-        createMachineEdgesAndBisectToFork(
+        BisectionData memory ssbd = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                NUM_BIGSTEP_LEVEL + 1,
-                bigStepEdges1[0].lowerChildId,
-                bigStepEdges2[0].lowerChildId,
-                bigStepStates1[1],
-                bigStepStates2[1],
+                2,
+                bsbd.edges1[0].lowerChildId,
+                bsbd.edges2[0].lowerChildId,
+                bsbd.states1[1],
+                bsbd.states2[1],
                 false,
-                ArrayUtilsLib.slice(bigStepStates1, 0, 2),
-                ArrayUtilsLib.slice(bigStepStates2, 0, 2)
+                ArrayUtilsLib.slice(bsbd.states1, 0, 2),
+                ArrayUtilsLib.slice(bsbd.states2, 0, 2)
             )
         );
 
-        for (uint256 i = 0; i < smallStepEdges1.length; i++) {
-            bytes32 childId = smallStepEdges1[i].lowerChildId;
+        for (uint256 i = 0; i < ssbd.edges1.length; i++) {
+            bytes32 childId = ssbd.edges1[i].lowerChildId;
             assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
-        for (uint256 i = 0; i < smallStepEdges2.length; i++) {
-            bytes32 childId = smallStepEdges2[i].lowerChildId;
+        for (uint256 i = 0; i < ssbd.edges2.length; i++) {
+            bytes32 childId = ssbd.edges2[i].lowerChildId;
             assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
-        for (uint256 i = 0; i < bigStepEdges1.length; i++) {
-            bytes32 childId = bigStepEdges1[i].lowerChildId;
+        for (uint256 i = 0; i < bsbd.edges1.length; i++) {
+            bytes32 childId = bsbd.edges1[i].lowerChildId;
             assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
-        for (uint256 i = 0; i < bigStepEdges2.length; i++) {
-            bytes32 childId = bigStepEdges2[i].lowerChildId;
+        for (uint256 i = 0; i < bsbd.edges2.length; i++) {
+            bytes32 childId = bsbd.edges2[i].lowerChildId;
             assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
 
