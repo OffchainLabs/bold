@@ -36,7 +36,7 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState);
     ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
 
-    uint256 constant NUM_BIGSTEP_LEVEL = 3;
+    uint256 public NUM_BIGSTEP_LEVEL = 3;
 
     bytes32 genesisAssertionHash;
 
@@ -1297,8 +1297,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        uint256 delta = NUM_BIGSTEP_LEVEL * 2; // compensate for time before each layerzero edge is created
-        vm.roll(challengePeriodBlock + 5 + delta);
+        uint256 delta = 5 + NUM_BIGSTEP_LEVEL * 2; // compensate for time before each layerzero edge is created
+        vm.roll(challengePeriodBlock + delta);
 
         BisectionChildren[] memory allWinners = toDynamic(local.smallStepBisection.edges1);
         for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL; ++i) {
@@ -1475,5 +1475,17 @@ contract EdgeChallengeManagerTest is Test {
             bytes32 childId = blockEdges2[i].lowerChildId;
             assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
+    }
+}
+
+contract EdgeChallengeManagerTest1 is EdgeChallengeManagerTest {
+    constructor() {
+        NUM_BIGSTEP_LEVEL = 1;
+    }
+}
+
+contract EdgeChallengeManagerTest10 is EdgeChallengeManagerTest {
+    constructor() {
+        NUM_BIGSTEP_LEVEL = 10;
     }
 }
