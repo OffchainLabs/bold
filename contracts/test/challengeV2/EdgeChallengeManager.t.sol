@@ -36,6 +36,8 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState);
     ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
 
+    uint256 constant NUM_BIGSTEP_LEVEL = 1;
+
     bytes32 genesisAssertionHash;
 
     function genesisStates() internal view returns (bytes32[] memory) {
@@ -168,7 +170,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(AssertionNoSibling.selector));
         challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.Block,
+                edgeType: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: a1,
@@ -194,7 +196,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.Block,
+                edgeType: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: 1,
                 claimId: ei.a1,
@@ -220,7 +222,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(EmptyEdgeSpecificProof.selector));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.Block,
+                edgeType: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: ei.a1,
@@ -242,7 +244,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.Block,
+                edgeType: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: ei.a1,
@@ -270,7 +272,7 @@ contract EdgeChallengeManagerTest is Test {
         uint256 beforeBalance = stakeToken.balanceOf(address(this));
         bytes32 edgeId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.Block,
+                edgeType: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: ei.a1,
@@ -313,7 +315,7 @@ contract EdgeChallengeManagerTest is Test {
                 appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a2State), height1);
             bytes32 edge2Id = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.Block,
+                    edgeType: 0,
                     endHistoryRoot: MerkleTreeLib.root(exp2),
                     endHeight: height1,
                     claimId: ei.a2,
@@ -490,7 +492,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(EmptyPrefixProof.selector));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -513,7 +515,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Post expansion root not equal post");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -546,7 +548,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, edges1[0].lowerChildId));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -572,7 +574,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(EmptyEdgeSpecificProof.selector));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -603,7 +605,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -636,7 +638,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -669,7 +671,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert("Invalid inclusion proof");
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -697,7 +699,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
         ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: 1,
                 claimId: edges1[0].lowerChildId,
@@ -730,7 +732,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.BigStep,
+                    edgeType: NUM_BIGSTEP_LEVEL,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId,
@@ -751,7 +753,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.BigStep,
+                    edgeType: NUM_BIGSTEP_LEVEL,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId,
@@ -776,10 +778,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory smallStepExp1;
             (smallStepStates1, smallStepExp1) = appendRandomStatesBetween(genesisStates(), bigStepStates1[1], height1);
 
-            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.BigStep, EdgeType.BigStep));
+            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL));
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.BigStep,
+                    edgeType: NUM_BIGSTEP_LEVEL,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId,
@@ -806,10 +808,10 @@ contract EdgeChallengeManagerTest is Test {
             bytes32[] memory bigStepExp1;
             (bigStepStates1, bigStepExp1) = appendRandomStatesBetween(genesisStates(), states1[1], height1);
 
-            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.SmallStep, EdgeType.Block));
+            vm.expectRevert(abi.encodeWithSelector(ClaimEdgeInvalidType.selector, NUM_BIGSTEP_LEVEL + 1, 0));
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.SmallStep,
+                    edgeType: NUM_BIGSTEP_LEVEL + 1,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId,
@@ -843,7 +845,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.BigStep,
+                    edgeType: NUM_BIGSTEP_LEVEL,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp1),
                     endHeight: height1,
                     claimId: edges1[0].lowerChildId,
@@ -864,7 +866,7 @@ contract EdgeChallengeManagerTest is Test {
 
             edge2BigStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.BigStep,
+                    edgeType: NUM_BIGSTEP_LEVEL,
                     endHistoryRoot: MerkleTreeLib.root(bigStepExp2),
                     endHeight: height1,
                     claimId: edges2[0].lowerChildId,
@@ -892,7 +894,7 @@ contract EdgeChallengeManagerTest is Test {
             vm.expectRevert(abi.encodeWithSelector(InvalidEndHeight.selector, 1, 32));
             edge1SmallStepId = ei.challengeManager.createLayerZeroEdge(
                 CreateEdgeArgs({
-                    edgeType: EdgeType.SmallStep,
+                    edgeType: NUM_BIGSTEP_LEVEL + 1,
                     endHistoryRoot: MerkleTreeLib.root(smallStepExp1),
                     endHeight: 1,
                     claimId: bigstepedges1[0].lowerChildId,
@@ -918,7 +920,7 @@ contract EdgeChallengeManagerTest is Test {
 
         bytes32 edge1BigStepId = ei.challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.BigStep,
+                edgeType: NUM_BIGSTEP_LEVEL,
                 endHistoryRoot: MerkleTreeLib.root(bigStepExp),
                 endHeight: height1,
                 claimId: edges1[0].lowerChildId,
@@ -974,7 +976,7 @@ contract EdgeChallengeManagerTest is Test {
 
     struct CreateMachineEdgesBisectArgs {
         EdgeChallengeManager challengeManager;
-        EdgeType eType;
+        uint256 eType;
         bytes32 claim1Id;
         bytes32 claim2Id;
         bytes32 endState1;
@@ -999,7 +1001,7 @@ contract EdgeChallengeManagerTest is Test {
 
         return challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: EdgeType.Block,
+                edgeType: 0,
                 endHistoryRoot: MerkleTreeLib.root(exp),
                 endHeight: height1,
                 claimId: claimId,
@@ -1146,7 +1148,7 @@ contract EdgeChallengeManagerTest is Test {
         ) = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                EdgeType.BigStep,
+                NUM_BIGSTEP_LEVEL,
                 blockEdges1[0].lowerChildId,
                 blockEdges2[0].lowerChildId,
                 blockStates1[1],
@@ -1160,7 +1162,7 @@ contract EdgeChallengeManagerTest is Test {
         (,, BisectionChildren[6] memory smallStepEdges1,) = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                EdgeType.SmallStep,
+                NUM_BIGSTEP_LEVEL + 1,
                 bigStepEdges1[0].lowerChildId,
                 bigStepEdges2[0].lowerChildId,
                 bigStepStates1[1],
@@ -1257,7 +1259,7 @@ contract EdgeChallengeManagerTest is Test {
         createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                EdgeType.BigStep,
+                NUM_BIGSTEP_LEVEL,
                 local.blockEdges1[0].lowerChildId,
                 local.blockEdges2[0].lowerChildId,
                 local.blockStates1[1],
@@ -1271,7 +1273,7 @@ contract EdgeChallengeManagerTest is Test {
         (local.smallStepStates1,, local.smallStepEdges1,) = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                EdgeType.SmallStep,
+                NUM_BIGSTEP_LEVEL + 1,
                 local.bigStepEdges1[0].lowerChildId,
                 local.bigStepEdges2[0].lowerChildId,
                 local.bigStepStates1[1],
@@ -1397,13 +1399,13 @@ contract EdgeChallengeManagerTest is Test {
 
     function testRevertRefundStakeBigStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, EdgeType.BigStep));
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, NUM_BIGSTEP_LEVEL));
         ei.challengeManager.refundStake(allWinners[11].lowerChildId);
     }
 
     function testRevertRefundStakeSmallStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, EdgeType.SmallStep));
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, NUM_BIGSTEP_LEVEL + 1));
         ei.challengeManager.refundStake(allWinners[5].lowerChildId);
     }
 
@@ -1434,7 +1436,7 @@ contract EdgeChallengeManagerTest is Test {
         ) = createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                EdgeType.BigStep,
+                NUM_BIGSTEP_LEVEL,
                 blockEdges1[0].lowerChildId,
                 blockEdges2[0].lowerChildId,
                 blockStates1[1],
@@ -1449,7 +1451,7 @@ contract EdgeChallengeManagerTest is Test {
         createMachineEdgesAndBisectToFork(
             CreateMachineEdgesBisectArgs(
                 ei.challengeManager,
-                EdgeType.SmallStep,
+                NUM_BIGSTEP_LEVEL + 1,
                 bigStepEdges1[0].lowerChildId,
                 bigStepEdges2[0].lowerChildId,
                 bigStepStates1[1],
