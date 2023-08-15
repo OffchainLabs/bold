@@ -1297,7 +1297,8 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.roll(challengePeriodBlock + 11);
+        uint256 delta = NUM_BIGSTEP_LEVEL * 2; // compensate for time before each layerzero edge is created
+        vm.roll(challengePeriodBlock + 5 + delta);
 
         BisectionChildren[] memory allWinners = toDynamic(local.smallStepBisection.edges1);
         for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL; ++i) {
