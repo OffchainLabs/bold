@@ -54,10 +54,17 @@ contract EdgeChallengeManagerLibAccess {
         OneStepData calldata oneStepData,
         ExecutionContext memory execCtx,
         bytes32[] calldata beforeHistoryInclusionProof,
-        bytes32[] calldata afterHistoryInclusionProof
+        bytes32[] calldata afterHistoryInclusionProof,
+        uint256 numBigstepLevel
     ) public {
         store.confirmEdgeByOneStepProof(
-            edgeId, oneStepProofEntry, oneStepData, execCtx, beforeHistoryInclusionProof, afterHistoryInclusionProof
+            edgeId,
+            oneStepProofEntry,
+            oneStepData,
+            execCtx,
+            beforeHistoryInclusionProof,
+            afterHistoryInclusionProof,
+            numBigstepLevel
         );
     }
 
@@ -67,9 +74,10 @@ contract EdgeChallengeManagerLibAccess {
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
         uint256 challengePeriodBlocks,
-        uint256 stakeAmount
+        uint256 stakeAmount,
+        uint256 numBigstepLevel
     ) public returns (EdgeAddedData memory) {
-        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight);
+        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigstepLevel);
     }
 }
 
@@ -83,13 +91,13 @@ contract EdgeChallengeManagerLibTest is Test {
     EdgeStore store;
     Random rand = new Random();
 
+    uint256 constant NUM_BIGSTEP_LEVEL = 1;
+
     function twoNonRivals() internal returns (ChallengeEdge memory, ChallengeEdge memory) {
         bytes32 originId = rand.hash();
 
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 3, rand.hash(), 9, EdgeType.Block);
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 3, rand.hash(), 9, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 3, rand.hash(), 9, 0);
 
         return (edge1, edge2);
     }
@@ -98,10 +106,8 @@ contract EdgeChallengeManagerLibTest is Test {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
 
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, EdgeType.Block);
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, 0);
 
         return (edge1, edge2);
     }
@@ -169,7 +175,7 @@ contract EdgeChallengeManagerLibTest is Test {
     function testAddMoreRivals() public {
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2) = twoRivals();
         ChallengeEdge memory edge3 = ChallengeEdgeLib.newChildEdge(
-            edge1.originId, edge1.startHistoryRoot, edge1.startHeight, rand.hash(), edge1.endHeight, EdgeType.Block
+            edge1.originId, edge1.startHistoryRoot, edge1.startHeight, rand.hash(), edge1.endHeight, 0
         );
 
         store.add(edge1);
@@ -199,8 +205,7 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testCannotAddSameEdgeTwice() public {
-        ChallengeEdge memory edge =
-            ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), 0, rand.hash(), 10, EdgeType.Block);
+        ChallengeEdge memory edge = ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), 0, rand.hash(), 10, 0);
 
         store.add(edge);
 
@@ -221,7 +226,7 @@ contract EdgeChallengeManagerLibTest is Test {
     function testHasRivalMore() public {
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2) = twoRivals();
         ChallengeEdge memory edge3 = ChallengeEdgeLib.newChildEdge(
-            edge1.originId, edge1.startHistoryRoot, edge1.startHeight, rand.hash(), edge1.endHeight, EdgeType.Block
+            edge1.originId, edge1.startHistoryRoot, edge1.startHeight, rand.hash(), edge1.endHeight, 0
         );
 
         store.add(edge1);
@@ -255,10 +260,8 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function testSingleStepRivalNotRival() public {
         bytes32 originId = rand.hash();
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 9, rand.hash(), 10, EdgeType.Block);
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 9, rand.hash(), 10, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 9, rand.hash(), 10, 0);
 
         store.add(edge1);
         store.add(edge2);
@@ -270,10 +273,8 @@ contract EdgeChallengeManagerLibTest is Test {
     function testSingleStepRivalNotHeight() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 8, rand.hash(), 10, EdgeType.Block);
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 8, rand.hash(), 10, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 8, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 8, rand.hash(), 10, 0);
 
         store.add(edge1);
         store.add(edge2);
@@ -285,10 +286,8 @@ contract EdgeChallengeManagerLibTest is Test {
     function testSingleStepRival() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, EdgeType.Block);
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, 0);
 
         store.add(edge1);
         store.add(edge2);
@@ -300,10 +299,8 @@ contract EdgeChallengeManagerLibTest is Test {
     function testSingleStepRivalNotExist() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, EdgeType.Block);
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 9, rand.hash(), 10, 0);
 
         store.add(edge1);
 
@@ -334,26 +331,22 @@ contract EdgeChallengeManagerLibTest is Test {
     function testTimeUnrivaledAfterRival() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, EdgeType.Block);
+        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, 0);
 
         store.add(edge1);
         vm.roll(block.number + 4);
 
-        ChallengeEdge memory edge2 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, EdgeType.Block);
+        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, 0);
 
         store.add(edge2);
         vm.roll(block.number + 5);
 
-        ChallengeEdge memory edge3 =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, EdgeType.Block);
+        ChallengeEdge memory edge3 = ChallengeEdgeLib.newChildEdge(originId, startRoot, 3, rand.hash(), 9, 0);
         store.add(edge3);
 
         vm.roll(block.number + 6);
 
-        ChallengeEdge memory edge4 =
-            ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 3, rand.hash(), 9, EdgeType.Block);
+        ChallengeEdge memory edge4 = ChallengeEdgeLib.newChildEdge(originId, rand.hash(), 3, rand.hash(), 9, 0);
         store.add(edge4);
 
         vm.roll(block.number + 7);
@@ -483,7 +476,7 @@ contract EdgeChallengeManagerLibTest is Test {
         bytes32 startRoot = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, start + 1));
         bytes32 endRoot = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, end + 1));
 
-        return ChallengeEdgeLib.newChildEdge(originId, startRoot, start, endRoot, end, EdgeType.Block);
+        return ChallengeEdgeLib.newChildEdge(originId, startRoot, start, endRoot, end, 0);
     }
 
     function proofGen(uint256 start, bytes32[] memory states) internal pure returns (bytes32[] memory) {
@@ -942,10 +935,10 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testNextEdgeType() public {
-        assertTrue(EdgeChallengeManagerLib.nextEdgeType(EdgeType.Block) == EdgeType.BigStep);
-        assertTrue(EdgeChallengeManagerLib.nextEdgeType(EdgeType.BigStep) == EdgeType.SmallStep);
+        assertTrue(EdgeChallengeManagerLib.nextEdgeType(0, NUM_BIGSTEP_LEVEL) == NUM_BIGSTEP_LEVEL);
+        assertTrue(EdgeChallengeManagerLib.nextEdgeType(NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL) == NUM_BIGSTEP_LEVEL + 1);
         vm.expectRevert("No next type after SmallStep");
-        EdgeChallengeManagerLib.nextEdgeType(EdgeType.SmallStep);
+        EdgeChallengeManagerLib.nextEdgeType(NUM_BIGSTEP_LEVEL + 1, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaim() public {
@@ -959,14 +952,14 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
 
         store.add(ce);
         bytes32 eid = ce.idMem();
         store.edges[eid].setConfirmed();
 
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
 
         assertTrue(store.edges[bargs.upperChildId1].status == EdgeStatus.Confirmed, "Edge confirmed");
     }
@@ -975,7 +968,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            rand.hash(), rand.hash(), 3, rand.hash(), 4, bargs.upperChildId1, rand.addr(), EdgeType.BigStep
+            rand.hash(), rand.hash(), 3, rand.hash(), 4, bargs.upperChildId1, rand.addr(), NUM_BIGSTEP_LEVEL
         );
 
         store.add(ce);
@@ -988,7 +981,7 @@ contract EdgeChallengeManagerLibTest is Test {
                 store.edges[eid].originId
             )
         );
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function testCheckClaimIdLinkEdgeType() public {
@@ -1002,7 +995,7 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            EdgeType.Block
+            0
         );
 
         store.add(ce);
@@ -1013,11 +1006,11 @@ contract EdgeChallengeManagerLibTest is Test {
                 EdgeTypeInvalid.selector,
                 bargs.upperChildId1,
                 eid,
-                EdgeChallengeManagerLib.nextEdgeType(store.edges[bargs.upperChildId1].eType),
+                EdgeChallengeManagerLib.nextEdgeType(store.edges[bargs.upperChildId1].eType, NUM_BIGSTEP_LEVEL),
                 store.edges[eid].eType
             )
         );
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaimWrongClaimId() public {
@@ -1031,7 +1024,7 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             rand.hash(),
             rand.addr(),
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
 
         store.add(ce);
@@ -1040,7 +1033,7 @@ contract EdgeChallengeManagerLibTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(EdgeClaimMismatch.selector, bargs.upperChildId1, store.edges[eid].claimId)
         );
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaimNotExist() public {
@@ -1054,13 +1047,13 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
 
         bytes32 eid = ce.idMem();
         bytes32 randId = rand.hash();
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, randId));
-        store.confirmEdgeByClaim(randId, eid);
+        store.confirmEdgeByClaim(randId, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaimNotPending() public {
@@ -1074,7 +1067,7 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
 
         store.add(ce);
@@ -1082,7 +1075,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.edges[eid].setConfirmed();
         store.edges[bargs.upperChildId1].setConfirmed();
         vm.expectRevert(abi.encodeWithSelector(EdgeNotPending.selector, bargs.upperChildId1, EdgeStatus.Confirmed));
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaimClaimerNotExist() public {
@@ -1096,12 +1089,12 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
 
         bytes32 eid = ce.idMem();
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, bargs.upperChildId1));
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaimClaimerNotConfirmed() public {
@@ -1115,13 +1108,13 @@ contract EdgeChallengeManagerLibTest is Test {
             4,
             bargs.upperChildId1,
             rand.addr(),
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
 
         store.add(ce);
         bytes32 eid = ce.idMem();
         vm.expectRevert(abi.encodeWithSelector(EdgeNotConfirmed.selector, eid, EdgeStatus.Pending));
-        store.confirmEdgeByClaim(bargs.upperChildId1, eid);
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
     function bisect(ChallengeEdge memory edge, bytes32[] memory states, uint256 start, uint256 end)
@@ -1203,7 +1196,7 @@ contract EdgeChallengeManagerLibTest is Test {
                 100,
                 upperChildId146,
                 rand.addr(),
-                EdgeType.BigStep
+                NUM_BIGSTEP_LEVEL
             );
             if (timeAfterParent1 != 139) {
                 store.add(bigStepZero);
@@ -1222,7 +1215,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         if (timeAfterParent1 == 137) {
             ChallengeEdge memory childE1 =
-                ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), 10, rand.hash(), 100, EdgeType.Block);
+                ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), 10, rand.hash(), 100, 0);
 
             store.add(childE1);
 
@@ -1262,7 +1255,8 @@ contract EdgeChallengeManagerLibTest is Test {
         if (revertArg.length != 0) {
             vm.expectRevert(revertArg);
         }
-        uint256 totalTime = store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodSec);
+        uint256 totalTime =
+            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodSec, NUM_BIGSTEP_LEVEL);
 
         assertTrue(store.edges[bsId].status == EdgeStatus.Confirmed, "Edge confirmed");
         assertEq(
@@ -1333,7 +1327,7 @@ contract EdgeChallengeManagerLibTest is Test {
             startHeight,
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, startHeight + 2)),
             startHeight + 1,
-            EdgeType.SmallStep
+            NUM_BIGSTEP_LEVEL + 1
         );
         data.e2 = ChallengeEdgeLib.newChildEdge(
             data.e1.originId,
@@ -1341,10 +1335,10 @@ contract EdgeChallengeManagerLibTest is Test {
             startHeight,
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, startHeight + 2)),
             startHeight + 1,
-            EdgeType.SmallStep
+            NUM_BIGSTEP_LEVEL + 1
         );
         if (flag == 3) {
-            data.e1.eType = EdgeType.BigStep;
+            data.e1.eType = NUM_BIGSTEP_LEVEL;
             data.revertArg = abi.encodeWithSelector(EdgeTypeNotSmallStep.selector, data.e1.eType);
         }
         if (flag == 5) {
@@ -1397,7 +1391,7 @@ contract EdgeChallengeManagerLibTest is Test {
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
-        a.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof);
+        a.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof, NUM_BIGSTEP_LEVEL);
 
         if (bytes(data.revertArg).length != 0) {
             // for flag one the edge does not exist
@@ -1592,7 +1586,7 @@ contract EdgeChallengeManagerLibTest is Test {
         EdgeChallengeManagerLibAccess a = new EdgeChallengeManagerLibAccess();
 
         CreateEdgeArgs memory args = CreateEdgeArgs({
-            edgeType: EdgeType.Block,
+            edgeType: 0,
             endHistoryRoot: endRoot,
             endHeight: expectedEndHeight,
             claimId: claimId,
@@ -1607,7 +1601,9 @@ contract EdgeChallengeManagerLibTest is Test {
         if (revertArg.length != 0) {
             vm.expectRevert(revertArg);
         }
-        a.createLayerZeroEdge(args, ard, entry, expectedEndHeight, challengePeriodBlocks, stakeAmount);
+        a.createLayerZeroEdge(
+            args, ard, entry, expectedEndHeight, challengePeriodBlocks, stakeAmount, NUM_BIGSTEP_LEVEL
+        );
     }
 
     function testCreateLayerZeroEdgeBlockA() public {
@@ -1666,7 +1662,7 @@ contract EdgeChallengeManagerLibTest is Test {
             start,
             MerkleTreeLib.root(claimRoots.endExp),
             end,
-            EdgeType.BigStep
+            NUM_BIGSTEP_LEVEL
         );
         c.add(ce);
         // and give it a rival
@@ -1746,14 +1742,14 @@ contract EdgeChallengeManagerLibTest is Test {
         vars.emptyArd;
 
         if (mode == 163) {
-            vars.revertArg = abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.BigStep, EdgeType.BigStep);
+            vars.revertArg = abi.encodeWithSelector(ClaimEdgeInvalidType.selector, NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL);
         }
         if (vars.revertArg.length != 0) {
             vm.expectRevert(vars.revertArg);
         }
         vars.c.createLayerZeroEdge(
             CreateEdgeArgs({
-                edgeType: mode == 163 ? EdgeType.BigStep : EdgeType.SmallStep,
+                edgeType: mode == 163 ? NUM_BIGSTEP_LEVEL : NUM_BIGSTEP_LEVEL + 1,
                 endHistoryRoot: MerkleTreeLib.root(vars.roots.endExp),
                 endHeight: vars.expectedEndHeight,
                 claimId: vars.claimId,
@@ -1764,7 +1760,8 @@ contract EdgeChallengeManagerLibTest is Test {
             vars.a,
             vars.expectedEndHeight,
             challengePeriodBlocks,
-            stakeAmount
+            stakeAmount,
+            NUM_BIGSTEP_LEVEL
         );
     }
 

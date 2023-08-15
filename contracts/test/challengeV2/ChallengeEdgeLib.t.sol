@@ -10,6 +10,7 @@ import "../../src/challengeV2/libraries/ChallengeEdgeLib.sol";
 
 contract ChallengeEdgeLibTest is Test {
     Random rand = new Random();
+    uint256 constant NUM_BIGSTEP_LEVEL = 1;
 
     function randCheckArgs() internal returns (bytes32, bytes32, bytes32) {
         return (rand.hash(), rand.hash(), rand.hash());
@@ -54,8 +55,9 @@ contract ChallengeEdgeLibTest is Test {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
         bytes32 claimId = rand.hash();
         address staker = rand.addr();
-        ChallengeEdge memory e =
-            ChallengeEdgeLib.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, claimId, staker, EdgeType.BigStep);
+        ChallengeEdge memory e = ChallengeEdgeLib.newLayerZeroEdge(
+            originId, startRoot, 10, endRoot, 15, claimId, staker, NUM_BIGSTEP_LEVEL + 1
+        );
         assertEq(e.originId, originId, "Origin id");
         assertEq(e.startHeight, 10, "Start height");
         assertEq(e.startHistoryRoot, startRoot, "Start root");
@@ -68,26 +70,29 @@ contract ChallengeEdgeLibTest is Test {
         assertEq(e.claimId, claimId, "Claim id");
         assertEq(e.staker, staker, "Staker");
         assertTrue(e.status == EdgeStatus.Pending, "Status");
-        assertTrue(e.eType == EdgeType.BigStep, "EType");
+        assertTrue(e.eType == NUM_BIGSTEP_LEVEL + 1, "EType");
     }
 
     function testNewLayerZeroEdgeZeroStaker() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
         bytes32 claimId = rand.hash();
         vm.expectRevert(abi.encodeWithSelector(EmptyStaker.selector));
-        ChallengeEdgeLib.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, claimId, address(0), EdgeType.BigStep);
+        ChallengeEdgeLib.newLayerZeroEdge(
+            originId, startRoot, 10, endRoot, 15, claimId, address(0), NUM_BIGSTEP_LEVEL + 1
+        );
     }
 
     function testNewLayerZeroEdgeZeroClaimId() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
         address staker = rand.addr();
         vm.expectRevert(abi.encodeWithSelector(EmptyClaimId.selector));
-        ChallengeEdgeLib.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, 0, staker, EdgeType.BigStep);
+        ChallengeEdgeLib.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, 0, staker, NUM_BIGSTEP_LEVEL + 1);
     }
 
     function testNewChildEdge() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
-        ChallengeEdge memory e = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 15, EdgeType.BigStep);
+        ChallengeEdge memory e =
+            ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 15, NUM_BIGSTEP_LEVEL + 1);
         assertEq(e.originId, originId, "Origin id");
         assertEq(e.startHeight, 10, "Start height");
         assertEq(e.startHistoryRoot, startRoot, "Start root");
@@ -100,7 +105,7 @@ contract ChallengeEdgeLibTest is Test {
         assertEq(e.claimId, 0, "Claim id");
         assertEq(e.staker, address(0), "Staker");
         assertTrue(e.status == EdgeStatus.Pending, "Status");
-        assertTrue(e.eType == EdgeType.BigStep, "EType");
+        assertTrue(e.eType == NUM_BIGSTEP_LEVEL + 1, "EType");
     }
 
     ChallengeEdge layerZero;
@@ -114,9 +119,10 @@ contract ChallengeEdgeLibTest is Test {
         assertFalse(ChallengeEdgeLib.exists(layerZero), "Layer zero exists");
         assertFalse(ChallengeEdgeLib.exists(child), "Child exists");
 
-        layerZero =
-            ChallengeEdgeLib.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, claimId, staker, EdgeType.BigStep);
-        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, EdgeType.BigStep);
+        layerZero = ChallengeEdgeLib.newLayerZeroEdge(
+            originId, startRoot, 10, endRoot, 15, claimId, staker, NUM_BIGSTEP_LEVEL + 1
+        );
+        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
 
         assertTrue(ChallengeEdgeLib.exists(layerZero), "Layer zero exists");
         assertTrue(ChallengeEdgeLib.exists(child), "Child exists");
@@ -133,9 +139,10 @@ contract ChallengeEdgeLibTest is Test {
         bytes32 claimId = rand.hash();
         address staker = rand.addr();
 
-        layerZero =
-            ChallengeEdgeLib.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, claimId, staker, EdgeType.BigStep);
-        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, EdgeType.BigStep);
+        layerZero = ChallengeEdgeLib.newLayerZeroEdge(
+            originId, startRoot, 10, endRoot, 15, claimId, staker, NUM_BIGSTEP_LEVEL + 1
+        );
+        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
 
         assertEq(ChallengeEdgeLib.length(layerZero), 5, "L-zero len");
         assertEq(ChallengeEdgeLib.length(child), 7, "Child len");
@@ -152,7 +159,7 @@ contract ChallengeEdgeLibTest is Test {
 
     function testSetChildren() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
-        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, EdgeType.BigStep);
+        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
 
         bytes32 lowerChildId = rand.hash();
         bytes32 upperChildId = rand.hash();
@@ -166,7 +173,7 @@ contract ChallengeEdgeLibTest is Test {
 
     function testSetChildrenTwice() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
-        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, EdgeType.BigStep);
+        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
 
         bytes32 lowerChildId = rand.hash();
         bytes32 upperChildId = rand.hash();
@@ -179,7 +186,7 @@ contract ChallengeEdgeLibTest is Test {
 
     function testSetConfirmed() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
-        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, EdgeType.BigStep);
+        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
 
         ChallengeEdgeLib.setConfirmed(child);
         assertTrue(child.status == EdgeStatus.Confirmed, "Status confirmed");
@@ -187,7 +194,7 @@ contract ChallengeEdgeLibTest is Test {
 
     function testSetConfirmedTwice() public {
         (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
-        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, EdgeType.BigStep);
+        child = ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
 
         ChallengeEdgeLib.setConfirmed(child);
         vm.expectRevert(
