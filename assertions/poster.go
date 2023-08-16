@@ -5,6 +5,7 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -116,7 +117,7 @@ func (p *Poster) postAssertionImpl(
 	case err != nil:
 		return nil, err
 	}
-	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName})
+	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{"validatorName": p.validatorName, "newState": fmt.Sprintf("%+v", newState)})
 
 	return assertion, nil
 }

@@ -24,6 +24,14 @@ type LevelZeroHeights struct {
 
 type Opt func(c *rollupgen.Config)
 
+func WithLevelZeroHeights(h *LevelZeroHeights) Opt {
+	return func(c *rollupgen.Config) {
+		c.LayerZeroBlockEdgeHeight = new(big.Int).SetUint64(h.BlockChallengeHeight)
+		c.LayerZeroBigStepEdgeHeight = new(big.Int).SetUint64(h.BigStepChallengeHeight)
+		c.LayerZeroSmallStepEdgeHeight = new(big.Int).SetUint64(h.SmallStepChallengeHeight)
+	}
+}
+
 func GenerateRollupConfig(
 	prod bool,
 	wasmModuleRoot common.Hash,
