@@ -12,6 +12,7 @@ import (
 	"math/big"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,11 +32,36 @@ type ConfigSnapshot struct {
 
 type Provider interface {
 	ExecutionProvider
-	HistoryCommitter
-	HistoryLeafCommitter
+	HistoryCommitmentProvider
 	PrefixProver
 	OneStepProofProvider
 	HistoryChecker
+}
+
+func WithAllStateRoots() ClaimHeight {
+	return ClaimHeight{
+		From: 0,
+		To:   option.None[uint64](),
+	}
+}
+
+type MessageNumberRange struct {
+	From uint64
+	To   uint64
+}
+
+type ClaimHeight struct {
+	From uint64
+	To   option.Option[uint64]
+}
+
+type HistoryCommitmentProvider interface {
+	HistoryCommitment(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		messageNumberRange MessageNumberRange,
+		claimHeights ...ClaimHeight,
+	) (commitments.History, error)
 }
 
 type ExecutionProvider interface {
@@ -47,83 +73,12 @@ type ExecutionProvider interface {
 	ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error)
 }
 
-type HistoryCommitter interface {
-	// Produces a block challenge history commitment up to and including a certain message number.
-	HistoryCommitmentAtMessage(ctx context.Context, messageNumber uint64) (commitments.History, error)
-	// Produces a big step history commitment from big step 0 to N within block
-	// challenge heights A and B where B = A + 1.
-	BigStepCommitmentUpTo(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment from small step 0 to N between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepCommitmentUpTo(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep,
-		toSmallStep uint64,
-	) (commitments.History, error)
-}
-
-type HistoryLeafCommitter interface {
-	// Produces a block challenge history commitment in a certain inclusive message number range,
-	// but padding states with duplicates after the first state with a
-	// batch count of at least the specified max.
-	HistoryCommitmentUpToBatch(
-		ctx context.Context,
-		messageNumberStart,
-		messageNumberEnd,
-		batchCount uint64,
-	) (commitments.History, error)
-	// Produces a big step history commitment for all big steps within block
-	// challenge heights H to H+1.
-	BigStepLeafCommitment(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment for all small steps between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepLeafCommitment(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep uint64,
-	) (commitments.History, error)
-}
-
 type PrefixProver interface {
-	// Produces a prefix proof in a block challenge from height A to B, but padding states with duplicates after the
-	// first state with a batch count of at least the specified max.
-	PrefixProofUpToBatch(
-		ctx context.Context,
-		startHeight,
-		fromMessageNumber,
-		toMessageNumber,
-		maxBatchCount uint64,
-	) ([]byte, error)
-	// Produces a big step prefix proof from height A to B for heights H to H+1
-	// within a block challenge.
-	BigStepPrefixProof(
+	PrefixProof(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
-		messageNumber,
-		fromBigStep,
-		toBigStep uint64,
-	) ([]byte, error)
-	// Produces a small step prefix proof from height A to B for big step S to S+1 and
-	// block challenge height heights H to H+1.
-	SmallStepPrefixProof(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep,
-		fromSmallStep,
-		toSmallStep uint64,
+		messageNumberRange MessageNumberRange,
+		claimHeights ...ClaimHeight,
 	) ([]byte, error)
 }
 
@@ -150,7 +105,7 @@ type HistoryChecker interface {
 		assertionInboxMaxCount uint64,
 		parentAssertionAfterStateBatch uint64,
 		challengeLevel protocol.ChallengeLevel,
-		heights protocol.OriginHeights,
 		history History,
+		claimHeights ...ClaimHeight,
 	) (bool, error)
 }
