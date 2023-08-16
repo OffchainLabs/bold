@@ -5,6 +5,7 @@ package protocol
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -104,45 +105,48 @@ type AssertionChain interface {
 	SpecChallengeManager(ctx context.Context) (SpecChallengeManager, error)
 }
 
-// EdgeType corresponds to the three different challenge
-// levels in the protocol: block challenges, big step challenges,
-// and small step challenges.
-type EdgeType uint8
-
-const (
-	BlockChallengeEdge EdgeType = iota
-	BigStepChallengeEdge
-	SmallStepChallengeEdge
-)
-
-func (et EdgeType) IsSubChallenge() bool {
-	return et == BigStepChallengeEdge || et == SmallStepChallengeEdge
+// ChallengeLevel corresponds to the different challenge levels in the protocol.
+// 0 is for block challenges and the last level is for small step challenges.
+// Everything else is a big step challenge of level i where 0 < i < last.
+type ChallengeLevel struct {
+	level uint64
 }
 
-func (et EdgeType) String() string {
-	switch et {
-	case BlockChallengeEdge:
+func NewChallengeLevel(level *big.Int) (ChallengeLevel, error) {
+	if level == nil {
+		return ChallengeLevel{}, errors.New("edge type level cannot be nil")
+	}
+	if !level.IsUint64() {
+		return ChallengeLevel{}, errors.New("edge type level not a uint64")
+	}
+	return ChallengeLevel{level: level.Uint64()}, nil
+}
+
+func NewBlockChallengeLevel() ChallengeLevel {
+	return ChallengeLevel{level: 0}
+}
+
+func (et ChallengeLevel) Uint64() uint64 {
+	return et.level
+}
+
+func (et ChallengeLevel) Big() *big.Int {
+	return new(big.Int).SetUint64(et.level)
+}
+
+func (et ChallengeLevel) IsBlockChallengeLevel() bool {
+	return et.level == 0
+}
+
+func (et ChallengeLevel) Next() ChallengeLevel {
+	return ChallengeLevel{level: et.level + 1}
+}
+
+func (et ChallengeLevel) String() string {
+	if et.level == 0 {
 		return "block_challenge_edge"
-	case BigStepChallengeEdge:
-		return "big_step_challenge_edge"
-	case SmallStepChallengeEdge:
-		return "small_step_challenge_edge"
-	default:
-		return "unknown"
 	}
-}
-
-func EdgeTypeFromString(s string) (EdgeType, error) {
-	switch s {
-	case "block_challenge_edge":
-		return BlockChallengeEdge, nil
-	case "big_step_challenge_edge":
-		return BigStepChallengeEdge, nil
-	case "small_step_challenge_edge":
-		return SmallStepChallengeEdge, nil
-	default:
-		return 0, fmt.Errorf("unknown edge type string: %s", s)
-	}
+	return fmt.Sprintf("challenge_level_%d_edge", et)
 }
 
 type Agreement struct {
@@ -196,7 +200,7 @@ type SpecChallengeManager interface {
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(
 		ctx context.Context,
-		edgeType EdgeType,
+		edgeType ChallengeLevel,
 		originId OriginId,
 		startHeight Height,
 		startHistoryRoot common.Hash,
@@ -263,8 +267,8 @@ type OriginHeights struct {
 type ReadOnlyEdge interface {
 	// The unique identifier for an edge.
 	Id() EdgeId
-	// The type of challenge the edge is a part of.
-	GetType() EdgeType
+	// The challenge level the edge is a part of.
+	GetChallengeLevel() (ChallengeLevel, error)
 	// The start height and history commitment for an edge.
 	StartCommitment() (Height, common.Hash)
 	// The end height and history commitment for an edge.

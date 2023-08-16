@@ -79,11 +79,11 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	wasmModuleRoot common.Hash,
 	inboxMaxCount uint64,
 	parentAssertionAfterStateBatch uint64,
-	edgeType protocol.EdgeType,
+	challengeLevel protocol.ChallengeLevel,
 	originHeights protocol.OriginHeights,
 	history l2stateprovider.History,
 ) (bool, error) {
-	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, edgeType, originHeights, history)
+	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, challengeLevel, originHeights, history)
 	return args.Get(0).(bool), args.Error(1)
 }
 
@@ -226,7 +226,7 @@ func (m *MockSpecChallengeManager) GetEdge(
 
 func (m *MockSpecChallengeManager) CalculateMutualId(
 	ctx context.Context,
-	edgeType protocol.EdgeType,
+	edgeType protocol.ChallengeLevel,
 	originId protocol.OriginId,
 	startHeight protocol.Height,
 	startHistoryRoot common.Hash,
@@ -238,7 +238,7 @@ func (m *MockSpecChallengeManager) CalculateMutualId(
 
 func (m *MockSpecChallengeManager) CalculateEdgeId(
 	ctx context.Context,
-	edgeType protocol.EdgeType,
+	edgeType protocol.ChallengeLevel,
 	originId protocol.OriginId,
 	startHeight protocol.Height,
 	startHistoryRoot common.Hash,
@@ -292,9 +292,9 @@ func (m *MockSpecEdge) Id() protocol.EdgeId {
 	args := m.Called()
 	return args.Get(0).(protocol.EdgeId)
 }
-func (m *MockSpecEdge) GetType() protocol.EdgeType {
+func (m *MockSpecEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
 	args := m.Called()
-	return args.Get(0).(protocol.EdgeType)
+	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
 }
 func (m *MockSpecEdge) MiniStaker() option.Option[common.Address] {
 	args := m.Called()

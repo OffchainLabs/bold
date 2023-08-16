@@ -332,6 +332,10 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	startHeight, startCommit := et.edge.StartCommitment()
 	endHeight, endCommit := et.edge.EndCommitment()
 	id := et.edge.Id()
+	chalLevel, err := et.edge.GetChallengeLevel()
+	if err != nil {
+		panic(err) // TODO: Remove
+	}
 	return log.Ctx{
 		"id":            id.Hash,
 		"startHeight":   startHeight,
@@ -339,7 +343,7 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 		"endHeight":     endHeight,
 		"endCommit":     containers.Trunc(endCommit.Bytes()),
 		"validatorName": et.validatorName,
-		"challengeType": et.edge.GetType(),
+		"challengeType": chalLevel.String(),
 	}
 }
 

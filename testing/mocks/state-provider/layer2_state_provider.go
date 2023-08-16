@@ -273,43 +273,44 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	wasmModuleRoot common.Hash,
 	assertionInboxMaxCount uint64,
 	parentAssertionAfterStateBatch uint64,
-	edgeType protocol.EdgeType,
+	challengeLevel protocol.ChallengeLevel,
 	heights protocol.OriginHeights,
 	commit l2stateprovider.History,
 ) (bool, error) {
-	var localCommit commitments.History
-	var err error
-	switch edgeType {
-	case protocol.BlockChallengeEdge:
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
-		if err != nil {
-			return false, err
-		}
-	case protocol.BigStepChallengeEdge:
-		localCommit, err = s.BigStepCommitmentUpTo(
-			ctx,
-			wasmModuleRoot,
-			uint64(heights.BlockChallengeOriginHeight),
-			commit.Height,
-		)
-		if err != nil {
-			return false, err
-		}
-	case protocol.SmallStepChallengeEdge:
-		localCommit, err = s.SmallStepCommitmentUpTo(
-			ctx,
-			wasmModuleRoot,
-			uint64(heights.BlockChallengeOriginHeight),
-			uint64(heights.BigStepChallengeOriginHeight),
-			commit.Height,
-		)
-		if err != nil {
-			return false, err
-		}
-	default:
-		return false, errors.New("unsupported edge type")
-	}
-	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
+	// var localCommit commitments.History
+	// var err error
+	// switch edgeType {
+	// case protocol.BlockChallengeEdge:
+	// 	localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
+	// 	if err != nil {
+	// 		return false, err
+	// 	}
+	// case protocol.BigStepChallengeEdge:
+	// 	localCommit, err = s.BigStepCommitmentUpTo(
+	// 		ctx,
+	// 		wasmModuleRoot,
+	// 		uint64(heights.BlockChallengeOriginHeight),
+	// 		commit.Height,
+	// 	)
+	// 	if err != nil {
+	// 		return false, err
+	// 	}
+	// case protocol.SmallStepChallengeEdge:
+	// 	localCommit, err = s.SmallStepCommitmentUpTo(
+	// 		ctx,
+	// 		wasmModuleRoot,
+	// 		uint64(heights.BlockChallengeOriginHeight),
+	// 		uint64(heights.BigStepChallengeOriginHeight),
+	// 		commit.Height,
+	// 	)
+	// 	if err != nil {
+	// 		return false, err
+	// 	}
+	// default:
+	// 	return false, errors.New("unsupported edge type")
+	// }
+	//oreturn localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
+	return false, nil
 }
 
 func (s *L2StateBackend) BigStepLeafCommitment(

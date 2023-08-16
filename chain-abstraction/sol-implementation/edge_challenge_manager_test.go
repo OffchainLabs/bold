@@ -486,7 +486,9 @@ func setupBisectionScenario(
 	}
 
 	honestStartCommit, honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
-	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
+	chalLevel, err := honestEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, true, chalLevel.IsBlockChallengeLevel())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
@@ -496,7 +498,9 @@ func setupBisectionScenario(
 	require.Equal(t, false, isOSF)
 
 	evilStartCommit, evilEdge := leafAdder(createdData.EvilStateManager, createdData.Leaf2)
-	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
+	chalLevel, err = evilEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, true, chalLevel.IsBlockChallengeLevel())
 
 	// Honest and evil edge are rivals, neither is presumptive.
 	hasRival, err = honestEdge.HasRival(ctx)
