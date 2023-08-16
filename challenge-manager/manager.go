@@ -45,7 +45,6 @@ type Opt = func(val *Manager)
 // Manager defines an offchain, challenge manager, which will be
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
-	challenged                bool
 	chain                     protocol.Protocol
 	chalManagerAddr           common.Address
 	rollupAddr                common.Address

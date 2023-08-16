@@ -18,9 +18,6 @@ import (
 // and starting a challenge transaction. If the challenge creation is successful, we add a leaf
 // with an associated history commitment to it and spawn a challenge tracker in the background.
 func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionHash) error {
-	if m.challenged {
-		return nil
-	}
 	assertion, err := m.chain.GetAssertion(ctx, id)
 	if err != nil {
 		return errors.Wrapf(err, "could not get assertion to challenge with id %#x", id)
@@ -116,6 +113,5 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
-	m.challenged = true
 	return edge, creationInfo, nil
 }
