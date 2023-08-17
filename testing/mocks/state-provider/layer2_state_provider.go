@@ -12,6 +12,7 @@ import (
 	"math/big"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
@@ -214,10 +215,98 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
-	return commitments.New(
-		[]common.Hash{s.stateRoots[messageNumber]},
-	)
+var (
+	ErrNotOneStepFork = errors.New("height range is not a one step fork")
+	ErrInvalidRange   = errors.New("invalid height range")
+	emptyCommit       = commitments.History{}
+)
+
+func (s *L2StateBackend) HistoryCommitment(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	inboxMaxCount uint64,
+	messageNumberRange l2stateprovider.MessageNumberRange,
+	claimHeights ...l2stateprovider.ClaimHeight,
+) (commitments.History, error) {
+	// If the call is for message number ranges only, we get the hashes for
+	// those states and return a commitment for them.
+	if len(claimHeights) == 0 {
+		states, err := s.statesUpTo(messageNumberRange.From, messageNumberRange.To, inboxMaxCount)
+		if err != nil {
+			return emptyCommit, err
+		}
+		return commitments.New(states)
+	}
+	// Otherwise, the previous range for a claim height should have a length of one
+	// for all specified claim heights, and we verify this condition.
+	ranges := []l2stateprovider.ClaimHeight{
+		{From: messageNumberRange.From, To: option.Some(messageNumberRange.To)},
+	}
+	// Validates ranges.
+	ranges = append(ranges, claimHeights...)
+	for i := 1; i < len(ranges)-1; i++ {
+		prevRange := ranges[i-1]
+		prevFrom := prevRange.From
+		prevTo := prevRange.To
+		if prevTo.IsNone() {
+			return emptyCommit, ErrInvalidRange
+		}
+		if prevTo.Unwrap() != prevFrom+1 {
+			return emptyCommit, fmt.Errorf(
+				"%w: %d != %d+1",
+				ErrNotOneStepFork,
+				prevTo.Unwrap(),
+				prevFrom,
+			)
+		}
+	}
+
+	// Next, computes the exact start point of where we need to execute
+	// the machine from the inputs, and figures out in what increments we need to do so.
+	machine, err := s.machineAtBlock(ctx, messageNumberRange.From)
+	if err != nil {
+		return commitments.History{}, err
+	}
+	machineStartIndex := s.computeMachineStartIndex()
+
+	stepBy := s.computeStepIncrements()
+	if err = machine.Step(machineStartIndex); err != nil {
+		return emptyCommit, err
+	}
+
+	start := uint64(0)
+	end := uint64(0)
+
+	// TODO: Validate math safety here.
+	leaves := make([]common.Hash, end-start+1)
+	for i := start; i <= end; i++ {
+		leaves = append(leaves, s.getMachineHash(machine, messageNumberRange.From))
+		if i >= end {
+			// We don't need to step the machine to the next point because it won't be used
+			break
+		}
+		if err = machine.Step(stepBy); err != nil {
+			return emptyCommit, err
+		}
+	}
+	return commitments.New(leaves)
+}
+
+func (s *L2StateBackend) computeMachineStartIndex() uint64 {
+	return 0
+}
+
+func (s *L2StateBackend) computeStepIncrements() uint64 {
+	return 0
+}
+
+func (s *L2StateBackend) PrefixProof(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	messageNumberRange l2stateprovider.MessageNumberRange,
+	claimHeights ...l2stateprovider.ClaimHeight,
+) (commitments.History, error) {
+	return commitments.History{}, nil
 }
 
 func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
