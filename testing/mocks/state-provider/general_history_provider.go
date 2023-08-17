@@ -127,10 +127,11 @@ func (s *L2StateBackend) computeMachineStartIndex(
 		)
 	}
 	startIndex := uint64(0)
-	for i := range claimHeights {
+	for i := 0; i < len(claimHeights)-1; i++ {
 		startIndex += claimHeights[i].From * s.challengeLeafHeights[i]
 	}
-	return 0, nil
+	startIndex += claimHeights[len(claimHeights)-1].From
+	return startIndex, nil
 }
 
 func (s *L2StateBackend) computeStepIncrement(requestedChallengeLevel uint64) (uint64, error) {
