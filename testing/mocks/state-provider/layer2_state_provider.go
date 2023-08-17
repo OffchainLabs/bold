@@ -48,6 +48,7 @@ type L2StateBackend struct {
 	levelZeroBigStepEdgeHeight   uint64
 	levelZeroSmallStepEdgeHeight uint64
 	maliciousMachineIndex        uint64
+	challengeLeafHeights         []uint64
 }
 
 // NewWithMockedStateRoots initialize with a list of predefined state roots, useful for tests and simulations.
@@ -265,24 +266,52 @@ func (s *L2StateBackend) HistoryCommitment(
 	// the machine from the inputs, and figures out in what increments we need to do so.
 	machine, err := s.machineAtBlock(ctx, messageNumberRange.From)
 	if err != nil {
-		return commitments.History{}, err
+		return emptyCommit, err
 	}
-	machineStartIndex := s.computeMachineStartIndex()
+	machineStartIndex, err := s.computeMachineStartIndex(claimHeights)
+	if err != nil {
+		return emptyCommit, err
+	}
 
-	stepBy := s.computeStepIncrements()
+	// We compute the stepwise increments we need for stepping through the machine.
+	stepBy, err := s.computeStepIncrements(uint64(len(claimHeights)))
+	if err != nil {
+		return emptyCommit, err
+	}
+
+	// We advance the machine to the index we need to start from.
 	if err = machine.Step(machineStartIndex); err != nil {
 		return emptyCommit, err
 	}
 
-	start := uint64(0)
-	end := uint64(0)
+	requestedRange := claimHeights[len(claimHeights)-1]
 
-	// TODO: Validate math safety here.
+	// Advance the machine to the requested start point.
+	maxHeightForLevel := s.challengeLeafHeights[len(claimHeights)-1]
+
+	// Get the start and end points for the machine stepping.
+	start := requestedRange.From
+	var end uint64
+	if requestedRange.To.IsNone() {
+		end = s.challengeLeafHeights[len(claimHeights)-1]
+	} else {
+		end = requestedRange.To.Unwrap()
+		if end > maxHeightForLevel {
+			end = maxHeightForLevel
+		}
+	}
+
+	if end < start {
+		return emptyCommit, fmt.Errorf("invalid range: %d > %d", start, end)
+	}
+
+	// We step through the machine in our desired increments, and gather the
+	// machine hashes along the way for the history commitment.
 	leaves := make([]common.Hash, end-start+1)
 	for i := start; i <= end; i++ {
 		leaves = append(leaves, s.getMachineHash(machine, messageNumberRange.From))
 		if i >= end {
-			// We don't need to step the machine to the next point because it won't be used
+			// We don't need to step the machine to the next point because it won't be used.
 			break
 		}
 		if err = machine.Step(stepBy); err != nil {
@@ -292,12 +321,32 @@ func (s *L2StateBackend) HistoryCommitment(
 	return commitments.New(leaves)
 }
 
-func (s *L2StateBackend) computeMachineStartIndex() uint64 {
-	return 0
+func (s *L2StateBackend) computeMachineStartIndex(
+	claimHeights []l2stateprovider.ClaimHeight,
+) (uint64, error) {
+	if len(claimHeights) != len(s.challengeLeafHeights) {
+		return 0, fmt.Errorf(
+			"challenge heights length %d != challenge leaf heights length %d",
+			len(claimHeights),
+			len(s.challengeLeafHeights),
+		)
+	}
+	startIndex := uint64(0)
+	for i := range claimHeights {
+		startIndex += claimHeights[i].From * s.challengeLeafHeights[i]
+	}
+	return 0, nil
 }
 
-func (s *L2StateBackend) computeStepIncrements() uint64 {
-	return 0
+func (s *L2StateBackend) computeStepIncrements(requestedChallengeLevel uint64) (uint64, error) {
+	if requestedChallengeLevel >= uint64(len(s.challengeLeafHeights)) {
+		return 0, fmt.Errorf(
+			"requested challenge level %d >= challenge leaf heights length %d",
+			requestedChallengeLevel,
+			len(s.challengeLeafHeights),
+		)
+	}
+	return s.challengeLeafHeights[requestedChallengeLevel], nil
 }
 
 func (s *L2StateBackend) PrefixProof(
