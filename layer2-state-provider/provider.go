@@ -12,6 +12,7 @@ import (
 	"math/big"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
@@ -45,6 +46,34 @@ type ExecutionProvider interface {
 	// Returns ErrChainCatchingUp if catching up to chain.
 	// Returns ErrNoExecutionState if the state manager does not have this execution state.
 	ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error)
+}
+
+func WithAllStateRoots() ClaimHeight {
+	return ClaimHeight{
+		From: 0,
+		To:   option.None[uint64](),
+	}
+}
+
+type MessageNumberRange struct {
+	From uint64
+	To   uint64
+}
+
+type ClaimHeight struct {
+	From uint64
+	To   option.Option[uint64]
+}
+
+type GeneralHistoryCommitter interface {
+	HistoryCommitment(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		messageNumber,
+		bigStep uint64,
+		messageNumberRange MessageNumberRange,
+		claimHeights ...ClaimHeight,
+	) (commitments.History, error)
 }
 
 type HistoryCommitter interface {
