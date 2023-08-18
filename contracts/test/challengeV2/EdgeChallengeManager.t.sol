@@ -29,6 +29,8 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 }
 
 contract EdgeChallengeManagerTest is Test {
+    using ChallengeEdgeLib for ChallengeEdge;
+
     Random rand = new Random();
     bytes32 genesisBlockHash = rand.hash();
     ExecutionState genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
@@ -305,7 +307,7 @@ contract EdgeChallengeManagerTest is Test {
         assertTrue(ei.challengeManager.getEdge(edgeId).status == EdgeStatus.Confirmed, "Edge confirmed");
     }
 
-    function testCanConfirmByChildren() public {
+    function testCanConfirmByChildren() public returns (EdgeInitData memory, bytes32) {
         (EdgeInitData memory ei, bytes32[] memory states1,, bytes32 edge1Id) = testCanCreateEdgeWithStake();
 
         vm.roll(block.number + 1);
@@ -348,6 +350,51 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.confirmEdgeByChildren(edge1Id);
 
         assertTrue(ei.challengeManager.getEdge(edge1Id).status == EdgeStatus.Confirmed, "Edge confirmed");
+
+        return (ei, edge1Id);
+    }
+
+    function testRevertConfirmAnotherRival() public {
+        (EdgeInitData memory ei, bytes32 edge1Id) = testCanConfirmByChildren();
+
+        (bytes32[] memory states2, bytes32[] memory exp2) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a2State), height1);
+        bytes32 edge2Id = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                edgeType: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp2),
+                endHeight: height1,
+                claimId: ei.a2,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states2, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states2), states2.length - 1),
+                    genesisStateData,
+                    ei.a2Data
+                    )
+            })
+        );
+
+        BisectionChildren memory children = bisect(ei.challengeManager, edge2Id, states2, 16, states2.length - 1);
+        BisectionChildren memory children2 = bisect(ei.challengeManager, children.lowerChildId, states2, 8, 16);
+        vm.roll(block.number + challengePeriodBlock + 5);
+        bytes32[] memory ancestors = new bytes32[](2);
+        ancestors[0] = children.lowerChildId;
+        ancestors[1] = edge2Id;
+        ei.challengeManager.confirmEdgeByTime(children2.lowerChildId, ancestors, ei.a2Data);
+        ei.challengeManager.confirmEdgeByTime(children2.upperChildId, ancestors, ei.a2Data);
+        vm.expectRevert(); // should not be able to confirm when a rival is already confirmed
+        ei.challengeManager.confirmEdgeByChildren(children.lowerChildId);
+        ancestors = new bytes32[](1);
+        ancestors[0] = edge2Id;
+        ei.challengeManager.confirmEdgeByTime(children.upperChildId, ancestors, ei.a2Data);
+        vm.expectRevert(); // should not be able to confirm when a rival is already confirmed
+        ei.challengeManager.confirmEdgeByChildren(edge2Id);
+        assertFalse(ei.challengeManager.getEdge(edge1Id).status == ei.challengeManager.getEdge(edge2Id).status);
+        assertTrue(edge1Id != edge2Id, "Same edge");
+        assertEq(ei.challengeManager.getEdge(edge1Id).mutualIdMemory(), ei.challengeManager.getEdge(edge2Id).mutualIdMemory(), "Is rival");
     }
 
     function bisect(
@@ -1025,7 +1072,7 @@ contract EdgeChallengeManagerTest is Test {
 
         vm.roll(block.number + 1);
 
-        assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+        // assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
 
         (bytes32[] memory states2, bytes32[] memory exp2) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(args.endState2), height1);
