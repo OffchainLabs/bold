@@ -1072,7 +1072,7 @@ contract EdgeChallengeManagerTest is Test {
 
         vm.roll(block.number + 1);
 
-        // assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+        assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
 
         (bytes32[] memory states2, bytes32[] memory exp2) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(args.endState2), height1);
