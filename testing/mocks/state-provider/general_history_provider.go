@@ -151,19 +151,31 @@ func (s *L2StateBackend) blockHistoryCommitment(
 // granularity, we have to do some math to figure out the correct index.
 // Take, for example:
 //
-//	challengeLeafHeights = [4, 8]
+// lvl2_items_per_lvl1_step = 2
+// lvl3_items_per_lvl2_step = 4
+// lvl4_items_per_lvl3_step = 8
 //
-// This means there are 4 big steps per block challenge and 8 opcodes per big step.
+// This means there are 2 lvl2 items per lvl1 step, 4 lvl3 items per lvl2 step,
+// and 8 lvl4 items per lvl3 step in a challenge.
 //
-// With the following inputs:
+// # Let's say we want to compute the actual opcode index for start heights
 //
-//	 bigStepsPerBlockChal := 4
-//	 opcodesPerBigStep := 8
-//		bigStepRange := {From: 2, To: 3}
-//		smallStepRange := {From: 6, To: 7}
+// [lvl1_start=2, lvl2_start=3, lvl3_start=4]
+//
+// We can compute the opcode index using the following algorithm for the example above.
+//
+//			2 * (4 * 8) = 64
+//		  + 3 * (8)     = 24
+//	   + 4           = opcode at index 92
+//
+// This generalizes for any number of subchallenge levels into the algorithm below.
 func (s *L2StateBackend) computeMachineStartIndex(
 	startHeights validatedStartHeights,
 ) (uint64, error) {
+	if len(startHeights) == 1 {
+		return 0, nil
+	}
+	heights := startHeights[1:]
 	// if len(claimHeights) != len(s.challengeLeafHeights) {
 	// 	return 0, fmt.Errorf(
 	// 		"challenge heights length %d != challenge leaf heights length %d",
