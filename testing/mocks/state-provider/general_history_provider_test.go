@@ -101,6 +101,41 @@ func Test_computeRequiredNumberOfHashes(t *testing.T) {
 }
 
 func Test_computeMachineStartIndex(t *testing.T) {
+	t.Run("three challenge levels", func(t *testing.T) {
+		provider := &L2StateBackend{
+			challengeLeafHeights: []uint64{
+				32,
+				1 << 10,
+				1 << 10,
+			},
+		}
+		heights := []l2stateprovider.Height{
+			0,
+			0,
+			3,
+			4,
+		}
+		got := provider.computeMachineStartIndex(validatedStartHeights(heights))
+		require.Equal(t, uint64(92), got)
+	})
+	t.Run("four challenge levels", func(t *testing.T) {
+		provider := &L2StateBackend{
+			challengeLeafHeights: []uint64{
+				1,
+				2,
+				4,
+				8,
+			},
+		}
+		heights := []l2stateprovider.Height{
+			0,
+			2,
+			3,
+			4,
+		}
+		got := provider.computeMachineStartIndex(validatedStartHeights(heights))
+		require.Equal(t, uint64(92), got)
+	})
 }
 
 func Test_computeStepIncrement(t *testing.T) {

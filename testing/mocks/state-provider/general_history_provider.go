@@ -51,10 +51,7 @@ func (s *L2StateBackend) HistoryCommitment(
 
 	// Next, computes the exact start point of where we need to execute
 	// the machine from the inputs, and figures out in what increments we need to do so.
-	machineStartIndex, err := s.computeMachineStartIndex(validatedHeights)
-	if err != nil {
-		return emptyCommit, err
-	}
+	machineStartIndex := s.computeMachineStartIndex(validatedHeights)
 
 	// We compute the stepwise increments we need for stepping through the machine.
 	stepBy, err := s.computeStepIncrement(validatedHeights)
@@ -171,25 +168,27 @@ func (s *L2StateBackend) blockHistoryCommitment(
 // This generalizes for any number of subchallenge levels into the algorithm below.
 func (s *L2StateBackend) computeMachineStartIndex(
 	startHeights validatedStartHeights,
-) (uint64, error) {
+) uint64 {
 	if len(startHeights) == 1 {
-		return 0, nil
+		return 0
 	}
+	// We ignore the block challenge level here.
 	heights := startHeights[1:]
-	// if len(claimHeights) != len(s.challengeLeafHeights) {
-	// 	return 0, fmt.Errorf(
-	// 		"challenge heights length %d != challenge leaf heights length %d",
-	// 		len(claimHeights),
-	// 		len(s.challengeLeafHeights),
-	// 	)
-	// }
-	// startIndex := uint64(0)
-	// for i := 0; i < len(claimHeights)-1; i++ {
-	// 	startIndex += claimHeights[i].From * s.challengeLeafHeights[i]
-	// }
-	// startIndex += claimHeights[len(claimHeights)-1].From
-	// return startIndex, nil
-	return 0, nil
+	leafHeights := s.challengeLeafHeights[1:]
+
+	// Next, we compute the opcode index.
+	opcodeIndex := uint64(0)
+	idx := 1
+	// TODO: Handle height 0.
+	for _, height := range heights {
+		total := uint64(1)
+		for i := idx; i < len(leafHeights); i++ {
+			total *= leafHeights[i]
+		}
+		opcodeIndex += total * uint64(height)
+		idx += 1
+	}
+	return opcodeIndex
 }
 
 func (s *L2StateBackend) computeStepIncrement(startHeights validatedStartHeights) (uint64, error) {
