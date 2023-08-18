@@ -17,6 +17,10 @@ var (
 	emptyCommit       = commitments.History{}
 )
 
+// A list of heights that have been validated to be non-empty
+// and to be < the total number of challenge levels in the protocol.
+type validatedStartHeights []l2stateprovider.Height
+
 // HistoryCommitment computes a Merklelized commitment over a set of hashes
 // at specified challenge levels.
 // For block challenges, for example, this is a set of machine hashes corresponding
@@ -28,17 +32,18 @@ func (s *L2StateBackend) HistoryCommitment(
 	startHeights []l2stateprovider.Height,
 	upToHeight option.Option[l2stateprovider.Height],
 ) (commitments.History, error) {
-	if len(startHeights) == 0 {
-		return emptyCommit, errors.New("must specify at least one start height")
+	validatedHeights, err := s.validateStartHeights(startHeights)
+	if err != nil {
+		return emptyCommit, err
 	}
 	// If the call is for message number ranges only, we get the hashes for
 	// those states and return a commitment for them.
-	if len(startHeights) == 1 {
-		return s.blockHistoryCommitment(startHeights[0], upToHeight, batch)
+	if len(validatedHeights) == 1 {
+		return s.blockHistoryCommitment(validatedHeights[0], upToHeight, batch)
 	}
 
 	// Loads a machine at a specific message number.
-	fromMessageNumber := uint64(startHeights[0])
+	fromMessageNumber := uint64(validatedHeights[0])
 	machine, err := s.machineAtBlock(ctx, fromMessageNumber)
 	if err != nil {
 		return emptyCommit, err
@@ -46,13 +51,13 @@ func (s *L2StateBackend) HistoryCommitment(
 
 	// Next, computes the exact start point of where we need to execute
 	// the machine from the inputs, and figures out in what increments we need to do so.
-	machineStartIndex, err := s.computeMachineStartIndex(startHeights)
+	machineStartIndex, err := s.computeMachineStartIndex(validatedHeights)
 	if err != nil {
 		return emptyCommit, err
 	}
 
 	// We compute the stepwise increments we need for stepping through the machine.
-	stepBy, err := s.computeStepIncrement(startHeights)
+	stepBy, err := s.computeStepIncrement(validatedHeights)
 	if err != nil {
 		return emptyCommit, err
 	}
@@ -63,7 +68,7 @@ func (s *L2StateBackend) HistoryCommitment(
 	}
 
 	// Compute how many machine hashes we need to collect.
-	numHashes, err := s.computeRequiredNumberOfHashes(startHeights, upToHeight)
+	numHashes, err := s.computeRequiredNumberOfHashes(validatedHeights, upToHeight)
 	if err != nil {
 		return emptyCommit, err
 	}
@@ -84,12 +89,12 @@ func (s *L2StateBackend) HistoryCommitment(
 // Computes the required number of hashes for a history commitment
 // based on the requested heights and challenge level.
 func (s *L2StateBackend) computeRequiredNumberOfHashes(
-	startHeights []l2stateprovider.Height,
+	startHeights validatedStartHeights,
 	upToHeight option.Option[l2stateprovider.Height],
 ) (uint64, error) {
-	challengeLevel := len(startHeights) - 1
 	// Get the max number of hashes at the specified challenge level.
 	// from the protocol constants.
+	challengeLevel := len(startHeights) - 1
 	maxHeightForLevel := s.challengeLeafHeights[challengeLevel]
 
 	// Get the start height we want to use at the challenge level.
@@ -100,13 +105,20 @@ func (s *L2StateBackend) computeRequiredNumberOfHashes(
 		end = maxHeightForLevel
 	} else {
 		end = uint64(upToHeight.Unwrap())
-		// If the end height is more than the allowed max, we truncate.
+		// If the end height is more than the allowed max, we return an error.
+		// This scenario should not happen, and instead of silently truncating,
+		// surfacing an error is the safest way of warning the operator
+		// they are committing something invalid.
 		if end > maxHeightForLevel {
-			end = maxHeightForLevel
+			return 0, fmt.Errorf(
+				"end %d was greater than max height for level %d",
+				end,
+				maxHeightForLevel,
+			)
 		}
 	}
 	if end < start {
-		return 0, fmt.Errorf("invalid range: %d > %d", start, end)
+		return 0, fmt.Errorf("invalid range: end %d was < start %d", end, start)
 	}
 	// The number of hashes is the difference between the start and end
 	// requested heights, plus 1.
@@ -134,8 +146,23 @@ func (s *L2StateBackend) blockHistoryCommitment(
 	return commitments.New(states)
 }
 
+// Figure out the actual opcode index we should move the machine to
+// when we compute the history commitment. As there are different levels of challenge
+// granularity, we have to do some math to figure out the correct index.
+// Take, for example:
+//
+//	challengeLeafHeights = [4, 8]
+//
+// This means there are 4 big steps per block challenge and 8 opcodes per big step.
+//
+// With the following inputs:
+//
+//	 bigStepsPerBlockChal := 4
+//	 opcodesPerBigStep := 8
+//		bigStepRange := {From: 2, To: 3}
+//		smallStepRange := {From: 6, To: 7}
 func (s *L2StateBackend) computeMachineStartIndex(
-	startHeights []l2stateprovider.Height,
+	startHeights validatedStartHeights,
 ) (uint64, error) {
 	// if len(claimHeights) != len(s.challengeLeafHeights) {
 	// 	return 0, fmt.Errorf(
@@ -153,14 +180,32 @@ func (s *L2StateBackend) computeMachineStartIndex(
 	return 0, nil
 }
 
-func (s *L2StateBackend) computeStepIncrement(startHeights []l2stateprovider.Height) (uint64, error) {
-	// if requestedChallengeLevel >= uint64(len(s.challengeLeafHeights)) {
-	// 	return 0, fmt.Errorf(
-	// 		"requested challenge level %d >= challenge leaf heights length %d",
-	// 		requestedChallengeLevel,
-	// 		len(s.challengeLeafHeights),
-	// 	)
-	// }
-	// return s.challengeLeafHeights[requestedChallengeLevel], nil
-	return 0, nil
+func (s *L2StateBackend) computeStepIncrement(startHeights validatedStartHeights) (uint64, error) {
+	challengeLevel := len(startHeights) - 1
+	totalChallengeLevels := len(s.challengeLeafHeights)
+
+	// The stepwise increment of the last challenge level is always one.
+	if challengeLevel+1 == totalChallengeLevels {
+		return 1, nil
+	}
+	return s.challengeLeafHeights[challengeLevel+1], nil
+}
+
+// Validates a start heights input must be non-empty and have a max
+// equal to the number of challenge levels.
+func (s *L2StateBackend) validateStartHeights(
+	startHeights []l2stateprovider.Height,
+) (validatedStartHeights, error) {
+	if len(startHeights) == 0 {
+		return nil, errors.New("must provide start heights to compute number of hashes")
+	}
+	challengeLevel := len(startHeights) - 1
+	if challengeLevel >= len(s.challengeLeafHeights) {
+		return nil, fmt.Errorf(
+			"challenge level %d is out of range for challenge leaf heights %v",
+			challengeLevel,
+			s.challengeLeafHeights,
+		)
+	}
+	return validatedStartHeights(startHeights), nil
 }

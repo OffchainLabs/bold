@@ -1,72 +1,107 @@
 package stateprovider
 
 import (
+	"context"
 	"testing"
+
+	"github.com/OffchainLabs/bold/containers/option"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHistoryCommitment(t *testing.T) {
+	ctx := context.Background()
+	wasmModuleRoot := common.Hash{}
+	provider := &L2StateBackend{
+		challengeLeafHeights: []uint64{
+			4,
+			8,
+			16,
+		},
+	}
+	_, err := provider.HistoryCommitment(
+		ctx,
+		wasmModuleRoot,
+		0,
+		nil, // No start heights provided.
+		option.None[l2stateprovider.Height](),
+	)
+	require.ErrorContains(t, err, "must specify at least one start height")
+}
 
+func Test_computeRequiredNumberOfHashes(t *testing.T) {
+	provider := &L2StateBackend{
+		challengeLeafHeights: []uint64{
+			4,
+			8,
+			16,
+		},
+	}
+	_, err := provider.computeRequiredNumberOfHashes(nil, option.None[l2stateprovider.Height]())
+	require.ErrorContains(t, err, "must provide start heights")
+
+	_, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{1, 1, 1, 1},
+		option.None[l2stateprovider.Height](),
+	)
+	require.ErrorContains(t, err, "challenge level 3 is out of range")
+
+	_, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{5},
+		option.None[l2stateprovider.Height](),
+	)
+	require.ErrorContains(t, err, "invalid range: end 4 was < start 5")
+
+	_, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0},
+		option.Some(l2stateprovider.Height(5)),
+	)
+	require.ErrorContains(t, err, "end 5 was greater than max height for level 4")
+
+	_, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0},
+		option.Some(l2stateprovider.Height(5)),
+	)
+	require.ErrorContains(t, err, "end 5 was greater than max height for level 4")
+
+	_, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0},
+		option.Some(l2stateprovider.Height(5)),
+	)
+	require.ErrorContains(t, err, "end 5 was greater than max height for level 4")
+
+	got, err := provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0},
+		option.Some(l2stateprovider.Height(4)),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), got)
+
+	got, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0, 0},
+		option.Some(l2stateprovider.Height(4)),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), got)
+
+	got, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0, 0},
+		option.None[l2stateprovider.Height](),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(9), got)
+
+	got, err = provider.computeRequiredNumberOfHashes(
+		[]l2stateprovider.Height{0, 0, 0},
+		option.None[l2stateprovider.Height](),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(17), got)
 }
 
 func Test_computeMachineStartIndex(t *testing.T) {
-	// Figure out the actual opcode index we should move the machine to
-	// when we compute the history commitment. As there are different levels of challenge
-	// granularity, we have to do some math to figure out the correct index.
-	// Take, for example:
-	//
-	// 	challengeLeafHeights = [4, 8]
-	//
-	// This means there are 4 big steps per block challenge and 8 opcodes per big step.
-	//
-	// With the following inputs:
-	//
-	//  bigStepsPerBlockChal := 4
-	//  opcodesPerBigStep := 8
-	// 	bigStepRange := {From: 2, To: 3}
-	// 	smallStepRange := {From: 6, To: 7}
-	//
-	// We want to move our machine to opcode (2 * 4 * 8) + 6 = 70
-	//
-	// provider := &L2StateBackend{
-	// 	challengeLeafHeights: []uint64{
-	// 		4,
-	// 		8,
-	// 	},
-	// }
-	// got, err := provider.computeMachineStartIndex([]l2stateprovider.ClaimHeight{
-	// 	{From: 2, To: option.Some(uint64(3))},
-	// 	{From: 6, To: option.Some(uint64(7))},
-	// })
-	// require.NoError(t, err)
-	// t.Log(got)
-	// require.Equal(t, uint64(70), got)
 }
 
 func Test_computeStepIncrement(t *testing.T) {
-	// provider := &L2StateBackend{
-	// 	challengeLeafHeights: []uint64{
-	// 		1 << 11,
-	// 		1 << 12,
-	// 		1 << 13,
-	// 		1 << 14,
-	// 	},
-	// }
-	// requestedChallengeLevel := uint64(len(provider.challengeLeafHeights))
-	// _, err := provider.computeStepIncrement(requestedChallengeLevel)
-	// require.ErrorContains(t, err, fmt.Sprintf("requested challenge level %d >=", requestedChallengeLevel))
-
-	// requestedChallengeLevel = uint64(len(provider.challengeLeafHeights) - 1)
-	// got, err := provider.computeStepIncrement(requestedChallengeLevel)
-	// require.NoError(t, err)
-	// require.Equal(t, uint64(1<<14), got)
-
-	// requestedChallengeLevel = uint64(0)
-	// got, err = provider.computeStepIncrement(requestedChallengeLevel)
-	// require.NoError(t, err)
-	// require.Equal(t, uint64(1<<11), got)
-
-	// requestedChallengeLevel = uint64(1)
-	// got, err = provider.computeStepIncrement(requestedChallengeLevel)
-	// require.NoError(t, err)
-	// require.Equal(t, uint64(1<<12), got)
 }
