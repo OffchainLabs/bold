@@ -48,36 +48,11 @@ type ExecutionProvider interface {
 	ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error)
 }
 
-func WithAllStateRoots() ClaimHeight {
-	return ClaimHeight{
-		From: 0,
-		To:   option.None[uint64](),
-	}
-}
-
-type MessageNumberRange struct {
-	From uint64
-	To   uint64
-}
-
-type ClaimHeight struct {
-	From uint64
-	To   option.Option[uint64]
-}
-
 type Batch uint64
 type Height uint64
 
 type GeneralHistoryCommitter interface {
 	HistoryCommitment(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep uint64,
-		messageNumberRange MessageNumberRange,
-		claimHeights ...ClaimHeight,
-	) (commitments.History, error)
-	HistoryCommitmentV2(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
 		batch Batch,

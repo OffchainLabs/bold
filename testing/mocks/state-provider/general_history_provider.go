@@ -17,59 +17,51 @@ var (
 	emptyCommit       = commitments.History{}
 )
 
+// HistoryCommitment computes a Merklelized commitment over a set of hashes
+// at specified challenge levels.
+// For block challenges, for example, this is a set of machine hashes corresponding
+// each message in a range N to M.
 func (s *L2StateBackend) HistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	inboxMaxCount uint64,
-	messageNumberRange l2stateprovider.MessageNumberRange,
-	claimHeights ...l2stateprovider.ClaimHeight,
+	batch l2stateprovider.Batch,
+	startHeights []l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
 ) (commitments.History, error) {
+	if len(startHeights) == 0 {
+		return emptyCommit, errors.New("must specify at least one start height")
+	}
 	// If the call is for message number ranges only, we get the hashes for
 	// those states and return a commitment for them.
-	if len(claimHeights) == 0 {
-		states, err := s.statesUpTo(messageNumberRange.From, messageNumberRange.To, inboxMaxCount)
+	if len(startHeights) == 1 {
+		var upTo l2stateprovider.Height
+		if !upToHeight.IsNone() {
+			upTo = upToHeight.Unwrap()
+		} else {
+			upTo = l2stateprovider.Height(s.levelZeroBlockEdgeHeight)
+		}
+		from := startHeights[0]
+		states, err := s.statesUpTo(uint64(from), uint64(upTo), uint64(batch))
 		if err != nil {
 			return emptyCommit, err
 		}
 		return commitments.New(states)
 	}
-	// Otherwise, the previous range for a claim height should have a length of one
-	// for all specified claim heights, and we verify this condition.
-	ranges := []l2stateprovider.ClaimHeight{
-		{From: messageNumberRange.From, To: option.Some(messageNumberRange.To)},
-	}
-	// Validates ranges.
-	ranges = append(ranges, claimHeights...)
-	for i := 1; i < len(ranges)-1; i++ {
-		prevRange := ranges[i-1]
-		prevFrom := prevRange.From
-		prevTo := prevRange.To
-		if prevTo.IsNone() {
-			return emptyCommit, ErrInvalidRange
-		}
-		if prevTo.Unwrap() != prevFrom+1 {
-			return emptyCommit, fmt.Errorf(
-				"%w: %d != %d+1",
-				ErrNotOneStepFork,
-				prevTo.Unwrap(),
-				prevFrom,
-			)
-		}
-	}
 
 	// Next, computes the exact start point of where we need to execute
 	// the machine from the inputs, and figures out in what increments we need to do so.
-	machine, err := s.machineAtBlock(ctx, messageNumberRange.From)
+	fromMessageNumber := uint64(startHeights[0])
+	machine, err := s.machineAtBlock(ctx, fromMessageNumber)
 	if err != nil {
 		return emptyCommit, err
 	}
-	machineStartIndex, err := s.computeMachineStartIndex(claimHeights)
+	machineStartIndex, err := s.computeMachineStartIndex()
 	if err != nil {
 		return emptyCommit, err
 	}
 
 	// We compute the stepwise increments we need for stepping through the machine.
-	stepBy, err := s.computeStepIncrement(uint64(len(claimHeights)))
+	stepBy, err := s.computeStepIncrement(uint64(len(startHeights)))
 	if err != nil {
 		return emptyCommit, err
 	}
@@ -79,18 +71,16 @@ func (s *L2StateBackend) HistoryCommitment(
 		return emptyCommit, err
 	}
 
-	requestedRange := claimHeights[len(claimHeights)-1]
-
 	// Advance the machine to the requested start point.
-	maxHeightForLevel := s.challengeLeafHeights[len(claimHeights)-1]
+	maxHeightForLevel := s.challengeLeafHeights[len(startHeights)-1]
 
 	// Get the start and end points for the machine stepping.
-	start := requestedRange.From
+	start := uint64(startHeights[len(startHeights)-1])
 	var end uint64
-	if requestedRange.To.IsNone() {
-		end = s.challengeLeafHeights[len(claimHeights)-1]
+	if upToHeight.IsNone() {
+		end = maxHeightForLevel
 	} else {
-		end = requestedRange.To.Unwrap()
+		end = uint64(upToHeight.Unwrap())
 		if end > maxHeightForLevel {
 			end = maxHeightForLevel
 		}
@@ -104,7 +94,7 @@ func (s *L2StateBackend) HistoryCommitment(
 	// machine hashes along the way for the history commitment.
 	leaves := make([]common.Hash, end-start+1)
 	for i := start; i <= end; i++ {
-		leaves = append(leaves, s.getMachineHash(machine, messageNumberRange.From))
+		leaves = append(leaves, s.getMachineHash(machine, fromMessageNumber))
 		if i >= end {
 			// We don't need to step the machine to the next point because it won't be used.
 			break
@@ -114,16 +104,6 @@ func (s *L2StateBackend) HistoryCommitment(
 		}
 	}
 	return commitments.New(leaves)
-}
-
-func (s *L2StateBackend) HistoryCommitmentV2(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	batch l2stateprovider.Batch,
-	startHeights []l2stateprovider.Height,
-	upToHeight option.Option[l2stateprovider.Height],
-) (commitments.History, error) {
-	return commitments.History{}, errors.New("unimplemented")
 }
 
 func (s *L2StateBackend) computeMachineStartIndex(
