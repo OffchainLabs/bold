@@ -65,6 +65,9 @@ type ClaimHeight struct {
 	To   option.Option[uint64]
 }
 
+type Batch uint64
+type Height uint64
+
 type GeneralHistoryCommitter interface {
 	HistoryCommitment(
 		ctx context.Context,
@@ -73,6 +76,13 @@ type GeneralHistoryCommitter interface {
 		bigStep uint64,
 		messageNumberRange MessageNumberRange,
 		claimHeights ...ClaimHeight,
+	) (commitments.History, error)
+	HistoryCommitmentV2(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		batch Batch,
+		startHeights []Height,
+		upToHeight option.Option[Height],
 	) (commitments.History, error)
 }
 

@@ -116,6 +116,16 @@ func (s *L2StateBackend) HistoryCommitment(
 	return commitments.New(leaves)
 }
 
+func (s *L2StateBackend) HistoryCommitmentV2(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	batch l2stateprovider.Batch,
+	startHeights []l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
+) (commitments.History, error) {
+	return commitments.History{}, errors.New("unimplemented")
+}
+
 func (s *L2StateBackend) computeMachineStartIndex(
 	claimHeights []l2stateprovider.ClaimHeight,
 ) (uint64, error) {
