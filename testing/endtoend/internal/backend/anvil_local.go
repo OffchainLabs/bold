@@ -268,6 +268,7 @@ func (a *AnvilLocal) DeployRollup() (common.Address, error) {
 			genesisInboxCount,
 			anyTrustFastConfirmer,
 		),
+		false, // Do not use a mock bridge.
 	)
 	if err != nil {
 		return common.Address{}, errors.Wrap(err, "could not deploy rollup stack")

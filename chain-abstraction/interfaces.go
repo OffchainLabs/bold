@@ -56,6 +56,8 @@ type AssertionCreatedInfo struct {
 	AssertionHash       common.Hash
 	WasmModuleRoot      common.Hash
 	ChallengeManager    common.Address
+	TransactionHash     common.Hash
+	CreationBlock       uint64
 }
 
 func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
@@ -68,9 +70,11 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 // which is used for all challenges in the protocol.
 type AssertionChain interface {
 	// Read-only methods.
+	IsStaked(ctx context.Context) (bool, error)
 	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
 	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
+	LatestCreatedAssertionHashes(ctx context.Context) ([]AssertionHash, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
@@ -80,7 +84,12 @@ type AssertionChain interface {
 	TopLevelClaimHeights(ctx context.Context, edgeId EdgeId) (OriginHeights, error)
 
 	// Mutating methods.
-	CreateAssertion(
+	NewStakeOnNewAssertion(
+		ctx context.Context,
+		assertionCreationInfo *AssertionCreatedInfo,
+		postState *ExecutionState,
+	) (Assertion, error)
+	StakeOnNewAssertion(
 		ctx context.Context,
 		assertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,
