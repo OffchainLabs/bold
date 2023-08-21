@@ -23,7 +23,14 @@ struct ExecutionStateData {
 
 /// @notice Data for creating a layer zero edge
 struct CreateEdgeArgs {
-    /// @notice The type of edge to be created
+    /// @notice The type of edge to be created. Challenges are decomposed into 3 types of subchallenge
+    ///         represented here by the edge type. Edges are initially created of type Block
+    ///         and are then bisected until they have length one. After that new BigStep edges are
+    ///         added that claim a Block type edge, and are then bisected until they have length one.
+    ///         Then another N-1 block type levels can exist - set by NUM_BIGSTEP_LEVEL in the EdgeChallengeManager
+    ///         Finally a SmallStep edge is added that claims a highest level length one BigStep edge, and these
+    ///         SmallStep edges are bisected until they reach length one. A length one small step edge
+    ///         can then be directly executed using a one-step proof.
     uint256 edgeType;
     /// @notice The end history root of the edge to be created
     bytes32 endHistoryRoot;
@@ -393,6 +400,7 @@ library EdgeChallengeManagerLib {
     ///                             by the supplied edge args
     /// @param oneStepProofEntry    The one step proof contract that defines how machine states are hashed
     /// @param expectedEndHeight    The expected end height of an edge. Layer zero block edges have predefined heights.
+    /// @param numBigstepLevel      The number of big step levels in this challenge
     function createLayerZeroEdge(
         EdgeStore storage store,
         CreateEdgeArgs calldata args,
@@ -412,7 +420,8 @@ library EdgeChallengeManagerLib {
     }
 
     /// @notice From any given edge, get the id of the previous assertion
-    /// @param edgeId   The edge to get the prev assertion Hash
+    /// @param edgeId           The edge to get the prev assertion Hash
+    /// @param numBigstepLevel  The number of big step levels in this challenge
     function getPrevAssertionHash(EdgeStore storage store, bytes32 edgeId, uint256 numBigstepLevel)
         internal
         view
@@ -626,6 +635,8 @@ library EdgeChallengeManagerLib {
     }
 
     /// @notice Returns the sub edge type of the provided edge type
+    /// @param eType            The edge type to fetch the next of
+    /// @param numBigstepLevel  The number of big step levels in this challenge
     function nextEdgeType(uint256 eType, uint256 numBigstepLevel) internal pure returns (uint256) {
         if (eType == 0) {
             return 1;
@@ -643,6 +654,7 @@ library EdgeChallengeManagerLib {
     /// @param store            The store containing all edges and rivals
     /// @param edgeId           The edge being claimed
     /// @param claimingEdgeId   The edge with a claim id equal to edge id
+    /// @param numBigstepLevel  The number of big step levels in this challenge
     function checkClaimIdLink(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint256 numBigstepLevel)
         private
         view
@@ -672,6 +684,7 @@ library EdgeChallengeManagerLib {
     /// @param store            The store containing all edges and rivals data
     /// @param edgeId           The id of the edge to confirm
     /// @param claimingEdgeId   The id of the edge which has a claimId equal to edgeId
+    /// @param numBigstepLevel  The number of big step levels in this challenge
     function confirmEdgeByClaim(
         EdgeStore storage store,
         bytes32 edgeId,
@@ -712,6 +725,7 @@ library EdgeChallengeManagerLib {
     /// @param claimedAssertionUnrivaledBlocks  The number of blocks that the assertion ultimately being claimed by this edge spent unrivaled
     /// @param confirmationThresholdBlock       The number of blocks that the total unrivaled time of an ancestor chain needs to exceed in
     ///                                         order to be confirmed
+    /// @param numBigstepLevel                  The number of big step levels in this challenge
     function confirmEdgeByTime(
         EdgeStore storage store,
         bytes32 edgeId,
@@ -774,6 +788,7 @@ library EdgeChallengeManagerLib {
     /// @param oneStepData                  Input data to the one step proof
     /// @param beforeHistoryInclusionProof  Proof that the state which is the start of the edge is committed to by the startHistoryRoot
     /// @param afterHistoryInclusionProof   Proof that the state which is the end of the edge is committed to by the endHistoryRoot
+    /// @param numBigstepLevel              The number of big step levels in this challenge
     function confirmEdgeByOneStepProof(
         EdgeStore storage store,
         bytes32 edgeId,

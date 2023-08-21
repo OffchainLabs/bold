@@ -27,7 +27,7 @@ interface IEdgeChallengeManager {
     /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
     /// @param _stakeAmount                 The amount of stake (in units of stake token) required to create a block edge
     /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
-    /// @param _numBigstepLevel              The number of bigstep levels
+    /// @param _numBigstepLevel             The number of bigstep levels
     function initialize(
         IAssertionChain _assertionChain,
         uint256 _challengePeriodBlocks,
@@ -284,7 +284,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     uint256 public LAYERZERO_BIGSTEPEDGE_HEIGHT;
     /// @notice The end height of layer zero SmallStep edges
     uint256 public LAYERZERO_SMALLSTEPEDGE_HEIGHT;
-
+    /// @notice The number of big step levels configured for this challenge manager
+    ///         There is 1 block level, 1 small step level and N big step levels
     uint256 public NUM_BIGSTEP_LEVEL;
 
     constructor() {
