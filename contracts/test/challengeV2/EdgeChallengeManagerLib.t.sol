@@ -883,7 +883,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.edges[upperChildId].setConfirmed();
 
         store.confirmEdgeByChildren(parentEdgeId);
-        vm.expectRevert(abi.encodeWithSelector(EdgeNotPending.selector, parentEdgeId, EdgeStatus.Confirmed));
+        vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, parentEdgeId, parentEdgeId));
         store.confirmEdgeByChildren(parentEdgeId);
     }
 
