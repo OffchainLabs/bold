@@ -1395,7 +1395,7 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.refundStake(allWinners[16].lowerChildId);
     }
 
-    function testRevertRefundStakeBigStep() external {
+    function testRefundStakeBigStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
@@ -1406,7 +1406,7 @@ contract EdgeChallengeManagerTest is Test {
         assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
     }
 
-    function testRevertRefundStakeSmallStep() external {
+    function testRefundStakeSmallStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
