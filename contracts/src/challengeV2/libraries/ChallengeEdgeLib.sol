@@ -170,7 +170,7 @@ library ChallengeEdgeLib {
         return mutualIdComponent(ce.eType, ce.originId, ce.startHeight, ce.startHistoryRoot, ce.endHeight);
     }
 
-    function mutualIdMemory(ChallengeEdge memory ce) internal pure returns (bytes32) {
+    function mutualIdMem(ChallengeEdge memory ce) internal pure returns (bytes32) {
         return mutualIdComponent(ce.eType, ce.originId, ce.startHeight, ce.startHistoryRoot, ce.endHeight);
     }
 

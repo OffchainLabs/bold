@@ -395,8 +395,8 @@ contract EdgeChallengeManagerTest is Test {
         assertFalse(ei.challengeManager.getEdge(edge1Id).status == ei.challengeManager.getEdge(edge2Id).status);
         assertTrue(edge1Id != edge2Id, "Same edge");
         assertEq(
-            ei.challengeManager.getEdge(edge1Id).mutualIdMemory(),
-            ei.challengeManager.getEdge(edge2Id).mutualIdMemory(),
+            ei.challengeManager.getEdge(edge1Id).mutualIdMem(),
+            ei.challengeManager.getEdge(edge2Id).mutualIdMem(),
             "Is rival"
         );
     }

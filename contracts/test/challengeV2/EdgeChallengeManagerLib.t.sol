@@ -40,6 +40,14 @@ contract EdgeChallengeManagerLibAccess {
         store.add(edge);
     }
 
+    function setConfirmedRival(bytes32 mutualId, bytes32 id) public {
+        store.confirmedRivals[mutualId] = id;
+    }
+
+    function getConfirmedRival(bytes32 mutualId) public view returns (bytes32) {
+        return store.confirmedRivals[mutualId];
+    }
+
     function getEdge(bytes32 id) public view returns (ChallengeEdge memory) {
         return store.get(id);
     }
@@ -874,6 +882,24 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.confirmEdgeByChildren(parentEdgeId);
         assertTrue(store.get(parentEdgeId).status == EdgeStatus.Confirmed);
+        assertEq(
+            store.confirmedRivals[ChallengeEdgeLib.mutualIdMem(store.get(parentEdgeId))],
+            parentEdgeId,
+            "Confirmed rival"
+        );
+    }
+
+    function testConfirmEdgeByChildrenRivalConfirmed() public {
+        BArgs memory pc = addParentsAndChildren(3, 5, 11);
+
+        store.edges[pc.lowerChildId1].setConfirmed();
+        store.edges[pc.upperChildId1].setConfirmed();
+        store.edges[pc.lowerChildId2].setConfirmed();
+        store.edges[pc.upperChildId2].setConfirmed();
+
+        store.confirmEdgeByChildren(pc.edge1Id);
+        vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, pc.edge2Id, pc.edge1Id));
+        store.confirmEdgeByChildren(pc.edge2Id);
     }
 
     function testConfirmEdgeByChildrenAlreadyConfirmed() public {
@@ -959,6 +985,37 @@ contract EdgeChallengeManagerLibTest is Test {
         bytes32 eid = ce.idMem();
         store.edges[eid].setConfirmed();
 
+        store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
+
+        assertTrue(store.edges[bargs.upperChildId1].status == EdgeStatus.Confirmed, "Edge confirmed");
+        assertEq(
+            store.confirmedRivals[store.get(bargs.upperChildId1).mutualId()], bargs.upperChildId1, "Confirmed rival"
+        );
+    }
+
+    function testConfirmClaimByRival() public {
+        BArgs memory bargs = addParentsAndChildren(2, 3, 4);
+
+        ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
+            store.get(bargs.upperChildId1).mutualId(),
+            rand.hash(),
+            3,
+            rand.hash(),
+            4,
+            bargs.upperChildId1,
+            rand.addr(),
+            1
+        );
+
+        store.add(ce);
+        bytes32 eid = ce.idMem();
+        store.edges[eid].setConfirmed();
+
+        // confirm a rival
+        store.edges[bargs.upperChildId2].setConfirmed();
+        store.confirmedRivals[store.get(bargs.upperChildId2).mutualId()] = bargs.upperChildId2;
+
+        vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, bargs.upperChildId1, bargs.upperChildId2));
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
 
         assertTrue(store.edges[bargs.upperChildId1].status == EdgeStatus.Confirmed, "Edge confirmed");
@@ -1122,6 +1179,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
     struct BArgs {
         bytes32 edge1Id;
+        bytes32 edge2Id;
         bytes32 lowerChildId1;
         bytes32 upperChildId1;
         bytes32 lowerChildId2;
@@ -1140,7 +1198,9 @@ contract EdgeChallengeManagerLibTest is Test {
         (bytes32 lowerChildId1, bytes32 upperChildId1) = bisect(edge1, states1, start, end);
         (bytes32 lowerChildId2, bytes32 upperChildId2) = bisect(edge2, states2, start, end);
 
-        return BArgs(edge1.idMem(), lowerChildId1, upperChildId1, lowerChildId2, upperChildId2, states1, states2);
+        return BArgs(
+            edge1.idMem(), edge2.idMem(), lowerChildId1, upperChildId1, lowerChildId2, upperChildId2, states1, states2
+        );
     }
 
     function claimWithMixedAncestors(
@@ -1241,6 +1301,23 @@ contract EdgeChallengeManagerLibTest is Test {
             revertArg = abi.encodeWithSelector(EdgeNotPending.selector, bsId, EdgeStatus.Confirmed);
         }
 
+        if (timeAfterParent1 == 141) {
+            ChallengeEdge memory bigStepZero2 = ChallengeEdgeLib.newLayerZeroEdge(
+                store.edges[upperChildId146].mutualId(),
+                store.edges[upperChildId146].startHistoryRoot,
+                store.edges[upperChildId146].startHeight,
+                rand.hash(),
+                100,
+                upperChildId146,
+                rand.addr(),
+                1
+            );
+            store.add(bigStepZero2);
+            store.edges[bigStepZero2.idMem()].setConfirmed();
+            store.confirmedRivals[store.get(bigStepZero2.idMem()).mutualId()] = bigStepZero2.idMem();
+            revertArg = abi.encodeWithSelector(RivalEdgeConfirmed.selector, bsId, bigStepZero2.idMem());
+        }
+
         if (timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks == 4) {
             revertArg = abi.encodeWithSelector(InsufficientConfirmationBlocks.selector, 4, challengePeriodSec);
         }
@@ -1252,6 +1329,7 @@ contract EdgeChallengeManagerLibTest is Test {
             store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodSec, NUM_BIGSTEP_LEVEL);
 
         assertTrue(store.edges[bsId].status == EdgeStatus.Confirmed, "Edge confirmed");
+        assertEq(store.confirmedRivals[store.get(bsId).mutualId()], bsId, "Confirmed rival");
         assertEq(
             totalTime,
             timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks,
@@ -1301,6 +1379,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function testConfirmByTimeEdgeNotPending() public {
         claimWithMixedAncestors(10, 140, 1, 1, 1);
+    }
+
+    function testConfirmByTimeRivalConfirmed() public {
+        claimWithMixedAncestors(10, 141, 1, 1, 1);
     }
 
     struct ConfirmByOneStepData {
@@ -1380,6 +1462,11 @@ contract EdgeChallengeManagerLibTest is Test {
             d.proof = abi.encodePacked(rand.hash());
             data.revertArg = "Invalid inclusion proof";
         }
+        if (flag == 9) {
+            store.edges[data.e2.idMem()].setConfirmed();
+            a.setConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e2), data.e2.idMem());
+            data.revertArg = abi.encodeWithSelector(RivalEdgeConfirmed.selector, data.e1.idMem(), data.e2.idMem());
+        }
 
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
@@ -1394,6 +1481,7 @@ contract EdgeChallengeManagerLibTest is Test {
             }
         } else {
             assertTrue(a.getEdge(eid).status == EdgeStatus.Confirmed, "Edge confirmed");
+            assertEq(a.getConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e1)), eid, "Confirmed rival");
         }
     }
 
@@ -1427,6 +1515,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function testConfirmByOneStepBadOneStepReturn() public {
         confirmByOneStep(8);
+    }
+
+    function testConfirmByOneStepRivalConfirmed() public {
+        confirmByOneStep(9);
     }
 
     function testPowerOfTwo() public {
