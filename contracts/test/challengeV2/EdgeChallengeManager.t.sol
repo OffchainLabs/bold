@@ -394,7 +394,11 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.confirmEdgeByChildren(edge2Id);
         assertFalse(ei.challengeManager.getEdge(edge1Id).status == ei.challengeManager.getEdge(edge2Id).status);
         assertTrue(edge1Id != edge2Id, "Same edge");
-        assertEq(ei.challengeManager.getEdge(edge1Id).mutualIdMemory(), ei.challengeManager.getEdge(edge2Id).mutualIdMemory(), "Is rival");
+        assertEq(
+            ei.challengeManager.getEdge(edge1Id).mutualIdMemory(),
+            ei.challengeManager.getEdge(edge2Id).mutualIdMemory(),
+            "Is rival"
+        );
     }
 
     function bisect(

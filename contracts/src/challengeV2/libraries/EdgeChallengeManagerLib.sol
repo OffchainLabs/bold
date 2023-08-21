@@ -72,7 +72,8 @@ struct EdgeStore {
     ///         of the first rival id, to signify that a single edge does exist with this mutual id
     mapping(bytes32 => bytes32) firstRivals;
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
-    mapping(bytes32 => bytes32) rivalConfirmed;
+    /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
+    mapping(bytes32 => bytes32) confirmedRivals;
 }
 
 /// @notice Input data to a one step proof
@@ -599,18 +600,22 @@ library EdgeChallengeManagerLib {
         return (lowerChildId, lowerChildAdded, upperChildAdded);
     }
 
+    /// @notice Store that an edge has been confirmed. Recorded against the mutual id
+    ///         so that rivals can look up rival confirmed edges
+    /// @dev    Checks that a rival edge has not already been confirmed
+    function setConfirmedRival(EdgeStore storage store, bytes32 edgeId) internal {
+        bytes32 mutualId = store.edges[edgeId].mutualId();
+        bytes32 confirmedRivalId = store.confirmedRivals[mutualId];
+        if (confirmedRivalId != bytes32(0)) {
+            revert RivalEdgeConfirmed(edgeId, confirmedRivalId);
+        }
+        store.confirmedRivals[mutualId] = edgeId;
+    }
+
     /// @notice Confirm an edge if both its children are already confirmed
     function confirmEdgeByChildren(EdgeStore storage store, bytes32 edgeId) internal {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
-        }
-        {
-            bytes32 mutualId = store.edges[edgeId].mutualId();
-            bytes32 confirmedRivalId = store.rivalConfirmed[mutualId];
-            if (confirmedRivalId != bytes32(0)){
-                revert RivalEdgeConfirmed(edgeId, confirmedRivalId);
-            }
-            store.rivalConfirmed[mutualId] = edgeId;
         }
 
         bytes32 lowerChildId = store.edges[edgeId].lowerChildId;
@@ -630,6 +635,9 @@ library EdgeChallengeManagerLib {
         if (store.edges[upperChildId].status != EdgeStatus.Confirmed) {
             revert EdgeNotConfirmed(upperChildId, store.edges[upperChildId].status);
         }
+
+        // also checks that no other rival has been confirmed
+        setConfirmedRival(store, edgeId);
 
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
@@ -691,14 +699,6 @@ library EdgeChallengeManagerLib {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
         }
-        {
-            bytes32 mutualId = store.edges[edgeId].mutualId();
-            bytes32 confirmedRivalId = store.rivalConfirmed[mutualId];
-            if (confirmedRivalId != bytes32(0)){
-                revert RivalEdgeConfirmed(edgeId, confirmedRivalId);
-            }
-            store.rivalConfirmed[mutualId] = edgeId;
-        }
 
         // the claiming edge is confirmed
         if (!store.edges[claimingEdgeId].exists()) {
@@ -712,6 +712,9 @@ library EdgeChallengeManagerLib {
         if (edgeId != store.edges[claimingEdgeId].claimId) {
             revert EdgeClaimMismatch(edgeId, store.edges[claimingEdgeId].claimId);
         }
+
+        // also checks that no other rival has been confirmed
+        setConfirmedRival(store, edgeId);
 
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
@@ -740,14 +743,6 @@ library EdgeChallengeManagerLib {
     ) internal returns (uint256) {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
-        }
-        {
-            bytes32 mutualId = store.edges[edgeId].mutualId();
-            bytes32 confirmedRivalId = store.rivalConfirmed[mutualId];
-            if (confirmedRivalId != bytes32(0)){
-                revert RivalEdgeConfirmed(edgeId, confirmedRivalId);
-            }
-            store.rivalConfirmed[mutualId] = edgeId;
         }
 
         bytes32 currentEdgeId = edgeId;
@@ -786,6 +781,9 @@ library EdgeChallengeManagerLib {
             revert InsufficientConfirmationBlocks(totalTimeUnrivaled, confirmationThresholdBlock);
         }
 
+        // also checks that no other rival has been confirmed
+        setConfirmedRival(store, edgeId);
+
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
 
@@ -812,14 +810,6 @@ library EdgeChallengeManagerLib {
     ) internal {
         // get checks existence
         uint256 machineStep = get(store, edgeId).startHeight;
-        {
-            bytes32 mutualId = store.edges[edgeId].mutualId();
-            bytes32 confirmedRivalId = store.rivalConfirmed[mutualId];
-            if (confirmedRivalId != bytes32(0)){
-                revert RivalEdgeConfirmed(edgeId, confirmedRivalId);
-            }
-            store.rivalConfirmed[mutualId] = edgeId;
-        }
 
         // edge must be length one and be of type SmallStep
         if (store.edges[edgeId].eType != numBigstepLevel + 1) {
@@ -842,6 +832,9 @@ library EdgeChallengeManagerLib {
         MerkleTreeLib.verifyInclusionProof(
             store.edges[edgeId].endHistoryRoot, afterHash, machineStep + 1, afterHistoryInclusionProof
         );
+
+        // also checks that no other rival has been confirmed
+        setConfirmedRival(store, edgeId);
 
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
