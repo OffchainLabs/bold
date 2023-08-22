@@ -80,16 +80,6 @@ type validatedStartHeights []Height
 // HistoryCommitment computes a Merklelized commitment over a set of hashes
 // at specified challenge levels. For block challenges, for example, this is a set
 // of machine hashes corresponding each message in a range N to M.
-//
-// Usage:
-//
-//	 	historyCommitment, err := provider.HistoryCommitment(ctx, wasmModuleRoot, /* the wasm module root for the machine */
-//			Batch(1),
-//			// l2 message index 0, giant step 100, big step 20
-//			[]Height{0, 100, 20},
-//		    // Up to small step 200 (opcode index 200)
-//		 	option.Some(Height(200))
-//		)
 func (p *HistoryCommitmentProvider) HistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
