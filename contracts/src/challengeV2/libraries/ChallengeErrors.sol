@@ -90,3 +90,5 @@ error EmptyOneStepProofEntry();
 error EmptyChallengePeriod();
 /// @dev No stake receiver address supplied
 error EmptyStakeReceiver();
+/// @dev A rival edge is already confirmed
+error RivalEdgeConfirmed(bytes32 edgeId, bytes32 confirmedRivalId);
