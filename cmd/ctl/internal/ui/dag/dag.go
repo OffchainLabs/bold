@@ -1,7 +1,11 @@
+// Package dag provides a directed acyclic graph and rendering utilities.
+// This package is largely based on github.com/facebook/sapling's dag and renderdag crates
+// (MIT License).
 package dag
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -104,7 +108,12 @@ func (d *DAG[T]) RenderString() (s string) {
 			Type: typ,
 		}
 
-		row := r.NextRow(node.Item, []Ancestor[T]{*parent}, glyphs[GlyphCircle], node.Item.DisplayID())
+		msg := strings.Join([]string{
+			node.Item.DisplayID(),
+			node.Item.Description(),
+		}, "\n")
+
+		row := r.NextRow(node.Item, []Ancestor[T]{*parent}, glyphs[GlyphCircle], msg)
 		s += row
 	}
 

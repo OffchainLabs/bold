@@ -1,12 +1,9 @@
 package assertions
 
 import (
-	"encoding/json"
-	"fmt"
-	"sort"
-
 	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/cmd/ctl/internal/data"
+	"github.com/OffchainLabs/bold/cmd/ctl/internal/ui/dag"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rivo/tview"
 )
@@ -18,6 +15,8 @@ Press Enter to select an assertion.
 
 The tree is sorted by CreationBlock descending. 
 i.e. the most recent assertions are at the top.
+
+TODO: Make the assertions tree interactive.
 `
 
 // AssertionTreePage builds and renders the assertion tree page.
@@ -29,32 +28,35 @@ func AssertionTreePage() (title string, content tview.Primitive) {
 		panic(err)
 	}
 
-	m := AssertionsToMap(assertions)
-	edgeView := tview.NewTextView().
-		SetWrap(true).
-		SetText(defaultText)
-	edgeView.SetBorderPadding(1, 1, 2, 0)
-	setEdgeViewContents := func(e *api.Assertion) {
-		b, err := json.MarshalIndent(e, "", "  ")
-		if err != nil {
-			edgeView.SetText(fmt.Sprintf("ERROR: Failed to marshal edge: %v", err))
-		} else {
-			edgeView.SetText(fmt.Sprintf("%s", b))
-		}
+	d := dag.DAG[*AssertionItem]{}
+	d.Init()
+
+	for _, a := range assertions {
+		d.AddNode(dag.Node[*AssertionItem]{
+			Item:     &AssertionItem{a},
+			ID:       a.AssertionHash,
+			ParentID: a.ParentAssertionHash,
+		})
 	}
 
-	tree := makeTreeView(m, setEdgeViewContents)
+	renderedDAG := d.RenderString()
 
-	tree.GetRoot().SetSelectedFunc(func() {
-		edgeView.SetText(defaultText)
-	})
+	tree := tview.NewTextView().
+		SetWrap(true).
+		SetText(renderedDAG)
+	tree.SetBorder(true)
+
+	details := tview.NewTextView().
+		SetWrap(true).
+		SetText(defaultText)
+	details.SetBorderPadding(1, 1, 2, 0)
 
 	mainView := tview.NewFlex().
 		AddItem(tree, 0, 1, true).
-		AddItem(edgeView, 0, 1, false)
+		AddItem(details, 0, 1, false)
 
 	footer := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(tview.NewTextView().SetText("TODO: Filter(s), sort, refresh data, etc"), 1, 0, false)
+		AddItem(tview.NewTextView().SetText("TODO: Filter(s), sort, refresh data, interactivity, etc"), 1, 0, false)
 
 	footer.SetBorder(true)
 
@@ -63,54 +65,27 @@ func AssertionTreePage() (title string, content tview.Primitive) {
 		AddItem(footer, 6, 0, true)
 }
 
-func makeTreeView(m map[common.Hash]*api.Assertion, setEdgeView func(*api.Assertion)) *tview.TreeView {
-	root := tview.NewTreeNode("Assertions")
+var _ = dag.Item(&AssertionItem{})
 
-	keys := make([]common.Hash, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-
-	sort.Slice(keys, func(i, j int) bool {
-		return m[keys[i]].CreationBlock > m[keys[j]].CreationBlock
-	})
-
-	for _, k := range keys {
-		v := m[k]
-		addChildren(root, v, m, setEdgeView)
-	}
-
-	tree := tview.NewTreeView().SetRoot(root).SetCurrentNode(root)
-	tree.SetBorder(true)
-	return tree
+type AssertionItem struct {
+	*api.Assertion
 }
 
-func addChildren(node *tview.TreeNode, assertion *api.Assertion, m map[common.Hash]*api.Assertion, selectedCB func(*api.Assertion)) {
-	me := tview.NewTreeNode(assertionToTreeNodeName(assertion)).
-		SetSelectedFunc(func() {
-			selectedCB(assertion)
-		})
-
-	node.AddChild(me)
+func (a *AssertionItem) DisplayID() string {
+	return a.ID().Hex()
 }
 
-func AssertionsToMap(assertions []*api.Assertion) map[common.Hash]*api.Assertion {
-	m := make(map[common.Hash]*api.Assertion, len(assertions))
-	for _, a := range assertions {
-		m[a.AssertionHash] = a
-	}
-	return m
+func (a *AssertionItem) Description() string {
+	return "" // TODO: Provide description.
 }
 
-func assertionToTreeNodeName(e *api.Assertion) string {
-	// TODO: Define name format.
+func (a *AssertionItem) Timestamp() int64 {
+	return int64(a.Assertion.CreationBlock)
+}
 
-	trunc := func(b []byte) []byte {
-		return b[:4]
+func (a *AssertionItem) ID() common.Hash {
+	if a == nil {
+		return common.Hash{}
 	}
-
-	return fmt.Sprintf(
-		"%#x",
-		trunc(e.AssertionHash[:]),
-	)
+	return a.AssertionHash
 }

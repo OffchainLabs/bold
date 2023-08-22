@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//api",
         "//cmd/ctl/internal/data",
+        "//cmd/ctl/internal/ui/dag",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_rivo_tview//:tview",
     ],
