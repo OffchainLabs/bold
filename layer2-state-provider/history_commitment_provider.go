@@ -97,9 +97,9 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	// those states and return a commitment for them.
 	fromMessageNumber := uint64(validatedHeights[0])
 	if len(validatedHeights) == 1 {
-		hashes, err := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), upToHeight, batch)
-		if err != nil {
-			return emptyCommit, err
+		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), upToHeight, batch)
+		if hashesErr != nil {
+			return emptyCommit, hashesErr
 		}
 		return commitments.New(hashes)
 	}
