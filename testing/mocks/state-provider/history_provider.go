@@ -19,14 +19,14 @@ func (s *L2StateBackend) CollectMachineMashes(
 		return nil, err
 	}
 	// Advance the machine to the start index.
-	if err := machine.Step(uint64(cfg.MachineStartIndex)); err != nil {
-		return nil, err
+	if machErr := machine.Step(uint64(cfg.MachineStartIndex)); machErr != nil {
+		return nil, machErr
 	}
 	hashes := make([]common.Hash, 0, cfg.NumDesiredHashes)
 	hashes = append(hashes, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
 	for i := uint64(1); i < cfg.NumDesiredHashes; i++ {
-		if err = machine.Step(uint64(cfg.StepSize)); err != nil {
-			return nil, err
+		if stepErr := machine.Step(uint64(cfg.StepSize)); stepErr != nil {
+			return nil, stepErr
 		}
 		hashes = append(hashes, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
 	}
