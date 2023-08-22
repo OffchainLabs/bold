@@ -84,16 +84,16 @@ type validatedStartHeights []Height
 // Usage:
 //
 //		historyCommitment, err := provider.HistoryCommitment(
-//		   ctx,
-//		   wasmModuleRoot, /* the wasm module root for the machine */
-//		   Batch(1), /* the commitment is at L2 batch index 1 */
-//		   []Height{
-//	         0,   /* at L2 message index 0 /*
-//	         100, /* at giant step 100 */
-//	         20,  /* at big step 20 */
-//	       },
-//		   option.Some(Height(200)) /* up to small step 200 (opcode index 200) */
-//		)
+//			ctx,
+//			wasmModuleRoot, /* the wasm module root for the machine */
+//			Batch(1), /* the commitment is at L2 batch index 1 */
+//			[]Height{
+//				0,   /* at L2 message index 0 /*
+//				100, /* at giant step 100 */
+//		 		20,  /* at big step 20 */
+//			},
+//	 	option.Some(Height(200)) /* up to small step 200 (opcode index 200) */
+//			)
 func (p *HistoryCommitmentProvider) HistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
