@@ -31,9 +31,6 @@ contract AssertinPoolTest is Test {
     address constant owner = address(1337);
     address constant sequencer = address(7331);
 
-    address constant loserStakeEscrow = address(200001);
-    address constant anyTrustFastConfirmer = address(300001);
-
     bytes32 constant WASM_MODULE_ROOT = keccak256("WASM_MODULE_ROOT");
     uint256 constant BASE_STAKE = 10 ether;
     uint256 constant MINI_STAKE_VALUE = 2;
@@ -42,17 +39,10 @@ contract AssertinPoolTest is Test {
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
 
-    uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2**5;
-
     IERC20 token;
-    RollupProxy rollup;
     RollupUserLogic userRollup;
     RollupAdminLogic adminRollup;
     EdgeChallengeManager challengeManager;
-    Random rand = new Random();
-
-    address[] validators;
-    bool[] flags;
 
     GlobalState emptyGlobalState;
     ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
@@ -131,13 +121,13 @@ contract AssertinPoolTest is Test {
             }),
             stakeToken: address(token),
             wasmModuleRoot: WASM_MODULE_ROOT,
-            loserStakeEscrow: loserStakeEscrow,
+            loserStakeEscrow: address(200001),
             genesisBlockNum: 0,
             miniStakeValue: MINI_STAKE_VALUE,
             layerZeroBlockEdgeHeight: 2**5,
             layerZeroBigStepEdgeHeight: 2**5,
             layerZeroSmallStepEdgeHeight: 2**5,
-            anyTrustFastConfirmer: anyTrustFastConfirmer
+            anyTrustFastConfirmer: address(300001)
         });
 
         vm.expectEmit(false, false, false, false);
@@ -157,8 +147,6 @@ contract AssertinPoolTest is Test {
         firstState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
         firstState.globalState.u64Vals[0] = 1; // inbox count
         firstState.globalState.u64Vals[1] = 0; // pos in msg
-
-        token.approve(address(challengeManager), type(uint256).max);
 
         vm.roll(block.number + 75);
 
