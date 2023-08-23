@@ -10,19 +10,33 @@ import "../rollup/IRollupLogic.sol";
 import "../rollup/IRollupCore.sol";
 import "./StakingPoolErrors.sol";
 
+/// @notice Creates staking pool contract for a target assertion. Can be used for any child Arbitrum chain running on top of the deployed AssertionStakingPoolCreator's chain.
 contract AssertionStakingPoolCreator {
+    event NewAssertionPoolCreated(
+        address indexed rollup,
+        bytes32 indexed _assertionHash,
+        address assertionPool
+    );
+
+    /// @notice Create a staking pool contract
+    /// @param _rollup Rollup contract of target chain
+    /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
+    /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
     function createPoolForAssertion(
         address _rollup,
         AssertionInputs memory _assertionInputs,
-        bytes32 _expectedAssertionHash
+        bytes32 _assertionHash
     ) external {
-        new AssertionStakingPool(_rollup, _assertionInputs, _expectedAssertionHash);
+        address assertionPoolAddress = address(
+            new AssertionStakingPool(_rollup, _assertionInputs, _assertionHash)
+        );
+        emit NewAssertionPoolCreated(_rollup, _assertionHash, assertionPoolAddress);
     }
 }
 
+/// @notice Staking pool contract for target assertion. Allows users to deposit stake, create assertion once required stake amount is reached, and reclaim their stake when and if the assertion is confirmed.
 contract AssertionStakingPool {
     using SafeERC20 for IERC20;
-
     address public immutable rollup;
     bytes32 public immutable assertionHash;
     AssertionInputs public assertionInputs;
@@ -31,6 +45,14 @@ contract AssertionStakingPool {
 
     PoolState public poolState = PoolState.PENDING;
 
+    event StakeDeposited(address indexed sender, uint256 amount);
+    event AssertionCreated();
+    event StakeReturned();
+    event StakeWithrawn(address indexed sender, uint256 amount);
+
+    /// @param _rollup Rollup contract of target chain
+    /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
+    /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
     constructor(
         address _rollup,
         AssertionInputs memory _assertionInputs,
@@ -40,10 +62,10 @@ contract AssertionStakingPool {
         assertionHash = _assertionHash;
         assertionInputs = _assertionInputs;
         stakeToken = IERC20(IRollupCore(rollup).stakeToken());
-
-        stakeToken.approve(rollup, getRequiredStake());
     }
 
+    /// @notice Deposit stake into pool contract. Callable only if target stake hasn't been reached and assertion has not been asserted yet.
+    /// @param _amount amount of stake token to deposit
     function depositIntoPool(uint256 _amount) external {
         if (poolState != PoolState.PENDING) {
             revert PoolNotInPendingState(poolState);
@@ -55,8 +77,8 @@ contract AssertionStakingPool {
             revert PoolStakeAlreadyReached(requiredStake);
         }
 
+        // don't send more than necessary
         uint256 amountToTransfer;
-
         if (currentPoolBalance + _amount > requiredStake) {
             amountToTransfer = requiredStake - currentPoolBalance;
         } else {
@@ -65,8 +87,10 @@ contract AssertionStakingPool {
 
         depositedTokenBalances[msg.sender] += amountToTransfer;
         stakeToken.safeTransferFrom(msg.sender, address(this), amountToTransfer);
+        emit StakeDeposited(msg.sender, amountToTransfer);
     }
 
+    /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
     function createAssertion() external {
         if (poolState != PoolState.PENDING) {
             revert PoolNotInPendingState(poolState);
@@ -79,19 +103,29 @@ contract AssertionStakingPool {
         }
 
         poolState = PoolState.ASSERTED;
+        // approve spending from rollup for newStakeOnNewAssertion call
+        stakeToken.approve(rollup, requiredStake);
         IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
+        emit AssertionCreated();
     }
 
+    /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's been confirmed.
     function returnOldStakeBackToPool() external {
         if (poolState != PoolState.ASSERTED) {
             revert PoolNotInAssertedState(poolState);
         }
 
         poolState = PoolState.CONFIRMED;
+
+        if (IRollupCore(rollup).getAssertion(assertionHash).status != AssertionStatus.Confirmed) {
+            revert AssertionNotConfirmed(assertionHash);
+        }
         IRollupUser(rollup).returnOldDeposit();
         IRollupUser(rollup).withdrawStakerFunds();
+        emit StakeReturned();
     }
 
+    /// @notice Send stake from this contract back to its depositor. Callable if pool is pending or pool's assertion has been confirmed.
     function withdrawFromPool() external {
         if (poolState == PoolState.ASSERTED) {
             revert PoolNotInPendingOrConfirmedState(poolState);
@@ -102,8 +136,10 @@ contract AssertionStakingPool {
         }
         depositedTokenBalances[msg.sender] = 0;
         stakeToken.safeTransfer(msg.sender, balance);
+        emit StakeWithrawn(msg.sender, balance);
     }
 
+    /// @notice Get required stake for pool's assertion. Requried stake for a given assertion is set in the previous assertion's config data
     function getRequiredStake() public view returns (uint256) {
         return assertionInputs.beforeStateData.configData.requiredStake;
     }
