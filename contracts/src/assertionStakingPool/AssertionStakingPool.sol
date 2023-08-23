@@ -26,11 +26,12 @@ contract AssertionStakingPoolCreator {
         address _rollup,
         AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
-    ) external {
+    ) external returns (address) {
         address assertionPoolAddress = address(
             new AssertionStakingPool(_rollup, _assertionInputs, _assertionHash)
         );
         emit NewAssertionPoolCreated(_rollup, _assertionHash, assertionPoolAddress);
+        return assertionPoolAddress;
     }
 }
 
