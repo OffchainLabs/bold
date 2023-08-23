@@ -190,7 +190,7 @@ func (et *Tracker) Spawn(ctx context.Context) {
 			}
 			if err := et.Act(ctx); err != nil {
 				fields["err"] = err
-				srvlog.Error("Could not act with edge tracker", err)
+				srvlog.Error("Could not act with edge tracker", fields)
 			}
 		case <-ctx.Done():
 			srvlog.Debug("Edge tracker goroutine exiting", fields)
