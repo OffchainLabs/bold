@@ -205,7 +205,7 @@ contract AssertinPoolTest is Test {
         vm.prank(excessStaker);
         token.approve(address(pool), type(uint256).max);
 
-        vm.startPrank(owner);
+        vm.prank(owner);
         adminRollup.setValidatorWhitelistDisabled(true);
     }
 
