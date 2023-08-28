@@ -339,9 +339,10 @@ contract AssertinPoolTest is Test {
     function testReturnStake() external {
         _createAndConfirmAssertion();
         vm.prank(rando);
-        pool.returnOldStakeBackToPool();
+        pool.setPoolStateConfirmed();
         assertTrue(pool.poolState() == PoolState.CONFIRMED, "state confirmed");
 
+        pool.returnOldStakeBackToPool();
         assertEq(token.balanceOf(address(pool)), BASE_STAKE, "tokens returned to pool");
         assertEq(token.balanceOf(address(userRollup)), 0, "tokens returned to pool");
 
@@ -358,6 +359,7 @@ contract AssertinPoolTest is Test {
 
     function testCantWithdrawTwice() external {
         _createAndConfirmAssertion();
+        pool.setPoolStateConfirmed();
         pool.returnOldStakeBackToPool();
 
         vm.startPrank(staker1);

@@ -17,6 +17,8 @@ error PoolNotInAssertedState(PoolState poolState);
 
 error PoolNotInPendingOrConfirmedState(PoolState poolState);
 
+error PoolNotInConfirmedState(PoolState poolState);
+
 error PoolStakeAlreadyReached(uint256 baseStake);
 
 error NotEnoughStake(uint256 balance, uint256 baseStake);

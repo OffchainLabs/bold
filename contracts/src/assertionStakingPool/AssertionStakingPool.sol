@@ -23,6 +23,7 @@ contract AssertionStakingPool {
 
     event StakeDeposited(address indexed sender, uint256 amount);
     event AssertionCreated();
+    event PoolStateConfirmed();
     event StakeReturned();
     event StakeWithrawn(address indexed sender, uint256 amount);
 
@@ -85,8 +86,8 @@ contract AssertionStakingPool {
         emit AssertionCreated();
     }
 
-    /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's been confirmed.
-    function returnOldStakeBackToPool() external {
+    /// @notice update pool state if assertion has been confirmed, and make deposit withdrawable.
+    function setPoolStateConfirmed() external {
         if (poolState != PoolState.ASSERTED) {
             revert PoolNotInAssertedState(poolState);
         }
@@ -97,6 +98,15 @@ contract AssertionStakingPool {
             revert AssertionNotConfirmed(assertionHash);
         }
         IRollupUser(rollup).returnOldDeposit();
+        emit PoolStateConfirmed();
+    }
+
+    /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's been confirmed.
+    /// @dev Separate call from setPoolStateConfirmed since withdrawStakerFunds reverts with 0 balance (in e.g., case of admin forceRefundStaker)
+    function returnOldStakeBackToPool() external {
+        if (poolState != PoolState.CONFIRMED) {
+            revert PoolNotInConfirmedState(poolState);
+        }
         IRollupUser(rollup).withdrawStakerFunds();
         emit StakeReturned();
     }
