@@ -62,6 +62,7 @@ type ConfirmationMetadataChecker interface {
 type ChallengeTracker interface {
 	IsTrackingEdge(protocol.EdgeId) bool
 	MarkTrackedEdge(protocol.EdgeId)
+	GetAncestorEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
 }
 
 type Opt func(et *Tracker)
@@ -258,6 +259,21 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
+		ancestorEdge, err := et.challengeManager.GetAncestorEdge(ctx, et.edge.Id())
+		if err != nil {
+			fields["err"] = err
+			srvlog.Error("Could not get ancestor edge", fields)
+		}
+		ancestorStatus, err := ancestorEdge.Status(ctx)
+		if err != nil {
+			fields["err"] = err
+			srvlog.Error("Could not get ancestor status", fields)
+		}
+		// Nothing to do if the ancestor is already confirmed.
+		if ancestorStatus == protocol.EdgeConfirmed {
+			return nil
+		}
+
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
@@ -267,6 +283,21 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
 	case edgeBisecting:
+		ancestorEdge, err := et.challengeManager.GetAncestorEdge(ctx, et.edge.Id())
+		if err != nil {
+			fields["err"] = err
+			srvlog.Error("Could not get ancestor edge", fields)
+		}
+		ancestorStatus, err := ancestorEdge.Status(ctx)
+		if err != nil {
+			fields["err"] = err
+			srvlog.Error("Could not get ancestor status", fields)
+		}
+		// Nothing to do if the ancestor is already confirmed.
+		if ancestorStatus == protocol.EdgeConfirmed {
+			return nil
+		}
+
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -315,6 +346,21 @@ func (et *Tracker) Act(ctx context.Context) error {
 		go secondTracker.Spawn(ctx)
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	case edgeConfirming:
+		ancestorEdge, err := et.challengeManager.GetAncestorEdge(ctx, et.edge.Id())
+		if err != nil {
+			fields["err"] = err
+			srvlog.Error("Could not get ancestor edge", fields)
+		}
+		ancestorStatus, err := ancestorEdge.Status(ctx)
+		if err != nil {
+			fields["err"] = err
+			srvlog.Error("Could not get ancestor status", fields)
+		}
+		// Nothing to do if the ancestor is already confirmed.
+		if ancestorStatus == protocol.EdgeConfirmed {
+			return nil
+		}
+
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
 			fields["err"] = err
