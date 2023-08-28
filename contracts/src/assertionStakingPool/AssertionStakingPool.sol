@@ -10,31 +10,6 @@ import "../rollup/IRollupLogic.sol";
 import "../rollup/IRollupCore.sol";
 import "./StakingPoolErrors.sol";
 
-/// @notice Creates staking pool contract for a target assertion. Can be used for any child Arbitrum chain running on top of the deployed AssertionStakingPoolCreator's chain.
-contract AssertionStakingPoolCreator {
-    event NewAssertionPoolCreated(
-        address indexed rollup,
-        bytes32 indexed _assertionHash,
-        address assertionPool
-    );
-
-    /// @notice Create a staking pool contract
-    /// @param _rollup Rollup contract of target chain
-    /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
-    /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
-    function createPoolForAssertion(
-        address _rollup,
-        AssertionInputs memory _assertionInputs,
-        bytes32 _assertionHash
-    ) external returns (address) {
-        address assertionPoolAddress = address(
-            new AssertionStakingPool(_rollup, _assertionInputs, _assertionHash)
-        );
-        emit NewAssertionPoolCreated(_rollup, _assertionHash, assertionPoolAddress);
-        return assertionPoolAddress;
-    }
-}
-
 /// @notice Staking pool contract for target assertion. Allows users to deposit stake, create assertion once required stake amount is reached, and reclaim their stake when and if the assertion is confirmed.
 contract AssertionStakingPool {
     using SafeERC20 for IERC20;

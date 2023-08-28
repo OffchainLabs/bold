@@ -23,6 +23,7 @@ import "../../src/libraries/Error.sol";
 import "../../src/mocks/TestWETH9.sol";
 
 import "../../src/assertionStakingPool/AssertionStakingPool.sol";
+import "../../src/assertionStakingPool/AssertionStakingPoolCreator.sol";
 
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -55,6 +56,8 @@ contract AssertinPoolTest is Test {
     ExecutionState firstState;
 
     AssertionStakingPool pool;
+
+    AssertionStakingPoolCreator aspcreator;
     address staker1 = address(4000001);
     address staker2 = address(4000002);
     address excessStaker = address(4000003);
@@ -65,6 +68,8 @@ contract AssertinPoolTest is Test {
     uint256 staker2Bal = 4 ether;
     uint256 excessStakerBal = 1 ether;
 
+    address rollupAddr;
+    AssertionInputs assertionInputs;
     bytes32 assertionHash;
     ExecutionState afterState;
     uint64 inboxcount;
@@ -136,7 +141,7 @@ contract AssertinPoolTest is Test {
 
         vm.expectEmit(false, false, false, false);
         emit RollupCreated(address(0), address(0), address(0), address(0), address(0));
-        address rollupAddr = rollupCreator.createRollup(config);
+        rollupAddr = rollupCreator.createRollup(config);
 
         userRollup = RollupUserLogic(address(rollupAddr));
         adminRollup = RollupAdminLogic(address(rollupAddr));
@@ -169,27 +174,24 @@ contract AssertinPoolTest is Test {
             inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
         });
 
-        AssertionStakingPoolCreator aspcreator = new AssertionStakingPoolCreator();
+        assertionInputs = AssertionInputs({
+            beforeStateData: BeforeStateData({
+                sequencerBatchAcc: bytes32(0),
+                prevPrevAssertionHash: bytes32(0),
+                configData: ConfigData({
+                    wasmModuleRoot: WASM_MODULE_ROOT,
+                    requiredStake: BASE_STAKE,
+                    challengeManager: address(challengeManager),
+                    confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                    nextInboxPosition: afterState.globalState.u64Vals[0]
+                })
+            }),
+            beforeState: beforeState,
+            afterState: afterState
+        });
+        aspcreator = new AssertionStakingPoolCreator();
         pool = AssertionStakingPool(
-            aspcreator.createPoolForAssertion(
-                address(rollupAddr),
-                AssertionInputs({
-                    beforeStateData: BeforeStateData({
-                        sequencerBatchAcc: bytes32(0),
-                        prevPrevAssertionHash: bytes32(0),
-                        configData: ConfigData({
-                            wasmModuleRoot: WASM_MODULE_ROOT,
-                            requiredStake: BASE_STAKE,
-                            challengeManager: address(challengeManager),
-                            confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
-                            nextInboxPosition: afterState.globalState.u64Vals[0]
-                        })
-                    }),
-                    beforeState: beforeState,
-                    afterState: afterState
-                }),
-                assertionHash
-            )
+            aspcreator.createPoolForAssertion(address(rollupAddr), assertionInputs, assertionHash)
         );
 
         token.transfer(staker1, staker1Bal);
@@ -223,6 +225,14 @@ contract AssertinPoolTest is Test {
         vm.stopPrank();
         assertEq(userRollup.bridge().sequencerMessageCount(), ++count);
         return count;
+    }
+
+    function testGetPool() external {
+        assertEq(
+            address(pool),
+            address(aspcreator.getPool(rollupAddr, assertionInputs, assertionHash)),
+            "getPool returns created pool's expected address"
+        );
     }
 
     function testgetRequiredStake() external {

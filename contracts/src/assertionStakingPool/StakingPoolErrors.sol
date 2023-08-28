@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 //
 pragma solidity ^0.8.0;
+import "../rollup/IRollupLogic.sol";
 
 enum PoolState {
     PENDING,
@@ -23,3 +24,5 @@ error NotEnoughStake(uint256 balance, uint256 baseStake);
 error NoBalanceToWithdraw(address sender);
 
 error AssertionNotConfirmed(bytes32 assertionHash);
+
+error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
