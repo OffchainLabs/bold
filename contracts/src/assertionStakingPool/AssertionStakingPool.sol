@@ -105,7 +105,7 @@ contract AssertionStakingPool {
 
         poolState = PoolState.ASSERTED;
         // approve spending from rollup for newStakeOnNewAssertion call
-        stakeToken.approve(rollup, requiredStake);
+        stakeToken.safeIncreaseAllowance(rollup, requiredStake);
         IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
         emit AssertionCreated();
     }
