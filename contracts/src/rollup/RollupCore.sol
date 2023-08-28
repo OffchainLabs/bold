@@ -400,7 +400,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
-            require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
             if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
                 // the errored position must still be within the correct message bounds
                 require(
@@ -411,11 +410,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 // and cannot go backwards
                 require(afterInboxPosition >= prevInboxPosition, "ERRORED_INBOX_TOO_FEW");
             } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
-                // Assertions must consume exactly all inbox messages
-                // that were in the inbox at the time the previous assertion was created
-                require(
-                    afterInboxPosition == assertion.beforeStateData.configData.nextInboxPosition, "INCORRECT_INBOX_POS"
-                );
                 // Assertions that finish correctly completely consume the message
                 // Therefore their position in the message is 0
                 require(assertion.afterState.globalState.getPositionInMessage() == 0, "FINISHED_NON_ZERO_POS");
@@ -423,6 +417,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 // We enforce that at least one inbox message is always consumed
                 // so the after inbox position is always strictly greater than previous
                 require(afterInboxPosition > prevInboxPosition, "INBOX_BACKWARDS");
+
+                // FINISHED state assertions don't need to consume all the messages in the inbox
+                // since it's possible that the assertion "overflowed" ie it contained more blocks
+                // than the maximum allowed in a given assertion. In that case the next assertion
+                // will continue from this one, and process the remaining messages in the inbox
             }
 
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
