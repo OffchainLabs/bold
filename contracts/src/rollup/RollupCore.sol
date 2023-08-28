@@ -400,6 +400,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
+            // the checks below are not strictly necessary, as these conditions will also be enforced
+            // within the state transition function (so would fail in a one step proof), however
+            // we check them here to fail early
             if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
                 // the errored position must still be within the correct message bounds
                 require(
