@@ -15,29 +15,29 @@ const (
 	// Start state of 0 can never happen to avoid silly mistakes with default Go values.
 	_ State = iota
 	// The start state of the tracker.
-	edgeStarted
+	EdgeStarted
 	// The edge being tracked is at a one step proof.
-	edgeAtOneStepProof
+	EdgeAtOneStepProof
 	// The tracker is adding a subchallenge leaf on the edge's subchallenge.
-	edgeAddingSubchallengeLeaf
+	EdgeAddingSubchallengeLeaf
 	// The tracker is attempting a bisection move.
-	edgeBisecting
+	EdgeBisecting
 	// Terminal state
-	edgeConfirmed
+	EdgeConfirmed
 )
 
 // String turns an edge tracker state into a readable string.
 func (s State) String() string {
 	switch s {
-	case edgeStarted:
+	case EdgeStarted:
 		return "started"
-	case edgeAtOneStepProof:
+	case EdgeAtOneStepProof:
 		return "one_step_proof"
-	case edgeAddingSubchallengeLeaf:
+	case EdgeAddingSubchallengeLeaf:
 		return "adding_subchallenge_leaf"
-	case edgeBisecting:
+	case EdgeBisecting:
 		return "bisecting"
-	case edgeConfirmed:
+	case EdgeConfirmed:
 		return "confirmed"
 	default:
 		return "invalid"
@@ -46,53 +46,53 @@ func (s State) String() string {
 
 // Defines structs that characterize actions an edge tracker
 // can take to transition between states in its finite state machine.
-type edgeTrackerAction interface {
+type EdgeTrackerAction interface {
 	fmt.Stringer
-	isEdgeTrackerAction() bool
+	IsEdgeTrackerAction() bool // Sentinel method that marks the interface as an edge tracker action.
 }
 
 // Transitions the edge tracker back to a start state.
-type edgeBackToStart struct{}
+type EdgeBackToStart struct{}
 
 // Tracker will act if the edge is at a one step proof.
-type edgeHandleOneStepProof struct{}
+type EdgeHandleOneStepProof struct{}
 
 // Tracker will add a subchallenge on its edge's subchallenge.
-type edgeOpenSubchallengeLeaf struct{}
+type EdgeOpenSubchallengeLeaf struct{}
 
 // Tracker will attempt to bisect its edge.
-type edgeBisect struct{}
+type EdgeBisect struct{}
 
-type edgeConfirm struct{}
+type EdgeConfirm struct{}
 
-func (edgeBackToStart) String() string {
+func (EdgeBackToStart) String() string {
 	return "back_to_start"
 }
-func (edgeHandleOneStepProof) String() string {
+func (EdgeHandleOneStepProof) String() string {
 	return "check_one_step_proof"
 }
-func (edgeOpenSubchallengeLeaf) String() string {
+func (EdgeOpenSubchallengeLeaf) String() string {
 	return "open_subchallenge_leaf"
 }
-func (edgeBisect) String() string {
+func (EdgeBisect) String() string {
 	return "bisect"
 }
-func (edgeConfirm) String() string {
+func (EdgeConfirm) String() string {
 	return "confirm"
 }
 
-func (edgeBackToStart) isEdgeTrackerAction() bool {
+func (EdgeBackToStart) IsEdgeTrackerAction() bool {
 	return true
 }
-func (edgeHandleOneStepProof) isEdgeTrackerAction() bool {
+func (EdgeHandleOneStepProof) IsEdgeTrackerAction() bool {
 	return true
 }
-func (edgeOpenSubchallengeLeaf) isEdgeTrackerAction() bool {
+func (EdgeOpenSubchallengeLeaf) IsEdgeTrackerAction() bool {
 	return true
 }
-func (edgeBisect) isEdgeTrackerAction() bool {
+func (EdgeBisect) IsEdgeTrackerAction() bool {
 	return true
 }
-func (edgeConfirm) isEdgeTrackerAction() bool {
+func (EdgeConfirm) IsEdgeTrackerAction() bool {
 	return true
 }

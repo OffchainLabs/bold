@@ -92,7 +92,7 @@ func WithValidatorName(name string) Opt {
 }
 
 // WithFSMOpts sets any FSM options to be used when creating the tracker's FSM.
-func WithFSMOpts(opts ...fsm.Opt[edgeTrackerAction, State]) Opt {
+func WithFSMOpts(opts ...fsm.Opt[EdgeTrackerAction, State]) Opt {
 	return func(et *Tracker) {
 		et.fsmOpts = opts
 	}
@@ -105,8 +105,8 @@ type HeightConfig struct {
 
 type Tracker struct {
 	edge             protocol.SpecEdge
-	fsm              *fsm.Fsm[edgeTrackerAction, State]
-	fsmOpts          []fsm.Opt[edgeTrackerAction, State]
+	fsm              *fsm.Fsm[EdgeTrackerAction, State]
+	fsmOpts          []fsm.Opt[EdgeTrackerAction, State]
 	actInterval      time.Duration
 	timeRef          utilTime.Reference
 	validatorName    string
@@ -151,7 +151,7 @@ func New(
 		o(tr)
 	}
 	fsm, err := newEdgeTrackerFsm(
-		edgeStarted,
+		EdgeStarted,
 		tr.fsmOpts...,
 	)
 	if err != nil {
@@ -209,7 +209,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	current := et.fsm.Current()
 	switch current.State {
 	// Start state.
-	case edgeStarted:
+	case EdgeStarted:
 		// TODO: Check if edge has confirmable ancestor:
 		// If so, move to confirmed state.
 
@@ -217,10 +217,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not check if edge can be one step proven", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
 		if canOsp {
-			return et.fsm.Do(edgeHandleOneStepProof{})
+			return et.fsm.Do(EdgeHandleOneStepProof{})
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
@@ -232,50 +232,50 @@ func (et *Tracker) Act(ctx context.Context) error {
 			}
 		}
 		if wasConfirmed {
-			return et.fsm.Do(edgeConfirm{})
+			return et.fsm.Do(EdgeConfirm{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not check if edge has length one rival", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
 		if atOneStepFork {
-			return et.fsm.Do(edgeOpenSubchallengeLeaf{})
+			return et.fsm.Do(EdgeOpenSubchallengeLeaf{})
 		}
 		hasRival, err := et.edge.HasRival(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not check presumptive")
 		}
 		if !hasRival {
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
-		return et.fsm.Do(edgeBisect{})
+		return et.fsm.Do(EdgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
-	case edgeAtOneStepProof:
+	case EdgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not submit one step proof", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
-		return et.fsm.Do(edgeConfirm{})
+		return et.fsm.Do(EdgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
-	case edgeAddingSubchallengeLeaf:
+	case EdgeAddingSubchallengeLeaf:
 		/// TODO: Check if subchallenge already exists. If so, then back to start:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
-		return et.fsm.Do(edgeBackToStart{})
+		return et.fsm.Do(EdgeBackToStart{})
 	// Edge should bisect.
-	case edgeBisecting:
+	case EdgeBisecting:
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not bisect", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
 		bisectedCounter.Inc(1)
 
@@ -295,7 +295,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not create new edge tracker", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
 		secondTracker, err := New(
 			ctx,
@@ -313,21 +313,21 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not create new edge tracker", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return et.fsm.Do(EdgeBackToStart{})
 		}
 		go firstTracker.Spawn(ctx)
 		go secondTracker.Spawn(ctx)
-		return et.fsm.Do(edgeBackToStart{})
-	case edgeConfirmed:
+		return et.fsm.Do(EdgeBackToStart{})
+	case EdgeConfirmed:
 		srvlog.Info("Edge reached confirmed state", fields)
-		return et.fsm.Do(edgeConfirm{})
+		return et.fsm.Do(EdgeConfirm{})
 	default:
 		return fmt.Errorf("invalid state: %s", current.State)
 	}
 }
 
 func (et *Tracker) shouldComplete() bool {
-	return et.fsm.Current().State == edgeConfirmed
+	return et.fsm.Current().State == EdgeConfirmed
 }
 
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
