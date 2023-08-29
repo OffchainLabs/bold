@@ -4,10 +4,6 @@
 
 pragma solidity ^0.8.0;
 
-interface IOldChallengeResultReceiver {
-    function completeChallenge(
-        uint256 challengeIndex,
-        address winner,
-        address loser
-    ) external;
-}
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+
+contract ProxyAdminForBinding is ProxyAdmin {}
