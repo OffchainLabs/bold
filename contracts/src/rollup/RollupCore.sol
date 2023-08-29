@@ -400,32 +400,25 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
-            // the checks below are not strictly necessary, as these conditions will also be enforced
-            // within the state transition function (so would fail in a one step proof), however
-            // we check them here to fail early
-            if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
-                // the errored position must still be within the correct message bounds
-                require(
-                    afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition,
-                    "ERRORED_INBOX_TOO_FAR"
-                );
+            // there are 3 kinds of assertions that can be made
+            // 1. ERROED assertion - in this case not all the messages are processed, and the position in the message can be any
+            // 2. FINISHED assertion that processed all messages - in this case the position in the message is 0, and the after
+            //    state inbox position is the nextInboxPosition of the previous assertion
+            // 3. FINISHED assertion that did not process all messages - since assertions have a fixed size it's possible for an assertion
+            //    to "overflow" when trying to process all the messages in the inbox. In this case the assertionk is in a FINISHED state
+            //    but the number of total messages processed is between 0 and the nextInboxPosition of the previous assertion. The position
+            //    in the message is arbitrary.
 
-                // and cannot go backwards
-                require(afterInboxPosition >= prevInboxPosition, "ERRORED_INBOX_TOO_FEW");
-            } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
-                // Assertions that finish correctly completely consume the message
-                // Therefore their position in the message is 0
-                require(assertion.afterState.globalState.getPositionInMessage() == 0, "FINISHED_NON_ZERO_POS");
+            // Since we cannot tell the difference between 2. and 3. without more looking inside the assertion, we can only ensure that
+            // the number of messages processed is within the correct bounds for all types of assertion. These checks are not strictly necessary
+            // since an invalid assertion would fail in the a challenge + one step proof, however we do what checks we can here to fail early
+            // and avoid the creation of assertions that cannot be valid
 
-                // We enforce that at least one inbox message is always consumed
-                // so the after inbox position is always strictly greater than previous
-                require(afterInboxPosition > prevInboxPosition, "INBOX_BACKWARDS");
-
-                // FINISHED state assertions don't need to consume all the messages in the inbox
-                // since it's possible that the assertion "overflowed" ie it contained more blocks
-                // than the maximum allowed in a given assertion. In that case the next assertion
-                // will continue from this one, and process the remaining messages in the inbox
-            }
+            // the inbox position must be within the correct prev inbox position bounds
+            require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
+            require(
+                afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "ERRORED_INBOX_TOO_FAR"
+            );
 
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
             // Cannot read more messages than currently exist in the inbox
