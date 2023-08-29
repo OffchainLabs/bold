@@ -41,30 +41,16 @@ contract AssertionStakingPool {
         stakeToken = IERC20(IRollupCore(rollup).stakeToken());
     }
 
-    /// @notice Deposit stake into pool contract. Callable only if target stake hasn't been reached and assertion has not been asserted yet.
+    /// @notice Deposit stake into pool contract. Callable only if assertion has not been asserted yet.
     /// @param _amount amount of stake token to deposit
     function depositIntoPool(uint256 _amount) external {
         if (poolState != PoolState.PENDING) {
             revert PoolNotInPendingState(poolState);
         }
-        uint256 requiredStake = getRequiredStake();
 
-        uint256 currentPoolBalance = stakeToken.balanceOf(address(this));
-        if (currentPoolBalance >= requiredStake) {
-            revert PoolStakeAlreadyReached(requiredStake);
-        }
-
-        // don't send more than necessary
-        uint256 amountToTransfer;
-        if (currentPoolBalance + _amount > requiredStake) {
-            amountToTransfer = requiredStake - currentPoolBalance;
-        } else {
-            amountToTransfer = _amount;
-        }
-
-        depositedTokenBalances[msg.sender] += amountToTransfer;
-        stakeToken.safeTransferFrom(msg.sender, address(this), amountToTransfer);
-        emit StakeDeposited(msg.sender, amountToTransfer);
+        depositedTokenBalances[msg.sender] += _amount;
+        stakeToken.safeTransferFrom(msg.sender, address(this), _amount);
+        emit StakeDeposited(msg.sender, _amount);
     }
 
     /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
@@ -111,11 +97,8 @@ contract AssertionStakingPool {
         emit StakeReturned();
     }
 
-    /// @notice Send stake from this contract back to its depositor. Callable if pool is pending or pool's assertion is inactive.
+    /// @notice Send stake from this contract back to its depositor.
     function withdrawFromPool() external {
-        if (poolState == PoolState.ASSERTED) {
-            revert PoolNotInPendingOrInactiveState(poolState);
-        }
         uint256 balance = depositedTokenBalances[msg.sender];
         if (balance == 0) {
             revert NoBalanceToWithdraw(msg.sender);

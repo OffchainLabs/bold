@@ -239,15 +239,17 @@ contract AssertinPoolTest is Test {
         assertEq(pool.getRequiredStake(), BASE_STAKE, "required stake set");
     }
 
-    function testCantOverDeposit() external {
+    function testOverDeposit() external {
         vm.prank(staker1);
         pool.depositIntoPool(staker1Bal);
         vm.prank(staker2);
         pool.depositIntoPool(staker2Bal);
 
-        vm.prank(excessStaker);
-        vm.expectRevert(abi.encodeWithSelector(PoolStakeAlreadyReached.selector, BASE_STAKE));
+        vm.startPrank(excessStaker);
         pool.depositIntoPool(excessStakerBal);
+        pool.withdrawFromPool();
+        vm.stopPrank();
+        assertEq(token.balanceOf(excessStaker), excessStakerBal, "excess balance returned");
     }
 
     function testCanDepositAndWithdrawWhilePending() external {
@@ -325,15 +327,6 @@ contract AssertinPoolTest is Test {
         vm.prank(excessStaker);
         vm.expectRevert(abi.encodeWithSelector(PoolNotInPendingState.selector, PoolState.ASSERTED));
         pool.depositIntoPool(excessStakerBal);
-    }
-
-    function testCantWithdrawInAssertedState() external {
-        _createAssertion();
-        vm.prank(staker1);
-        vm.expectRevert(
-            abi.encodeWithSelector(PoolNotInPendingOrInactiveState.selector, PoolState.ASSERTED)
-        );
-        pool.withdrawFromPool();
     }
 
     function testReturnStake() external {
