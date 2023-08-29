@@ -401,7 +401,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
             // there are 3 kinds of assertions that can be made
-            // 1. ERROED assertion - in this case not all the messages are processed, and the position in the message can be any
+            // 1. ERRORED assertion - in this case not all the messages are processed, and the position in the message can be any
             // 2. FINISHED assertion that processed all messages - in this case the position in the message is 0, and the after
             //    state inbox position is the nextInboxPosition of the previous assertion
             // 3. FINISHED assertion that did not process all messages - since assertions have a fixed size it's possible for an assertion
