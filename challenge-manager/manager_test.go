@@ -21,19 +21,19 @@ import (
 
 var _ = types.ChallengeManager(&Manager{})
 
-func TestEdgeTracker_act(t *testing.T) {
+func TestEdgeTracker(t *testing.T) {
 	ctx := context.Background()
 	t.Run("bisects", func(t *testing.T) {
 		tkr, _ := setupNonPSTracker(ctx, t)
 		err := tkr.Act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 4, int(tkr.CurrentState()))
+		require.Equal(t, edgetracker.EdgeBisecting, tkr.CurrentState())
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 5, int(tkr.CurrentState()))
+		require.Equal(t, edgetracker.EdgeStarted, tkr.CurrentState())
 		err = tkr.Act(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 5, int(tkr.CurrentState()))
+		require.Equal(t, edgetracker.EdgeStarted, tkr.CurrentState())
 	})
 }
 
