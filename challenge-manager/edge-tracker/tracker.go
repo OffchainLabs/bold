@@ -210,6 +210,9 @@ func (et *Tracker) Act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case edgeStarted:
+		// TODO: Check if edge has confirmable ancestor:
+		// If so, move to confirmed state.
+
 		canOsp, err := canOneStepProve(et.edge)
 		if err != nil {
 			fields["err"] = err
@@ -231,13 +234,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if wasConfirmed {
 			return et.fsm.Do(edgeConfirm{})
 		}
-		hasRival, err := et.edge.HasRival(ctx)
-		if err != nil {
-			return errors.Wrap(err, "could not check presumptive")
-		}
-		if !hasRival {
-			return et.fsm.Do(edgeBackToStart{})
-		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -246,6 +242,13 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		if atOneStepFork {
 			return et.fsm.Do(edgeOpenSubchallengeLeaf{})
+		}
+		hasRival, err := et.edge.HasRival(ctx)
+		if err != nil {
+			return errors.Wrap(err, "could not check presumptive")
+		}
+		if !hasRival {
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
@@ -258,13 +261,14 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
+		/// TODO: Check if subchallenge already exists. If so, then back to start:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
-		return et.fsm.Do(edgeAwaitConfirmation{})
+		return et.fsm.Do(edgeBackToStart{})
 	// Edge should bisect.
 	case edgeBisecting:
 		lowerChild, upperChild, err := et.bisect(ctx)
@@ -313,18 +317,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		go firstTracker.Spawn(ctx)
 		go secondTracker.Spawn(ctx)
-		return et.fsm.Do(edgeAwaitConfirmation{})
-	case edgeConfirming:
-		wasConfirmed, err := et.tryToConfirm(ctx)
-		if err != nil {
-			fields["err"] = err
-			srvlog.Debug("Could not confirm edge yet", fields)
-			return et.fsm.Do(edgeAwaitConfirmation{})
-		}
-		if !wasConfirmed {
-			return et.fsm.Do(edgeAwaitConfirmation{})
-		}
-		return et.fsm.Do(edgeConfirm{})
+		return et.fsm.Do(edgeBackToStart{})
 	case edgeConfirmed:
 		srvlog.Info("Edge reached confirmed state", fields)
 		return et.fsm.Do(edgeConfirm{})

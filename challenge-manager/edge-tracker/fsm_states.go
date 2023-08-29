@@ -22,9 +22,6 @@ const (
 	edgeAddingSubchallengeLeaf
 	// The tracker is attempting a bisection move.
 	edgeBisecting
-	// Intermediary state in which an edge is doing nothing else but awaiting confirmation
-	// whenever it is possible.
-	edgeConfirming
 	// Terminal state
 	edgeConfirmed
 )
@@ -40,8 +37,6 @@ func (s State) String() string {
 		return "adding_subchallenge_leaf"
 	case edgeBisecting:
 		return "bisecting"
-	case edgeConfirming:
-		return "confirming"
 	case edgeConfirmed:
 		return "confirmed"
 	default:
@@ -68,8 +63,6 @@ type edgeOpenSubchallengeLeaf struct{}
 // Tracker will attempt to bisect its edge.
 type edgeBisect struct{}
 
-type edgeAwaitConfirmation struct{}
-
 type edgeConfirm struct{}
 
 func (edgeBackToStart) String() string {
@@ -83,9 +76,6 @@ func (edgeOpenSubchallengeLeaf) String() string {
 }
 func (edgeBisect) String() string {
 	return "bisect"
-}
-func (edgeAwaitConfirmation) String() string {
-	return "await_confirmation"
 }
 func (edgeConfirm) String() string {
 	return "confirm"
@@ -101,9 +91,6 @@ func (edgeOpenSubchallengeLeaf) isEdgeTrackerAction() bool {
 	return true
 }
 func (edgeBisect) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeAwaitConfirmation) isEdgeTrackerAction() bool {
 	return true
 }
 func (edgeConfirm) isEdgeTrackerAction() bool {
