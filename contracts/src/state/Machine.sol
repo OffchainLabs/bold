@@ -11,7 +11,8 @@ import "./StackFrame.sol";
 enum MachineStatus {
     RUNNING,
     FINISHED,
-    ERRORED
+    ERRORED,
+    TOO_FAR
 }
 
 struct Machine {
@@ -50,7 +51,9 @@ library MachineLib {
         } else if (mach.status == MachineStatus.FINISHED) {
             return keccak256(abi.encodePacked("Machine finished:", mach.globalStateHash));
         } else if (mach.status == MachineStatus.ERRORED) {
-            return keccak256(abi.encodePacked("Machine errored:", mach.globalStateHash));
+            return keccak256(abi.encodePacked("Machine errored:"));
+        } else if (mach.status == MachineStatus.TOO_FAR) {
+            return keccak256(abi.encodePacked("Machine too far:"));
         } else {
             revert("BAD_MACH_STATUS");
         }

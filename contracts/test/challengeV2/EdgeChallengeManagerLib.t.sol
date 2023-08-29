@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
 //
 pragma solidity ^0.8.17;
@@ -1316,18 +1316,12 @@ contract EdgeChallengeManagerLibTest is Test {
         claimWithMixedAncestors(10, 140, 1, 1, 1);
     }
 
-    struct ConfirmByOneStepData {
-        ChallengeEdge e1;
-        ChallengeEdge e2;
-        bytes revertArg;
-    }
-
     function confirmByOneStep(uint256 flag) internal {
+        bytes memory revertArg;
         uint256 startHeight = 5;
         (bytes32[] memory states1, bytes32[] memory states2) = rivalStates(startHeight, startHeight, startHeight + 1);
 
-        ConfirmByOneStepData memory data;
-        data.e1 = ChallengeEdgeLib.newChildEdge(
+        ChallengeEdge memory e1 = ChallengeEdgeLib.newChildEdge(
             rand.hash(),
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states1, 0, startHeight + 1)),
             startHeight,
@@ -1335,8 +1329,8 @@ contract EdgeChallengeManagerLibTest is Test {
             startHeight + 1,
             EdgeType.SmallStep
         );
-        data.e2 = ChallengeEdgeLib.newChildEdge(
-            data.e1.originId,
+        ChallengeEdge memory e2 = ChallengeEdgeLib.newChildEdge(
+            e1.originId,
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, startHeight + 1)),
             startHeight,
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, startHeight + 2)),
@@ -1344,17 +1338,17 @@ contract EdgeChallengeManagerLibTest is Test {
             EdgeType.SmallStep
         );
         if (flag == 3) {
-            data.e1.eType = EdgeType.BigStep;
-            data.revertArg = abi.encodeWithSelector(EdgeTypeNotSmallStep.selector, data.e1.eType);
+            e1.eType = EdgeType.BigStep;
+            revertArg = abi.encodeWithSelector(EdgeTypeNotSmallStep.selector, e1.eType);
         }
         if (flag == 5) {
-            data.e1.endHeight = data.e1.endHeight + 1;
-            data.revertArg = abi.encodeWithSelector(EdgeNotLengthOne.selector, 2);
+            e1.endHeight = e1.endHeight + 1;
+            revertArg = abi.encodeWithSelector(EdgeNotLengthOne.selector, 2);
         }
-        bytes32 eid = data.e1.idMem();
+        bytes32 eid = e1.idMem();
         if (flag == 2) {
-            data.e1.status = EdgeStatus.Confirmed;
-            data.revertArg = abi.encodeWithSelector(EdgeNotPending.selector, eid, data.e1.status);
+            e1.status = EdgeStatus.Confirmed;
+            revertArg = abi.encodeWithSelector(EdgeNotPending.selector, eid, e1.status);
         }
 
         MockOneStepProofEntry entry = new MockOneStepProofEntry();
@@ -1366,12 +1360,12 @@ contract EdgeChallengeManagerLibTest is Test {
         EdgeChallengeManagerLibAccess a = new EdgeChallengeManagerLibAccess();
 
         if (flag != 1) {
-            a.add(data.e1);
+            a.add(e1);
         } else {
-            data.revertArg = abi.encodeWithSelector(EdgeNotExists.selector, eid);
+            revertArg = abi.encodeWithSelector(EdgeNotExists.selector, eid);
         }
         if (flag != 4) {
-            a.add(data.e2);
+            a.add(e2);
         }
         OneStepData memory d =
             OneStepData({beforeHash: states1[startHeight], proof: abi.encodePacked(states1[startHeight + 1])});
@@ -1382,24 +1376,24 @@ contract EdgeChallengeManagerLibTest is Test {
         );
         if (flag == 6) {
             beforeProof[0] = rand.hash();
-            data.revertArg = "Invalid inclusion proof";
+            revertArg = "Invalid inclusion proof";
         }
         bytes32[] memory afterProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), startHeight + 1);
         if (flag == 7) {
             afterProof[0] = rand.hash();
-            data.revertArg = "Invalid inclusion proof";
+            revertArg = "Invalid inclusion proof";
         }
         if (flag == 8) {
             d.proof = abi.encodePacked(rand.hash());
-            data.revertArg = "Invalid inclusion proof";
+            revertArg = "Invalid inclusion proof";
         }
 
-        if (data.revertArg.length != 0) {
-            vm.expectRevert(data.revertArg);
+        if (revertArg.length != 0) {
+            vm.expectRevert(revertArg);
         }
         a.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof);
 
-        if (bytes(data.revertArg).length != 0) {
+        if (bytes(revertArg).length != 0) {
             // for flag one the edge does not exist
             // for flag two we set the status to confirmed anyway
             if (flag != 1 && flag != 2) {
@@ -1681,88 +1675,70 @@ contract EdgeChallengeManagerLibTest is Test {
         return (ce.idMem(), claimRoots);
     }
 
-    struct CreateSmallStepEdgeData {
-        bytes revertArg;
-        uint256 claimStartHeight;
-        uint256 claimEndHeight;
-        uint256 expectedEndHeight;
-        EdgeChallengeManagerLibAccess c;
-        bytes32 claimId;
-        ExpsAndProofs claimRoots;
-        ExpsAndProofs roots;
-        bytes proof;
-        MockOneStepProofEntry a;
-        AssertionReferenceData emptyArd;
-    }
-
     function createSmallStepEdge(uint256 mode) internal {
-        CreateSmallStepEdgeData memory vars;
+        bytes memory revertArg;
+        uint256 claimStartHeight = 4;
+        uint256 claimEndHeight = mode == 161 ? 6 : 5;
 
-        vars.claimStartHeight = 4;
-        vars.claimEndHeight = mode == 161 ? 6 : 5;
-
-        vars.expectedEndHeight = 2 ** 5;
-        vars.c = new EdgeChallengeManagerLibAccess();
-        (vars.claimId, vars.claimRoots) =
-            createClaimEdge(vars.c, vars.claimStartHeight, vars.claimEndHeight, mode == 160 ? false : true);
+        uint256 expectedEndHeight = 2 ** 5;
+        EdgeChallengeManagerLibAccess c = new EdgeChallengeManagerLibAccess();
+        (bytes32 claimId, ExpsAndProofs memory claimRoots) =
+            createClaimEdge(c, claimStartHeight, claimEndHeight, mode == 160 ? false : true);
         if (mode == 160) {
-            vars.revertArg = abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, vars.claimId);
+            revertArg = abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, claimId);
         }
         if (mode == 161) {
-            vars.revertArg = abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, vars.claimId);
+            revertArg = abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, claimId);
         }
 
-        vars.roots = newRootsAndProofs(
-            0,
-            vars.expectedEndHeight,
-            vars.claimRoots.states[vars.claimStartHeight],
-            vars.claimRoots.states[vars.claimEndHeight]
+        ExpsAndProofs memory roots = newRootsAndProofs(
+            0, expectedEndHeight, claimRoots.states[claimStartHeight], claimRoots.states[claimEndHeight]
         );
         if (mode == 164) {
             bytes32[] memory b = new bytes32[](1);
             b[0] = rand.hash();
-            vars.claimRoots.startInclusionProof = ArrayUtilsLib.concat(vars.claimRoots.startInclusionProof, b);
-            vars.revertArg = "Invalid inclusion proof";
+            claimRoots.startInclusionProof = ArrayUtilsLib.concat(claimRoots.startInclusionProof, b);
+            revertArg = "Invalid inclusion proof";
         }
         if (mode == 165) {
             bytes32[] memory b = new bytes32[](1);
             b[0] = rand.hash();
-            vars.claimRoots.endInclusionProof = ArrayUtilsLib.concat(vars.claimRoots.endInclusionProof, b);
-            vars.revertArg = "Invalid inclusion proof";
+            claimRoots.endInclusionProof = ArrayUtilsLib.concat(claimRoots.endInclusionProof, b);
+            revertArg = "Invalid inclusion proof";
         }
-        vars.proof = abi.encode(
-            vars.roots.states[0],
-            vars.roots.states[vars.expectedEndHeight],
-            vars.claimRoots.startInclusionProof,
-            vars.claimRoots.endInclusionProof,
-            ProofUtils.generateInclusionProof(ProofUtils.rehashed(vars.roots.states), vars.expectedEndHeight)
+        bytes memory proof = abi.encode(
+            roots.states[0],
+            roots.states[expectedEndHeight],
+            claimRoots.startInclusionProof,
+            claimRoots.endInclusionProof,
+            ProofUtils.generateInclusionProof(ProofUtils.rehashed(roots.states), expectedEndHeight)
         );
         if (mode == 162) {
-            vars.c.setConfirmed(vars.claimId);
-            vars.revertArg = abi.encodeWithSelector(ClaimEdgeNotPending.selector);
+            c.setConfirmed(claimId);
+            revertArg = abi.encodeWithSelector(ClaimEdgeNotPending.selector);
         }
 
-        vars.a = new MockOneStepProofEntry();
-        vars.emptyArd;
+        MockOneStepProofEntry a = new MockOneStepProofEntry();
+        AssertionReferenceData memory emptyArd;
 
         if (mode == 163) {
-            vars.revertArg = abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.BigStep, EdgeType.BigStep);
+            revertArg = abi.encodeWithSelector(ClaimEdgeInvalidType.selector, EdgeType.BigStep, EdgeType.BigStep);
         }
-        if (vars.revertArg.length != 0) {
-            vm.expectRevert(vars.revertArg);
+        if (revertArg.length != 0) {
+            vm.expectRevert(revertArg);
         }
-        vars.c.createLayerZeroEdge(
+        c.createLayerZeroEdge(
             CreateEdgeArgs({
                 edgeType: mode == 163 ? EdgeType.BigStep : EdgeType.SmallStep,
-                endHistoryRoot: MerkleTreeLib.root(vars.roots.endExp),
-                endHeight: vars.expectedEndHeight,
-                claimId: vars.claimId,
-                prefixProof: abi.encode(vars.roots.startExp, vars.roots.prefixProof),
-                proof: vars.proof
+                endHistoryRoot: MerkleTreeLib.root(roots.endExp),
+                endHeight: expectedEndHeight,
+                claimId: claimId,
+                prefixProof: abi.encode(roots.startExp, roots.prefixProof),
+                proof: proof
             }),
-            vars.emptyArd,
-            vars.a,
-            vars.expectedEndHeight,
+            emptyArd,
+            a,
+            expectedEndHeight,
             challengePeriodBlocks,
             stakeAmount
         );

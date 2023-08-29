@@ -12,4 +12,10 @@ contract RollupMock {
         emit WithdrawTriggered();
         return 0;
     }
+
+    function removeOldZombies(
+        uint256 /* startIndex */
+    ) external {
+        emit ZombieTriggered();
+    }
 }

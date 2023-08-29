@@ -1,5 +1,5 @@
 // Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// For license information, see https://github.com/offchainlabs/challenge-protocol-v2/blob/main/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
 //
 pragma solidity ^0.8.17;
@@ -1395,26 +1395,16 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.refundStake(allWinners[16].lowerChildId);
     }
 
-    function testRefundStakeBigStep() external {
+    function testRevertRefundStakeBigStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-
-        IERC20 stakeToken = ei.challengeManager.stakeToken();
-        uint256 beforeBalance = stakeToken.balanceOf(address(this));
-        vm.prank(nobody); // call refund as nobody
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, EdgeType.BigStep));
         ei.challengeManager.refundStake(allWinners[11].lowerChildId);
-        uint256 afterBalance = stakeToken.balanceOf(address(this));
-        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
     }
 
-    function testRefundStakeSmallStep() external {
+    function testRevertRefundStakeSmallStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-
-        IERC20 stakeToken = ei.challengeManager.stakeToken();
-        uint256 beforeBalance = stakeToken.balanceOf(address(this));
-        vm.prank(nobody); // call refund as nobody
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, EdgeType.SmallStep));
         ei.challengeManager.refundStake(allWinners[5].lowerChildId);
-        uint256 afterBalance = stakeToken.balanceOf(address(this));
-        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
     }
 
     function testRevertRefundStakeNotConfirmed() external {
