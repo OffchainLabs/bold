@@ -222,27 +222,6 @@ func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId) {
 	m.trackedEdgeIds.Insert(edgeId)
 }
 
-// GetAncestorEdge returns the ancestor edge of  a given edge id.
-func (m *Manager) GetAncestorEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error) {
-	for _, edge := range m.watcher.GetEdges() {
-		lowerChild, err := edge.LowerChild(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if lowerChild.Unwrap() == edgeId {
-			return edge, nil
-		}
-		upperChild, err := edge.UpperChild(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if upperChild.Unwrap() == edgeId {
-			return edge, nil
-		}
-	}
-	return nil, nil
-}
-
 // Mode returns the mode of the challenge manager.
 func (m *Manager) Mode() types.Mode {
 	return m.mode

@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var _ ConfirmationMetadataChecker = (*Watcher)(nil)
+
 func TestWatcher_processEdgeConfirmation(t *testing.T) {
 	ctx := context.Background()
 	mockChain := &mocks.MockProtocol{}

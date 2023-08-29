@@ -12,6 +12,7 @@ import (
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/fsm"
@@ -39,30 +40,9 @@ func init() {
 	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
 }
 
-// ConfirmationMetadataChecker defines a struct which can retrieve information about
-// an edge to determine if it can be confirmed via different means. For example,
-// checking if a confirmed edge exists that claims a specified edge id as its claim id,
-// or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
-// This information is used in order to confirm edges onchain.
-type ConfirmationMetadataChecker interface {
-	ConfirmedEdgeWithClaimExists(
-		topLevelAssertionHash protocol.AssertionHash,
-		claimId protocol.ClaimId,
-	) (protocol.EdgeId, bool)
-	ComputeHonestPathTimer(
-		ctx context.Context,
-		topLevelAssertionHash protocol.AssertionHash,
-		edgeId protocol.EdgeId,
-	) (challengetree.PathTimer, challengetree.HonestAncestors, error)
-	AddVerifiedHonestEdge(
-		ctx context.Context, verifiedHonest protocol.VerifiedHonestEdge,
-	) error
-}
-
 type ChallengeTracker interface {
 	IsTrackingEdge(protocol.EdgeId) bool
 	MarkTrackedEdge(protocol.EdgeId)
-	GetAncestorEdge(ctx context.Context, edgeId protocol.EdgeId) (protocol.SpecEdge, error)
 }
 
 type Opt func(et *Tracker)
@@ -113,7 +93,7 @@ type Tracker struct {
 	validatorName    string
 	chain            protocol.Protocol
 	stateProvider    l2stateprovider.Provider
-	chainWatcher     ConfirmationMetadataChecker
+	chainWatcher     watcher.ConfirmationMetadataChecker
 	challengeManager ChallengeTracker
 	heightConfig     HeightConfig
 	wasmModuleRoot   common.Hash
@@ -124,7 +104,7 @@ func New(
 	edge protocol.SpecEdge,
 	chain protocol.Protocol,
 	stateProvider l2stateprovider.Provider,
-	chainWatcher ConfirmationMetadataChecker,
+	chainWatcher watcher.ConfirmationMetadataChecker,
 	challengeManager ChallengeTracker,
 	heightConfig HeightConfig,
 	opts ...Opt,
@@ -259,21 +239,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case edgeAddingSubchallengeLeaf:
-		ancestorEdge, err := et.challengeManager.GetAncestorEdge(ctx, et.edge.Id())
-		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not get ancestor edge", fields)
-		}
-		ancestorStatus, err := ancestorEdge.Status(ctx)
-		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not get ancestor status", fields)
-		}
-		// Nothing to do if the ancestor is already confirmed.
-		if ancestorStatus == protocol.EdgeConfirmed {
-			return nil
-		}
-
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
@@ -283,21 +248,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
 	case edgeBisecting:
-		ancestorEdge, err := et.challengeManager.GetAncestorEdge(ctx, et.edge.Id())
-		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not get ancestor edge", fields)
-		}
-		ancestorStatus, err := ancestorEdge.Status(ctx)
-		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not get ancestor status", fields)
-		}
-		// Nothing to do if the ancestor is already confirmed.
-		if ancestorStatus == protocol.EdgeConfirmed {
-			return nil
-		}
-
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -346,21 +296,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 		go secondTracker.Spawn(ctx)
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	case edgeConfirming:
-		ancestorEdge, err := et.challengeManager.GetAncestorEdge(ctx, et.edge.Id())
-		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not get ancestor edge", fields)
-		}
-		ancestorStatus, err := ancestorEdge.Status(ctx)
-		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not get ancestor status", fields)
-		}
-		// Nothing to do if the ancestor is already confirmed.
-		if ancestorStatus == protocol.EdgeConfirmed {
-			return nil
-		}
-
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
 			fields["err"] = err

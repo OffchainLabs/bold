@@ -62,6 +62,14 @@ type ConfirmationMetadataChecker interface {
 		topLevelAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
 	) (challengetree.PathTimer, challengetree.HonestAncestors, error)
+	AddVerifiedHonestEdge(
+		ctx context.Context, verifiedHonest protocol.VerifiedHonestEdge,
+	) error
+	HasConfirmedHonestAncestor(
+		ctx context.Context,
+		challengedAssertionHash protocol.AssertionHash,
+		edgeId protocol.EdgeId,
+	) (bool, error)
 }
 
 // Represents a set of honest edges being tracked in a top-level challenge and all the
@@ -151,6 +159,23 @@ func (w *Watcher) ComputeHonestPathTimer(
 		)
 	}
 	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
+}
+
+// HasConfirmedHonestAncestor checks if an edge id has a confirmed, honest ancestor
+// based on the honest challenge tree we are tracking locally.
+func (w *Watcher) HasConfirmedHonestAncestor(
+	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
+	edgeId protocol.EdgeId,
+) (bool, error) {
+	chal, ok := w.challenges.TryGet(challengedAssertionHash)
+	if !ok {
+		return false, fmt.Errorf(
+			"could not get challenge for challenged assertion %#x",
+			challengedAssertionHash,
+		)
+	}
+	return chal.honestEdgeTree.HasConfirmedAncestor(ctx, edgeId)
 }
 
 func (w *Watcher) IsSynced() bool {
