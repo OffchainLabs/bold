@@ -1,5 +1,5 @@
 // Copyright 2021-2022, Offchain Labs, Inc.
-// For license information, see https://github.com/nitro/blob/master/LICENSE
+// For license information, see https://github.com/OffchainLabs/nitro-contracts/blob/main/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity ^0.8.0;
@@ -15,13 +15,22 @@ import "./IRollupAdmin.sol";
 
 contract RollupCreator is Ownable {
     event RollupCreated(
-        address indexed rollupAddress, address inboxAddress, address adminProxy, address sequencerInbox, address bridge
+        address indexed rollupAddress,
+        address inboxAddress,
+        address outbox,
+        address rollupEventInbox,
+        address challengeManager,
+        address adminProxy,
+        address sequencerInbox,
+        address bridge,
+        address validatorUtils,
+        address validatorWalletCreator
     );
     event TemplatesUpdated();
 
     BridgeCreator public bridgeCreator;
     IOneStepProofEntry public osp;
-    IEdgeChallengeManager public challengeManagerTemplate;
+    IChallengeManager public challengeManagerTemplate;
     IRollupAdmin public rollupAdminLogic;
     IRollupUser public rollupUserLogic;
 
@@ -33,7 +42,7 @@ contract RollupCreator is Ownable {
     function setTemplates(
         BridgeCreator _bridgeCreator,
         IOneStepProofEntry _osp,
-        IEdgeChallengeManager _challengeManagerLogic,
+        IChallengeManager _challengeManagerLogic,
         IRollupAdmin _rollupAdminLogic,
         IRollupUser _rollupUserLogic,
         address _validatorUtils,
@@ -47,40 +56,6 @@ contract RollupCreator is Ownable {
         validatorUtils = _validatorUtils;
         validatorWalletCreator = _validatorWalletCreator;
         emit TemplatesUpdated();
-    }
-
-    // internal function to workaround stack limit
-    function createChallengeManager(address rollupAddr, address proxyAdminAddr, Config memory config)
-        internal
-        returns (IEdgeChallengeManager)
-    {
-        IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(challengeManagerTemplate),
-                    proxyAdminAddr,
-                    ""
-                )
-            )
-        );
-
-        challengeManager.initialize({
-            _assertionChain: IAssertionChain(rollupAddr),
-            _challengePeriodBlocks: config.confirmPeriodBlocks,
-            _oneStepProofEntry: osp,
-            layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
-            layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
-            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
-            _stakeToken: IERC20(config.stakeToken),
-            _stakeAmount: config.miniStakeValue,
-            _excessStakeReceiver: config.owner
-        });
-
-        return challengeManager;
-    }
-
-    function createRollup(Config memory config) external returns (address) {
-        return createRollup(config, address(0), new address[](0), false);
     }
 
     /**
@@ -99,11 +74,9 @@ contract RollupCreator is Ownable {
     function createRollup(
         Config memory config,
         address _batchPoster,
-        address[] memory _validators,
-        bool disableValidatorWhitelist
-    ) public returns (address) {        
+        address[] calldata _validators
+    ) external returns (address) {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        proxyAdmin.transferOwnership(config.owner);
 
         // Create the rollup proxy to figure out the address and initialize it later
         RollupProxy rollup = new RollupProxy{salt: keccak256(abi.encode(config))}();
@@ -114,15 +87,34 @@ contract RollupCreator is Ownable {
             IInbox inbox,
             IRollupEventInbox rollupEventInbox,
             IOutbox outbox
-        ) = bridgeCreator.createBridge(address(proxyAdmin), address(rollup), config.sequencerInboxMaxTimeVariation);
+        ) = bridgeCreator.createBridge(
+                address(proxyAdmin),
+                address(rollup),
+                config.sequencerInboxMaxTimeVariation
+            );
 
-        IEdgeChallengeManager challengeManager = createChallengeManager(address(rollup), address(proxyAdmin), config);
+        IChallengeManager challengeManager = IChallengeManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(challengeManagerTemplate),
+                    address(proxyAdmin),
+                    ""
+                )
+            )
+        );
+        challengeManager.initialize(
+            IChallengeResultReceiver(address(rollup)),
+            sequencerInbox,
+            bridge,
+            osp
+        );
+
+        proxyAdmin.transferOwnership(config.owner);
 
         // initialize the rollup with this contract as owner to set batch poster and validators
         // it will transfer the ownership back to the actual owner later
         address actualOwner = config.owner;
         config.owner = address(this);
-
         rollup.initializeProxy(
             config,
             ContractDependencies({
@@ -143,6 +135,7 @@ contract RollupCreator is Ownable {
         if (_batchPoster != address(0)) {
             sequencerInbox.setIsBatchPoster(_batchPoster, true);
         }
+
         // Call setValidator on the newly created rollup contract just if validator set is not empty
         if (_validators.length != 0) {
             bool[] memory _vals = new bool[](_validators.length);
@@ -151,13 +144,20 @@ contract RollupCreator is Ownable {
             }
             IRollupAdmin(address(rollup)).setValidator(_validators, _vals);
         }
-        if(disableValidatorWhitelist == true) {
-            IRollupAdmin(address(rollup)).setValidatorWhitelistDisabled(disableValidatorWhitelist);
-        }
+
         IRollupAdmin(address(rollup)).setOwner(actualOwner);
 
         emit RollupCreated(
-            address(rollup), address(inbox), address(proxyAdmin), address(sequencerInbox), address(bridge)
+            address(rollup),
+            address(inbox),
+            address(outbox),
+            address(rollupEventInbox),
+            address(challengeManager),
+            address(proxyAdmin),
+            address(sequencerInbox),
+            address(bridge),
+            address(validatorUtils),
+            address(validatorWalletCreator)
         );
         return address(rollup);
     }

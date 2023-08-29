@@ -1,5 +1,5 @@
 // Copyright 2021-2022, Offchain Labs, Inc.
-// For license information, see https://github.com/nitro/blob/master/LICENSE
+// For license information, see https://github.com/OffchainLabs/nitro-contracts/blob/main/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity ^0.8.0;
@@ -7,9 +7,9 @@ pragma solidity ^0.8.0;
 import "../state/Machine.sol";
 import "../state/GlobalState.sol";
 
-library OldChallengeLib {
+library ChallengeLib {
     using MachineLib for Machine;
-    using OldChallengeLib for Challenge;
+    using ChallengeLib for Challenge;
 
     /// @dev It's assumed that that uninitialzed challenges have mode NONE
     enum ChallengeMode {
@@ -86,6 +86,8 @@ library OldChallengeLib {
             return keccak256(abi.encodePacked("Machine finished:", globalStateHash));
         } else if (status == MachineStatus.ERRORED) {
             return keccak256(abi.encodePacked("Machine errored:"));
+        } else if (status == MachineStatus.TOO_FAR) {
+            return keccak256(abi.encodePacked("Machine too far:"));
         } else {
             revert("BAD_BLOCK_STATUS");
         }
@@ -122,6 +124,8 @@ library OldChallengeLib {
             return keccak256(abi.encodePacked("Block state:", globalStateHash));
         } else if (status == MachineStatus.ERRORED) {
             return keccak256(abi.encodePacked("Block state, errored:", globalStateHash));
+        } else if (status == MachineStatus.TOO_FAR) {
+            return keccak256(abi.encodePacked("Block state, too far:"));
         } else {
             revert("BAD_BLOCK_STATUS");
         }

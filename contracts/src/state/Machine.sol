@@ -1,5 +1,5 @@
 // Copyright 2021-2022, Offchain Labs, Inc.
-// For license information, see https://github.com/nitro/blob/master/LICENSE
+// For license information, see https://github.com/OffchainLabs/nitro-contracts/blob/main/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity ^0.8.0;
@@ -11,7 +11,8 @@ import "./StackFrame.sol";
 enum MachineStatus {
     RUNNING,
     FINISHED,
-    ERRORED
+    ERRORED,
+    TOO_FAR
 }
 
 struct Machine {
@@ -50,7 +51,9 @@ library MachineLib {
         } else if (mach.status == MachineStatus.FINISHED) {
             return keccak256(abi.encodePacked("Machine finished:", mach.globalStateHash));
         } else if (mach.status == MachineStatus.ERRORED) {
-            return keccak256(abi.encodePacked("Machine errored:", mach.globalStateHash));
+            return keccak256(abi.encodePacked("Machine errored:"));
+        } else if (mach.status == MachineStatus.TOO_FAR) {
+            return keccak256(abi.encodePacked("Machine too far:"));
         } else {
             revert("BAD_MACH_STATUS");
         }

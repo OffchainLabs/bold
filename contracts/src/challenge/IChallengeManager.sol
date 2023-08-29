@@ -1,5 +1,5 @@
 // Copyright 2021-2022, Offchain Labs, Inc.
-// For license information, see https://github.com/nitro/blob/master/LICENSE
+// For license information, see https://github.com/OffchainLabs/nitro-contracts/blob/main/LICENSE
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity ^0.8.0;
@@ -9,11 +9,11 @@ import "../bridge/IBridge.sol";
 import "../bridge/ISequencerInbox.sol";
 import "../osp/IOneStepProofEntry.sol";
 
-import "./IOldChallengeResultReceiver.sol";
+import "./IChallengeResultReceiver.sol";
 
-import "./OldChallengeLib.sol";
+import "./ChallengeLib.sol";
 
-interface IOldChallengeManager {
+interface IChallengeManager {
     enum ChallengeTerminationType {
         TIMEOUT,
         BLOCK_PROOF,
@@ -41,7 +41,7 @@ interface IOldChallengeManager {
     event ChallengeEnded(uint64 indexed challengeIndex, ChallengeTerminationType kind);
 
     function initialize(
-        IOldChallengeResultReceiver resultReceiver_,
+        IChallengeResultReceiver resultReceiver_,
         ISequencerInbox sequencerInbox_,
         IBridge bridge_,
         IOneStepProofEntry osp_
@@ -61,7 +61,7 @@ interface IOldChallengeManager {
     function challengeInfo(uint64 challengeIndex_)
         external
         view
-        returns (OldChallengeLib.Challenge memory);
+        returns (ChallengeLib.Challenge memory);
 
     function currentResponder(uint64 challengeIndex) external view returns (address);
 
