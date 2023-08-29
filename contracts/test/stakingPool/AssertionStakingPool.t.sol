@@ -331,7 +331,7 @@ contract AssertinPoolTest is Test {
         _createAssertion();
         vm.prank(staker1);
         vm.expectRevert(
-            abi.encodeWithSelector(PoolNotInPendingOrConfirmedState.selector, PoolState.ASSERTED)
+            abi.encodeWithSelector(PoolNotInPendingOrInactiveState.selector, PoolState.ASSERTED)
         );
         pool.withdrawFromPool();
     }
@@ -339,8 +339,8 @@ contract AssertinPoolTest is Test {
     function testReturnStake() external {
         _createAndConfirmAssertion();
         vm.prank(rando);
-        pool.setPoolStateConfirmed();
-        assertTrue(pool.poolState() == PoolState.CONFIRMED, "state confirmed");
+        pool.setPoolStateInactive();
+        assertTrue(pool.poolState() == PoolState.INACTIVE, "state inactive");
 
         pool.returnOldStakeBackToPool();
         assertEq(token.balanceOf(address(pool)), BASE_STAKE, "tokens returned to pool");
@@ -359,7 +359,7 @@ contract AssertinPoolTest is Test {
 
     function testCantWithdrawTwice() external {
         _createAndConfirmAssertion();
-        pool.setPoolStateConfirmed();
+        pool.setPoolStateInactive();
         pool.returnOldStakeBackToPool();
 
         vm.startPrank(staker1);

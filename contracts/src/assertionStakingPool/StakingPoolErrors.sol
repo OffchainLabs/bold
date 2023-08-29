@@ -8,16 +8,16 @@ import "../rollup/IRollupLogic.sol";
 enum PoolState {
     PENDING,
     ASSERTED,
-    CONFIRMED
+    INACTIVE
 }
 
 error PoolNotInPendingState(PoolState poolState);
 
 error PoolNotInAssertedState(PoolState poolState);
 
-error PoolNotInPendingOrConfirmedState(PoolState poolState);
+error PoolNotInPendingOrInactiveState(PoolState poolState);
 
-error PoolNotInConfirmedState(PoolState poolState);
+error PoolNotInInactiveState(PoolState poolState);
 
 error PoolStakeAlreadyReached(uint256 baseStake);
 
@@ -25,6 +25,6 @@ error NotEnoughStake(uint256 balance, uint256 baseStake);
 
 error NoBalanceToWithdraw(address sender);
 
-error AssertionNotConfirmed(bytes32 assertionHash);
+error AssertionNotInactive(bytes32 assertionHash);
 
 error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);

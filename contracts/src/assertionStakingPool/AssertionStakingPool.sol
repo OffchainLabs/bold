@@ -23,7 +23,7 @@ contract AssertionStakingPool {
 
     event StakeDeposited(address indexed sender, uint256 amount);
     event AssertionCreated();
-    event PoolStateConfirmed();
+    event PoolStateInactive();
     event StakeReturned();
     event StakeWithrawn(address indexed sender, uint256 amount);
 
@@ -86,35 +86,35 @@ contract AssertionStakingPool {
         emit AssertionCreated();
     }
 
-    /// @notice update pool state if assertion has been confirmed, and make deposit withdrawable.
-    function setPoolStateConfirmed() external {
+    /// @notice update pool state if assertion is no longer active (confirmed or has a child) , and make deposit withdrawable.
+    function setPoolStateInactive() external {
         if (poolState != PoolState.ASSERTED) {
             revert PoolNotInAssertedState(poolState);
-        }
+        }   
 
-        poolState = PoolState.CONFIRMED;
+        poolState = PoolState.INACTIVE;
 
-        if (IRollupCore(rollup).getAssertion(assertionHash).status != AssertionStatus.Confirmed) {
-            revert AssertionNotConfirmed(assertionHash);
+        if (!IRollupCore(rollup).stakerIsInactive(address(this))) {
+            revert AssertionNotInactive(assertionHash);
         }
         IRollupUser(rollup).returnOldDeposit();
-        emit PoolStateConfirmed();
+        emit PoolStateInactive();
     }
 
-    /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's been confirmed.
-    /// @dev Separate call from setPoolStateConfirmed since withdrawStakerFunds reverts with 0 balance (in e.g., case of admin forceRefundStaker)
+    /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's now inactive.
+    /// @dev Separate call from setPoolStateInactive since withdrawStakerFunds reverts with 0 balance (in e.g., case of admin forceRefundStaker)
     function returnOldStakeBackToPool() external {
-        if (poolState != PoolState.CONFIRMED) {
-            revert PoolNotInConfirmedState(poolState);
+        if (poolState != PoolState.INACTIVE) {
+            revert PoolNotInInactiveState(poolState);
         }
         IRollupUser(rollup).withdrawStakerFunds();
         emit StakeReturned();
     }
 
-    /// @notice Send stake from this contract back to its depositor. Callable if pool is pending or pool's assertion has been confirmed.
+    /// @notice Send stake from this contract back to its depositor. Callable if pool is pending or pool's assertion is inactive.
     function withdrawFromPool() external {
         if (poolState == PoolState.ASSERTED) {
-            revert PoolNotInPendingOrConfirmedState(poolState);
+            revert PoolNotInPendingOrInactiveState(poolState);
         }
         uint256 balance = depositedTokenBalances[msg.sender];
         if (balance == 0) {
