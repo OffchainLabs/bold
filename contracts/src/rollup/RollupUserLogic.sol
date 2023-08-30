@@ -182,7 +182,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         getAssertionStorage(prevAssertion).requireExists();
 
         // Staker can create new assertion only if
-        // a) its last staked assertion is the prev; orÍ
+        // a) its last staked assertion is the prev; or
         // b) its last staked assertion have a child
         bytes32 lastAssertion = latestStakedAssertion(msg.sender);
         require(
