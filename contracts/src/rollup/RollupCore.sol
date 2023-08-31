@@ -419,6 +419,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             require(
                 afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "ERRORED_INBOX_TOO_FAR"
             );
+            // this assertion must have moved forward some amount unless it ERRORED
+            if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
+                require(
+                    afterInboxPosition > prevInboxPosition
+                        || assertion.afterState.globalState.getPositionInMessage()
+                            > assertion.beforeState.globalState.getPositionInMessage(),
+                    "ASSERTION_STATIONARY"
+                );
+            }
 
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
             // Cannot read more messages than currently exist in the inbox
