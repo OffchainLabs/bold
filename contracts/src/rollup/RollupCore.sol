@@ -446,7 +446,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             // in this case we need to ensure when the assertion is made the inbox messages are available
             // to ensure that a valid assertion can actually be made.
             require(
-                currentInboxPosition >= assertion.beforeStateData.configData.nextInboxPosition, "INBOX_NOT_POPULATED"
+                assertion.beforeStateData.configData.nextInboxPosition <= currentInboxPosition, "INBOX_NOT_POPULATED"
             );
 
             // The next assertion must consume all the messages that are currently found in the inbox
