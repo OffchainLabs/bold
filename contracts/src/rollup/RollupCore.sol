@@ -426,15 +426,26 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                 );
             }
 
-            if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
-                // this assertion must have moved forward some amount unless it ERRORED
-                require(
-                    afterInboxPosition > prevInboxPosition
-                        || assertion.afterState.globalState.getPositionInMessage()
-                            > assertion.beforeState.globalState.getPositionInMessage(),
-                    "ASSERTION_STATIONARY"
-                );
-            }
+            // check the position has moved appropriately
+            require(
+                // either the inbox position moves forward
+                afterInboxPosition > prevInboxPosition
+                // the inbox position hasnt moved, if the machine is in FINISHED
+                // then the position in the message must have moved by 1
+                || (
+                    assertion.afterState.machineStatus == MachineStatus.FINISHED
+                        && assertion.afterState.globalState.getPositionInMessage()
+                            > assertion.beforeState.globalState.getPositionInMessage()
+                )
+                // the inbox position hasnt moved, if the machine is in ERRORED
+                // then the position in the message must not have gone backwards
+                || (
+                    assertion.afterState.machineStatus == MachineStatus.ERRORED
+                        && assertion.afterState.globalState.getPositionInMessage()
+                            >= assertion.beforeState.globalState.getPositionInMessage()
+                ),
+                "ASSERTION_INVALID_PROGRESS"
+            );
 
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
             // Cannot read more messages than currently exist in the inbox
