@@ -23,13 +23,17 @@ struct Config {
     address loserStakeEscrow;
     uint256 chainId;
     string chainConfig;
-    uint64 genesisBlockNum;
     uint256 miniStakeValue;
     ISequencerInbox.MaxTimeVariation sequencerInboxMaxTimeVariation;
     uint256 layerZeroBlockEdgeHeight;
     uint256 layerZeroBigStepEdgeHeight;
     uint256 layerZeroSmallStepEdgeHeight;
+    /// @notice The execution state to be used in the genesis assertion
+    ExecutionState genesisExecutionState;
+    /// @notice The inbox size at the time the genesis execution state was created
+    uint256 genesisInboxCount;
     address anyTrustFastConfirmer;
+    uint256 numBigStepLevel;
 }
 
 struct ContractDependencies {
@@ -41,7 +45,5 @@ struct ContractDependencies {
     IEdgeChallengeManager challengeManager;
     address rollupAdminLogic; // this cannot be IRollupAdmin because of circular dependencies
     IRollupUser rollupUserLogic;
-    // misc contracts that are useful when interacting with the rollup
-    address validatorUtils;
     address validatorWalletCreator;
 }

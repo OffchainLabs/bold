@@ -28,8 +28,8 @@ error EmptyEndMachineStatus();
 error ClaimEdgeNotPending();
 /// @dev The claim edge does not have a length one rival
 error ClaimEdgeNotLengthOneRival(bytes32 claimId);
-/// @dev The claim edge has an invalid type
-error ClaimEdgeInvalidType(uint256 argType, uint256 claimType);
+/// @dev The claim edge has an invalid level
+error ClaimEdgeInvalidLevel(uint256 argLevel, uint256 claimLevel);
 /// @dev The val is not a power of two
 error NotPowerOfTwo(uint256 val);
 /// @dev The height has an unexpected value
@@ -50,8 +50,8 @@ error EdgeNotPending(bytes32 edgeId, EdgeStatus status);
 error EdgeUnrivaled(bytes32 edgeId);
 /// @dev The edge is not confirmed
 error EdgeNotConfirmed(bytes32 edgeId, EdgeStatus);
-/// @dev The edge type is unexpected
-error EdgeTypeInvalid(bytes32 edgeId1, bytes32 edgeId2, uint256 type1, uint256 type2);
+/// @dev The edge level is unexpected
+error EdgeLevelInvalid(bytes32 edgeId1, bytes32 edgeId2, uint256 level1, uint256 level2);
 /// @dev The claim id on the claimingEdge does not match the provided edge id
 error EdgeClaimMismatch(bytes32 edgeId, bytes32 claimingEdgeId);
 /// @dev The origin id is not equal to the mutual id
@@ -90,3 +90,9 @@ error EmptyOneStepProofEntry();
 error EmptyChallengePeriod();
 /// @dev No stake receiver address supplied
 error EmptyStakeReceiver();
+/// @dev A rival edge is already confirmed
+error RivalEdgeConfirmed(bytes32 edgeId, bytes32 confirmedRivalId);
+/// @dev Thrown when big step levels is set to 0
+error ZeroBigStepLevels();
+/// @dev Thrown when the level does not correspond to a valid type
+error LevelTooHigh(uint256 level, uint256 numBigStepLevels);

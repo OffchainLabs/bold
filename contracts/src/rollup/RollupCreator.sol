@@ -25,7 +25,6 @@ contract RollupCreator is Ownable {
     IRollupAdmin public rollupAdminLogic;
     IRollupUser public rollupUserLogic;
 
-    address public validatorUtils;
     address public validatorWalletCreator;
 
     constructor() Ownable() {}
@@ -36,7 +35,6 @@ contract RollupCreator is Ownable {
         IEdgeChallengeManager _challengeManagerLogic,
         IRollupAdmin _rollupAdminLogic,
         IRollupUser _rollupUserLogic,
-        address _validatorUtils,
         address _validatorWalletCreator
     ) external onlyOwner {
         bridgeCreator = _bridgeCreator;
@@ -44,7 +42,6 @@ contract RollupCreator is Ownable {
         challengeManagerTemplate = _challengeManagerLogic;
         rollupAdminLogic = _rollupAdminLogic;
         rollupUserLogic = _rollupUserLogic;
-        validatorUtils = _validatorUtils;
         validatorWalletCreator = _validatorWalletCreator;
         emit TemplatesUpdated();
     }
@@ -74,7 +71,7 @@ contract RollupCreator is Ownable {
             _stakeToken: IERC20(config.stakeToken),
             _stakeAmount: config.miniStakeValue,
             _excessStakeReceiver: config.owner,
-            _numBigstepLevel: 3
+            _numBigStepLevel: config.numBigStepLevel
         });
 
         return challengeManager;
@@ -135,7 +132,6 @@ contract RollupCreator is Ownable {
                 challengeManager: challengeManager,
                 rollupAdminLogic: address(rollupAdminLogic),
                 rollupUserLogic: rollupUserLogic,
-                validatorUtils: validatorUtils,
                 validatorWalletCreator: validatorWalletCreator
             })
         );
