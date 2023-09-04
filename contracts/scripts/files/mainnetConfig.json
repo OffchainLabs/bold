@@ -22,7 +22,7 @@
     "miniStakeAmt": "2000000000000000000",
     "chainId": 1,
     "anyTrustFastConfirmer": "",
-    "disableValidatorWhitelist": true,
+    "disableValidatorWhitelist": false,
     "blockLeafSize": 1048576,
     "bigStepLeafSize": 2048,
     "smallStepLeafSize": 1024,
