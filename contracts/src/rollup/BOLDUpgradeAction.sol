@@ -429,7 +429,7 @@ contract BOLDUpgradeAction {
             _stakeToken: IERC20(config.stakeToken),
             _stakeAmount: config.miniStakeValue,
             _excessStakeReceiver: L1_TIMELOCK,
-            _numBigstepLevel: config.numBigStepLevel
+            _numBigStepLevel: config.numBigStepLevel
         });
 
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}();

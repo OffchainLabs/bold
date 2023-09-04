@@ -8,6 +8,12 @@ import "forge-std/Test.sol";
 import "./Utils.sol";
 import "../../src/challengeV2/libraries/ChallengeEdgeLib.sol";
 
+contract TestChallengeEdge {
+    function levelToType(uint256 level, uint256 numBigStepLevels) public pure returns (EdgeType eType) {
+        return ChallengeEdgeLib.levelToType(level, numBigStepLevels);
+    }
+}
+
 contract ChallengeEdgeLibTest is Test {
     Random rand = new Random();
     uint256 constant NUM_BIGSTEP_LEVEL = 3;
@@ -70,7 +76,7 @@ contract ChallengeEdgeLibTest is Test {
         assertEq(e.claimId, claimId, "Claim id");
         assertEq(e.staker, staker, "Staker");
         assertTrue(e.status == EdgeStatus.Pending, "Status");
-        assertTrue(e.eType == NUM_BIGSTEP_LEVEL + 1, "EType");
+        assertTrue(e.level == NUM_BIGSTEP_LEVEL + 1, "EType");
     }
 
     function testNewLayerZeroEdgeZeroStaker() public {
@@ -105,7 +111,7 @@ contract ChallengeEdgeLibTest is Test {
         assertEq(e.claimId, 0, "Claim id");
         assertEq(e.staker, address(0), "Staker");
         assertTrue(e.status == EdgeStatus.Pending, "Status");
-        assertTrue(e.eType == NUM_BIGSTEP_LEVEL + 1, "EType");
+        assertTrue(e.level == NUM_BIGSTEP_LEVEL + 1, "EType");
     }
 
     ChallengeEdge layerZero;
@@ -201,5 +207,19 @@ contract ChallengeEdgeLibTest is Test {
             abi.encodeWithSelector(EdgeNotPending.selector, ChallengeEdgeLib.id(child), EdgeStatus.Confirmed)
         );
         ChallengeEdgeLib.setConfirmed(child);
+    }
+
+    function testLevelToType() public {
+        uint256 numBigStep = 4;
+        assertTrue(ChallengeEdgeLib.levelToType(0, numBigStep) == EdgeType.Block, "Block");
+        assertTrue(ChallengeEdgeLib.levelToType(1, numBigStep) == EdgeType.BigStep, "Big step 1");
+        assertTrue(ChallengeEdgeLib.levelToType(2, numBigStep) == EdgeType.BigStep, "Big step 2");
+        assertTrue(ChallengeEdgeLib.levelToType(3, numBigStep) == EdgeType.BigStep, "Big step 3");
+        assertTrue(ChallengeEdgeLib.levelToType(4, numBigStep) == EdgeType.BigStep, "Big step 4");
+        assertTrue(ChallengeEdgeLib.levelToType(5, numBigStep) == EdgeType.SmallStep, "Small step");
+
+        TestChallengeEdge t = new TestChallengeEdge();
+        vm.expectRevert(abi.encodeWithSelector(LevelTooHigh.selector, 6, 4));
+        t.levelToType(6, numBigStep);
     }
 }

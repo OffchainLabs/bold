@@ -71,7 +71,7 @@ contract RollupCreator is Ownable {
             _stakeToken: IERC20(config.stakeToken),
             _stakeAmount: config.miniStakeValue,
             _excessStakeReceiver: config.owner,
-            _numBigstepLevel: config.numBigStepLevel
+            _numBigStepLevel: config.numBigStepLevel
         });
 
         return challengeManager;
