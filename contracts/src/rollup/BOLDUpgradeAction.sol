@@ -163,6 +163,7 @@ contract BOLDUpgradeAction {
     uint256 public constant BLOCK_LEAF_SIZE = 2 ** 26;
     uint256 public constant BIGSTEP_LEAF_SIZE = 2 ** 23;
     uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ** 20;
+    uint256 public constant NUM_BIGSTEP_LEVEL = 3;
 
     address public immutable L1_TIMELOCK;
     IOldRollup public immutable OLD_ROLLUP;
@@ -339,7 +340,8 @@ contract BOLDUpgradeAction {
             layerZeroSmallStepEdgeHeight: SMALLSTEP_LEAF_SIZE,
             genesisExecutionState: genesisExecState,
             genesisInboxCount: inboxMaxCount,
-            anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER
+            anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER,
+            numBigStepLevel: NUM_BIGSTEP_LEVEL
         });
     }
 
@@ -426,7 +428,8 @@ contract BOLDUpgradeAction {
             layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
             _stakeToken: IERC20(config.stakeToken),
             _stakeAmount: config.miniStakeValue,
-            _excessStakeReceiver: L1_TIMELOCK
+            _excessStakeReceiver: L1_TIMELOCK,
+            _numBigstepLevel: config.numBigStepLevel
         });
 
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}();
