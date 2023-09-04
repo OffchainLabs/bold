@@ -7,7 +7,7 @@
     "rollupEventInbox": "0x4cF5Bfb6AA68ea514e5CEa5420809cd9f79dB9E0",
     "outbox": "0x49940929c7cA9b50Ff57a01d3a92817A414E6B9B",
     "inbox": "0xff4a24b22f94979e9ba5f3eb35838aa814bad6f1",
-    "osp": "0x031F5f29Ad9D0695B83b5dDC214B7017BCE79Abd"
+    "osp": "0x031F5f29Ad9D0695B83b5dDC214B7017BCE79Abd",
   },
   "proxyAdmins": {
     "outbox": "0xa4884de60AEef09b1b35fa255F56ee37198A80B3",

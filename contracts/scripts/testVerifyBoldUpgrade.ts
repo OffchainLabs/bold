@@ -53,12 +53,6 @@ async function main() {
   }
 
   if (
-    (await edgeChallengeManager.oneStepProofEntry()) != config.contracts.osp
-  ) {
-    throw new Error('One step proof entry does not match')
-  }
-
-  if (
     !(await edgeChallengeManager.challengePeriodBlocks()).eq(
       config.settings.confirmPeriodBlocks
     )

@@ -6,8 +6,7 @@
     "sequencerInbox": "0x1c479675ad559DC151F6Ec7ed3FbF8ceE79582B6",
     "rollupEventInbox": "0x57Bd336d579A51938619271a7Cc137a46D0501B1",
     "outbox": "0x0B9857ae2D4A3DBe74ffE1d7DF045bb7F96E4840",
-    "inbox": "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
-    "osp": "0x3E1f62AA8076000c3218493FE3e0Ae40bcB9A1DF"
+    "inbox": "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f"
   },
   "proxyAdmins": {
     "outbox": "0x554723262467f125ac9e1cdfa9ce15cc53822dbd",

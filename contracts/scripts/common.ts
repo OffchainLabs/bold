@@ -13,6 +13,11 @@ export interface DeployedContracts {
   boldAction: string
   rollupReader: string
   preImageHashLookup: string
+  prover0: string
+  proverMem: string
+  proverMath: string
+  proverHostIo: string
+  osp: string
   upgradeExecutor?: string
   newEdgeChallengeManager?: string
 }
@@ -38,7 +43,6 @@ export interface Config {
     rollupEventInbox: string
     outbox: string
     inbox: string
-    osp: string
   }
   proxyAdmins: {
     outbox: string
@@ -95,9 +99,7 @@ export const validateConfig = async (
   if ((await l1Rpc.getCode(config.contracts.inbox)).length <= 2) {
     throw new Error('inbox address is not a contract')
   }
-  if ((await l1Rpc.getCode(config.contracts.osp)).length <= 2) {
-    throw new Error('osp address is not a contract')
-  }
+
   // check all the config.proxyAdmins exist
   if ((await l1Rpc.getCode(config.proxyAdmins.outbox)).length <= 2) {
     throw new Error('outbox proxy admin address is not a contract')
