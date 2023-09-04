@@ -119,11 +119,13 @@ async function main() {
     throw new Error('Base stake does not match')
   }
 
-  if (
-    (await assertionChain.anyTrustFastConfirmer()) !=
-    config.settings.anyTrustFastConfirmer
-  ) {
-    throw new Error('Any trust fast confirmer does not match')
+  if (config.settings.anyTrustFastConfirmer.length != 0) {
+    if (
+      (await assertionChain.anyTrustFastConfirmer()) !=
+      config.settings.anyTrustFastConfirmer
+    ) {
+      throw new Error('Any trust fast confirmer does not match')
+    }
   }
 }
 
