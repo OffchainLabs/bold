@@ -161,8 +161,8 @@ contract RollupReader is IOldRollup {
 ///         that is in the latest confirmed assertion in the current rollup.
 contract BOLDUpgradeAction {
     uint256 public constant BLOCK_LEAF_SIZE = 2 ** 26;
-    uint256 public constant BIGSTEP_LEAF_SIZE = 2 ** 23;
-    uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ** 20;
+    uint256 public constant BIGSTEP_LEAF_SIZE = 2 ** 11;
+    uint256 public constant SMALLSTEP_LEAF_SIZE = 2 ** 10;
     uint256 public constant NUM_BIGSTEP_LEVEL = 3;
 
     address public immutable L1_TIMELOCK;
