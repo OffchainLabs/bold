@@ -65,7 +65,11 @@ async function main() {
       config.settings.blockLeafSize
     )
   ) {
-    throw new Error('Block leaf size does not match')
+    throw new Error(
+      `Block leaf size does not match: ${await edgeChallengeManager.LAYERZERO_BLOCKEDGE_HEIGHT()} ${
+        config.settings.blockLeafSize
+      }`
+    )
   }
 
   if (
