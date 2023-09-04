@@ -66,8 +66,6 @@ async function main() {
     throw new Error('Challenge period blocks does not match')
   }
 
-  // write code to do similar checks for block leaf size, small step size and big step number
-
   if (
     (await edgeChallengeManager.LAYERZERO_BLOCKEDGE_HEIGHT()).eq(
       config.settings.blockLeafSize
