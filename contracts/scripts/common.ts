@@ -122,9 +122,6 @@ export const validateConfig = async (
   if (config.settings.chainId == 0) {
     throw new Error('chainId is 0')
   }
-  if (config.settings.anyTrustFastConfirmer.length == 0) {
-    throw new Error('anyTrustFastConfirmer address is empty')
-  }
   if (config.settings.blockLeafSize == 0) {
     throw new Error('blockLeafSize is 0')
   }
