@@ -90,10 +90,11 @@ contract RollupTest is Test {
             edgeChallengeManager,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
-            address(0),
             address(0)
         );
 
+        ExecutionState memory emptyState =
+            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
         token = new TestWETH9("Test", "TEST");
         IWETH9(address(token)).deposit{value: 10 ether}();
 
@@ -112,7 +113,8 @@ contract RollupTest is Test {
             stakeToken: address(token),
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: loserStakeEscrow,
-            genesisBlockNum: 0,
+            genesisExecutionState: emptyState,
+            genesisInboxCount: 0,
             miniStakeValue: MINI_STAKE_VALUE,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
