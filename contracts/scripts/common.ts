@@ -54,6 +54,10 @@ export interface Config {
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
+    blockLeafSize: number
+    bigStepLeafSize: number
+    smallStepLeafSize: number
+    numBigStepLevel: number
   }
   validators: string[]
 }
@@ -120,6 +124,18 @@ export const validateConfig = async (
   }
   if (config.settings.anyTrustFastConfirmer.length == 0) {
     throw new Error('anyTrustFastConfirmer address is empty')
+  }
+  if (config.settings.blockLeafSize == 0) {
+    throw new Error('blockLeafSize is 0')
+  }
+  if (config.settings.bigStepLeafSize == 0) {
+    throw new Error('bigStepLeafSize is 0')
+  }
+  if (config.settings.smallStepLeafSize == 0) {
+    throw new Error('smallStepLeafSize is 0')
+  }
+  if (config.settings.numBigStepLevel == 0) {
+    throw new Error('numBigStepLevel is 0')
   }
 
   const stakeAmount = BigNumber.from(config.settings.stakeAmt)

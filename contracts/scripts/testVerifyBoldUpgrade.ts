@@ -66,6 +66,40 @@ async function main() {
     throw new Error('Challenge period blocks does not match')
   }
 
+  // write code to do similar checks for block leaf size, small step size and big step number
+
+  if (
+    (await edgeChallengeManager.LAYERZERO_BLOCKEDGE_HEIGHT()).eq(
+      config.settings.blockLeafSize
+    )
+  ) {
+    throw new Error('Block leaf size does not match')
+  }
+
+  if (
+    (await edgeChallengeManager.LAYERZERO_BIGSTEPEDGE_HEIGHT()).eq(
+      config.settings.bigStepLeafSize
+    )
+  ) {
+    throw new Error('Big step leaf size does not match')
+  }
+
+  if (
+    (await edgeChallengeManager.LAYERZERO_SMALLSTEPEDGE_HEIGHT()).eq(
+      config.settings.smallStepLeafSize
+    )
+  ) {
+    throw new Error('Small step leaf size does not match')
+  }
+
+  if (
+    (await edgeChallengeManager.NUM_BIGSTEP_LEVEL()).eq(
+      config.settings.numBigStepLevel
+    )
+  ) {
+    throw new Error('Number of big step level does not match')
+  }
+
   const assertionChain = RollupUserLogic__factory.connect(
     await edgeChallengeManager.assertionChain(),
     l1Rpc
