@@ -11,20 +11,14 @@ import (
 	"github.com/OffchainLabs/bold/containers"
 )
 
-type findAncestorsRequest struct {
-	ctx                   context.Context
-	rootEdge              protocol.ReadOnlyEdge
-	queryingFor           protocol.ReadOnlyEdge
-	totalChallengeLevels  uint8
-	currentChallengeLevel uint8
-	blockNumber           uint64
-}
-
 type ancestorsQueryResponse struct {
 	ancestorCumulativePathTimers []PathTimer
 	ancestorEdgeIds              HonestAncestors
 }
 
+// computeAncestorsWithTimers computes the ancestors of the given edge and their respective path timers, even
+// across challenge levels. Ancestor lists are linked through challenge levels via claimed edges. It is generalized
+// to any number of challenge levels in the protocol.
 func (ht *HonestChallengeTree) computeAncestorsWithTimers(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
@@ -89,6 +83,7 @@ func (ht *HonestChallengeTree) computeAncestorsWithTimers(
 	}, nil
 }
 
+// Computes the root edge for a given child edge at a challenge level.
 func (ht *HonestChallengeTree) honestRootAncestorAtChallengeLevel(
 	childEdge protocol.ReadOnlyEdge,
 	challengeLevel protocol.ChallengeLevel,
