@@ -61,19 +61,15 @@ async function main() {
   }
 
   if (
-    (await edgeChallengeManager.LAYERZERO_BLOCKEDGE_HEIGHT()).eq(
+    !(await edgeChallengeManager.LAYERZERO_BLOCKEDGE_HEIGHT()).eq(
       config.settings.blockLeafSize
     )
   ) {
-    throw new Error(
-      `Block leaf size does not match: ${await edgeChallengeManager.LAYERZERO_BLOCKEDGE_HEIGHT()} ${
-        config.settings.blockLeafSize
-      }`
-    )
+    throw new Error('Block leaf size does not match')
   }
 
   if (
-    (await edgeChallengeManager.LAYERZERO_BIGSTEPEDGE_HEIGHT()).eq(
+    !(await edgeChallengeManager.LAYERZERO_BIGSTEPEDGE_HEIGHT()).eq(
       config.settings.bigStepLeafSize
     )
   ) {
@@ -81,7 +77,7 @@ async function main() {
   }
 
   if (
-    (await edgeChallengeManager.LAYERZERO_SMALLSTEPEDGE_HEIGHT()).eq(
+    !(await edgeChallengeManager.LAYERZERO_SMALLSTEPEDGE_HEIGHT()).eq(
       config.settings.smallStepLeafSize
     )
   ) {
@@ -89,7 +85,7 @@ async function main() {
   }
 
   if (
-    (await edgeChallengeManager.NUM_BIGSTEP_LEVEL()).eq(
+    !(await edgeChallengeManager.NUM_BIGSTEP_LEVEL()).eq(
       config.settings.numBigStepLevel
     )
   ) {
