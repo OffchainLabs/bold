@@ -107,7 +107,6 @@ contract AssertinPoolTest is Test {
             edgeChallengeManager,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
-            address(0),
             address(0)
         );
         ExecutionState memory emptyState = ExecutionState(
