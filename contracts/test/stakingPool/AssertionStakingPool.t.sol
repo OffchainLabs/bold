@@ -61,11 +61,13 @@ contract AssertinPoolTest is Test {
     address staker1 = address(4000001);
     address staker2 = address(4000002);
     address excessStaker = address(4000003);
+    address fullStaker = address(4000004);
 
-    address rando = address(4000004);
+    address rando = address(4000005);
 
     uint256 staker1Bal = 6 ether;
     uint256 staker2Bal = 4 ether;
+    uint256 fullStakerBal = 10 ether;
     uint256 excessStakerBal = 1 ether;
 
     address rollupAddr;
@@ -113,7 +115,7 @@ contract AssertinPoolTest is Test {
             MachineStatus.FINISHED
         );
         token = new TestWETH9("Test", "TEST");
-        IWETH9(address(token)).deposit{value: 11 ether}();
+        IWETH9(address(token)).deposit{value: 21 ether}();
 
         Config memory config = Config({
             baseStake: BASE_STAKE,
@@ -133,9 +135,9 @@ contract AssertinPoolTest is Test {
             genesisExecutionState: emptyState,
             genesisInboxCount: 0,
             miniStakeValue: MINI_STAKE_VALUE,
-            layerZeroBlockEdgeHeight: 2**5,
-            layerZeroBigStepEdgeHeight: 2**5,
-            layerZeroSmallStepEdgeHeight: 2**5,
+            layerZeroBlockEdgeHeight: 2 ** 5,
+            layerZeroBigStepEdgeHeight: 2 ** 5,
+            layerZeroSmallStepEdgeHeight: 2 ** 5,
             anyTrustFastConfirmer: address(300001)
         });
 
@@ -196,12 +198,17 @@ contract AssertinPoolTest is Test {
 
         token.transfer(staker1, staker1Bal);
         token.transfer(staker2, staker2Bal);
+        token.transfer(fullStaker, fullStakerBal);
+
         token.transfer(excessStaker, excessStakerBal);
 
         vm.prank(staker1);
         token.approve(address(pool), type(uint256).max);
 
         vm.prank(staker2);
+        token.approve(address(pool), type(uint256).max);
+
+        vm.prank(fullStaker);
         token.approve(address(pool), type(uint256).max);
 
         vm.prank(excessStaker);
@@ -281,7 +288,28 @@ contract AssertinPoolTest is Test {
         vm.prank(staker1);
         pool.depositIntoPool(staker1Bal);
 
-        vm.expectRevert(abi.encodeWithSelector(NotEnoughStake.selector, staker1Bal, BASE_STAKE));
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        pool.createAssertion();
+    }
+
+    function testCantAssertTwice() external {
+        vm.prank(staker1);
+        pool.depositIntoPool(staker1Bal);
+        vm.prank(staker2);
+        pool.depositIntoPool(staker2Bal);
+
+        pool.createAssertion();
+
+        vm.expectRevert("ALREADY_STAKED");
+        pool.createAssertion();
+    }
+
+    function testCantAssertTwiceAfterConfirmed() external {
+        _createAndConfirmAssertion();
+        pool.makeStakeWithdrawable();
+        pool.withdrawStakeBackIntoPool();
+
+        vm.expectRevert("EXPECTED_ASSERTION_SEEN");
         pool.createAssertion();
     }
 
@@ -319,23 +347,41 @@ contract AssertinPoolTest is Test {
         _createAssertion();
         assertEq(token.balanceOf(address(pool)), 0, "stake moved to rollup");
         assertEq(token.balanceOf(address(userRollup)), BASE_STAKE, "stake moved to rollup");
-        assertTrue(pool.poolState() == PoolState.ASSERTED, "state asserted");
     }
 
-    function testCantDepositInAssertedState() external {
+    function testCanDepositInAssertedState() external {
         _createAssertion();
-        vm.prank(excessStaker);
-        vm.expectRevert(abi.encodeWithSelector(PoolNotInPendingState.selector, PoolState.ASSERTED));
+        vm.startPrank(excessStaker);
         pool.depositIntoPool(excessStakerBal);
+        pool.withdrawFromPool();
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(excessStaker), excessStakerBal, "excess balance returned");
+    }
+
+    function testPartialWithdraw() external {
+        vm.prank(staker1);
+        pool.depositIntoPool(staker1Bal);
+
+        vm.startPrank(fullStaker);
+        pool.depositIntoPool(fullStakerBal);
+        pool.createAssertion();
+
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        pool.withdrawFromPool();
+
+        pool.withdrawFromPool(staker1Bal);
+        assertEq(token.balanceOf(fullStaker), staker1Bal, "partial stake returned");
+
+        vm.stopPrank();
     }
 
     function testReturnStake() external {
         _createAndConfirmAssertion();
         vm.prank(rando);
-        pool.setPoolStateInactive();
-        assertTrue(pool.poolState() == PoolState.INACTIVE, "state inactive");
+        pool.makeStakeWithdrawable();
 
-        pool.returnOldStakeBackToPool();
+        pool.withdrawStakeBackIntoPool();
         assertEq(token.balanceOf(address(pool)), BASE_STAKE, "tokens returned to pool");
         assertEq(token.balanceOf(address(userRollup)), 0, "tokens returned to pool");
 
@@ -352,8 +398,8 @@ contract AssertinPoolTest is Test {
 
     function testCantWithdrawTwice() external {
         _createAndConfirmAssertion();
-        pool.setPoolStateInactive();
-        pool.returnOldStakeBackToPool();
+        pool.makeStakeWithdrawable();
+        pool.withdrawStakeBackIntoPool();
 
         vm.startPrank(staker1);
         pool.withdrawFromPool();

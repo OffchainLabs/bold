@@ -11,20 +11,8 @@ enum PoolState {
     INACTIVE
 }
 
-error PoolNotInPendingState(PoolState poolState);
-
-error PoolNotInAssertedState(PoolState poolState);
-
-error PoolNotInPendingOrInactiveState(PoolState poolState);
-
-error PoolNotInInactiveState(PoolState poolState);
-
-error PoolStakeAlreadyReached(uint256 baseStake);
-
-error NotEnoughStake(uint256 balance, uint256 baseStake);
-
 error NoBalanceToWithdraw(address sender);
 
-error AssertionNotInactive(bytes32 assertionHash);
-
 error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
+
+error AmountExceedsBalance(address sender, uint256 amount, uint256 balance);

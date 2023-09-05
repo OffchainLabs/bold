@@ -19,35 +19,25 @@ contract AssertionStakingPool {
     IERC20 public immutable stakeToken;
     mapping(address => uint256) public depositedTokenBalances;
 
-    PoolState public poolState = PoolState.PENDING;
-
     event StakeDeposited(address indexed sender, uint256 amount);
     event AssertionCreated();
-    event PoolStateInactive();
+    event StakeWithdrawable();
     event StakeReturned();
-    event StakeWithrawn(address indexed sender, uint256 amount);
+    event StakeWithdrawn(address indexed sender, uint256 amount);
 
     /// @param _rollup Rollup contract of target chain
     /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
     /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
-    constructor(
-        address _rollup,
-        AssertionInputs memory _assertionInputs,
-        bytes32 _assertionHash
-    ) {
+    constructor(address _rollup, AssertionInputs memory _assertionInputs, bytes32 _assertionHash) {
         rollup = _rollup;
         assertionHash = _assertionHash;
         assertionInputs = _assertionInputs;
         stakeToken = IERC20(IRollupCore(rollup).stakeToken());
     }
 
-    /// @notice Deposit stake into pool contract. Callable only if assertion has not been asserted yet.
+    /// @notice Deposit stake into pool contract.
     /// @param _amount amount of stake token to deposit
     function depositIntoPool(uint256 _amount) external {
-        if (poolState != PoolState.PENDING) {
-            revert PoolNotInPendingState(poolState);
-        }
-
         depositedTokenBalances[msg.sender] += _amount;
         stakeToken.safeTransferFrom(msg.sender, address(this), _amount);
         emit StakeDeposited(msg.sender, _amount);
@@ -55,57 +45,51 @@ contract AssertionStakingPool {
 
     /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
     function createAssertion() external {
-        if (poolState != PoolState.PENDING) {
-            revert PoolNotInPendingState(poolState);
-        }
-
-        uint256 balance = stakeToken.balanceOf(address(this));
         uint256 requiredStake = getRequiredStake();
-        if (balance < requiredStake) {
-            revert NotEnoughStake(balance, requiredStake);
-        }
-
-        poolState = PoolState.ASSERTED;
         // approve spending from rollup for newStakeOnNewAssertion call
         stakeToken.safeIncreaseAllowance(rollup, requiredStake);
+        // reverts if pool doesn't have enough stake and if assertion has already been asserted
         IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
         emit AssertionCreated();
     }
 
-    /// @notice update pool state if assertion is no longer active (confirmed or has a child) , and make deposit withdrawable.
-    function setPoolStateInactive() external {
-        if (poolState != PoolState.ASSERTED) {
-            revert PoolNotInAssertedState(poolState);
-        }   
-
-        poolState = PoolState.INACTIVE;
-
-        if (!IRollupCore(rollup).stakerIsInactive(address(this))) {
-            revert AssertionNotInactive(assertionHash);
-        }
+    /// @notice update pool state if assertion is no longer active (confirmed or has a child), and make deposit withdrawable.
+    function makeStakeWithdrawable() external {
+        // this checks for active staker
         IRollupUser(rollup).returnOldDeposit();
-        emit PoolStateInactive();
+        emit StakeWithdrawable();
     }
 
     /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's now inactive.
-    /// @dev Separate call from setPoolStateInactive since withdrawStakerFunds reverts with 0 balance (in e.g., case of admin forceRefundStaker)
-    function returnOldStakeBackToPool() external {
-        if (poolState != PoolState.INACTIVE) {
-            revert PoolNotInInactiveState(poolState);
-        }
+    /// @dev Separate call from makeStakeWithdrawable since returnOldDeposit reverts with 0 balance (in e.g., case of admin forceRefundStaker)
+    function withdrawStakeBackIntoPool() external {
         IRollupUser(rollup).withdrawStakerFunds();
         emit StakeReturned();
     }
 
     /// @notice Send stake from this contract back to its depositor.
-    function withdrawFromPool() external {
+    function _withdrawFromPool(uint256 _amount) internal {
         uint256 balance = depositedTokenBalances[msg.sender];
         if (balance == 0) {
             revert NoBalanceToWithdraw(msg.sender);
         }
-        depositedTokenBalances[msg.sender] = 0;
-        stakeToken.safeTransfer(msg.sender, balance);
-        emit StakeWithrawn(msg.sender, balance);
+        if (_amount > balance) {
+            revert AmountExceedsBalance(msg.sender, _amount, balance);
+        }
+        depositedTokenBalances[msg.sender] = balance - _amount;
+        stakeToken.safeTransfer(msg.sender, _amount);
+        emit StakeWithdrawn(msg.sender, _amount);
+    }
+
+    /// @notice Send full balance of stake from this contract back to its depositor.
+    function withdrawFromPool() external {
+        _withdrawFromPool(depositedTokenBalances[msg.sender]);
+    }
+
+    /// @notice Send supplied amount of stake from this contract back to its depositor.
+    /// @param _amount stake amount to withdrawl
+    function withdrawFromPool(uint256 _amount) external {
+        _withdrawFromPool(_amount);
     }
 
     /// @notice Get required stake for pool's assertion. Requried stake for a given assertion is set in the previous assertion's config data
