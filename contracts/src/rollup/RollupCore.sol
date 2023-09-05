@@ -540,34 +540,18 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return getAssertionStorage(assertionHash).status == AssertionStatus.Pending;
     }
 
-    function stakerIsInactive(address stakerAddress) external view returns (bool) {
-        return getStakerStatus(stakerAddress) == StakerStatus.Inactive;
-    }
-
     /**
      * @notice Verify that the given staker is not active
      * @param stakerAddress Address to check
      */
     function requireInactiveStaker(address stakerAddress) internal view {
-
-        StakerStatus stakerStatus = getStakerStatus(stakerAddress);
-        require(stakerStatus != StakerStatus.NotStaked , "NOT_STAKED");
-        require(stakerStatus != StakerStatus.Active , "STAKE_ACTIVE");
-    }
-
-    function getStakerStatus(address stakerAddress) internal view returns(StakerStatus) {
-         if (!isStaked(stakerAddress)){
-            return StakerStatus.NotStaked;
-         }
+        require(isStaked(stakerAddress), "NOT_STAKED");
         // A staker is inactive if
         // a) their last staked assertion is the latest confirmed assertion
         // b) their last staked assertion have a child
         bytes32 lastestAssertion = latestStakedAssertion(stakerAddress);
         bool isLatestConfirmed = lastestAssertion == latestConfirmed();
         bool haveChild = getAssertionStorage(lastestAssertion).firstChildBlock > 0;
-        if (!(isLatestConfirmed || haveChild)){
-            return StakerStatus.Active;
-        }
-        return StakerStatus.Inactive;
+        require(isLatestConfirmed || haveChild, "STAKE_ACTIVE");
     }
 }

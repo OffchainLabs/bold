@@ -12,12 +12,6 @@ import "./IRollupEventInbox.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
 
 interface IRollupCore is IAssertionChain {
-
-    enum StakerStatus {
-        NotStaked,
-        Active,
-        Inactive
-    }
     struct Staker {
         uint256 amountStaked;
         bytes32 latestStakedAssertion;
@@ -137,6 +131,4 @@ interface IRollupCore is IAssertionChain {
 
     /// @return Number of active stakers currently staked
     function stakerCount() external view returns (uint64);
-
-     function stakerIsInactive(address stakerAddress) external view returns (bool);
 }
