@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	"github.com/stretchr/testify/require"
@@ -88,7 +89,7 @@ func Test_computeAncestorsWithTimers(t *testing.T) {
 		require.Equal(t, HonestAncestors{id("blk-0.a-16.a")}, resp.ancestorEdgeIds)
 	})
 	t.Run("block challenge: many ancestors", func(t *testing.T) {
-		_, ancestors, err := tree.HonestPathTimer(ctx, id("blk-4.a-5.a"), blockNum)
+		resp, err := tree.computeAncestorsWithTimers(ctx, id("blk-4.a-5.a"), blockNum)
 		require.NoError(t, err)
 		wanted := HonestAncestors{
 			id("blk-4.a-6.a"),
@@ -96,10 +97,11 @@ func Test_computeAncestorsWithTimers(t *testing.T) {
 			id("blk-0.a-8.a"),
 			id("blk-0.a-16.a"),
 		}
-		require.Equal(t, wanted, ancestors)
+		containers.Reverse(resp.ancestorEdgeIds)
+		require.Equal(t, wanted, resp.ancestorEdgeIds)
 	})
 	t.Run("big step challenge: level zero edge has ancestors from block challenge", func(t *testing.T) {
-		_, ancestors, err := tree.HonestPathTimer(ctx, id("big-0.a-16.a"), blockNum)
+		resp, err := tree.computeAncestorsWithTimers(ctx, id("big-0.a-16.a"), blockNum)
 		require.NoError(t, err)
 		wanted := HonestAncestors{
 			id("blk-4.a-5.a"),
@@ -108,67 +110,71 @@ func Test_computeAncestorsWithTimers(t *testing.T) {
 			id("blk-0.a-8.a"),
 			id("blk-0.a-16.a"),
 		}
-		require.Equal(t, wanted, ancestors)
+		for i, ancestor := range resp.ancestorEdgeIds {
+			if ancestor != wanted[i] {
+				t.Errorf("ancestor %d: wanted %s, got %s", i, wanted[i].Bytes(), ancestor.Bytes())
+			}
+		}
 	})
-	// t.Run("big step challenge: many ancestors plus block challenge ancestors", func(t *testing.T) {
-	// 	_, ancestors, err := tree.HonestPathTimer(ctx, id("big-5.a-6.a"), blockNum)
-	// 	require.NoError(t, err)
-	// 	wanted := HonestAncestors{
-	// 		// Big step chal.
-	// 		id("big-4.a-6.a"),
-	// 		id("big-4.a-8.a"),
-	// 		id("big-0.a-8.a"),
-	// 		id("big-0.a-16.a"),
-	// 		// Block chal.
-	// 		id("blk-4.a-5.a"),
-	// 		id("blk-4.a-6.a"),
-	// 		id("blk-4.a-8.a"),
-	// 		id("blk-0.a-8.a"),
-	// 		id("blk-0.a-16.a"),
-	// 	}
-	// 	require.Equal(t, wanted, ancestors)
-	// })
-	// t.Run("small step challenge: level zero edge has ancestors from big and block challenge", func(t *testing.T) {
-	// 	_, ancestors, err := tree.HonestPathTimer(ctx, id("smol-0.a-16.a"), blockNum)
-	// 	require.NoError(t, err)
-	// 	wanted := HonestAncestors{
-	// 		// Big step chal.
-	// 		id("big-4.a-5.a"),
-	// 		id("big-4.a-6.a"),
-	// 		id("big-4.a-8.a"),
-	// 		id("big-0.a-8.a"),
-	// 		id("big-0.a-16.a"),
-	// 		// Block chal.
-	// 		id("blk-4.a-5.a"),
-	// 		id("blk-4.a-6.a"),
-	// 		id("blk-4.a-8.a"),
-	// 		id("blk-0.a-8.a"),
-	// 		id("blk-0.a-16.a"),
-	// 	}
-	// 	require.Equal(t, wanted, ancestors)
-	// })
-	// t.Run("small step challenge: lowest level edge has full ancestry", func(t *testing.T) {
-	// 	_, ancestors, err := tree.HonestPathTimer(ctx, id("smol-5.a-6.a"), blockNum)
-	// 	require.NoError(t, err)
-	// 	wanted := HonestAncestors{
-	// 		// Small step chal.
-	// 		id("smol-4.a-6.a"),
-	// 		id("smol-4.a-8.a"),
-	// 		id("smol-0.a-8.a"),
-	// 		id("smol-0.a-16.a"),
-	// 		// Big step chal.
-	// 		id("big-4.a-5.a"),
-	// 		id("big-4.a-6.a"),
-	// 		id("big-4.a-8.a"),
-	// 		id("big-0.a-8.a"),
-	// 		id("big-0.a-16.a"),
-	// 		// Block chal.
-	// 		id("blk-4.a-5.a"),
-	// 		id("blk-4.a-6.a"),
-	// 		id("blk-4.a-8.a"),
-	// 		id("blk-0.a-8.a"),
-	// 		id("blk-0.a-16.a"),
-	// 	}
-	// 	require.Equal(t, wanted, ancestors)
-	// })
+	t.Run("big step challenge: many ancestors plus block challenge ancestors", func(t *testing.T) {
+		resp, err := tree.computeAncestorsWithTimers(ctx, id("big-5.a-6.a"), blockNum)
+		require.NoError(t, err)
+		wanted := HonestAncestors{
+			// Big step chal.
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, resp.ancestorEdgeIds)
+	})
+	t.Run("small step challenge: level zero edge has ancestors from big and block challenge", func(t *testing.T) {
+		resp, err := tree.computeAncestorsWithTimers(ctx, id("smol-0.a-16.a"), blockNum)
+		require.NoError(t, err)
+		wanted := HonestAncestors{
+			// Big step chal.
+			id("big-4.a-5.a"),
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, resp.ancestorEdgeIds)
+	})
+	t.Run("small step challenge: lowest level edge has full ancestry", func(t *testing.T) {
+		resp, err := tree.computeAncestorsWithTimers(ctx, id("smol-5.a-6.a"), blockNum)
+		require.NoError(t, err)
+		wanted := HonestAncestors{
+			// Small step chal.
+			id("smol-4.a-6.a"),
+			id("smol-4.a-8.a"),
+			id("smol-0.a-8.a"),
+			id("smol-0.a-16.a"),
+			// Big step chal.
+			id("big-4.a-5.a"),
+			id("big-4.a-6.a"),
+			id("big-4.a-8.a"),
+			id("big-0.a-8.a"),
+			id("big-0.a-16.a"),
+			// Block chal.
+			id("blk-4.a-5.a"),
+			id("blk-4.a-6.a"),
+			id("blk-4.a-8.a"),
+			id("blk-0.a-8.a"),
+			id("blk-0.a-16.a"),
+		}
+		require.Equal(t, wanted, resp.ancestorEdgeIds)
+	})
 }

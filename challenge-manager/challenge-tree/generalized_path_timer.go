@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers"
 )
 
 type findAncestorsRequest struct {
@@ -60,7 +61,10 @@ func (ht *HonestChallengeTree) computeAncestorsWithTimers(
 		// Advance the challenge level.
 		currentChallengeLevel += 1
 
-		// Expand the total ancestry list.
+		// Expand the total ancestry list. We want ancestors from
+		// the bottom-up, so we must reverse the output slice
+		// from the find function.
+		containers.Reverse(ancestorsAtLevel)
 		ancestry = append(ancestry, ancestorsAtLevel...)
 
 		if currentChallengeLevel == protocol.ChallengeLevel(ht.totalChallengeLevels) {
