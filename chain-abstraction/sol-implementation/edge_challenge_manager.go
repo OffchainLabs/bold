@@ -29,6 +29,19 @@ func (e *specEdge) GetType() protocol.EdgeType {
 	return protocol.EdgeType(e.inner.EType)
 }
 
+func (e *specEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
+	switch protocol.EdgeType(e.inner.EType) {
+	case protocol.BlockChallengeEdge:
+		return 2, nil
+	case protocol.BigStepChallengeEdge:
+		return 1, nil
+	case protocol.SmallStepChallengeEdge:
+		return 0, nil
+	default:
+		return 0, errors.New("unknown challenge level")
+	}
+}
+
 func (e *specEdge) MiniStaker() option.Option[common.Address] {
 	return e.miniStaker
 }
