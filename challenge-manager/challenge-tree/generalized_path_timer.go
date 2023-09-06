@@ -16,19 +16,49 @@ import (
 // EdgeLocalTimer is the local unrivaled timer of a specific edge (not a cumulative path timer).
 type EdgeLocalTimer uint64
 
-type ancestorsQueryResponse struct {
-	ancestorLocalTimers []EdgeLocalTimer
-	ancestorEdgeIds     HonestAncestors
+type AncestorsQueryResponse struct {
+	AncestorLocalTimers []EdgeLocalTimer
+	AncestorEdgeIds     HonestAncestors
 }
 
-// computeAncestorsWithTimers computes the ancestors of the given edge and their respective path timers, even
+// ComputeHonestPathTimer for an honest edge at a block number given its ancestors' local timers. It adds
+// up all their values including the assertion unrivaled timer and the edge's local timer.
+func (ht *HonestChallengeTree) ComputeHonestPathTimer(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+	ancestorLocalTimers []EdgeLocalTimer,
+	blockNumber uint64,
+) (PathTimer, error) {
+	edge, ok := ht.edges.TryGet(edgeId)
+	if !ok {
+		return 0, errNotFound(edgeId)
+	}
+	edgeLocalTimer, err := ht.localTimer(edge, blockNumber)
+	if err != nil {
+		return 0, err
+	}
+	total := PathTimer(edgeLocalTimer)
+	assertionUnrivaledTimer, err := ht.metadataReader.AssertionUnrivaledBlocks(
+		ctx, ht.topLevelAssertionHash,
+	)
+	if err != nil {
+		return 0, err
+	}
+	total += PathTimer(assertionUnrivaledTimer)
+	for _, timer := range ancestorLocalTimers {
+		total += PathTimer(timer)
+	}
+	return total, nil
+}
+
+// ComputeAncestorsWithTimers computes the ancestors of the given edge and their respective path timers, even
 // across challenge levels. Ancestor lists are linked through challenge levels via claimed edges. It is generalized
 // to any number of challenge levels in the protocol.
-func (ht *HonestChallengeTree) computeAncestorsWithTimers(
+func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 	blockNumber uint64,
-) (*ancestorsQueryResponse, error) {
+) (*AncestorsQueryResponse, error) {
 	startEdge, ok := ht.edges.TryGet(edgeId)
 	if !ok {
 		return nil, errNotFound(edgeId)
@@ -91,9 +121,9 @@ func (ht *HonestChallengeTree) computeAncestorsWithTimers(
 
 	// If the ancestry is empty, we just return an empty response.
 	if len(ancestry) == 0 {
-		return &ancestorsQueryResponse{
-			ancestorLocalTimers: make([]EdgeLocalTimer, 0),
-			ancestorEdgeIds:     ancestry,
+		return &AncestorsQueryResponse{
+			AncestorLocalTimers: make([]EdgeLocalTimer, 0),
+			AncestorEdgeIds:     ancestry,
 		}, nil
 	}
 
@@ -114,9 +144,9 @@ func (ht *HonestChallengeTree) computeAncestorsWithTimers(
 			rootChallengeEdgeId,
 		)
 	}
-	return &ancestorsQueryResponse{
-		ancestorLocalTimers: localTimers,
-		ancestorEdgeIds:     ancestry,
+	return &AncestorsQueryResponse{
+		AncestorLocalTimers: localTimers,
+		AncestorEdgeIds:     ancestry,
 	}, nil
 }
 
