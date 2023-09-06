@@ -40,7 +40,7 @@ func EdgeTreePage() (title string, content tview.Primitive) {
 		if err != nil {
 			edgeView.SetText(fmt.Sprintf("ERROR: Failed to marshal edge: %v", err))
 		} else {
-			edgeView.SetText(fmt.Sprintf("%s", b))
+			edgeView.SetText(string(b))
 		}
 	}
 
