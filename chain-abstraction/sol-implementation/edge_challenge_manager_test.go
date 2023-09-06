@@ -51,7 +51,9 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	}
 
 	honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
-	require.Equal(t, protocol.BlockChallengeEdge, honestEdge.GetType())
+	challengeLevel, err := honestEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.NewBlockChallengeLevel(), challengeLevel)
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
 		hasRival, err := honestEdge.HasRival(ctx)
@@ -60,7 +62,9 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	})
 
 	evilEdge := leafAdder(createdData.EvilStateManager, createdData.Leaf2)
-	require.Equal(t, protocol.BlockChallengeEdge, evilEdge.GetType())
+	challengeLevel, err = evilEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.NewBlockChallengeLevel(), challengeLevel)
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
 		hasRival, err := honestEdge.HasRival(ctx)
@@ -603,13 +607,17 @@ func setupOneStepProofScenario(
 	}
 
 	honestEdge = bigStepAdder(honestStateManager, honestEdge)
-	require.Equal(t, protocol.BigStepChallengeEdge, honestEdge.GetType())
+	challengeLevel, err := honestEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.BigStepChallengeEdge, challengeLevel)
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
 	evilEdge = bigStepAdder(evilStateManager, evilEdge)
-	require.Equal(t, protocol.BigStepChallengeEdge, evilEdge.GetType())
+	challengeLevel, err = evilEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.BigStepChallengeEdge, challengeLevel)
 
 	var bigStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
 	for bigStepHeight > 1 {
@@ -686,13 +694,17 @@ func setupOneStepProofScenario(
 	}
 
 	honestEdge = smallStepAdder(honestStateManager, honestEdge)
-	require.Equal(t, protocol.SmallStepChallengeEdge, honestEdge.GetType())
+	challengeLevel, err = honestEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.SmallStepChallengeEdge, challengeLevel)
 	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
 	evilEdge = smallStepAdder(evilStateManager, evilEdge)
-	require.Equal(t, protocol.SmallStepChallengeEdge, evilEdge.GetType())
+	challengeLevel, err = honestEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.SmallStepChallengeEdge, challengeLevel)
 
 	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -702,7 +714,9 @@ func setupOneStepProofScenario(
 	require.Equal(t, false, !hasRival)
 
 	// Get the lower-level edge of either edge we just bisected.
-	require.Equal(t, protocol.SmallStepChallengeEdge, honestEdge.GetType())
+	challengeLevel, err = honestEdge.GetChallengeLevel()
+	require.NoError(t, err)
+	require.Equal(t, protocol.SmallStepChallengeEdge, challengeLevel)
 
 	var smallStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
 	for smallStepHeight > 1 {

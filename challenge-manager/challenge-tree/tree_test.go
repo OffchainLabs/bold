@@ -69,7 +69,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -84,7 +84,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -112,7 +112,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -127,7 +127,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -165,7 +165,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -180,7 +180,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -224,7 +224,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -239,7 +239,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -277,7 +277,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -292,7 +292,7 @@ func TestAddEdge(t *testing.T) {
 			common.Hash{},
 			uint64(1),
 			uint64(0),
-			protocol.BlockChallengeEdge,
+			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
 				BlockChallengeOriginHeight: 0,
 			},
@@ -406,10 +406,10 @@ type newCfg struct {
 func newEdge(cfg *newCfg) *mock.Edge {
 	cfg.t.Helper()
 	items := strings.Split(string(cfg.edgeId), "-")
-	var typ protocol.EdgeType
+	var typ protocol.ChallengeLevel
 	switch items[0] {
 	case "blk":
-		typ = protocol.BlockChallengeEdge
+		typ = protocol.NewBlockChallengeLevel()
 	case "big":
 		typ = protocol.BigStepChallengeEdge
 	case "smol":

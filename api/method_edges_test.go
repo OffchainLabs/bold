@@ -19,7 +19,7 @@ func TestListEdges(t *testing.T) {
 	d.Edges = []protocol.SpecEdge{
 		&mock.Edge{
 			ID:            mock.EdgeId(padHashString("foo")),
-			EdgeType:      protocol.BlockChallengeEdge,
+			EdgeType:      protocol.NewBlockChallengeLevel(),
 			StartHeight:   100,
 			StartCommit:   mock.Commit(padHashString("foo_start_commit")),
 			EndHeight:     150,

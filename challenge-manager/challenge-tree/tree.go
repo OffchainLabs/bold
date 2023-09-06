@@ -98,12 +98,17 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
 
+	challengeLevel, err := eg.GetChallengeLevel()
+	if err != nil {
+		return protocol.Agreement{}, err
+	}
+
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		creationInfo.WasmModuleRoot,
 		creationInfo.InboxMaxCount.Uint64(),
 		parentAssertionAfterState.GlobalState.Batch,
-		eg.GetType(),
+		challengeLevel,
 		heights,
 		l2stateprovider.History{
 			Height:     uint64(endHeight),
@@ -118,7 +123,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		creationInfo.WasmModuleRoot,
 		creationInfo.InboxMaxCount.Uint64(),
 		parentAssertionAfterState.GlobalState.Batch,
-		eg.GetType(),
+		challengeLevel,
 		heights,
 		l2stateprovider.History{
 			Height:     uint64(startHeight),
@@ -135,8 +140,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		id := eg.Id()
 		ht.edges.Put(id, eg)
 		if !eg.ClaimId().IsNone() {
-			switch eg.GetType() {
-			case protocol.BlockChallengeEdge:
+			switch challengeLevel {
+			case protocol.NewBlockChallengeLevel():
 				ht.honestBlockChalLevelZeroEdge = option.Some(protocol.ReadOnlyEdge(eg))
 			case protocol.BigStepChallengeEdge:
 				ht.honestBigStepLevelZeroEdges.Push(eg)
@@ -179,8 +184,12 @@ func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) err
 	ht.edges.Put(id, eg)
 	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
 	if !eg.ClaimId().IsNone() {
-		switch eg.GetType() {
-		case protocol.BlockChallengeEdge:
+		challengeLevel, err := eg.GetChallengeLevel()
+		if err != nil {
+			return err
+		}
+		switch challengeLevel {
+		case protocol.NewBlockChallengeLevel():
 			ht.honestBlockChalLevelZeroEdge = option.Some(protocol.ReadOnlyEdge(eg))
 		case protocol.BigStepChallengeEdge:
 			ht.honestBigStepLevelZeroEdges.Push(eg)

@@ -26,7 +26,7 @@ func (e *specEdge) Id() protocol.EdgeId {
 }
 
 func (e *specEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
-	return protocol.NewChallengeLevel(e.inner.EType)
+	return protocol.NewChallengeLevel(e.inner.Level)
 }
 
 func (e *specEdge) MiniStaker() option.Option[common.Address] {
@@ -315,63 +315,66 @@ func (e *specEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId)
 // If two validators open a subchallenge S' at edge B in BigStepChallenge, the TopLevelClaimHeight
 // is the height of A.
 func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeights, error) {
-	// switch e.GetType() {
-	// case protocol.BigStepChallengeEdge:
-	// 	rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
-	// 	if err != nil {
-	// 		return protocol.OriginHeights{}, err
-	// 	}
-	// 	blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
-	// 	if err != nil {
-	// 		return protocol.OriginHeights{}, errors.Wrapf(err, "block challenge one step fork source does not exist for rival id %#x", rivalId)
-	// 	}
-	// 	if blockChallengeOneStepForkSource.IsNone() {
-	// 		return protocol.OriginHeights{}, errors.New("source edge is none")
-	// 	}
-	// 	startHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
-	// 	return protocol.OriginHeights{
-	// 		BlockChallengeOriginHeight: startHeight,
-	// 	}, nil
-	// case protocol.SmallStepChallengeEdge:
-	// 	rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
-	// 	if err != nil {
-	// 		return protocol.OriginHeights{}, err
-	// 	}
-	// 	bigStepChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
-	// 	if err != nil {
-	// 		return protocol.OriginHeights{}, errors.Wrap(err, "big step challenge one step fork source does not exist")
-	// 	}
-	// 	if bigStepChallengeOneStepForkSource.IsNone() {
-	// 		return protocol.OriginHeights{}, errors.New("source edge is none")
-	// 	}
-	// 	bigStepEdge, ok := bigStepChallengeOneStepForkSource.Unwrap().(*specEdge)
-	// 	if !ok {
-	// 		return protocol.OriginHeights{}, errors.New("not *SpecEdge")
-	// 	}
-	// 	rivalId, err = e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, bigStepEdge.inner.OriginId)
-	// 	if err != nil {
-	// 		return protocol.OriginHeights{}, err
-	// 	}
-	// 	blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
-	// 	if err != nil {
-	// 		return protocol.OriginHeights{}, errors.Wrap(err, "block challenge one step fork source does not exist")
-	// 	}
-	// 	if blockChallengeOneStepForkSource.IsNone() {
-	// 		return protocol.OriginHeights{}, errors.New("source edge is none")
-	// 	}
-	// 	bigStepStartHeight, _ := bigStepEdge.StartCommitment()
-	// 	blockChallengeStartHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
-	// 	return protocol.OriginHeights{
-	// 		BlockChallengeOriginHeight:   blockChallengeStartHeight,
-	// 		BigStepChallengeOriginHeight: bigStepStartHeight,
-	// 	}, nil
-	// default:
-	// 	startHeight, _ := e.StartCommitment()
-	// 	return protocol.OriginHeights{
-	// 		BlockChallengeOriginHeight: startHeight,
-	// 	}, nil
-	// }
-	return protocol.OriginHeights{}, nil
+	challengeLevel, err := e.GetChallengeLevel()
+	if err != nil {
+		return protocol.OriginHeights{}, err
+	}
+	switch challengeLevel {
+	case protocol.BigStepChallengeEdge:
+		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
+		if err != nil {
+			return protocol.OriginHeights{}, err
+		}
+		blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
+		if err != nil {
+			return protocol.OriginHeights{}, errors.Wrapf(err, "block challenge one step fork source does not exist for rival id %#x", rivalId)
+		}
+		if blockChallengeOneStepForkSource.IsNone() {
+			return protocol.OriginHeights{}, errors.New("source edge is none")
+		}
+		startHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
+		return protocol.OriginHeights{
+			BlockChallengeOriginHeight: startHeight,
+		}, nil
+	case protocol.SmallStepChallengeEdge:
+		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, e.inner.OriginId)
+		if err != nil {
+			return protocol.OriginHeights{}, err
+		}
+		bigStepChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
+		if err != nil {
+			return protocol.OriginHeights{}, errors.Wrap(err, "big step challenge one step fork source does not exist")
+		}
+		if bigStepChallengeOneStepForkSource.IsNone() {
+			return protocol.OriginHeights{}, errors.New("source edge is none")
+		}
+		bigStepEdge, ok := bigStepChallengeOneStepForkSource.Unwrap().(*specEdge)
+		if !ok {
+			return protocol.OriginHeights{}, errors.New("not *SpecEdge")
+		}
+		rivalId, err = e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, bigStepEdge.inner.OriginId)
+		if err != nil {
+			return protocol.OriginHeights{}, err
+		}
+		blockChallengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
+		if err != nil {
+			return protocol.OriginHeights{}, errors.Wrap(err, "block challenge one step fork source does not exist")
+		}
+		if blockChallengeOneStepForkSource.IsNone() {
+			return protocol.OriginHeights{}, errors.New("source edge is none")
+		}
+		bigStepStartHeight, _ := bigStepEdge.StartCommitment()
+		blockChallengeStartHeight, _ := blockChallengeOneStepForkSource.Unwrap().StartCommitment()
+		return protocol.OriginHeights{
+			BlockChallengeOriginHeight:   blockChallengeStartHeight,
+			BigStepChallengeOriginHeight: bigStepStartHeight,
+		}, nil
+	default:
+		startHeight, _ := e.StartCommitment()
+		return protocol.OriginHeights{
+			BlockChallengeOriginHeight: startHeight,
+		}, nil
+	}
 }
 
 // Wrapper around the challenge manager contract with developer-friendly methods.
@@ -453,7 +456,7 @@ func (cm *specChallengeManager) GetEdge(
 	}
 	mutual, err := cm.caller.CalculateMutualId(
 		&bind.CallOpts{Context: ctx},
-		edge.EType,
+		edge.Level,
 		edge.OriginId,
 		edge.StartHeight,
 		edge.StartHistoryRoot,
@@ -716,7 +719,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				EdgeType:       protocol.NewBlockChallengeLevel().Big(),
+				Level:          protocol.NewBlockChallengeLevel().Big(),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
 				ClaimId:        assertionCreation.AssertionHash,
@@ -812,7 +815,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				EdgeType:       subChalTyp.Big(),
+				Level:          subChalTyp.Big(),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
 				ClaimId:        challengedEdge.Id().Hash,

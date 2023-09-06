@@ -35,9 +35,8 @@ type ConfigSnapshot struct {
 // states, prefix proofs, and more for the BOLD protocol.
 type Provider interface {
 	ExecutionProvider
-	HistoryCommitter
-	HistoryLeafCommitter
-	PrefixProver
+	GeneralHistoryCommitter
+	GeneralPrefixProver
 	OneStepProofProvider
 	HistoryChecker
 }
@@ -74,53 +73,15 @@ type GeneralHistoryCommitter interface {
 	) (commitments.History, error)
 }
 
-type HistoryCommitter interface {
-	// Produces a block challenge history commitment up to and including a certain message number.
-	HistoryCommitmentAtMessage(ctx context.Context, messageNumber uint64) (commitments.History, error)
-	// Produces a big step history commitment from big step 0 to N within block
-	// challenge heights A and B where B = A + 1.
-	BigStepCommitmentUpTo(
+type GeneralPrefixProver interface {
+	PrefixProof(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment from small step 0 to N between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepCommitmentUpTo(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep,
-		toSmallStep uint64,
-	) (commitments.History, error)
-}
-
-type HistoryLeafCommitter interface {
-	// Produces a block challenge history commitment in a certain inclusive message number range,
-	// but padding states with duplicates after the first state with a
-	// batch count of at least the specified max.
-	HistoryCommitmentUpToBatch(
-		ctx context.Context,
-		messageNumberStart,
-		messageNumberEnd,
-		batchCount uint64,
-	) (commitments.History, error)
-	// Produces a big step history commitment for all big steps within block
-	// challenge heights H to H+1.
-	BigStepLeafCommitment(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment for all small steps between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepLeafCommitment(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep uint64,
-	) (commitments.History, error)
+		batch Batch,
+		startHeights []Height,
+		fromMessageNumber Height,
+		upToHeight option.Option[Height],
+	) ([]byte, error)
 }
 
 type PrefixProver interface {
@@ -176,7 +137,7 @@ type HistoryChecker interface {
 		wasmModuleRoot common.Hash,
 		assertionInboxMaxCount uint64,
 		parentAssertionAfterStateBatch uint64,
-		edgeType protocol.EdgeType,
+		edgeType protocol.ChallengeLevel,
 		heights protocol.OriginHeights,
 		history History,
 	) (bool, error)

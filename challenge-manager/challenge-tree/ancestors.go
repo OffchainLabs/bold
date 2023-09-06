@@ -70,8 +70,12 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 	pathTimer := PathTimer(timer)
 
 	// Figure out what kind of edge this is, and apply different logic based on it.
-	switch wantedEdge.GetType() {
-	case protocol.BlockChallengeEdge:
+	challengeLevel, err := wantedEdge.GetChallengeLevel()
+	if err != nil {
+		return 0, nil, err
+	}
+	switch challengeLevel {
+	case protocol.NewBlockChallengeLevel():
 		// If the edge is a block challenge edge, we simply search for the wanted edge's ancestors
 		// in the block challenge starting from the honest, level zero edge and return
 		// the computed ancestor ids list.
@@ -198,7 +202,7 @@ func (ht *HonestChallengeTree) HonestPathTimer(
 		containers.Reverse(ancestry)
 		return pathTimer, ancestry, nil
 	default:
-		return 0, nil, fmt.Errorf("edge with type %v not supported", wantedEdge.GetType())
+		return 0, nil, fmt.Errorf("edge with type %v not supported", challengeLevel)
 	}
 }
 

@@ -17,7 +17,7 @@ func edgesToMockEdges(e []*api.Edge) []*mock.Edge {
 func edgeToMockEdge(e *api.Edge) *mock.Edge {
 	return &mock.Edge{
 		ID: mock.EdgeId(e.ID.Bytes()),
-		EdgeType: func() protocol.EdgeType {
+		EdgeType: func() protocol.ChallengeLevel {
 			et, err := protocol.EdgeTypeFromString(e.Type)
 			if err != nil {
 				panic(err)

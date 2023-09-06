@@ -20,7 +20,7 @@ type OriginId string
 // Edge for challenge tree specific tests, making it easier for test ergonomics.
 type Edge struct {
 	ID            EdgeId
-	EdgeType      protocol.EdgeType
+	EdgeType      protocol.ChallengeLevel
 	StartHeight   uint64
 	StartCommit   Commit
 	EndHeight     uint64
@@ -36,8 +36,8 @@ func (e *Edge) Id() protocol.EdgeId {
 	return protocol.EdgeId{Hash: common.BytesToHash([]byte(e.ID))}
 }
 
-func (e *Edge) GetType() protocol.EdgeType {
-	return e.EdgeType
+func (e *Edge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
+	return e.EdgeType, nil
 }
 
 func (e *Edge) StartCommitment() (protocol.Height, common.Hash) {

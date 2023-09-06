@@ -120,7 +120,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	edge.On("CreatedAtBlock").Return(uint64(0), nil)
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("MutualId").Return(protocol.MutualId{})
-	edge.On("GetType").Return(protocol.BlockChallengeEdge)
+	edge.On("GetType").Return(protocol.NewBlockChallengeLevel())
 	startCommit := common.BytesToHash([]byte("nyan"))
 	endCommit := common.BytesToHash([]byte("nyan2"))
 	edge.On("StartCommitment").Return(protocol.Height(0), startCommit)
@@ -137,7 +137,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		common.Hash{},
 		uint64(1),
 		uint64(0),
-		protocol.BlockChallengeEdge,
+		protocol.NewBlockChallengeLevel(),
 		protocol.OriginHeights{
 			BlockChallengeOriginHeight: 0,
 		},
@@ -152,7 +152,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		common.Hash{},
 		uint64(1),
 		uint64(0),
-		protocol.BlockChallengeEdge,
+		protocol.NewBlockChallengeLevel(),
 		protocol.OriginHeights{
 			BlockChallengeOriginHeight: 0,
 		},
@@ -214,7 +214,7 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	edge.On("CreatedAtBlock").Return(createdAt, nil)
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("MutualId").Return(protocol.MutualId{})
-	edge.On("GetType").Return(protocol.BlockChallengeEdge)
+	edge.On("GetType").Return(protocol.NewBlockChallengeLevel())
 	startCommit := common.BytesToHash([]byte("start"))
 	endCommit := common.BytesToHash([]byte("start"))
 	edge.On("StartCommitment").Return(protocol.Height(0), startCommit)

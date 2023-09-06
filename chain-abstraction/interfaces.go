@@ -258,8 +258,9 @@ func (e EdgeStatus) String() string {
 }
 
 type OriginHeights struct {
-	BlockChallengeOriginHeight   Height `json:"blockChallengeOriginHeight"`
-	BigStepChallengeOriginHeight Height `json:"bigStepChallengeOriginHeight"`
+	BlockChallengeOriginHeight   Height   `json:"blockChallengeOriginHeight"`
+	BigStepChallengeOriginHeight Height   `json:"bigStepChallengeOriginHeight"`
+	ChallengeOriginHeights       []Height `json:"challengeOriginHeights"`
 }
 
 // ReadOnlyEdge defines methods that only retrieve data from the chain
