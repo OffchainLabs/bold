@@ -12,7 +12,6 @@ import (
 	"math/big"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
@@ -48,7 +47,6 @@ type L2StateBackend struct {
 	levelZeroBigStepEdgeHeight   uint64
 	levelZeroSmallStepEdgeHeight uint64
 	maliciousMachineIndex        uint64
-	challengeLeafHeights         []uint64
 }
 
 // NewWithMockedStateRoots initialize with a list of predefined state roots, useful for tests and simulations.
@@ -216,146 +214,10 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-var (
-	ErrNotOneStepFork = errors.New("height range is not a one step fork")
-	ErrInvalidRange   = errors.New("invalid height range")
-	emptyCommit       = commitments.History{}
-)
-
-func (s *L2StateBackend) HistoryCommitment(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	inboxMaxCount uint64,
-	messageNumberRange l2stateprovider.MessageNumberRange,
-	claimHeights ...l2stateprovider.ClaimHeight,
-) (commitments.History, error) {
-	// If the call is for message number ranges only, we get the hashes for
-	// those states and return a commitment for them.
-	if len(claimHeights) == 0 {
-		states, err := s.statesUpTo(messageNumberRange.From, messageNumberRange.To, inboxMaxCount)
-		if err != nil {
-			return emptyCommit, err
-		}
-		return commitments.New(states)
-	}
-	// Otherwise, the previous range for a claim height should have a length of one
-	// for all specified claim heights, and we verify this condition.
-	ranges := []l2stateprovider.ClaimHeight{
-		{From: messageNumberRange.From, To: option.Some(messageNumberRange.To)},
-	}
-	// Validates ranges.
-	ranges = append(ranges, claimHeights...)
-	for i := 1; i < len(ranges)-1; i++ {
-		prevRange := ranges[i-1]
-		prevFrom := prevRange.From
-		prevTo := prevRange.To
-		if prevTo.IsNone() {
-			return emptyCommit, ErrInvalidRange
-		}
-		if prevTo.Unwrap() != prevFrom+1 {
-			return emptyCommit, fmt.Errorf(
-				"%w: %d != %d+1",
-				ErrNotOneStepFork,
-				prevTo.Unwrap(),
-				prevFrom,
-			)
-		}
-	}
-
-	// Next, computes the exact start point of where we need to execute
-	// the machine from the inputs, and figures out in what increments we need to do so.
-	machine, err := s.machineAtBlock(ctx, messageNumberRange.From)
-	if err != nil {
-		return emptyCommit, err
-	}
-	machineStartIndex, err := s.computeMachineStartIndex(claimHeights)
-	if err != nil {
-		return emptyCommit, err
-	}
-
-	// We compute the stepwise increments we need for stepping through the machine.
-	stepBy, err := s.computeStepIncrements(uint64(len(claimHeights)))
-	if err != nil {
-		return emptyCommit, err
-	}
-
-	// We advance the machine to the index we need to start from.
-	if err = machine.Step(machineStartIndex); err != nil {
-		return emptyCommit, err
-	}
-
-	requestedRange := claimHeights[len(claimHeights)-1]
-
-	// Advance the machine to the requested start point.
-	maxHeightForLevel := s.challengeLeafHeights[len(claimHeights)-1]
-
-	// Get the start and end points for the machine stepping.
-	start := requestedRange.From
-	var end uint64
-	if requestedRange.To.IsNone() {
-		end = s.challengeLeafHeights[len(claimHeights)-1]
-	} else {
-		end = requestedRange.To.Unwrap()
-		if end > maxHeightForLevel {
-			end = maxHeightForLevel
-		}
-	}
-
-	if end < start {
-		return emptyCommit, fmt.Errorf("invalid range: %d > %d", start, end)
-	}
-
-	// We step through the machine in our desired increments, and gather the
-	// machine hashes along the way for the history commitment.
-	leaves := make([]common.Hash, end-start+1)
-	for i := start; i <= end; i++ {
-		leaves = append(leaves, s.getMachineHash(machine, messageNumberRange.From))
-		if i >= end {
-			// We don't need to step the machine to the next point because it won't be used.
-			break
-		}
-		if err = machine.Step(stepBy); err != nil {
-			return emptyCommit, err
-		}
-	}
-	return commitments.New(leaves)
-}
-
-func (s *L2StateBackend) computeMachineStartIndex(
-	claimHeights []l2stateprovider.ClaimHeight,
-) (uint64, error) {
-	if len(claimHeights) != len(s.challengeLeafHeights) {
-		return 0, fmt.Errorf(
-			"challenge heights length %d != challenge leaf heights length %d",
-			len(claimHeights),
-			len(s.challengeLeafHeights),
-		)
-	}
-	startIndex := uint64(0)
-	for i := range claimHeights {
-		startIndex += claimHeights[i].From * s.challengeLeafHeights[i]
-	}
-	return 0, nil
-}
-
-func (s *L2StateBackend) computeStepIncrements(requestedChallengeLevel uint64) (uint64, error) {
-	if requestedChallengeLevel >= uint64(len(s.challengeLeafHeights)) {
-		return 0, fmt.Errorf(
-			"requested challenge level %d >= challenge leaf heights length %d",
-			requestedChallengeLevel,
-			len(s.challengeLeafHeights),
-		)
-	}
-	return s.challengeLeafHeights[requestedChallengeLevel], nil
-}
-
-func (s *L2StateBackend) PrefixProof(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	messageNumberRange l2stateprovider.MessageNumberRange,
-	claimHeights ...l2stateprovider.ClaimHeight,
-) (commitments.History, error) {
-	return commitments.History{}, nil
+func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
+	return commitments.New(
+		[]common.Hash{s.stateRoots[messageNumber]},
+	)
 }
 
 func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
@@ -411,44 +273,43 @@ func (s *L2StateBackend) AgreesWithHistoryCommitment(
 	wasmModuleRoot common.Hash,
 	assertionInboxMaxCount uint64,
 	parentAssertionAfterStateBatch uint64,
-	challengeLevel protocol.ChallengeLevel,
+	edgeType protocol.EdgeType,
 	heights protocol.OriginHeights,
 	commit l2stateprovider.History,
 ) (bool, error) {
-	// var localCommit commitments.History
-	// var err error
-	// switch edgeType {
-	// case protocol.BlockChallengeEdge:
-	// 	localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
-	// 	if err != nil {
-	// 		return false, err
-	// 	}
-	// case protocol.BigStepChallengeEdge:
-	// 	localCommit, err = s.BigStepCommitmentUpTo(
-	// 		ctx,
-	// 		wasmModuleRoot,
-	// 		uint64(heights.BlockChallengeOriginHeight),
-	// 		commit.Height,
-	// 	)
-	// 	if err != nil {
-	// 		return false, err
-	// 	}
-	// case protocol.SmallStepChallengeEdge:
-	// 	localCommit, err = s.SmallStepCommitmentUpTo(
-	// 		ctx,
-	// 		wasmModuleRoot,
-	// 		uint64(heights.BlockChallengeOriginHeight),
-	// 		uint64(heights.BigStepChallengeOriginHeight),
-	// 		commit.Height,
-	// 	)
-	// 	if err != nil {
-	// 		return false, err
-	// 	}
-	// default:
-	// 	return false, errors.New("unsupported edge type")
-	// }
-	//oreturn localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
-	return false, nil
+	var localCommit commitments.History
+	var err error
+	switch edgeType {
+	case protocol.BlockChallengeEdge:
+		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
+		if err != nil {
+			return false, err
+		}
+	case protocol.BigStepChallengeEdge:
+		localCommit, err = s.BigStepCommitmentUpTo(
+			ctx,
+			wasmModuleRoot,
+			uint64(heights.BlockChallengeOriginHeight),
+			commit.Height,
+		)
+		if err != nil {
+			return false, err
+		}
+	case protocol.SmallStepChallengeEdge:
+		localCommit, err = s.SmallStepCommitmentUpTo(
+			ctx,
+			wasmModuleRoot,
+			uint64(heights.BlockChallengeOriginHeight),
+			uint64(heights.BigStepChallengeOriginHeight),
+			commit.Height,
+		)
+		if err != nil {
+			return false, err
+		}
+	default:
+		return false, errors.New("unsupported edge type")
+	}
+	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
 }
 
 func (s *L2StateBackend) BigStepLeafCommitment(

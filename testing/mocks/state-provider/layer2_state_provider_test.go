@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//var _ = l2stateprovider.Provider(&L2StateBackend{})
+var _ = l2stateprovider.Provider(&L2StateBackend{})
 
 func mockMachineAtBlock(_ context.Context, block uint64) (Machine, error) {
 	blockBytes := make([]uint8, 8)
@@ -31,9 +32,6 @@ func mockMachineAtBlock(_ context.Context, block uint64) (Machine, error) {
 		MachineStatus: protocol.MachineStatusFinished,
 	}
 	return NewSimpleMachine(startState, nil), nil
-}
-
-func TestHistoryCommitment(t *testing.T) {
 }
 
 func TestChallengeBoundaries_DifferentiateAssertionAndExecutionStates(t *testing.T) {
