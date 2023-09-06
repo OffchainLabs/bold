@@ -14,7 +14,7 @@ var (
 	emptyCommit = commitments.History{}
 )
 
-// MachineHashCollector defines a struct which can collect hashes from an Arbitrator machine
+// MachineHashCollector defines an interface which can collect hashes from an Arbitrator machine
 // at a block height, starting at a specific opcode index in the machine and stepping through it
 // in increments of custom size. Along the way, it computes each machine hash at each step
 // and outputs a list of these hashes at the end. This is an computationally expensive process
@@ -31,7 +31,10 @@ type HashCollectorConfig struct {
 	WasmModuleRoot common.Hash
 	// The L2 message number the machine corresponds to.
 	MessageNumber Height
-	StepHeights   []Height
+	// Defines the heights at which we want to collect machine hashes for each challenge level.
+	// An index in this slice represents a challenge level, and a value represents a height within that
+	// challenge level.
+	StepHeights []Height
 	// The number of desired hashes to be collected.
 	NumDesiredHashes uint64
 	// The opcode index at which to start stepping through the machine at a message number.
@@ -40,7 +43,7 @@ type HashCollectorConfig struct {
 	StepSize StepSize
 }
 
-// L2MessageStateCollector defines a struct which can obtain the machine hashes at each L2 message
+// L2MessageStateCollector defines an interface which can obtain the machine hashes at each L2 message
 // in a specified message range for a given batch index on Arbitrum.
 type L2MessageStateCollector interface {
 	L2MessageStatesUpTo(
@@ -60,7 +63,8 @@ type HistoryCommitmentProvider struct {
 	challengeLeafHeights    []Height
 }
 
-// NewHistoryCommitmentProvider --
+// NewHistoryCommitmentProvider creates an instance of a struct which can compute history commitments
+// over any number of challenge levels for BOLD.
 func NewHistoryCommitmentProvider(
 	l2MessageStateCollector L2MessageStateCollector,
 	machineHashCollector MachineHashCollector,
@@ -74,7 +78,7 @@ func NewHistoryCommitmentProvider(
 }
 
 // A list of heights that have been validated to be non-empty
-// and to be < the total number of challenge levels in the protocol.
+// and to be less than the total number of challenge levels in the protocol.
 type validatedStartHeights []Height
 
 // HistoryCommitment computes a Merklelized commitment over a set of hashes
@@ -103,8 +107,8 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 		return commitments.New(hashes)
 	}
 
-	// Next, computes the exact start point of where we need to execute
-	// the machine from the inputs, and figures out in what increments we need to do so.
+	// Compute the exact start point of where we need to execute
+	// the machine from the inputs, and figure out, in what increments, we need to do so.
 	machineStartIndex := p.computeMachineStartIndex(validatedHeights)
 
 	// We compute the stepwise increments we need for stepping through the machine.
@@ -123,8 +127,11 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	hashes, err := p.machineHashCollector.CollectMachineMashes(
 		ctx,
 		&HashCollectorConfig{
-			WasmModuleRoot:    wasmModuleRoot,
-			MessageNumber:     Height(fromMessageNumber),
+			WasmModuleRoot: wasmModuleRoot,
+			MessageNumber:  Height(fromMessageNumber),
+			// We drop the first index of the validated heights, because the first index is for the block challenge level,
+			// which is over blocks and not over individual machine WASM opcodes. Starting from the second index, we are now
+			// dealing with subchallenges which are what we care about for our implementation of machine hash collection.
 			StepHeights:       validatedHeights[1:],
 			NumDesiredHashes:  numHashes,
 			MachineStartIndex: machineStartIndex,
