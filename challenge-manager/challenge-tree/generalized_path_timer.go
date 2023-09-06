@@ -13,16 +13,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-// EdgeLocalTimer is the local unrivaled timer of a specific edge (not a cumulative path timer).
+// EdgeLocalTimer is the local, unrivaled timer of a specific edge.
 type EdgeLocalTimer uint64
 
+// AncestorsQueryResponse contains a list of ancestor edge ids and
+// their respective local timers. Both slices have the same length and correspond
+// to each other.
 type AncestorsQueryResponse struct {
 	AncestorLocalTimers []EdgeLocalTimer
 	AncestorEdgeIds     HonestAncestors
 }
 
-// ComputeHonestPathTimer for an honest edge at a block number given its ancestors' local timers. It adds
-// up all their values including the assertion unrivaled timer and the edge's local timer.
+// ComputeHonestPathTimer for an honest edge at a block number given its ancestors'
+// local timers. It adds up all their values including the assertion
+// unrivaled timer and the edge's local timer.
 func (ht *HonestChallengeTree) ComputeHonestPathTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
@@ -59,6 +63,7 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	edgeId protocol.EdgeId,
 	blockNumber uint64,
 ) (*AncestorsQueryResponse, error) {
+	// First, checks if the edge exists before performing any computation.
 	startEdge, ok := ht.edges.TryGet(edgeId)
 	if !ok {
 		return nil, errNotFound(edgeId)
@@ -70,11 +75,18 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	if err != nil {
 		return nil, err
 	}
+
+	// Set a cursor at the edge we start from. We will update this cursor
+	// as we advance in this function.
 	currentEdge := startEdge
 
 	ancestry := make([]protocol.EdgeId, 0)
 	localTimers := make([]EdgeLocalTimer, 0)
 
+	// Challenge levels go from lowest to highest, where lowest is the smallest challenge level
+	// (where challenges are over individual, WASM opcodes). If we have 3 challenge levels,
+	// we will go from 0, 1, 2. We want the ancestors for an edge across an entire challenge
+	// tree, even across levels.
 	for currentChallengeLevel < protocol.ChallengeLevel(ht.totalChallengeLevels) {
 		// Compute the root edge for the current challenge level.
 		rootEdge, err := ht.honestRootAncestorAtChallengeLevel(currentEdge, currentChallengeLevel)
@@ -91,7 +103,7 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 		// Advance the challenge level.
 		currentChallengeLevel += 1
 
-		// Expand the total ancestry list. We want ancestors from
+		// Expand the total ancestry and timers slices. We want ancestors from
 		// the bottom-up, so we must reverse the output slice from the find function.
 		containers.Reverse(ancestorLocalTimers)
 		containers.Reverse(ancestorsAtLevel)
@@ -112,6 +124,8 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 		if err != nil {
 			return nil, err
 		}
+
+		// Update the cursor to be the claimed edge at the next challenge level.
 		currentEdge = nextLevelClaimedEdge
 
 		// Include the next level claimed edge in the ancestry list.
@@ -132,7 +146,7 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	// safety check at the end of this function to ensure we are returning
 	// a proper ancestry list.
 	if ht.honestBlockChalLevelZeroEdge.IsNone() {
-		// Should never happen, just an extra check against panics.
+		// Should never happen, but is just an extra check against panics.
 		return nil, errors.New("no honest block challenge root edge found")
 	}
 	rootChallengeEdgeId := ht.honestBlockChalLevelZeroEdge.Unwrap().Id()
@@ -150,17 +164,17 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	}, nil
 }
 
-// Computes the list of ancestors in a challenge type from a root edge down
-// to a specified child edge within a single challenge level. The edge we are querying must be
+// Computes the list of ancestors in a challenge level from a root edge down
+// to a specified child edge within the same level. The edge we are querying must be
 // a child of this start edge for this function to succeed without error.
 func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 	ctx context.Context,
-	start protocol.ReadOnlyEdge,
+	rootEdge protocol.ReadOnlyEdge,
 	queryingFor protocol.ReadOnlyEdge,
 	blockNumber uint64,
 ) ([]EdgeLocalTimer, []protocol.EdgeId, error) {
 	found := false
-	curr := start
+	cursor := rootEdge
 	ancestry := make([]protocol.EdgeId, 0)
 	localTimers := make([]EdgeLocalTimer, 0)
 	wantedEdgeStart, _ := queryingFor.StartCommitment()
@@ -169,44 +183,45 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 		if ctx.Err() != nil {
 			return nil, nil, ctx.Err()
 		}
-		if curr.Id() == queryingFor.Id() {
+		if cursor.Id() == queryingFor.Id() {
 			found = true
 			break
 		}
-		ancestry = append(ancestry, curr.Id())
-		timer, err := ht.localTimer(curr, blockNumber)
+		// We expand the ancestry and timers' slices using the cursor edge.
+		ancestry = append(ancestry, cursor.Id())
+		timer, err := ht.localTimer(cursor, blockNumber)
 		if err != nil {
 			return nil, nil, err
 		}
 		localTimers = append(localTimers, EdgeLocalTimer(timer))
 
-		currStart, _ := curr.StartCommitment()
-		currEnd, _ := curr.EndCommitment()
+		currStart, _ := cursor.StartCommitment()
+		currEnd, _ := cursor.EndCommitment()
 		bisectTo, err := bisection.Bisect(uint64(currStart), uint64(currEnd))
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "could not bisect start=%d, end=%d", currStart, currEnd)
 		}
-		// If the wanted edge's start commitment is < the bisection height of the current
+		// If the wanted edge's start commitment is less than the bisection height of the current
 		// edge in the loop, it means it is part of its lower children.
 		if uint64(wantedEdgeStart) < bisectTo {
-			lowerSnapshot, lowerErr := curr.LowerChild(ctx)
+			lowerChild, lowerErr := cursor.LowerChild(ctx)
 			if lowerErr != nil {
-				return nil, nil, errors.Wrapf(lowerErr, "could not get lower child for edge %#x", curr.Id())
+				return nil, nil, errors.Wrapf(lowerErr, "could not get lower child for edge %#x", cursor.Id())
 			}
-			if lowerSnapshot.IsNone() {
-				return nil, nil, fmt.Errorf("edge %#x had no lower child", curr.Id())
+			if lowerChild.IsNone() {
+				return nil, nil, fmt.Errorf("edge %#x had no lower child", cursor.Id())
 			}
-			curr = ht.edges.Get(lowerSnapshot.Unwrap())
+			cursor = ht.edges.Get(lowerChild.Unwrap())
 		} else {
 			// Else, it is part of the upper children.
-			upperSnapshot, upperErr := curr.UpperChild(ctx)
+			upperChild, upperErr := cursor.UpperChild(ctx)
 			if upperErr != nil {
-				return nil, nil, errors.Wrapf(upperErr, "could not get upper child for edge %#x", curr.Id())
+				return nil, nil, errors.Wrapf(upperErr, "could not get upper child for edge %#x", cursor.Id())
 			}
-			if upperSnapshot.IsNone() {
-				return nil, nil, fmt.Errorf("edge %#x had no upper child", curr.Id())
+			if upperChild.IsNone() {
+				return nil, nil, fmt.Errorf("edge %#x had no upper child", cursor.Id())
 			}
-			curr = ht.edges.Get(upperSnapshot.Unwrap())
+			cursor = ht.edges.Get(upperChild.Unwrap())
 		}
 	}
 	if !found {
@@ -216,17 +231,27 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 }
 
 // Computes the root edge for a given child edge at a challenge level.
+// In a challenge that looks like this:
+//
+//	      /--5---6-----8-----------16A = Alice
+//	0-----4
+//	      \--5'--6'----8'----------16B = Bob
+//
+// where Alice is the honest party, edge 0-16A is the honest root edge.
 func (ht *HonestChallengeTree) honestRootAncestorAtChallengeLevel(
 	childEdge protocol.ReadOnlyEdge,
 	challengeLevel protocol.ChallengeLevel,
 ) (protocol.ReadOnlyEdge, error) {
 	originId := childEdge.OriginId()
+	// If the challenge level is the block challenge level (the highest), then there
+	// is only a single, honest block challenge edge.
 	if challengeLevel == protocol.ChallengeLevel(ht.totalChallengeLevels)-1 {
 		if ht.honestBlockChalLevelZeroEdge.IsNone() {
 			return nil, errNoLevelZero(originId)
 		}
 		return ht.honestBlockChalLevelZeroEdge.Unwrap(), nil
 	}
+	// Otherwise, finds the honest root edge at the appropriate challenge level.
 	rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(challengeLevel)
 	if !ok {
 		return nil, fmt.Errorf("no honest edges found at challenge level %d", challengeLevel)
