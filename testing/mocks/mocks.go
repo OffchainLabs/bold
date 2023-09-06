@@ -6,7 +6,6 @@ package mocks
 
 import (
 	"context"
-	"errors"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
@@ -298,16 +297,8 @@ func (m *MockSpecEdge) GetType() protocol.EdgeType {
 	return args.Get(0).(protocol.EdgeType)
 }
 func (m *MockSpecEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
-	switch m.GetType() {
-	case protocol.BlockChallengeEdge:
-		return 2, nil
-	case protocol.BigStepChallengeEdge:
-		return 1, nil
-	case protocol.SmallStepChallengeEdge:
-		return 0, nil
-	default:
-		return 0, errors.New("bad challenge level")
-	}
+	args := m.Called()
+	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
 }
 
 func (m *MockSpecEdge) MiniStaker() option.Option[common.Address] {

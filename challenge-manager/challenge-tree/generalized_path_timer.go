@@ -295,10 +295,7 @@ func (ht *HonestChallengeTree) honestRootAncestorAtChallengeLevel(
 	}
 	// Otherwise, finds the honest root edge at the appropriate challenge level.
 	rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(challengeLevel)
-	if !ok {
-		return nil, fmt.Errorf("no honest edges found at challenge level %d", challengeLevel)
-	}
-	if rootEdgesAtLevel == nil {
+	if !ok || rootEdgesAtLevel == nil  {
 		return nil, fmt.Errorf("no honest edges found at challenge level %d", challengeLevel)
 	}
 	rootAncestor, found := findOriginEdge(originId, rootEdgesAtLevel)
