@@ -36,6 +36,9 @@ func (ht *HonestChallengeTree) HasConfirmableAncestor(
 	honestAncestorLocalTimers []EdgeLocalTimer,
 	challengePeriodBlocks uint64,
 ) (bool, error) {
+	if len(honestAncestorLocalTimers) == 0 {
+		return false, nil
+	}
 	assertionUnrivaledTimer, err := ht.metadataReader.AssertionUnrivaledBlocks(
 		ctx, ht.topLevelAssertionHash,
 	)
@@ -45,13 +48,21 @@ func (ht *HonestChallengeTree) HasConfirmableAncestor(
 
 	// Computes the cumulative sum for each element in the list.
 	cumulativeTimers := make([]PathTimer, 0)
-	lastAncestorTimer := honestAncestorLocalTimers[len(honestAncestorLocalTimers)-1]
+	lastAncestorTimer := honestAncestorLocalTimers[len(honestAncestorLocalTimers)-1] + EdgeLocalTimer(assertionUnrivaledTimer)
+
+	// If we only have a single honest ancestor, check if it plus the assertion unrivaled
+	// timer is enough to be confirmable and return.
+	if len(honestAncestorLocalTimers) == 1 {
+		return uint64(lastAncestorTimer) >= challengePeriodBlocks, nil
+	}
 
 	// We start with the last ancestor, which shoud also include the top-level assertion's unrivaled timer.
-	cumulativeTimers = append(cumulativeTimers, PathTimer(lastAncestorTimer)+PathTimer(assertionUnrivaledTimer))
+	cumulativeTimers = append(cumulativeTimers, PathTimer(lastAncestorTimer))
 
 	i := 0
-	for _, ancestorTimer := range honestAncestorLocalTimers {
+	// Loop over everything except the last element, which is the root edge as we already
+	// appended it in the lines above.
+	for _, ancestorTimer := range honestAncestorLocalTimers[:len(honestAncestorLocalTimers)-1] {
 		cumulativeTimers = append(cumulativeTimers, cumulativeTimers[i]+PathTimer(ancestorTimer))
 		i += 1
 	}
@@ -295,7 +306,7 @@ func (ht *HonestChallengeTree) honestRootAncestorAtChallengeLevel(
 	}
 	// Otherwise, finds the honest root edge at the appropriate challenge level.
 	rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(challengeLevel)
-	if !ok || rootEdgesAtLevel == nil  {
+	if !ok || rootEdgesAtLevel == nil {
 		return nil, fmt.Errorf("no honest edges found at challenge level %d", challengeLevel)
 	}
 	rootAncestor, found := findOriginEdge(originId, rootEdgesAtLevel)
