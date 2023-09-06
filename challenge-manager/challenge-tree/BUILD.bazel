@@ -33,7 +33,6 @@ go_test(
     deps = [
         "//chain-abstraction:protocol",
         "//challenge-manager/challenge-tree/mock",
-        "//containers",
         "//containers/option",
         "//containers/threadsafe",
         "//layer2-state-provider",

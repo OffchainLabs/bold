@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	"github.com/stretchr/testify/require"
@@ -97,7 +96,6 @@ func Test_computeAncestorsWithTimers(t *testing.T) {
 			id("blk-0.a-8.a"),
 			id("blk-0.a-16.a"),
 		}
-		containers.Reverse(resp.ancestorEdgeIds)
 		require.Equal(t, wanted, resp.ancestorEdgeIds)
 	})
 	t.Run("big step challenge: level zero edge has ancestors from block challenge", func(t *testing.T) {
