@@ -217,6 +217,7 @@ func (ht *HonestChallengeTree) findAncestorsInChallenge(
 	if err != nil {
 		return 0, nil, err
 	}
+	fmt.Printf("Computing timer for curr %s at block num %d = %d\n", curr.Id().Bytes(), blockNumber, pathTimer)
 
 	ancestry := make([]protocol.EdgeId, 0)
 	wantedEdgeStart, _ := queryingFor.StartCommitment()

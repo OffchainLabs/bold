@@ -174,6 +174,11 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 			break
 		}
 		ancestry = append(ancestry, curr.Id())
+		timer, err := ht.localTimer(curr, blockNumber)
+		if err != nil {
+			return nil, nil, err
+		}
+		localTimers = append(localTimers, EdgeLocalTimer(timer))
 
 		currStart, _ := curr.StartCommitment()
 		currEnd, _ := curr.EndCommitment()
@@ -203,11 +208,6 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 			}
 			curr = ht.edges.Get(upperSnapshot.Unwrap())
 		}
-		timer, err := ht.localTimer(curr, blockNumber)
-		if err != nil {
-			return nil, nil, err
-		}
-		localTimers = append(localTimers, EdgeLocalTimer(timer))
 	}
 	if !found {
 		return nil, nil, errNotFound(queryingFor.Id())

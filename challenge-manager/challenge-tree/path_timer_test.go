@@ -178,6 +178,12 @@ func TestPathTimer_FlipFlop(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, PathTimer(3), timer)
 
+		creation, err = edge.CreatedAtBlock()
+		require.NoError(t, err)
+		timer, _, err = ht.HonestPathTimer(ctx, edge.Id(), creation+2)
+		require.NoError(t, err)
+		require.Equal(t, PathTimer(4), timer)
+
 		// Continuing to query it at time T+i should increase the timer
 		// as it is unrivaled.
 		creation, err = edge.CreatedAtBlock()

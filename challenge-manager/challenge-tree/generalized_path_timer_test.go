@@ -363,7 +363,7 @@ func TestComputeHonestPathTimer(t *testing.T) {
 		// as it is unrivaled.
 		creation, err = edge.CreatedAtBlock()
 		require.NoError(t, err)
-		for i := uint64(2); i < 10; i++ {
+		for i := uint64(2); i < 20; i++ {
 			resp, err = ht.ComputeAncestorsWithTimers(ctx, edge.Id(), creation+i)
 			require.NoError(t, err)
 			timer, err = ht.ComputeHonestPathTimer(ctx, edge.Id(), resp.AncestorLocalTimers, creation+i)
