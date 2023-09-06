@@ -9,6 +9,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers"
+	"github.com/pkg/errors"
 )
 
 type ancestorsQueryResponse struct {
@@ -77,8 +78,48 @@ func (ht *HonestChallengeTree) computeAncestorsWithTimers(
 		ancestry = append(ancestry, nextLevelClaimedEdge.Id())
 	}
 
+	// If the ancestry is empty, we just return an empty response.
+	if len(ancestry) == 0 {
+		return &ancestorsQueryResponse{
+			ancestorCumulativePathTimers: make([]PathTimer, 0),
+			ancestorEdgeIds:              ancestry,
+		}, nil
+	}
+
+	// If the ancestry list is non-empty, the last edge in the ancestry should
+	// be the honest block challenge level root edge we agree with. We perform this
+	// safety check at the end of this function to ensure we are returning
+	// a proper ancestry list.
+	if ht.honestBlockChalLevelZeroEdge.IsNone() {
+		// Should never happen, just an extra check against panics.
+		return nil, errors.New("no honest block challenge root edge found")
+	}
+	rootChallengeEdgeId := ht.honestBlockChalLevelZeroEdge.Unwrap().Id()
+	lastAncestryEdgeId := ancestry[len(ancestry)-1]
+	if rootChallengeEdgeId != lastAncestryEdgeId {
+		return nil, fmt.Errorf(
+			"last edge in ancestry %#x is not the top-level, root honest edge %#x",
+			lastAncestryEdgeId,
+			rootChallengeEdgeId,
+		)
+	}
+
+	// In addition, each path timer returned should also take into account
+	// the assertion unrivaled timer from the assertion chain. To do this, we compute it here and add it to
+	// each entry path timer before we return it.
+	assertionUnrivaledTimer, err := ht.metadataReader.AssertionUnrivaledBlocks(
+		ctx, ht.topLevelAssertionHash,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ancestorCumulativeTimers := make([]PathTimer, 0)
+	for i := range ancestorCumulativeTimers {
+		ancestorCumulativeTimers[i] += PathTimer(assertionUnrivaledTimer)
+	}
+
 	return &ancestorsQueryResponse{
-		ancestorCumulativePathTimers: make([]PathTimer, 0),
+		ancestorCumulativePathTimers: ancestorCumulativeTimers,
 		ancestorEdgeIds:              ancestry,
 	}, nil
 }
