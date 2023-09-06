@@ -29,6 +29,10 @@ func (e *specEdge) GetType() protocol.EdgeType {
 	return protocol.EdgeType(e.inner.EType)
 }
 
+// GetChallengeLevel obtains the challenge level for the edge. The lowest level starts at 0, and goes all way
+// up to the max number of levels. The reason we go from lowest challenge level being 0 instead of 2
+// is to make our code a lot more readable. If we flipped the order, we would need to do
+// a lot of backwards for loops instead of simple range loops over slices.
 func (e *specEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
 	switch protocol.EdgeType(e.inner.EType) {
 	case protocol.BlockChallengeEdge:
