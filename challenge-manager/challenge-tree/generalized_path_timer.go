@@ -116,13 +116,14 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	edgeId protocol.EdgeId,
 	blockNumber uint64,
 ) (*AncestorsQueryResponse, error) {
-	// First, checks if the edge exists before performing any computation.
+	// Checks if we have a block challenge root edge.
+	if ht.honestBlockChalLevelZeroEdge.IsNone() {
+		return nil, ErrNoHonestTopLevelEdge
+	}
+	// Checks if the edge exists before performing any computation.
 	startEdge, ok := ht.edges.TryGet(edgeId)
 	if !ok {
 		return nil, errNotFound(edgeId)
-	}
-	if ht.honestBlockChalLevelZeroEdge.IsNone() {
-		return nil, ErrNoHonestTopLevelEdge
 	}
 	currentChallengeLevel, err := startEdge.GetChallengeLevel()
 	if err != nil {
@@ -153,15 +154,15 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 			return nil, err
 		}
 
-		// Advance the challenge level.
-		currentChallengeLevel += 1
-
 		// Expand the total ancestry and timers slices. We want ancestors from
 		// the bottom-up, so we must reverse the output slice from the find function.
 		containers.Reverse(ancestorLocalTimers)
 		containers.Reverse(ancestorsAtLevel)
 		ancestry = append(ancestry, ancestorsAtLevel...)
 		localTimers = append(localTimers, ancestorLocalTimers...)
+
+		// Advance the challenge level.
+		currentChallengeLevel += 1
 
 		if currentChallengeLevel == protocol.ChallengeLevel(ht.totalChallengeLevels) {
 			break
