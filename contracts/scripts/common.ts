@@ -54,9 +54,9 @@ export interface Config {
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
+    maxDataSize: number
   }
   validators: string[]
-  maxDataSize: number
 }
 
 export type RawConfig = Omit<Config, 'settings'> & {
