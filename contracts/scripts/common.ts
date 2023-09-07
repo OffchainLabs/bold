@@ -56,6 +56,7 @@ export interface Config {
     disableValidatorWhitelist: boolean
   }
   validators: string[]
+  maxDataSize: number
 }
 
 export type RawConfig = Omit<Config, 'settings'> & {

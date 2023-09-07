@@ -26,5 +26,6 @@
   },
   "validators": [
     "0xf10EF80c6eF4930A62C5F9661c91339Df4dBB173"
-  ]
+  ],
+  "maxDataSize": 117964
 }
