@@ -77,7 +77,9 @@ contract RollupCreator is Ownable {
     }
 
     function createRollup(Config memory config) external returns (address) {
-        return createRollup(config, address(0), new address[](0), false, bridgeCreator.sequencerInboxTemplate().maxDataSize());
+        return createRollup(
+            config, address(0), new address[](0), false, bridgeCreator.sequencerInboxTemplate().maxDataSize()
+        );
     }
 
     struct DeployedContracts {
@@ -110,16 +112,10 @@ contract RollupCreator is Ownable {
         address[] memory _validators,
         bool disableValidatorWhitelist,
         uint256 maxDataSize
-    ) public returns (address) {  
+    ) public returns (address) {
         // Make sure the immutable maxDataSize is as expected
-        require(
-            maxDataSize == bridgeCreator.sequencerInboxTemplate().maxDataSize(),
-            "SI_MAX_DATA_SIZE_MISMATCH"
-        );
-        require(
-            maxDataSize == bridgeCreator.inboxTemplate().maxDataSize(),
-            "I_MAX_DATA_SIZE_MISMATCH"
-        );
+        require(maxDataSize == bridgeCreator.sequencerInboxTemplate().maxDataSize(), "SI_MAX_DATA_SIZE_MISMATCH");
+        require(maxDataSize == bridgeCreator.inboxTemplate().maxDataSize(), "I_MAX_DATA_SIZE_MISMATCH");
         DeployedContracts memory deployed;
 
         deployed.proxyAdmin = new ProxyAdmin();
@@ -128,15 +124,13 @@ contract RollupCreator is Ownable {
         // Create the rollup proxy to figure out the address and initialize it later
         deployed.rollup = new RollupProxy{salt: keccak256(abi.encode(config))}();
 
-        (
-            deployed.bridge,
-            deployed.sequencerInbox,
-            deployed.inbox,
-            deployed.rollupEventInbox,
-            deployed.outbox
-        ) = bridgeCreator.createBridge(address(deployed.proxyAdmin), address(deployed.rollup), config.sequencerInboxMaxTimeVariation);
+        (deployed.bridge, deployed.sequencerInbox, deployed.inbox, deployed.rollupEventInbox, deployed.outbox) =
+        bridgeCreator.createBridge(
+            address(deployed.proxyAdmin), address(deployed.rollup), config.sequencerInboxMaxTimeVariation
+        );
 
-        deployed.challengeManager = createChallengeManager(address(deployed.rollup), address(deployed.proxyAdmin), config);
+        deployed.challengeManager =
+            createChallengeManager(address(deployed.rollup), address(deployed.proxyAdmin), config);
 
         // initialize the rollup with this contract as owner to set batch poster and validators
         // it will transfer the ownership back to the actual owner later
@@ -170,13 +164,17 @@ contract RollupCreator is Ownable {
             }
             IRollupAdmin(address(deployed.rollup)).setValidator(_validators, _vals);
         }
-        if(disableValidatorWhitelist == true) {
+        if (disableValidatorWhitelist == true) {
             IRollupAdmin(address(deployed.rollup)).setValidatorWhitelistDisabled(disableValidatorWhitelist);
         }
         IRollupAdmin(address(deployed.rollup)).setOwner(actualOwner);
 
         emit RollupCreated(
-            address(deployed.rollup), address(deployed.inbox), address(deployed.proxyAdmin), address(deployed.sequencerInbox), address(deployed.bridge)
+            address(deployed.rollup),
+            address(deployed.inbox),
+            address(deployed.proxyAdmin),
+            address(deployed.sequencerInbox),
+            address(deployed.bridge)
         );
         return address(deployed.rollup);
     }
