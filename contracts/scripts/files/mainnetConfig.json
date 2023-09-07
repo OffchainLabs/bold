@@ -25,7 +25,8 @@
     "blockLeafSize": 1048576,
     "bigStepLeafSize": 2048,
     "smallStepLeafSize": 1024,
-    "numBigStepLevel": 3
+    "numBigStepLevel": 3,
+    "maxDataSize": 117964
   },
   "validators": [
     "0x0ff813f6bd577c3d1cdbe435bac0621be6ae34b4",
