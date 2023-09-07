@@ -77,7 +77,7 @@ contract RollupCreator is Ownable {
     }
 
     function createRollup(Config memory config) external returns (address) {
-        return createRollup(config, address(0), new address[](0), false);
+        return createRollup(config, address(0), new address[](0), false, bridgeCreator.sequencerInboxTemplate().maxDataSize());
     }
 
     /**
@@ -97,8 +97,19 @@ contract RollupCreator is Ownable {
         Config memory config,
         address _batchPoster,
         address[] memory _validators,
-        bool disableValidatorWhitelist
-    ) public returns (address) {        
+        bool disableValidatorWhitelist,
+        uint256 maxDataSize
+    ) public returns (address) {  
+        // Make sure the immutable maxDataSize is as expected
+        require(
+            maxDataSize == bridgeCreator.sequencerInboxTemplate().maxDataSize(),
+            "SI_MAX_DATA_SIZE_MISMATCH"
+        );
+        require(
+            maxDataSize == bridgeCreator.inboxTemplate().maxDataSize(),
+            "I_MAX_DATA_SIZE_MISMATCH"
+        );
+
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         proxyAdmin.transferOwnership(config.owner);
 

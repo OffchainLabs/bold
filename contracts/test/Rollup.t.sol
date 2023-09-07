@@ -38,6 +38,7 @@ contract RollupTest is Test {
     uint256 constant BASE_STAKE = 10;
     uint256 constant MINI_STAKE_VALUE = 2;
     uint64 constant CONFIRM_PERIOD_BLOCKS = 100;
+    uint256 constant MAX_DATA_SIZE = 117964;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
@@ -79,7 +80,7 @@ contract RollupTest is Test {
             oneStepProverHostIo
         );
         EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
-        BridgeCreator bridgeCreator = new BridgeCreator();
+        BridgeCreator bridgeCreator = new BridgeCreator(MAX_DATA_SIZE);
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
         RollupUserLogic rollupUserLogicImpl = new RollupUserLogic();
