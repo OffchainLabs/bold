@@ -76,12 +76,6 @@ contract RollupCreator is Ownable {
         return challengeManager;
     }
 
-    function createRollup(Config memory config) external returns (address) {
-        return createRollup(
-            config, address(0), new address[](0), false, bridgeCreator.sequencerInboxTemplate().maxDataSize()
-        );
-    }
-
     struct DeployedContracts {
         RollupProxy rollup;
         IInbox inbox;
