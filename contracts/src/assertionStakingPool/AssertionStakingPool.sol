@@ -60,7 +60,7 @@ contract AssertionStakingPool {
         emit StakeWithdrawable();
     }
 
-    /// @notice Move stake back from rollup contract to this contract. Calalble only if this contract has already created an assertion and it's now inactive.
+    /// @notice Move stake back from rollup contract to this contract. Callable only if this contract has already created an assertion and it's now inactive.
     /// @dev Separate call from makeStakeWithdrawable since returnOldDeposit reverts with 0 balance (in e.g., case of admin forceRefundStaker)
     function withdrawStakeBackIntoPool() external {
         IRollupUser(rollup).withdrawStakerFunds();
