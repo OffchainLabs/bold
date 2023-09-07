@@ -5,12 +5,6 @@
 pragma solidity ^0.8.0;
 import "../rollup/IRollupLogic.sol";
 
-enum PoolState {
-    PENDING,
-    ASSERTED,
-    INACTIVE
-}
-
 error NoBalanceToWithdraw(address sender);
 
 error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
