@@ -203,11 +203,20 @@ func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) err
 		switch challengeLevel {
 		case protocol.NewBlockChallengeLevel():
 			ht.honestBlockChalLevelZeroEdge = option.Some(protocol.ReadOnlyEdge(eg))
-		case protocol.BigStepChallengeEdge:
-			ht.honestBigStepLevelZeroEdges.Push(eg)
-		case protocol.SmallStepChallengeEdge:
-			ht.honestSmallStepLevelZeroEdges.Push(eg)
 		default:
+			reversedChallengeLevel, err := eg.GetReversedChallengeLevel()
+			if err != nil {
+				return err
+			}
+			rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(reversedChallengeLevel)
+			if !ok || rootEdgesAtLevel == nil {
+				honestRootEdges := threadsafe.NewSlice[protocol.ReadOnlyEdge]()
+				honestRootEdges.Push(eg)
+				ht.honestRootEdgesByLevel.Put(reversedChallengeLevel, honestRootEdges)
+			} else {
+				rootEdgesAtLevel.Push(eg)
+				ht.honestRootEdgesByLevel.Put(reversedChallengeLevel, rootEdgesAtLevel)
+			}
 		}
 	}
 	// We add the edge id to the list of mutual ids we are tracking.
