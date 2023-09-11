@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var _ Provider = (*HistoryCommitmentProvider)(nil)
-
 func Test_computeRequiredNumberOfHashes(t *testing.T) {
 	provider := &HistoryCommitmentProvider{
 		challengeLeafHeights: []Height{

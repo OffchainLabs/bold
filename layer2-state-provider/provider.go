@@ -63,6 +63,28 @@ type OpcodeIndex uint64
 // machines for BOLD challenges.
 type StepSize uint64
 
+type HistoryCommitter interface {
+	// Produces a block challenge history commitment up to and including a certain message number.
+	HistoryCommitmentAtMessage(ctx context.Context, messageNumber uint64) (commitments.History, error)
+	// Produces a big step history commitment from big step 0 to N within block
+	// challenge heights A and B where B = A + 1.
+	BigStepCommitmentUpTo(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		messageNumber,
+		bigStep uint64,
+	) (commitments.History, error)
+	// Produces a small step history commitment from small step 0 to N between
+	// big steps S to S+1 within block challenge heights H to H+1.
+	SmallStepCommitmentUpTo(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		messageNumber,
+		bigStep,
+		toSmallStep uint64,
+	) (commitments.History, error)
+}
+
 type GeneralHistoryCommitter interface {
 	HistoryCommitment(
 		ctx context.Context,

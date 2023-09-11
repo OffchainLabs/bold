@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"math/big"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
-	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+)
+
+var (
+	emptyCommit = commitments.History{}
 )
 
 // MachineHashCollector defines an interface which can collect hashes from an Arbitrator machine
@@ -61,9 +62,6 @@ type HistoryCommitmentProvider struct {
 	l2MessageStateCollector L2MessageStateCollector
 	machineHashCollector    MachineHashCollector
 	challengeLeafHeights    []Height
-	ExecutionProvider
-	OneStepProofProvider
-	HistoryChecker
 }
 
 // NewHistoryCommitmentProvider creates an instance of a struct which can compute history commitments
@@ -72,15 +70,11 @@ func NewHistoryCommitmentProvider(
 	l2MessageStateCollector L2MessageStateCollector,
 	machineHashCollector MachineHashCollector,
 	challengeLeafHeights []Height,
-	executionProvider ExecutionProvider,
-	oneStepProofProvider OneStepProofProvider,
 ) *HistoryCommitmentProvider {
 	return &HistoryCommitmentProvider{
 		l2MessageStateCollector: l2MessageStateCollector,
 		machineHashCollector:    machineHashCollector,
 		challengeLeafHeights:    challengeLeafHeights,
-		ExecutionProvider:       executionProvider,
-		OneStepProofProvider:    oneStepProofProvider,
 	}
 }
 
@@ -98,24 +92,10 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	startHeights []Height,
 	upToHeight option.Option[Height],
 ) (commitments.History, error) {
-	hashes, err := p.historyCommitmentImpl(ctx, wasmModuleRoot, batch, startHeights, upToHeight)
-	if err != nil {
-		return commitments.History{}, err
-	}
-	return commitments.New(hashes)
-}
-
-func (p *HistoryCommitmentProvider) historyCommitmentImpl(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	batch Batch,
-	startHeights []Height,
-	upToHeight option.Option[Height],
-) ([]common.Hash, error) {
 	// Validate the input heights for correctness.
 	validatedHeights, err := p.validateStartHeights(startHeights)
 	if err != nil {
-		return nil, err
+		return emptyCommit, err
 	}
 	// If the call is for message number ranges only, we get the hashes for
 	// those states and return a commitment for them.
@@ -123,9 +103,9 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	if len(validatedHeights) == 1 {
 		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), upToHeight, batch)
 		if hashesErr != nil {
-			return nil, hashesErr
+			return emptyCommit, hashesErr
 		}
-		return hashes, nil
+		return commitments.New(hashes)
 	}
 
 	// Computes the desired challenge level this history commitment is for.
@@ -135,19 +115,19 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
 	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights)
 	if err != nil {
-		return nil, err
+		return emptyCommit, err
 	}
 
 	// We compute the stepwise increments we need for stepping through the machine.
 	stepSize, err := p.computeStepSize(desiredChallengeLevel)
 	if err != nil {
-		return nil, err
+		return emptyCommit, err
 	}
 
 	// Compute how many machine hashes we need to collect at the desired challenge level.
 	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, startHeights[desiredChallengeLevel], upToHeight)
 	if err != nil {
-		return nil, err
+		return emptyCommit, err
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
@@ -166,104 +146,9 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 		},
 	)
 	if err != nil {
-		return nil, err
+		return emptyCommit, err
 	}
-	return hashes, nil
-}
-
-// AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
-// history commitment for a type of edge under a specified assertion challenge. It returns an agreement struct
-// which informs the caller whether (a) we agree with the start commitment, and whether (b) the edge is honest, meaning
-// that we also agree with the end commitment.
-func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	assertionInboxMaxCount uint64,
-	parentAssertionAfterStateBatch uint64,
-	edgeType protocol.ChallengeLevel,
-	heights protocol.OriginHeights,
-	commit History,
-) (bool, error) {
-	var localCommit commitments.History
-	var err error
-
-	switch edgeType {
-	case protocol.NewBlockChallengeLevel():
-		localCommit, err = p.HistoryCommitment(
-			ctx,
-			wasmModuleRoot,
-			Batch(assertionInboxMaxCount),
-			[]Height{Height(parentAssertionAfterStateBatch)},
-			option.Some[Height](Height(parentAssertionAfterStateBatch+commit.Height)))
-		if err != nil {
-			return false, err
-		}
-	default:
-		challengeOriginHeights := make([]Height, len(heights.ChallengeOriginHeights))
-		for index, height := range heights.ChallengeOriginHeights {
-			challengeOriginHeights[index] = Height(height)
-		}
-		localCommit, err = p.HistoryCommitment(
-			ctx,
-			wasmModuleRoot,
-			Batch(assertionInboxMaxCount),
-			append(challengeOriginHeights, 0),
-			option.Some[Height](Height(commit.Height)))
-		if err != nil {
-			return false, err
-		}
-	}
-	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
-}
-
-var (
-	b32Arr, _ = abi.NewType("bytes32[]", "", nil)
-	// ProofArgs for submission to the protocol.
-	ProofArgs = abi.Arguments{
-		{Type: b32Arr, Name: "prefixExpansion"},
-		{Type: b32Arr, Name: "prefixProof"},
-	}
-)
-
-func (p *HistoryCommitmentProvider) PrefixProof(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	batch Batch,
-	startHeights []Height,
-	fromMessageNumber Height,
-	upToHeight option.Option[Height],
-) ([]byte, error) {
-	prefixLeaves, err := p.historyCommitmentImpl(
-		ctx,
-		wasmModuleRoot,
-		batch,
-		startHeights,
-		upToHeight)
-	if err != nil {
-		return nil, err
-	}
-	loSize := uint64(fromMessageNumber + 1)
-	hiSize := uint64(upToHeight.Unwrap() + 1)
-	if len(startHeights) == 1 {
-		loSize -= uint64(fromMessageNumber)
-		hiSize -= uint64(fromMessageNumber)
-	}
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
-	if err != nil {
-		return nil, err
-	}
-	prefixProof, err := prefixproofs.GeneratePrefixProof(
-		loSize,
-		prefixExpansion,
-		prefixLeaves[loSize:hiSize],
-		prefixproofs.RootFetcherFromExpansion,
-	)
-	if err != nil {
-		return nil, err
-	}
-	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
-	onlyProof := prefixProof[numRead:]
-	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
+	return commitments.New(hashes)
 }
 
 // Computes the required number of hashes for a history commitment
