@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
@@ -112,7 +113,10 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
-	machineStartIndex := p.computeMachineStartIndex(validatedHeights)
+	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights)
+	if err != nil {
+		return emptyCommit, err
+	}
 
 	// We compute the stepwise increments we need for stepping through the machine.
 	stepSize, err := p.computeStepSize(desiredChallengeLevel)
@@ -219,10 +223,10 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 // This means we need to start executing our machine exactly at opcode index 4,199,434.
 func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	startHeights validatedStartHeights,
-) OpcodeIndex {
+) (OpcodeIndex, error) {
 	// For the block challenge level, the machine start opcode index is always 0.
 	if len(startHeights) == 1 {
-		return 0
+		return 0, nil
 	}
 	// The first position in the start heights slice is the block challenge level, which is over ranges of L2 messages
 	// and not over individual opcodes. We ignore this level and start at the next level when it comes to dealing with
@@ -230,18 +234,23 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	heights := startHeights[1:]
 	leafHeights := p.challengeLeafHeights[1:]
 
-	// Next, we compute the opcode index.
-	opcodeIndex := uint64(0)
+	// Next, we compute the opcode index. We use big ints to make sure we do not overflow uint64
+	// as this computation depends on external user inputs.
+	opcodeIndex := new(big.Int).SetUint64(0)
 	idx := 1
 	for _, height := range heights {
-		total := uint64(1)
+		total := new(big.Int).SetUint64(1)
 		for i := idx; i < len(leafHeights); i++ {
-			total *= uint64(leafHeights[i])
+			total = new(big.Int).Mul(total, new(big.Int).SetUint64(uint64(leafHeights[i])))
 		}
-		opcodeIndex += total * uint64(height)
+		increase := new(big.Int).Mul(total, new(big.Int).SetUint64(uint64(height)))
+		opcodeIndex = new(big.Int).Add(total, increase)
 		idx += 1
 	}
-	return OpcodeIndex(opcodeIndex)
+	if !opcodeIndex.IsUint64() {
+		return 0, fmt.Errorf("computed machine start index overflows uint64: %s", opcodeIndex.String())
+	}
+	return OpcodeIndex(opcodeIndex.Uint64()), nil
 }
 
 // Computes the the number of individual opcodes we need to step through a machine at a time.
