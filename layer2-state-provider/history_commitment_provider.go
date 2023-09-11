@@ -6,7 +6,6 @@ import (
 	"fmt"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -247,75 +246,6 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
 	onlyProof := prefixProof[numRead:]
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
-}
-
-func (p *HistoryCommitmentProvider) OneStepProofData(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	postState rollupgen.ExecutionState,
-	startHeights []Height,
-	upToHeight option.Option[Height],
-) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	startCommit, commitErr := p.SmallStepCommitmentUpTo(
-		ctx,
-		wasmModuleRoot,
-		messageNumber,
-		bigStep,
-		smallStep,
-	)
-	if commitErr != nil {
-		err = commitErr
-		return
-	}
-	endCommit, commitErr := p.SmallStepCommitmentUpTo(
-		ctx,
-		wasmModuleRoot,
-		messageNumber,
-		bigStep,
-		smallStep+1,
-	)
-	if commitErr != nil {
-		err = commitErr
-		return
-	}
-
-	machine, machineErr := s.machineAtBlock(ctx, messageNumber)
-	if machineErr != nil {
-		err = machineErr
-		return
-	}
-	step := bigStep*s.numOpcodesPerBigStep + smallStep
-	err = machine.Step(step)
-	if err != nil {
-		return
-	}
-	beforeHash := machine.Hash()
-	if beforeHash != startCommit.LastLeaf {
-		err = fmt.Errorf("machine executed to start step %v hash %v but expected %v", step, beforeHash, startCommit.LastLeaf)
-		return
-	}
-	osp, ospErr := machine.OneStepProof()
-	if ospErr != nil {
-		err = ospErr
-		return
-	}
-	err = machine.Step(1)
-	if err != nil {
-		return
-	}
-	afterHash := machine.Hash()
-	if afterHash != endCommit.LastLeaf {
-		err = fmt.Errorf("machine executed to end step %v hash %v but expected %v", step+1, beforeHash, endCommit.LastLeaf)
-		return
-	}
-
-	data = &protocol.OneStepData{
-		BeforeHash: startCommit.LastLeaf,
-		Proof:      osp,
-	}
-	startLeafInclusionProof = startCommit.LastLeafProof
-	endLeafInclusionProof = endCommit.LastLeafProof
-	return
 }
 
 // Computes the required number of hashes for a history commitment
