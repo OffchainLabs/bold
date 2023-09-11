@@ -150,7 +150,15 @@ func (w *Watcher) ComputeHonestPathTimer(
 			topLevelAssertionHash,
 		)
 	}
-	return chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
+	response, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNumber)
+	if err != nil {
+		return 0, nil, err
+	}
+	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, response.AncestorLocalTimers, blockNumber)
+	if err != nil {
+		return 0, nil, err
+	}
+	return pathTimer, response.AncestorEdgeIds, nil
 }
 
 func (w *Watcher) IsSynced() bool {

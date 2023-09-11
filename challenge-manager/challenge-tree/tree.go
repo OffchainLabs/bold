@@ -8,6 +8,7 @@ package challengetree
 
 import (
 	"context"
+
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
@@ -106,13 +107,17 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		return protocol.Agreement{}, err
 	}
 
+	startHeights := make([]l2stateprovider.Height, len(heights.ChallengeOriginHeights))
+	for i, h := range heights.ChallengeOriginHeights {
+		startHeights[i] = l2stateprovider.Height(h)
+	}
+
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
 		creationInfo.WasmModuleRoot,
 		creationInfo.InboxMaxCount.Uint64(),
 		parentAssertionAfterState.GlobalState.Batch,
-		challengeLevel,
-		heights,
+		startHeights,
 		l2stateprovider.History{
 			Height:     uint64(endHeight),
 			MerkleRoot: endCommit,
@@ -126,8 +131,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		creationInfo.WasmModuleRoot,
 		creationInfo.InboxMaxCount.Uint64(),
 		parentAssertionAfterState.GlobalState.Batch,
-		challengeLevel,
-		heights,
+		startHeights,
 		l2stateprovider.History{
 			Height:     uint64(startHeight),
 			MerkleRoot: startCommit,
