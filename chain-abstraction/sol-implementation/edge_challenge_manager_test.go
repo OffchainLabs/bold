@@ -60,8 +60,8 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.Equal(t, protocol.NewBlockChallengeLevel(), challengeLevel)
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
-		hasRival, err := honestEdge.HasRival(ctx)
-		require.NoError(t, err)
+		hasRival, rivalErr := honestEdge.HasRival(ctx)
+		require.NoError(t, rivalErr)
 		require.Equal(t, true, !hasRival)
 	})
 
