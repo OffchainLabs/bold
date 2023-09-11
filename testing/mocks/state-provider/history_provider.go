@@ -9,7 +9,7 @@ import (
 )
 
 // Collects a list of machine hashes at a message number based on some configuration parameters.
-func (s *L2StateBackend) CollectMachineMashes(
+func (s *L2StateBackend) CollectMachineHashes(
 	ctx context.Context, cfg *l2stateprovider.HashCollectorConfig,
 ) ([]common.Hash, error) {
 	// We step through the machine in our desired increments, and gather the

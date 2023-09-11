@@ -17,10 +17,10 @@ import (
 // MachineHashCollector defines an interface which can collect hashes from an Arbitrator machine
 // at a block height, starting at a specific opcode index in the machine and stepping through it
 // in increments of custom size. Along the way, it computes each machine hash at each step
-// and outputs a list of these hashes at the end. This is an computationally expensive process
+// and outputs a list of these hashes at the end. This is a computationally expensive process
 // that is best performed if machine hashes are cached after runs.
 type MachineHashCollector interface {
-	CollectMachineMashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
+	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
 }
 
 // HashCollectorConfig defines configuration options for a machine hash collector to
@@ -151,7 +151,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
-	hashes, err := p.machineHashCollector.CollectMachineMashes(
+	hashes, err := p.machineHashCollector.CollectMachineHashes(
 		ctx,
 		&HashCollectorConfig{
 			WasmModuleRoot: wasmModuleRoot,
@@ -368,7 +368,7 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	return OpcodeIndex(opcodeIndex.Uint64()), nil
 }
 
-// Computes the the number of individual opcodes we need to step through a machine at a time.
+// Computes the number of individual opcodes we need to step through a machine at a time.
 // Each challenge level has a different amount of ranges of opcodes, so the overall step size can be computed
 // as a multiplication of all the next challenge levels needed.
 //
