@@ -6,6 +6,7 @@ package challengemanager
 import (
 	"context"
 	"fmt"
+
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 
@@ -84,10 +85,13 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, nil, err
 	}
 	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
-	startCommit, err := m.stateManager.HistoryCommitmentAtMessage(ctx, parentAssertionAfterState.GlobalState.Batch)
-	if err != nil {
-		return nil, nil, err
-	}
+	startCommit, err := m.stateManager.HistoryCommitment(
+		ctx,
+		creationInfo.WasmModuleRoot,
+		l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
+		[]l2stateprovider.Height{0},
+		option.None[l2stateprovider.Height](),
+	)
 	manager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, nil, err
