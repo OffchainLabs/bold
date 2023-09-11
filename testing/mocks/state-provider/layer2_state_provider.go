@@ -429,59 +429,6 @@ func (s *L2StateBackend) intermediateSmallStepLeaves(
 	return leaves, nil
 }
 
-// Like abi.NewType but panics if it fails for use in constants
-func newStaticType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
-	ty, err := abi.NewType(t, internalType, components)
-	if err != nil {
-		panic(err)
-	}
-	return ty
-}
-
-var bytes32Type = newStaticType("bytes32", "", nil)
-var uint64Type = newStaticType("uint64", "", nil)
-var uint8Type = newStaticType("uint8", "", nil)
-var addressType = newStaticType("address", "", nil)
-var uint256Type = newStaticType("uint256", "", nil)
-
-var WasmModuleProofAbi = abi.Arguments{
-	{
-		Name: "requiredStake",
-		Type: uint256Type,
-	},
-	{
-		Name: "challengeManager",
-		Type: addressType,
-	},
-	{
-		Name: "confirmPeriodBlocks",
-		Type: uint64Type,
-	},
-}
-
-var ExecutionStateAbi = abi.Arguments{
-	{
-		Name: "b1",
-		Type: bytes32Type,
-	},
-	{
-		Name: "b2",
-		Type: bytes32Type,
-	},
-	{
-		Name: "u1",
-		Type: uint64Type,
-	},
-	{
-		Name: "u2",
-		Type: uint64Type,
-	},
-	{
-		Name: "status",
-		Type: uint8Type,
-	},
-}
-
 func (s *L2StateBackend) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,

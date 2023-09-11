@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-
 	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -88,10 +90,24 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	startHeights []Height,
 	upToHeight option.Option[Height],
 ) (commitments.History, error) {
+	hashes, err := p.historyCommitmentImpl(ctx, wasmModuleRoot, batch, startHeights, upToHeight)
+	if err != nil {
+		return commitments.History{}, err
+	}
+	return commitments.New(hashes)
+}
+
+func (p *HistoryCommitmentProvider) historyCommitmentImpl(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	batch Batch,
+	startHeights []Height,
+	upToHeight option.Option[Height],
+) ([]common.Hash, error) {
 	// Validate the input heights for correctness.
 	validatedHeights, err := p.validateStartHeights(startHeights)
 	if err != nil {
-		return emptyCommit, err
+		return nil, err
 	}
 	// If the call is for message number ranges only, we get the hashes for
 	// those states and return a commitment for them.
@@ -99,9 +115,9 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if len(validatedHeights) == 1 {
 		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), upToHeight, batch)
 		if hashesErr != nil {
-			return emptyCommit, hashesErr
+			return nil, hashesErr
 		}
-		return commitments.New(hashes)
+		return hashes, nil
 	}
 
 	// Next, computes the exact start point of where we need to execute
@@ -111,13 +127,13 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	// We compute the stepwise increments we need for stepping through the machine.
 	stepSize, err := p.computeStepSize(validatedHeights)
 	if err != nil {
-		return emptyCommit, err
+		return nil, err
 	}
 
 	// Compute how many machine hashes we need to collect.
 	numHashes, err := p.computeRequiredNumberOfHashes(validatedHeights, upToHeight)
 	if err != nil {
-		return emptyCommit, err
+		return nil, err
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
@@ -133,9 +149,9 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 		},
 	)
 	if err != nil {
-		return emptyCommit, err
+		return nil, err
 	}
-	return commitments.New(hashes)
+	return hashes, nil
 }
 
 // AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
@@ -181,6 +197,125 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 		}
 	}
 	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
+}
+
+var (
+	b32Arr, _ = abi.NewType("bytes32[]", "", nil)
+	// ProofArgs for submission to the protocol.
+	ProofArgs = abi.Arguments{
+		{Type: b32Arr, Name: "prefixExpansion"},
+		{Type: b32Arr, Name: "prefixProof"},
+	}
+)
+
+func (p *HistoryCommitmentProvider) PrefixProof(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	batch Batch,
+	startHeights []Height,
+	fromMessageNumber Height,
+	upToHeight option.Option[Height],
+) ([]byte, error) {
+	prefixLeaves, err := p.historyCommitmentImpl(
+		ctx,
+		wasmModuleRoot,
+		batch,
+		startHeights,
+		upToHeight)
+	if err != nil {
+		return nil, err
+	}
+	loSize := uint64(fromMessageNumber + 1)
+	hiSize := uint64(upToHeight.Unwrap() + 1)
+	if len(startHeights) == 1 {
+		loSize -= uint64(fromMessageNumber)
+		hiSize -= uint64(fromMessageNumber)
+	}
+	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
+	if err != nil {
+		return nil, err
+	}
+	prefixProof, err := prefixproofs.GeneratePrefixProof(
+		loSize,
+		prefixExpansion,
+		prefixLeaves[loSize:hiSize],
+		prefixproofs.RootFetcherFromExpansion,
+	)
+	if err != nil {
+		return nil, err
+	}
+	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
+	onlyProof := prefixProof[numRead:]
+	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
+}
+
+func (p *HistoryCommitmentProvider) OneStepProofData(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	postState rollupgen.ExecutionState,
+	startHeights []Height,
+	upToHeight option.Option[Height],
+) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
+	startCommit, commitErr := p.SmallStepCommitmentUpTo(
+		ctx,
+		wasmModuleRoot,
+		messageNumber,
+		bigStep,
+		smallStep,
+	)
+	if commitErr != nil {
+		err = commitErr
+		return
+	}
+	endCommit, commitErr := p.SmallStepCommitmentUpTo(
+		ctx,
+		wasmModuleRoot,
+		messageNumber,
+		bigStep,
+		smallStep+1,
+	)
+	if commitErr != nil {
+		err = commitErr
+		return
+	}
+
+	machine, machineErr := s.machineAtBlock(ctx, messageNumber)
+	if machineErr != nil {
+		err = machineErr
+		return
+	}
+	step := bigStep*s.numOpcodesPerBigStep + smallStep
+	err = machine.Step(step)
+	if err != nil {
+		return
+	}
+	beforeHash := machine.Hash()
+	if beforeHash != startCommit.LastLeaf {
+		err = fmt.Errorf("machine executed to start step %v hash %v but expected %v", step, beforeHash, startCommit.LastLeaf)
+		return
+	}
+	osp, ospErr := machine.OneStepProof()
+	if ospErr != nil {
+		err = ospErr
+		return
+	}
+	err = machine.Step(1)
+	if err != nil {
+		return
+	}
+	afterHash := machine.Hash()
+	if afterHash != endCommit.LastLeaf {
+		err = fmt.Errorf("machine executed to end step %v hash %v but expected %v", step+1, beforeHash, endCommit.LastLeaf)
+		return
+	}
+
+	data = &protocol.OneStepData{
+		BeforeHash: startCommit.LastLeaf,
+		Proof:      osp,
+	}
+	startLeafInclusionProof = startCommit.LastLeafProof
+	endLeafInclusionProof = endCommit.LastLeafProof
+	return
 }
 
 // Computes the required number of hashes for a history commitment
