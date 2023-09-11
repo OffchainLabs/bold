@@ -285,64 +285,87 @@ func (s *L2StateBackend) OneStepProofData(
 	startHeights []l2stateprovider.Height,
 	upToHeight option.Option[l2stateprovider.Height],
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	startCommit, commitErr := s.SmallStepCommitmentUpTo(
-		ctx,
-		wasmModuleRoot,
-		messageNumber,
-		bigStep,
-		smallStep,
-	)
-	if commitErr != nil {
-		err = commitErr
-		return
-	}
-	endCommit, commitErr := s.SmallStepCommitmentUpTo(
-		ctx,
-		wasmModuleRoot,
-		messageNumber,
-		bigStep,
-		smallStep+1,
-	)
-	if commitErr != nil {
-		err = commitErr
-		return
-	}
+	err = errors.New("unimplemented")
+	// startCommit, commitErr := s.SmallStepCommitmentUpTo(
+	// 	ctx,
+	// 	wasmModuleRoot,
+	// 	messageNumber,
+	// 	bigStep,
+	// 	smallStep,
+	// )
+	// if commitErr != nil {
+	// 	err = commitErr
+	// 	return
+	// }
+	// endCommit, commitErr := s.SmallStepCommitmentUpTo(
+	// 	ctx,
+	// 	wasmModuleRoot,
+	// 	messageNumber,
+	// 	bigStep,
+	// 	smallStep+1,
+	// )
+	// if commitErr != nil {
+	// 	err = commitErr
+	// 	return
+	// }
 
-	machine, machineErr := s.machineAtBlock(ctx, messageNumber)
-	if machineErr != nil {
-		err = machineErr
-		return
-	}
-	step := bigStep*s.numOpcodesPerBigStep + smallStep
-	err = machine.Step(step)
-	if err != nil {
-		return
-	}
-	beforeHash := machine.Hash()
-	if beforeHash != startCommit.LastLeaf {
-		err = fmt.Errorf("machine executed to start step %v hash %v but expected %v", step, beforeHash, startCommit.LastLeaf)
-		return
-	}
-	osp, ospErr := machine.OneStepProof()
-	if ospErr != nil {
-		err = ospErr
-		return
-	}
-	err = machine.Step(1)
-	if err != nil {
-		return
-	}
-	afterHash := machine.Hash()
-	if afterHash != endCommit.LastLeaf {
-		err = fmt.Errorf("machine executed to end step %v hash %v but expected %v", step+1, beforeHash, endCommit.LastLeaf)
-		return
-	}
+	// machine, machineErr := s.machineAtBlock(ctx, messageNumber)
+	// if machineErr != nil {
+	// 	err = machineErr
+	// 	return
+	// }
+	// step := bigStep*s.numOpcodesPerBigStep + smallStep
+	// err = machine.Step(step)
+	// if err != nil {
+	// 	return
+	// }
+	// beforeHash := machine.Hash()
+	// if beforeHash != startCommit.LastLeaf {
+	// 	err = fmt.Errorf("machine executed to start step %v hash %v but expected %v", step, beforeHash, startCommit.LastLeaf)
+	// 	return
+	// }
+	// osp, ospErr := machine.OneStepProof()
+	// if ospErr != nil {
+	// 	err = ospErr
+	// 	return
+	// }
+	// err = machine.Step(1)
+	// if err != nil {
+	// 	return
+	// }
+	// afterHash := machine.Hash()
+	// if afterHash != endCommit.LastLeaf {
+	// 	err = fmt.Errorf("machine executed to end step %v hash %v but expected %v", step+1, beforeHash, endCommit.LastLeaf)
+	// 	return
+	// }
 
-	data = &protocol.OneStepData{
-		BeforeHash: startCommit.LastLeaf,
-		Proof:      osp,
-	}
-	startLeafInclusionProof = startCommit.LastLeafProof
-	endLeafInclusionProof = endCommit.LastLeafProof
+	// data = &protocol.OneStepData{
+	// 	BeforeHash: startCommit.LastLeaf,
+	// 	Proof:      osp,
+	// }
+	// startLeafInclusionProof = startCommit.LastLeafProof
+	// endLeafInclusionProof = endCommit.LastLeafProof
 	return
+}
+
+func (s *L2StateBackend) AgreesWithHistoryCommitment(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionInboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
+	startHeights []l2stateprovider.Height,
+	commit l2stateprovider.History,
+) (bool, error) {
+	return false, errors.New("unimplemented")
+}
+
+func (s *L2StateBackend) PrefixProof(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	batch l2stateprovider.Batch,
+	startHeights []l2stateprovider.Height,
+	fromMessageNumber l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
+) ([]byte, error) {
+	return nil, errors.New("unimplemented")
 }

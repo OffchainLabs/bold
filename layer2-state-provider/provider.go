@@ -105,8 +105,7 @@ type HistoryChecker interface {
 		wasmModuleRoot common.Hash,
 		assertionInboxMaxCount uint64,
 		parentAssertionAfterStateBatch uint64,
-		edgeType protocol.ChallengeLevel,
-		heights protocol.OriginHeights,
+		heights []Height,
 		history History,
 	) (bool, error)
 }
