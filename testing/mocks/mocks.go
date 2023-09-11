@@ -191,8 +191,8 @@ func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
 	postState rollupgen.ExecutionState,
-	startHeights []protocol.Height,
-	upToHeight option.Option[protocol.Height],
+	startHeights []l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
 	args := m.Called(ctx, wasmModuleRoot, postState, startHeights, upToHeight)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)

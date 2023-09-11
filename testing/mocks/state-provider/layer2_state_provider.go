@@ -9,13 +9,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/OffchainLabs/bold/containers/option"
 	"math/big"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
-	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -215,12 +214,6 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) HistoryCommitmentAtMessage(_ context.Context, messageNumber uint64) (commitments.History, error) {
-	return commitments.New(
-		[]common.Hash{s.stateRoots[messageNumber]},
-	)
-}
-
 func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
@@ -255,52 +248,6 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64)
 	return states, nil
 }
 
-func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, messageNumberStart, messageNumberEnd, nextBatchCount uint64) (commitments.History, error) {
-	states, err := s.statesUpTo(messageNumberStart, messageNumberEnd, nextBatchCount)
-	if err != nil {
-		return commitments.History{}, err
-	}
-	return commitments.New(
-		states,
-	)
-}
-
-func (s *L2StateBackend) BigStepLeafCommitment(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	blockHeight uint64,
-) (commitments.History, error) {
-	// Number of big steps between assertion heights A and B will be
-	// fixed in this simulated state manager. It is simply the max number of opcodes
-	// per block divided by the size of a big step.
-	numBigSteps := s.maxWavmOpcodes / s.numOpcodesPerBigStep
-	return s.BigStepCommitmentUpTo(
-		ctx,
-		wasmModuleRoot,
-		blockHeight,
-		numBigSteps,
-	)
-}
-
-func (s *L2StateBackend) BigStepCommitmentUpTo(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	blockHeight,
-	toBigStep uint64,
-) (commitments.History, error) {
-	leaves, err := s.intermediateBigStepLeaves(
-		ctx,
-		blockHeight,
-		blockHeight+1,
-		0, // from big step.
-		toBigStep,
-	)
-	if err != nil {
-		return commitments.History{}, err
-	}
-	return commitments.New(leaves)
-}
-
 func (s *L2StateBackend) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {
 	if block+1 == s.blockDivergenceHeight && step == s.maxWavmOpcodes {
 		*state = *s.executionStates[block+1]
@@ -329,113 +276,12 @@ func (s *L2StateBackend) getMachineHash(machine Machine, block uint64) common.Ha
 	return protocol.ComputeSimpleMachineChallengeHash(state)
 }
 
-func (s *L2StateBackend) intermediateBigStepLeaves(
-	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep uint64,
-) ([]common.Hash, error) {
-	if toBlockChallengeHeight != fromBlockChallengeHeight+1 {
-		return nil, fmt.Errorf("attempting to get big step leaves from block %v to %v", fromBlockChallengeHeight, toBlockChallengeHeight)
-	}
-	leaves := make([]common.Hash, 0)
-	machine, err := s.machineAtBlock(ctx, fromBlockChallengeHeight)
-	if err != nil {
-		return nil, err
-	}
-	// Up to and including the specified step.
-	for i := fromBigStep; i <= toBigStep; i++ {
-		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
-		if i >= toBigStep {
-			// We don't need to step the machine to the next point because it won't be used
-			break
-		}
-		err = machine.Step(s.numOpcodesPerBigStep)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return leaves, nil
-}
-
-func (s *L2StateBackend) SmallStepLeafCommitment(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	blockHeight,
-	bigStep uint64,
-) (commitments.History, error) {
-	return s.SmallStepCommitmentUpTo(
-		ctx,
-		wasmModuleRoot,
-		blockHeight,
-		bigStep,
-		s.numOpcodesPerBigStep,
-	)
-}
-
-func (s *L2StateBackend) SmallStepCommitmentUpTo(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	blockHeight,
-	bigStep uint64,
-	toSmallStep uint64,
-) (commitments.History, error) {
-	fromSmall := bigStep * s.numOpcodesPerBigStep
-	toSmall := fromSmall + toSmallStep
-	leaves, err := s.intermediateSmallStepLeaves(
-		ctx,
-		blockHeight,
-		blockHeight+1,
-		fromSmall,
-		toSmall,
-	)
-	if err != nil {
-		return commitments.History{}, err
-	}
-	return commitments.New(leaves)
-}
-
-func (s *L2StateBackend) intermediateSmallStepLeaves(
-	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromSmallStep,
-	toSmallStep uint64,
-) ([]common.Hash, error) {
-	if toBlockChallengeHeight != fromBlockChallengeHeight+1 {
-		return nil, fmt.Errorf("attempting to get small step leaves from block %v to %v", fromBlockChallengeHeight, toBlockChallengeHeight)
-	}
-	leaves := make([]common.Hash, 0)
-	machine, err := s.machineAtBlock(ctx, fromBlockChallengeHeight)
-	if err != nil {
-		return nil, err
-	}
-	err = machine.Step(fromSmallStep)
-	if err != nil {
-		return nil, err
-	}
-	for i := fromSmallStep; i <= toSmallStep; i++ {
-		leaves = append(leaves, s.getMachineHash(machine, fromBlockChallengeHeight))
-		if i >= toSmallStep {
-			// We don't need to step the machine to the next point because it won't be used
-			break
-		}
-		err = machine.Step(1)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return leaves, nil
-}
-
 func (s *L2StateBackend) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
 	postState rollupgen.ExecutionState,
-	messageNumber,
-	bigStep,
-	smallStep uint64,
+	startHeights []l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
 	startCommit, commitErr := s.SmallStepCommitmentUpTo(
 		ctx,
@@ -497,150 +343,4 @@ func (s *L2StateBackend) OneStepProofData(
 	startLeafInclusionProof = startCommit.LastLeafProof
 	endLeafInclusionProof = endCommit.LastLeafProof
 	return
-}
-
-func (s *L2StateBackend) prefixProofImpl(_ context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
-	if lo+1 < start {
-		return nil, fmt.Errorf("lo %d + 1 < start %d", lo, start)
-	}
-	if hi+1 < start {
-		return nil, fmt.Errorf("hi %d + 1 < start %d", hi, start)
-	}
-	states, err := s.statesUpTo(start, hi, batchCount)
-	if err != nil {
-		return nil, err
-	}
-	loSize := lo + 1 - start
-	hiSize := hi + 1 - start
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(states[:loSize])
-	if err != nil {
-		return nil, err
-	}
-	prefixProof, err := prefixproofs.GeneratePrefixProof(
-		loSize,
-		prefixExpansion,
-		states[loSize:hiSize],
-		prefixproofs.RootFetcherFromExpansion,
-	)
-	if err != nil {
-		return nil, err
-	}
-	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
-	onlyProof := prefixProof[numRead:]
-	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
-}
-
-func (s *L2StateBackend) PrefixProofUpToBatch(ctx context.Context, start, lo, hi, batchCount uint64) ([]byte, error) {
-	return s.prefixProofImpl(ctx, start, lo, hi, batchCount)
-}
-
-func (s *L2StateBackend) BigStepPrefixProof(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	blockHeight,
-	fromBigStep,
-	toBigStep uint64,
-) ([]byte, error) {
-	return s.bigStepPrefixProofCalculation(
-		ctx,
-		blockHeight,
-		blockHeight+1,
-		fromBigStep,
-		toBigStep,
-	)
-}
-
-func (s *L2StateBackend) bigStepPrefixProofCalculation(
-	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	toBigStep uint64,
-) ([]byte, error) {
-	loSize := fromBigStep + 1
-	hiSize := toBigStep + 1
-	prefixLeaves, err := s.intermediateBigStepLeaves(
-		ctx,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		0,
-		toBigStep,
-	)
-	if err != nil {
-		return nil, err
-	}
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
-	if err != nil {
-		return nil, err
-	}
-	prefixProof, err := prefixproofs.GeneratePrefixProof(
-		loSize,
-		prefixExpansion,
-		prefixLeaves[loSize:hiSize],
-		prefixproofs.RootFetcherFromExpansion,
-	)
-	if err != nil {
-		return nil, err
-	}
-	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
-	onlyProof := prefixProof[numRead:]
-	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
-}
-
-func (s *L2StateBackend) SmallStepPrefixProof(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	blockHeight,
-	bigStep,
-	fromSmallStep,
-	toSmallStep uint64,
-) ([]byte, error) {
-	return s.smallStepPrefixProofCalculation(
-		ctx,
-		blockHeight,
-		blockHeight+1,
-		bigStep,
-		fromSmallStep,
-		toSmallStep,
-	)
-}
-
-func (s *L2StateBackend) smallStepPrefixProofCalculation(
-	ctx context.Context,
-	fromBlockChallengeHeight,
-	toBlockChallengeHeight,
-	fromBigStep,
-	fromSmallStep,
-	toSmallStep uint64,
-) ([]byte, error) {
-	fromSmall := fromBigStep * s.numOpcodesPerBigStep
-	toSmall := fromSmall + toSmallStep
-	prefixLeaves, err := s.intermediateSmallStepLeaves(
-		ctx,
-		fromBlockChallengeHeight,
-		toBlockChallengeHeight,
-		fromSmall,
-		toSmall,
-	)
-	if err != nil {
-		return nil, err
-	}
-	loSize := fromSmallStep + 1
-	hiSize := toSmallStep + 1
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
-	if err != nil {
-		return nil, err
-	}
-	prefixProof, err := prefixproofs.GeneratePrefixProof(
-		loSize,
-		prefixExpansion,
-		prefixLeaves[loSize:hiSize],
-		prefixproofs.RootFetcherFromExpansion,
-	)
-	if err != nil {
-		return nil, err
-	}
-	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
-	onlyProof := prefixProof[numRead:]
-	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
 }

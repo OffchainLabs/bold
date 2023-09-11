@@ -12,10 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var (
-	emptyCommit = commitments.History{}
-)
-
 // MachineHashCollector defines a struct which can collect hashes from an Arbitrator machine
 // at a block height, starting at a specific opcode index in the machine and stepping through it
 // in increments of custom size. Along the way, it computes each machine hash at each step
@@ -60,18 +56,27 @@ type HistoryCommitmentProvider struct {
 	l2MessageStateCollector L2MessageStateCollector
 	machineHashCollector    MachineHashCollector
 	challengeLeafHeights    []Height
+	ExecutionProvider
+	OneStepProofProvider
+	HistoryChecker
 }
+
+var _ = Provider(&HistoryCommitmentProvider{})
 
 // NewHistoryCommitmentProvider --
 func NewHistoryCommitmentProvider(
 	l2MessageStateCollector L2MessageStateCollector,
 	machineHashCollector MachineHashCollector,
 	challengeLeafHeights []Height,
+	executionProvider ExecutionProvider,
+	oneStepProofProvider OneStepProofProvider,
 ) *HistoryCommitmentProvider {
 	return &HistoryCommitmentProvider{
 		l2MessageStateCollector: l2MessageStateCollector,
 		machineHashCollector:    machineHashCollector,
 		challengeLeafHeights:    challengeLeafHeights,
+		ExecutionProvider:       executionProvider,
+		OneStepProofProvider:    oneStepProofProvider,
 	}
 }
 
