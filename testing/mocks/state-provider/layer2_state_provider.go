@@ -9,8 +9,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/OffchainLabs/bold/containers/option"
 	"math/big"
+
+	"github.com/OffchainLabs/bold/containers/option"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
@@ -33,6 +34,7 @@ var (
 // L2StateBackend defines a very naive state manager that is initialized from a list of predetermined
 // state roots. It can produce state and history commitments from those roots.
 type L2StateBackend struct {
+	l2stateprovider.HistoryCommitmentProvider
 	stateRoots                   []common.Hash
 	executionStates              []*protocol.ExecutionState
 	machineAtBlock               func(context.Context, uint64) (Machine, error)

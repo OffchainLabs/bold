@@ -6,8 +6,9 @@ package solimpl_test
 import (
 	"context"
 	"fmt"
-	"github.com/OffchainLabs/bold/containers/option"
 	"testing"
+
+	"github.com/OffchainLabs/bold/containers/option"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
@@ -242,9 +243,11 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 			ctx,
 			parentAssertionCreationInfo.WasmModuleRoot,
 			parentAssertionCreationInfo.AfterState,
-			fromBlockChallengeHeight,
-			fromBigStep,
-			smallStep,
+			[]l2stateprovider.Height{
+				l2stateprovider.Height(fromBlockChallengeHeight),
+				l2stateprovider.Height(fromBigStep),
+			},
+			option.Some(l2stateprovider.Height(smallStep)),
 		)
 		require.NoError(t, err)
 
@@ -427,9 +430,11 @@ func TestUpgradingConfigMidChallenge(t *testing.T) {
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,
 		parentAssertionCreationInfo.AfterState,
-		fromBlockChallengeHeight,
-		fromBigStep,
-		smallStep,
+		[]l2stateprovider.Height{
+			l2stateprovider.Height(fromBlockChallengeHeight),
+			l2stateprovider.Height(fromBigStep),
+		},
+		option.Some(l2stateprovider.Height(smallStep)),
 	)
 	require.NoError(t, err)
 

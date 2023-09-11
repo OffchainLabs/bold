@@ -22,6 +22,19 @@ var (
 	ErrNoExecutionState = errors.New("chain does not have execution state")
 )
 
+// Batch index for an Arbitrum L2 state.
+type Batch uint64
+
+// Height for a BOLD history commitment.
+type Height uint64
+
+// OpcodeIndex within an Arbitrator machine for an L2 message.
+type OpcodeIndex uint64
+
+// StepSize is the number of opcode increments used for stepping through
+// machines for BOLD challenges.
+type StepSize uint64
+
 // ConfigSnapshot for an assertion on Arbitrum.
 type ConfigSnapshot struct {
 	RequiredStake           *big.Int
@@ -48,41 +61,6 @@ type ExecutionProvider interface {
 	// Returns ErrChainCatchingUp if catching up to chain.
 	// Returns ErrNoExecutionState if the state manager does not have this execution state.
 	ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error)
-}
-
-// Batch index for an Arbitrum L2 state.
-type Batch uint64
-
-// Height for a BOLD history commitment.
-type Height uint64
-
-// OpcodeIndex within an Arbitrator machine for an L2 message.
-type OpcodeIndex uint64
-
-// StepSize is the number of opcode increments used for stepping through
-// machines for BOLD challenges.
-type StepSize uint64
-
-type HistoryCommitter interface {
-	// Produces a block challenge history commitment up to and including a certain message number.
-	HistoryCommitmentAtMessage(ctx context.Context, messageNumber uint64) (commitments.History, error)
-	// Produces a big step history commitment from big step 0 to N within block
-	// challenge heights A and B where B = A + 1.
-	BigStepCommitmentUpTo(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep uint64,
-	) (commitments.History, error)
-	// Produces a small step history commitment from small step 0 to N between
-	// big steps S to S+1 within block challenge heights H to H+1.
-	SmallStepCommitmentUpTo(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep,
-		toSmallStep uint64,
-	) (commitments.History, error)
 }
 
 type GeneralHistoryCommitter interface {
