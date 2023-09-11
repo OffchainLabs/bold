@@ -253,7 +253,7 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	return OpcodeIndex(opcodeIndex.Uint64()), nil
 }
 
-// Computes the the number of individual opcodes we need to step through a machine at a time.
+// Computes the number of individual opcodes we need to step through a machine at a time.
 // Each challenge level has a different amount of ranges of opcodes, so the overall step size can be computed
 // as a multiplication of all the next challenge levels needed.
 //
