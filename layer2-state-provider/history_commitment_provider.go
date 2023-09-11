@@ -244,7 +244,7 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 			total = new(big.Int).Mul(total, new(big.Int).SetUint64(uint64(leafHeights[i])))
 		}
 		increase := new(big.Int).Mul(total, new(big.Int).SetUint64(uint64(height)))
-		opcodeIndex = new(big.Int).Add(total, increase)
+		opcodeIndex = new(big.Int).Add(opcodeIndex, increase)
 		idx += 1
 	}
 	if !opcodeIndex.IsUint64() {

@@ -94,10 +94,10 @@ func Test_computeMachineStartIndex(t *testing.T) {
 	t.Run("three subchallenge levels", func(t *testing.T) {
 		provider := &HistoryCommitmentProvider{
 			challengeLeafHeights: []Height{
-				32, // block challenge level.
-				32, // giant step challenge level.
-				32, // big step challenge level.
-				32, // small step challenge level.
+				32, // block challenge level = 0
+				32, // challenge level = 1
+				32, // challenge level = 2
+				32, // challenge level = 3
 			},
 		}
 		heights := []Height{
@@ -106,6 +106,8 @@ func Test_computeMachineStartIndex(t *testing.T) {
 			4,
 			5,
 		}
+		// The first height is ignored, as it is for block challenges and not over machine opcodes.
+		//
 		//	  3 * (32 * 32)
 		//	+ 4 * (32)
 		//	+ 5
@@ -115,44 +117,43 @@ func Test_computeMachineStartIndex(t *testing.T) {
 		require.Equal(t, OpcodeIndex(3205), got)
 	})
 	t.Run("four challenge levels", func(t *testing.T) {
-		// take the following constants:
+		// Take, for example, that we have 4 challenge kinds:
 		//
-		//	colossal_steps_per_giant_step = 16
-		//	giant_steps_per_big_step      = 8
-		//	big_steps_per_giant_step      = 4
-		//	small_steps_per_big_step      = 2
+		// block_challenge    => over a range of L2 message hashes
+		// megastep_challenge => over ranges of 1048576 (2^20) opcodes at a time.
+		// kilostep_challenge => over ranges of 1024 (2^10) opcodes at a time
+		// step_challenge     => over a range of individual WASM opcodes
+		//
+		// We only directly step through WASM machines when in a subchallenge (starting at megastep),
+		// so we can ignore block challenges for this calculation.
 		//
 		// Let's say we want to figure out the machine start opcode index for the following inputs:
 		//
-		//	colossal_step=4, giant_step=5, big_step=1, small_step=0
+		// megastep=4, kilostep=5, step=10
 		//
 		// We can compute the opcode index using the following algorithm for the example above.
 		//
-		//	  4 * (8 * 4 * 2)
-		//	+ 5 * (4 * 2)
-		//	+ 1 * (2)
-		//	+ 0
-		//	= 298
-		//
+		//	  4 * (1048576)
+		//	+ 5 * (1024)
+		//	+ 10
+		//	= 4,199,434
 		provider := &HistoryCommitmentProvider{
 			challengeLeafHeights: []Height{
 				32, // Block challenge level.
-				16,
-				8,
-				4,
-				2,
+				1 << 10,
+				1 << 10,
+				1 << 10,
 			},
 		}
 		heights := []Height{
 			0,
 			4,
 			5,
-			1,
-			0,
+			10,
 		}
 		got, err := provider.computeMachineStartIndex(validatedStartHeights(heights))
 		require.NoError(t, err)
-		require.Equal(t, OpcodeIndex(298), got)
+		require.Equal(t, OpcodeIndex(4199434), got)
 	})
 }
 
