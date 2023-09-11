@@ -16,57 +16,66 @@ func Test_computeRequiredNumberOfHashes(t *testing.T) {
 		},
 	}
 
+	challengeLevel := uint64(0)
+	startHeight := Height(5)
 	_, err := provider.computeRequiredNumberOfHashes(
-		[]Height{5},
+		challengeLevel,
+		startHeight,
 		option.None[Height](),
 	)
 	require.ErrorContains(t, err, "invalid range: end 4 was < start 5")
 
+	startHeight = Height(0)
 	_, err = provider.computeRequiredNumberOfHashes(
-		[]Height{0},
-		option.Some(Height(5)),
-	)
-	require.ErrorContains(t, err, "end 5 was greater than max height for level 4")
-
-	_, err = provider.computeRequiredNumberOfHashes(
-		[]Height{0},
-		option.Some(Height(5)),
-	)
-	require.ErrorContains(t, err, "end 5 was greater than max height for level 4")
-
-	_, err = provider.computeRequiredNumberOfHashes(
-		[]Height{0},
+		challengeLevel,
+		startHeight,
 		option.Some(Height(5)),
 	)
 	require.ErrorContains(t, err, "end 5 was greater than max height for level 4")
 
 	got, err := provider.computeRequiredNumberOfHashes(
-		[]Height{0},
+		challengeLevel,
+		startHeight,
+		option.Some(Height(4)),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), got)
+
+	challengeLevel = uint64(1)
+	got, err = provider.computeRequiredNumberOfHashes(
+		challengeLevel,
+		startHeight,
 		option.Some(Height(4)),
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(5), got)
 
 	got, err = provider.computeRequiredNumberOfHashes(
-		[]Height{0, 0},
-		option.Some(Height(4)),
-	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(5), got)
-
-	got, err = provider.computeRequiredNumberOfHashes(
-		[]Height{0, 0},
+		challengeLevel,
+		startHeight,
 		option.None[Height](),
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(9), got)
 
+	challengeLevel = uint64(2)
 	got, err = provider.computeRequiredNumberOfHashes(
-		[]Height{0, 0, 0},
+		challengeLevel,
+		startHeight,
 		option.None[Height](),
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(17), got)
+
+	challengeLevel = uint64(1)
+	startHeight = Height(4)
+	got, err = provider.computeRequiredNumberOfHashes(
+		challengeLevel,
+		startHeight,
+		option.Some(Height(8)),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), got)
 }
 
 func Test_computeMachineStartIndex(t *testing.T) {
@@ -78,7 +87,8 @@ func Test_computeMachineStartIndex(t *testing.T) {
 				1 << 10,
 			},
 		}
-		machineStartIdx := provider.computeMachineStartIndex(validatedStartHeights{1})
+		machineStartIdx, err := provider.computeMachineStartIndex(validatedStartHeights{1})
+		require.NoError(t, err)
 		require.Equal(t, OpcodeIndex(0), machineStartIdx)
 	})
 	t.Run("three subchallenge levels", func(t *testing.T) {
@@ -100,8 +110,8 @@ func Test_computeMachineStartIndex(t *testing.T) {
 		//	+ 4 * (32)
 		//	+ 5
 		//  = 3205
-		got := provider.computeMachineStartIndex(validatedStartHeights(heights))
-		t.Log(got)
+		got, err := provider.computeMachineStartIndex(validatedStartHeights(heights))
+		require.NoError(t, err)
 		require.Equal(t, OpcodeIndex(3205), got)
 	})
 	t.Run("four challenge levels", func(t *testing.T) {
@@ -140,7 +150,8 @@ func Test_computeMachineStartIndex(t *testing.T) {
 			1,
 			0,
 		}
-		got := provider.computeMachineStartIndex(validatedStartHeights(heights))
+		got, err := provider.computeMachineStartIndex(validatedStartHeights(heights))
+		require.NoError(t, err)
 		require.Equal(t, OpcodeIndex(298), got)
 	})
 }
@@ -155,13 +166,15 @@ func Test_computeStepSize(t *testing.T) {
 		},
 	}
 	t.Run("small step size", func(t *testing.T) {
-		stepSize, err := provider.computeStepSize(validatedStartHeights{1, 2, 3, 4})
+		challengeLevel := uint64(3)
+		stepSize, err := provider.computeStepSize(challengeLevel)
 		require.NoError(t, err)
 		// The step size for the last challenge level is always 1 opcode at a time.
 		require.Equal(t, StepSize(1), stepSize)
 	})
 	t.Run("product of height constants for next challenge levels", func(t *testing.T) {
-		stepSize, err := provider.computeStepSize(validatedStartHeights{1})
+		challengeLevel := uint64(0)
+		stepSize, err := provider.computeStepSize(challengeLevel)
 		require.NoError(t, err)
 		// Product of height constants for challenge levels 1, 2, 3.
 		require.Equal(t, StepSize(2*4*8), stepSize)
