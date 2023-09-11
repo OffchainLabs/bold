@@ -107,18 +107,21 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 		return commitments.New(hashes)
 	}
 
+	// Computes the desired challenge level this history commitment is for.
+	desiredChallengeLevel := deepestRequestedChallengeLevel(validatedHeights)
+
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
 	machineStartIndex := p.computeMachineStartIndex(validatedHeights)
 
 	// We compute the stepwise increments we need for stepping through the machine.
-	stepSize, err := p.computeStepSize(validatedHeights)
+	stepSize, err := p.computeStepSize(desiredChallengeLevel)
 	if err != nil {
 		return emptyCommit, err
 	}
 
-	// Compute how many machine hashes we need to collect.
-	numHashes, err := p.computeRequiredNumberOfHashes(validatedHeights, upToHeight)
+	// Compute how many machine hashes we need to collect at the desired challenge level.
+	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, startHeights[desiredChallengeLevel], upToHeight)
 	if err != nil {
 		return emptyCommit, err
 	}
@@ -131,7 +134,7 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 			MessageNumber:  Height(fromMessageNumber),
 			// We drop the first index of the validated heights, because the first index is for the block challenge level,
 			// which is over blocks and not over individual machine WASM opcodes. Starting from the second index, we are now
-			// dealing with subchallenges which are what we care about for our implementation of machine hash collection.
+			// dealing with challenges over ranges of opcodes which are what we care about for our implementation of machine hash collection.
 			StepHeights:       validatedHeights[1:],
 			NumDesiredHashes:  numHashes,
 			MachineStartIndex: machineStartIndex,
@@ -145,22 +148,22 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 }
 
 // Computes the required number of hashes for a history commitment
-// based on the requested heights and challenge level. The required number of hashes
+// based on the requested challenge level. The required number of hashes
 // for a leaf commitment at each challenge level is a constant, so we can determine
 // the desired challenge level from the input params and compute the total
 // from there.
 func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
-	startHeights validatedStartHeights,
+	challengeLevel uint64,
+	startHeight Height,
 	upToHeight option.Option[Height],
 ) (uint64, error) {
-	// Get the max number of hashes at the specified challenge level.
-	// from the protocol constants.
-	challengeLevel := len(startHeights) - 1
-	maxHeightForLevel := p.challengeLeafHeights[challengeLevel]
+	maxHeightForLevel, err := p.leafHeightAtChallengeLevel(challengeLevel)
+	if err != nil {
+		return 0, err
+	}
 
-	// Get the start height we want to use at the challenge level.
-	start := startHeights[challengeLevel]
-
+	// Get the requested history commitment height we need at our
+	// desired challenge level.
 	var end Height
 	if upToHeight.IsNone() {
 		end = maxHeightForLevel
@@ -178,58 +181,52 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 			)
 		}
 	}
-	if end < start {
-		return 0, fmt.Errorf("invalid range: end %d was < start %d", end, start)
+	if end < startHeight {
+		return 0, fmt.Errorf("invalid range: end %d was < start %d", end, startHeight)
 	}
 	// The number of hashes is the difference between the start and end
 	// requested heights, plus 1.
-	return uint64(end-start) + 1, nil
+	return uint64(end-startHeight) + 1, nil
 }
 
 // Figures out the actual opcode index we should move the machine to
 // when we compute the history commitment. As there are different levels of challenge
 // granularity, we have to do some math to figure out the correct index.
 //
-// Take, for example, that we have 5 challenge kinds:
+// Take, for example, that we have 4 challenge kinds:
 //
-// block    => over a range of L2 message hashes
-// colossal => over a range of giant steps
-// giant    => over a range of big steps
-// big      => over a range of small steps
-// small    => over a range of individual WAVM opcodes
+// block_challenge    => over a range of L2 message hashes
+// megastep_challenge => over ranges of 1048576 (2^20) opcodes at a time.
+// kilostep_challenge => over ranges of 1024 (2^10) opcodes at a time
+// step_challenge     => over a range of individual WASM opcodes
 //
-// We only directly step through WAVM machines when in a subchallenge (starting at colossal),
+// We only directly step through WASM machines when in a subchallenge (starting at megastep),
 // so we can ignore block challenges for this calculation.
-//
-// Next, take the following constants:
-//
-//	colossal_steps_per_giant_step = 16
-//	giant_steps_per_big_step      = 8
-//	big_steps_per_giant_step      = 4
-//	small_steps_per_big_step      = 2
 //
 // Let's say we want to figure out the machine start opcode index for the following inputs:
 //
-//	colossal_step=4, giant_step=5, big_step=1, small_step=0
+// megastep=4, kilostep=5, step=10
 //
 // We can compute the opcode index using the following algorithm for the example above.
 //
-//	  4 * (8 * 4 * 2)
-//	+ 5 * (4 * 2)
-//	+ 1 * (2)
-//	+ 0
-//	= 298
+//	  4 * (1048576)
+//	+ 5 * (1024)
+//	+ 10
+//	= 4,199,434
 //
 // This generalizes for any number of subchallenge levels into the algorithm below.
 // It works by taking the sum of (each input * product of all challenge level height constants beneath its level).
-// For the block challenge level, the machine start opcode index is always 0.
+// This means we need to start executing our machine exactly at opcode index 4,199,434.
 func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	startHeights validatedStartHeights,
 ) OpcodeIndex {
+	// For the block challenge level, the machine start opcode index is always 0.
 	if len(startHeights) == 1 {
 		return 0
 	}
-	// We ignore the block challenge level here.
+	// The first position in the start heights slice is the block challenge level, which is over ranges of L2 messages
+	// and not over individual opcodes. We ignore this level and start at the next level when it comes to dealing with
+	// machines.
 	heights := startHeights[1:]
 	leafHeights := p.challengeLeafHeights[1:]
 
@@ -247,15 +244,15 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	return OpcodeIndex(opcodeIndex)
 }
 
-// Computes the step size for stepping through a machine at a block height. Each challenge level has a different
-// amount of steps, so the total step size can be computed as a multiplication of all the
-// next challenge levels needed.
-func (p *HistoryCommitmentProvider) computeStepSize(startHeights validatedStartHeights) (StepSize, error) {
-	challengeLevel := len(startHeights) - 1
-	totalChallengeLevels := len(p.challengeLeafHeights)
-
-	// The stepwise increment of the last challenge level is always one.
-	if challengeLevel+1 == totalChallengeLevels {
+// Computes the the number of individual opcodes we need to step through a machine at a time.
+// Each challenge level has a different amount of ranges of opcodes, so the overall step size can be computed
+// as a multiplication of all the next challenge levels needed.
+//
+// As an example, this function helps answer questions such as: "How many individual opcodes are there in a single step of a
+// Megastep challenge?"
+func (p *HistoryCommitmentProvider) computeStepSize(challengeLevel uint64) (StepSize, error) {
+	// The last challenge level is over individual opcodes, so the step size is always 1 opcode at a time.
+	if challengeLevel+1 == p.numberOfChallengeLevels() {
 		return 1, nil
 	}
 	// Otherwise, it is the multiplication of all the challenge leaf heights at the next
@@ -268,21 +265,48 @@ func (p *HistoryCommitmentProvider) computeStepSize(startHeights validatedStartH
 	return StepSize(total), nil
 }
 
-// Validates a start heights input must be non-empty and have a max
-// equal to the number of challenge levels.
+// Validates a user input must be non-empty and have a size less than the number of challenge levels.
 func (p *HistoryCommitmentProvider) validateStartHeights(
 	startHeights []Height,
 ) (validatedStartHeights, error) {
 	if len(startHeights) == 0 {
 		return nil, errors.New("must provide start heights to compute number of hashes")
 	}
-	challengeLevel := len(startHeights) - 1
-	if challengeLevel >= len(p.challengeLeafHeights) {
+	// A caller specifies a request for history commitments at the first N challenge levels.
+	// This N cannot be greater than the total number of challenge levels in the protocol.
+	deepestRequestedChallengeLevel := len(startHeights) - 1
+	if deepestRequestedChallengeLevel >= len(p.challengeLeafHeights) {
 		return nil, fmt.Errorf(
+			"challenge level %d is out of range for challenge leaf heights %v",
+			deepestRequestedChallengeLevel,
+			p.challengeLeafHeights,
+		)
+	}
+	return validatedStartHeights(startHeights), nil
+}
+
+// A caller specifies a request for a history commitment at challenge level N. It specifies a list of
+// heights at which to compute the history commitment at each challenge level on the way to level N
+// as a list of heights, where each position represents a challenge level.
+// The length of this list cannot be greater than the total number of challenge levels in the protocol.
+// Takes in an input type that has already been validated for correctness.
+func deepestRequestedChallengeLevel(requestedHeights validatedStartHeights) uint64 {
+	return uint64(len(requestedHeights) - 1)
+}
+
+// Gets the required leaf height at a specified challenge level. This is a protocol constant.
+func (p *HistoryCommitmentProvider) leafHeightAtChallengeLevel(challengeLevel uint64) (Height, error) {
+	if challengeLevel >= uint64(len(p.challengeLeafHeights)) {
+		return 0, fmt.Errorf(
 			"challenge level %d is out of range for challenge leaf heights %v",
 			challengeLevel,
 			p.challengeLeafHeights,
 		)
 	}
-	return validatedStartHeights(startHeights), nil
+	return p.challengeLeafHeights[challengeLevel], nil
+}
+
+// The total number of challenge levels in the protocol.
+func (p *HistoryCommitmentProvider) numberOfChallengeLevels() uint64 {
+	return uint64(len(p.challengeLeafHeights))
 }
