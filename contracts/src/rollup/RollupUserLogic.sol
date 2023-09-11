@@ -141,7 +141,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param inboxAcc The inbox batch accumulator
      */
     function computeAssertionHash(bytes32 prevAssertionHash, ExecutionState calldata state, bytes32 inboxAcc)
-        public
+        external
         pure
         returns (bytes32)
     {
@@ -190,8 +190,6 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             "STAKED_ON_ANOTHER_BRANCH"
         );
 
-        // We assume assertion.beforeStateData is valid here as it will be validated in createNewAssertion
-
         uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
         // Verify that assertion meets the minimum Delta time requirement
         require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
@@ -200,6 +198,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
+            // We assume assertion.beforeStateData is valid here as it will be validated in createNewAssertion
             // only 1 of the children can be confirmed and get their stake refunded
             // so we send the other children's stake to the loserStakeEscrow
             // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck

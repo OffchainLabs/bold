@@ -318,6 +318,11 @@ func (m *MockSpecEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
 	args := m.Called()
 	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
 }
+func (m *MockSpecEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
+	args := m.Called()
+	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
+}
+
 func (m *MockSpecEdge) MiniStaker() option.Option[common.Address] {
 	args := m.Called()
 	return args.Get(0).(option.Option[common.Address])

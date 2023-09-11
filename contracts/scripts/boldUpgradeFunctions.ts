@@ -3,6 +3,11 @@ import {
   BOLDUpgradeAction__factory,
   Bridge__factory,
   EdgeChallengeManager__factory,
+  OneStepProofEntry__factory,
+  OneStepProver0__factory,
+  OneStepProverHostIo__factory,
+  OneStepProverMath__factory,
+  OneStepProverMemory__factory,
   Outbox__factory,
   RollupAdminLogic__factory,
   RollupEventInbox__factory,
@@ -21,7 +26,8 @@ import {
 
 export const deployDependencies = async (
   signer: Signer,
-  log: boolean = false
+  maxDataSize: number,
+  log: boolean = false,
 ): Promise<
   Omit<DeployedContracts, 'boldAction' | 'preImageHashLookup' | 'rollupReader'>
 > => {
@@ -32,7 +38,7 @@ export const deployDependencies = async (
   }
 
   const seqInboxFac = new SequencerInbox__factory(signer)
-  const seqInbox = await seqInboxFac.deploy()
+  const seqInbox = await seqInboxFac.deploy(maxDataSize)
   if (log) {
     console.log(
       `Sequencer inbox implementation deployed at: ${seqInbox.address}`
@@ -79,6 +85,46 @@ export const deployDependencies = async (
     console.log(`Challenge manager deployed at: ${challengeManager.address}`)
   }
 
+  const prover0Fac = new OneStepProver0__factory(signer)
+  const prover0 = await prover0Fac.deploy()
+  await prover0.deployed()
+  if (log) {
+    console.log(`Prover0 deployed at: ${prover0.address}`)
+  }
+
+  const proverMemFac = new OneStepProverMemory__factory(signer)
+  const proverMem = await proverMemFac.deploy()
+  await proverMem.deployed()
+  if (log) {
+    console.log(`Prover mem deployed at: ${proverMem.address}`)
+  }
+
+  const proverMathFac = new OneStepProverMath__factory(signer)
+  const proverMath = await proverMathFac.deploy()
+  await proverMath.deployed()
+  if (log) {
+    console.log(`Prover math deployed at: ${proverMath.address}`)
+  }
+
+  const proverHostIoFac = new OneStepProverHostIo__factory(signer)
+  const proverHostIo = await proverHostIoFac.deploy()
+  await proverHostIo.deployed()
+  if (log) {
+    console.log(`Prover host io deployed at: ${proverHostIo.address}`)
+  }
+
+  const proofEntryFac = new OneStepProofEntry__factory(signer)
+  const proofEntry = await proofEntryFac.deploy(
+    prover0.address,
+    proverMem.address,
+    proverMath.address,
+    proverHostIo.address
+  )
+  await proofEntry.deployed()
+  if (log) {
+    console.log(`Proof entry deployed at: ${proofEntry.address}`)
+  }
+
   return {
     bridge: bridge.address,
     seqInbox: seqInbox.address,
@@ -88,6 +134,11 @@ export const deployDependencies = async (
     newRollupUser: newRollupUser.address,
     newRollupAdmin: newRollupAdmin.address,
     challengeManager: challengeManager.address,
+    prover0: prover0.address,
+    proverMem: proverMem.address,
+    proverMath: proverMath.address,
+    proverHostIo: proverHostIo.address,
+    osp: proofEntry.address,
   }
 }
 
@@ -96,11 +147,11 @@ export const deployBoldUpgrade = async (
   config: Config,
   log: boolean = false
 ): Promise<DeployedContracts> => {
-  const deployed = await deployDependencies(wallet, log)
+  const deployed = await deployDependencies(wallet, config.settings.maxDataSize, log)
 
   const fac = new BOLDUpgradeAction__factory(wallet)
   const boldUpgradeAction = await fac.deploy(
-    config.contracts,
+    { ...config.contracts, osp: deployed.osp },
     config.proxyAdmins,
     deployed,
     config.settings

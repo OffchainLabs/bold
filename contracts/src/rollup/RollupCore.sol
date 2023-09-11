@@ -398,34 +398,50 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         {
             uint64 afterInboxPosition = assertion.afterState.globalState.getInboxPosition();
             uint64 prevInboxPosition = assertion.beforeState.globalState.getInboxPosition();
+
+            // there are 2 kinds of assertions that can be made.
+            // ERRORED: this is an unexpected state and an upgrade is required to continue from this state
+            // FINISHED: A normal assertion is made when all messages up to the prev.nextInboxPosition have been processed
+            //           This assertion MUST process all of those messages, therefore we expect it to have inbox position equal
+            //           to the prev.nextInboxPosition, and positionInMessage == 0.
+
+            //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
+            require(afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "INBOX_TOO_FAR");
+
+            // if the position in the message is > 0, then the afterInboxPosition cannot be the nextInboxPosition
+            // as this would be outside the range - this can only occur for ERRORED states
             if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
-                // the errored position must still be within the correct message bounds
-                require(
-                    afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition,
-                    "ERRORED_INBOX_TOO_FAR"
-                );
-
-                // and cannot go backwards
-                require(afterInboxPosition >= prevInboxPosition, "ERRORED_INBOX_TOO_FEW");
+                if (assertion.afterState.globalState.getPositionInMessage() > 0) {
+                    require(
+                        afterInboxPosition != assertion.beforeStateData.configData.nextInboxPosition, "POSITION_TOO_FAR"
+                    );
+                }
             } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
-                // Assertions must consume exactly all inbox messages
-                // that were in the inbox at the time the previous assertion was created
+                // if the machine is FINISHED, then it should consume all messages in the inbox as seen at the time of prev
                 require(
-                    afterInboxPosition == assertion.beforeStateData.configData.nextInboxPosition, "INCORRECT_INBOX_POS"
+                    afterInboxPosition == assertion.beforeStateData.configData.nextInboxPosition,
+                    "INVALID_FINISHED_INBOX"
                 );
-                // Assertions that finish correctly completely consume the message
-                // Therefore their position in the message is 0
-                require(assertion.afterState.globalState.getPositionInMessage() == 0, "FINISHED_NON_ZERO_POS");
-
-                // We enforce that at least one inbox message is always consumed
-                // so the after inbox position is always strictly greater than previous
-                require(afterInboxPosition > prevInboxPosition, "INBOX_BACKWARDS");
+                // and it should have position in message == 0, ready to start reading the next message
+                require(assertion.afterState.globalState.getPositionInMessage() == 0, "NON_ZERO_FINISHED_POS_IN_MSG");
+            } else {
+                // we checked this above, but include a safety check here in case of refactoring
+                revert("INVALID_STATUS");
             }
 
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
             // Cannot read more messages than currently exist in the inbox
             require(afterInboxPosition <= currentInboxPosition, "INBOX_PAST_END");
+
+            // under normal circumstances prev.nextInboxPosition is guaranteed to exist
+            // because we populate it from bridge.sequencerMessageCount(). However, when
+            // the inbox message count doesnt change we artificially increase it by 1 as explained below
+            // in this case we need to ensure when the assertion is made the inbox messages are available
+            // to ensure that a valid assertion can actually be made.
+            require(
+                assertion.beforeStateData.configData.nextInboxPosition <= currentInboxPosition, "INBOX_NOT_POPULATED"
+            );
 
             // The next assertion must consume all the messages that are currently found in the inbox
             if (afterInboxPosition == currentInboxPosition) {

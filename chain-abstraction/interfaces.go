@@ -263,6 +263,8 @@ type OriginHeights struct {
 	ChallengeOriginHeights       []Height `json:"challengeOriginHeights"`
 }
 
+type ChallengeLevel uint8
+
 // ReadOnlyEdge defines methods that only retrieve data from the chain
 // regarding for a given edge.
 type ReadOnlyEdge interface {
