@@ -612,7 +612,10 @@ func setupOneStepProofScenario(
 	honestEdge = bigStepAdder(honestStateManager, honestEdge)
 	challengeLevel, err := honestEdge.GetChallengeLevel()
 	require.NoError(t, err)
-	require.Equal(t, protocol.BigStepChallengeEdge, challengeLevel)
+	totalChallengeLevels, err := honestEdge.GetTotalChallengeLevels(ctx)
+	require.NoError(t, err)
+	require.Equal(t, true, uint64(challengeLevel) < totalChallengeLevels-1)
+	require.Equal(t, true, challengeLevel > 0)
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
@@ -620,7 +623,10 @@ func setupOneStepProofScenario(
 	evilEdge = bigStepAdder(evilStateManager, evilEdge)
 	challengeLevel, err = evilEdge.GetChallengeLevel()
 	require.NoError(t, err)
-	require.Equal(t, protocol.BigStepChallengeEdge, challengeLevel)
+	totalChallengeLevels, err = evilEdge.GetTotalChallengeLevels(ctx)
+	require.NoError(t, err)
+	require.Equal(t, true, uint64(challengeLevel) < totalChallengeLevels-1)
+	require.Equal(t, true, challengeLevel > 0)
 
 	var bigStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
 	for bigStepHeight > 1 {

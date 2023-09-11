@@ -71,7 +71,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(start),
@@ -86,7 +86,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(end),
@@ -114,7 +114,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -129,7 +129,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -167,7 +167,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -182,7 +182,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -226,7 +226,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -241,7 +241,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -279,7 +279,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -294,7 +294,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
 			protocol.OriginHeights{
-				BlockChallengeOriginHeight: 0,
+				ChallengeOriginHeights: []protocol.Height{0},
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -409,11 +409,11 @@ func newEdge(cfg *newCfg) *mock.Edge {
 	var typ protocol.ChallengeLevel
 	switch items[0] {
 	case "blk":
-		typ = protocol.NewBlockChallengeLevel()
+		typ = 0
 	case "big":
-		typ = protocol.BigStepChallengeEdge
+		typ = 1
 	case "smol":
-		typ = protocol.SmallStepChallengeEdge
+		typ = 2
 	}
 	startData := strings.Split(items[1], ".")
 	startHeight, err := strconv.ParseUint(startData[0], 10, 64)
@@ -426,16 +426,17 @@ func newEdge(cfg *newCfg) *mock.Edge {
 	endCommit := endData[1]
 
 	return &mock.Edge{
-		EdgeType:      typ,
-		OriginID:      cfg.originId,
-		ID:            cfg.edgeId,
-		StartHeight:   startHeight,
-		ClaimID:       cfg.claimId,
-		StartCommit:   mock.Commit(startCommit),
-		EndHeight:     endHeight,
-		EndCommit:     mock.Commit(endCommit),
-		LowerChildID:  "",
-		UpperChildID:  "",
-		CreationBlock: cfg.createdAt,
+		EdgeType:             typ,
+		OriginID:             cfg.originId,
+		ID:                   cfg.edgeId,
+		StartHeight:          startHeight,
+		ClaimID:              cfg.claimId,
+		StartCommit:          mock.Commit(startCommit),
+		EndHeight:            endHeight,
+		EndCommit:            mock.Commit(endCommit),
+		LowerChildID:         "",
+		UpperChildID:         "",
+		CreationBlock:        cfg.createdAt,
+		TotalChallengeLevels: 3,
 	}
 }

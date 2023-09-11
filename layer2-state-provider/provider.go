@@ -84,45 +84,13 @@ type GeneralPrefixProver interface {
 	) ([]byte, error)
 }
 
-type PrefixProver interface {
-	// Produces a prefix proof in a block challenge from height A to B, but padding states with duplicates after the
-	// first state with a batch count of at least the specified max.
-	PrefixProofUpToBatch(
-		ctx context.Context,
-		startHeight,
-		fromMessageNumber,
-		toMessageNumber,
-		maxBatchCount uint64,
-	) ([]byte, error)
-	// Produces a big step prefix proof from height A to B for heights H to H+1
-	// within a block challenge.
-	BigStepPrefixProof(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		fromBigStep,
-		toBigStep uint64,
-	) ([]byte, error)
-	// Produces a small step prefix proof from height A to B for big step S to S+1 and
-	// block challenge height heights H to H+1.
-	SmallStepPrefixProof(
-		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		messageNumber,
-		bigStep,
-		fromSmallStep,
-		toSmallStep uint64,
-	) ([]byte, error)
-}
-
 type OneStepProofProvider interface {
 	OneStepProofData(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
 		postState rollupgen.ExecutionState,
-		messageNumber,
-		bigStep,
-		smallStep uint64,
+		startHeights []Height,
+		upToHeight option.Option[Height],
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 

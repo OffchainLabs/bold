@@ -191,11 +191,10 @@ func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
 	postState rollupgen.ExecutionState,
-	blockHeight,
-	bigStep,
-	smallStep uint64,
+	startHeights []protocol.Height,
+	upToHeight option.Option[protocol.Height],
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, wasmModuleRoot, postState, blockHeight, bigStep, smallStep)
+	args := m.Called(ctx, wasmModuleRoot, postState, startHeights, upToHeight)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
@@ -318,9 +317,15 @@ func (m *MockSpecEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
 	args := m.Called()
 	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
 }
-func (m *MockSpecEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
+
+func (m *MockSpecEdge) GetReversedChallengeLevel() (protocol.ChallengeLevel, error) {
 	args := m.Called()
 	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
+}
+
+func (m *MockSpecEdge) GetTotalChallengeLevels(ctx context.Context) (uint64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(uint64), args.Get(1).(error)
 }
 
 func (m *MockSpecEdge) MiniStaker() option.Option[common.Address] {

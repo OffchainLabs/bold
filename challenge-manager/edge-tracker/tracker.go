@@ -211,7 +211,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case edgeStarted:
-		canOsp, err := canOneStepProve(et.edge)
+		canOsp, err := canOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not check if edge can be one step proven", fields)
@@ -512,17 +512,6 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		challengeOriginHeights[index] = l2stateprovider.Height(height)
 	}
 
-	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
-		ctx,
-		et.wasmModuleRoot,
-		l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-		challengeOriginHeights,
-		option.Some[l2stateprovider.Height](l2stateprovider.Height(bisectTo)),
-	)
-	if commitErr != nil {
-		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
-	}
-
 	proof, proofErr = et.stateProvider.PrefixProof(
 		ctx,
 		et.wasmModuleRoot,
@@ -533,6 +522,17 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 	)
 	if proofErr != nil {
 		return commitments.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
+	}
+
+	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
+		ctx,
+		et.wasmModuleRoot,
+		l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+		append(challengeOriginHeights, 0),
+		option.Some[l2stateprovider.Height](l2stateprovider.Height(bisectTo)),
+	)
+	if commitErr != nil {
+		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
 	}
 	return historyCommit, proof, nil
 }
@@ -585,7 +585,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		return errors.Wrap(err, "could not get top level claim height")
 	}
 
-	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
+	fromAssertionHeight := uint64(originHeights.ChallengeOriginHeights[0])
 
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
@@ -777,8 +777,6 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "could not get top level claim height")
 	}
-	fromAssertionHeight := uint64(originHeights.BlockChallengeOriginHeight)
-	fromBigStep := uint64(originHeights.BigStepChallengeOriginHeight)
 	pc, _ := et.edge.StartCommitment()
 
 	assertionHash, err := et.edge.AssertionHash(ctx)
@@ -789,13 +787,16 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	challengeOriginHeights := make([]l2stateprovider.Height, len(originHeights.ChallengeOriginHeights))
+	for index, height := range originHeights.ChallengeOriginHeights {
+		challengeOriginHeights[index] = l2stateprovider.Height(height)
+	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,
 		parentAssertionCreationInfo.AfterState,
-		fromAssertionHeight,
-		fromBigStep,
-		uint64(pc),
+		challengeOriginHeights,
+		option.Some[l2stateprovider.Height](l2stateprovider.Height(pc)),
 	)
 	if err != nil {
 		return errors.Wrapf(errBadOneStepProof, "could not get one step data: %v", err)
@@ -817,7 +818,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	return nil
 }
 
-func canOneStepProve(edge protocol.SpecEdge) (bool, error) {
+func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
 	// Can never happen in the protocol, but added as an additional defensive check.
@@ -828,5 +829,9 @@ func canOneStepProve(edge protocol.SpecEdge) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return end-start == 1 && challengeLevel == protocol.SmallStepChallengeEdge, nil
+	totalChallengeLevels, err := edge.GetTotalChallengeLevels(ctx)
+	if err != nil {
+		return false, err
+	}
+	return end-start == 1 && uint64(challengeLevel) == totalChallengeLevels-1, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
@@ -135,6 +136,51 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 		return emptyCommit, err
 	}
 	return commitments.New(hashes)
+}
+
+// AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
+// history commitment for a type of edge under a specified assertion challenge. It returns an agreement struct
+// which informs the caller whether (a) we agree with the start commitment, and whether (b) the edge is honest, meaning
+// that we also agree with the end commitment.
+func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	assertionInboxMaxCount uint64,
+	parentAssertionAfterStateBatch uint64,
+	edgeType protocol.ChallengeLevel,
+	heights protocol.OriginHeights,
+	commit History,
+) (bool, error) {
+	var localCommit commitments.History
+	var err error
+
+	switch edgeType {
+	case protocol.NewBlockChallengeLevel():
+		localCommit, err = p.HistoryCommitment(
+			ctx,
+			wasmModuleRoot,
+			Batch(assertionInboxMaxCount),
+			[]Height{Height(parentAssertionAfterStateBatch)},
+			option.Some[Height](Height(parentAssertionAfterStateBatch+commit.Height)))
+		if err != nil {
+			return false, err
+		}
+	default:
+		challengeOriginHeights := make([]Height, len(heights.ChallengeOriginHeights))
+		for index, height := range heights.ChallengeOriginHeights {
+			challengeOriginHeights[index] = Height(height)
+		}
+		localCommit, err = p.HistoryCommitment(
+			ctx,
+			wasmModuleRoot,
+			Batch(assertionInboxMaxCount),
+			append(challengeOriginHeights, 0),
+			option.Some[Height](Height(commit.Height)))
+		if err != nil {
+			return false, err
+		}
+	}
+	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
 }
 
 // Computes the required number of hashes for a history commitment

@@ -38,7 +38,7 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("Id").Return(edgeId)
-	edge.On("GetType").Return(protocol.BigStepChallengeEdge)
+	edge.On("GetType").Return(1)
 	edge.On(
 		"AssertionHash",
 		ctx,
@@ -139,7 +139,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		uint64(0),
 		protocol.NewBlockChallengeLevel(),
 		protocol.OriginHeights{
-			BlockChallengeOriginHeight: 0,
+			ChallengeOriginHeights: []protocol.Height{0},
 		},
 		l2stateprovider.History{
 			Height:     uint64(0),
@@ -154,7 +154,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		uint64(0),
 		protocol.NewBlockChallengeLevel(),
 		protocol.OriginHeights{
-			BlockChallengeOriginHeight: 0,
+			ChallengeOriginHeights: []protocol.Height{0},
 		},
 		l2stateprovider.History{
 			Height:     uint64(4),

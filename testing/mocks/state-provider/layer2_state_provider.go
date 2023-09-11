@@ -265,55 +265,6 @@ func (s *L2StateBackend) HistoryCommitmentUpToBatch(_ context.Context, messageNu
 	)
 }
 
-// AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
-// history commitment for a type of edge under a specified assertion challenge. It returns an agreement struct
-// which informs the caller whether (a) we agree with the start commitment, and whether (b) the edge is honest, meaning
-// that we also agree with the end commitment.
-func (s *L2StateBackend) AgreesWithHistoryCommitment(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	assertionInboxMaxCount uint64,
-	parentAssertionAfterStateBatch uint64,
-	edgeType protocol.ChallengeLevel,
-	heights protocol.OriginHeights,
-	commit l2stateprovider.History,
-) (bool, error) {
-	var localCommit commitments.History
-	var err error
-
-	switch edgeType {
-	case protocol.NewBlockChallengeLevel():
-		localCommit, err = s.HistoryCommitmentUpToBatch(ctx, parentAssertionAfterStateBatch, parentAssertionAfterStateBatch+commit.Height, assertionInboxMaxCount)
-		if err != nil {
-			return false, err
-		}
-	case protocol.BigStepChallengeEdge:
-		localCommit, err = s.BigStepCommitmentUpTo(
-			ctx,
-			wasmModuleRoot,
-			uint64(heights.BlockChallengeOriginHeight),
-			commit.Height,
-		)
-		if err != nil {
-			return false, err
-		}
-	case protocol.SmallStepChallengeEdge:
-		localCommit, err = s.SmallStepCommitmentUpTo(
-			ctx,
-			wasmModuleRoot,
-			uint64(heights.BlockChallengeOriginHeight),
-			uint64(heights.BigStepChallengeOriginHeight),
-			commit.Height,
-		)
-		if err != nil {
-			return false, err
-		}
-	default:
-		return false, errors.New("unsupported edge type")
-	}
-	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
-}
-
 func (s *L2StateBackend) BigStepLeafCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
