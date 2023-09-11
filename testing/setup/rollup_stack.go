@@ -354,7 +354,7 @@ func DeployFullRollupStack(
 		return nil, err
 	}
 
-	tx, err := rollupCreator.CreateRollup(
+	tx, err := rollupCreator.CreateRollup0(
 		deployAuth,
 		config,
 	)

@@ -6,6 +6,8 @@ package challengemanager
 import (
 	"context"
 	"fmt"
+	"github.com/OffchainLabs/bold/containers/option"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
@@ -94,22 +96,23 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
-	endCommit, err := m.stateManager.HistoryCommitmentUpToBatch(
+	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
-		parentAssertionAfterState.GlobalState.Batch,
-		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
-		creationInfo.InboxMaxCount.Uint64(),
+		creationInfo.WasmModuleRoot,
+		l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+		[]l2stateprovider.Height{l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)},
+		option.Some[l2stateprovider.Height](l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight)),
 	)
 	if err != nil {
 		return nil, nil, err
 	}
-	startEndPrefixProof, err := m.stateManager.PrefixProofUpToBatch(
+	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
-		parentAssertionAfterState.GlobalState.Batch,
-		parentAssertionAfterState.GlobalState.Batch,
-		parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight,
-		creationInfo.InboxMaxCount.Uint64(),
-	)
+		creationInfo.WasmModuleRoot,
+		l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+		[]l2stateprovider.Height{l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)},
+		l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
+		option.Some[l2stateprovider.Height](l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight)))
 	if err != nil {
 		return nil, nil, err
 	}

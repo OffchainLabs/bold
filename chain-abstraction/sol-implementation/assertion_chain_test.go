@@ -5,6 +5,7 @@ package solimpl_test
 
 import (
 	"context"
+	"github.com/OffchainLabs/bold/containers/option"
 	"math/big"
 	"testing"
 
@@ -253,11 +254,11 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
-		startCommit, startErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, 0, 1)
+		startCommit, startErr := stateManager.HistoryCommitment(ctx, common.Hash{}, 1, []l2stateprovider.Height{0}, option.Some[l2stateprovider.Height](0))
 		require.NoError(t, startErr)
-		endCommit, endErr := stateManager.HistoryCommitmentUpToBatch(ctx, 0, challenge_testing.LevelZeroBlockEdgeHeight, 1)
+		endCommit, endErr := stateManager.HistoryCommitment(ctx, common.Hash{}, 1, []l2stateprovider.Height{0}, option.Some[l2stateprovider.Height](challenge_testing.LevelZeroBlockEdgeHeight))
 		require.NoError(t, endErr)
-		prefixProof, proofErr := stateManager.PrefixProofUpToBatch(ctx, 0, 0, challenge_testing.LevelZeroBlockEdgeHeight, 1)
+		prefixProof, proofErr := stateManager.PrefixProof(ctx, common.Hash{}, 1, []l2stateprovider.Height{0}, 0, option.Some[l2stateprovider.Height](challenge_testing.LevelZeroBlockEdgeHeight))
 		require.NoError(t, proofErr)
 
 		edge, edgeErr := challengeManager.AddBlockChallengeLevelZeroEdge(

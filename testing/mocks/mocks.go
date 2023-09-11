@@ -64,6 +64,28 @@ type MockStateManager struct {
 	AgreeErr bool
 }
 
+func (m *MockStateManager) HistoryCommitment(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	batch l2stateprovider.Batch,
+	startHeights []l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
+) (commitments.History, error) {
+	args := m.Called(ctx, wasmModuleRoot, batch, startHeights, upToHeight)
+	return args.Get(0).(commitments.History), args.Error(1)
+}
+
+func (m *MockStateManager) PrefixProof(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	batch l2stateprovider.Batch,
+	startHeights []l2stateprovider.Height,
+	fromMessageNumber l2stateprovider.Height,
+	upToHeight option.Option[l2stateprovider.Height],
+) ([]byte, error) {
+	args := m.Called(ctx, wasmModuleRoot, batch, startHeights, fromMessageNumber, upToHeight)
+	return args.Get(0).([]byte), args.Error(1)
+}
 func (m *MockStateManager) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
 	args := m.Called(ctx, messageNumber)
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
