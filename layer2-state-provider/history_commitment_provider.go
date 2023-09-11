@@ -18,7 +18,7 @@ var (
 // MachineHashCollector defines an interface which can collect hashes from an Arbitrator machine
 // at a block height, starting at a specific opcode index in the machine and stepping through it
 // in increments of custom size. Along the way, it computes each machine hash at each step
-// and outputs a list of these hashes at the end. This is an computationally expensive process
+// and outputs a list of these hashes at the end. This is a computationally expensive process
 // that is best performed if machine hashes are cached after runs.
 type MachineHashCollector interface {
 	CollectMachineMashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
