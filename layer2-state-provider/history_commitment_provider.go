@@ -21,7 +21,7 @@ var (
 // and outputs a list of these hashes at the end. This is a computationally expensive process
 // that is best performed if machine hashes are cached after runs.
 type MachineHashCollector interface {
-	CollectMachineMashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
+	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
 }
 
 // HashCollectorConfig defines configuration options for a machine hash collector to
@@ -131,7 +131,7 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
-	hashes, err := p.machineHashCollector.CollectMachineMashes(
+	hashes, err := p.machineHashCollector.CollectMachineHashes(
 		ctx,
 		&HashCollectorConfig{
 			WasmModuleRoot: wasmModuleRoot,
