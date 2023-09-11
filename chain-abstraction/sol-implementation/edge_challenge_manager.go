@@ -256,9 +256,9 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 			return fmt.Errorf("did not find edge with id %#x for specified top level ancestor", topLevelAncestorId)
 		}
 		topEdge := topLevelAncestor.Unwrap()
-		challengeLevel, err := topEdge.GetChallengeLevel()
-		if err != nil {
-			return err
+		challengeLevel, getErr := topEdge.GetChallengeLevel()
+		if getErr != nil {
+			return getErr
 		}
 		if !challengeLevel.IsBlockChallengeLevel() {
 			return errors.New("top level ancestor must be a block challenge edge")
