@@ -134,7 +134,14 @@ func NewForSimpleMachine(
 		levelZeroBigStepEdgeHeight:   challenge_testing.LevelZeroBigStepEdgeHeight,
 		levelZeroSmallStepEdgeHeight: challenge_testing.LevelZeroSmallStepEdgeHeight,
 		maliciousMachineIndex:        0,
+		challengeLeafHeights: []l2stateprovider.Height{
+			challenge_testing.LevelZeroBlockEdgeHeight,
+			challenge_testing.LevelZeroBigStepEdgeHeight,
+			challenge_testing.LevelZeroSmallStepEdgeHeight,
+		},
 	}
+	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s)
+	s.HistoryCommitmentProvider = *commitmentProvider
 	for _, o := range opts {
 		o(s)
 	}
