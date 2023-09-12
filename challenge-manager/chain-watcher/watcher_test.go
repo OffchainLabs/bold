@@ -186,6 +186,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	resp, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNumber)
 	require.NoError(t, err)
 	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, resp.AncestorLocalTimers, blockNumber)
+	require.NoError(t, err)
 	require.Equal(t, pathTimer, challengetree.PathTimer(blockNumber+assertionUnrivaledBlocks))
 }
 
@@ -241,5 +242,6 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	resp, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNum)
 	require.NoError(t, err)
 	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, resp.AncestorLocalTimers, blockNum)
+	require.NoError(t, err)
 	require.Equal(t, blockNum-createdAt+assertionUnrivaledBlocks, uint64(pathTimer))
 }

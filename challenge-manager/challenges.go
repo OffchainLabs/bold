@@ -92,6 +92,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		[]l2stateprovider.Height{0},
 		option.None[l2stateprovider.Height](),
 	)
+	if err != nil {
+		return nil, nil, err
+	}
 	manager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, nil, err
