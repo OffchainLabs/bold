@@ -90,7 +90,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		creationInfo.WasmModuleRoot,
 		l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
 		[]l2stateprovider.Height{0},
-		option.None[l2stateprovider.Height](),
+		option.Some(l2stateprovider.Height(0)),
 	)
 	if err != nil {
 		return nil, nil, err
