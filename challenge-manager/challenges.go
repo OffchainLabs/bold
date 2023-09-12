@@ -113,6 +113,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
+	fmt.Printf("Start %+v and end %+v\n", startCommit, endCommit)
 	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
 		creationInfo.WasmModuleRoot,

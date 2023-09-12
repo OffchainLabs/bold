@@ -100,10 +100,11 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	wasmModuleRoot common.Hash,
 	inboxMaxCount uint64,
 	parentAssertionAfterStateBatch uint64,
+	challengeLevel protocol.ChallengeLevel,
 	startHeights []l2stateprovider.Height,
 	history l2stateprovider.History,
 ) (bool, error) {
-	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, startHeights, history)
+	args := m.Called(ctx, wasmModuleRoot, inboxMaxCount, parentAssertionAfterStateBatch, challengeLevel, startHeights, history)
 	return args.Get(0).(bool), args.Error(1)
 }
 

@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/OffchainLabs/bold/containers/option"
-
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
@@ -282,26 +280,4 @@ func (s *L2StateBackend) getMachineHash(machine Machine, block uint64) common.Ha
 	state := machine.GetExecutionState()
 	s.maybeDivergeState(state, block, machine.CurrentStepNum())
 	return protocol.ComputeSimpleMachineChallengeHash(state)
-}
-
-func (s *L2StateBackend) AgreesWithHistoryCommitment(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	assertionInboxMaxCount uint64,
-	parentAssertionAfterStateBatch uint64,
-	startHeights []l2stateprovider.Height,
-	commit l2stateprovider.History,
-) (bool, error) {
-	return false, errors.New("unimplemented")
-}
-
-func (s *L2StateBackend) PrefixProof(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	batch l2stateprovider.Batch,
-	startHeights []l2stateprovider.Height,
-	fromMessageNumber l2stateprovider.Height,
-	upToHeight option.Option[l2stateprovider.Height],
-) ([]byte, error) {
-	return nil, errors.New("unimplemented")
 }

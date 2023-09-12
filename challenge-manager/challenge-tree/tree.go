@@ -117,6 +117,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		creationInfo.WasmModuleRoot,
 		creationInfo.InboxMaxCount.Uint64(),
 		parentAssertionAfterState.GlobalState.Batch,
+		challengeLevel,
 		startHeights,
 		l2stateprovider.History{
 			Height:     uint64(endHeight),
@@ -131,6 +132,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		creationInfo.WasmModuleRoot,
 		creationInfo.InboxMaxCount.Uint64(),
 		parentAssertionAfterState.GlobalState.Batch,
+		challengeLevel,
 		startHeights,
 		l2stateprovider.History{
 			Height:     uint64(startHeight),

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"math/big"
 
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
@@ -190,14 +191,14 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 	wasmModuleRoot common.Hash,
 	assertionInboxMaxCount uint64,
 	parentAssertionAfterStateBatch uint64,
-	edgeType protocol.ChallengeLevel,
-	heights protocol.OriginHeights,
+	challengeLevel protocol.ChallengeLevel,
+	startHeights []Height,
 	commit History,
 ) (bool, error) {
 	var localCommit commitments.History
 	var err error
 
-	switch edgeType {
+	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
 		localCommit, err = p.HistoryCommitment(
 			ctx,
@@ -209,15 +210,11 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			return false, err
 		}
 	default:
-		challengeOriginHeights := make([]Height, len(heights.ChallengeOriginHeights))
-		for index, height := range heights.ChallengeOriginHeights {
-			challengeOriginHeights[index] = Height(height)
-		}
 		localCommit, err = p.HistoryCommitment(
 			ctx,
 			wasmModuleRoot,
 			Batch(assertionInboxMaxCount),
-			append(challengeOriginHeights, 0),
+			append(startHeights, 0),
 			option.Some[Height](Height(commit.Height)))
 		if err != nil {
 			return false, err
