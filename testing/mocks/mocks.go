@@ -10,7 +10,6 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
@@ -189,11 +188,10 @@ func (m *MockStateManager) SmallStepCommitmentUpTo(
 func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	postState rollupgen.ExecutionState,
 	startHeights []l2stateprovider.Height,
-	upToHeight option.Option[l2stateprovider.Height],
+	upToHeight l2stateprovider.Height,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, wasmModuleRoot, postState, startHeights, upToHeight)
+	args := m.Called(ctx, wasmModuleRoot, startHeights, upToHeight)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 

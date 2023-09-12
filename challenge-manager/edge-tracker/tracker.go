@@ -794,9 +794,8 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,
-		parentAssertionCreationInfo.AfterState,
-		challengeOriginHeights,
-		option.Some[l2stateprovider.Height](l2stateprovider.Height(pc)),
+		append(challengeOriginHeights, 0),
+		l2stateprovider.Height(pc),
 	)
 	if err != nil {
 		return errors.Wrapf(errBadOneStepProof, "could not get one step data: %v", err)

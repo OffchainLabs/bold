@@ -242,12 +242,12 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(
 			ctx,
 			parentAssertionCreationInfo.WasmModuleRoot,
-			parentAssertionCreationInfo.AfterState,
 			[]l2stateprovider.Height{
 				l2stateprovider.Height(fromBlockChallengeHeight),
 				l2stateprovider.Height(fromBigStep),
+				0,
 			},
-			option.Some(l2stateprovider.Height(smallStep)),
+			l2stateprovider.Height(smallStep),
 		)
 		require.NoError(t, err)
 
@@ -429,12 +429,12 @@ func TestUpgradingConfigMidChallenge(t *testing.T) {
 	data, startInclusionProof, endInclusionProof, err := honestStateManager.OneStepProofData(
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,
-		parentAssertionCreationInfo.AfterState,
 		[]l2stateprovider.Height{
 			l2stateprovider.Height(fromBlockChallengeHeight),
 			l2stateprovider.Height(fromBigStep),
+			0,
 		},
-		option.Some(l2stateprovider.Height(smallStep)),
+		l2stateprovider.Height(smallStep),
 	)
 	require.NoError(t, err)
 

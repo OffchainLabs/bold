@@ -15,7 +15,6 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -276,76 +275,6 @@ func (s *L2StateBackend) getMachineHash(machine Machine, block uint64) common.Ha
 	state := machine.GetExecutionState()
 	s.maybeDivergeState(state, block, machine.CurrentStepNum())
 	return protocol.ComputeSimpleMachineChallengeHash(state)
-}
-
-func (s *L2StateBackend) OneStepProofData(
-	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	postState rollupgen.ExecutionState,
-	startHeights []l2stateprovider.Height,
-	upToHeight option.Option[l2stateprovider.Height],
-) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	err = errors.New("unimplemented")
-	// startCommit, commitErr := s.SmallStepCommitmentUpTo(
-	// 	ctx,
-	// 	wasmModuleRoot,
-	// 	messageNumber,
-	// 	bigStep,
-	// 	smallStep,
-	// )
-	// if commitErr != nil {
-	// 	err = commitErr
-	// 	return
-	// }
-	// endCommit, commitErr := s.SmallStepCommitmentUpTo(
-	// 	ctx,
-	// 	wasmModuleRoot,
-	// 	messageNumber,
-	// 	bigStep,
-	// 	smallStep+1,
-	// )
-	// if commitErr != nil {
-	// 	err = commitErr
-	// 	return
-	// }
-
-	// machine, machineErr := s.machineAtBlock(ctx, messageNumber)
-	// if machineErr != nil {
-	// 	err = machineErr
-	// 	return
-	// }
-	// step := bigStep*s.numOpcodesPerBigStep + smallStep
-	// err = machine.Step(step)
-	// if err != nil {
-	// 	return
-	// }
-	// beforeHash := machine.Hash()
-	// if beforeHash != startCommit.LastLeaf {
-	// 	err = fmt.Errorf("machine executed to start step %v hash %v but expected %v", step, beforeHash, startCommit.LastLeaf)
-	// 	return
-	// }
-	// osp, ospErr := machine.OneStepProof()
-	// if ospErr != nil {
-	// 	err = ospErr
-	// 	return
-	// }
-	// err = machine.Step(1)
-	// if err != nil {
-	// 	return
-	// }
-	// afterHash := machine.Hash()
-	// if afterHash != endCommit.LastLeaf {
-	// 	err = fmt.Errorf("machine executed to end step %v hash %v but expected %v", step+1, beforeHash, endCommit.LastLeaf)
-	// 	return
-	// }
-
-	// data = &protocol.OneStepData{
-	// 	BeforeHash: startCommit.LastLeaf,
-	// 	Proof:      osp,
-	// }
-	// startLeafInclusionProof = startCommit.LastLeafProof
-	// endLeafInclusionProof = endCommit.LastLeafProof
-	return
 }
 
 func (s *L2StateBackend) AgreesWithHistoryCommitment(

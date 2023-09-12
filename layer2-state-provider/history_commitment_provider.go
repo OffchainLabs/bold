@@ -23,6 +23,17 @@ type MachineHashCollector interface {
 	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
 }
 
+// ProofCollector defines an interface which can collect proof from an Arbitrator machine
+// at a block height, at a specific opcode index.
+type ProofCollector interface {
+	CollectProof(
+		ctx context.Context,
+		wasmModuleRoot common.Hash,
+		messageNumber Height,
+		machineIndex OpcodeIndex,
+	) ([]byte, error)
+}
+
 // HashCollectorConfig defines configuration options for a machine hash collector to
 // step through an Arbitrator machine at a specific L2 message number, step through it in
 // increments of `StepSize`, and collect the machine hashes at those steps into an output slice.
@@ -60,7 +71,9 @@ type L2MessageStateCollector interface {
 type HistoryCommitmentProvider struct {
 	l2MessageStateCollector L2MessageStateCollector
 	machineHashCollector    MachineHashCollector
+	proofCollector          ProofCollector
 	challengeLeafHeights    []Height
+	ExecutionProvider
 }
 
 // NewHistoryCommitmentProvider creates an instance of a struct which can compute history commitments
@@ -68,12 +81,16 @@ type HistoryCommitmentProvider struct {
 func NewHistoryCommitmentProvider(
 	l2MessageStateCollector L2MessageStateCollector,
 	machineHashCollector MachineHashCollector,
+	proofCollector ProofCollector,
 	challengeLeafHeights []Height,
+	executionProvider ExecutionProvider,
 ) *HistoryCommitmentProvider {
 	return &HistoryCommitmentProvider{
 		l2MessageStateCollector: l2MessageStateCollector,
 		machineHashCollector:    machineHashCollector,
+		proofCollector:          proofCollector,
 		challengeLeafHeights:    challengeLeafHeights,
+		ExecutionProvider:       executionProvider,
 	}
 }
 
@@ -257,6 +274,73 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, loSize)
 	onlyProof := prefixProof[numRead:]
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
+}
+
+func (p *HistoryCommitmentProvider) OneStepProofData(
+	ctx context.Context,
+	wasmModuleRoot common.Hash,
+	startHeights []Height,
+	upToHeight Height,
+) (*protocol.OneStepData, []common.Hash, []common.Hash, error) {
+	endCommit, err := p.HistoryCommitment(
+		ctx,
+		wasmModuleRoot,
+		0,
+		startHeights,
+		option.Some(upToHeight+1),
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	startCommit, err := p.HistoryCommitment(
+		ctx,
+		wasmModuleRoot,
+		0,
+		startHeights,
+		option.Some(upToHeight),
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Compute the exact start point of where we need to execute
+	// the machine from the inputs, and figure out, in what increments, we need to do so.
+	machineIndex, err := p.computeMachineStartIndex(startHeights)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	machineIndex += OpcodeIndex(upToHeight)
+	hashes, err := p.machineHashCollector.CollectMachineHashes(
+		ctx,
+		&HashCollectorConfig{
+			WasmModuleRoot:    wasmModuleRoot,
+			MessageNumber:     startHeights[0],
+			StepHeights:       startHeights[1:],
+			NumDesiredHashes:  2,
+			MachineStartIndex: machineIndex,
+			StepSize:          1,
+		})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if hashes[0] != startCommit.LastLeaf {
+		return nil, nil, nil, fmt.Errorf("machine executed to start step %v hash %v but expected %v", machineIndex, hashes[0], startCommit.LastLeaf)
+	}
+	if hashes[1] != endCommit.LastLeaf {
+		return nil, nil, nil, fmt.Errorf("machine executed to end step %v hash %v but expected %v", machineIndex+1, hashes[1], endCommit.LastLeaf)
+	}
+
+	osp, err := p.proofCollector.CollectProof(ctx, wasmModuleRoot, startHeights[0], machineIndex)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	data := &protocol.OneStepData{
+		BeforeHash: startCommit.LastLeaf,
+		Proof:      osp,
+	}
+	return data, startCommit.LastLeafProof, endCommit.LastLeafProof, nil
 }
 
 // Computes the required number of hashes for a history commitment

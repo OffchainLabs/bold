@@ -38,7 +38,9 @@ func TestHistoryCommitment(t *testing.T) {
 	provider := l2stateprovider.NewHistoryCommitmentProvider(
 		stateBackend,
 		stateBackend,
+		stateBackend,
 		challengeLeafHeights,
+		stateBackend,
 	)
 	_, err = provider.HistoryCommitment(
 		ctx,

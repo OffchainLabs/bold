@@ -13,7 +13,6 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -88,9 +87,8 @@ type OneStepProofProvider interface {
 	OneStepProofData(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
-		postState rollupgen.ExecutionState,
 		startHeights []Height,
-		upToHeight option.Option[Height],
+		upToHeight Height,
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 
