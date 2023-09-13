@@ -516,7 +516,7 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		ctx,
 		et.wasmModuleRoot,
 		l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-		append(challengeOriginHeights, l2stateprovider.Height(bisectTo)),
+		append(challengeOriginHeights, 0),
 		l2stateprovider.Height(bisectTo),
 		option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 	)

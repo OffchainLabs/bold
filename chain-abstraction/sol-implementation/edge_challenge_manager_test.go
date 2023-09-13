@@ -637,14 +637,14 @@ func setupOneStepProofScenario(
 	for bigStepHeight > 1 {
 		honestBisectCommit, bisectErr := honestStateManager.HistoryCommitment(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0}, option.Some[l2stateprovider.Height](l2stateprovider.Height(bigStepHeight/2)))
 		require.NoError(t, bisectErr)
-		honestProof, honestErr := honestStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, l2stateprovider.Height(bigStepHeight / 2)}, 0, option.Some[l2stateprovider.Height](l2stateprovider.Height(bigStepHeight)))
+		honestProof, honestErr := honestStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0}, l2stateprovider.Height(bigStepHeight/2), option.Some[l2stateprovider.Height](l2stateprovider.Height(bigStepHeight)))
 		require.NoError(t, honestErr)
 		honestEdge, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
 		evilBisectCommit, bisectErr := evilStateManager.HistoryCommitment(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0}, option.Some[l2stateprovider.Height](l2stateprovider.Height(bigStepHeight/2)))
 		require.NoError(t, bisectErr)
-		evilProof, evilErr := evilStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, l2stateprovider.Height(bigStepHeight / 2)}, 0, option.Some[l2stateprovider.Height](l2stateprovider.Height(bigStepHeight)))
+		evilProof, evilErr := evilStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0}, l2stateprovider.Height(bigStepHeight/2), option.Some[l2stateprovider.Height](l2stateprovider.Height(bigStepHeight)))
 		require.NoError(t, evilErr)
 		evilEdge, _, err = evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 		require.NoError(t, err)
@@ -742,14 +742,14 @@ func setupOneStepProofScenario(
 	for smallStepHeight > 1 {
 		honestBisectCommit, bisectErr := honestStateManager.HistoryCommitment(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0, 0}, option.Some[l2stateprovider.Height](l2stateprovider.Height(smallStepHeight/2)))
 		require.NoError(t, bisectErr)
-		honestProof, proofErr := honestStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0, l2stateprovider.Height(smallStepHeight / 2)}, 0, option.Some[l2stateprovider.Height](l2stateprovider.Height(smallStepHeight)))
+		honestProof, proofErr := honestStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0, 0}, l2stateprovider.Height(smallStepHeight/2), option.Some[l2stateprovider.Height](l2stateprovider.Height(smallStepHeight)))
 		require.NoError(t, proofErr)
 		honestEdge, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 
 		evilBisectCommit, evilBisectErr := evilStateManager.HistoryCommitment(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0, 0}, option.Some[l2stateprovider.Height](l2stateprovider.Height(smallStepHeight/2)))
 		require.NoError(t, evilBisectErr)
-		evilProof, evilProofErr := evilStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0, l2stateprovider.Height(smallStepHeight / 2)}, 0, option.Some[l2stateprovider.Height](l2stateprovider.Height(smallStepHeight)))
+		evilProof, evilProofErr := evilStateManager.PrefixProof(ctx, common.Hash{}, 0, []l2stateprovider.Height{0, 0, 0}, l2stateprovider.Height(smallStepHeight/2), option.Some[l2stateprovider.Height](l2stateprovider.Height(smallStepHeight)))
 		require.NoError(t, evilProofErr)
 		evilEdge, _, err = evilEdge.Bisect(ctx, evilBisectCommit.Merkle, evilProof)
 		require.NoError(t, err)
