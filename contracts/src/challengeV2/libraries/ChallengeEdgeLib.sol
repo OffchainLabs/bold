@@ -255,8 +255,8 @@ library ChallengeEdgeLib {
         if (edge.status != EdgeStatus.Confirmed) {
             revert EdgeNotConfirmed(ChallengeEdgeLib.id(edge), edge.status);
         }
-        if (edge.eType != 0) {
-            revert EdgeTypeNotBlock(edge.eType);
+        if (edge.level != 0) {
+            revert EdgeTypeNotBlock(edge.level);
         }
         if (!isLayerZero(edge)) {
             revert EdgeNotLayerZero(ChallengeEdgeLib.id(edge), edge.staker, edge.claimId);
