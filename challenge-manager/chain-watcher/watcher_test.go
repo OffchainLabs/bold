@@ -138,9 +138,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		uint64(1),
 		uint64(0),
 		protocol.NewBlockChallengeLevel(),
-		protocol.OriginHeights{
-			ChallengeOriginHeights: []protocol.Height{0},
-		},
+		[]protocol.Height{0},
 		l2stateprovider.History{
 			Height:     uint64(0),
 			MerkleRoot: startCommit,
@@ -153,9 +151,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		uint64(1),
 		uint64(0),
 		protocol.NewBlockChallengeLevel(),
-		protocol.OriginHeights{
-			ChallengeOriginHeights: []protocol.Height{0},
-		},
+		[]l2stateprovider.Height{0},
 		l2stateprovider.History{
 			Height:     uint64(4),
 			MerkleRoot: endCommit,

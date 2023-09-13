@@ -70,9 +70,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(start),
 				MerkleRoot: startCommit,
@@ -85,9 +83,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(end),
 				MerkleRoot: endCommit,
@@ -113,9 +109,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -128,9 +122,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
@@ -166,9 +158,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -181,9 +171,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
@@ -225,9 +213,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -240,9 +226,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
@@ -278,9 +262,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -293,9 +275,7 @@ func TestAddEdge(t *testing.T) {
 			uint64(1),
 			uint64(0),
 			protocol.NewBlockChallengeLevel(),
-			protocol.OriginHeights{
-				ChallengeOriginHeights: []protocol.Height{0},
-			},
+			[]l2stateprovider.Height{0},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
