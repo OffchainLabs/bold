@@ -322,9 +322,9 @@ func TestAddHonestEdge(t *testing.T) {
 	err := ht.AddHonestEdge(honest)
 	require.NoError(t, err)
 
-	// We now check if the the challenge tree has a populated
+	// We now check if the challenge tree has a populated
 	// block challenge level zero edge.
-	require.Equal(t, 1, ht.honestBigStepLevelZeroEdges.Len())
+	require.Equal(t, 1, ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
 
 	// Check if it exists in the mutual ids mapping.
 	mutualId := edge.MutualId()
@@ -338,7 +338,7 @@ func TestAddHonestEdge(t *testing.T) {
 	err = ht.AddHonestEdge(honest)
 	require.NoError(t, err)
 
-	require.Equal(t, 1, ht.honestBigStepLevelZeroEdges.Len())
+	require.Equal(t, 1, ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
 }
 
 type mockMetadataReader struct {
