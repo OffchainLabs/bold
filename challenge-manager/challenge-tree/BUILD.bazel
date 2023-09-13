@@ -3,8 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "challenge-tree",
     srcs = [
-        "ancestors.go",
-        "generalized_path_timer.go",
+        "local_timer.go",
         "path_timer.go",
         "tree.go",
     ],
@@ -24,8 +23,7 @@ go_library(
 go_test(
     name = "challenge-tree_test",
     srcs = [
-        "ancestors_test.go",
-        "generalized_path_timer_test.go",
+        "local_timer_test.go",
         "path_timer_test.go",
         "tree_test.go",
     ],
