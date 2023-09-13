@@ -63,6 +63,10 @@ export interface Config {
     smallStepLeafSize: number
     numBigStepLevel: number
     maxDataSize: number
+    blockLeafSize: number
+    bigStepLeafSize: number
+    smallStepLeafSize: number
+    numBigStepLevel: number
   }
   validators: string[]
 }

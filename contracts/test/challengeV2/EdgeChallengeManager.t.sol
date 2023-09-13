@@ -1444,6 +1444,7 @@ contract EdgeChallengeManagerTest is Test {
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         uint256 beforeBalance = stakeToken.balanceOf(address(this));
         vm.prank(nobody); // call refund as nobody
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, NUM_BIGSTEP_LEVEL));
         ei.challengeManager.refundStake(allWinners[11].lowerChildId);
         uint256 afterBalance = stakeToken.balanceOf(address(this));
         assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
@@ -1455,6 +1456,7 @@ contract EdgeChallengeManagerTest is Test {
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         uint256 beforeBalance = stakeToken.balanceOf(address(this));
         vm.prank(nobody); // call refund as nobody
+        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, NUM_BIGSTEP_LEVEL + 1));
         ei.challengeManager.refundStake(allWinners[5].lowerChildId);
         uint256 afterBalance = stakeToken.balanceOf(address(this));
         assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmount(), "Stake refunded");
