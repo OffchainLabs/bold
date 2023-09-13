@@ -252,8 +252,8 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	loSize := uint64(fromMessageNumber + 1)
 	hiSize := uint64(upToHeight.Unwrap() + 1)
 	if len(startHeights) == 1 {
-		loSize -= uint64(fromMessageNumber)
-		hiSize -= uint64(fromMessageNumber)
+		loSize -= uint64(startHeights[0])
+		hiSize -= uint64(startHeights[0])
 	}
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:loSize])
 	if err != nil {

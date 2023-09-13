@@ -38,7 +38,7 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("Id").Return(edgeId)
-	edge.On("GetChallengeLevel").Return(1)
+	edge.On("GetChallengeLevel").Return(protocol.ChallengeLevel(1))
 	edge.On(
 		"AssertionHash",
 		ctx,
