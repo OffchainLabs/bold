@@ -59,15 +59,15 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	require.NoError(t, err)
 
 	wasmModuleRoot := common.Hash{}
-	batch := l2stateprovider.Batch(1)
-	loCommit, err := manager.HistoryCommitment(ctx, wasmModuleRoot, batch, []l2stateprovider.Height{3}, option.None[l2stateprovider.Height]())
-	require.NoError(t, err)
-	hiCommit, err := manager.HistoryCommitment(ctx, wasmModuleRoot, batch, []l2stateprovider.Height{7}, option.None[l2stateprovider.Height]())
-	require.NoError(t, err)
-
+	startMessageNumber := l2stateprovider.Height(0)
 	fromMessageNumber := l2stateprovider.Height(3)
 	toMessageNumber := l2stateprovider.Height(7)
-	packedProof, err := manager.PrefixProof(ctx, wasmModuleRoot, batch, []l2stateprovider.Height{0}, l2stateprovider.Height(fromMessageNumber), option.Some(toMessageNumber))
+	loCommit, err := manager.HistoryCommitment(ctx, wasmModuleRoot, l2stateprovider.Batch(10), []l2stateprovider.Height{startMessageNumber}, option.Some[l2stateprovider.Height](fromMessageNumber))
+	require.NoError(t, err)
+	hiCommit, err := manager.HistoryCommitment(ctx, wasmModuleRoot, l2stateprovider.Batch(10), []l2stateprovider.Height{startMessageNumber}, option.Some[l2stateprovider.Height](toMessageNumber))
+	require.NoError(t, err)
+
+	packedProof, err := manager.PrefixProof(ctx, wasmModuleRoot, l2stateprovider.Batch(1), []l2stateprovider.Height{startMessageNumber}, fromMessageNumber, option.Some(toMessageNumber))
 	require.NoError(t, err)
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
