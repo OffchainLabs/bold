@@ -301,7 +301,7 @@ library EdgeChallengeManagerLib {
             // if the start and end states are consistent with the claim edge
             // this guarantees that the edge we're creating is a 'continuation' of the claim edge, it is
             // a commitment to the states that between start and end states of the claim
-            MerkleTreeLib.verifyInclusionProof(
+            MerkleTreeLib.verifyInclusionProofStart(
                 claimEdge.startHistoryRoot, startState, claimEdge.startHeight, claimStartInclusionProof
             );
 
