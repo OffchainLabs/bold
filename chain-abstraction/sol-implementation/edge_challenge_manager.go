@@ -346,7 +346,7 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 		}
 		challengeOneStepForkSource, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: rivalId})
 		if err != nil {
-			return protocol.OriginHeights{}, errors.Wrap(err, "big step challenge one step fork source does not exist")
+			return protocol.OriginHeights{}, errors.Wrapf(err, "big step challenge one step fork source does not exist: origin id %#x, rival %#x, challenge level %d", originId, rivalId, challengeLevel)
 		}
 		if challengeOneStepForkSource.IsNone() {
 			return protocol.OriginHeights{}, errors.New("source edge is none")

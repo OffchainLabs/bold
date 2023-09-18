@@ -661,17 +661,16 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return err
 		}
 	default:
-		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
-		challengeOriginHeights := make([]l2stateprovider.Height, len(originHeights.ChallengeOriginHeights))
-		for index, height := range originHeights.ChallengeOriginHeights {
-			challengeOriginHeights[index] = l2stateprovider.Height(height)
+		heights := make([]l2stateprovider.Height, 0)
+		for _, h := range originHeights.ChallengeOriginHeights {
+			heights = append(heights, l2stateprovider.Height(h))
 		}
-		challengeOriginHeights[0] = l2stateprovider.Height(fromBlock)
+		heights = append(heights, l2stateprovider.Height(startHeight))
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			et.wasmModuleRoot,
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(challengeOriginHeights, 0),
+			append(heights, 0),
 			option.None[l2stateprovider.Height](),
 		)
 		if err != nil {
@@ -681,7 +680,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			et.wasmModuleRoot,
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(challengeOriginHeights, 0),
+			append(heights, 0),
 			l2stateprovider.Height(0),
 			option.Some[l2stateprovider.Height](l2stateprovider.Height(endHistory.Height)),
 		)
@@ -692,7 +691,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			et.wasmModuleRoot,
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(challengeOriginHeights, 0),
+			append(heights, 0),
 			option.Some[l2stateprovider.Height](0),
 		)
 		if err != nil {
@@ -702,7 +701,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			et.wasmModuleRoot,
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(challengeOriginHeights[:len(challengeOriginHeights)-1], 0),
+			append(heights[:len(heights)-1], 0),
 			option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 		)
 		if err != nil {
@@ -712,7 +711,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			et.wasmModuleRoot,
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(challengeOriginHeights[:len(challengeOriginHeights)-1], 0),
+			append(heights[:len(heights)-1], 0),
 			option.Some[l2stateprovider.Height](l2stateprovider.Height(startHeight)),
 		)
 		if err != nil {
