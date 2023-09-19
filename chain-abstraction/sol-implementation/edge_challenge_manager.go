@@ -358,7 +358,7 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 		bigStepStartHeight, _ := bigStepEdge.StartCommitment()
 
 		challengeOriginHeights[challengeLevel-1] = bigStepStartHeight
-		originId = rivalId
+		originId = bigStepEdge.inner.OriginId
 
 		challengeLevel--
 	}
