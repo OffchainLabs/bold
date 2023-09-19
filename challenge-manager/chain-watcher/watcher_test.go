@@ -183,8 +183,9 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	// Expect it to exist and be unrivaled for 10 blocks if we query at block number = 10,
 	// plus the number of blocks the top level assertion was unrivaled (5).
 	blockNumber := uint64(10)
-	pathTimer, _, err := chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
+	resp, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNumber)
 	require.NoError(t, err)
+	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, resp.AncestorLocalTimers, blockNumber)
 	require.Equal(t, pathTimer, challengetree.PathTimer(blockNumber+assertionUnrivaledBlocks))
 }
 
@@ -237,7 +238,8 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	chal, ok := watcher.challenges.TryGet(assertionHash)
 	require.Equal(t, true, ok)
 	blockNum := uint64(20)
-	pathTimer, _, err := chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNum)
+	resp, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNum)
 	require.NoError(t, err)
+	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, resp.AncestorLocalTimers, blockNum)
 	require.Equal(t, blockNum-createdAt+assertionUnrivaledBlocks, uint64(pathTimer))
 }
