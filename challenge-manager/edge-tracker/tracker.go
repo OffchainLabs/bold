@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -252,8 +253,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case edgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not submit one step proof", fields)
+			if !strings.Contains(err.Error(), "Invalid inclusion proof") {
+				fields["err"] = err
+				srvlog.Error("Could not submit one step proof", fields)
+			}
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeConfirm{})
