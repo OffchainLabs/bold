@@ -58,10 +58,6 @@ export interface Config {
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
-    blockLeafSize: number
-    bigStepLeafSize: number
-    smallStepLeafSize: number
-    numBigStepLevel: number
     maxDataSize: number
     blockLeafSize: number
     bigStepLeafSize: number
