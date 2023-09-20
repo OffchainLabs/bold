@@ -117,14 +117,12 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             ChallengeEdge memory winningEdge = IEdgeChallengeManager(prevConfig.challengeManager).getEdge(winningEdgeId);
             require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
-            // the maximum number of a blocks a challenge can take to complete is 2 * challengePeriod
+            require(winningEdge.confirmedAtBlock != 0, "ZERO_CONFIRMED_AT_BLOCK");
             // an additional number of blocks is added to ensure that the result of the challenge is widely
-            // observable before it causes an assertion to be confirmed
+            // observable before it causes an assertion to be confirmed. After a winning edge is found, it will
+            // always be afterChallengePeriodBlocks before an assertion can be confirmed
             require(
-                block.number
-                    >= assertion.createdAtBlock
-                        + (2 * IEdgeChallengeManager(prevConfig.challengeManager).challengePeriodBlocks())
-                        + afterChallengePeriodBlocks,
+                block.number >= winningEdge.confirmedAtBlock + afterChallengePeriodBlocks,
                 "CHALLENGE_PERIODS_NOT_PASSED"
             );
         }
