@@ -167,6 +167,16 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 					ht.honestRootEdgesByLevel.Put(reversedChallengeLevel, rootEdgesAtLevel)
 				}
 			}
+			level, err := eg.GetChallengeLevel()
+			if err != nil {
+				return protocol.Agreement{}, err
+			}
+			rootEdges, ok := ht.honestRootEdgesByLevel.TryGet(level)
+			if !ok {
+				ht.honestRootEdgesByLevel.Put(level, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+			} else {
+				rootEdges.Push(eg)
+			}
 		}
 	}
 

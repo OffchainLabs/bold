@@ -216,6 +216,7 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	createdAt := uint64(5)
 	edge.On("CreatedAtBlock").Return(createdAt, nil)
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
+	edge.On("OriginId").Return(protocol.OriginId{})
 	edge.On("MutualId").Return(protocol.MutualId{})
 	edge.On("GetChallengeLevel").Return(protocol.NewBlockChallengeLevel(), nil)
 	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2), nil)

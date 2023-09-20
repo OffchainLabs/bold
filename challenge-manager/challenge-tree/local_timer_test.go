@@ -13,6 +13,71 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Test_localTimer(t *testing.T) {
+	ct := &HonestChallengeTree{
+		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+	}
+	edgeA := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 3})
+	ct.edges.Put(edgeA.Id(), edgeA)
+
+	t.Run("zero if earlier than creation time", func(t *testing.T) {
+		timer, err := ct.localTimer(edgeA, edgeA.CreationBlock-1)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), timer)
+	})
+	t.Run("no rival is simply difference between T and creation time", func(t *testing.T) {
+		timer, err := ct.localTimer(edgeA, edgeA.CreationBlock)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), timer)
+		timer, err = ct.localTimer(edgeA, edgeA.CreationBlock+3)
+		require.NoError(t, err)
+		require.Equal(t, uint64(3), timer)
+		timer, err = ct.localTimer(edgeA, edgeA.CreationBlock+1000)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1000), timer)
+	})
+	t.Run("if rivaled timer is difference between earliest rival and edge creation", func(t *testing.T) {
+		edgeB := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.b", createdAt: 5})
+		edgeC := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.c", createdAt: 10})
+		ct.edges.Put(edgeB.Id(), edgeB)
+		ct.edges.Put(edgeC.Id(), edgeC)
+		mutual := edgeA.MutualId()
+
+		ct.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		mutuals := ct.mutualIds.Get(mutual)
+		mutuals.Put(edgeA.Id(), creationTime(edgeA.CreationBlock))
+		mutuals.Put(edgeB.Id(), creationTime(edgeB.CreationBlock))
+		mutuals.Put(edgeC.Id(), creationTime(edgeC.CreationBlock))
+
+		// Should get same result regardless of specified time.
+		timer, err := ct.localTimer(edgeA, 100)
+		require.NoError(t, err)
+		require.Equal(t, edgeB.CreationBlock-edgeA.CreationBlock, timer)
+		timer, err = ct.localTimer(edgeA, 10000)
+		require.NoError(t, err)
+		require.Equal(t, edgeB.CreationBlock-edgeA.CreationBlock, timer)
+		timer, err = ct.localTimer(edgeA, 1000000)
+		require.NoError(t, err)
+		require.Equal(t, edgeB.CreationBlock-edgeA.CreationBlock, timer)
+
+		// EdgeB and EdgeC were already rivaled at creation, so they should have
+		// a local timer of 0 regardless of specified time.
+		timer, err = ct.localTimer(edgeB, 100)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), timer)
+		timer, err = ct.localTimer(edgeC, 100)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), timer)
+		timer, err = ct.localTimer(edgeB, 10000)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), timer)
+		timer, err = ct.localTimer(edgeC, 10000)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), timer)
+	})
+}
+
 func Test_earliestCreatedRivalBlockNumber(t *testing.T) {
 	ct := &HonestChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
