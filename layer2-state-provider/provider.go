@@ -62,24 +62,37 @@ type ExecutionProvider interface {
 	ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error)
 }
 
+type HistoryCommitmentRequest struct {
+	// The WasmModuleRoot for the execution of machines. This is a global parameter
+	// that is specified in the Rollup contracts.
+	WasmModuleRoot common.Hash
+	// The batch sequence number at which we want to compute this history commitment.
+	Batch Batch
+	// A slice of heights that tells the backend where the subchallenges for the requested
+	// history commitment originated from.
+	// Each index corresponds to a challenge level. For example,
+	// if we have three levels, where lvl 0 is the block challenge level, an input of
+	// []Height{12, 3} tells us that that the top-level subchallenge originated at height 12
+	// then the next subchallenge originated at height 3 below that.
+	UpperChallengeOriginHeights []Height
+	// The height at which to start the history commitment.
+	FromHeight Height
+	// An optional height at which to end the history commitment. If none, the request
+	// will commit to all the leaves at the specified challenge level.
+	UpToHeight option.Option[Height]
+}
+
 type GeneralHistoryCommitter interface {
 	HistoryCommitment(
 		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		batch Batch,
-		startHeights []Height,
-		upToHeight option.Option[Height],
+		req *HistoryCommitmentRequest,
 	) (commitments.History, error)
 }
 
 type GeneralPrefixProver interface {
 	PrefixProof(
 		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		batch Batch,
-		startHeights []Height,
-		fromMessageNumber Height,
-		upToHeight option.Option[Height],
+		req *HistoryCommitmentRequest,
 	) ([]byte, error)
 }
 

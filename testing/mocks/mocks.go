@@ -80,7 +80,7 @@ func (m *MockStateManager) PrefixProof(
 	batch l2stateprovider.Batch,
 	startHeights []l2stateprovider.Height,
 	fromMessageNumber l2stateprovider.Height,
-	upToHeight option.Option[l2stateprovider.Height],
+	upToHeight l2stateprovider.Height,
 ) ([]byte, error) {
 	args := m.Called(ctx, wasmModuleRoot, batch, startHeights, fromMessageNumber, upToHeight)
 	return args.Get(0).([]byte), args.Error(1)

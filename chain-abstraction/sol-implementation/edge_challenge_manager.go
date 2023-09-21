@@ -340,6 +340,9 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 	challengeOriginHeights := make([]protocol.Height, challengeLevel)
 	originId := e.inner.OriginId
 	for challengeLevel > 0 {
+		if ctx.Err() != nil {
+			return protocol.OriginHeights{}, ctx.Err()
+		}
 		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, originId)
 		if err != nil {
 			return protocol.OriginHeights{}, err

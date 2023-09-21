@@ -120,7 +120,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
 		[]l2stateprovider.Height{l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)},
 		l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
-		option.Some[l2stateprovider.Height](l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight)))
+		l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight),
+	)
 	if err != nil {
 		return nil, nil, err
 	}

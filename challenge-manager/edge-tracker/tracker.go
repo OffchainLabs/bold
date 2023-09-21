@@ -494,7 +494,7 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
 			[]l2stateprovider.Height{l2stateprovider.Height(et.heightConfig.StartBlockHeight)},
 			l2stateprovider.Height(bisectTo),
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
+			l2stateprovider.Height(endHeight),
 		)
 		if proofErr != nil {
 			return commitments.History{}, nil, proofErr
@@ -521,7 +521,7 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 		l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
 		append(challengeOriginHeights, 0),
 		l2stateprovider.Height(bisectTo),
-		option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
+		l2stateprovider.Height(endHeight),
 	)
 	if proofErr != nil {
 		return commitments.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
@@ -628,7 +628,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
 			[]l2stateprovider.Height{l2stateprovider.Height(fromBlock), 0},
 			l2stateprovider.Height(0),
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(endHistory.Height)),
+			l2stateprovider.Height(endHistory.Height),
 		)
 		if err != nil {
 			return err
@@ -685,7 +685,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
 			append(heights, 0),
 			l2stateprovider.Height(0),
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(endHistory.Height)),
+			l2stateprovider.Height(endHistory.Height),
 		)
 		if err != nil {
 			return err
