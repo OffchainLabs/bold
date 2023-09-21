@@ -126,9 +126,7 @@ contract RollupTest is Test {
 
         vm.expectEmit(false, false, false, false);
         emit RollupCreated(address(0), address(0), address(0), address(0), address(0));
-        address rollupAddr = rollupCreator.createRollup(
-            config, address(0), new address[](0), false, MAX_DATA_SIZE
-        );
+        address rollupAddr = rollupCreator.createRollup(config, address(0), new address[](0), false, MAX_DATA_SIZE);
 
         userRollup = RollupUserLogic(address(rollupAddr));
         adminRollup = RollupAdminLogic(address(rollupAddr));

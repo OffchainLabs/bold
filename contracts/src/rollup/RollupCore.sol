@@ -453,6 +453,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             } else {
                 nextInboxPosition = currentInboxPosition;
             }
+            // sanity check that the next inbox position did indeed move forward due to the code above
+            require(assertion.beforeStateData.configData.nextInboxPosition > prevInboxPosition, "NEXT_INBOX_BACKWARDS");
 
             // only the genesis assertion processes no messages, and that assertion is created
             // when we initialize this contract. Therefore, all assertions created here should have a non
