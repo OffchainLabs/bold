@@ -408,6 +408,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
             require(afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "INBOX_TOO_FAR");
+            
+            // SANITY CHECK: the next inbox position did indeed move forward
+            // this is enforced by code in a later section that artificially increases the nextInboxPosition 
+            // if it hadn't changed the next inbox always increasing means that the assertions will continue to advance
+            // It also means that below, where we check that afterInboxPosition equals prev.nextInboxPosition
+            // in the FINISHED state, we can be sure that it processed at least one message
+            require(assertion.beforeStateData.configData.nextInboxPosition > prevInboxPosition, "NEXT_INBOX_BACKWARDS");
 
             // if the position in the message is > 0, then the afterInboxPosition cannot be the nextInboxPosition
             // as this would be outside the range - this can only occur for ERRORED states
@@ -453,8 +460,6 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             } else {
                 nextInboxPosition = currentInboxPosition;
             }
-            // sanity check that the next inbox position did indeed move forward due to the code above
-            require(assertion.beforeStateData.configData.nextInboxPosition > prevInboxPosition, "NEXT_INBOX_BACKWARDS");
 
             // only the genesis assertion processes no messages, and that assertion is created
             // when we initialize this contract. Therefore, all assertions created here should have a non
