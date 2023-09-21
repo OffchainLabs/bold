@@ -408,9 +408,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
             require(afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "INBOX_TOO_FAR");
-            
+
             // SANITY CHECK: the next inbox position did indeed move forward
-            // this is enforced by code in a later section that artificially increases the nextInboxPosition 
+            // this is enforced by code in a later section that artificially increases the nextInboxPosition
             // if it hadn't changed the next inbox always increasing means that the assertions will continue to advance
             // It also means that below, where we check that afterInboxPosition equals prev.nextInboxPosition
             // in the FINISHED state, we can be sure that it processed at least one message
