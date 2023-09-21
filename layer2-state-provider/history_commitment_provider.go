@@ -260,7 +260,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	prefixHeight Height,
 ) ([]byte, error) {
 	// The low commitment height.
-	lowCommitmentNumLeaves := uint64(req.FromHeight + 1)
+	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	highCommitmentNumLeaves := uint64(req.UpToHeight.Unwrap() + 1)
 	if len(req.UpperChallengeOriginHeights) == 0 {
 		lowCommitmentNumLeaves -= uint64(req.FromHeight)

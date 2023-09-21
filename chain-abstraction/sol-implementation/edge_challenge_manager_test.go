@@ -39,14 +39,15 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 			Batch:                       1,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
 			FromHeight:                  0,
-			UpToHeight:                  option.Some(l2stateprovider.Height(1)),
+			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
 		require.NoError(t, startErr)
+
 		req.UpToHeight = option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight))
 		endCommit, endErr := stateManager.HistoryCommitment(ctx, req)
-
 		require.NoError(t, endErr)
+
 		prefixProof, proofErr := stateManager.PrefixProof(ctx, req, 0)
 
 		require.NoError(t, proofErr)

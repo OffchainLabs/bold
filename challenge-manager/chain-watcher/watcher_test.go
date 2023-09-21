@@ -139,7 +139,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		ctx,
 		common.Hash{},
 		uint64(1),
-		uint64(0),
+		l2stateprovider.Batch(0),
 		protocol.NewBlockChallengeLevel(),
 		[]l2stateprovider.Height{},
 		l2stateprovider.History{
@@ -152,7 +152,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		ctx,
 		common.Hash{},
 		uint64(1),
-		uint64(0),
+		l2stateprovider.Batch(0),
 		protocol.NewBlockChallengeLevel(),
 		[]l2stateprovider.Height{},
 		l2stateprovider.History{
