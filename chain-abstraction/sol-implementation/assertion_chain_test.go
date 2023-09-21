@@ -278,7 +278,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 			req,
 		)
 		require.NoError(t, endErr)
-		prefixProof, proofErr := stateManager.PrefixProof(ctx, req)
+		prefixProof, proofErr := stateManager.PrefixProof(ctx, req, l2stateprovider.Height(0))
 		require.NoError(t, proofErr)
 
 		edge, edgeErr := challengeManager.AddBlockChallengeLevelZeroEdge(

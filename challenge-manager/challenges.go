@@ -123,6 +123,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
 		req,
+		l2stateprovider.Height(0),
 	)
 	if err != nil {
 		return nil, nil, err

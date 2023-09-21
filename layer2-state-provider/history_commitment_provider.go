@@ -182,8 +182,8 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
+	inboxMaxCount uint64,
 	batch Batch,
-	fromMessageNumber uint64,
 	challengeLevel protocol.ChallengeLevel,
 	startHeights []Height,
 	commit History,
@@ -199,8 +199,8 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 				WasmModuleRoot:              wasmModuleRoot,
 				Batch:                       batch,
 				UpperChallengeOriginHeights: []Height{},
-				FromHeight:                  Height(fromMessageNumber),
-				UpToHeight:                  option.Some[Height](Height(fromMessageNumber + commit.Height)),
+				FromHeight:                  Height(inboxMaxCount),
+				UpToHeight:                  option.Some[Height](Height(inboxMaxCount + commit.Height)),
 			},
 		)
 		if err != nil {
@@ -254,6 +254,7 @@ var (
 func (p *HistoryCommitmentProvider) PrefixProof(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
+	prefixHeight Height,
 ) ([]byte, error) {
 	// The low commitment height.
 	lowCommitmentNumLeaves := uint64(req.FromHeight + 1)

@@ -480,21 +480,27 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
 		historyCommit, commitErr := et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(et.heightConfig.StartBlockHeight)},
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(et.heightConfig.StartBlockHeight+bisectTo)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
+				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.StartBlockHeight + bisectTo)),
+			},
 		)
 		if commitErr != nil {
 			return commitments.History{}, nil, commitErr
 		}
 		proof, proofErr := et.stateProvider.PrefixProof(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(et.heightConfig.StartBlockHeight)},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
+				UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
+			},
 			l2stateprovider.Height(bisectTo),
-			l2stateprovider.Height(endHeight),
 		)
 		if proofErr != nil {
 			return commitments.History{}, nil, proofErr
@@ -517,11 +523,14 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 
 	proof, proofErr = et.stateProvider.PrefixProof(
 		ctx,
-		et.wasmModuleRoot,
-		l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-		append(challengeOriginHeights, 0),
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              et.wasmModuleRoot,
+			Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+			UpperChallengeOriginHeights: challengeOriginHeights,
+			FromHeight:                  l2stateprovider.Height(0),
+			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
+		},
 		l2stateprovider.Height(bisectTo),
-		l2stateprovider.Height(endHeight),
 	)
 	if proofErr != nil {
 		return commitments.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
@@ -529,10 +538,13 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 
 	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
 		ctx,
-		et.wasmModuleRoot,
-		l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-		append(challengeOriginHeights, 0),
-		option.Some[l2stateprovider.Height](l2stateprovider.Height(bisectTo)),
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              et.wasmModuleRoot,
+			Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+			UpperChallengeOriginHeights: challengeOriginHeights,
+			FromHeight:                  l2stateprovider.Height(0),
+			UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
+		},
 	)
 	if commitErr != nil {
 		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
@@ -614,51 +626,66 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(fromBlock), 0},
-			option.None[l2stateprovider.Height](),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{l2stateprovider.Height(fromBlock)},
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.None[l2stateprovider.Height](),
+			},
 		)
 		if err != nil {
 			return err
 		}
 		startEndPrefixProof, err = et.stateProvider.PrefixProof(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(fromBlock), 0},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{l2stateprovider.Height(fromBlock)},
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
+			},
 			l2stateprovider.Height(0),
-			l2stateprovider.Height(endHistory.Height),
 		)
 		if err != nil {
 			return err
 		}
 		startHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(fromBlock), 0},
-			option.Some[l2stateprovider.Height](0),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{l2stateprovider.Height(fromBlock)},
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
+			},
 		)
 		if err != nil {
 			return err
 		}
 		endParentCommitment, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(et.heightConfig.StartBlockHeight)},
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(fromBlock+1)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
+				UpToHeight:                  option.Some(l2stateprovider.Height(fromBlock + 1)),
+			},
 		)
 		if err != nil {
 			return err
 		}
 		startParentCommitment, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			[]l2stateprovider.Height{l2stateprovider.Height(et.heightConfig.StartBlockHeight)},
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(fromBlock)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
+				UpToHeight:                  option.Some(l2stateprovider.Height(fromBlock)),
+			},
 		)
 		if err != nil {
 			return err
@@ -671,51 +698,66 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		heights = append(heights, l2stateprovider.Height(startHeight))
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(heights, 0),
-			option.None[l2stateprovider.Height](),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: heights,
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.None[l2stateprovider.Height](),
+			},
 		)
 		if err != nil {
 			return err
 		}
 		startEndPrefixProof, err = et.stateProvider.PrefixProof(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(heights, 0),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: heights,
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
+			},
 			l2stateprovider.Height(0),
-			l2stateprovider.Height(endHistory.Height),
 		)
 		if err != nil {
 			return err
 		}
 		startHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(heights, 0),
-			option.Some[l2stateprovider.Height](0),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: heights,
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
+			},
 		)
 		if err != nil {
 			return err
 		}
 		endParentCommitment, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(heights[:len(heights)-1], 0),
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: heights[:len(heights)-1],
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
+			},
 		)
 		if err != nil {
 			return err
 		}
 		startParentCommitment, err = et.stateProvider.HistoryCommitment(
 			ctx,
-			et.wasmModuleRoot,
-			l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			append(heights[:len(heights)-1], 0),
-			option.Some[l2stateprovider.Height](l2stateprovider.Height(startHeight)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              et.wasmModuleRoot,
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				UpperChallengeOriginHeights: heights[:len(heights)-1],
+				FromHeight:                  l2stateprovider.Height(0),
+				UpToHeight:                  option.Some(l2stateprovider.Height(startHeight)),
+			},
 		)
 		if err != nil {
 			return err
@@ -796,7 +838,8 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,
-		append(challengeOriginHeights, 0),
+		challengeOriginHeights,
+		0,
 		l2stateprovider.Height(pc),
 	)
 	if err != nil {

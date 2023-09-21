@@ -93,6 +93,7 @@ type GeneralPrefixProver interface {
 	PrefixProof(
 		ctx context.Context,
 		req *HistoryCommitmentRequest,
+		prefixHeight Height,
 	) ([]byte, error)
 }
 
@@ -100,7 +101,8 @@ type OneStepProofProvider interface {
 	OneStepProofData(
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
-		startHeights []Height,
+		upperChallengeOriginHeights []Height,
+		fromHeight,
 		upToHeight Height,
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
@@ -115,9 +117,9 @@ type HistoryChecker interface {
 		ctx context.Context,
 		wasmModuleRoot common.Hash,
 		assertionInboxMaxCount uint64,
-		parentAssertionAfterStateBatch uint64,
+		parentAssertionAfterStateBatch Batch,
 		challengeLevel protocol.ChallengeLevel,
-		heights []Height,
+		upperChallengeOriginHeights []Height,
 		history History,
 	) (bool, error)
 }

@@ -44,20 +44,26 @@ func TestHistoryCommitment(t *testing.T) {
 	)
 	_, err = provider.HistoryCommitment(
 		ctx,
-		wasmModuleRoot,
-		0,
-		nil, // No start heights provided.
-		option.None[l2stateprovider.Height](),
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              wasmModuleRoot,
+			Batch:                       0,
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
+			UpToHeight:                  option.None[l2stateprovider.Height](),
+		},
 	)
 	require.ErrorContains(t, err, "must provide start height")
 
 	t.Run("produces a block challenge commitment with height equal to leaf height const", func(t *testing.T) {
 		got, err := provider.HistoryCommitment(
 			ctx,
-			wasmModuleRoot,
-			l2stateprovider.Batch(1),
-			[]l2stateprovider.Height{0},
-			option.None[l2stateprovider.Height](),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              wasmModuleRoot,
+				Batch:                       1,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
+				UpToHeight:                  option.None[l2stateprovider.Height](),
+			},
 		)
 		require.NoError(t, err)
 		require.Equal(t, uint64(challengeLeafHeights[0]), got.Height)
@@ -65,10 +71,13 @@ func TestHistoryCommitment(t *testing.T) {
 	t.Run("produces a block challenge commitment with height up to", func(t *testing.T) {
 		got, err := provider.HistoryCommitment(
 			ctx,
-			wasmModuleRoot,
-			l2stateprovider.Batch(1),
-			[]l2stateprovider.Height{0},
-			option.Some(l2stateprovider.Height(2)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              wasmModuleRoot,
+				Batch:                       1,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
+				UpToHeight:                  option.Some(l2stateprovider.Height(2)),
+			},
 		)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), got.Height)
@@ -76,19 +85,25 @@ func TestHistoryCommitment(t *testing.T) {
 	t.Run("produces a subchallenge history commitment with claims matching higher level start end leaves", func(t *testing.T) {
 		blockChallengeCommit, err := provider.HistoryCommitment(
 			ctx,
-			wasmModuleRoot,
-			l2stateprovider.Batch(1),
-			[]l2stateprovider.Height{0},
-			option.Some(l2stateprovider.Height(1)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              wasmModuleRoot,
+				Batch:                       1,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
+				UpToHeight:                  option.Some(l2stateprovider.Height(1)),
+			},
 		)
 		require.NoError(t, err)
 
 		subChallengeCommit, err := provider.HistoryCommitment(
 			ctx,
-			wasmModuleRoot,
-			l2stateprovider.Batch(1),
-			[]l2stateprovider.Height{0, 0},
-			option.None[l2stateprovider.Height](),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              wasmModuleRoot,
+				Batch:                       1,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{0},
+				FromHeight:                  0,
+				UpToHeight:                  option.None[l2stateprovider.Height](),
+			},
 		)
 		require.NoError(t, err)
 
@@ -99,19 +114,25 @@ func TestHistoryCommitment(t *testing.T) {
 	t.Run("produces a small step challenge commit", func(t *testing.T) {
 		blockChallengeCommit, err := provider.HistoryCommitment(
 			ctx,
-			wasmModuleRoot,
-			l2stateprovider.Batch(1),
-			[]l2stateprovider.Height{0},
-			option.Some(l2stateprovider.Height(1)),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              wasmModuleRoot,
+				Batch:                       1,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
+				UpToHeight:                  option.Some(l2stateprovider.Height(1)),
+			},
 		)
 		require.NoError(t, err)
 
 		smallStepSubchallengeCommit, err := provider.HistoryCommitment(
 			ctx,
-			wasmModuleRoot,
-			l2stateprovider.Batch(1),
-			[]l2stateprovider.Height{0, 0, 0},
-			option.None[l2stateprovider.Height](),
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              wasmModuleRoot,
+				Batch:                       1,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{0, 0},
+				FromHeight:                  0,
+				UpToHeight:                  option.None[l2stateprovider.Height](),
+			},
 		)
 		require.NoError(t, err)
 

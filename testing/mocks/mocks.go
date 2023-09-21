@@ -74,8 +74,9 @@ func (m *MockStateManager) HistoryCommitment(
 func (m *MockStateManager) PrefixProof(
 	ctx context.Context,
 	req *l2stateprovider.HistoryCommitmentRequest,
+	prefixHeight l2stateprovider.Height,
 ) ([]byte, error) {
-	args := m.Called(ctx, req)
+	args := m.Called(ctx, req, prefixHeight)
 	return args.Get(0).([]byte), args.Error(1)
 }
 func (m *MockStateManager) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
@@ -92,7 +93,7 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
 	inboxMaxCount uint64,
-	parentAssertionAfterStateBatch uint64,
+	parentAssertionAfterStateBatch l2stateprovider.Batch,
 	challengeLevel protocol.ChallengeLevel,
 	startHeights []l2stateprovider.Height,
 	history l2stateprovider.History,
@@ -183,9 +184,10 @@ func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
 	startHeights []l2stateprovider.Height,
+	fromHeight,
 	upToHeight l2stateprovider.Height,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, wasmModuleRoot, startHeights, upToHeight)
+	args := m.Called(ctx, wasmModuleRoot, startHeights, fromHeight, upToHeight)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 
