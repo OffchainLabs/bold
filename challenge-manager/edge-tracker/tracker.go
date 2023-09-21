@@ -453,7 +453,7 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
-			return false, errors.Wrap(err, "could not confirm by timer")
+			return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", timer, chalPeriod)
 		}
 		srvlog.Info("Confirmed by time", et.uniqueTrackerLogFields())
 		confirmedCounter.Inc(1)

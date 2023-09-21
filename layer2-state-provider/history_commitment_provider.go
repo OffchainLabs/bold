@@ -152,7 +152,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Compute how many machine hashes we need to collect at the desired challenge level.
-	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, validatedHeights[desiredChallengeLevel-1], req.UpToHeight)
+	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.FromHeight, req.UpToHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -255,14 +255,6 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	req *HistoryCommitmentRequest,
 	prefixHeight Height,
 ) ([]byte, error) {
-	// The low commitment height.
-	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
-	highCommitmentNumLeaves := uint64(req.UpToHeight.Unwrap() + 1)
-	if len(req.UpperChallengeOriginHeights) == 0 {
-		lowCommitmentNumLeaves -= uint64(req.FromHeight)
-		highCommitmentNumLeaves -= uint64(req.FromHeight)
-	}
-
 	// Obtain the leaves we need to produce our Merkle expansion.
 	prefixLeaves, err := p.historyCommitmentImpl(
 		ctx,
@@ -272,10 +264,14 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, err
 	}
 
-	// // Validate we are within bounds of the leaves slice.
-	// if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
-	// 	return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(prefixLeaves))
-	// }
+	// The low commitment height.
+	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
+	highCommitmentNumLeaves := uint64(req.UpToHeight.Unwrap() + 1)
+
+	// Validate we are within bounds of the leaves slice.
+	if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
+		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(prefixLeaves))
+	}
 
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:lowCommitmentNumLeaves])
 	if err != nil {
