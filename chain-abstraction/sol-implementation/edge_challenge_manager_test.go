@@ -34,12 +34,20 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
-		startCommit, startErr := stateManager.HistoryCommitment(ctx, common.Hash{}, 1, []l2stateprovider.Height{0}, option.Some[l2stateprovider.Height](0))
+		req := &l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              common.Hash{},
+			Batch:                       1,
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
+			UpToHeight:                  option.Some(l2stateprovider.Height(1)),
+		}
+		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
 		require.NoError(t, startErr)
-		endCommit, endErr := stateManager.HistoryCommitment(ctx, common.Hash{}, 1, []l2stateprovider.Height{0}, option.Some[l2stateprovider.Height](challenge_testing.LevelZeroBlockEdgeHeight))
+		req.UpToHeight = option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight))
+		endCommit, endErr := stateManager.HistoryCommitment(ctx, req)
 
 		require.NoError(t, endErr)
-		prefixProof, proofErr := stateManager.PrefixProof(ctx, common.Hash{}, 1, []l2stateprovider.Height{0}, 0, option.Some[l2stateprovider.Height](challenge_testing.LevelZeroBlockEdgeHeight))
+		prefixProof, proofErr := stateManager.PrefixProof(ctx, req)
 
 		require.NoError(t, proofErr)
 

@@ -87,10 +87,13 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
 	startCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
-		[]l2stateprovider.Height{0},
-		option.Some(l2stateprovider.Height(0)),
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              creationInfo.WasmModuleRoot,
+			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
+			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
+		},
 	)
 	if err != nil {
 		return nil, nil, err
@@ -103,24 +106,23 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
+	req := &l2stateprovider.HistoryCommitmentRequest{
+		WasmModuleRoot:              creationInfo.WasmModuleRoot,
+		Batch:                       l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+		UpperChallengeOriginHeights: []l2stateprovider.Height{},
+		FromHeight:                  l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
+		UpToHeight:                  option.Some(l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch + levelZeroBlockEdgeHeight)),
+	}
 	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
-		[]l2stateprovider.Height{l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)},
-		option.Some[l2stateprovider.Height](l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight)),
+		req,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
-	fmt.Printf("Start %+v and end %+v\n", startCommit, endCommit)
 	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
-		[]l2stateprovider.Height{l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)},
-		l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
-		l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch+levelZeroBlockEdgeHeight),
+		req,
 	)
 	if err != nil {
 		return nil, nil, err
