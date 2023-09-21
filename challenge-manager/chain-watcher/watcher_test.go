@@ -137,11 +137,12 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockStateManager.On(
 		"AgreesWithHistoryCommitment",
 		ctx,
-		common.Hash{},
-		uint64(1),
-		l2stateprovider.Batch(0),
-		protocol.NewBlockChallengeLevel(),
-		[]l2stateprovider.Height{},
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              common.Hash{},
+			Batch:                       0,
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  1,
+		},
 		l2stateprovider.History{
 			Height:     uint64(0),
 			MerkleRoot: startCommit,
@@ -150,11 +151,12 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockStateManager.On(
 		"AgreesWithHistoryCommitment",
 		ctx,
-		common.Hash{},
-		uint64(1),
-		l2stateprovider.Batch(0),
-		protocol.NewBlockChallengeLevel(),
-		[]l2stateprovider.Height{},
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              common.Hash{},
+			Batch:                       0,
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  1,
+		},
 		l2stateprovider.History{
 			Height:     uint64(4),
 			MerkleRoot: endCommit,

@@ -68,11 +68,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(start),
 				MerkleRoot: startCommit,
@@ -81,11 +82,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(end),
 				MerkleRoot: endCommit,
@@ -107,11 +109,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -120,11 +123,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
@@ -156,11 +160,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -169,11 +174,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
@@ -211,11 +217,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -224,11 +231,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
@@ -260,11 +268,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
 				MerkleRoot: startCommit,
@@ -273,11 +282,12 @@ func TestAddEdge(t *testing.T) {
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
-			common.Hash{},
-			uint64(1),
-			l2stateprovider.Batch(0),
-			protocol.NewBlockChallengeLevel(),
-			[]l2stateprovider.Height{},
+			&l2stateprovider.HistoryCommitmentRequest{
+				WasmModuleRoot:              common.Hash{},
+				Batch:                       0,
+				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  1,
+			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
 				MerkleRoot: endCommit,
