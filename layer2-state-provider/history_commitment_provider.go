@@ -184,26 +184,22 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 // that we also agree with the end commitment.
 func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	inboxMaxCount uint64,
-	batch Batch,
-	challengeLevel protocol.ChallengeLevel,
-	startHeights []Height,
+	historyCommitMetadata *HistoryCommitmentRequest,
 	commit History,
 ) (bool, error) {
 	var localCommit commitments.History
 	var err error
-
+	challengeLevel := protocol.ChallengeLevel(deepestRequestedChallengeLevel(historyCommitMetadata.UpperChallengeOriginHeights))
 	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
 		localCommit, err = p.HistoryCommitment(
 			ctx,
 			&HistoryCommitmentRequest{
-				WasmModuleRoot:              wasmModuleRoot,
-				Batch:                       batch,
+				WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
+				Batch:                       historyCommitMetadata.Batch,
 				UpperChallengeOriginHeights: []Height{},
-				FromHeight:                  Height(inboxMaxCount),
-				UpToHeight:                  option.Some[Height](Height(inboxMaxCount + commit.Height)),
+				FromHeight:                  historyCommitMetadata.FromHeight,
+				UpToHeight:                  option.Some[Height](historyCommitMetadata.FromHeight + Height(commit.Height)),
 			},
 		)
 		if err != nil {
@@ -213,9 +209,9 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 		localCommit, err = p.HistoryCommitment(
 			ctx,
 			&HistoryCommitmentRequest{
-				WasmModuleRoot:              wasmModuleRoot,
-				Batch:                       batch,
-				UpperChallengeOriginHeights: startHeights,
+				WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
+				Batch:                       historyCommitMetadata.Batch,
+				UpperChallengeOriginHeights: historyCommitMetadata.UpperChallengeOriginHeights,
 				FromHeight:                  0,
 				UpToHeight:                  option.Some(Height(commit.Height)),
 			},
@@ -276,10 +272,10 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, err
 	}
 
-	// Validate we are within bounds of the leaves slice.
-	if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
-		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(prefixLeaves))
-	}
+	// // Validate we are within bounds of the leaves slice.
+	// if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
+	// 	return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(prefixLeaves))
+	// }
 
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:lowCommitmentNumLeaves])
 	if err != nil {

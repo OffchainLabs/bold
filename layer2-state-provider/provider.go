@@ -115,11 +115,7 @@ type History struct {
 type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		assertionInboxMaxCount uint64,
-		parentAssertionAfterStateBatch Batch,
-		challengeLevel protocol.ChallengeLevel,
-		upperChallengeOriginHeights []Height,
-		history History,
+		historyCommitMetadata *HistoryCommitmentRequest,
+		commit History,
 	) (bool, error)
 }

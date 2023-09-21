@@ -114,11 +114,12 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		creationInfo.InboxMaxCount.Uint64(),
-		l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
-		challengeLevel,
-		startHeights,
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              creationInfo.WasmModuleRoot,
+			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
+			FromHeight:                  l2stateprovider.Height(creationInfo.InboxMaxCount.Uint64()),
+			UpperChallengeOriginHeights: startHeights,
+		},
 		l2stateprovider.History{
 			Height:     uint64(endHeight),
 			MerkleRoot: endCommit,
@@ -129,11 +130,12 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
-		creationInfo.WasmModuleRoot,
-		creationInfo.InboxMaxCount.Uint64(),
-		l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
-		challengeLevel,
-		startHeights,
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              creationInfo.WasmModuleRoot,
+			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
+			FromHeight:                  l2stateprovider.Height(creationInfo.InboxMaxCount.Uint64()),
+			UpperChallengeOriginHeights: startHeights,
+		},
 		l2stateprovider.History{
 			Height:     uint64(startHeight),
 			MerkleRoot: startCommit,
