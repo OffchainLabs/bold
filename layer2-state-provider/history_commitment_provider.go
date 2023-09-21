@@ -123,13 +123,16 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 	// If the call is for message number ranges only, we get the hashes for
 	// those states and return a commitment for them.
-	fromMessageNumber := uint64(validatedHeights[0])
-	if len(validatedHeights) == 1 {
+	var fromMessageNumber Height
+	if len(validatedHeights) == 0 {
+		fromMessageNumber = req.FromHeight
 		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), req.UpToHeight, req.Batch)
 		if hashesErr != nil {
 			return nil, hashesErr
 		}
 		return hashes, nil
+	} else {
+		fromMessageNumber = validatedHeights[0]
 	}
 
 	// Computes the desired challenge level this history commitment is for.
@@ -149,7 +152,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Compute how many machine hashes we need to collect at the desired challenge level.
-	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, validatedHeights[desiredChallengeLevel], req.UpToHeight)
+	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, validatedHeights[desiredChallengeLevel-1], req.UpToHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +509,7 @@ func (p *HistoryCommitmentProvider) validateOriginHeights(
 	upperChallengeOriginHeights []Height,
 ) (validatedStartHeights, error) {
 	// Length cannot be greater than the total number of challenge levels in the protocol - 1.
-	if len(upperChallengeOriginHeights) >= len(p.challengeLeafHeights)-1 {
+	if len(upperChallengeOriginHeights) > len(p.challengeLeafHeights)-1 {
 		return nil, fmt.Errorf(
 			"challenge level %d is out of range for challenge leaf heights %v",
 			len(upperChallengeOriginHeights),

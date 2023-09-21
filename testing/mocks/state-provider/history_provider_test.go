@@ -42,18 +42,6 @@ func TestHistoryCommitment(t *testing.T) {
 		challengeLeafHeights,
 		stateBackend,
 	)
-	_, err = provider.HistoryCommitment(
-		ctx,
-		&l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              wasmModuleRoot,
-			Batch:                       0,
-			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
-			UpToHeight:                  option.None[l2stateprovider.Height](),
-		},
-	)
-	require.ErrorContains(t, err, "must provide start height")
-
 	t.Run("produces a block challenge commitment with height equal to leaf height const", func(t *testing.T) {
 		got, err := provider.HistoryCommitment(
 			ctx,
