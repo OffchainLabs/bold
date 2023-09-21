@@ -71,9 +71,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(start),
@@ -86,9 +86,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(end),
@@ -114,9 +114,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -129,9 +129,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -167,9 +167,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -182,9 +182,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -226,9 +226,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -241,9 +241,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
@@ -279,9 +279,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(startHeight),
@@ -294,9 +294,9 @@ func TestAddEdge(t *testing.T) {
 			protocol.NewBlockChallengeLevel(),
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
-				Batch:                       0,
+				Batch:                       1,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  1,
+				FromHeight:                  0,
 			},
 			l2stateprovider.History{
 				Height:     uint64(endHeight),
