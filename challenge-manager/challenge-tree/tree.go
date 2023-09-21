@@ -117,8 +117,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		challengeLevel,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
-			FromHeight:                  l2stateprovider.Height(creationInfo.InboxMaxCount.Uint64()),
+			Batch:                       l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+			FromHeight:                  l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
 			UpperChallengeOriginHeights: startHeights,
 		},
 		l2stateprovider.History{
@@ -134,8 +134,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		challengeLevel,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
-			FromHeight:                  l2stateprovider.Height(creationInfo.InboxMaxCount.Uint64()),
+			Batch:                       l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+			FromHeight:                  l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
 			UpperChallengeOriginHeights: startHeights,
 		},
 		l2stateprovider.History{

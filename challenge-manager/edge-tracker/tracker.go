@@ -451,7 +451,6 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	srvlog.Info(fmt.Sprintf("Timer %d, chal period %d, num ancestors %d", timer, chalPeriod, len(ancestors)), et.uniqueTrackerLogFields())
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
 			return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", timer, chalPeriod)
