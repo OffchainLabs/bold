@@ -115,6 +115,7 @@ type History struct {
 type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
+		challengeLevel protocol.ChallengeLevel,
 		historyCommitMetadata *HistoryCommitmentRequest,
 		commit History,
 	) (bool, error)

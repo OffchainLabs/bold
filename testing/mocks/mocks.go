@@ -91,10 +91,11 @@ func (m *MockStateManager) HistoryCommitmentAtMessage(ctx context.Context, heigh
 
 func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
+	challengeLevel protocol.ChallengeLevel,
 	historyCommitMetadata *l2stateprovider.HistoryCommitmentRequest,
 	commit l2stateprovider.History,
 ) (bool, error) {
-	args := m.Called(ctx, historyCommitMetadata, commit)
+	args := m.Called(ctx, challengeLevel, historyCommitMetadata, commit)
 	return args.Get(0).(bool), args.Error(1)
 }
 

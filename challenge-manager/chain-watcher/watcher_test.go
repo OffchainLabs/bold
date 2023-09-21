@@ -137,6 +137,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockStateManager.On(
 		"AgreesWithHistoryCommitment",
 		ctx,
+		protocol.NewBlockChallengeLevel(),
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			Batch:                       0,
@@ -151,6 +152,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockStateManager.On(
 		"AgreesWithHistoryCommitment",
 		ctx,
+		protocol.NewBlockChallengeLevel(),
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			Batch:                       0,

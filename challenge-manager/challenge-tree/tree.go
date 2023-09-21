@@ -114,6 +114,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 
 	isHonestEdge, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
+		challengeLevel,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
 			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
@@ -130,6 +131,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 	agreesWithStart, err := ht.histChecker.AgreesWithHistoryCommitment(
 		ctx,
+		challengeLevel,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
 			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),

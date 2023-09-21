@@ -184,12 +184,12 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 // that we also agree with the end commitment.
 func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 	ctx context.Context,
+	challengeLevel protocol.ChallengeLevel,
 	historyCommitMetadata *HistoryCommitmentRequest,
 	commit History,
 ) (bool, error) {
 	var localCommit commitments.History
 	var err error
-	challengeLevel := protocol.ChallengeLevel(deepestRequestedChallengeLevel(historyCommitMetadata.UpperChallengeOriginHeights))
 	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
 		localCommit, err = p.HistoryCommitment(
