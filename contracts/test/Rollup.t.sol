@@ -39,7 +39,7 @@ contract RollupTest is Test {
     uint256 constant MINI_STAKE_VALUE = 2;
     uint64 constant CONFIRM_PERIOD_BLOCKS = 100;
     uint256 constant MAX_DATA_SIZE = 117964;
-    uint256 constant CHALLENGE_GRACE_PERIOD_BLOCKS = 10;
+    uint64 constant CHALLENGE_GRACE_PERIOD_BLOCKS = 10;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");

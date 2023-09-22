@@ -180,7 +180,7 @@ contract BOLDUpgradeAction {
     uint256 public immutable CHAIN_ID;
     address public immutable ANY_TRUST_FAST_CONFIRMER;
     bool public immutable DISABLE_VALIDATOR_WHITELIST;
-    uint256 public immutable CHALLENGE_GRACE_PERIOD_BLOCKS;
+    uint64 public immutable CHALLENGE_GRACE_PERIOD_BLOCKS;
 
     IOneStepProofEntry public immutable OSP;
     // proxy admins of the contracts to be upgraded
@@ -216,7 +216,7 @@ contract BOLDUpgradeAction {
         uint256 bigStepLeafSize;
         uint256 smallStepLeafSize;
         uint256 numBigStepLevel;
-        uint256 challengeGracePeriodBlocks;
+        uint64 challengeGracePeriodBlocks;
     }
 
     // Unfortunately these are not discoverable on-chain, so we need to supply them
