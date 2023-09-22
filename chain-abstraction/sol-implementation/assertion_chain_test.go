@@ -335,6 +335,11 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 		err = honestEdge.ConfirmByTimer(ctx, make([]protocol.EdgeId, 0))
 		require.NoError(t, err)
 
+		// Adjust beyond the grace period.
+		for i := 0; i < 10; i++ {
+			createdData.Backend.Commit()
+		}
+
 		err = chain.ConfirmAssertionByChallengeWinner(
 			ctx, createdData.Leaf1.Id(), honestEdge.Id(),
 		)
