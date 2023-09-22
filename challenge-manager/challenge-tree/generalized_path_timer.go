@@ -334,7 +334,3 @@ func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol
 func errNotFound(id protocol.EdgeId) error {
 	return errors.Wrapf(ErrNotFound, "id=%#x", id)
 }
-
-func errNoLevelZero(originId protocol.OriginId) error {
-	return errors.Wrapf(ErrNoLevelZero, "originId=%#x", originId)
-}
