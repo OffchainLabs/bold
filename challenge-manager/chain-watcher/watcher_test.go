@@ -38,7 +38,7 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("Id").Return(edgeId)
-	edge.On("GetType").Return(protocol.BigStepChallengeEdge)
+	edge.On("GetChallengeLevel").Return(protocol.ChallengeLevel(1), nil)
 	edge.On(
 		"AssertionHash",
 		ctx,
@@ -73,6 +73,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	parentAssertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("parent foo"))}
 	edgeId := protocol.EdgeId{Hash: common.BytesToHash([]byte("bar"))}
+	originId := protocol.OriginId(common.BytesToHash([]byte("origin bar")))
 	edge := &mocks.MockSpecEdge{}
 
 	mockChain.On(
@@ -117,10 +118,12 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	).Return(option.Some(protocol.SpecEdge(edge)), nil)
 
 	edge.On("Id").Return(edgeId)
+	edge.On("OriginId").Return(originId)
 	edge.On("CreatedAtBlock").Return(uint64(0), nil)
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("MutualId").Return(protocol.MutualId{})
-	edge.On("GetType").Return(protocol.BlockChallengeEdge)
+	edge.On("GetChallengeLevel").Return(protocol.NewBlockChallengeLevel(), nil)
+	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2), nil)
 	startCommit := common.BytesToHash([]byte("nyan"))
 	endCommit := common.BytesToHash([]byte("nyan2"))
 	edge.On("StartCommitment").Return(protocol.Height(0), startCommit)
@@ -134,12 +137,12 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockStateManager.On(
 		"AgreesWithHistoryCommitment",
 		ctx,
-		common.Hash{},
-		uint64(1),
-		uint64(0),
-		protocol.BlockChallengeEdge,
-		protocol.OriginHeights{
-			BlockChallengeOriginHeight: 0,
+		protocol.NewBlockChallengeLevel(),
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              common.Hash{},
+			Batch:                       1,
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 		},
 		l2stateprovider.History{
 			Height:     uint64(0),
@@ -149,12 +152,12 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockStateManager.On(
 		"AgreesWithHistoryCommitment",
 		ctx,
-		common.Hash{},
-		uint64(1),
-		uint64(0),
-		protocol.BlockChallengeEdge,
-		protocol.OriginHeights{
-			BlockChallengeOriginHeight: 0,
+		protocol.NewBlockChallengeLevel(),
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              common.Hash{},
+			Batch:                       1,
+			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 		},
 		l2stateprovider.History{
 			Height:     uint64(4),
@@ -183,7 +186,9 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	// Expect it to exist and be unrivaled for 10 blocks if we query at block number = 10,
 	// plus the number of blocks the top level assertion was unrivaled (5).
 	blockNumber := uint64(10)
-	pathTimer, _, err := chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNumber)
+	resp, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNumber)
+	require.NoError(t, err)
+	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, resp.AncestorLocalTimers, blockNumber)
 	require.NoError(t, err)
 	require.Equal(t, pathTimer, challengetree.PathTimer(blockNumber+assertionUnrivaledBlocks))
 }
@@ -200,6 +205,7 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	edgeId := protocol.EdgeId{Hash: common.BytesToHash([]byte("bar"))}
+	originId := protocol.OriginId(common.BytesToHash([]byte("origin bar")))
 	edge := &mocks.MockSpecEdge{}
 
 	edge.On(
@@ -210,11 +216,14 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	mockChain.On("AssertionUnrivaledBlocks", ctx, assertionHash).Return(assertionUnrivaledBlocks, nil)
 
 	edge.On("Id").Return(edgeId)
+	edge.On("OriginId").Return(originId)
 	createdAt := uint64(5)
 	edge.On("CreatedAtBlock").Return(createdAt, nil)
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
+	edge.On("OriginId").Return(protocol.OriginId{})
 	edge.On("MutualId").Return(protocol.MutualId{})
-	edge.On("GetType").Return(protocol.BlockChallengeEdge)
+	edge.On("GetChallengeLevel").Return(protocol.NewBlockChallengeLevel(), nil)
+	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2), nil)
 	startCommit := common.BytesToHash([]byte("start"))
 	endCommit := common.BytesToHash([]byte("start"))
 	edge.On("StartCommitment").Return(protocol.Height(0), startCommit)
@@ -237,7 +246,9 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	chal, ok := watcher.challenges.TryGet(assertionHash)
 	require.Equal(t, true, ok)
 	blockNum := uint64(20)
-	pathTimer, _, err := chal.honestEdgeTree.HonestPathTimer(ctx, edgeId, blockNum)
+	resp, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNum)
+	require.NoError(t, err)
+	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, resp.AncestorLocalTimers, blockNum)
 	require.NoError(t, err)
 	require.Equal(t, blockNum-createdAt+assertionUnrivaledBlocks, uint64(pathTimer))
 }
