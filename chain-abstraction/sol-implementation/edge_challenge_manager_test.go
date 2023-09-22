@@ -260,6 +260,9 @@ func TestEdgeChallengeManager_Bisect(t *testing.T) {
 	})
 }
 
+func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
+}
+
 func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	ctx := context.Background()
 	t.Run("edge does not exist", func(t *testing.T) {
