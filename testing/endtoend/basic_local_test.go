@@ -54,7 +54,7 @@ func TestTotalWasmOpcodes(t *testing.T) {
 	})
 }
 
-func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
+func TestChallengeProtocol_AliceAndBob_AnvilLocal(t *testing.T) {
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -118,64 +118,6 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 	)
 }
 
-func TestChallengeProtocol_AliceAndBob_AnvilLocal_DifferentHeights(t *testing.T) {
-	t.Skip()
-	be, err := backend.NewAnvilLocal(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := be.Start(); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := be.Stop(); err != nil {
-			t.Log(fmt.Errorf("error stopping backend: %v", err))
-		}
-	}()
-
-	layerZeroHeights := &protocol.LayerZeroHeights{
-		BlockChallengeHeight:     1 << 5,
-		BigStepChallengeHeight:   1 << 3,
-		SmallStepChallengeHeight: 1 << 5,
-	}
-	numBigSteps := uint64(3)
-	totalWasmOpcodes := uint64(1)
-	for i := uint64(0); i < numBigSteps; i++ {
-		totalWasmOpcodes *= layerZeroHeights.BigStepChallengeHeight
-	}
-	totalWasmOpcodes *= layerZeroHeights.SmallStepChallengeHeight
-	machineDivergenceStep := totalWasmOpcodes / 2
-
-	scenario := &ChallengeScenario{
-		Name: "two forked assertions at the different step heights",
-		AliceStateManager: func() l2stateprovider.Provider {
-			sm, err := statemanager.NewForSimpleMachine()
-			if err != nil {
-				t.Fatal(err)
-			}
-			return sm
-		}(),
-		BobStateManager: func() l2stateprovider.Provider {
-			assertionDivergenceHeight := uint64(8)
-			sm, err := statemanager.NewForSimpleMachine(
-				statemanager.WithMachineDivergenceStep(machineDivergenceStep),
-				statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
-				statemanager.WithDivergentBlockHeightOffset(0),
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			return sm
-		}(),
-		Expectations: []expect{
-			expectAssertionConfirmedByChallengeWinner,
-			expectAliceAndBobStaked,
-		},
-	}
-	testChallengeProtocol_AliceAndBob(t, be, scenario)
-}
-
 func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 	be, err := backend.NewAnvilLocal(context.Background())
 	require.NoError(t, err)
@@ -198,10 +140,11 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 	machineDivergenceStep := totalWasmOpcodes / 2
 
 	scenario := &ChallengeScenario{
-		Name: "two forked assertions at the same height",
+		Name: "honest bob stops and charlie joins in late to defend his honest edges",
 		AliceStateManager: func() l2stateprovider.Provider {
 			assertionDivergenceHeight := uint64(4)
 			sm, err := statemanager.NewForSimpleMachine(
+				statemanager.WithLayerZeroHeights(layerZeroHeights, numBigSteps),
 				statemanager.WithMachineDivergenceStep(machineDivergenceStep),
 				statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
 				statemanager.WithDivergentBlockHeightOffset(0),
@@ -212,14 +155,14 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 			return sm
 		}(),
 		BobStateManager: func() l2stateprovider.Provider {
-			sm, err := statemanager.NewForSimpleMachine()
+			sm, err := statemanager.NewForSimpleMachine(statemanager.WithLayerZeroHeights(layerZeroHeights, numBigSteps))
 			if err != nil {
 				t.Fatal(err)
 			}
 			return sm
 		}(),
 		CharlieStateManager: func() l2stateprovider.Provider {
-			sm, err := statemanager.NewForSimpleMachine()
+			sm, err := statemanager.NewForSimpleMachine(statemanager.WithLayerZeroHeights(layerZeroHeights, numBigSteps))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -230,7 +173,13 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 		},
 	}
 
-	testSyncBobStopsCharlieJoins(t, be, scenario)
+	testSyncBobStopsCharlieJoins(
+		t,
+		be,
+		scenario,
+		challenge_testing.WithLayerZeroHeights(layerZeroHeights),
+		challenge_testing.WithNumBigStepLevels(numBigSteps),
+	)
 }
 
 func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario, opts ...challenge_testing.Opt) {
@@ -294,12 +243,12 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 }
 
 // testSyncBobStopsCharlieJoins tests the scenario where Bob stops and Charlie joins.
-func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *ChallengeScenario) {
+func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *ChallengeScenario, opts ...challenge_testing.Opt) {
 	t.Run(s.Name, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 		defer cancel()
 
-		rollup, err := be.DeployRollup()
+		rollup, err := be.DeployRollup(opts...)
 		require.NoError(t, err)
 
 		// Bad Alice
