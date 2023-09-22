@@ -71,7 +71,7 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
 
-	// Advnce our backend way beyond the challenge period.
+	// Advance our backend way beyond the challenge period.
 	for i := uint64(0); i < chalPeriodBlocks; i++ {
 		createdData.Backend.Commit()
 	}
