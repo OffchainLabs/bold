@@ -109,7 +109,7 @@ func WithForceMachineBlockCompat() Opt {
 	}
 }
 
-func WithLayerZeroHeights(heights *challenge_testing.LayerZeroHeights, numBigSteps uint64) Opt {
+func WithLayerZeroHeights(heights *protocol.LayerZeroHeights, numBigSteps uint64) Opt {
 	return func(s *L2StateBackend) {
 		challengeLeafHeights := make([]l2stateprovider.Height, 0)
 		challengeLeafHeights = append(challengeLeafHeights, l2stateprovider.Height(heights.BlockChallengeHeight))
@@ -117,6 +117,7 @@ func WithLayerZeroHeights(heights *challenge_testing.LayerZeroHeights, numBigSte
 			challengeLeafHeights = append(challengeLeafHeights, l2stateprovider.Height(heights.BigStepChallengeHeight))
 		}
 		challengeLeafHeights = append(challengeLeafHeights, l2stateprovider.Height(heights.SmallStepChallengeHeight))
+		s.challengeLeafHeights = challengeLeafHeights
 	}
 }
 

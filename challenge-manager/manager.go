@@ -171,21 +171,10 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	managerBindings, err := challengeV2gen.NewEdgeChallengeManagerCaller(chalManagerAddr, backend)
+	numBigStepLevels, err := chalManager.NumBigSteps(ctx)
 	if err != nil {
 		return nil, err
 	}
-	numBigStepLevelsRaw, err := managerBindings.NUMBIGSTEPLEVEL(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-	if !numBigStepLevelsRaw.IsUint64() {
-		return nil, errors.New("NUMBIGSTEPLEVEL returned non-uint64 value")
-	}
-	if numBigStepLevelsRaw.Uint64() > 256 {
-		return nil, errors.New("NUMBIGSTEPLEVEL returned value greater than 256")
-	}
-	numBigStepLevels := uint8(numBigStepLevelsRaw.Uint64())
 	m.rollup = rollup
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr

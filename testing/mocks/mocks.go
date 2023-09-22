@@ -140,9 +140,14 @@ func (m *MockSpecChallengeManager) Address() common.Address {
 	return m.MockAddr
 }
 
-func (m *MockSpecChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
+func (m *MockSpecChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(uint64), args.Error(1)
+	return args.Get(0).(uint8), args.Error(1)
+}
+
+func (m *MockSpecChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(*protocol.LayerZeroHeights), args.Error(1)
 }
 
 func (m *MockSpecChallengeManager) ChallengePeriodBlocks(ctx context.Context) (uint64, error) {

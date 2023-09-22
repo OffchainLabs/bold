@@ -160,8 +160,10 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	t.Helper()
 	p := &mocks.MockProtocol{}
 	ctx := context.Background()
-	p.On("CurrentChallengeManager", ctx).Return(&mocks.MockChallengeManager{}, nil)
-	p.On("SpecChallengeManager", ctx).Return(&mocks.MockSpecChallengeManager{}, nil)
+	cm := &mocks.MockSpecChallengeManager{}
+	p.On("CurrentChallengeManager", ctx).Return(cm, nil)
+	p.On("SpecChallengeManager", ctx).Return(cm, nil)
+	cm.On("NumBigSteps", ctx).Return(uint8(1), nil)
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
