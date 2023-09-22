@@ -444,7 +444,7 @@ func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) 
 		return 0, err
 	}
 	if !n.IsUint64() {
-		return 0, errors.New("layer zero block edge height was not a uint64")
+		return 0, errors.New("num big step levels was not a uint64")
 	}
 	if n.Uint64() > 255 {
 		return 0, errors.New("number of big steps was greater than 255")
