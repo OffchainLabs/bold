@@ -79,7 +79,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     // If an assertion was challenged we leave an additional period after it could have completed
     // so that the result of a challenge is observable widely before it causes an assertion to be confirmed
-    uint256 public afterChallengePeriodBlocks;
+    uint256 public challengeGracePeriodBlocks;
 
     IInbox public inbox;
     IBridge public bridge;

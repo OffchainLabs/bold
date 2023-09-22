@@ -37,7 +37,7 @@ contract AssertinPoolTest is Test {
     uint256 constant MINI_STAKE_VALUE = 2;
     uint64 constant CONFIRM_PERIOD_BLOCKS = 100;
     uint256 constant MAX_DATA_SIZE = 117964;
-    uint256 constant AFTER_CHALLENGE_PERIOD_BLOCKS = 10;
+    uint256 constant CHALLENGE_GRACE_PERIOD_BLOCKS = 10;
 
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
@@ -141,7 +141,7 @@ contract AssertinPoolTest is Test {
             layerZeroSmallStepEdgeHeight: 2 ** 5,
             numBigStepLevel: 2,
             anyTrustFastConfirmer: address(300001),
-            afterChallengePeriodBlocks: AFTER_CHALLENGE_PERIOD_BLOCKS
+            challengeGracePeriodBlocks: CHALLENGE_GRACE_PERIOD_BLOCKS
         });
 
         vm.expectEmit(false, false, false, false);

@@ -120,10 +120,10 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             require(winningEdge.confirmedAtBlock != 0, "ZERO_CONFIRMED_AT_BLOCK");
             // an additional number of blocks is added to ensure that the result of the challenge is widely
             // observable before it causes an assertion to be confirmed. After a winning edge is found, it will
-            // always be afterChallengePeriodBlocks before an assertion can be confirmed
+            // always be challengeGracePeriodBlocks before an assertion can be confirmed
             require(
-                block.number >= winningEdge.confirmedAtBlock + afterChallengePeriodBlocks,
-                "CHALLENGE_PERIODS_NOT_PASSED"
+                block.number >= winningEdge.confirmedAtBlock + challengeGracePeriodBlocks,
+                "CHALLENGE_GRACE_PERIOD_NOT_PASSED"
             );
         }
 
