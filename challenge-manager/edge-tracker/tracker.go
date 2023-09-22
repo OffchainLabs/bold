@@ -191,7 +191,7 @@ func (et *Tracker) Spawn(ctx context.Context) {
 	for {
 		select {
 		case <-t.C():
-			if et.shouldDespawn(ctx) {
+			if et.ShouldDespawn(ctx) {
 				srvlog.Info("Tracked edge received notice it should exit - now despawning", fields)
 				spawnedCounter.Dec(1)
 				return
@@ -346,7 +346,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 // Checks if an edge tracker should despawn and no longer act.
 // This is true if the edge's FSM state is the confirmed state or if
 // the edge has a confirmable ancestor by time.
-func (et *Tracker) shouldDespawn(ctx context.Context) bool {
+func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if et.fsm.Current().State == edgeConfirmed {
 		return true
 	}
