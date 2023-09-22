@@ -26,6 +26,8 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 contract RollupTest is Test {
+    using GlobalStateLib for GlobalState;
+
     address constant owner = address(1337);
     address constant sequencer = address(7331);
 
@@ -1155,5 +1157,25 @@ contract RollupTest is Test {
     function testRevertSetChallengeManager() public {
         vm.expectRevert();
         adminRollup.setChallengeManager(address(0xdeadbeef));
+    }
+
+    function testExecutionStateHash() public {
+        ExecutionState memory es = ExecutionState(
+            GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
+            MachineStatus.FINISHED
+        );
+        bytes32 expectedHash = keccak256(abi.encodePacked(es.machineStatus, es.globalState.hash()));
+        assertEq(RollupLib.executionStateHash(es), expectedHash, "Unexpected hash");
+    }
+
+    function testAssertionHash() public {
+        bytes32 parentHash = rand.hash();
+        ExecutionState memory es = ExecutionState(
+            GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
+            MachineStatus.FINISHED
+        );
+        bytes32 inboxAcc = rand.hash();
+        bytes32 expectedHash = keccak256(abi.encodePacked(parentHash, RollupLib.executionStateHash(es), inboxAcc));
+        assertEq(RollupLib.assertionHash(parentHash, es, inboxAcc), expectedHash, "Unexpected hash");
     }
 }
