@@ -55,7 +55,13 @@ type ConfirmationMetadataChecker interface {
 		ctx context.Context,
 		topLevelAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
-	) (challengetree.PathTimer, challengetree.HonestAncestors, error)
+	) (challengetree.PathTimer, challengetree.HonestAncestors, []challengetree.EdgeLocalTimer, error)
+	HasConfirmableAncestor(
+		ctx context.Context,
+		topLevelAssertionHash protocol.AssertionHash,
+		ancestorLocalTimers []challengetree.EdgeLocalTimer,
+		challengePeriodBlocks uint64,
+	) (bool, error)
 	AddVerifiedHonestEdge(
 		ctx context.Context, verifiedHonest protocol.VerifiedHonestEdge,
 	) error
@@ -185,8 +191,8 @@ func (et *Tracker) Spawn(ctx context.Context) {
 	for {
 		select {
 		case <-t.C():
-			if et.shouldComplete() {
-				srvlog.Info("Edge tracker received notice of a confirmation, exiting", fields)
+			if et.shouldDespawn(ctx) {
+				srvlog.Info("Tracked edge received notice it should exit - now despawning", fields)
 				spawnedCounter.Dec(1)
 				return
 			}
@@ -337,8 +343,50 @@ func (et *Tracker) Act(ctx context.Context) error {
 	}
 }
 
-func (et *Tracker) shouldComplete() bool {
-	return et.fsm.Current().State == edgeConfirmed
+// Checks if an edge tracker should despawn and no longer act.
+// This is true if the edge's FSM state is the confirmed state or if
+// the edge has a confirmable ancestor by time.
+func (et *Tracker) shouldDespawn(ctx context.Context) bool {
+	if et.fsm.Current().State == edgeConfirmed {
+		return true
+	}
+	fields := et.uniqueTrackerLogFields()
+	assertionHash, err := et.edge.AssertionHash(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get assertion hash", fields)
+		return false
+	}
+	_, _, ancestorLocalTimers, err := et.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, et.edge.Id())
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not compute honest path timer", fields)
+		return false
+	}
+	chalManager, err := et.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get challenge manager", fields)
+		return false
+	}
+	challengePeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get challenge period blocks", fields)
+		return false
+	}
+	hasConfirmableAncestor, err := et.chainWatcher.HasConfirmableAncestor(
+		ctx,
+		assertionHash,
+		ancestorLocalTimers,
+		challengePeriodBlocks,
+	)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not check if has confirmable ancestor", fields)
+		return false
+	}
+	return hasConfirmableAncestor
 }
 
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
@@ -443,7 +491,7 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	}
 
 	// Check if we can confirm by time.
-	timer, ancestors, err := et.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, et.edge.Id())
+	timer, ancestors, _, err := et.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, et.edge.Id())
 	if err != nil {
 		return false, errors.Wrap(err, "could not compute honest path timer")
 	}
