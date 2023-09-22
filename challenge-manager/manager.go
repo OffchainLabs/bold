@@ -171,12 +171,26 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-
+	managerBindings, err := challengeV2gen.NewEdgeChallengeManagerCaller(chalManagerAddr, backend)
+	if err != nil {
+		return nil, err
+	}
+	numBigStepLevelsRaw, err := managerBindings.NUMBIGSTEPLEVEL(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+	if !numBigStepLevelsRaw.IsUint64() {
+		return nil, errors.New("NUMBIGSTEPLEVEL returned non-uint64 value")
+	}
+	if numBigStepLevelsRaw.Uint64() > 256 {
+		return nil, errors.New("NUMBIGSTEPLEVEL returned value greater than 256")
+	}
+	numBigStepLevels := uint8(numBigStepLevelsRaw.Uint64())
 	m.rollup = rollup
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-	m.watcher = watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, m.name)
+	m.watcher = watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name)
 	m.poster = assertions.NewPoster(
 		m.chain,
 		m.stateManager,

@@ -17,7 +17,7 @@ const (
 	MaxDataSize                  = 117964
 )
 
-type LevelZeroHeights struct {
+type LayerZeroHeights struct {
 	BlockChallengeHeight     uint64
 	BigStepChallengeHeight   uint64
 	SmallStepChallengeHeight uint64
@@ -28,6 +28,14 @@ type Opt func(c *rollupgen.Config)
 func WithNumBigStepLevels(num *big.Int) Opt {
 	return func(c *rollupgen.Config) {
 		c.NumBigStepLevel = num
+	}
+}
+
+func WithLayerZeroHeights(h *LayerZeroHeights) Opt {
+	return func(c *rollupgen.Config) {
+		c.LayerZeroBlockEdgeHeight = new(big.Int).SetUint64(h.BlockChallengeHeight)
+		c.LayerZeroBigStepEdgeHeight = new(big.Int).SetUint64(h.BigStepChallengeHeight)
+		c.LayerZeroSmallStepEdgeHeight = new(big.Int).SetUint64(h.SmallStepChallengeHeight)
 	}
 }
 
