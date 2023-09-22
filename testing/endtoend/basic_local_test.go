@@ -12,6 +12,7 @@ import (
 	validator "github.com/OffchainLabs/bold/challenge-manager"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/endtoend/internal/backend"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -70,7 +71,7 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 
 	layerZeroHeights := &protocol.LayerZeroHeights{
 		BlockChallengeHeight:     1 << 5,
-		BigStepChallengeHeight:   1 << 3,
+		BigStepChallengeHeight:   1 << 5,
 		SmallStepChallengeHeight: 1 << 5,
 	}
 	numBigSteps := uint64(3)
@@ -108,7 +109,13 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_SameHeight(t *testing.T) {
 		},
 	}
 
-	testChallengeProtocol_AliceAndBob(t, be, scenario)
+	testChallengeProtocol_AliceAndBob(
+		t,
+		be,
+		scenario,
+		challenge_testing.WithLayerZeroHeights(layerZeroHeights),
+		challenge_testing.WithNumBigStepLevels(numBigSteps),
+	)
 }
 
 func TestChallengeProtocol_AliceAndBob_AnvilLocal_DifferentHeights(t *testing.T) {
@@ -226,12 +233,12 @@ func TestSync_HonestBobStopsCharlieJoins(t *testing.T) {
 	testSyncBobStopsCharlieJoins(t, be, scenario)
 }
 
-func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario) {
+func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenario *ChallengeScenario, opts ...challenge_testing.Opt) {
 	t.Run(scenario.Name, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 		defer cancel()
 
-		rollup, err := be.DeployRollup()
+		rollup, err := be.DeployRollup(opts...)
 		if err != nil {
 			t.Fatal(err)
 		}

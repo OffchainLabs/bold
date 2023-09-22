@@ -6,7 +6,6 @@ package solimpl_test
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/OffchainLabs/bold/containers/option"
@@ -276,7 +275,7 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 		t,
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(heights),
-			challenge_testing.WithNumBigStepLevels(new(big.Int).SetUint64(numBigSteps)),
+			challenge_testing.WithNumBigStepLevels(numBigSteps),
 		),
 		setup.WithStateManagerOpts(
 			stateprovider.WithLayerZeroHeights(heights, numBigSteps),
