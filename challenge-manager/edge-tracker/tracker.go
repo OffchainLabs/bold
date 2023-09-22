@@ -386,7 +386,11 @@ func (et *Tracker) shouldDespawn(ctx context.Context) bool {
 		srvlog.Error("Could not check if has confirmable ancestor", fields)
 		return false
 	}
-	return hasConfirmableAncestor
+	if hasConfirmableAncestor {
+		srvlog.Info("Edge has confirmable ancestor - challenge manager will stop tracking it", fields)
+		return true
+	}
+	return false
 }
 
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
