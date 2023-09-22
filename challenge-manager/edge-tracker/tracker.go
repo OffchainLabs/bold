@@ -159,7 +159,7 @@ func New(
 		o(tr)
 	}
 	fsm, err := newEdgeTrackerFsm(
-		edgeStarted,
+		EdgeStarted,
 		tr.fsmOpts...,
 	)
 	if err != nil {
@@ -175,6 +175,18 @@ func (et *Tracker) TopLevelClaimEndBatchCount() uint64 {
 
 func (et *Tracker) StartBlockHeight() uint64 {
 	return et.heightConfig.StartBlockHeight
+}
+
+func (et *Tracker) EdgeId() protocol.EdgeId {
+	return et.edge.Id()
+}
+
+func (et *Tracker) Watcher() ConfirmationMetadataChecker {
+	return et.chainWatcher
+}
+
+func (et *Tracker) ChallengeManager() ChallengeTracker {
+	return et.challengeManager
 }
 
 func (et *Tracker) Spawn(ctx context.Context) {
@@ -217,7 +229,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	current := et.fsm.Current()
 	switch current.State {
 	// Start state.
-	case edgeStarted:
+	case EdgeStarted:
 		canOsp, err := canOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
@@ -257,7 +269,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		return et.fsm.Do(edgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
-	case edgeAtOneStepProof:
+	case EdgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
 			if !strings.Contains(err.Error(), "Invalid inclusion proof") {
 				fields["err"] = err
@@ -267,7 +279,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
-	case edgeAddingSubchallengeLeaf:
+	case EdgeAddingSubchallengeLeaf:
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
@@ -276,7 +288,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		layerZeroLeafCounter.Inc(1)
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
-	case edgeBisecting:
+	case EdgeBisecting:
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -324,7 +336,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		go firstTracker.Spawn(ctx)
 		go secondTracker.Spawn(ctx)
 		return et.fsm.Do(edgeAwaitConfirmation{})
-	case edgeConfirming:
+	case EdgeConfirming:
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -335,7 +347,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeAwaitConfirmation{})
 		}
 		return et.fsm.Do(edgeConfirm{})
-	case edgeConfirmed:
+	case EdgeConfirmed:
 		srvlog.Info("Edge reached confirmed state", fields)
 		return et.fsm.Do(edgeConfirm{})
 	default:
@@ -347,7 +359,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 // This is true if the edge's FSM state is the confirmed state or if
 // the edge has a confirmable ancestor by time.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
-	if et.fsm.Current().State == edgeConfirmed {
+	if et.fsm.Current().State == EdgeConfirmed {
 		return true
 	}
 	fields := et.uniqueTrackerLogFields()
@@ -516,7 +528,7 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 
 // Determines the bisection point from parentHeight to toHeight and returns a history
 // commitment with a prefix proof for the action based on the challenge type.
-func (et *Tracker) determineBisectionHistoryWithProof(
+func (et *Tracker) DetermineBisectionHistoryWithProof(
 	ctx context.Context,
 ) (commitments.History, []byte, error) {
 	startHeight, _ := et.edge.StartCommitment()
@@ -605,7 +617,7 @@ func (et *Tracker) determineBisectionHistoryWithProof(
 }
 
 func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.SpecEdge, error) {
-	historyCommit, proof, err := et.determineBisectionHistoryWithProof(ctx)
+	historyCommit, proof, err := et.DetermineBisectionHistoryWithProof(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
