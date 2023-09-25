@@ -703,7 +703,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	}
 	prevId, err := assertion.PrevId(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed at prev id")
 	}
 	parentAssertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, prevId)
 	if err != nil {
@@ -711,7 +711,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	}
 	levelZeroBlockHeight, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed at layer zero getter")
 	}
 	if !levelZeroBlockHeight.IsUint64() {
 		return nil, errors.New("level zero block height not a uint64")
@@ -750,7 +750,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		endCommit.Merkle,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed at calc edge id")
 	}
 	someLevelZeroEdge, err := cm.GetEdge(ctx, edgeId)
 	if err == nil && !someLevelZeroEdge.IsNone() {
@@ -764,8 +764,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		PrefixProof:    startEndPrefixProof,
 		Proof:          blockEdgeProof,
 	}
-	fmt.Printf("Args %+v\n", args)
-	_, err = transact(ctx, cm.backend, func() (*types.Transaction, error) {
+	receipt, err := transact(ctx, cm.backend, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			args,
@@ -774,12 +773,28 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create layer zero edge: %w", err)
 	}
-	someLevelZeroEdge, err = cm.GetEdge(ctx, edgeId)
+	if len(receipt.Logs) == 0 {
+		return nil, errors.New("no logs observed from assertion creation")
+	}
+	var edgeAdded *challengeV2gen.EdgeChallengeManagerEdgeAdded
+	var found bool
+	for _, log := range receipt.Logs {
+		creationEvent, err := cm.filterer.ParseEdgeAdded(*log)
+		if err == nil {
+			edgeAdded = creationEvent
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, errors.New("could not find edge added event in logs")
+	}
+	someLevelZeroEdge, err = cm.GetEdge(ctx, protocol.EdgeId{Hash: edgeAdded.EdgeId})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed at get edge")
 	}
 	if someLevelZeroEdge.IsNone() {
-		return nil, fmt.Errorf("edge with id %#x was not found onchain", edgeId)
+		return nil, fmt.Errorf("edge with id %#x was not found onchain", edgeAdded.EdgeId)
 	}
 	return &honestEdge{someLevelZeroEdge.Unwrap()}, nil
 }

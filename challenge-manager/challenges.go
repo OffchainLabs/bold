@@ -135,6 +135,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	fmt.Printf("Last commit end leaf %#x, but after state hash %#x with state=%+v\n", endCommit.LastLeaf, afterStateHash, goState)
 	edge, err := manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
 	if err != nil {
+		fmt.Printf("Got error posting block chal level zero edge %v\n", err)
 		return nil, nil, err
 	}
 	return edge, creationInfo, nil
