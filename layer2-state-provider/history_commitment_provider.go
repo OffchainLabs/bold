@@ -264,7 +264,6 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
-
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	var highCommitmentNumLeaves uint64
 	if req.UpToHeight.IsNone() {
@@ -300,6 +299,29 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	)
 	if err != nil {
 		return nil, err
+	}
+	bigCommit, err := commitments.New(prefixLeaves[:highCommitmentNumLeaves])
+	if err != nil {
+		return nil, err
+	}
+
+	prefixCommit, err := commitments.New(prefixLeaves[:lowCommitmentNumLeaves])
+	if err != nil {
+		return nil, err
+	}
+	_ = bigCommit
+	_ = prefixCommit
+	if lowCommitmentNumLeaves != 1 {
+		if err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
+			PreRoot:      prefixCommit.Merkle,
+			PreSize:      lowCommitmentNumLeaves,
+			PostRoot:     bigCommit.Merkle,
+			PostSize:     highCommitmentNumLeaves,
+			PreExpansion: prefixExpansion,
+			PrefixProof:  prefixProof,
+		}); err != nil {
+			return nil, fmt.Errorf("could not verify prefix proof locally: %w", err)
+		}
 	}
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, lowCommitmentNumLeaves)
 	onlyProof := prefixProof[numRead:]
