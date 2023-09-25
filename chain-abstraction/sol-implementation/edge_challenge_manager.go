@@ -756,17 +756,19 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err == nil && !someLevelZeroEdge.IsNone() {
 		return &honestEdge{someLevelZeroEdge.Unwrap()}, nil
 	}
+	args := challengeV2gen.CreateEdgeArgs{
+		Level:          protocol.NewBlockChallengeLevel().Big(),
+		EndHistoryRoot: endCommit.Merkle,
+		EndHeight:      big.NewInt(int64(endCommit.Height)),
+		ClaimId:        assertionCreation.AssertionHash,
+		PrefixProof:    startEndPrefixProof,
+		Proof:          blockEdgeProof,
+	}
+	fmt.Printf("Args %+v\n", args)
 	_, err = transact(ctx, cm.backend, func() (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
-			challengeV2gen.CreateEdgeArgs{
-				Level:          protocol.NewBlockChallengeLevel().Big(),
-				EndHistoryRoot: endCommit.Merkle,
-				EndHeight:      big.NewInt(int64(endCommit.Height)),
-				ClaimId:        assertionCreation.AssertionHash,
-				PrefixProof:    startEndPrefixProof,
-				Proof:          blockEdgeProof,
-			},
+			args,
 		)
 	})
 	if err != nil {
