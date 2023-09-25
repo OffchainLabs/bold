@@ -126,7 +126,6 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	var fromMessageNumber Height
 	if len(validatedHeights) == 0 {
 		fromMessageNumber = req.FromHeight
-		fmt.Printf("From message %d, up to height %v, batch %d\n", fromMessageNumber, req.UpToHeight, req.Batch)
 		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), req.UpToHeight, req.Batch)
 		if hashesErr != nil {
 			return nil, hashesErr
@@ -275,7 +274,6 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		}
 		highCommitmentNumLeaves = uint64(upTo) - uint64(req.FromHeight) + 1
 	}
-	fmt.Printf("Low commitment leaves %d, high commitment leaves %d\n", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 
 	// Validate we are within bounds of the leaves slice.
 	if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
@@ -309,22 +307,18 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
-	_ = bigCommit
-	_ = prefixCommit
-	if lowCommitmentNumLeaves != 1 {
-		if err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-			PreRoot:      prefixCommit.Merkle,
-			PreSize:      lowCommitmentNumLeaves,
-			PostRoot:     bigCommit.Merkle,
-			PostSize:     highCommitmentNumLeaves,
-			PreExpansion: prefixExpansion,
-			PrefixProof:  prefixProof,
-		}); err != nil {
-			return nil, fmt.Errorf("could not verify prefix proof locally: %w", err)
-		}
-	}
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, lowCommitmentNumLeaves)
 	onlyProof := prefixProof[numRead:]
+	if err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
+		PreRoot:      prefixCommit.Merkle,
+		PreSize:      lowCommitmentNumLeaves,
+		PostRoot:     bigCommit.Merkle,
+		PostSize:     highCommitmentNumLeaves,
+		PreExpansion: prefixExpansion,
+		PrefixProof:  onlyProof,
+	}); err != nil {
+		return nil, fmt.Errorf("could not verify prefix proof locally: %w", err)
+	}
 	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
 }
 

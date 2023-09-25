@@ -545,8 +545,9 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		historyCommit, commitErr := et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				WasmModuleRoot: et.wasmModuleRoot,
+				// TODO: Make this +1 below less error prone...weird that we had to add it.
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount + 1),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
 				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.StartBlockHeight + bisectTo)),
@@ -559,7 +560,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount + 1),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
 				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.StartBlockHeight) + l2stateprovider.Height(endHeight)),
