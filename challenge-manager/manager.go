@@ -96,6 +96,18 @@ func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
 	}
 }
 
+func WithAssertionPostingInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionPostingInterval = d
+	}
+}
+
+func WithAssertionScanningInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionScanningInterval = d
+	}
+}
+
 // WithMode specifies the mode of the challenge manager.
 func WithMode(m types.Mode) Opt {
 	return func(val *Manager) {

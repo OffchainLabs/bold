@@ -113,6 +113,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		FromHeight:                  l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
 		UpToHeight:                  option.Some(l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch + layerZeroHeights.BlockChallengeHeight)),
 	}
+	fmt.Printf("In CHALLENGES.go From message %d, up to height %d+%d, batch %d\n", req.FromHeight, req.FromHeight, l2stateprovider.Height(layerZeroHeights.BlockChallengeHeight), creationInfo.InboxMaxCount.Uint64())
 	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		req,

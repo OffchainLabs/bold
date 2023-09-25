@@ -95,6 +95,26 @@ func (s *Scanner) Start(ctx context.Context) {
 		srvlog.Error("Could not get rollup user logic filterer", log.Ctx{"err": err})
 		return
 	}
+	latestBlock, err := s.backend.HeaderByNumber(ctx, nil)
+	if err != nil {
+		srvlog.Error("Could not get header by number", log.Ctx{"err": err})
+		return // TODO: NOT a good solution, needs to retry.
+	}
+	if !latestBlock.Number.IsUint64() {
+		srvlog.Error("Latest block number was not a uint64")
+		return
+	}
+	filterOpts := &bind.FilterOpts{
+		Start:   fromBlock,
+		End:     nil,
+		Context: ctx,
+	}
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+		return true, s.checkForAssertionAdded(ctx, filterer, filterOpts)
+	})
+	if err != nil {
+		panic(err)
+	}
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 	for {
@@ -169,12 +189,18 @@ func (s *Scanner) ProcessAssertionCreation(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
 ) error {
-	srvlog.Info("Processed assertion creation event", log.Ctx{"validatorName": s.validatorName})
-	s.assertionsProcessedCount++
+	if assertionHash.Hash == (common.Hash{}) {
+		return nil // Assertions cannot have a zero hash.
+	}
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
+	if creationInfo.ParentAssertionHash == (common.Hash{}) {
+		return nil // Skip processing genesis.
+	}
+	srvlog.Info("Processed assertion creation event", log.Ctx{"validatorName": s.validatorName})
+	s.assertionsProcessedCount++
 	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
 		return err

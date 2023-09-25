@@ -126,6 +126,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	var fromMessageNumber Height
 	if len(validatedHeights) == 0 {
 		fromMessageNumber = req.FromHeight
+		fmt.Printf("From message %d, up to height %v, batch %d\n", fromMessageNumber, req.UpToHeight, req.Batch)
 		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(ctx, Height(fromMessageNumber), req.UpToHeight, req.Batch)
 		if hashesErr != nil {
 			return nil, hashesErr
@@ -264,13 +265,27 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, err
 	}
 
-	// The low commitment height.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
-	highCommitmentNumLeaves := uint64(req.UpToHeight.Unwrap() + 1)
+	var highCommitmentNumLeaves uint64
+	if req.UpToHeight.IsNone() {
+		highCommitmentNumLeaves = uint64(len(prefixLeaves))
+	} else {
+		upTo := req.UpToHeight.Unwrap()
+		if upTo < req.FromHeight {
+			return nil, fmt.Errorf("invalid range: end %d was < start %d", upTo, req.FromHeight)
+		}
+		highCommitmentNumLeaves = uint64(upTo) - uint64(req.FromHeight) + 1
+	}
+	fmt.Printf("Low commitment leaves %d, high commitment leaves %d\n", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 
 	// Validate we are within bounds of the leaves slice.
 	if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
 		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(prefixLeaves))
+	}
+
+	// Validate low vs high commitment.
+	if lowCommitmentNumLeaves > highCommitmentNumLeaves {
+		return nil, fmt.Errorf("low prefix size %d was greater than high prefix size %d", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 	}
 
 	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:lowCommitmentNumLeaves])
