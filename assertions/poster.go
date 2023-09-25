@@ -19,14 +19,14 @@ import (
 type Poster struct {
 	validatorName string
 	chain         protocol.Protocol
-	stateManager  l2stateprovider.Provider
+	stateManager  l2stateprovider.ExecutionProvider
 	postInterval  time.Duration
 }
 
 // NewPoster creates a poster from required dependencies.
 func NewPoster(
 	chain protocol.Protocol,
-	stateManager l2stateprovider.Provider,
+	stateManager l2stateprovider.ExecutionProvider,
 	validatorName string,
 	postInterval time.Duration,
 ) *Poster {
