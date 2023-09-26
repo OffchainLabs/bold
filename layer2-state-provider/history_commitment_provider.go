@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
@@ -178,48 +179,87 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	return hashes, nil
 }
 
+// Create a cache map and a read-write mutex for thread-safe access
+var localCommitCache = make(map[string]commitments.History)
+var cacheMutex = sync.RWMutex{}
+
+// Helper function to generate cache key
+func generateCacheKey(metadata *HistoryCommitmentRequest, fromHeight, upToHeight Height) string {
+	return fmt.Sprintf("%s:%d:%d:%d", metadata.WasmModuleRoot, metadata.Batch, fromHeight, upToHeight)
+}
+
 // AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
 // history commitment for a type of edge under a specified assertion challenge. It returns an agreement struct
 // which informs the caller whether (a) we agree with the start commitment, and whether (b) the edge is honest, meaning
 // that we also agree with the end commitment.
+//
+// The function uses an in-memory cache to store and retrieve history commitments based on the provided parameters.
+// This caching mechanism aims to reduce the computational load by avoiding redundant calculations for the same
+// commitments. The cache is thread-safe, utilizing read-write locks for concurrent access.
 func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	challengeLevel protocol.ChallengeLevel,
 	historyCommitMetadata *HistoryCommitmentRequest,
 	commit History,
 ) (bool, error) {
-	var localCommit commitments.History
-	var err error
+	// Decide fromHeight based on challenge level
+	var fromHeight Height
 	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
-		localCommit, err = p.HistoryCommitment(
-			ctx,
-			&HistoryCommitmentRequest{
-				WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
-				Batch:                       historyCommitMetadata.Batch,
-				UpperChallengeOriginHeights: []Height{},
-				FromHeight:                  historyCommitMetadata.FromHeight,
-				UpToHeight:                  option.Some[Height](historyCommitMetadata.FromHeight + Height(commit.Height)),
-			},
-		)
-		if err != nil {
-			return false, err
-		}
+		fromHeight = historyCommitMetadata.FromHeight
 	default:
-		localCommit, err = p.HistoryCommitment(
-			ctx,
-			&HistoryCommitmentRequest{
-				WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
-				Batch:                       historyCommitMetadata.Batch,
-				UpperChallengeOriginHeights: historyCommitMetadata.UpperChallengeOriginHeights,
-				FromHeight:                  0,
-				UpToHeight:                  option.Some(Height(commit.Height)),
-			},
-		)
-		if err != nil {
-			return false, err
-		}
+		fromHeight = 0
 	}
+	// Generate cache key
+	cacheKey := generateCacheKey(historyCommitMetadata, fromHeight, Height(commit.Height))
+
+	// Try to read from the cache first
+	cacheMutex.RLock()
+	cachedCommit, found := localCommitCache[cacheKey]
+	cacheMutex.RUnlock()
+
+	var localCommit commitments.History
+	var err error
+	if found {
+		localCommit = cachedCommit
+	} else {
+		switch challengeLevel {
+		case protocol.NewBlockChallengeLevel():
+			localCommit, err = p.HistoryCommitment(
+				ctx,
+				&HistoryCommitmentRequest{
+					WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
+					Batch:                       historyCommitMetadata.Batch,
+					UpperChallengeOriginHeights: []Height{},
+					FromHeight:                  historyCommitMetadata.FromHeight,
+					UpToHeight:                  option.Some[Height](historyCommitMetadata.FromHeight + Height(commit.Height)),
+				},
+			)
+			if err != nil {
+				return false, err
+			}
+		default:
+			localCommit, err = p.HistoryCommitment(
+				ctx,
+				&HistoryCommitmentRequest{
+					WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
+					Batch:                       historyCommitMetadata.Batch,
+					UpperChallengeOriginHeights: historyCommitMetadata.UpperChallengeOriginHeights,
+					FromHeight:                  0,
+					UpToHeight:                  option.Some(Height(commit.Height)),
+				},
+			)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// Lock and update the cache
+		cacheMutex.Lock()
+		localCommitCache[cacheKey] = localCommit
+		cacheMutex.Unlock()
+	}
+
 	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
 }
 
