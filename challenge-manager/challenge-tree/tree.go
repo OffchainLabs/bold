@@ -32,15 +32,20 @@ type creationTime uint64
 // HonestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                         *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash         protocol.AssertionHash
-	metadataReader                MetadataReader
-	histChecker                   l2stateprovider.HistoryChecker
-	validatorName                 string
-	totalChallengeLevels          uint8
-	honestRootEdgesByLevel        *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
-	agreeWithStartCommitmentCache *lru.Cache
+	edges                  *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	mutualIds              *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash  protocol.AssertionHash
+	metadataReader         MetadataReader
+	histChecker            l2stateprovider.HistoryChecker
+	validatorName          string
+	totalChallengeLevels   uint8
+	honestRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	junkCommitmentCache    *lru.Cache
+}
+
+type commitHeightKey struct {
+	commit string
+	height uint64
 }
 
 func New(
@@ -59,9 +64,9 @@ func New(
 		histChecker:           histChecker,
 		validatorName:         validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
-		totalChallengeLevels:          numBigStepLevels + 2,
-		honestRootEdgesByLevel:        threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
-		agreeWithStartCommitmentCache: cache,
+		totalChallengeLevels:   numBigStepLevels + 2,
+		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		junkCommitmentCache:    cache,
 	}
 }
 
@@ -70,7 +75,11 @@ func New(
 func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (protocol.Agreement, error) {
 	// Check if we already agree with the start commitment of this edge.
 	startHeight, startCommit := eg.StartCommitment()
-	if _, ok := ht.agreeWithStartCommitmentCache.Get(startCommit); ok {
+	commitHeightKey := commitHeightKey{
+		commit: startCommit.String(),
+		height: uint64(startHeight),
+	}
+	if _, ok := ht.junkCommitmentCache.Get(commitHeightKey); ok {
 		return protocol.Agreement{
 			IsHonestEdge:          false,
 			AgreesWithStartCommit: false,
@@ -155,8 +164,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 
 	if !agreesWithStart {
-		// Add to cache if agreesWithStart is false
-		ht.agreeWithStartCommitmentCache.Add(startCommit, struct{}{})
+		ht.junkCommitmentCache.Add(commitHeightKey, struct{}{})
 	}
 
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
