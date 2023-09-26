@@ -12,6 +12,7 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 )
 
@@ -31,14 +32,15 @@ type creationTime uint64
 // HonestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                  *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	mutualIds              *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash  protocol.AssertionHash
-	metadataReader         MetadataReader
-	histChecker            l2stateprovider.HistoryChecker
-	validatorName          string
-	totalChallengeLevels   uint8
-	honestRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	mutualIds                     *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash         protocol.AssertionHash
+	metadataReader                MetadataReader
+	histChecker                   l2stateprovider.HistoryChecker
+	validatorName                 string
+	totalChallengeLevels          uint8
+	honestRootEdgesByLevel        *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	agreeWithStartCommitmentCache *lru.Cache
 }
 
 func New(
@@ -48,6 +50,7 @@ func New(
 	numBigStepLevels uint8,
 	validatorName string,
 ) *HonestChallengeTree {
+	cache, _ := lru.New(2048)
 	return &HonestChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
@@ -56,14 +59,24 @@ func New(
 		histChecker:           histChecker,
 		validatorName:         validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
-		totalChallengeLevels:   numBigStepLevels + 2,
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		totalChallengeLevels:          numBigStepLevels + 2,
+		honestRootEdgesByLevel:        threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		agreeWithStartCommitmentCache: cache,
 	}
 }
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
 func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (protocol.Agreement, error) {
+	// Check if we already agree with the start commitment of this edge.
+	startHeight, startCommit := eg.StartCommitment()
+	if _, ok := ht.agreeWithStartCommitmentCache.Get(startCommit); ok {
+		return protocol.Agreement{
+			IsHonestEdge:          false,
+			AgreesWithStartCommit: false,
+		}, nil
+	}
+
 	if _, ok := ht.edges.TryGet(eg.Id()); ok {
 		// Already being tracked.
 		return protocol.Agreement{}, nil
@@ -85,7 +98,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 
 	// We only track edges we fully agree with (honest edges).
-	startHeight, startCommit := eg.StartCommitment()
 	endHeight, endCommit := eg.EndCommitment()
 	heights, err := ht.metadataReader.TopLevelClaimHeights(ctx, eg.Id())
 	if err != nil {
@@ -140,6 +152,11 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	)
 	if err != nil {
 		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
+	}
+
+	if !agreesWithStart {
+		// Add to cache if agreesWithStart is false
+		ht.agreeWithStartCommitmentCache.Add(startCommit, struct{}{})
 	}
 
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
