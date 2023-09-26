@@ -12,7 +12,6 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 )
 
@@ -40,12 +39,6 @@ type HonestChallengeTree struct {
 	validatorName          string
 	totalChallengeLevels   uint8
 	honestRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
-	junkCommitmentCache    *lru.Cache
-}
-
-type commitHeightKey struct {
-	commit string
-	height uint64
 }
 
 func New(
@@ -55,7 +48,6 @@ func New(
 	numBigStepLevels uint8,
 	validatorName string,
 ) *HonestChallengeTree {
-	cache, _ := lru.New(2048)
 	return &HonestChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
@@ -66,26 +58,12 @@ func New(
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
 		totalChallengeLevels:   numBigStepLevels + 2,
 		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
-		junkCommitmentCache:    cache,
 	}
 }
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
 func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (protocol.Agreement, error) {
-	// Check if we already agree with the start commitment of this edge.
-	startHeight, startCommit := eg.StartCommitment()
-	commitHeightKey := commitHeightKey{
-		commit: startCommit.String(),
-		height: uint64(startHeight),
-	}
-	if _, ok := ht.junkCommitmentCache.Get(commitHeightKey); ok {
-		return protocol.Agreement{
-			IsHonestEdge:          false,
-			AgreesWithStartCommit: false,
-		}, nil
-	}
-
 	if _, ok := ht.edges.TryGet(eg.Id()); ok {
 		// Already being tracked.
 		return protocol.Agreement{}, nil
@@ -107,6 +85,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 
 	// We only track edges we fully agree with (honest edges).
+	startHeight, startCommit := eg.StartCommitment()
 	endHeight, endCommit := eg.EndCommitment()
 	heights, err := ht.metadataReader.TopLevelClaimHeights(ctx, eg.Id())
 	if err != nil {
@@ -161,10 +140,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	)
 	if err != nil {
 		return protocol.Agreement{}, errors.Wrapf(err, "could not check if agrees with history commit for edge %#x", eg.Id())
-	}
-
-	if !agreesWithStart {
-		ht.junkCommitmentCache.Add(commitHeightKey, struct{}{})
 	}
 
 	// If we agree with the edge, we add it to our edges mapping and if it is level zero,
