@@ -479,7 +479,7 @@ func (w *Watcher) processEdgeAddedEvent(
 		return errors.Wrap(err, "could not add edge to challenge tree")
 	}
 
-	if !agreement.AgreesWithStartCommit {
+	if !agreement.AgreesWithStartCommit && key.height != 0 {
 		// Cache miss: this startCommitment and height combination is determined to be junk, adding to cache for future short-circuit
 		w.junkCommitmentCache.Add(key, struct{}{})
 	}
