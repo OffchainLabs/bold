@@ -175,6 +175,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Collected %d hashes at msg %d, num desired %d, start index %d, step size %d\n", len(hashes), fromMessageNumber, numHashes, machineStartIndex, stepSize)
 	return hashes, nil
 }
 
@@ -525,6 +526,7 @@ func (p *HistoryCommitmentProvider) computeStepSize(challengeLevel uint64) (Step
 	for _, h := range levels {
 		total *= uint64(h)
 	}
+	fmt.Printf("Total levels %d, total step size %d\n", len(levels), total)
 	return StepSize(total), nil
 }
 

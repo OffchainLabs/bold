@@ -20,6 +20,7 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -199,7 +200,12 @@ func (s *Scanner) ProcessAssertionCreation(
 	if creationInfo.ParentAssertionHash == (common.Hash{}) {
 		return nil // Skip processing genesis.
 	}
-	srvlog.Info("Processed assertion creation event", log.Ctx{"validatorName": s.validatorName})
+	goGs := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState)
+	srvlog.Info("Processed assertion creation event", log.Ctx{
+		"validatorName":       s.validatorName,
+		"globalState":         goGs,
+		"machineFinishedHash": crypto.Keccak256Hash([]byte("Machine finished:"), goGs.Hash().Bytes()),
+	})
 	s.assertionsProcessedCount++
 	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {

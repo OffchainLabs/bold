@@ -700,7 +700,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			},
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not compute end history commitment")
 		}
 		startEndPrefixProof, err = et.stateProvider.PrefixProof(
 			ctx,
@@ -714,7 +714,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			l2stateprovider.Height(0),
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not compute prefix proof")
 		}
 		startHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
@@ -752,6 +752,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 				UpToHeight:                  option.Some(l2stateprovider.Height(fromBlock)),
 			},
 		)
+		fmt.Printf("Parent commit: Start %d, %#x, end %d, %#x => SUBCHAL start %d, %#x, end %d, %#x\n", startParentCommitment.Height, endParentCommitment.FirstLeaf, endParentCommitment.Height, endParentCommitment.LastLeaf, startHistory.Height, endHistory.FirstLeaf, endHistory.Height, endHistory.LastLeaf)
 		if err != nil {
 			return err
 		}
