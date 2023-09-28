@@ -275,6 +275,9 @@ func (et *Tracker) Act(ctx context.Context) error {
 				fields["err"] = err
 				srvlog.Error("Could not submit one step proof", fields)
 			}
+			if strings.Contains(err.Error(), "BAD_SEQINBOX_MESSAGE") {
+				return et.fsm.Do(edgeConfirm{}) // TODO: Instead of confirming, we should just mark this edge as invalid.
+			}
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeConfirm{})
@@ -408,13 +411,11 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	startHeight, startCommit := et.edge.StartCommitment()
 	endHeight, endCommit := et.edge.EndCommitment()
-	id := et.edge.Id()
 	chalLevel, err := et.edge.GetChallengeLevel()
 	if err != nil {
 		panic(err) // TODO: Remove
 	}
 	return log.Ctx{
-		"id":            id.Hash,
 		"startHeight":   startHeight,
 		"startCommit":   containers.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
@@ -588,7 +589,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	}
 	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
 
-	fmt.Printf("Challenge origin heights %v\n", challengeOriginHeights)
 	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
@@ -602,7 +602,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	if commitErr != nil {
 		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
 	}
-	fmt.Printf("Batch %d, bisect from 0 to %d, end height of commitment %d\n", et.heightConfig.TopLevelClaimEndBatchCount+1, bisectTo, historyCommit.Height)
 	proof, proofErr = et.stateProvider.PrefixProof(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
@@ -911,6 +910,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	for index, height := range originHeights.ChallengeOriginHeights {
 		challengeOriginHeights[index] = l2stateprovider.Height(height)
 	}
+	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,

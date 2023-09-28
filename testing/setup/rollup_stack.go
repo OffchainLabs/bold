@@ -15,6 +15,7 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
+	"github.com/OffchainLabs/bold/solgen/go/ospgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
@@ -555,12 +556,29 @@ func deployChallengeFactory(
 	auth *bind.TransactOpts,
 	backend Backend,
 ) (common.Address, common.Address, error) {
-	ospEntryAddr, tx, _, err := mocksgen.DeploySimpleOneStepProofEntry(auth, backend)
-	err = challenge_testing.TxSucceeded(ctx, tx, ospEntryAddr, backend, err)
+	osp0, _, _, err := ospgen.DeployOneStepProver0(auth, backend)
 	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+	ospMem, _, _, err := ospgen.DeployOneStepProverMemory(auth, backend)
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+	ospMath, _, _, err := ospgen.DeployOneStepProverMath(auth, backend)
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+	ospHostIo, _, _, err := ospgen.DeployOneStepProverHostIo(auth, backend)
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+	ospEntry, tx, _, err := ospgen.DeployOneStepProofEntry(auth, backend, osp0, ospMem, ospMath, ospHostIo)
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
 		return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
 	}
-
 	edgeChallengeManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
 		auth,
 		backend,
@@ -572,7 +590,7 @@ func deployChallengeFactory(
 	if err != nil {
 		return common.Address{}, common.Address{}, errors.Wrap(err, "challengeV2gen.DeployEdgeChallengeManager")
 	}
-	return ospEntryAddr, edgeChallengeManagerAddr, nil
+	return ospEntry, edgeChallengeManagerAddr, nil
 }
 
 func deployRollupCreator(

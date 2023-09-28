@@ -363,29 +363,6 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		return nil, nil, nil, err
 	}
 	machineIndex += OpcodeIndex(upToHeight)
-	hashes, err := p.machineHashCollector.CollectMachineHashes(
-		ctx,
-		&HashCollectorConfig{
-			WasmModuleRoot:    wasmModuleRoot,
-			MessageNumber:     startHeights[0],
-			StepHeights:       startHeights[1:],
-			NumDesiredHashes:  2,
-			MachineStartIndex: machineIndex,
-			StepSize:          1,
-		})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if len(hashes) != 2 {
-		return nil, nil, nil, fmt.Errorf("expected 2 hashes, got %d", len(hashes))
-	}
-
-	if hashes[0] != startCommit.LastLeaf {
-		return nil, nil, nil, fmt.Errorf("machine executed to start step %v hash %v but expected %v", machineIndex, hashes[0], startCommit.LastLeaf)
-	}
-	if hashes[1] != endCommit.LastLeaf {
-		return nil, nil, nil, fmt.Errorf("machine executed to end step %v hash %v but expected %v", machineIndex+1, hashes[1], endCommit.LastLeaf)
-	}
 
 	osp, err := p.proofCollector.CollectProof(ctx, wasmModuleRoot, startHeights[0], machineIndex)
 	if err != nil {

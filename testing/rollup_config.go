@@ -51,7 +51,7 @@ func GenerateRollupConfig(
 	if prod {
 		confirmPeriod = 45818
 	} else {
-		confirmPeriod = 20000
+		confirmPeriod = 1500
 	}
 
 	var gracePeriod uint64
