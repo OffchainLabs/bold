@@ -158,7 +158,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
-	hashes, err := p.machineHashCollector.CollectMachineHashes(
+	return p.machineHashCollector.CollectMachineHashes(
 		ctx,
 		&HashCollectorConfig{
 			WasmModuleRoot: req.WasmModuleRoot,
@@ -172,11 +172,6 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 			StepSize:          stepSize,
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Collected %d hashes at msg %d, num desired %d, start index %d, step size %d\n", len(hashes), fromMessageNumber, numHashes, machineStartIndex, stepSize)
-	return hashes, nil
 }
 
 // AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end
@@ -526,7 +521,6 @@ func (p *HistoryCommitmentProvider) computeStepSize(challengeLevel uint64) (Step
 	for _, h := range levels {
 		total *= uint64(h)
 	}
-	fmt.Printf("Total levels %d, total step size %d\n", len(levels), total)
 	return StepSize(total), nil
 }
 

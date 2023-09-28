@@ -542,6 +542,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		return commitments.History{}, nil, err
 	}
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
+		fmt.Printf("Bisecting for block chal batch %d\n", et.heightConfig.TopLevelClaimEndBatchCount+1)
 		historyCommit, commitErr := et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
@@ -585,12 +586,28 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	for index, height := range originHeights.ChallengeOriginHeights {
 		challengeOriginHeights[index] = l2stateprovider.Height(height)
 	}
+	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
 
+	fmt.Printf("Challenge origin heights %v\n", challengeOriginHeights)
+	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
+		ctx,
+		&l2stateprovider.HistoryCommitmentRequest{
+			WasmModuleRoot:              et.wasmModuleRoot,
+			Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount + 1),
+			UpperChallengeOriginHeights: challengeOriginHeights,
+			FromHeight:                  l2stateprovider.Height(0),
+			UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
+		},
+	)
+	if commitErr != nil {
+		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
+	}
+	fmt.Printf("Batch %d, bisect from 0 to %d, end height of commitment %d\n", et.heightConfig.TopLevelClaimEndBatchCount+1, bisectTo, historyCommit.Height)
 	proof, proofErr = et.stateProvider.PrefixProof(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              et.wasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
+			Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount + 1),
 			UpperChallengeOriginHeights: challengeOriginHeights,
 			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
@@ -599,20 +616,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	)
 	if proofErr != nil {
 		return commitments.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
-	}
-
-	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
-		ctx,
-		&l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.wasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(et.heightConfig.TopLevelClaimEndBatchCount),
-			UpperChallengeOriginHeights: challengeOriginHeights,
-			FromHeight:                  l2stateprovider.Height(0),
-			UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
-		},
-	)
-	if commitErr != nil {
-		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
 	}
 	return historyCommit, proof, nil
 }
@@ -762,6 +765,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			heights = append(heights, l2stateprovider.Height(h))
 		}
 		heights = append(heights, l2stateprovider.Height(startHeight))
+		heights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
@@ -829,6 +833,14 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return err
 		}
 	}
+	fields["firstLeaf"] = containers.Trunc(endHistory.FirstLeaf.Bytes())
+	fields["lastLeaf"] = containers.Trunc(endHistory.LastLeaf.Bytes())
+	fields["parentFirstLeaf"] = containers.Trunc(endParentCommitment.FirstLeaf.Bytes())
+	fields["parentLastLeaf"] = containers.Trunc(endParentCommitment.LastLeaf.Bytes())
+	fields["parentStartHeight"] = startParentCommitment.Height
+	fields["parentEndHeight"] = endParentCommitment.Height
+	srvlog.Info("Creating subchallenge edge", fields)
+
 	manager, err := et.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return err
@@ -845,8 +857,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fields["firstLeaf"] = containers.Trunc(startHistory.FirstLeaf.Bytes())
-	fields["startCommitment"] = containers.Trunc(startHistory.Merkle.Bytes())
 	addedLeafChallengeLevel, err := addedLeaf.GetChallengeLevel()
 	if err != nil {
 		return err
