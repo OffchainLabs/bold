@@ -541,11 +541,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         });
     }
 
-    function getFirstChildCreationBlock(bytes32 assertionHash) external view returns (uint256) {
+    function getFirstChildCreationBlock(bytes32 assertionHash) external view returns (uint64) {
         return getAssertionStorage(assertionHash).firstChildBlock;
     }
 
-    function getSecondChildCreationBlock(bytes32 assertionHash) external view returns (uint256) {
+    function getSecondChildCreationBlock(bytes32 assertionHash) external view returns (uint64) {
         return getAssertionStorage(assertionHash).secondChildBlock;
     }
 

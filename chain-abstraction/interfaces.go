@@ -122,8 +122,8 @@ func NewBlockChallengeLevel() ChallengeLevel {
 	return 0
 }
 
-func (et ChallengeLevel) Big() *big.Int {
-	return new(big.Int).SetUint64(uint64(et))
+func (et ChallengeLevel) Uint64() uint64 {
+	return uint64(et)
 }
 func (et ChallengeLevel) IsBlockChallengeLevel() bool {
 	return et == 0

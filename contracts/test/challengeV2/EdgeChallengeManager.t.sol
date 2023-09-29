@@ -62,7 +62,7 @@ contract EdgeChallengeManagerTest is Test {
     address excessStakeReceiver = address(77);
     address nobody = address(78);
 
-    uint256 challengePeriodBlock = 1000;
+    uint64 challengePeriodBlock = 1000;
     ExecutionStateData empty;
 
     function appendRandomStates(bytes32[] memory currentStates, uint256 numStates)

@@ -63,7 +63,7 @@ contract EdgeChallengeManagerLibAccess {
         ExecutionContext memory execCtx,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof,
-        uint256 numBigStepLevel
+        uint64 numBigStepLevel
     ) public {
         store.confirmEdgeByOneStepProof(
             edgeId,
@@ -81,9 +81,9 @@ contract EdgeChallengeManagerLibAccess {
         AssertionReferenceData calldata ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        uint256 challengePeriodBlocks,
+        uint64 challengePeriodBlocks,
         uint256 stakeAmount,
-        uint256 numBigStepLevel
+        uint64 numBigStepLevel
     ) public returns (EdgeAddedData memory) {
         return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel);
     }
@@ -93,7 +93,7 @@ contract EdgeChallengeManagerLibTest is Test {
     using ChallengeEdgeLib for ChallengeEdge;
     using EdgeChallengeManagerLib for EdgeStore;
 
-    uint256 challengePeriodBlocks = 7;
+    uint64 challengePeriodBlocks = 7;
     uint256 stakeAmount = 13;
 
     EdgeStore store;
@@ -1204,11 +1204,11 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function claimWithMixedAncestors(
-        uint256 challengePeriodSec,
+        uint64 challengePeriodSec,
         uint256 timeAfterParent1,
         uint256 timeAfterParent2,
         uint256 timeAfterZeroLayer,
-        uint256 claimedAssertionBlocks
+        uint64 claimedAssertionBlocks
     ) internal {
         BArgs memory pc = addParentsAndChildren(2, 5, 8);
         bytes memory revertArg;

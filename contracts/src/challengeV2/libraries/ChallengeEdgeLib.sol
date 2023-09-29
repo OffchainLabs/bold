@@ -160,7 +160,7 @@ library ChallengeEdgeLib {
     ///         The difference between rivals is that they have a different endHistoryRoot, so that information
     ///         is not included in this hash.
     function mutualIdComponent(
-        uint256 level,
+        uint64 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -183,7 +183,7 @@ library ChallengeEdgeLib {
 
     /// @notice The id of an edge. Edges are uniquely identified by their id, and commit to the same information
     function idComponent(
-        uint256 level,
+        uint64 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -272,7 +272,7 @@ library ChallengeEdgeLib {
     }
 
     /// @notice Returns the edge type for a given level, given the total number of big step levels
-    function levelToType(uint256 level, uint256 numBigStepLevels) internal pure returns (EdgeType eType) {
+    function levelToType(uint64 level, uint64 numBigStepLevels) internal pure returns (EdgeType eType) {
         if (level == 0) {
             return EdgeType.Block;
         } else if (level <= numBigStepLevels) {

@@ -26,7 +26,7 @@ func (e *specEdge) Id() protocol.EdgeId {
 }
 
 func (e *specEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
-	return protocol.ChallengeLevel(e.inner.Level.Uint64()), nil
+	return protocol.ChallengeLevel(e.inner.Level), nil
 }
 
 // GetReversedChallengeLevel obtains the challenge level for the edge. The lowest level starts at 0, and goes all way
@@ -34,7 +34,7 @@ func (e *specEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
 // is to make our code a lot more readable. If we flipped the order, we would need to do
 // a lot of backwards for loops instead of simple range loops over slices.
 func (e *specEdge) GetReversedChallengeLevel() (protocol.ChallengeLevel, error) {
-	return protocol.ChallengeLevel(e.totalChallengeLevels - 1 - e.inner.Level.Uint64()), nil
+	return protocol.ChallengeLevel(e.totalChallengeLevels - 1 - e.inner.Level), nil
 }
 
 func (e *specEdge) GetTotalChallengeLevels(ctx context.Context) (uint64, error) {
@@ -66,10 +66,7 @@ func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if !timer.IsInt64() {
-		return 0, errors.New("time unrivaled result was not a uint64")
-	}
-	return timer.Uint64(), nil
+	return timer, nil
 }
 
 func (e *specEdge) HasRival(ctx context.Context) (bool, error) {
@@ -86,10 +83,7 @@ func (e *specEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
 
 // CreatedAtBlock the  block number the edge was created at.
 func (e *specEdge) CreatedAtBlock() (uint64, error) {
-	if !e.inner.CreatedAtBlock.IsUint64() {
-		return 0, errors.New("edge created at block was not a uint64")
-	}
-	return e.inner.CreatedAtBlock.Uint64(), nil
+	return e.inner.CreatedAtBlock, nil
 }
 
 // HasChildren checks if the edge has children.
@@ -443,13 +437,10 @@ func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) 
 	if err != nil {
 		return 0, err
 	}
-	if !n.IsUint64() {
-		return 0, errors.New("num big step levels was not a uint64")
-	}
-	if n.Uint64() > 255 {
+	if n > 255 {
 		return 0, errors.New("number of big steps was greater than 255")
 	}
-	return uint8(n.Uint64()), nil
+	return uint8(n), nil
 }
 
 func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
@@ -471,10 +462,7 @@ func (cm *specChallengeManager) ChallengePeriodBlocks(
 	if err != nil {
 		return 0, err
 	}
-	if !res.IsUint64() {
-		return 0, errors.New("challenge period blocks response was not a uint64")
-	}
-	return res.Uint64(), nil
+	return res, nil
 }
 
 // GetEdge gets an edge by its hash.
@@ -519,7 +507,7 @@ func (cm *specChallengeManager) GetEdge(
 		startHeight:          edge.StartHeight.Uint64(),
 		endHeight:            edge.EndHeight.Uint64(),
 		miniStaker:           miniStaker,
-		totalChallengeLevels: numbigsteplevel.Uint64() + 2,
+		totalChallengeLevels: numbigsteplevel + 2,
 	})), nil
 }
 
@@ -535,7 +523,7 @@ func (cm *specChallengeManager) CalculateEdgeId(
 ) (protocol.EdgeId, error) {
 	id, err := cm.caller.CalculateEdgeId(
 		&bind.CallOpts{Context: ctx},
-		challengeLevel.Big(),
+		challengeLevel.Uint64(),
 		originId,
 		big.NewInt(int64(startHeight)),
 		startHistoryRoot,
@@ -760,7 +748,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				Level:          protocol.NewBlockChallengeLevel().Big(),
+				Level:          protocol.NewBlockChallengeLevel().Uint64(),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
 				ClaimId:        assertionCreation.AssertionHash,
@@ -856,7 +844,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				Level:          subChalTyp.Big(),
+				Level:          subChalTyp.Uint64(),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
 				ClaimId:        challengedEdge.Id().Hash,
