@@ -37,7 +37,7 @@ func (e *specEdge) GetReversedChallengeLevel() (protocol.ChallengeLevel, error) 
 	return protocol.ChallengeLevel(e.totalChallengeLevels - 1 - e.inner.Level), nil
 }
 
-func (e *specEdge) GetTotalChallengeLevels(ctx context.Context) (uint64, error) {
+func (e *specEdge) GetTotalChallengeLevels(ctx context.Context) (uint8, error) {
 	return e.totalChallengeLevels, nil
 }
 
@@ -437,9 +437,6 @@ func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) 
 	if err != nil {
 		return 0, err
 	}
-	if n > 255 {
-		return 0, errors.New("number of big steps was greater than 255")
-	}
 	return uint8(n), nil
 }
 
@@ -523,7 +520,7 @@ func (cm *specChallengeManager) CalculateEdgeId(
 ) (protocol.EdgeId, error) {
 	id, err := cm.caller.CalculateEdgeId(
 		&bind.CallOpts{Context: ctx},
-		challengeLevel.Uint64(),
+		challengeLevel.Uint8(),
 		originId,
 		big.NewInt(int64(startHeight)),
 		startHistoryRoot,
@@ -748,7 +745,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				Level:          protocol.NewBlockChallengeLevel().Uint64(),
+				Level:          protocol.NewBlockChallengeLevel().Uint8(),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
 				ClaimId:        assertionCreation.AssertionHash,
@@ -844,7 +841,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		return cm.writer.CreateLayerZeroEdge(
 			cm.txOpts,
 			challengeV2gen.CreateEdgeArgs{
-				Level:          subChalTyp.Uint64(),
+				Level:          subChalTyp.Uint8(),
 				EndHistoryRoot: endCommit.Merkle,
 				EndHeight:      big.NewInt(int64(endCommit.Height)),
 				ClaimId:        challengedEdge.Id().Hash,

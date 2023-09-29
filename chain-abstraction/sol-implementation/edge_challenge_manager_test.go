@@ -857,7 +857,7 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	totalChallengeLevels, err := honestEdge.GetTotalChallengeLevels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, uint64(challengeLevel) < totalChallengeLevels-1)
+	require.Equal(t, true, uint8(challengeLevel) < totalChallengeLevels-1)
 	require.Equal(t, true, challengeLevel > 0)
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -868,7 +868,7 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	totalChallengeLevels, err = evilEdge.GetTotalChallengeLevels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, uint64(challengeLevel) < totalChallengeLevels-1)
+	require.Equal(t, true, uint8(challengeLevel) < totalChallengeLevels-1)
 	require.Equal(t, true, challengeLevel > 0)
 
 	var bigStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
@@ -992,7 +992,7 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	totalChallengeLevels, err = honestEdge.GetTotalChallengeLevels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, uint64(challengeLevel) == totalChallengeLevels-1)
+	require.Equal(t, true, uint8(challengeLevel) == totalChallengeLevels-1)
 	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
@@ -1002,7 +1002,7 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	totalChallengeLevels, err = honestEdge.GetTotalChallengeLevels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, uint64(challengeLevel) == totalChallengeLevels-1)
+	require.Equal(t, true, uint8(challengeLevel) == totalChallengeLevels-1)
 
 	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -1016,7 +1016,7 @@ func setupOneStepProofScenario(
 	require.NoError(t, err)
 	totalChallengeLevels, err = honestEdge.GetTotalChallengeLevels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, true, uint64(challengeLevel) == totalChallengeLevels-1)
+	require.Equal(t, true, uint8(challengeLevel) == totalChallengeLevels-1)
 
 	var smallStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
 	for smallStepHeight > 1 {

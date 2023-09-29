@@ -116,14 +116,14 @@ type AssertionChain interface {
 // ChallengeLevel corresponds to the different challenge levels in the protocol.
 // 0 is for block challenges and the last level is for small step challenges.
 // Everything else is a big step challenge of level i where 0 < i < last.
-type ChallengeLevel uint64
+type ChallengeLevel uint8
 
 func NewBlockChallengeLevel() ChallengeLevel {
 	return 0
 }
 
-func (et ChallengeLevel) Uint64() uint64 {
-	return uint64(et)
+func (et ChallengeLevel) Uint8() uint8 {
+	return uint8(et)
 }
 func (et ChallengeLevel) IsBlockChallengeLevel() bool {
 	return et == 0
@@ -281,7 +281,7 @@ type ReadOnlyEdge interface {
 	// a lot of backwards for loops instead of simple range loops over slices.
 	GetReversedChallengeLevel() (ChallengeLevel, error)
 	// Total number possible challenge levels.
-	GetTotalChallengeLevels(ctx context.Context) (uint64, error)
+	GetTotalChallengeLevels(ctx context.Context) (uint8, error)
 	// The start height and history commitment for an edge.
 	StartCommitment() (Height, common.Hash)
 	// The end height and history commitment for an edge.

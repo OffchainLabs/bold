@@ -41,7 +41,7 @@ interface IEdgeChallengeManager {
         IERC20 _stakeToken,
         uint256 _stakeAmount,
         address _excessStakeReceiver,
-        uint64 _numBigStepLevel
+        uint8 _numBigStepLevel
     ) external;
 
     function challengePeriodBlocks() external view returns (uint64);
@@ -126,7 +126,7 @@ interface IEdgeChallengeManager {
     /// @param endHeight        The end height of the edge
     /// @param endHistoryRoot   The end history root of the edge
     function calculateEdgeId(
-        uint64 level,
+        uint8 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -142,7 +142,7 @@ interface IEdgeChallengeManager {
     /// @param startHistoryRoot The start history root of the edge
     /// @param endHeight        The end height of the edge
     function calculateMutualId(
-        uint64 level,
+        uint8 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -210,7 +210,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 indexed originId,
         bytes32 claimId,
         uint256 length,
-        uint64 level,
+        uint8 level,
         bool hasRival,
         bool isLayerZero
     );
@@ -289,7 +289,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     uint256 public LAYERZERO_SMALLSTEPEDGE_HEIGHT;
     /// @notice The number of big step levels configured for this challenge manager
     ///         There is 1 block level, 1 small step level and N big step levels
-    uint64 public NUM_BIGSTEP_LEVEL;
+    uint8 public NUM_BIGSTEP_LEVEL;
 
     constructor() {
         _disableInitializers();
@@ -306,7 +306,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         IERC20 _stakeToken,
         uint256 _stakeAmount,
         address _excessStakeReceiver,
-        uint64 _numBigStepLevel
+        uint8 _numBigStepLevel
     ) public initializer {
         if (address(_assertionChain) == address(0)) {
             revert EmptyAssertionChain();
@@ -343,6 +343,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
         // ensure that there is at least on of each type of level
         if (_numBigStepLevel == 0) {
+            revert ZeroBigStepLevels();
+        }
+        // ensure there's also space for the block level and the small step level
+        // in total level parameters
+        if (_numBigStepLevel > 253) {
             revert ZeroBigStepLevels();
         }
         NUM_BIGSTEP_LEVEL = _numBigStepLevel;
@@ -585,7 +590,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function calculateEdgeId(
-        uint64 level,
+        uint8 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -597,7 +602,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function calculateMutualId(
-        uint64 level,
+        uint8 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,

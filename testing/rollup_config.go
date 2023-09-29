@@ -20,7 +20,7 @@ const (
 
 type Opt func(c *rollupgen.Config)
 
-func WithNumBigStepLevels(num uint64) Opt {
+func WithNumBigStepLevels(num uint8) Opt {
 	return func(c *rollupgen.Config) {
 		c.NumBigStepLevel = num
 	}

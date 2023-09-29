@@ -241,9 +241,9 @@ func (m *MockSpecEdge) GetReversedChallengeLevel() (protocol.ChallengeLevel, err
 	return args.Get(0).(protocol.ChallengeLevel), args.Error(1)
 }
 
-func (m *MockSpecEdge) GetTotalChallengeLevels(ctx context.Context) (uint64, error) {
+func (m *MockSpecEdge) GetTotalChallengeLevels(ctx context.Context) (uint8, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(uint64), args.Get(1).(error)
+	return args.Get(0).(uint8), args.Get(1).(error)
 }
 
 func (m *MockSpecEdge) MiniStaker() option.Option[common.Address] {

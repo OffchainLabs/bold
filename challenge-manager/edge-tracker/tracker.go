@@ -941,5 +941,5 @@ func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	return end-start == 1 && uint64(challengeLevel) == totalChallengeLevels-1, nil
+	return end-start == 1 && challengeLevel.Uint8() == totalChallengeLevels-1, nil
 }

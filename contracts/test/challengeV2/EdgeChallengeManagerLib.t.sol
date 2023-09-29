@@ -63,7 +63,7 @@ contract EdgeChallengeManagerLibAccess {
         ExecutionContext memory execCtx,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof,
-        uint64 numBigStepLevel
+        uint8 numBigStepLevel
     ) public {
         store.confirmEdgeByOneStepProof(
             edgeId,
@@ -83,7 +83,7 @@ contract EdgeChallengeManagerLibAccess {
         uint256 expectedEndHeight,
         uint64 challengePeriodBlocks,
         uint256 stakeAmount,
-        uint64 numBigStepLevel
+        uint8 numBigStepLevel
     ) public returns (EdgeAddedData memory) {
         return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel);
     }
@@ -99,7 +99,7 @@ contract EdgeChallengeManagerLibTest is Test {
     EdgeStore store;
     Random rand = new Random();
 
-    uint64 constant NUM_BIGSTEP_LEVEL = 3;
+    uint8 constant NUM_BIGSTEP_LEVEL = 3;
 
     function twoNonRivals() internal returns (ChallengeEdge memory, ChallengeEdge memory) {
         bytes32 originId = rand.hash();

@@ -30,7 +30,7 @@ type Edge struct {
 	LowerChildID         EdgeId
 	UpperChildID         EdgeId
 	CreationBlock        uint64
-	TotalChallengeLevels uint64
+	TotalChallengeLevels uint8
 }
 
 func (e *Edge) Id() protocol.EdgeId {
@@ -45,7 +45,7 @@ func (e *Edge) GetReversedChallengeLevel() (protocol.ChallengeLevel, error) {
 	return protocol.ChallengeLevel(e.TotalChallengeLevels) - 1 - e.EdgeType, nil
 }
 
-func (e *Edge) GetTotalChallengeLevels(ctx context.Context) (uint64, error) {
+func (e *Edge) GetTotalChallengeLevels(ctx context.Context) (uint8, error) {
 	return e.TotalChallengeLevels, nil
 }
 
