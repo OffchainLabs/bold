@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 )
 
@@ -61,7 +62,13 @@ type ConfirmationMetadataChecker interface {
 		ctx context.Context,
 		topLevelAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
-	) (challengetree.PathTimer, challengetree.HonestAncestors, error)
+	) (challengetree.PathTimer, challengetree.HonestAncestors, []challengetree.EdgeLocalTimer, error)
+	HasConfirmableAncestor(
+		ctx context.Context,
+		topLevelAssertionHash protocol.AssertionHash,
+		ancestorLocalTimers []challengetree.EdgeLocalTimer,
+		challengePeriodBlocks uint64,
+	) (bool, error)
 }
 
 // Represents a set of honest edges being tracked in a top-level challenge and all the
@@ -89,7 +96,9 @@ type Watcher struct {
 	challenges           *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
 	backend              bind.ContractBackend
 	validatorName        string
+	numBigStepLevels     uint8
 	initialSyncCompleted atomic.Bool
+	junkCommitmentCache  *lru.Cache
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -100,16 +109,20 @@ func New(
 	histChecker l2stateprovider.HistoryChecker,
 	backend bind.ContractBackend,
 	interval time.Duration,
+	numBigStepLevels uint8,
 	validatorName string,
 ) *Watcher {
+	cache, _ := lru.New(2048)
 	return &Watcher{
-		chain:              chain,
-		edgeManager:        edgeManager,
-		pollEventsInterval: interval,
-		challenges:         threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
-		backend:            backend,
-		histChecker:        histChecker,
-		validatorName:      validatorName,
+		chain:               chain,
+		edgeManager:         edgeManager,
+		pollEventsInterval:  interval,
+		challenges:          threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
+		backend:             backend,
+		histChecker:         histChecker,
+		numBigStepLevels:    numBigStepLevels,
+		validatorName:       validatorName,
+		junkCommitmentCache: cache,
 	}
 }
 
@@ -134,31 +147,47 @@ func (w *Watcher) ComputeHonestPathTimer(
 	ctx context.Context,
 	topLevelAssertionHash protocol.AssertionHash,
 	edgeId protocol.EdgeId,
-) (challengetree.PathTimer, challengetree.HonestAncestors, error) {
+) (challengetree.PathTimer, challengetree.HonestAncestors, []challengetree.EdgeLocalTimer, error) {
 	header, err := w.backend.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	if !header.Number.IsUint64() {
-		return 0, nil, errors.New("latest block header number is not a uint64")
+		return 0, nil, nil, errors.New("latest block header number is not a uint64")
 	}
 	blockNumber := header.Number.Uint64()
 	chal, ok := w.challenges.TryGet(topLevelAssertionHash)
 	if !ok {
-		return 0, nil, fmt.Errorf(
+		return 0, nil, nil, fmt.Errorf(
 			"could not get challenge for top level assertion %#x",
 			topLevelAssertionHash,
 		)
 	}
 	response, err := chal.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNumber)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	pathTimer, err := chal.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, response.AncestorLocalTimers, blockNumber)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
-	return pathTimer, response.AncestorEdgeIds, nil
+	return pathTimer, response.AncestorEdgeIds, response.AncestorLocalTimers, nil
+}
+
+func (w *Watcher) HasConfirmableAncestor(
+	ctx context.Context,
+	topLevelAssertionHash protocol.AssertionHash,
+	ancestorLocalTimers []challengetree.EdgeLocalTimer,
+	challengePeriodBlocks uint64,
+) (bool, error) {
+	chal, ok := w.challenges.TryGet(topLevelAssertionHash)
+	if !ok {
+		return false, fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			topLevelAssertionHash,
+		)
+	}
+	return chal.honestEdgeTree.HasConfirmableAncestor(ctx, ancestorLocalTimers, challengePeriodBlocks)
 }
 
 func (w *Watcher) IsSynced() bool {
@@ -335,6 +364,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 			assertionHash,
 			w.chain,
 			w.histChecker,
+			w.numBigStepLevels,
 			w.validatorName,
 		)
 		chal = &trackedChallenge{
@@ -414,6 +444,7 @@ func (w *Watcher) processEdgeAddedEvent(
 			protocol.AssertionHash{Hash: event.OriginId},
 			w.chain,
 			w.histChecker,
+			w.numBigStepLevels,
 			w.validatorName,
 		)
 		chal = &trackedChallenge{
@@ -422,12 +453,37 @@ func (w *Watcher) processEdgeAddedEvent(
 		}
 		w.challenges.Put(assertionHash, chal)
 	}
+
+	// Create a composite key from the start commitment and height
+	type commitHeightKey struct {
+		commit string
+		height uint64
+	}
+	startHeight, startCommitment := edge.StartCommitment()
+	key := commitHeightKey{
+		commit: startCommitment.String(),
+		height: uint64(startHeight),
+	}
+
+	// Check if the composite key exists in the junkCommitmentCache
+	// This is to short-circuit processing if we already know the commitment is "junk"
+	if _, ok := w.junkCommitmentCache.Get(key); ok {
+		// Cache hit: this startCommitment and height combination is known to be junk, skipping further processing
+		return nil
+	}
+
 	// Add the edge to a local challenge tree of tracked edges. If it is honest,
 	// we also spawn a tracker for the edge.
 	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
 	if err != nil {
 		return errors.Wrap(err, "could not add edge to challenge tree")
 	}
+
+	if !agreement.AgreesWithStartCommit && key.height != 0 {
+		// Cache miss: this startCommitment and height combination is determined to be junk, adding to cache for future short-circuit
+		w.junkCommitmentCache.Add(key, struct{}{})
+	}
+
 	if agreement.IsHonestEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
