@@ -428,7 +428,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                     );
                 }
             } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
-                // if the machine is FINISHED, then it should consume all messages in the inbox as seen at the time of prev (and possibly one additional message; see below)
+                // if the machine is FINISHED, then it should consume all messages in the inbox as seen at the time of prev (minimum 1; see below)
                 require(
                     afterInboxPosition == assertion.beforeStateData.configData.nextInboxPosition,
                     "INVALID_FINISHED_INBOX"
