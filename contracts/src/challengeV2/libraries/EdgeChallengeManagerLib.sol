@@ -31,7 +31,7 @@ struct CreateEdgeArgs {
     ///         Finally in the last level, a SmallStep edge is added that claims a lower level length one BigStep edge, and these
     ///         SmallStep edges are bisected until they reach length one. A length one small step edge
     ///         can then be directly executed using a one-step proof.
-    uint256 level;
+    uint64 level;
     /// @notice The end history root of the edge to be created
     bytes32 endHistoryRoot;
     /// @notice The end height of the edge to be created.

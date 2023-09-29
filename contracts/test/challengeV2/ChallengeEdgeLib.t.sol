@@ -16,7 +16,7 @@ contract TestChallengeEdge {
 
 contract ChallengeEdgeLibTest is Test {
     Random rand = new Random();
-    uint256 constant NUM_BIGSTEP_LEVEL = 3;
+    uint64 constant NUM_BIGSTEP_LEVEL = 3;
 
     function randCheckArgs() internal returns (bytes32, bytes32, bytes32) {
         return (rand.hash(), rand.hash(), rand.hash());

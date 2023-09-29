@@ -38,7 +38,7 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState);
     ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
 
-    uint256 public NUM_BIGSTEP_LEVEL = 3;
+    uint64 public NUM_BIGSTEP_LEVEL = 3;
 
     bytes32 genesisAssertionHash;
 
@@ -1076,7 +1076,7 @@ contract EdgeChallengeManagerTest is Test {
 
     struct CreateMachineEdgesBisectArgs {
         EdgeChallengeManager challengeManager;
-        uint256 eType;
+        uint64 eType;
         bytes32 claim1Id;
         bytes32 claim2Id;
         bytes32 endState1;
@@ -1366,7 +1366,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        for (uint256 i = 1; i < NUM_BIGSTEP_LEVEL; ++i) {
+        for (uint64 i = 1; i < NUM_BIGSTEP_LEVEL; ++i) {
             local.bigStepBisections[i] = createMachineEdgesAndBisectToFork(
                 CreateMachineEdgesBisectArgs(
                     ei.challengeManager,
