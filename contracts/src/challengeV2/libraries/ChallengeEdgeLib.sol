@@ -52,14 +52,14 @@ struct ChallengeEdge {
     /// @notice Current status of this edge. All edges are created Pending, and may be updated to Confirmed
     ///         Once Confirmed they cannot transition back to Pending
     EdgeStatus status;
-    /// @notice Set to true when the staker has been refunded. Can only be set to true if the status is Confirmed
-    ///         and the staker is non zero.
-    bool refunded;
     /// @notice The level of this edge.
     ///         Level 0 is type Block
     ///         Last level (defined by NUM_BIGSTEP_LEVEL + 1) is type SmallStep
     ///         All levels in between are of type BigStep
     uint8 level;
+    /// @notice Set to true when the staker has been refunded. Can only be set to true if the status is Confirmed
+    ///         and the staker is non zero.
+    bool refunded;
 }
 
 library ChallengeEdgeLib {

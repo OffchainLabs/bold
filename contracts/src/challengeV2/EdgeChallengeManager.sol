@@ -348,7 +348,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // ensure there's also space for the block level and the small step level
         // in total level parameters
         if (_numBigStepLevel > 253) {
-            revert ZeroBigStepLevels();
+            revert BigStepLevelsTooMany(_numBigStepLevel);
         }
         NUM_BIGSTEP_LEVEL = _numBigStepLevel;
     }
