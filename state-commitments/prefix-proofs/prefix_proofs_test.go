@@ -4,25 +4,53 @@
 package prefixproofs_test
 
 import (
-	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	"testing"
 
-	"github.com/OffchainLabs/bold/containers/option"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
-	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAppendCompleteSubTree(t *testing.T) {
+	// Test case: Level >= MAX_LEVEL
+	_, err := prefixproofs.AppendCompleteSubTree([]common.Hash{{1}}, prefixproofs.MAX_LEVEL, common.Hash{2})
+	require.ErrorContains(t, err, "level too high")
+
+	// Test case: Empty Subtree Root
+	_, err = prefixproofs.AppendCompleteSubTree([]common.Hash{{1}}, 1, common.Hash{})
+	require.ErrorContains(t, err, "cannot append empty")
+
+	// Test case: Expansion Too Large
+	_, err = prefixproofs.AppendCompleteSubTree(make([]common.Hash, prefixproofs.MAX_LEVEL+1), 1, common.Hash{2})
+	require.ErrorContains(t, err, "merkle expansion to large")
+
+	// Test case: Empty 'me' Array
+	_, err = prefixproofs.AppendCompleteSubTree([]common.Hash{}, 1, common.Hash{2})
+	require.NoError(t, err)
+
+	// Test case: Level >= len(me)
+	_, err = prefixproofs.AppendCompleteSubTree([]common.Hash{{1}}, 2, common.Hash{2})
+	require.ErrorContains(t, err, "failing before for loop: level too high")
+}
+
+func TestGeneratePrefixProof(t *testing.T) {
+	defaultLeaves := []common.Hash{{1}, {2}}
+
+	// Test case: Zero PrefixHeight
+	_, err := prefixproofs.GeneratePrefixProof(0, nil, defaultLeaves, nil)
+	require.ErrorContains(t, err, "prefixHeight was 0")
+
+	// Test case: Zero Length of Leaves
+	_, err = prefixproofs.GeneratePrefixProof(1, nil, []common.Hash{}, nil)
+	require.ErrorContains(t, err, "length of leaves was 0")
+}
 
 func TestRoot(t *testing.T) {
 	t.Run("tree with exactly size MAX_LEVEL should pass validation", func(t *testing.T) {
@@ -49,140 +77,6 @@ func TestRoot(t *testing.T) {
 	})
 }
 
-func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
-	ctx := context.Background()
-	hashes := make([]common.Hash, 10)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
-	}
-	manager, err := statemanager.NewWithMockedStateRoots(hashes)
-	require.NoError(t, err)
-
-	wasmModuleRoot := common.Hash{}
-	startMessageNumber := l2stateprovider.Height(0)
-	fromMessageNumber := l2stateprovider.Height(3)
-	toMessageNumber := l2stateprovider.Height(7)
-	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		Batch:                       10,
-		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  startMessageNumber,
-		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
-	}
-	loCommit, err := manager.HistoryCommitment(ctx, req)
-	require.NoError(t, err)
-
-	req.UpToHeight = option.Some(l2stateprovider.Height(toMessageNumber))
-	hiCommit, err := manager.HistoryCommitment(ctx, req)
-	require.NoError(t, err)
-
-	packedProof, err := manager.PrefixProof(ctx, req, fromMessageNumber)
-	require.NoError(t, err)
-
-	data, err := statemanager.ProofArgs.Unpack(packedProof)
-	require.NoError(t, err)
-	preExpansion := data[0].([][32]byte)
-	proof := data[1].([][32]byte)
-
-	preExpansionHashes := make([]common.Hash, len(preExpansion))
-	for i := 0; i < len(preExpansion); i++ {
-		preExpansionHashes[i] = preExpansion[i]
-	}
-	prefixProof := make([]common.Hash, len(proof))
-	for i := 0; i < len(proof); i++ {
-		prefixProof[i] = proof[i]
-	}
-
-	merkleTreeContract, _ := setupMerkleTreeContract(t)
-	err = merkleTreeContract.VerifyPrefixProof(
-		&bind.CallOpts{},
-		loCommit.Merkle,
-		big.NewInt(4),
-		hiCommit.Merkle,
-		big.NewInt(8),
-		preExpansion,
-		proof,
-	)
-	require.NoError(t, err)
-
-	err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-		PreRoot:      loCommit.Merkle,
-		PreSize:      4,
-		PostRoot:     hiCommit.Merkle,
-		PostSize:     8,
-		PreExpansion: preExpansionHashes,
-		PrefixProof:  prefixProof,
-	})
-	require.NoError(t, err)
-}
-
-func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
-	ctx := context.Background()
-	hashes := make([]common.Hash, 10)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
-	}
-	manager, err := statemanager.NewWithMockedStateRoots(hashes)
-	require.NoError(t, err)
-
-	wasmModuleRoot := common.Hash{}
-	startMessageNumber := l2stateprovider.Height(0)
-	fromMessageNumber := l2stateprovider.Height(3)
-	toMessageNumber := l2stateprovider.Height(6)
-	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		Batch:                       10,
-		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  startMessageNumber,
-		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
-	}
-	loCommit, err := manager.HistoryCommitment(ctx, req)
-	require.NoError(t, err)
-
-	req.UpToHeight = option.Some(l2stateprovider.Height(toMessageNumber))
-	hiCommit, err := manager.HistoryCommitment(ctx, req)
-	require.NoError(t, err)
-
-	packedProof, err := manager.PrefixProof(ctx, req, fromMessageNumber)
-	require.NoError(t, err)
-
-	data, err := statemanager.ProofArgs.Unpack(packedProof)
-	require.NoError(t, err)
-	preExpansion := data[0].([][32]byte)
-	proof := data[1].([][32]byte)
-
-	preExpansionHashes := make([]common.Hash, len(preExpansion))
-	for i := 0; i < len(preExpansion); i++ {
-		preExpansionHashes[i] = preExpansion[i]
-	}
-	prefixProof := make([]common.Hash, len(proof))
-	for i := 0; i < len(proof); i++ {
-		prefixProof[i] = proof[i]
-	}
-
-	merkleTreeContract, _ := setupMerkleTreeContract(t)
-	err = merkleTreeContract.VerifyPrefixProof(
-		&bind.CallOpts{},
-		loCommit.Merkle,
-		big.NewInt(4),
-		hiCommit.Merkle,
-		big.NewInt(7),
-		preExpansion,
-		proof,
-	)
-	require.NoError(t, err)
-
-	err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-		PreRoot:      loCommit.Merkle,
-		PreSize:      4,
-		PostRoot:     hiCommit.Merkle,
-		PostSize:     7,
-		PreExpansion: preExpansionHashes,
-		PrefixProof:  prefixProof,
-	})
-	require.NoError(t, err)
-}
-
 func TestLeastSignificantBit_GoSolidityEquivalence(t *testing.T) {
 	merkleTreeContract, _ := setupMerkleTreeContract(t)
 	runBitEquivalenceTest(t, merkleTreeContract.LeastSignificantBit, prefixproofs.LeastSignificantBit)
@@ -191,162 +85,6 @@ func TestLeastSignificantBit_GoSolidityEquivalence(t *testing.T) {
 func TestMostSignificantBit_GoSolidityEquivalence(t *testing.T) {
 	merkleTreeContract, _ := setupMerkleTreeContract(t)
 	runBitEquivalenceTest(t, merkleTreeContract.MostSignificantBit, prefixproofs.MostSignificantBit)
-}
-
-func FuzzPrefixProof_Verify(f *testing.F) {
-	ctx := context.Background()
-	hashes := make([]common.Hash, 10)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
-	}
-	manager, err := statemanager.NewWithMockedStateRoots(hashes)
-	require.NoError(f, err)
-
-	wasmModuleRoot := common.Hash{}
-	batch := l2stateprovider.Batch(1)
-	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		Batch:                       batch,
-		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  3,
-		UpToHeight:                  option.None[l2stateprovider.Height](),
-	}
-	loCommit, err := manager.HistoryCommitment(ctx, req)
-	require.NoError(f, err)
-	req.FromHeight = 7
-	hiCommit, err := manager.HistoryCommitment(ctx, req)
-	require.NoError(f, err)
-
-	fromMessageNumber := l2stateprovider.Height(3)
-	toMessageNumber := l2stateprovider.Height(7)
-
-	req.FromHeight = 0
-	req.UpToHeight = option.Some(toMessageNumber)
-	packedProof, err := manager.PrefixProof(ctx, req, fromMessageNumber)
-	require.NoError(f, err)
-
-	data, err := statemanager.ProofArgs.Unpack(packedProof)
-	require.NoError(f, err)
-	preExpansion := data[0].([][32]byte)
-	proof := data[1].([][32]byte)
-	preExp := make([]byte, 0)
-	for _, item := range preExpansion {
-		preExp = append(preExp, item[:]...)
-	}
-	prefixProof := make([]byte, 0)
-	for _, item := range proof {
-		prefixProof = append(prefixProof, item[:]...)
-	}
-
-	testcases := []prefixproofs.VerifyPrefixProofConfig{
-		{
-			PreRoot:  loCommit.Merkle,
-			PreSize:  4,
-			PostRoot: hiCommit.Merkle,
-			PostSize: 8,
-		},
-		{
-			PreRoot:  loCommit.Merkle,
-			PreSize:  0,
-			PostRoot: hiCommit.Merkle,
-			PostSize: 0,
-		},
-		{
-			PreRoot:  loCommit.Merkle,
-			PreSize:  0,
-			PostRoot: hiCommit.Merkle,
-			PostSize: 100,
-		},
-	}
-	for _, tc := range testcases {
-		f.Add(tc.PreRoot.String(), tc.PreSize, tc.PostRoot.String(), tc.PostSize, hexutil.Encode(preExp), hexutil.Encode(prefixProof))
-	}
-	merkleTreeContract, _ := setupMerkleTreeContract(f)
-	opts := &bind.CallOpts{}
-	f.Fuzz(func(
-		t *testing.T,
-		preRootF string,
-		preSizeF uint64,
-		postRootF string,
-		postSizeF uint64,
-		preExpansionF string,
-		prefixProofF string,
-	) {
-		preExpF := make([]common.Hash, 0)
-		preArray := make([][32]byte, 0)
-		expansionRaw, err := hexutil.Decode(preExpansionF)
-		if err != nil {
-			return
-		}
-		proofRaw, err := hexutil.Decode(prefixProofF)
-		if err != nil {
-			return
-		}
-		preExpansionArray := make([][32]byte, 0)
-		for i := 0; i < len(expansionRaw); i += 32 {
-			var r [32]byte
-			if i+32 <= len(expansionRaw) {
-				copy(r[:], expansionRaw[i:i+32])
-			} else {
-				copy(r[:], expansionRaw[i:])
-			}
-			preExpansionArray = append(preExpansionArray, r)
-		}
-
-		preExpansionHash := make([]common.Hash, len(preExpansionArray))
-		for i := range preExpansionArray {
-			preExpansionHash[i] = preExpansionArray[i]
-		}
-
-		proofArray := make([][32]byte, 0)
-		for i := 0; i < len(proofRaw); i += 32 {
-			var r [32]byte
-			if i+32 <= len(proofRaw) {
-				copy(r[:], proofRaw[i:i+32])
-			} else {
-				copy(r[:], proofRaw[i:])
-			}
-			proofArray = append(proofArray, r)
-		}
-
-		proofHash := make([]common.Hash, len(proofArray))
-		for i := range proofArray {
-			proofHash[i] = proofArray[i]
-		}
-		preRoot, err := hexutil.Decode(preRootF)
-		if err != nil {
-			return
-		}
-		postRoot, err := hexutil.Decode(postRootF)
-		if err != nil {
-			return
-		}
-		cfg := &prefixproofs.VerifyPrefixProofConfig{
-			PreRoot:      common.BytesToHash(preRoot),
-			PreSize:      preSizeF,
-			PostRoot:     common.BytesToHash(postRoot),
-			PostSize:     postSizeF,
-			PreExpansion: preExpF,
-			PrefixProof:  proofHash,
-		}
-		goErr := prefixproofs.VerifyPrefixProof(cfg)
-		solErr := merkleTreeContract.VerifyPrefixProof(
-			opts,
-			cfg.PreRoot,
-			big.NewInt(int64(cfg.PreSize)),
-			cfg.PostRoot,
-			big.NewInt(int64(cfg.PostSize)),
-			preArray,
-			proofArray,
-		)
-
-		if goErr == nil && solErr != nil {
-			t.Errorf("Go verified, but solidity failed to verify: %+v", cfg)
-		}
-		if goErr != nil && solErr == nil {
-			t.Errorf("Solidity verified, but go failed to verify: %+v", cfg)
-		}
-	})
 }
 
 func FuzzPrefixProof_MaximumAppendBetween_GoSolidityEquivalence(f *testing.F) {

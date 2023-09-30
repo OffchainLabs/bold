@@ -354,6 +354,7 @@ func GeneratePrefixProof(
 	height := prefixHeight
 	postHeight := height + uint64(len(leaves))
 
+	// Impossible to generate a prefix proof if the prefix height is greater than the post height given conditions above
 	if prefixHeight >= postHeight {
 		return nil, errors.Wrapf(
 			ErrStartNotLessThanEnd,
@@ -403,93 +404,4 @@ func GeneratePrefixProof(
 		}
 	}
 	return proof, nil
-}
-
-type VerifyPrefixProofConfig struct {
-	PreRoot      common.Hash
-	PreSize      uint64
-	PostRoot     common.Hash
-	PostSize     uint64
-	PreExpansion []common.Hash
-	PrefixProof  []common.Hash
-}
-
-// VerifyPrefixProof verifies that a pre-root commits to a prefix of the leaves committed by a post-root
-// Verifies by appending sub trees to the pre tree until we get to the size of the post tree
-// and then checking that the root of the calculated post tree is equal to the supplied one
-func VerifyPrefixProof(cfg *VerifyPrefixProofConfig) error {
-	if cfg.PreSize == 0 {
-		return errors.Wrap(ErrCannotBeZero, "presize was 0")
-	}
-	root, rootErr := Root(cfg.PreExpansion)
-	if rootErr != nil {
-		return errors.Wrap(rootErr, "pre expansion root error")
-	}
-	if root != cfg.PreRoot {
-		return errors.Wrap(ErrRootMismatch, "pre expansion root mismatch")
-	}
-	if cfg.PreSize != TreeSize(cfg.PreExpansion) {
-		return errors.Wrap(ErrTreeSize, "pre expansion tree size")
-	}
-	if cfg.PreSize >= cfg.PostSize {
-		return errors.Wrapf(
-			ErrStartNotLessThanEnd,
-			"presize %d >= postsize %d",
-			cfg.PreSize,
-			cfg.PostSize,
-		)
-	}
-
-	exp := make([]common.Hash, len(cfg.PreExpansion))
-	copy(exp, cfg.PreExpansion)
-	size := cfg.PreSize
-	proofIndex := uint64(0)
-
-	for size < cfg.PostSize {
-		level, err := MaximumAppendBetween(size, cfg.PostSize)
-		if err != nil {
-			return err
-		}
-		if proofIndex >= uint64(len(cfg.PrefixProof)) {
-			return ErrIndexOutOfRange
-		}
-		exp, err = AppendCompleteSubTree(
-			exp, level, cfg.PrefixProof[proofIndex],
-		)
-		if err != nil {
-			return err
-		}
-		numLeaves := 1 << level
-		size += uint64(numLeaves)
-		if size > cfg.PostSize {
-			return errors.Wrapf(
-				ErrSizeNotLeqPostSize,
-				"size %d > postsize %d",
-				size,
-				cfg.PostSize,
-			)
-		}
-		proofIndex++
-	}
-	gotRoot, gotRootErr := Root(exp)
-	if gotRootErr != nil {
-		return errors.Wrap(gotRootErr, "post root error")
-	}
-	if gotRoot != cfg.PostRoot {
-		return errors.Wrapf(
-			ErrRootMismatch,
-			"post expansion root mismatch got %#x, wanted %#x",
-			gotRoot,
-			cfg.PostRoot,
-		)
-	}
-	if proofIndex != uint64(len(cfg.PrefixProof)) {
-		return errors.Wrapf(
-			ErrIncompleteProof,
-			"proof index %d, proof length %d",
-			proofIndex,
-			len(cfg.PrefixProof),
-		)
-	}
-	return nil
 }
