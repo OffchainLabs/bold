@@ -90,22 +90,3 @@ func (edgeAwaitConfirmation) String() string {
 func (edgeConfirm) String() string {
 	return "confirm"
 }
-
-func (edgeBackToStart) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeHandleOneStepProof) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeOpenSubchallengeLeaf) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeBisect) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeAwaitConfirmation) isEdgeTrackerAction() bool {
-	return true
-}
-func (edgeConfirm) isEdgeTrackerAction() bool {
-	return true
-}
