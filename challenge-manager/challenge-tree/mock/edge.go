@@ -37,16 +37,16 @@ func (e *Edge) Id() protocol.EdgeId {
 	return protocol.EdgeId{Hash: common.BytesToHash([]byte(e.ID))}
 }
 
-func (e *Edge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
-	return e.EdgeType, nil
+func (e *Edge) GetChallengeLevel() protocol.ChallengeLevel {
+	return e.EdgeType
 }
 
-func (e *Edge) GetReversedChallengeLevel() (protocol.ChallengeLevel, error) {
-	return protocol.ChallengeLevel(e.TotalChallengeLevels) - 1 - e.EdgeType, nil
+func (e *Edge) GetReversedChallengeLevel() protocol.ChallengeLevel {
+	return protocol.ChallengeLevel(e.TotalChallengeLevels) - 1 - e.EdgeType
 }
 
-func (e *Edge) GetTotalChallengeLevels(ctx context.Context) (uint8, error) {
-	return e.TotalChallengeLevels, nil
+func (e *Edge) GetTotalChallengeLevels(ctx context.Context) uint8 {
+	return e.TotalChallengeLevels
 }
 
 func (e *Edge) StartCommitment() (protocol.Height, common.Hash) {

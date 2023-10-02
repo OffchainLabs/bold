@@ -274,14 +274,14 @@ type ReadOnlyEdge interface {
 	// The unique identifier for an edge.
 	Id() EdgeId
 	// The challenge level the edge is a part of.
-	GetChallengeLevel() (ChallengeLevel, error)
+	GetChallengeLevel() ChallengeLevel
 	// GetReversedChallengeLevel obtains the challenge level for the edge. The lowest level starts at 0, and goes all way
 	// up to the max number of levels. The reason we go from the lowest challenge level being 0 instead of 2
 	// is to make our code a lot more readable. If we flipped the order, we would need to do
 	// a lot of backwards for loops instead of simple range loops over slices.
-	GetReversedChallengeLevel() (ChallengeLevel, error)
+	GetReversedChallengeLevel() ChallengeLevel
 	// Total number possible challenge levels.
-	GetTotalChallengeLevels(ctx context.Context) (uint8, error)
+	GetTotalChallengeLevels(ctx context.Context) uint8
 	// The start height and history commitment for an edge.
 	StartCommitment() (Height, common.Hash)
 	// The end height and history commitment for an edge.

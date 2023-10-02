@@ -25,20 +25,20 @@ func (e *specEdge) Id() protocol.EdgeId {
 	return protocol.EdgeId{Hash: e.id}
 }
 
-func (e *specEdge) GetChallengeLevel() (protocol.ChallengeLevel, error) {
-	return protocol.ChallengeLevel(e.inner.Level), nil
+func (e *specEdge) GetChallengeLevel() protocol.ChallengeLevel {
+	return protocol.ChallengeLevel(e.inner.Level)
 }
 
 // GetReversedChallengeLevel obtains the challenge level for the edge. The lowest level starts at 0, and goes all way
 // up to the max number of levels. The reason we go from the lowest challenge level being 0 instead of 2
 // is to make our code a lot more readable. If we flipped the order, we would need to do
 // a lot of backwards for loops instead of simple range loops over slices.
-func (e *specEdge) GetReversedChallengeLevel() (protocol.ChallengeLevel, error) {
-	return protocol.ChallengeLevel(e.totalChallengeLevels - 1 - e.inner.Level), nil
+func (e *specEdge) GetReversedChallengeLevel() protocol.ChallengeLevel {
+	return protocol.ChallengeLevel(e.totalChallengeLevels - 1 - e.inner.Level)
 }
 
-func (e *specEdge) GetTotalChallengeLevels(ctx context.Context) (uint8, error) {
-	return e.totalChallengeLevels, nil
+func (e *specEdge) GetTotalChallengeLevels(ctx context.Context) uint8 {
+	return e.totalChallengeLevels
 }
 
 func (e *specEdge) MiniStaker() option.Option[common.Address] {
@@ -250,10 +250,7 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 			return fmt.Errorf("did not find edge with id %#x for specified top level ancestor", topLevelAncestorId)
 		}
 		topEdge := topLevelAncestor.Unwrap()
-		challengeLevel, getErr := topEdge.GetChallengeLevel()
-		if getErr != nil {
-			return getErr
-		}
+		challengeLevel := topEdge.GetChallengeLevel()
 		if !challengeLevel.IsBlockChallengeLevel() {
 			return errors.New("top level ancestor must be a block challenge edge")
 		}
@@ -321,10 +318,7 @@ func (e *specEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId)
 // If two validators open a subchallenge S' at edge B in BigStepChallenge, the TopLevelClaimHeight
 // is the height of A.
 func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeights, error) {
-	challengeLevel, err := e.GetChallengeLevel()
-	if err != nil {
-		return protocol.OriginHeights{}, err
-	}
+	challengeLevel := e.GetChallengeLevel()
 	if challengeLevel == 0 {
 		startHeight, _ := e.StartCommitment()
 		return protocol.OriginHeights{
@@ -799,10 +793,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
 ) (protocol.VerifiedHonestEdge, error) {
-	chalLevel, err := challengedEdge.GetChallengeLevel()
-	if err != nil {
-		return nil, err
-	}
+	chalLevel := challengedEdge.GetChallengeLevel()
 	subChalTyp := chalLevel.Next()
 
 	// First check if the edge already exists.

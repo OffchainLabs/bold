@@ -65,8 +65,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	}
 
 	honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
-	challengeLevel, err := honestEdge.GetChallengeLevel()
-	require.NoError(t, err)
+	challengeLevel := honestEdge.GetChallengeLevel()
 	require.Equal(t, protocol.NewBlockChallengeLevel(), challengeLevel)
 
 	t.Run("first leaf is presumptive", func(t *testing.T) {
@@ -76,8 +75,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	})
 
 	evilEdge := leafAdder(createdData.EvilStateManager, createdData.Leaf2)
-	challengeLevel, err = evilEdge.GetChallengeLevel()
-	require.NoError(t, err)
+	challengeLevel = evilEdge.GetChallengeLevel()
 	require.Equal(t, protocol.NewBlockChallengeLevel(), challengeLevel)
 
 	t.Run("neither is presumptive if rivals", func(t *testing.T) {
@@ -375,8 +373,7 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	lvl, err := leaf.GetChallengeLevel()
-	require.NoError(t, err)
+	lvl := leaf.GetChallengeLevel()
 	require.Equal(t, protocol.ChallengeLevel(1), lvl)
 }
 
@@ -700,8 +697,7 @@ func setupBisectionScenario(
 	}
 
 	honestStartCommit, honestEdge := leafAdder(createdData.HonestStateManager, createdData.Leaf1)
-	chalLevel, err := honestEdge.GetChallengeLevel()
-	require.NoError(t, err)
+	chalLevel := honestEdge.GetChallengeLevel()
 	require.Equal(t, true, chalLevel.IsBlockChallengeLevel())
 	hasRival, err := honestEdge.HasRival(ctx)
 	require.NoError(t, err)
@@ -712,8 +708,7 @@ func setupBisectionScenario(
 	require.Equal(t, false, isOSF)
 
 	evilStartCommit, evilEdge := leafAdder(createdData.EvilStateManager, createdData.Leaf2)
-	chalLevel, err = evilEdge.GetChallengeLevel()
-	require.NoError(t, err)
+	chalLevel = evilEdge.GetChallengeLevel()
 	require.Equal(t, true, chalLevel.IsBlockChallengeLevel())
 
 	// Honest and evil edge are rivals, neither is presumptive.
@@ -853,10 +848,8 @@ func setupOneStepProofScenario(
 	}
 
 	honestEdge = bigStepAdder(honestStateManager, honestEdge)
-	challengeLevel, err := honestEdge.GetChallengeLevel()
-	require.NoError(t, err)
-	totalChallengeLevels, err := honestEdge.GetTotalChallengeLevels(ctx)
-	require.NoError(t, err)
+	challengeLevel := honestEdge.GetChallengeLevel()
+	totalChallengeLevels := honestEdge.GetTotalChallengeLevels(ctx)
 	require.Equal(t, true, uint8(challengeLevel) < totalChallengeLevels-1)
 	require.Equal(t, true, challengeLevel > 0)
 	hasRival, err := honestEdge.HasRival(ctx)
@@ -864,10 +857,8 @@ func setupOneStepProofScenario(
 	require.Equal(t, true, !hasRival)
 
 	evilEdge = bigStepAdder(evilStateManager, evilEdge)
-	challengeLevel, err = evilEdge.GetChallengeLevel()
-	require.NoError(t, err)
-	totalChallengeLevels, err = evilEdge.GetTotalChallengeLevels(ctx)
-	require.NoError(t, err)
+	challengeLevel = evilEdge.GetChallengeLevel()
+	totalChallengeLevels = evilEdge.GetTotalChallengeLevels(ctx)
 	require.Equal(t, true, uint8(challengeLevel) < totalChallengeLevels-1)
 	require.Equal(t, true, challengeLevel > 0)
 
@@ -988,20 +979,16 @@ func setupOneStepProofScenario(
 	}
 
 	honestEdge = smallStepAdder(honestStateManager, honestEdge)
-	challengeLevel, err = honestEdge.GetChallengeLevel()
-	require.NoError(t, err)
-	totalChallengeLevels, err = honestEdge.GetTotalChallengeLevels(ctx)
-	require.NoError(t, err)
+	challengeLevel = honestEdge.GetChallengeLevel()
+	totalChallengeLevels = honestEdge.GetTotalChallengeLevels(ctx)
 	require.Equal(t, true, uint8(challengeLevel) == totalChallengeLevels-1)
 	hasRival, err = honestEdge.HasRival(ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, !hasRival)
 
 	evilEdge = smallStepAdder(evilStateManager, evilEdge)
-	challengeLevel, err = honestEdge.GetChallengeLevel()
-	require.NoError(t, err)
-	totalChallengeLevels, err = honestEdge.GetTotalChallengeLevels(ctx)
-	require.NoError(t, err)
+	challengeLevel = honestEdge.GetChallengeLevel()
+	totalChallengeLevels = honestEdge.GetTotalChallengeLevels(ctx)
 	require.Equal(t, true, uint8(challengeLevel) == totalChallengeLevels-1)
 
 	hasRival, err = honestEdge.HasRival(ctx)
@@ -1012,10 +999,8 @@ func setupOneStepProofScenario(
 	require.Equal(t, false, !hasRival)
 
 	// Get the lower-level edge of either edge we just bisected.
-	challengeLevel, err = honestEdge.GetChallengeLevel()
-	require.NoError(t, err)
-	totalChallengeLevels, err = honestEdge.GetTotalChallengeLevels(ctx)
-	require.NoError(t, err)
+	challengeLevel = honestEdge.GetChallengeLevel()
+	totalChallengeLevels = honestEdge.GetTotalChallengeLevels(ctx)
 	require.Equal(t, true, uint8(challengeLevel) == totalChallengeLevels-1)
 
 	var smallStepHeight uint64 = challenge_testing.LevelZeroBigStepEdgeHeight
