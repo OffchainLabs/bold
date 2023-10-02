@@ -345,12 +345,12 @@ func TestCanSetAPIEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test we need the RPC client to enable the API service.
-	v, err := New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
+	_, err = New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
 		WithMode(types.MakeMode), WithAPIEnabled("localhost:1234"))
 	require.ErrorContains(t, err, "go-ethereum RPC client required to enable API service")
 
 	// Test we can set the API endpoint.
-	v, err = New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
+	v, err := New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
 		WithMode(types.MakeMode), WithAPIEnabled("localhost:1234"), WithRPCClient(&rpc.Client{}))
 	require.NoError(t, err)
 	require.Equal(t, "localhost:1234", v.apiAddr)
