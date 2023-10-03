@@ -9,7 +9,7 @@ import "./Utils.sol";
 import "../../src/challengeV2/libraries/ChallengeEdgeLib.sol";
 
 contract TestChallengeEdge {
-    function levelToType(uint8 level, uint8 numBigStepLevels) public pure returns (EdgeType eType) {
+    function levelToType(uint256 level, uint256 numBigStepLevels) public pure returns (EdgeType eType) {
         return ChallengeEdgeLib.levelToType(level, numBigStepLevels);
     }
 }

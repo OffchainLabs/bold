@@ -63,7 +63,7 @@ contract EdgeChallengeManagerLibAccess {
         ExecutionContext memory execCtx,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof,
-        uint8 numBigStepLevel
+        uint256 numBigStepLevel
     ) public {
         store.confirmEdgeByOneStepProof(
             edgeId,
@@ -83,7 +83,7 @@ contract EdgeChallengeManagerLibAccess {
         uint256 expectedEndHeight,
         uint64 challengePeriodBlocks,
         uint256 stakeAmount,
-        uint8 numBigStepLevel
+        uint256 numBigStepLevel
     ) public returns (EdgeAddedData memory) {
         return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel);
     }

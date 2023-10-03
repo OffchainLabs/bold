@@ -45,10 +45,10 @@ struct ChallengeEdge {
     ///         Only populated on zero layer edges
     address staker;
     /// @notice The block number when this edge was created
-    uint64 createdAtBlock;
+    uint256 createdAtBlock;
     /// @notice The block number at which this edge was confirmed
     ///         Zero if not confirmed
-    uint64 confirmedAtBlock;
+    uint256 confirmedAtBlock;
     /// @notice Current status of this edge. All edges are created Pending, and may be updated to Confirmed
     ///         Once Confirmed they cannot transition back to Pending
     EdgeStatus status;
@@ -56,7 +56,7 @@ struct ChallengeEdge {
     ///         Level 0 is type Block
     ///         Last level (defined by NUM_BIGSTEP_LEVEL + 1) is type SmallStep
     ///         All levels in between are of type BigStep
-    uint8 level;
+    uint256 level;
     /// @notice Set to true when the staker has been refunded. Can only be set to true if the status is Confirmed
     ///         and the staker is non zero.
     bool refunded;
@@ -96,7 +96,7 @@ library ChallengeEdgeLib {
         uint256 endHeight,
         bytes32 claimId,
         address staker,
-        uint8 level
+        uint256 level
     ) internal view returns (ChallengeEdge memory) {
         if (staker == address(0)) {
             revert EmptyStaker();
@@ -115,7 +115,7 @@ library ChallengeEdgeLib {
             endHistoryRoot: endHistoryRoot,
             lowerChildId: 0,
             upperChildId: 0,
-            createdAtBlock: uint64(block.number),
+            createdAtBlock: block.number,
             claimId: claimId,
             staker: staker,
             status: EdgeStatus.Pending,
@@ -133,7 +133,7 @@ library ChallengeEdgeLib {
         uint256 startHeight,
         bytes32 endHistoryRoot,
         uint256 endHeight,
-        uint8 level
+        uint256 level
     ) internal view returns (ChallengeEdge memory) {
         newEdgeChecks(originId, startHistoryRoot, startHeight, endHistoryRoot, endHeight);
 
@@ -145,7 +145,7 @@ library ChallengeEdgeLib {
             endHistoryRoot: endHistoryRoot,
             lowerChildId: 0,
             upperChildId: 0,
-            createdAtBlock: uint64(block.number),
+            createdAtBlock: block.number,
             claimId: 0,
             staker: address(0),
             status: EdgeStatus.Pending,
@@ -160,7 +160,7 @@ library ChallengeEdgeLib {
     ///         The difference between rivals is that they have a different endHistoryRoot, so that information
     ///         is not included in this hash.
     function mutualIdComponent(
-        uint8 level,
+        uint256 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -183,7 +183,7 @@ library ChallengeEdgeLib {
 
     /// @notice The id of an edge. Edges are uniquely identified by their id, and commit to the same information
     function idComponent(
-        uint8 level,
+        uint256 level,
         bytes32 originId,
         uint256 startHeight,
         bytes32 startHistoryRoot,
@@ -247,7 +247,7 @@ library ChallengeEdgeLib {
             revert EdgeNotPending(ChallengeEdgeLib.id(edge), edge.status);
         }
         edge.status = EdgeStatus.Confirmed;
-        edge.confirmedAtBlock = uint64(block.number);
+        edge.confirmedAtBlock = block.number;
     }
 
     /// @notice Is the edge a layer zero edge.
@@ -272,7 +272,7 @@ library ChallengeEdgeLib {
     }
 
     /// @notice Returns the edge type for a given level, given the total number of big step levels
-    function levelToType(uint8 level, uint8 numBigStepLevels) internal pure returns (EdgeType eType) {
+    function levelToType(uint256 level, uint256 numBigStepLevels) internal pure returns (EdgeType eType) {
         if (level == 0) {
             return EdgeType.Block;
         } else if (level <= numBigStepLevels) {
