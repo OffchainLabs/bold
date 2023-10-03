@@ -20,6 +20,7 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
@@ -96,10 +97,12 @@ func (s *Scanner) Start(ctx context.Context) {
 		srvlog.Error("Could not get rollup user logic filterer", log.Ctx{"err": err})
 		return
 	}
-	latestBlock, err := s.backend.HeaderByNumber(ctx, nil)
+	latestBlock, err := retry.UntilSucceeds(ctx, func() (*gethTypes.Header, error) {
+		return s.backend.HeaderByNumber(ctx, nil)
+	})
 	if err != nil {
 		srvlog.Error("Could not get header by number", log.Ctx{"err": err})
-		return // TODO: NOT a good solution, needs to retry.
+		return
 	}
 	if !latestBlock.Number.IsUint64() {
 		srvlog.Error("Latest block number was not a uint64")
@@ -114,7 +117,8 @@ func (s *Scanner) Start(ctx context.Context) {
 		return true, s.checkForAssertionAdded(ctx, filterer, filterOpts)
 	})
 	if err != nil {
-		panic(err)
+		srvlog.Error("Could not check for assertion added event")
+		return
 	}
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
@@ -191,14 +195,14 @@ func (s *Scanner) ProcessAssertionCreation(
 	assertionHash protocol.AssertionHash,
 ) error {
 	if assertionHash.Hash == (common.Hash{}) {
-		return nil // Assertions cannot have a zero hash.
+		return nil // Assertions cannot have a zero hash, not even genesis.
 	}
 	creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
 	if creationInfo.ParentAssertionHash == (common.Hash{}) {
-		return nil // Skip processing genesis.
+		return nil // Skip processing genesis, as it has a parent assertion hash of 0x0.
 	}
 	goGs := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState)
 	srvlog.Info("Processed assertion creation event", log.Ctx{

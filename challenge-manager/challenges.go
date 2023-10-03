@@ -13,7 +13,6 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/containers"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -114,7 +113,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		FromHeight:                  l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
 		UpToHeight:                  option.Some(l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch + layerZeroHeights.BlockChallengeHeight)),
 	}
-	fmt.Printf("In CHALLENGES.go From message %d, up to height %d+%d, batch %d\n", req.FromHeight, req.FromHeight, l2stateprovider.Height(layerZeroHeights.BlockChallengeHeight), creationInfo.InboxMaxCount.Uint64())
 	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		req,
@@ -130,13 +128,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
-	goState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
-	afterStateHash := crypto.Keccak256Hash([]byte("Machine finished:"), goState.GlobalState.Hash().Bytes())
-	fmt.Printf("Last commit end leaf %#x, but after state hash %#x with state=%+v\n", endCommit.LastLeaf, afterStateHash, goState)
 	edge, err := manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
 	if err != nil {
-		fmt.Printf("Got error posting block chal level zero edge %v\n", err)
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "could not post block challenge root edge")
 	}
 	return edge, creationInfo, nil
 }
