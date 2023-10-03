@@ -252,18 +252,21 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	prefixHeight Height,
 ) ([]byte, error) {
 	// Obtain the leaves we need to produce our Merkle expansion.
-	prefixLeaves, err := p.historyCommitmentImpl(
+	leaves, err := p.historyCommitmentImpl(
 		ctx,
 		req,
 	)
 	if err != nil {
 		return nil, err
 	}
+	// If no upToHeight is provided, we want to use the max number of leaves in our computation.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	var highCommitmentNumLeaves uint64
 	if req.UpToHeight.IsNone() {
-		highCommitmentNumLeaves = uint64(len(prefixLeaves))
+		highCommitmentNumLeaves = uint64(len(leaves))
 	} else {
+		// Else if it is provided, we expect the number of leaves to be the difference
+		// between the to and from height + 1.
 		upTo := req.UpToHeight.Unwrap()
 		if upTo < req.FromHeight {
 			return nil, fmt.Errorf("invalid range: end %d was < start %d", upTo, req.FromHeight)
@@ -272,8 +275,8 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	}
 
 	// Validate we are within bounds of the leaves slice.
-	if highCommitmentNumLeaves > uint64(len(prefixLeaves)) {
-		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(prefixLeaves))
+	if highCommitmentNumLeaves > uint64(len(leaves)) {
+		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(leaves))
 	}
 
 	// Validate low vs high commitment.
@@ -281,30 +284,32 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, fmt.Errorf("low prefix size %d was greater than high prefix size %d", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 	}
 
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(prefixLeaves[:lowCommitmentNumLeaves])
+	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(leaves[:lowCommitmentNumLeaves])
 	if err != nil {
 		return nil, err
 	}
 	prefixProof, err := prefixproofs.GeneratePrefixProof(
 		lowCommitmentNumLeaves,
 		prefixExpansion,
-		prefixLeaves[lowCommitmentNumLeaves:highCommitmentNumLeaves],
+		leaves[lowCommitmentNumLeaves:highCommitmentNumLeaves],
 		prefixproofs.RootFetcherFromExpansion,
 	)
 	if err != nil {
 		return nil, err
 	}
-	bigCommit, err := commitments.New(prefixLeaves[:highCommitmentNumLeaves])
+	bigCommit, err := commitments.New(leaves[:highCommitmentNumLeaves])
 	if err != nil {
 		return nil, err
 	}
 
-	prefixCommit, err := commitments.New(prefixLeaves[:lowCommitmentNumLeaves])
+	prefixCommit, err := commitments.New(leaves[:lowCommitmentNumLeaves])
 	if err != nil {
 		return nil, err
 	}
 	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, lowCommitmentNumLeaves)
 	onlyProof := prefixProof[numRead:]
+
+	// We verify our prefix proof before an onchain submission as an extra safety-check.
 	if err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
 		PreRoot:      prefixCommit.Merkle,
 		PreSize:      lowCommitmentNumLeaves,

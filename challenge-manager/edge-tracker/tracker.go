@@ -516,13 +516,6 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	lvl, _ := et.edge.GetChallengeLevel()
-	if lvl > 6 {
-		logs := et.uniqueTrackerLogFields()
-		logs["current"] = timer
-		logs["chalPeriod"] = chalPeriod
-		srvlog.Info("Computed honest path timer", logs)
-	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
 			return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", timer, chalPeriod)
@@ -550,7 +543,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		return commitments.History{}, nil, err
 	}
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
-		fmt.Printf("Bisecting for block chal batch %d\n", et.heightConfig.TopLevelClaimEndBatchCount+1)
 		historyCommit, commitErr := et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
@@ -761,7 +753,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 				UpToHeight:                  option.Some(l2stateprovider.Height(fromBlock)),
 			},
 		)
-		fmt.Printf("Parent commit: Start %d, %#x, end %d, %#x => SUBCHAL start %d, %#x, end %d, %#x\n", startParentCommitment.Height, endParentCommitment.FirstLeaf, endParentCommitment.Height, endParentCommitment.LastLeaf, startHistory.Height, endHistory.FirstLeaf, endHistory.Height, endHistory.LastLeaf)
 		if err != nil {
 			return err
 		}
