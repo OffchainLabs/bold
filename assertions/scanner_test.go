@@ -59,7 +59,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		ctx := context.Background()
 		createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
 			DivergeBlockHeight: 5,
-		})
+		}, setup.WithMockOneStepProver())
 		require.NoError(t, err)
 
 		manager, err := challengemanager.New(
@@ -104,7 +104,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		ctx := context.Background()
 		createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{
 			DivergeBlockHeight: 5,
-		})
+		}, setup.WithMockOneStepProver())
 		require.NoError(t, err)
 
 		manager, err := challengemanager.New(
