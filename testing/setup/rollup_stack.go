@@ -144,6 +144,7 @@ type ChainSetup struct {
 	Backend              *backends.SimulatedBackend
 	RollupConfig         rollupgen.Config
 	useMockBridge        bool
+	useMockOneStepProver bool
 	challengeTestingOpts []challenge_testing.Opt
 	stateManagerOpts     []statemanager.Opt
 }
@@ -153,6 +154,12 @@ type Opt func(setup *ChainSetup)
 func WithMockBridge() Opt {
 	return func(setup *ChainSetup) {
 		setup.useMockBridge = true
+	}
+}
+
+func WithMockOneStepProver() Opt {
+	return func(setup *ChainSetup) {
+		setup.useMockOneStepProver = true
 	}
 }
 
@@ -251,6 +258,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		accs[0].TxOpts.From, // Sequencer addr.
 		cfg,
 		setp.useMockBridge,
+		setp.useMockOneStepProver,
 	)
 	if err != nil {
 		return nil, err
@@ -368,8 +376,9 @@ func DeployFullRollupStack(
 	sequencer common.Address,
 	config rollupgen.Config,
 	useMockBridge bool,
+	useMockOneStepProver bool,
 ) (*RollupAddresses, error) {
-	rollupCreator, rollupUserAddr, _, validatorUtils, validatorWalletCreator, err := deployRollupCreator(ctx, backend, deployAuth, useMockBridge)
+	rollupCreator, rollupUserAddr, _, validatorUtils, validatorWalletCreator, err := deployRollupCreator(ctx, backend, deployAuth, useMockBridge, useMockOneStepProver)
 	if err != nil {
 		return nil, err
 	}
@@ -555,29 +564,40 @@ func deployChallengeFactory(
 	ctx context.Context,
 	auth *bind.TransactOpts,
 	backend Backend,
+	useMockOneStepProver bool,
 ) (common.Address, common.Address, error) {
-	osp0, _, _, err := ospgen.DeployOneStepProver0(auth, backend)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	ospMem, _, _, err := ospgen.DeployOneStepProverMemory(auth, backend)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	ospMath, _, _, err := ospgen.DeployOneStepProverMath(auth, backend)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	ospHostIo, _, _, err := ospgen.DeployOneStepProverHostIo(auth, backend)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	ospEntry, tx, _, err := ospgen.DeployOneStepProofEntry(auth, backend, osp0, ospMem, ospMath, ospHostIo)
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
-		return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
+	var ospEntryAddr common.Address
+	if useMockOneStepProver {
+		ospEntry, tx, _, err := mocksgen.DeploySimpleOneStepProofEntry(auth, backend)
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+			return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
+		}
+		ospEntryAddr = ospEntry
+	} else {
+		osp0, _, _, err := ospgen.DeployOneStepProver0(auth, backend)
+		if err != nil {
+			return common.Address{}, common.Address{}, err
+		}
+		ospMem, _, _, err := ospgen.DeployOneStepProverMemory(auth, backend)
+		if err != nil {
+			return common.Address{}, common.Address{}, err
+		}
+		ospMath, _, _, err := ospgen.DeployOneStepProverMath(auth, backend)
+		if err != nil {
+			return common.Address{}, common.Address{}, err
+		}
+		ospHostIo, _, _, err := ospgen.DeployOneStepProverHostIo(auth, backend)
+		if err != nil {
+			return common.Address{}, common.Address{}, err
+		}
+		ospEntry, tx, _, err := ospgen.DeployOneStepProofEntry(auth, backend, osp0, ospMem, ospMath, ospHostIo)
+		if err != nil {
+			return common.Address{}, common.Address{}, err
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+			return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployOneStepProofEntry")
+		}
+		ospEntryAddr = ospEntry
 	}
 	edgeChallengeManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
 		auth,
@@ -590,7 +610,7 @@ func deployChallengeFactory(
 	if err != nil {
 		return common.Address{}, common.Address{}, errors.Wrap(err, "challengeV2gen.DeployEdgeChallengeManager")
 	}
-	return ospEntry, edgeChallengeManagerAddr, nil
+	return ospEntryAddr, edgeChallengeManagerAddr, nil
 }
 
 func deployRollupCreator(
@@ -598,12 +618,13 @@ func deployRollupCreator(
 	backend Backend,
 	auth *bind.TransactOpts,
 	useMockBridge bool,
+	useMockOneStepProver bool,
 ) (*rollupgen.RollupCreator, common.Address, common.Address, common.Address, common.Address, error) {
 	bridgeCreator, err := deployBridgeCreator(ctx, auth, backend, useMockBridge)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
-	ospEntryAddr, challengeManagerAddr, err := deployChallengeFactory(ctx, auth, backend)
+	ospEntryAddr, challengeManagerAddr, err := deployChallengeFactory(ctx, auth, backend, useMockOneStepProver)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
