@@ -779,8 +779,8 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	var edgeAdded *challengeV2gen.EdgeChallengeManagerEdgeAdded
 	var found bool
 	for _, log := range receipt.Logs {
-		creationEvent, err := cm.filterer.ParseEdgeAdded(*log)
-		if err == nil {
+		creationEvent, creationErr := cm.filterer.ParseEdgeAdded(*log)
+		if creationErr == nil {
 			edgeAdded = creationEvent
 			found = true
 			break
