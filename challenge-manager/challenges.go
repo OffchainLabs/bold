@@ -50,8 +50,8 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		m.watcher,
 		m,
 		edgetracker.HeightConfig{
-			StartBlockHeight:           0,
-			TopLevelClaimEndBatchCount: creationInfo.InboxMaxCount.Uint64(),
+			StartBlockHeight: 0,
+			InboxMaxCount:    creationInfo.InboxMaxCount.Uint64() + 1,
 		},
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),

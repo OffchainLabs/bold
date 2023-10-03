@@ -146,6 +146,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		if len(startHeights) == 0 {
 			return protocol.Agreement{}, errors.New("start height cannot be zero")
 		}
+		// If this is a subchallenge, the first element of the start heights must account for the batch
+		// it corresponds to in the assertion chain.
 		startHeights[0] += l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
