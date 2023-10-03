@@ -187,7 +187,6 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Got bold with num big steps %d\n", numBigStepLevels)
 	m.rollup = rollup
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
