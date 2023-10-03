@@ -271,12 +271,12 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case EdgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
+			if strings.Contains(err.Error(), "BAD_SEQINBOX_MESSAGE") {
+				return et.fsm.Do(edgeConfirm{}) // TODO: Instead of confirming, we should just mark this edge as invalid.
+			}
 			if !strings.Contains(err.Error(), "Invalid inclusion proof") {
 				fields["err"] = err
 				srvlog.Error("Could not submit one step proof", fields)
-			}
-			if strings.Contains(err.Error(), "BAD_SEQINBOX_MESSAGE") {
-				return et.fsm.Do(edgeConfirm{}) // TODO: Instead of confirming, we should just mark this edge as invalid.
 			}
 			return et.fsm.Do(edgeBackToStart{})
 		}
@@ -515,6 +515,13 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
+	}
+	lvl, _ := et.edge.GetChallengeLevel()
+	if lvl > 6 {
+		logs := et.uniqueTrackerLogFields()
+		logs["current"] = timer
+		logs["chalPeriod"] = chalPeriod
+		srvlog.Info("Computed honest path timer", logs)
 	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
