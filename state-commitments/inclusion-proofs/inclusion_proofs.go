@@ -84,7 +84,7 @@ func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, er
 	start := (gomaxprocs - 1) * batchSize
 	go func() {
 		defer waitGroup.Done()
-		for j := start; j < start+batchRemainder; j++ {
+		for j := start; j < start+batchSize+batchRemainder; j++ {
 			rehashed[j] = crypto.Keccak256Hash(leaves[j].Bytes())
 		}
 	}()
