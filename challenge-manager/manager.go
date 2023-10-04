@@ -273,8 +273,8 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	// Smart caching to avoid querying the same assertion number and creation info multiple times.
 	// Edges in the same challenge should have the same creation info.
 	cachedHeightAndInboxMsgCount, ok := m.assertionHashCache.TryGet(assertionHash)
-	var assertionHeight uint64
-	var inboxMsgCount uint64
+	var messageNumber uint64
+	var batch uint64
 	if !ok {
 		// Retry until you get the assertion creation info.
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
@@ -291,11 +291,11 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		if heightErr != nil {
 			return nil, heightErr
 		}
-		assertionHeight = height
-		inboxMsgCount = assertionCreationInfo.InboxMaxCount.Uint64() + 1
-		m.assertionHashCache.Put(assertionHash, [2]uint64{assertionHeight, inboxMsgCount})
+		messageNumber = height
+		batch = assertionCreationInfo.InboxMaxCount.Uint64() + 1
+		m.assertionHashCache.Put(assertionHash, [2]uint64{messageNumber, batch})
 	} else {
-		assertionHeight, inboxMsgCount = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
+		messageNumber, batch = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
 	}
 	return retry.UntilSucceeds(ctx, func() (*edgetracker.Tracker, error) {
 		return edgetracker.New(
@@ -306,8 +306,8 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.watcher,
 			m,
 			edgetracker.HeightConfig{
-				StartBlockHeight: assertionHeight,
-				InboxMaxCount:    inboxMsgCount,
+				MessageNumber: messageNumber,
+				Batch:         batch,
 			},
 			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),

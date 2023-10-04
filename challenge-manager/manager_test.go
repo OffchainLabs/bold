@@ -141,8 +141,8 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 		tkr.Watcher(),
 		tkr.ChallengeManager(),
 		edgetracker.HeightConfig{
-			StartBlockHeight: 0,
-			InboxMaxCount:    1,
+			MessageNumber: 0,
+			Batch:         1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 	)
@@ -155,8 +155,8 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 		tkr.Watcher(),
 		tkr.ChallengeManager(),
 		edgetracker.HeightConfig{
-			StartBlockHeight: 0,
-			InboxMaxCount:    1,
+			MessageNumber: 0,
+			Batch:         1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 	)
@@ -186,8 +186,8 @@ func Test_getEdgeTrackers(t *testing.T) {
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(1), trk.StartBlockHeight())
-	require.Equal(t, uint64(0x65), trk.InboxMaxCount())
+	require.Equal(t, uint64(1), trk.MessageNumber())
+	require.Equal(t, uint64(0x65), trk.Batch())
 }
 
 func setupEdgeTrackersForBisection(
@@ -258,8 +258,8 @@ func setupEdgeTrackersForBisection(
 		honestWatcher,
 		honestValidator,
 		edgetracker.HeightConfig{
-			StartBlockHeight: 0,
-			InboxMaxCount:    1,
+			MessageNumber: 0,
+			Batch:         1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(honestValidator.name),
@@ -284,8 +284,8 @@ func setupEdgeTrackersForBisection(
 		evilWatcher,
 		evilValidator,
 		edgetracker.HeightConfig{
-			StartBlockHeight: 0,
-			InboxMaxCount:    1,
+			MessageNumber: 0,
+			Batch:         1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(evilValidator.name),

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -106,8 +107,8 @@ func WithFSMOpts(opts ...fsm.Opt[edgeTrackerAction, State]) Opt {
 }
 
 type HeightConfig struct {
-	StartBlockHeight uint64
-	InboxMaxCount    uint64
+	MessageNumber uint64
+	Batch         uint64
 }
 
 type Tracker struct {
@@ -168,12 +169,12 @@ func New(
 	return tr, nil
 }
 
-func (et *Tracker) InboxMaxCount() uint64 {
-	return et.heightConfig.InboxMaxCount
+func (et *Tracker) Batch() uint64 {
+	return et.heightConfig.Batch
 }
 
-func (et *Tracker) StartBlockHeight() uint64 {
-	return et.heightConfig.StartBlockHeight
+func (et *Tracker) MessageNumber() uint64 {
+	return et.heightConfig.MessageNumber
 }
 
 func (et *Tracker) EdgeId() protocol.EdgeId {
@@ -270,8 +271,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Edge is at a one-step-proof in a small-step challenge.
 	case EdgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
-			fields["err"] = err
-			srvlog.Trace("Could not submit one step proof", fields)
+			if !strings.Contains(err.Error(), "BAD_SEQINBOX_MESSAGE") {
+				fields["err"] = err
+				srvlog.Trace("Could not submit one step proof", fields)
+			}
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeConfirm{})
@@ -535,10 +538,10 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
-				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.StartBlockHeight + bisectTo)),
+				FromHeight:                  l2stateprovider.Height(et.heightConfig.MessageNumber),
+				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.MessageNumber + bisectTo)),
 			},
 		)
 		if commitErr != nil {
@@ -548,10 +551,10 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
-				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.StartBlockHeight) + l2stateprovider.Height(endHeight)),
+				FromHeight:                  l2stateprovider.Height(et.heightConfig.MessageNumber),
+				UpToHeight:                  option.Some(l2stateprovider.Height(et.heightConfig.MessageNumber) + l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.Height(bisectTo),
 		)
@@ -574,13 +577,13 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		challengeOriginHeights[index] = l2stateprovider.Height(height)
 	}
 	// The first challenge origin height must account for the start block height of the assertion.
-	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
+	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.MessageNumber)
 
 	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              et.wasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+			Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 			UpperChallengeOriginHeights: challengeOriginHeights,
 			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
@@ -593,7 +596,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              et.wasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+			Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 			UpperChallengeOriginHeights: challengeOriginHeights,
 			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
@@ -671,12 +674,12 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	challengeLevel := et.edge.GetChallengeLevel()
 	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
-		fromBlock := fromAssertionHeight + et.heightConfig.StartBlockHeight
+		fromBlock := fromAssertionHeight + et.heightConfig.MessageNumber
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{l2stateprovider.Height(fromBlock)},
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.None[l2stateprovider.Height](),
@@ -689,7 +692,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{l2stateprovider.Height(fromBlock)},
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
@@ -703,7 +706,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{l2stateprovider.Height(fromBlock)},
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
@@ -716,9 +719,9 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
+				FromHeight:                  l2stateprovider.Height(fromBlock),
 				UpToHeight:                  option.Some(l2stateprovider.Height(fromBlock + 1)),
 			},
 		)
@@ -729,9 +732,9 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  l2stateprovider.Height(et.heightConfig.StartBlockHeight),
+				FromHeight:                  l2stateprovider.Height(fromBlock),
 				UpToHeight:                  option.Some(l2stateprovider.Height(fromBlock)),
 			},
 		)
@@ -745,12 +748,12 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		}
 		heights = append(heights, l2stateprovider.Height(startHeight))
 		// The first challenge origin height must account for the start block height of the assertion.
-		heights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
+		heights[0] += l2stateprovider.Height(et.heightConfig.MessageNumber)
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: heights,
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.None[l2stateprovider.Height](),
@@ -763,7 +766,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: heights,
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
@@ -777,7 +780,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: heights,
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
@@ -790,7 +793,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: heights[:len(heights)-1],
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
@@ -803,7 +806,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              et.wasmModuleRoot,
-				Batch:                       l2stateprovider.Batch(et.heightConfig.InboxMaxCount),
+				Batch:                       l2stateprovider.Batch(et.heightConfig.Batch),
 				UpperChallengeOriginHeights: heights[:len(heights)-1],
 				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(startHeight)),
@@ -891,7 +894,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 		challengeOriginHeights[index] = l2stateprovider.Height(height)
 	}
 	// The first challenge origin height must account for the start block height of the assertion.
-	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.StartBlockHeight)
+	challengeOriginHeights[0] += l2stateprovider.Height(et.heightConfig.MessageNumber)
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
 		parentAssertionCreationInfo.WasmModuleRoot,

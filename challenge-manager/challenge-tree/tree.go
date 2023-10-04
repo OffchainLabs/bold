@@ -144,10 +144,11 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		}
 		// If this is a subchallenge, the first element of the start heights must account for the batch
 		// it corresponds to in the assertion chain.
-		startHeights[0] += l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch)
+		afterState := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState)
+		startHeights[0] += l2stateprovider.Height(parentAssertionInfo.InboxMaxCount.Uint64())
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+			Batch:                       l2stateprovider.Batch(afterState.Batch),
 			FromHeight:                  l2stateprovider.Height(0),
 			UpperChallengeOriginHeights: startHeights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),

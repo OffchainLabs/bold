@@ -41,6 +41,8 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		}
 		srvlog.Error("could not add verified honest edge with id %#x to chain watcher: %w", fields)
 	}
+	afterState := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState)
+
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
 		ctx,
@@ -50,8 +52,8 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		m.watcher,
 		m,
 		edgetracker.HeightConfig{
-			StartBlockHeight: 0,
-			InboxMaxCount:    creationInfo.InboxMaxCount.Uint64() + 1,
+			MessageNumber: creationInfo.InboxMaxCount.Uint64(),
+			Batch:         afterState.Batch,
 		},
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),
