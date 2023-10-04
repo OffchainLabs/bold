@@ -45,6 +45,8 @@ func TestInclusionProof(t *testing.T) {
 		computedRoot, err = CalculateRootFromProof(proof, index, leaves[index])
 		require.NoError(t, err)
 		require.Equal(t, root, computedRoot)
+		p1 := GenerateInclusionProofForFirstElement(exp)
+		require.Equal(t, proof, p1)
 	})
 	t.Run("last leaf proof", func(t *testing.T) {
 		index = uint64(len(leaves) - 1)
@@ -54,6 +56,9 @@ func TestInclusionProof(t *testing.T) {
 		computedRoot, err = CalculateRootFromProof(proof, index, leaves[index])
 		require.NoError(t, err)
 		require.Equal(t, root, computedRoot)
+		p1, err := GenerateInclusionProofForLastElement(exp)
+		require.NoError(t, err)
+		require.Equal(t, proof, p1)
 	})
 	t.Run("Invalid inputs", func(t *testing.T) {
 		// Empty tree should fail to generate a proof.

@@ -109,3 +109,43 @@ func CalculateRootFromProof(proof []common.Hash, index uint64, leaf common.Hash)
 	}
 	return h, nil
 }
+
+func GenerateInclusionProofForFirstElement(me prefixproofs.MerkleExpansion) []common.Hash {
+	var proof []common.Hash
+
+	// Iterate over the MerkleExpansion levels
+	for i := 0; i < len(me)-1; i++ {
+		// Since we are generating the proof for the first element,
+		// it's always on the left side, so we add the right siblings to the proof.
+		// However, we need to ensure that the sibling (right side) exists and is not empty.
+		if (i+1) < len(me) && me[i+1] != (common.Hash{}) {
+			proof = append(proof, me[i+1])
+		}
+	}
+
+	return proof
+}
+
+func GenerateInclusionProofForLastElement(me prefixproofs.MerkleExpansion) ([]common.Hash, error) {
+	var proof []common.Hash
+
+	if len(me) == 0 {
+		return nil, errors.New("empty MerkleExpansion")
+	}
+
+	// Find the position of the last element in the tree
+	lastElementIndex := uint64(len(me)) - 1
+
+	// Iterate over the MerkleExpansion levels in reverse to find the siblings of the last element
+	for i := len(me) - 1; i >= 0; i-- {
+		// If the element is on the right side (which the last element often is), add the left sibling to the proof
+		// However, we need to ensure that the sibling (left side) exists and is not empty
+		if i > 0 && me[i-1] != (common.Hash{}) {
+			proof = append(proof, me[i-1])
+		}
+		// Update the position to the parent's index
+		lastElementIndex = lastElementIndex / 2
+	}
+
+	return proof, nil
+}
