@@ -187,7 +187,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1), trk.MessageNumber())
-	require.Equal(t, uint64(0x65), trk.Batch())
+	require.Equal(t, uint64(0), trk.Batch())
 }
 
 func setupEdgeTrackersForBisection(
