@@ -412,6 +412,39 @@ func (w *Watcher) checkForEdgeAdded(
 	return nil
 }
 
+// AddEdge to watcher. If it is honest, it will be tracked.
+func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
+	assertionHash, err := edge.AssertionHash(ctx)
+	if err != nil {
+		return err
+	}
+	chal, ok := w.challenges.TryGet(assertionHash)
+	if !ok {
+		tree := challengetree.New(
+			assertionHash,
+			w.chain,
+			w.histChecker,
+			w.numBigStepLevels,
+			w.validatorName,
+		)
+		chal = &trackedChallenge{
+			honestEdgeTree:                 tree,
+			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](),
+		}
+		w.challenges.Put(assertionHash, chal)
+	}
+	// Add the edge to a local challenge tree of tracked edges. If it is honest,
+	// we also spawn a tracker for the edge.
+	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
+	if err != nil {
+		return errors.Wrap(err, "could not add edge to challenge tree")
+	}
+	if agreement.IsHonestEdge {
+		return w.edgeManager.TrackEdge(ctx, edge)
+	}
+	return nil
+}
+
 // Processes an edge added event by adding it to the honest challenge tree if it is honest.
 func (w *Watcher) processEdgeAddedEvent(
 	ctx context.Context,

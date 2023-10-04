@@ -72,10 +72,24 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 	require.ErrorContains(t, err, "not yet confirmable")
 	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
 
+	someEdge, err := chalManager.GetEdge(ctx, tkr.EdgeId())
+	require.NoError(t, err)
+	require.Equal(t, false, someEdge.IsNone())
+	edge := someEdge.Unwrap()
+	assertionHash, err := edge.AssertionHash(ctx)
+	require.NoError(t, err)
+
+	pathTimerBefore, _, _, err := tkr.Watcher().ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+	require.NoError(t, err)
+
 	// Advance our backend way beyond the challenge period.
 	for i := uint64(0); i < chalPeriodBlocks; i++ {
 		createdData.Backend.Commit()
 	}
+
+	pathTimerAfter, _, _, err := tkr.Watcher().ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+	require.NoError(t, err)
+	require.Equal(t, pathTimerBefore, pathTimerAfter)
 
 	// Despite a lot of time having passed since the edge was created, its timer stopped halfway
 	// through the challenge period as it gained a rival. That is, no matter how much time passes,
@@ -285,7 +299,9 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 
 	require.NoError(t, honestWatcher.AddVerifiedHonestEdge(ctx, honestEdge))
+	require.NoError(t, honestWatcher.AddEdge(ctx, evilEdge))
 	require.NoError(t, evilWatcher.AddVerifiedHonestEdge(ctx, evilEdge))
+	require.NoError(t, evilWatcher.AddEdge(ctx, honestEdge))
 
 	return tracker1, tracker2
 }
