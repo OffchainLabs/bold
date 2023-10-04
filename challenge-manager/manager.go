@@ -292,7 +292,8 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			return nil, heightErr
 		}
 		messageNumber = height
-		batch = assertionCreationInfo.InboxMaxCount.Uint64() + 1
+		afterState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState)
+		batch = afterState.Batch
 		m.assertionHashCache.Put(assertionHash, [2]uint64{messageNumber, batch})
 	} else {
 		messageNumber, batch = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
