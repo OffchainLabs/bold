@@ -241,9 +241,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
 			fields["err"] = err
-			if errors.Is(err, errNotYetConfirmable) {
-				//srvlog.Debug("Edge not yet confirmable", fields)
-			} else {
+			if !errors.Is(err, errNotYetConfirmable) {
 				srvlog.Error("Could not check if edge can be confirmed", fields)
 			}
 		}
@@ -505,6 +503,7 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
+	fmt.Printf("timer: %d, chalPeriod: %d\n", timer, chalPeriod)
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
 			return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", timer, chalPeriod)
