@@ -461,37 +461,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	if edgeOpt.IsNone() {
 		return fmt.Errorf("no edge found with id %#x", event.EdgeId)
 	}
-	edge := edgeOpt.Unwrap()
-
-	assertionHash, err := edge.AssertionHash(ctx)
-	if err != nil {
-		return err
-	}
-	chal, ok := w.challenges.TryGet(assertionHash)
-	if !ok {
-		tree := challengetree.New(
-			protocol.AssertionHash{Hash: event.OriginId},
-			w.chain,
-			w.histChecker,
-			w.numBigStepLevels,
-			w.validatorName,
-		)
-		chal = &trackedChallenge{
-			honestEdgeTree:                 tree,
-			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](),
-		}
-		w.challenges.Put(assertionHash, chal)
-	}
-	// Add the edge to a local challenge tree of tracked edges. If it is honest,
-	// we also spawn a tracker for the edge.
-	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
-	if err != nil {
-		return errors.Wrap(err, "could not add edge to challenge tree")
-	}
-	if agreement.IsHonestEdge {
-		return w.edgeManager.TrackEdge(ctx, edge)
-	}
-	return nil
+	return w.AddEdge(ctx, edgeOpt.Unwrap())
 }
 
 // Filters for edge confirmed by one step proof events within a range.
