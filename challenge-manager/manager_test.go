@@ -168,7 +168,16 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 	require.Equal(t, true, childTracker2.ShouldDespawn(ctx))
 
 	// We check we can also confirm the ancestor edge.
-	err = tkr.Act(ctx)
+	// Retry a few times as the edge may not be confirmable right away.
+	numRetries := 10
+	for i := 0; i < numRetries; i++ {
+		err = tkr.Act(ctx)
+		if err != nil {
+			t.Logf("Got error: %v", err)
+			continue
+		}
+		break
+	}
 	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirmed, tkr.CurrentState())
 	require.Equal(t, true, tkr.ShouldDespawn(ctx))

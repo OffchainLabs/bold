@@ -336,9 +336,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case EdgeConfirming:
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			fields["err"] = err
-			//srvlog.Debug("Could not confirm edge yet", fields)
-			return et.fsm.Do(edgeAwaitConfirmation{})
+			return err
 		}
 		if !wasConfirmed {
 			return et.fsm.Do(edgeAwaitConfirmation{})
