@@ -20,7 +20,6 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
@@ -95,17 +94,6 @@ func (s *Scanner) Start(ctx context.Context) {
 	})
 	if err != nil {
 		srvlog.Error("Could not get rollup user logic filterer", log.Ctx{"err": err})
-		return
-	}
-	latestBlock, err := retry.UntilSucceeds(ctx, func() (*gethTypes.Header, error) {
-		return s.backend.HeaderByNumber(ctx, nil)
-	})
-	if err != nil {
-		srvlog.Error("Could not get header by number", log.Ctx{"err": err})
-		return
-	}
-	if !latestBlock.Number.IsUint64() {
-		srvlog.Error("Latest block number was not a uint64")
 		return
 	}
 	filterOpts := &bind.FilterOpts{
