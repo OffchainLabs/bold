@@ -495,14 +495,6 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not get challenge manager")
 	}
 
-	hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
-	if err != nil {
-		return false, err
-	}
-	if hasConfirmedRival {
-		return false, nil
-	}
-
 	// Check if we can confirm by children.
 	childrenConfirmed, err := et.childrenAreConfirmed(ctx, manager)
 	if err != nil {
