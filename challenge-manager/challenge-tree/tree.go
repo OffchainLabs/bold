@@ -125,8 +125,7 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if err != nil {
 		return protocol.Agreement{}, err
 	}
-	messageIndex := parentCreationInfo.InboxMaxCount.Uint64() - 1
-	batchCount := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch + 1
+	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
 
 	// We only track edges we fully agree with (honest edges).
 	startHeight, startCommit := eg.StartCommitment()
@@ -146,10 +145,10 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			FromHeight:                  l2stateprovider.Height(messageIndex),
-			Batch:                       l2stateprovider.Batch(batchCount),
+			Batch:                       batchIndex,
+			FromHeight:                  0,
 			UpperChallengeOriginHeights: make([]l2stateprovider.Height, 0),
-			UpToHeight:                  option.Some(l2stateprovider.Height(messageIndex + uint64(endHeight))),
+			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		}
 		isHonestEdge, err = ht.histChecker.AgreesWithHistoryCommitment(
 			ctx,
@@ -179,13 +178,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		if len(startHeights) == 0 {
 			return protocol.Agreement{}, errors.New("start height cannot be zero")
 		}
-		// If this is a subchallenge, the first element of the start heights must account for the batch
-		// it corresponds to in the assertion chain.
-		afterState := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState)
-		startHeights[0] += l2stateprovider.Height(messageIndex)
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(afterState.Batch),
+			Batch:                       batchIndex,
 			FromHeight:                  l2stateprovider.Height(0),
 			UpperChallengeOriginHeights: startHeights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),

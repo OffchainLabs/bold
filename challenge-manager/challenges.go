@@ -41,10 +41,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		}
 		srvlog.Error("could not add verified honest edge to chain watcher", fields)
 	}
-	afterState := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState)
-	batchCount := afterState.Batch + 1
-
-	messageIndex := parentCreationInfo.InboxMaxCount.Uint64() - 1
+	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
 		ctx,
@@ -53,10 +50,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		m.stateManager,
 		m.watcher,
 		m,
-		edgetracker.AssertionCreationValues{
-			MessageIndex: messageIndex,
-			BatchCount:   batchCount,
-		},
+		batchIndex,
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),
 		edgetracker.WithValidatorName(m.name),
@@ -69,8 +63,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	srvlog.Info("Successfully created level zero edge for block challenge", log.Ctx{
 		"name":          m.name,
 		"assertionHash": containers.Trunc(id.Bytes()),
-		"batchCount":    batchCount,
-		"messageIndex":  messageIndex,
+		"batchIndex":    batchIndex,
 	})
 	return nil
 }
@@ -90,16 +83,15 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	batchCount := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch + 1
-	messageIndex := parentAssertionInfo.InboxMaxCount.Uint64() - 1
+	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
 	startCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(batchCount),
+			Batch:                       batchIndex,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  l2stateprovider.Height(messageIndex),
-			UpToHeight:                  option.Some(l2stateprovider.Height(messageIndex)),
+			FromHeight:                  0,
+			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		},
 	)
 	if err != nil {
@@ -115,10 +107,10 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              creationInfo.WasmModuleRoot,
-		Batch:                       l2stateprovider.Batch(batchCount),
+		Batch:                       batchIndex,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  l2stateprovider.Height(messageIndex),
-		UpToHeight:                  option.Some(l2stateprovider.Height(messageIndex + layerZeroHeights.BlockChallengeHeight)),
+		FromHeight:                  0,
+		UpToHeight:                  option.Some(l2stateprovider.Height(layerZeroHeights.BlockChallengeHeight)),
 	}
 	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,

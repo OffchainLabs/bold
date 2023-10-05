@@ -14,6 +14,7 @@ import (
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers/option"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/testing/mocks"
 	"github.com/OffchainLabs/bold/testing/setup"
@@ -173,6 +174,7 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 	require.NoError(t, honestParent.Watcher().AddVerifiedHonestEdge(ctx, child1))
 	require.NoError(t, honestParent.Watcher().AddVerifiedHonestEdge(ctx, child2))
 
+	batchIndex := l2stateprovider.Batch(0)
 	childTracker1, err := edgetracker.New(
 		ctx,
 		child1,
@@ -180,10 +182,7 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 		createdData.HonestStateManager,
 		honestParent.Watcher(),
 		honestParent.ChallengeManager(),
-		edgetracker.AssertionCreationValues{
-			MessageIndex: 0,
-			BatchCount:   1,
-		},
+		batchIndex,
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 	)
 	require.NoError(t, err)
@@ -194,10 +193,7 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 		createdData.HonestStateManager,
 		honestParent.Watcher(),
 		honestParent.ChallengeManager(),
-		edgetracker.AssertionCreationValues{
-			MessageIndex: 0,
-			BatchCount:   1,
-		},
+		batchIndex,
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 	)
 	require.NoError(t, err)
@@ -226,8 +222,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(1), trk.MessageNumber())
-	require.Equal(t, uint64(0), trk.Batch())
+	require.Equal(t, l2stateprovider.Batch(0), trk.AssertionBatchIndex())
 }
 
 func setupEdgeTrackersForBisection(
@@ -290,6 +285,7 @@ func setupEdgeTrackersForBisection(
 
 	honestWatcher := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice")
 	honestValidator.watcher = honestWatcher
+	batchIndex := l2stateprovider.Batch(0)
 	tracker1, err := edgetracker.New(
 		ctx,
 		honestEdge,
@@ -297,10 +293,7 @@ func setupEdgeTrackersForBisection(
 		createdData.HonestStateManager,
 		honestWatcher,
 		honestValidator,
-		edgetracker.AssertionCreationValues{
-			MessageIndex: 0,
-			BatchCount:   1,
-		},
+		batchIndex,
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(honestValidator.name),
 	)
@@ -315,10 +308,7 @@ func setupEdgeTrackersForBisection(
 		createdData.EvilStateManager,
 		evilWatcher,
 		evilValidator,
-		edgetracker.AssertionCreationValues{
-			MessageIndex: 0,
-			BatchCount:   1,
-		},
+		batchIndex,
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(evilValidator.name),
 	)

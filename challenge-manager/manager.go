@@ -45,29 +45,29 @@ type Opt = func(val *Manager)
 // Manager defines an offchain, challenge manager, which will be
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
-	chain                     protocol.Protocol
-	chalManagerAddr           common.Address
-	rollupAddr                common.Address
-	rollup                    *rollupgen.RollupCore
-	rollupFilterer            *rollupgen.RollupCoreFilterer
-	chalManager               *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                   bind.ContractBackend
-	client                    *rpc.Client
-	stateManager              l2stateprovider.Provider
-	address                   common.Address
-	name                      string
-	timeRef                   utilTime.Reference
-	edgeTrackerWakeInterval   time.Duration
-	chainWatcherInterval      time.Duration
-	watcher                   *watcher.Watcher
-	trackedEdgeIds            *threadsafe.Set[protocol.EdgeId]
-	assertionHashCache        *threadsafe.Map[protocol.AssertionHash, [2]uint64]
-	poster                    *assertions.Poster
-	scanner                   *assertions.Scanner
-	assertionPostingInterval  time.Duration
-	assertionScanningInterval time.Duration
-	mode                      types.Mode
-	maxDelaySeconds           int
+	chain                       protocol.Protocol
+	chalManagerAddr             common.Address
+	rollupAddr                  common.Address
+	rollup                      *rollupgen.RollupCore
+	rollupFilterer              *rollupgen.RollupCoreFilterer
+	chalManager                 *challengeV2gen.EdgeChallengeManagerFilterer
+	backend                     bind.ContractBackend
+	client                      *rpc.Client
+	stateManager                l2stateprovider.Provider
+	address                     common.Address
+	name                        string
+	timeRef                     utilTime.Reference
+	edgeTrackerWakeInterval     time.Duration
+	chainWatcherInterval        time.Duration
+	watcher                     *watcher.Watcher
+	trackedEdgeIds              *threadsafe.Set[protocol.EdgeId]
+	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, uint64]
+	poster                      *assertions.Poster
+	scanner                     *assertions.Scanner
+	assertionPostingInterval    time.Duration
+	assertionScanningInterval   time.Duration
+	mode                        types.Mode
+	maxDelaySeconds             int
 
 	// API
 	apiAddr string
@@ -139,17 +139,17 @@ func New(
 ) (*Manager, error) {
 
 	m := &Manager{
-		backend:                   backend,
-		chain:                     chain,
-		stateManager:              stateManager,
-		address:                   common.Address{},
-		timeRef:                   utilTime.NewRealTimeReference(),
-		rollupAddr:                rollupAddr,
-		chainWatcherInterval:      time.Millisecond * 500,
-		trackedEdgeIds:            threadsafe.NewSet[protocol.EdgeId](),
-		assertionHashCache:        threadsafe.NewMap[protocol.AssertionHash, [2]uint64](),
-		assertionPostingInterval:  time.Hour,
-		assertionScanningInterval: time.Minute,
+		backend:                     backend,
+		chain:                       chain,
+		stateManager:                stateManager,
+		address:                     common.Address{},
+		timeRef:                     utilTime.NewRealTimeReference(),
+		rollupAddr:                  rollupAddr,
+		chainWatcherInterval:        time.Millisecond * 500,
+		trackedEdgeIds:              threadsafe.NewSet[protocol.EdgeId](),
+		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, uint64](),
+		assertionPostingInterval:    time.Hour,
+		assertionScanningInterval:   time.Minute,
 	}
 	for _, o := range opts {
 		o(m)
@@ -284,33 +284,20 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 
 	// Smart caching to avoid querying the same assertion number and creation info multiple times.
 	// Edges in the same challenge should have the same creation info.
-	cachedHeightAndInboxMsgCount, ok := m.assertionHashCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
-	var messageIndex uint64
-	var batch uint64
+	cachedHeightAndInboxMsgCount, ok := m.batchIndexForAssertionCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
+	var batchIndex uint64
 	if !ok {
-		// Retry until you get the assertion creation info.
-		prevAssertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-			return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-		})
-		if creationErr != nil {
-			return nil, creationErr
-		}
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
 		})
 		if creationErr != nil {
 			return nil, creationErr
 		}
-
-		// Retry until you get the execution state block height.
-		messageIndex = prevAssertionCreationInfo.InboxMaxCount.Uint64() - 1
-		afterState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState)
-		batch = afterState.Batch
-		m.assertionHashCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, [2]uint64{messageIndex, batch})
+		batchIndex = assertionCreationInfo.InboxMaxCount.Uint64() - 1
+		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, batchIndex)
 	} else {
-		messageIndex, batch = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
+		batchIndex = cachedHeightAndInboxMsgCount
 	}
-	batchCount := batch + 1
 	return retry.UntilSucceeds(ctx, func() (*edgetracker.Tracker, error) {
 		return edgetracker.New(
 			ctx,
@@ -319,10 +306,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.stateManager,
 			m.watcher,
 			m,
-			edgetracker.AssertionCreationValues{
-				MessageIndex: messageIndex,
-				BatchCount:   batchCount,
-			},
+			l2stateprovider.Batch(batchIndex),
 			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
 			edgetracker.WithValidatorName(m.name),
