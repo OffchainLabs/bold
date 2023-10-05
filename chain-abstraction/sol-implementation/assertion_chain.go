@@ -305,20 +305,16 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 		return err
 	}
 	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
-		latestConfirmedInfo, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
-		if err != nil {
-			return err
-		}
-		prevPrev, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: latestConfirmedInfo.ParentAssertionHash})
+		prevPrev, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: prevCreationInfo.ParentAssertionHash})
 		if err != nil {
 			return err
 		}
 		_, err = transact(ctx, a.backend, func() (*types.Transaction, error) {
 			return a.userLogic.RollupUserLogicTransactor.ConfirmAssertion(
 				copyTxOpts(a.txOpts),
-				b,
-				latestConfirmedInfo.ParentAssertionHash,
-				latestConfirmedInfo.AfterState,
+				creationInfo.ParentAssertionHash,
+				prevCreationInfo.ParentAssertionHash,
+				prevCreationInfo.AfterState,
 				winningEdgeId.Hash,
 				rollupgen.ConfigData{
 					WasmModuleRoot:      prevPrev.WasmModuleRoot,
@@ -327,18 +323,38 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 					ChallengeManager:    prevPrev.ChallengeManager,
 					NextInboxPosition:   prevPrev.InboxMaxCount.Uint64(),
 				},
-				latestConfirmedInfo.AfterInboxBatchAcc,
+				prevCreationInfo.AfterInboxBatchAcc,
 			)
 		})
 		if err != nil {
 			return err
 		}
-		fmt.Println("Confirmed the parent, common assertion")
-		return fmt.Errorf(
-			"parent id %#x is not the latest confirmed assertion %#x",
-			creationInfo.ParentAssertionHash,
-			latestConfirmed.Id(),
-		)
+		fmt.Println("Confirmed parent")
+		receipt, err := transact(ctx, a.backend, func() (*types.Transaction, error) {
+			return a.userLogic.RollupUserLogicTransactor.ConfirmAssertion(
+				copyTxOpts(a.txOpts),
+				b,
+				creationInfo.ParentAssertionHash,
+				creationInfo.AfterState,
+				winningEdgeId.Hash,
+				rollupgen.ConfigData{
+					WasmModuleRoot:      prevCreationInfo.WasmModuleRoot,
+					ConfirmPeriodBlocks: prevCreationInfo.ConfirmPeriodBlocks,
+					RequiredStake:       prevCreationInfo.RequiredStake,
+					ChallengeManager:    prevCreationInfo.ChallengeManager,
+					NextInboxPosition:   prevCreationInfo.InboxMaxCount.Uint64(),
+				},
+				creationInfo.AfterInboxBatchAcc,
+			)
+		})
+		if err != nil {
+			return err
+		}
+		if len(receipt.Logs) == 0 {
+			return errors.New("no logs observed from assertion confirmation")
+		}
+		fmt.Printf("Confirmed the current one with hash %#x\n", b)
+		return nil
 	}
 	if !prevCreationInfo.InboxMaxCount.IsUint64() {
 		return errors.New("assertion prev creation info inbox max count was not a uint64")
