@@ -305,6 +305,35 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 		return err
 	}
 	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
+		latestConfirmedInfo, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+		if err != nil {
+			return err
+		}
+		prevPrev, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: latestConfirmedInfo.ParentAssertionHash})
+		if err != nil {
+			return err
+		}
+		_, err = transact(ctx, a.backend, func() (*types.Transaction, error) {
+			return a.userLogic.RollupUserLogicTransactor.ConfirmAssertion(
+				copyTxOpts(a.txOpts),
+				b,
+				latestConfirmedInfo.ParentAssertionHash,
+				latestConfirmedInfo.AfterState,
+				winningEdgeId.Hash,
+				rollupgen.ConfigData{
+					WasmModuleRoot:      prevPrev.WasmModuleRoot,
+					ConfirmPeriodBlocks: prevPrev.ConfirmPeriodBlocks,
+					RequiredStake:       prevPrev.RequiredStake,
+					ChallengeManager:    prevPrev.ChallengeManager,
+					NextInboxPosition:   prevPrev.InboxMaxCount.Uint64(),
+				},
+				latestConfirmedInfo.AfterInboxBatchAcc,
+			)
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Println("Confirmed the parent, common assertion")
 		return fmt.Errorf(
 			"parent id %#x is not the latest confirmed assertion %#x",
 			creationInfo.ParentAssertionHash,

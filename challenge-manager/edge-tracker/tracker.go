@@ -272,6 +272,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 			if !strings.Contains(err.Error(), "BAD_SEQINBOX_MESSAGE") {
 				fields["err"] = err
 				srvlog.Trace("Could not submit one step proof", fields)
+				return et.fsm.Do(edgeConfirm{})
 			}
 			return et.fsm.Do(edgeBackToStart{})
 		}
@@ -519,8 +520,12 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	if et.edge.GetChallengeLevel() > 6 {
-		srvlog.Info(fmt.Sprintf("timer %d, chal period %d", timer, chalPeriod), et.uniqueTrackerLogFields())
+	if et.edge.GetChallengeLevel() > 5 {
+		startHeight, _ := et.edge.StartCommitment()
+		endHeight, _ := et.edge.EndCommitment()
+		if startHeight == 62 && endHeight == 64 {
+			srvlog.Info(fmt.Sprintf("timer %d, chal period %d", timer, chalPeriod), et.uniqueTrackerLogFields())
+		}
 	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
@@ -885,7 +890,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 
 func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	fields := et.uniqueTrackerLogFields()
-	srvlog.Info("Submitting one-step-proof to protocol", fields)
+	//srvlog.Info("Submitting one-step-proof to protocol", fields)
 	originHeights, err := et.edge.TopLevelClaimHeight(ctx)
 	if err != nil {
 		return errors.Wrap(err, "could not get top level claim height")
