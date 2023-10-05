@@ -361,46 +361,56 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if et.fsm.Current().State == EdgeConfirmed {
 		return true
 	}
-	// fields := et.uniqueTrackerLogFields()
-	// assertionHash, err := et.edge.AssertionHash(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not get assertion hash", fields)
-	// 	return false
-	// }
-	// _, _, ancestorLocalTimers, err := et.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, et.edge.Id())
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not compute honest path timer", fields)
-	// 	return false
-	// }
-	// chalManager, err := et.chain.SpecChallengeManager(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not get challenge manager", fields)
-	// 	return false
-	// }
-	// challengePeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not get challenge period blocks", fields)
-	// 	return false
-	// }
-	// hasConfirmableAncestor, err := et.chainWatcher.HasConfirmableAncestor(
-	// 	ctx,
-	// 	assertionHash,
-	// 	ancestorLocalTimers,
-	// 	challengePeriodBlocks,
-	// )
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not check if has confirmable ancestor", fields)
-	// 	return false
-	// }
-	// if hasConfirmableAncestor {
-	// 	srvlog.Info("Edge has confirmable ancestor - challenge manager will stop tracking it", fields)
-	// 	return true
-	// }
+	fields := et.uniqueTrackerLogFields()
+	hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not check if edge has a confirmed rival", fields)
+		return false
+	}
+	if hasConfirmedRival {
+		// Cannot be confirmed if it has a confirmed rival edge. We should despawn the edge.
+		return true
+	}
+	assertionHash, err := et.edge.AssertionHash(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get assertion hash", fields)
+		return false
+	}
+	_, _, ancestorLocalTimers, err := et.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, et.edge.Id())
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not compute honest path timer", fields)
+		return false
+	}
+	chalManager, err := et.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get challenge manager", fields)
+		return false
+	}
+	challengePeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get challenge period blocks", fields)
+		return false
+	}
+	hasConfirmableAncestor, err := et.chainWatcher.HasConfirmableAncestor(
+		ctx,
+		assertionHash,
+		ancestorLocalTimers,
+		challengePeriodBlocks,
+	)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not check if has confirmable ancestor", fields)
+		return false
+	}
+	if hasConfirmableAncestor {
+		srvlog.Info("Edge has confirmable ancestor - challenge manager will stop tracking it", fields)
+		return true
+	}
 	return false
 }
 
@@ -466,6 +476,16 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if status == protocol.EdgeConfirmed {
 		return true, nil
 	}
+
+	hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
+	if err != nil {
+		return false, errors.Wrap(err, "could not check if edge has confirmed rival")
+	}
+	if hasConfirmedRival {
+		// Cannot be confirmed if it has a confirmed rival edge.
+		return false, nil
+	}
+
 	assertionHash, err := et.edge.AssertionHash(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get prev assertion hash")

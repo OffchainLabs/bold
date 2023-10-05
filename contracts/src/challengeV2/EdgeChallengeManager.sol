@@ -162,6 +162,8 @@ interface IEdgeChallengeManager {
     ///         Rival edges share the same mutual id
     function hasRival(bytes32 edgeId) external view returns (bool);
 
+    /// @notice Does this edge currently have a confirmed rival
+    ///         Rival edges share the same mutual id
     function hasConfirmedRival(bytes32 edgeId) external view returns (bool);
 
     /// @notice Does the edge have at least one rival, and it has length one
