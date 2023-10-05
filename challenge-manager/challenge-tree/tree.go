@@ -114,13 +114,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		claimedAssertionHash = protocol.AssertionHash{Hash: common.Hash(honestLevelZeroEdge.ClaimId().Unwrap())}
 	}
 
-	parentCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, assertionHash)
-	if err != nil {
-		return protocol.Agreement{}, err
-	}
-	if !parentCreationInfo.InboxMaxCount.IsUint64() {
-		return protocol.Agreement{}, errors.New("inbox max count was not a uint64")
-	}
 	creationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, claimedAssertionHash)
 	if err != nil {
 		return protocol.Agreement{}, err

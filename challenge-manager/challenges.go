@@ -27,11 +27,11 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	}
 
 	// We then add a level zero edge to initiate a challenge.
-	levelZeroEdge, parentCreationInfo, creationInfo, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
+	levelZeroEdge, creationInfo, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
 		return fmt.Errorf("could not add block challenge level zero edge %v: %w", m.name, err)
 	}
-	if !parentCreationInfo.InboxMaxCount.IsUint64() {
+	if !creationInfo.InboxMaxCount.IsUint64() {
 		return errors.New("parent assertion creation info inbox max count was not a uint64")
 	}
 	if verifiedErr := m.watcher.AddVerifiedHonestEdge(ctx, levelZeroEdge); verifiedErr != nil {
@@ -71,17 +71,13 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 func (m *Manager) addBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
-) (protocol.VerifiedHonestEdge, *protocol.AssertionCreatedInfo, *protocol.AssertionCreatedInfo, error) {
+) (protocol.VerifiedHonestEdge, *protocol.AssertionCreatedInfo, error) {
 	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "could not get assertion creation info")
+		return nil, nil, errors.Wrap(err, "could not get assertion creation info")
 	}
 	if !creationInfo.InboxMaxCount.IsUint64() {
-		return nil, nil, nil, errors.New("creation info inbox max count was not a uint64")
-	}
-	parentAssertionInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, errors.New("creation info inbox max count was not a uint64")
 	}
 	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
 	startCommit, err := m.stateManager.HistoryCommitment(
@@ -95,15 +91,15 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		},
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	manager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	layerZeroHeights, err := manager.LayerZeroHeights(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              creationInfo.WasmModuleRoot,
@@ -117,7 +113,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		req,
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
@@ -125,11 +121,11 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		l2stateprovider.Height(0),
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	edge, err := manager.AddBlockChallengeLevelZeroEdge(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "could not post block challenge root edge")
+		return nil, nil, errors.Wrap(err, "could not post block challenge root edge")
 	}
-	return edge, parentAssertionInfo, creationInfo, nil
+	return edge, creationInfo, nil
 }
