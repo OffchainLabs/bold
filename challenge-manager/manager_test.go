@@ -180,9 +180,9 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 		createdData.HonestStateManager,
 		honestParent.Watcher(),
 		honestParent.ChallengeManager(),
-		edgetracker.HeightConfig{
-			MessageNumber: 0,
-			Batch:         1,
+		edgetracker.AssertionCreationValues{
+			MessageIndex: 0,
+			BatchCount:   1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 	)
@@ -194,9 +194,9 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 		createdData.HonestStateManager,
 		honestParent.Watcher(),
 		honestParent.ChallengeManager(),
-		edgetracker.HeightConfig{
-			MessageNumber: 0,
-			Batch:         1,
+		edgetracker.AssertionCreationValues{
+			MessageIndex: 0,
+			BatchCount:   1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 	)
@@ -297,9 +297,9 @@ func setupEdgeTrackersForBisection(
 		createdData.HonestStateManager,
 		honestWatcher,
 		honestValidator,
-		edgetracker.HeightConfig{
-			MessageNumber: 0,
-			Batch:         1,
+		edgetracker.AssertionCreationValues{
+			MessageIndex: 0,
+			BatchCount:   1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(honestValidator.name),
@@ -315,9 +315,9 @@ func setupEdgeTrackersForBisection(
 		createdData.EvilStateManager,
 		evilWatcher,
 		evilValidator,
-		edgetracker.HeightConfig{
-			MessageNumber: 0,
-			Batch:         1,
+		edgetracker.AssertionCreationValues{
+			MessageIndex: 0,
+			BatchCount:   1,
 		},
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(evilValidator.name),

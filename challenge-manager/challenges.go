@@ -53,9 +53,9 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		m.stateManager,
 		m.watcher,
 		m,
-		edgetracker.HeightConfig{
-			MessageNumber: messageIndex,
-			Batch:         batchCount,
+		edgetracker.AssertionCreationValues{
+			MessageIndex: messageIndex,
+			BatchCount:   batchCount,
 		},
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),
