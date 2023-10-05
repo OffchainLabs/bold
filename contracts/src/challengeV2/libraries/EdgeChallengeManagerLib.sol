@@ -632,11 +632,6 @@ library EdgeChallengeManagerLib {
         store.confirmedRivals[mutualId] = edgeId;
     }
 
-    function hasConfirmedRival(EdgeStore storage store, bytes32 edgeId) internal view returns (bool) {
-        bytes32 mutualId = store.edges[edgeId].mutualId();
-        return store.confirmedRivals[mutualId] != bytes32(0);
-    }
-
     /// @notice Confirm an edge if both its children are already confirmed
     function confirmEdgeByChildren(EdgeStore storage store, bytes32 edgeId) internal {
         if (!store.edges[edgeId].exists()) {
