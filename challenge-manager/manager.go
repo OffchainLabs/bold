@@ -303,13 +303,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		}
 
 		// Retry until you get the execution state block height.
-		msgCount, msgErr := retry.UntilSucceeds(ctx, func() (uint64, error) {
-			return m.getExecutionStateMsgCount(ctx, prevAssertionCreationInfo.AfterState)
-		})
-		if msgErr != nil {
-			return nil, msgErr
-		}
-		messageIndex = msgCount - 1
+		messageIndex = prevAssertionCreationInfo.InboxMaxCount.Uint64() - 1
 		afterState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState)
 		batch = afterState.Batch
 		m.assertionHashCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, [2]uint64{messageIndex, batch})
@@ -367,17 +361,4 @@ func (m *Manager) Start(ctx context.Context) {
 			}
 		}()
 	}
-}
-
-// Gets the execution height for a rollup state from our state manager.
-func (m *Manager) getExecutionStateMsgCount(ctx context.Context, st rollupgen.ExecutionState) (uint64, error) {
-	height, err := m.stateManager.ExecutionStateMsgCount(ctx, protocol.GoExecutionStateFromSolidity(st))
-	switch {
-	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
-		return 0, fmt.Errorf("missing previous assertion after execution %+v in local state manager", st)
-	case err != nil:
-		return 0, err
-	default:
-	}
-	return height, nil
 }

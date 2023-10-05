@@ -409,8 +409,8 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	chalLevel := et.edge.GetChallengeLevel()
 	return log.Ctx{
 		"id":            containers.Trunc(et.edge.Id().Bytes()),
-		"batch":         et.heightConfig.Batch,
-		"fromMessage":   et.heightConfig.MessageNumber,
+		"batchCount":    et.heightConfig.Batch,
+		"messageIndex":  et.heightConfig.MessageNumber,
 		"startHeight":   startHeight,
 		"startCommit":   containers.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,
@@ -510,6 +510,9 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
+	}
+	if et.edge.GetChallengeLevel() > 6 {
+		srvlog.Info(fmt.Sprintf("timer %d, chal period %d", timer, chalPeriod), et.uniqueTrackerLogFields())
 	}
 	if timer >= challengetree.PathTimer(chalPeriod) {
 		if err := et.edge.ConfirmByTimer(ctx, ancestors); err != nil {
@@ -655,16 +658,16 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		return errors.Wrap(err, "could not get top level claim height")
 	}
 
-	fromAssertionHeight := uint64(originHeights.ChallengeOriginHeights[0])
+	fromBlock := uint64(originHeights.ChallengeOriginHeights[0]) + et.heightConfig.MessageNumber
 
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
 
 	fields := log.Ctx{
-		"name":                et.validatorName,
-		"edgeStartHeight":     startHeight,
-		"edgeEndHeight":       endHeight,
-		"fromAssertionHeight": fromAssertionHeight,
+		"name":            et.validatorName,
+		"edgeStartHeight": startHeight,
+		"edgeEndHeight":   endHeight,
+		"messageIndex":    fromBlock,
 	}
 
 	var startHistory commitments.History
@@ -675,7 +678,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	challengeLevel := et.edge.GetChallengeLevel()
 	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
-		fromBlock := fromAssertionHeight + et.heightConfig.MessageNumber
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{

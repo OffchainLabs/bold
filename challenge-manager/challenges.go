@@ -69,6 +69,8 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	srvlog.Info("Successfully created level zero edge for block challenge", log.Ctx{
 		"name":          m.name,
 		"assertionHash": containers.Trunc(id.Bytes()),
+		"batchCount":    batchCount,
+		"messageIndex":  messageIndex,
 	})
 	return nil
 }
@@ -88,15 +90,16 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	parentAssertionAfterState := protocol.GoExecutionStateFromSolidity(parentAssertionInfo.AfterState)
+	batchCount := protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch + 1
+	messageIndex := parentAssertionInfo.InboxMaxCount.Uint64() - 1
 	startCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       l2stateprovider.Batch(parentAssertionAfterState.GlobalState.Batch),
+			Batch:                       l2stateprovider.Batch(batchCount),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
-			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
+			FromHeight:                  l2stateprovider.Height(messageIndex),
+			UpToHeight:                  option.Some(l2stateprovider.Height(messageIndex)),
 		},
 	)
 	if err != nil {
@@ -112,10 +115,10 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              creationInfo.WasmModuleRoot,
-		Batch:                       l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64()),
+		Batch:                       l2stateprovider.Batch(batchCount),
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch),
-		UpToHeight:                  option.Some(l2stateprovider.Height(parentAssertionAfterState.GlobalState.Batch + layerZeroHeights.BlockChallengeHeight)),
+		FromHeight:                  l2stateprovider.Height(messageIndex),
+		UpToHeight:                  option.Some(l2stateprovider.Height(messageIndex + layerZeroHeights.BlockChallengeHeight)),
 	}
 	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
