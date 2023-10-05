@@ -124,6 +124,10 @@ func (*Edge) TimeUnrivaled(_ context.Context) (uint64, error) {
 	return 0, nil
 }
 
+func (*Edge) HasConfirmedRival(_ context.Context) (bool, error) {
+	return false, nil
+}
+
 // Status of an edge.
 func (*Edge) Status(_ context.Context) (protocol.EdgeStatus, error) {
 	return 0, nil
