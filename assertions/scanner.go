@@ -197,6 +197,7 @@ func (s *Scanner) ProcessAssertionCreation(
 		"validatorName":       s.validatorName,
 		"globalState":         goGs,
 		"machineFinishedHash": crypto.Keccak256Hash([]byte("Machine finished:"), goGs.Hash().Bytes()),
+		"assertionHash":       assertionHash,
 	})
 	s.assertionsProcessedCount++
 	prevAssertion, err := s.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})

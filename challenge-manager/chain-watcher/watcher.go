@@ -122,6 +122,17 @@ func New(
 	}
 }
 
+func (w *Watcher) HonestBlockChallengeRootEdge(
+	ctx context.Context,
+	assertionHash protocol.AssertionHash,
+) (protocol.ReadOnlyEdge, error) {
+	chal, ok := w.challenges.TryGet(assertionHash)
+	if !ok {
+		return nil, fmt.Errorf("no challenge for assertion hash %#x", assertionHash)
+	}
+	return chal.honestEdgeTree.HonestBlockChallengeRootEdge()
+}
+
 // ConfirmedEdgeWithClaimExists checks if a confirmed, level zero edge exists that claims a particular
 // edge id for a tracked challenge. This is used during the confirmation process of edges
 // within edge tracker goroutines. Returns the claiming edge id.
@@ -374,7 +385,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	if err := chal.honestEdgeTree.AddHonestEdge(edge); err != nil {
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
-	return w.edgeManager.TrackEdge(ctx, edge)
+	return nil
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -437,11 +448,27 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	// we also spawn a tracker for the edge.
 	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
 	if err != nil {
-		return errors.Wrap(err, "could not add edge to challenge tree")
+		if !errors.Is(err, challengetree.ErrAlreadyBeingTracked) {
+			return errors.Wrap(err, "could not add edge to challenge tree")
+		}
+		// If the error is that we are already tracking the edge, we exit early.
+		return nil
 	}
 	if agreement.IsHonestEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
+	// startHeight, startCommit := edge.StartCommitment()
+	// endHeight, endCommit := edge.EndCommitment()
+	// srvlog.Info("Chain watcher received new edge", log.Ctx{
+	// 	"validatorName":   w.validatorName,
+	// 	"edgeId":          containers.Trunc(edge.Id().Hash.Bytes()),
+	// 	"isHonest":        agreement.IsHonestEdge,
+	// 	"agreesWithStart": agreement.AgreesWithStartCommit,
+	// 	"startHeight":     startHeight,
+	// 	"endHeight":       endHeight,
+	// 	"startCommit":     containers.Trunc(startCommit.Bytes()),
+	// 	"endCommit":       containers.Trunc(endCommit.Bytes()),
+	// })
 	return nil
 }
 

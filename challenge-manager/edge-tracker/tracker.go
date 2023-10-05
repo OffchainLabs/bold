@@ -337,7 +337,9 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case EdgeConfirming:
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			return err
+			//fields["err"] = err
+			//srvlog.Trace("Could not check if edge can be confirmed", fields)
+			_ = err
 		}
 		if !wasConfirmed {
 			return et.fsm.Do(edgeAwaitConfirmation{})
@@ -406,6 +408,9 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	endHeight, endCommit := et.edge.EndCommitment()
 	chalLevel := et.edge.GetChallengeLevel()
 	return log.Ctx{
+		"id":            containers.Trunc(et.edge.Id().Bytes()),
+		"batch":         et.heightConfig.Batch,
+		"fromMessage":   et.heightConfig.MessageNumber,
 		"startHeight":   startHeight,
 		"startCommit":   containers.Trunc(startCommit.Bytes()),
 		"endHeight":     endHeight,

@@ -269,35 +269,54 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	if err != nil {
 		return nil, err
 	}
+	blockChallengeRootEdge, err := m.watcher.HonestBlockChallengeRootEdge(ctx, assertionHash)
+	if err != nil {
+		return nil, err
+	}
+	if blockChallengeRootEdge.ClaimId().IsNone() {
+		return nil, fmt.Errorf(
+			"block challenge root edge %#x did not have a claim id for challenged assertion %#x",
+			blockChallengeRootEdge.Id(),
+			assertionHash,
+		)
+	}
+	claimedAssertionId := blockChallengeRootEdge.ClaimId().Unwrap()
 
 	// Smart caching to avoid querying the same assertion number and creation info multiple times.
 	// Edges in the same challenge should have the same creation info.
-	cachedHeightAndInboxMsgCount, ok := m.assertionHashCache.TryGet(assertionHash)
-	var messageNumber uint64
+	cachedHeightAndInboxMsgCount, ok := m.assertionHashCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
+	var messageIndex uint64
 	var batch uint64
 	if !ok {
 		// Retry until you get the assertion creation info.
-		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		prevAssertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 			return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+		})
+		if creationErr != nil {
+			return nil, creationErr
+		}
+		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
 		})
 		if creationErr != nil {
 			return nil, creationErr
 		}
 
 		// Retry until you get the execution state block height.
-		height, heightErr := retry.UntilSucceeds(ctx, func() (uint64, error) {
-			return m.getExecutionStateMsgCount(ctx, assertionCreationInfo.AfterState)
+		msgCount, msgErr := retry.UntilSucceeds(ctx, func() (uint64, error) {
+			return m.getExecutionStateMsgCount(ctx, prevAssertionCreationInfo.AfterState)
 		})
-		if heightErr != nil {
-			return nil, heightErr
+		if msgErr != nil {
+			return nil, msgErr
 		}
-		messageNumber = height
+		messageIndex = msgCount - 1
 		afterState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState)
 		batch = afterState.Batch
-		m.assertionHashCache.Put(assertionHash, [2]uint64{messageNumber, batch})
+		m.assertionHashCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, [2]uint64{messageIndex, batch})
 	} else {
-		messageNumber, batch = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
+		messageIndex, batch = cachedHeightAndInboxMsgCount[0], cachedHeightAndInboxMsgCount[1]
 	}
+	batchCount := batch + 1
 	return retry.UntilSucceeds(ctx, func() (*edgetracker.Tracker, error) {
 		return edgetracker.New(
 			ctx,
@@ -307,8 +326,8 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.watcher,
 			m,
 			edgetracker.HeightConfig{
-				MessageNumber: messageNumber,
-				Batch:         batch,
+				MessageNumber: messageIndex,
+				Batch:         batchCount,
 			},
 			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
