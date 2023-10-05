@@ -101,10 +101,10 @@ func (p *Poster) postAssertionImpl(
 	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("inbox max count not a uint64")
 	}
-	prevInboxMaxCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
-	newState, err := p.stateManager.ExecutionStateAtMessageNumber(ctx, prevInboxMaxCount)
+	batchCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
+	newState, err := p.stateManager.ExecutionStateAfterBatchCount(ctx, batchCount)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get execution state at message count %d", prevInboxMaxCount)
+		return nil, errors.Wrapf(err, "could not get execution state at message count %d", batchCount)
 	}
 	assertion, err := submitFn(
 		ctx,
@@ -120,7 +120,7 @@ func (p *Poster) postAssertionImpl(
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
 		"validatorName":   p.validatorName,
 		"layer2BlockHash": containers.Trunc(newState.GlobalState.BlockHash[:]),
-		"batch":           newState.GlobalState.Batch,
+		"batchIndex":      newState.GlobalState.Batch,
 	})
 
 	return assertion, nil
@@ -147,7 +147,7 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 		if err != nil {
 			return protocol.AssertionHash{}, err
 		}
-		_, err = p.stateManager.ExecutionStateMsgCount(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState))
+		err = p.stateManager.AgreesWithExecutionState(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState))
 		switch {
 		case errors.Is(err, l2stateprovider.ErrNoExecutionState):
 			prevId, prevErr := curr.PrevId(ctx)

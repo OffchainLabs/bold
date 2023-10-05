@@ -54,12 +54,12 @@ type Provider interface {
 }
 
 type ExecutionProvider interface {
-	// Produces the latest state to assert to L1 from the local state manager's perspective.
-	ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error)
+	// Produces the L2 execution state to assert to after the processing the given batch count.
+	ExecutionStateAfterBatchCount(ctx context.Context, batchCount uint64) (*protocol.ExecutionState, error)
 	// If the state manager locally has this execution state, returns its message count and no error.
 	// Returns ErrChainCatchingUp if catching up to chain.
 	// Returns ErrNoExecutionState if the state manager does not have this execution state.
-	ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error)
+	AgreesWithExecutionState(ctx context.Context, state *protocol.ExecutionState) error
 }
 
 type HistoryCommitmentRequest struct {

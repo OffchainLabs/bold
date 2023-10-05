@@ -214,7 +214,11 @@ func (s *Scanner) ProcessAssertionCreation(
 	}
 	s.forksDetectedCount++
 	execState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
-	msgCount, err := s.stateProvider.ExecutionStateMsgCount(ctx, execState)
+	if !creationInfo.InboxMaxCount.IsUint64() {
+		return errors.New("inbox max count was not a uint64")
+	}
+	batchIndex := creationInfo.InboxMaxCount.Uint64() - 1
+	err = s.stateProvider.AgreesWithExecutionState(ctx, execState)
 	switch {
 	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
 		return nil
@@ -248,7 +252,7 @@ func (s *Scanner) ProcessAssertionCreation(
 	srvlog.Error("Detected invalid assertion, but not configured to challenge", log.Ctx{
 		"parentAssertionHash":   creationInfo.ParentAssertionHash,
 		"detectedAssertionHash": assertionHash,
-		"msgCount":              msgCount,
+		"batchIndex":            batchIndex,
 	})
 	return nil
 }
