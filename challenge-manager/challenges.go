@@ -133,7 +133,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	return edge, &edgetracker.AssertionCreationInfo{
 		FromBatch:      fromBatch,
-		ToBatch:        fromBatch,
+		ToBatch:        toBatch,
 		WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
 	}, nil
 }

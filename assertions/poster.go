@@ -107,6 +107,7 @@ func (p *Poster) postAssertionImpl(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get execution state at message count %d", batchCount)
 	}
+	srvlog.Info("Required batch for assertion and retrieved state", log.Ctx{"batch": batchCount, "newState": fmt.Sprintf("%+v", newState)})
 	assertion, err := submitFn(
 		ctx,
 		parentAssertionCreationInfo,
