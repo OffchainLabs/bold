@@ -9,6 +9,7 @@ package assertions
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
@@ -218,6 +219,11 @@ func (s *Scanner) ProcessAssertionCreation(
 		return errors.New("inbox max count was not a uint64")
 	}
 	batchIndex := creationInfo.InboxMaxCount.Uint64() - 1
+	srvlog.Info("Checking if agrees with execution state", log.Ctx{
+		"validatorName": s.validatorName,
+		"batchIndex":    batchIndex,
+		"execState":     fmt.Sprintf("%+v", execState),
+	})
 	err = s.stateProvider.AgreesWithExecutionState(ctx, execState)
 	switch {
 	case errors.Is(err, l2stateprovider.ErrNoExecutionState):

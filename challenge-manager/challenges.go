@@ -27,12 +27,9 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	}
 
 	// We then add a level zero edge to initiate a challenge.
-	levelZeroEdge, creationInfo, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
+	levelZeroEdge, edgeTrackerAssertionInfo, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
 		return fmt.Errorf("could not add block challenge level zero edge %v: %w", m.name, err)
-	}
-	if !creationInfo.InboxMaxCount.IsUint64() {
-		return errors.New("parent assertion creation info inbox max count was not a uint64")
 	}
 	if verifiedErr := m.watcher.AddVerifiedHonestEdge(ctx, levelZeroEdge); verifiedErr != nil {
 		fields := log.Ctx{
@@ -41,7 +38,6 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		}
 		srvlog.Error("could not add verified honest edge to chain watcher", fields)
 	}
-	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
 		ctx,
@@ -50,7 +46,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		m.stateManager,
 		m.watcher,
 		m,
-		batchIndex,
+		edgeTrackerAssertionInfo,
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),
 		edgetracker.WithValidatorName(m.name),
@@ -63,7 +59,8 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	srvlog.Info("Successfully created level zero edge for block challenge", log.Ctx{
 		"name":          m.name,
 		"assertionHash": containers.Trunc(id.Bytes()),
-		"batchIndex":    batchIndex,
+		"fromBatch":     edgeTrackerAssertionInfo.FromBatch,
+		"toBatch":       edgeTrackerAssertionInfo.ToBatch,
 	})
 	return nil
 }
@@ -71,20 +68,26 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 func (m *Manager) addBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
-) (protocol.VerifiedHonestEdge, *protocol.AssertionCreatedInfo, error) {
+) (protocol.VerifiedHonestEdge, *edgetracker.AssertionCreationInfo, error) {
 	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get assertion creation info")
 	}
-	if !creationInfo.InboxMaxCount.IsUint64() {
-		return nil, nil, errors.New("creation info inbox max count was not a uint64")
+	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get assertion creation info")
 	}
-	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
+	if !prevCreationInfo.InboxMaxCount.IsUint64() {
+		return nil, nil, errors.New("prev creation info inbox max count was not a uint64")
+	}
+	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch)
+	toBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch)
 	startCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       batchIndex,
+			WasmModuleRoot:              prevCreationInfo.WasmModuleRoot,
+			FromBatch:                   fromBatch,
+			ToBatch:                     toBatch,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
 			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
@@ -102,8 +105,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, nil, err
 	}
 	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              creationInfo.WasmModuleRoot,
-		Batch:                       batchIndex,
+		WasmModuleRoot:              prevCreationInfo.WasmModuleRoot,
+		FromBatch:                   fromBatch,
+		ToBatch:                     toBatch,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
 		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(layerZeroHeights.BlockChallengeHeight)),
@@ -127,5 +131,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not post block challenge root edge")
 	}
-	return edge, creationInfo, nil
+	return edge, &edgetracker.AssertionCreationInfo{
+		FromBatch:      fromBatch,
+		ToBatch:        fromBatch,
+		WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
+	}, nil
 }

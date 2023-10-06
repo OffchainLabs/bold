@@ -5,6 +5,7 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -118,9 +119,10 @@ func (p *Poster) postAssertionImpl(
 		return nil, err
 	}
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
-		"validatorName":   p.validatorName,
-		"layer2BlockHash": containers.Trunc(newState.GlobalState.BlockHash[:]),
-		"batchIndex":      newState.GlobalState.Batch,
+		"validatorName":         p.validatorName,
+		"layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
+		"requiredInboxMaxCount": batchCount,
+		"postedExectionState":   fmt.Sprintf("%+v", newState),
 	})
 
 	return assertion, nil
@@ -160,7 +162,7 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 			}
 			curr = prev
 		case err != nil:
-			return protocol.AssertionHash{}, nil
+			return protocol.AssertionHash{}, err
 		default:
 			return curr.Id(), nil
 		}

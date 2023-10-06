@@ -61,7 +61,7 @@ type Manager struct {
 	chainWatcherInterval        time.Duration
 	watcher                     *watcher.Watcher
 	trackedEdgeIds              *threadsafe.Set[protocol.EdgeId]
-	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, uint64]
+	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, edgetracker.AssertionCreationInfo]
 	poster                      *assertions.Poster
 	scanner                     *assertions.Scanner
 	assertionPostingInterval    time.Duration
@@ -147,7 +147,7 @@ func New(
 		rollupAddr:                  rollupAddr,
 		chainWatcherInterval:        time.Millisecond * 500,
 		trackedEdgeIds:              threadsafe.NewSet[protocol.EdgeId](),
-		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, uint64](),
+		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssertionCreationInfo](),
 		assertionPostingInterval:    time.Hour,
 		assertionScanningInterval:   time.Minute,
 	}
@@ -285,7 +285,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	// Smart caching to avoid querying the same assertion number and creation info multiple times.
 	// Edges in the same challenge should have the same creation info.
 	cachedHeightAndInboxMsgCount, ok := m.batchIndexForAssertionCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
-	var batchIndex uint64
+	var edgeTrackerAssertionInfo edgetracker.AssertionCreationInfo
 	if !ok {
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
@@ -293,10 +293,21 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		if creationErr != nil {
 			return nil, creationErr
 		}
-		batchIndex = assertionCreationInfo.InboxMaxCount.Uint64() - 1
-		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, batchIndex)
+		prevCreationInfo, prevCreationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: assertionCreationInfo.ParentAssertionHash})
+		})
+		if prevCreationErr != nil {
+			return nil, prevCreationErr
+		}
+		fromBatch := protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch
+		toBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
+		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgetracker.AssertionCreationInfo{
+			FromBatch:      l2stateprovider.Batch(fromBatch),
+			ToBatch:        l2stateprovider.Batch(toBatch),
+			WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
+		})
 	} else {
-		batchIndex = cachedHeightAndInboxMsgCount
+		edgeTrackerAssertionInfo = cachedHeightAndInboxMsgCount
 	}
 	return retry.UntilSucceeds(ctx, func() (*edgetracker.Tracker, error) {
 		return edgetracker.New(
@@ -306,7 +317,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.stateManager,
 			m.watcher,
 			m,
-			l2stateprovider.Batch(batchIndex),
+			&edgeTrackerAssertionInfo,
 			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
 			edgetracker.WithValidatorName(m.name),

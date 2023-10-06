@@ -103,6 +103,8 @@ func (m *MockStateManager) AgreesWithExecutionState(ctx context.Context, state *
 func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
+	fromBatch,
+	toBatch l2stateprovider.Batch,
 	startHeights []l2stateprovider.Height,
 	fromHeight,
 	upToHeight l2stateprovider.Height,

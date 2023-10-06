@@ -118,7 +118,12 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if err != nil {
 		return protocol.Agreement{}, err
 	}
-	batchIndex := l2stateprovider.Batch(creationInfo.InboxMaxCount.Uint64() - 1)
+	prevCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		return protocol.Agreement{}, err
+	}
+	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch)
+	toBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch)
 
 	// We only track edges we fully agree with (honest edges).
 	startHeight, startCommit := eg.StartCommitment()
@@ -138,7 +143,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       batchIndex,
+			FromBatch:                   fromBatch,
+			ToBatch:                     toBatch,
 			FromHeight:                  0,
 			UpperChallengeOriginHeights: make([]l2stateprovider.Height, 0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
@@ -173,7 +179,8 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		}
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			Batch:                       batchIndex,
+			FromBatch:                   fromBatch,
+			ToBatch:                     toBatch,
 			FromHeight:                  l2stateprovider.Height(0),
 			UpperChallengeOriginHeights: startHeights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),

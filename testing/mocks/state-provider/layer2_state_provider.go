@@ -223,7 +223,7 @@ func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *prot
 	return 0, l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64) ([]common.Hash, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) ([]common.Hash, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
@@ -244,9 +244,9 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, nextBatchCount uint64)
 			continue
 		}
 		gs := s.executionStates[i].GlobalState
-		if gs.Batch >= nextBatchCount {
-			if gs.Batch > nextBatchCount || gs.PosInBatch > 0 {
-				return nil, fmt.Errorf("overran next batch count %v with global state batch %v position %v", nextBatchCount, gs.Batch, gs.PosInBatch)
+		if gs.Batch >= toBatch {
+			if gs.Batch > toBatch || gs.PosInBatch > 0 {
+				return nil, fmt.Errorf("overran next batch count %v with global state batch %v position %v", toBatch, gs.Batch, gs.PosInBatch)
 			}
 			break
 		}
