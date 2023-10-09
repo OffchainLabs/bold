@@ -656,7 +656,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function firstRival(bytes32 edgeId) public view returns (bytes32) {
-        return store.firstRivals[edgeId];
+    function firstRival(bytes32 mutualId) public view returns (bytes32) {
+        return store.firstRivals[mutualId];
     }
 }

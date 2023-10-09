@@ -33,27 +33,117 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 
 contract EdgeChallengeManagerLibAccess {
     using EdgeChallengeManagerLib for EdgeStore;
+    using ChallengeEdgeLib for ChallengeEdge;
 
     EdgeStore private store;
 
-    function add(ChallengeEdge memory edge) public {
-        store.add(edge);
+    function exists(bytes32 edgeId) public view returns (bool) {
+        return store.get(edgeId).exists();
     }
 
-    function setConfirmedRival(bytes32 mutualId, bytes32 id) public {
-        store.confirmedRivals[mutualId] = id;
+    function get(bytes32 edgeId) public view returns (ChallengeEdge memory) {
+        return store.get(edgeId);
+    }
+
+    function getNoCheck(bytes32 edgeId) public view returns (ChallengeEdge memory) {
+        return store.getNoCheck(edgeId);
+    }
+
+    function add(ChallengeEdge memory edge) public returns (EdgeAddedData memory) {
+        return store.add(edge);
+    }
+
+    function isPowerOfTwo(uint256 x) public pure returns (bool) {
+        return EdgeChallengeManagerLib.isPowerOfTwo(x);
+    }
+
+    function createLayerZeroEdge(
+        CreateEdgeArgs calldata args,
+        AssertionReferenceData memory ard,
+        IOneStepProofEntry oneStepProofEntry,
+        uint256 expectedEndHeight,
+        uint8 numBigStepLevel
+    ) public returns (EdgeAddedData memory) {
+        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel);
+    }
+
+    function getPrevAssertionHash(bytes32 edgeId, uint8 numBigStepLevel) public view returns (bytes32) {
+        return store.getPrevAssertionHash(edgeId, numBigStepLevel);
+    }
+
+    function hasRival(bytes32 edgeId) public view returns (bool) {
+        return store.hasRival(edgeId);
+    }
+
+    function hasLengthOneRival(bytes32 edgeId) public view returns (bool) {
+        return store.hasLengthOneRival(edgeId);
+    }
+
+    function timeUnrivaled(bytes32 edgeId) public view returns (uint64) {
+        return store.timeUnrivaled(edgeId);
+    }
+
+    function mandatoryBisectionHeight(uint256 start, uint256 end) public pure returns (uint256) {
+        return EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+    }
+
+    function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes memory prefixProof)
+        public
+        returns (bytes32, EdgeAddedData memory, EdgeAddedData memory)
+    {
+        return store.bisectEdge(edgeId, bisectionHistoryRoot, prefixProof);
+    }
+
+    function setConfirmed(bytes32 id) public {
+        store.get(id).setConfirmed();
+    }
+
+    function setConfirmedRival(bytes32 edgeId) public {
+        return EdgeChallengeManagerLib.setConfirmedRival(store, edgeId);
+    }
+
+    function setClaimId(bytes32 edgeId, bytes32 claimId) public {
+        store.get(edgeId).claimId = claimId;
     }
 
     function getConfirmedRival(bytes32 mutualId) public view returns (bytes32) {
         return store.confirmedRivals[mutualId];
     }
 
-    function getEdge(bytes32 id) public view returns (ChallengeEdge memory) {
-        return store.get(id);
+    function confirmEdgeByChildren(bytes32 edgeId) public {
+        return store.confirmEdgeByChildren(edgeId);
     }
 
-    function setConfirmed(bytes32 id) public {
-        store.edges[id].status = EdgeStatus.Confirmed;
+    function nextEdgeLevel(uint8 level, uint8 numBigStepLevel) public pure returns (uint8) {
+        return EdgeChallengeManagerLib.nextEdgeLevel(level, numBigStepLevel);
+    }
+
+    function firstRivals(bytes32 mutualId) public view returns (bytes32) {
+        return store.firstRivals[mutualId];
+    }
+
+    function remove(bytes32 edgeId) public {
+        delete store.edges[edgeId];
+    }
+
+    function confirmedRivals(bytes32 mutualId) public view returns (bytes32) {
+        return store.confirmedRivals[mutualId];
+    }
+
+    function confirmEdgeByClaim(bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel) public {
+        return store.confirmEdgeByClaim(edgeId, claimingEdgeId, numBigStepLevel);
+    }
+
+    function confirmEdgeByTime(
+        bytes32 edgeId,
+        bytes32[] memory ancestorEdgeIds,
+        uint64 claimedAssertionUnrivaledBlocks,
+        uint64 confirmationThresholdBlock,
+        uint8 numBigStepLevel
+    ) public returns (uint64) {
+        return store.confirmEdgeByTime(
+            edgeId, ancestorEdgeIds, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock, numBigStepLevel
+        );
     }
 
     function confirmEdgeByOneStepProof(
@@ -65,7 +155,7 @@ contract EdgeChallengeManagerLibAccess {
         bytes32[] calldata afterHistoryInclusionProof,
         uint8 numBigStepLevel
     ) public {
-        store.confirmEdgeByOneStepProof(
+        return store.confirmEdgeByOneStepProof(
             edgeId,
             oneStepProofEntry,
             oneStepData,
@@ -75,28 +165,15 @@ contract EdgeChallengeManagerLibAccess {
             numBigStepLevel
         );
     }
-
-    function createLayerZeroEdge(
-        CreateEdgeArgs calldata args,
-        AssertionReferenceData calldata ard,
-        IOneStepProofEntry oneStepProofEntry,
-        uint256 expectedEndHeight,
-        uint64 challengePeriodBlocks,
-        uint256 stakeAmount,
-        uint8 numBigStepLevel
-    ) public returns (EdgeAddedData memory) {
-        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel);
-    }
 }
 
 contract EdgeChallengeManagerLibTest is Test {
     using ChallengeEdgeLib for ChallengeEdge;
-    using EdgeChallengeManagerLib for EdgeStore;
 
     uint64 challengePeriodBlocks = 7;
     uint256 stakeAmount = 13;
 
-    EdgeStore store;
+    EdgeChallengeManagerLibAccess store = new EdgeChallengeManagerLibAccess();
     Random rand = new Random();
 
     uint8 constant NUM_BIGSTEP_LEVEL = 3;
@@ -139,9 +216,9 @@ contract EdgeChallengeManagerLibTest is Test {
 
         EdgeAddedData memory d = store.add(edge);
 
-        ChallengeEdge storage se = store.edges[edge.idMem()];
-        assertTrue(se.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se.mutualId()] == EdgeChallengeManagerLib.UNRIVALED, "NO_RIVAL first rival");
+        ChallengeEdge memory se = store.get(edge.idMem());
+        assertTrue(store.exists(edge.idMem()), "Edge exists");
+        assertTrue(store.firstRivals(se.mutualIdMem()) == EdgeChallengeManagerLib.UNRIVALED, "NO_RIVAL first rival");
 
         checkEdgeAddedData(se, false, d);
     }
@@ -151,7 +228,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(edge);
 
-        ChallengeEdge storage se = store.get(edge.idMem());
+        ChallengeEdge memory se = store.get(edge.idMem());
         assertEq(edge.idMem(), se.idMem(), "Id's are equal");
     }
 
@@ -171,11 +248,11 @@ contract EdgeChallengeManagerLibTest is Test {
 
         EdgeAddedData memory d2 = store.add(edge2);
 
-        ChallengeEdge storage se = store.edges[edge1.idMem()];
-        ChallengeEdge storage se2 = store.edges[edge2.idMem()];
-        assertTrue(se2.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se2.mutualId()] == edge2.idMem(), "First rival1");
-        assertTrue(store.firstRivals[se.mutualId()] == edge2.idMem(), "First rival2");
+        ChallengeEdge memory se = store.get(edge1.idMem());
+        ChallengeEdge memory se2 = store.get(edge2.idMem());
+        assertTrue(store.exists(se2.idMem()), "Edge exists");
+        assertTrue(store.firstRivals(se2.mutualIdMem()) == edge2.idMem(), "First rival1");
+        assertTrue(store.firstRivals(se.mutualIdMem()) == edge2.idMem(), "First rival2");
         checkEdgeAddedData(se, false, d1);
         checkEdgeAddedData(se2, true, d2);
     }
@@ -190,13 +267,13 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge2);
         store.add(edge3);
 
-        ChallengeEdge storage se = store.edges[edge1.idMem()];
-        ChallengeEdge storage se2 = store.edges[edge2.idMem()];
-        ChallengeEdge storage se3 = store.edges[edge3.idMem()];
-        assertTrue(se3.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se.mutualId()] == edge2.idMem(), "First rival1");
-        assertTrue(store.firstRivals[se2.mutualId()] == edge2.idMem(), "First rival2");
-        assertTrue(store.firstRivals[se3.mutualId()] == edge2.idMem(), "First rival3");
+        ChallengeEdge memory se = store.get(edge1.idMem());
+        ChallengeEdge memory se2 = store.get(edge2.idMem());
+        ChallengeEdge memory se3 = store.get(edge3.idMem());
+        assertTrue(store.exists(se3.idMem()), "Edge exists");
+        assertTrue(store.firstRivals(se.mutualIdMem()) == edge2.idMem(), "First rival1");
+        assertTrue(store.firstRivals(se2.mutualIdMem()) == edge2.idMem(), "First rival2");
+        assertTrue(store.firstRivals(se3.mutualIdMem()) == edge2.idMem(), "First rival3");
     }
 
     function testAddNonRivals() public {
@@ -205,11 +282,11 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         store.add(edge2);
 
-        ChallengeEdge storage se = store.edges[edge1.idMem()];
-        ChallengeEdge storage se2 = store.edges[edge2.idMem()];
-        assertTrue(se2.exists(), "Edge exists");
-        assertTrue(store.firstRivals[se.mutualId()] == EdgeChallengeManagerLib.UNRIVALED, "First rival1");
-        assertTrue(store.firstRivals[se2.mutualId()] == EdgeChallengeManagerLib.UNRIVALED, "First rival2");
+        ChallengeEdge memory se = store.get(edge1.idMem());
+        ChallengeEdge memory se2 = store.get(edge2.idMem());
+        assertTrue(store.exists(se2.idMem()), "Edge exists");
+        assertTrue(store.firstRivals(se.mutualIdMem()) == EdgeChallengeManagerLib.UNRIVALED, "First rival1");
+        assertTrue(store.firstRivals(se2.mutualIdMem()) == EdgeChallengeManagerLib.UNRIVALED, "First rival2");
     }
 
     function testCannotAddSameEdgeTwice() public {
@@ -333,7 +410,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         bytes32 id1 = edge1.idMem();
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, id1));
-        assertEq(store.timeUnrivaled(id1), 3, "Time unrivaled");
+        store.timeUnrivaled(id1);
     }
 
     function testTimeUnrivaledAfterRival() public {
@@ -367,67 +444,67 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function testMandatoryBisectHeightSizeOne() public {
         vm.expectRevert(abi.encodeWithSelector(HeightDiffLtTwo.selector, 1, 2));
-        EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 2);
+        store.mandatoryBisectionHeight(1, 2);
     }
 
     function testMandatoryBisectHeightSizes() public {
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 3), 2);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 4), 2);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 4), 2);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 4), 3);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 5), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 5), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 5), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 5), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 6), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 6), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 6), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 6), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(4, 6), 5);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 7), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 7), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 7), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 7), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 7), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(4, 7), 6);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(5, 7), 6);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 8), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 8), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 8), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 8), 4);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(4, 8), 6);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(5, 8), 6);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(6, 8), 7);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(4, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(5, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(6, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(7, 9), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(4, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(5, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(6, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(7, 10), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(8, 10), 9);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(0, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(1, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(2, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(3, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(4, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(5, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(6, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(7, 11), 8);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(8, 11), 10);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(9, 11), 10);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(7, 73), 64);
-        assertEq(EdgeChallengeManagerLib.mandatoryBisectionHeight(765273563, 10898783768364), 8796093022208);
+        assertEq(store.mandatoryBisectionHeight(1, 3), 2);
+        assertEq(store.mandatoryBisectionHeight(0, 4), 2);
+        assertEq(store.mandatoryBisectionHeight(1, 4), 2);
+        assertEq(store.mandatoryBisectionHeight(2, 4), 3);
+        assertEq(store.mandatoryBisectionHeight(0, 5), 4);
+        assertEq(store.mandatoryBisectionHeight(1, 5), 4);
+        assertEq(store.mandatoryBisectionHeight(2, 5), 4);
+        assertEq(store.mandatoryBisectionHeight(3, 5), 4);
+        assertEq(store.mandatoryBisectionHeight(0, 6), 4);
+        assertEq(store.mandatoryBisectionHeight(1, 6), 4);
+        assertEq(store.mandatoryBisectionHeight(2, 6), 4);
+        assertEq(store.mandatoryBisectionHeight(3, 6), 4);
+        assertEq(store.mandatoryBisectionHeight(4, 6), 5);
+        assertEq(store.mandatoryBisectionHeight(0, 7), 4);
+        assertEq(store.mandatoryBisectionHeight(1, 7), 4);
+        assertEq(store.mandatoryBisectionHeight(2, 7), 4);
+        assertEq(store.mandatoryBisectionHeight(2, 7), 4);
+        assertEq(store.mandatoryBisectionHeight(3, 7), 4);
+        assertEq(store.mandatoryBisectionHeight(4, 7), 6);
+        assertEq(store.mandatoryBisectionHeight(5, 7), 6);
+        assertEq(store.mandatoryBisectionHeight(0, 8), 4);
+        assertEq(store.mandatoryBisectionHeight(1, 8), 4);
+        assertEq(store.mandatoryBisectionHeight(2, 8), 4);
+        assertEq(store.mandatoryBisectionHeight(3, 8), 4);
+        assertEq(store.mandatoryBisectionHeight(4, 8), 6);
+        assertEq(store.mandatoryBisectionHeight(5, 8), 6);
+        assertEq(store.mandatoryBisectionHeight(6, 8), 7);
+        assertEq(store.mandatoryBisectionHeight(0, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(1, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(2, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(2, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(3, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(4, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(5, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(6, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(7, 9), 8);
+        assertEq(store.mandatoryBisectionHeight(0, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(1, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(2, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(3, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(4, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(5, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(6, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(7, 10), 8);
+        assertEq(store.mandatoryBisectionHeight(8, 10), 9);
+        assertEq(store.mandatoryBisectionHeight(0, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(1, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(2, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(3, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(4, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(5, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(6, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(7, 11), 8);
+        assertEq(store.mandatoryBisectionHeight(8, 11), 10);
+        assertEq(store.mandatoryBisectionHeight(9, 11), 10);
+        assertEq(store.mandatoryBisectionHeight(7, 73), 64);
+        assertEq(store.mandatoryBisectionHeight(765273563, 10898783768364), 8796093022208);
     }
 
     function getExpansion(uint256 leafCount) internal returns (bytes32[] memory) {
@@ -564,7 +641,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5; // agree point is below the bisection point of 8
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
             twoRivalsFromLeaves(start, agree, end);
@@ -638,7 +715,7 @@ contract EdgeChallengeManagerLibTest is Test {
     function bisectMergeEdge(uint256 agree) internal {
         uint256 start = 3;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
             twoRivalsFromLeaves(start, agree, end);
@@ -727,7 +804,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1,, bytes32[] memory states1,) = twoRivalsFromLeaves(start, agree, end);
 
@@ -749,7 +826,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
             twoRivalsFromLeaves(start, agree, end);
@@ -767,7 +844,7 @@ contract EdgeChallengeManagerLibTest is Test {
         );
         store.bisectEdge(edgeId, bisectionRoot1, proof);
 
-        vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyExists.selector, store.edges[edgeId].upperChildId));
+        vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyExists.selector, store.get(edgeId).upperChildId));
         store.bisectEdge(edgeId, bisectionRoot1, proof);
     }
 
@@ -775,7 +852,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5;
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
             twoRivalsFromLeaves(start, agree, end);
@@ -799,7 +876,7 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 start = 3;
         uint256 agree = 5; // agree point is below the bisection point of 8
         uint256 end = 11;
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
 
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1,) =
             twoRivalsFromLeaves(start, agree, end);
@@ -844,10 +921,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function bisectArgs(bytes32[] memory states, uint256 start, uint256 end)
         internal
-        pure
+        view
         returns (uint256, bytes32, bytes memory)
     {
-        uint256 bisectionPoint = EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
+        uint256 bisectionPoint = store.mandatoryBisectionHeight(start, end);
         bytes32 bisectionRoot = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1));
         bytes memory proof = abi.encode(
             ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1),
@@ -877,13 +954,13 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildren() public {
         (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
 
-        store.edges[lowerChildId].setConfirmed();
-        store.edges[upperChildId].setConfirmed();
+        store.setConfirmed(lowerChildId);
+        store.setConfirmed(upperChildId);
 
         store.confirmEdgeByChildren(parentEdgeId);
         assertTrue(store.get(parentEdgeId).status == EdgeStatus.Confirmed);
         assertEq(
-            store.confirmedRivals[ChallengeEdgeLib.mutualIdMem(store.get(parentEdgeId))],
+            store.confirmedRivals(ChallengeEdgeLib.mutualIdMem(store.get(parentEdgeId))),
             parentEdgeId,
             "Confirmed rival"
         );
@@ -892,10 +969,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildrenRivalConfirmed() public {
         BArgs memory pc = addParentsAndChildren(3, 5, 11);
 
-        store.edges[pc.lowerChildId1].setConfirmed();
-        store.edges[pc.upperChildId1].setConfirmed();
-        store.edges[pc.lowerChildId2].setConfirmed();
-        store.edges[pc.upperChildId2].setConfirmed();
+        store.setConfirmed(pc.lowerChildId1);
+        store.setConfirmed(pc.upperChildId1);
+        store.setConfirmed(pc.lowerChildId2);
+        store.setConfirmed(pc.upperChildId2);
 
         store.confirmEdgeByChildren(pc.edge1Id);
         vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, pc.edge2Id, pc.edge1Id));
@@ -905,8 +982,8 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildrenAlreadyConfirmed() public {
         (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
 
-        store.edges[lowerChildId].setConfirmed();
-        store.edges[upperChildId].setConfirmed();
+        store.setConfirmed(lowerChildId);
+        store.setConfirmed(upperChildId);
 
         store.confirmEdgeByChildren(parentEdgeId);
         vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, parentEdgeId, parentEdgeId));
@@ -923,10 +1000,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildrenLowerChildNotExist() public {
         (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
 
-        store.edges[lowerChildId].setConfirmed();
-        store.edges[upperChildId].setConfirmed();
+        store.setConfirmed(lowerChildId);
+        store.setConfirmed(upperChildId);
 
-        delete store.edges[lowerChildId];
+        store.remove(lowerChildId);
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, lowerChildId));
         store.confirmEdgeByChildren(parentEdgeId);
     }
@@ -934,10 +1011,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildrenUpperChildNotExist() public {
         (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
 
-        store.edges[lowerChildId].setConfirmed();
-        store.edges[upperChildId].setConfirmed();
+        store.setConfirmed(lowerChildId);
+        store.setConfirmed(upperChildId);
 
-        delete store.edges[upperChildId];
+        store.remove(upperChildId);
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, upperChildId));
         store.confirmEdgeByChildren(parentEdgeId);
     }
@@ -945,7 +1022,7 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildrenLowerChildPending() public {
         (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
 
-        store.edges[upperChildId].setConfirmed();
+        store.setConfirmed(upperChildId);
 
         vm.expectRevert(abi.encodeWithSelector(EdgeNotConfirmed.selector, lowerChildId, EdgeStatus.Pending));
         store.confirmEdgeByChildren(parentEdgeId);
@@ -954,24 +1031,24 @@ contract EdgeChallengeManagerLibTest is Test {
     function testConfirmEdgeByChildrenUpperChildPending() public {
         (bytes32 parentEdgeId, bytes32 lowerChildId, bytes32 upperChildId) = addParentAndChildren(3, 5, 11);
 
-        store.edges[lowerChildId].setConfirmed();
+        store.setConfirmed(lowerChildId);
 
         vm.expectRevert(abi.encodeWithSelector(EdgeNotConfirmed.selector, upperChildId, EdgeStatus.Pending));
         store.confirmEdgeByChildren(parentEdgeId);
     }
 
     function testNextlevel() public {
-        assertTrue(EdgeChallengeManagerLib.nextEdgeLevel(0, NUM_BIGSTEP_LEVEL) == 1);
-        assertTrue(EdgeChallengeManagerLib.nextEdgeLevel(NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL) == NUM_BIGSTEP_LEVEL + 1);
+        assertTrue(store.nextEdgeLevel(0, NUM_BIGSTEP_LEVEL) == 1);
+        assertTrue(store.nextEdgeLevel(NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL) == NUM_BIGSTEP_LEVEL + 1);
         vm.expectRevert(abi.encodeWithSelector(LevelTooHigh.selector, NUM_BIGSTEP_LEVEL + 2, NUM_BIGSTEP_LEVEL));
-        EdgeChallengeManagerLib.nextEdgeLevel(NUM_BIGSTEP_LEVEL + 1, NUM_BIGSTEP_LEVEL);
+        store.nextEdgeLevel(NUM_BIGSTEP_LEVEL + 1, NUM_BIGSTEP_LEVEL);
     }
 
     function testConfirmClaim() public {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -983,13 +1060,13 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(ce);
         bytes32 eid = ce.idMem();
-        store.edges[eid].setConfirmed();
+        store.setConfirmed(eid);
 
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
 
-        assertTrue(store.edges[bargs.upperChildId1].status == EdgeStatus.Confirmed, "Edge confirmed");
+        assertTrue(store.get(bargs.upperChildId1).status == EdgeStatus.Confirmed, "Edge confirmed");
         assertEq(
-            store.confirmedRivals[store.get(bargs.upperChildId1).mutualId()], bargs.upperChildId1, "Confirmed rival"
+            store.confirmedRivals(store.get(bargs.upperChildId1).mutualIdMem()), bargs.upperChildId1, "Confirmed rival"
         );
     }
 
@@ -997,7 +1074,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -1009,16 +1086,14 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(ce);
         bytes32 eid = ce.idMem();
-        store.edges[eid].setConfirmed();
+        store.setConfirmed(eid);
 
         // confirm a rival
-        store.edges[bargs.upperChildId2].setConfirmed();
-        store.confirmedRivals[store.get(bargs.upperChildId2).mutualId()] = bargs.upperChildId2;
+        store.setConfirmed(bargs.upperChildId2);
+        store.setConfirmedRival(bargs.upperChildId2);
 
         vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, bargs.upperChildId1, bargs.upperChildId2));
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
-
-        assertTrue(store.edges[bargs.upperChildId1].status == EdgeStatus.Confirmed, "Edge confirmed");
     }
 
     function testCheckClaimIdLinkOrigin() public {
@@ -1030,12 +1105,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(ce);
         bytes32 eid = ce.idMem();
-        store.edges[eid].setConfirmed();
+        store.setConfirmed(eid);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OriginIdMutualIdMismatch.selector,
-                store.edges[bargs.upperChildId1].mutualId(),
-                store.edges[eid].originId
+                OriginIdMutualIdMismatch.selector, store.get(bargs.upperChildId1).mutualIdMem(), store.get(eid).originId
             )
         );
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
@@ -1045,7 +1118,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -1057,14 +1130,14 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(ce);
         bytes32 eid = ce.idMem();
-        store.edges[eid].setConfirmed();
+        store.setConfirmed(eid);
         vm.expectRevert(
             abi.encodeWithSelector(
                 EdgeLevelInvalid.selector,
                 bargs.upperChildId1,
                 eid,
-                EdgeChallengeManagerLib.nextEdgeLevel(store.edges[bargs.upperChildId1].level, NUM_BIGSTEP_LEVEL),
-                store.edges[eid].level
+                store.nextEdgeLevel(store.get(bargs.upperChildId1).level, NUM_BIGSTEP_LEVEL),
+                store.get(eid).level
             )
         );
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
@@ -1074,15 +1147,13 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(), rand.hash(), 3, rand.hash(), 4, rand.hash(), rand.addr(), 1
+            store.get(bargs.upperChildId1).mutualIdMem(), rand.hash(), 3, rand.hash(), 4, rand.hash(), rand.addr(), 1
         );
 
         store.add(ce);
         bytes32 eid = ce.idMem();
-        store.edges[eid].setConfirmed();
-        vm.expectRevert(
-            abi.encodeWithSelector(EdgeClaimMismatch.selector, bargs.upperChildId1, store.edges[eid].claimId)
-        );
+        store.setConfirmed(eid);
+        vm.expectRevert(abi.encodeWithSelector(EdgeClaimMismatch.selector, bargs.upperChildId1, store.get(eid).claimId));
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
 
@@ -1090,7 +1161,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -1110,7 +1181,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -1122,8 +1193,8 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.add(ce);
         bytes32 eid = ce.idMem();
-        store.edges[eid].setConfirmed();
-        store.edges[bargs.upperChildId1].setConfirmed();
+        store.setConfirmed(eid);
+        store.setConfirmed(bargs.upperChildId1);
         vm.expectRevert(abi.encodeWithSelector(EdgeNotPending.selector, bargs.upperChildId1, EdgeStatus.Confirmed));
         store.confirmEdgeByClaim(bargs.upperChildId1, eid, NUM_BIGSTEP_LEVEL);
     }
@@ -1132,7 +1203,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -1151,7 +1222,7 @@ contract EdgeChallengeManagerLibTest is Test {
         BArgs memory bargs = addParentsAndChildren(2, 3, 4);
 
         ChallengeEdge memory ce = ChallengeEdgeLib.newLayerZeroEdge(
-            store.get(bargs.upperChildId1).mutualId(),
+            store.get(bargs.upperChildId1).mutualIdMem(),
             rand.hash(),
             3,
             rand.hash(),
@@ -1204,19 +1275,19 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function claimWithMixedAncestors(
-        uint64 challengePeriodSec,
+        uint64 challengePeriodBlock,
         uint256 timeAfterParent1,
         uint256 timeAfterParent2,
         uint256 timeAfterZeroLayer,
         uint64 claimedAssertionBlocks
     ) internal {
+        bytes32[] memory ancestorIds = new bytes32[](3);
         BArgs memory pc = addParentsAndChildren(2, 5, 8);
         bytes memory revertArg;
-        bytes32 lowerChildId148;
         {
             (, bytes32 bisectionRoot, bytes memory bisectionProof) = bisectArgs(pc.states1, 4, 8);
-            (bytes32 lowerChildId148X,,) = store.bisectEdge(pc.upperChildId1, bisectionRoot, bisectionProof);
-            lowerChildId148 = lowerChildId148X;
+            (bytes32 lowerChildId148,,) = store.bisectEdge(pc.upperChildId1, bisectionRoot, bisectionProof);
+            ancestorIds[1] = lowerChildId148;
         }
         vm.roll(block.number + timeAfterParent1);
 
@@ -1231,7 +1302,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
             (, bytes32 bisectionRoot3, bytes memory bisectionProof3) = bisectArgs(pc.states1, 4, 6);
             (,, EdgeAddedData memory upperChildId146Data) =
-                store.bisectEdge(lowerChildId148, bisectionRoot3, bisectionProof3);
+                store.bisectEdge(ancestorIds[1], bisectionRoot3, bisectionProof3);
             upperChildId146 = upperChildId146Data.edgeId;
             vm.roll(block.number + timeAfterParent2);
 
@@ -1242,9 +1313,9 @@ contract EdgeChallengeManagerLibTest is Test {
         bytes32 bsId;
         {
             ChallengeEdge memory bigStepZero = ChallengeEdgeLib.newLayerZeroEdge(
-                store.edges[upperChildId146].mutualId(),
-                store.edges[upperChildId146].startHistoryRoot,
-                store.edges[upperChildId146].startHeight,
+                store.get(upperChildId146).mutualIdMem(),
+                store.get(upperChildId146).startHistoryRoot,
+                store.get(upperChildId146).startHeight,
                 rand.hash(),
                 100,
                 upperChildId146,
@@ -1261,9 +1332,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         vm.roll(block.number + timeAfterZeroLayer);
 
-        bytes32[] memory ancestorIds = new bytes32[](3);
         ancestorIds[0] = upperChildId146;
-        ancestorIds[1] = lowerChildId148;
         ancestorIds[2] = pc.upperChildId1;
 
         if (timeAfterParent1 == 137) {
@@ -1277,35 +1346,35 @@ contract EdgeChallengeManagerLibTest is Test {
             revertArg = abi.encodeWithSelector(
                 EdgeNotAncestor.selector,
                 ancestorIds[0],
-                store.edges[bsId].lowerChildId,
-                store.edges[bsId].upperChildId,
+                store.get(bsId).lowerChildId,
+                store.get(bsId).upperChildId,
                 ancestorIds[1],
-                store.edges[ancestorIds[0]].claimId
+                store.get(ancestorIds[0]).claimId
             );
         }
 
         if (timeAfterParent1 == 138) {
-            store.edges[bsId].claimId = rand.hash();
+            store.setClaimId(bsId, rand.hash());
             revertArg = abi.encodeWithSelector(
                 EdgeNotAncestor.selector,
                 bsId,
-                store.edges[bsId].lowerChildId,
-                store.edges[bsId].upperChildId,
+                store.get(bsId).lowerChildId,
+                store.get(bsId).upperChildId,
                 ancestorIds[0],
-                store.edges[bsId].claimId
+                store.get(bsId).claimId
             );
         }
 
         if (timeAfterParent1 == 140) {
-            store.edges[bsId].setConfirmed();
+            store.setConfirmed(bsId);
             revertArg = abi.encodeWithSelector(EdgeNotPending.selector, bsId, EdgeStatus.Confirmed);
         }
 
         if (timeAfterParent1 == 141) {
             ChallengeEdge memory bigStepZero2 = ChallengeEdgeLib.newLayerZeroEdge(
-                store.edges[upperChildId146].mutualId(),
-                store.edges[upperChildId146].startHistoryRoot,
-                store.edges[upperChildId146].startHeight,
+                store.get(upperChildId146).mutualIdMem(),
+                store.get(upperChildId146).startHistoryRoot,
+                store.get(upperChildId146).startHeight,
                 rand.hash(),
                 100,
                 upperChildId146,
@@ -1313,28 +1382,30 @@ contract EdgeChallengeManagerLibTest is Test {
                 1
             );
             store.add(bigStepZero2);
-            store.edges[bigStepZero2.idMem()].setConfirmed();
-            store.confirmedRivals[store.get(bigStepZero2.idMem()).mutualId()] = bigStepZero2.idMem();
+            store.setConfirmed(bigStepZero2.idMem());
+            store.setConfirmedRival(bigStepZero2.idMem());
             revertArg = abi.encodeWithSelector(RivalEdgeConfirmed.selector, bsId, bigStepZero2.idMem());
         }
 
         if (timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks == 4) {
-            revertArg = abi.encodeWithSelector(InsufficientConfirmationBlocks.selector, 4, challengePeriodSec);
+            revertArg = abi.encodeWithSelector(InsufficientConfirmationBlocks.selector, 4, challengePeriodBlock);
         }
 
         if (revertArg.length != 0) {
             vm.expectRevert(revertArg);
         }
         uint256 totalTime =
-            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodSec, NUM_BIGSTEP_LEVEL);
+            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock, NUM_BIGSTEP_LEVEL);
 
-        assertTrue(store.edges[bsId].status == EdgeStatus.Confirmed, "Edge confirmed");
-        assertEq(store.confirmedRivals[store.get(bsId).mutualId()], bsId, "Confirmed rival");
-        assertEq(
-            totalTime,
-            timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks,
-            "Invalid total time"
-        );
+        if (revertArg.length == 0) {
+            assertTrue(store.get(bsId).status == EdgeStatus.Confirmed, "Edge confirmed");
+            assertEq(store.confirmedRivals(store.get(bsId).mutualIdMem()), bsId, "Confirmed rival");
+            assertEq(
+                totalTime,
+                timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks,
+                "Invalid total time"
+            );
+        }
     }
 
     function testConfirmByTimeGrandParent() public {
@@ -1427,20 +1498,14 @@ contract EdgeChallengeManagerLibTest is Test {
         }
 
         MockOneStepProofEntry entry = new MockOneStepProofEntry();
-        // confirm by one step makes external calls to the mock one step proof entry
-        // since the edgechallengemanager lib is internal these calls will be the ones
-        // that trigger the expectRevert behaviour - so we have a problem if we expect
-        // a revert after this call. Instead we use this access contract to ensure that
-        // just calling the lib creates an external call
-        EdgeChallengeManagerLibAccess a = new EdgeChallengeManagerLibAccess();
 
         if (flag != 1) {
-            a.add(data.e1);
+            store.add(data.e1);
         } else {
             data.revertArg = abi.encodeWithSelector(EdgeNotExists.selector, eid);
         }
         if (flag != 4) {
-            a.add(data.e2);
+            store.add(data.e2);
         }
         OneStepData memory d =
             OneStepData({beforeHash: states1[startHeight], proof: abi.encodePacked(states1[startHeight + 1])});
@@ -1463,25 +1528,25 @@ contract EdgeChallengeManagerLibTest is Test {
             data.revertArg = "Invalid inclusion proof";
         }
         if (flag == 9) {
-            store.edges[data.e2.idMem()].setConfirmed();
-            a.setConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e2), data.e2.idMem());
+            store.setConfirmed(data.e2.idMem());
+            store.setConfirmedRival(data.e2.idMem());
             data.revertArg = abi.encodeWithSelector(RivalEdgeConfirmed.selector, data.e1.idMem(), data.e2.idMem());
         }
 
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
-        a.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof, NUM_BIGSTEP_LEVEL);
+        store.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof, NUM_BIGSTEP_LEVEL);
 
         if (bytes(data.revertArg).length != 0) {
             // for flag one the edge does not exist
             // for flag two we set the status to confirmed anyway
             if (flag != 1 && flag != 2) {
-                assertTrue(a.getEdge(eid).status == EdgeStatus.Pending, "Edge pending");
+                assertTrue(store.get(eid).status == EdgeStatus.Pending, "Edge pending");
             }
         } else {
-            assertTrue(a.getEdge(eid).status == EdgeStatus.Confirmed, "Edge confirmed");
-            assertEq(a.getConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e1)), eid, "Confirmed rival");
+            assertTrue(store.get(eid).status == EdgeStatus.Confirmed, "Edge confirmed");
+            assertEq(store.getConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e1)), eid, "Confirmed rival");
         }
     }
 
@@ -1522,17 +1587,17 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testPowerOfTwo() public {
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(0), false);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(1), true);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(2), true);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(3), false);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(4), true);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(5), false);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(6), false);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(7), false);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(8), true);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(2 ** 17), true);
-        assertEq(EdgeChallengeManagerLib.isPowerOfTwo(1 << 255), true);
+        assertEq(store.isPowerOfTwo(0), false);
+        assertEq(store.isPowerOfTwo(1), true);
+        assertEq(store.isPowerOfTwo(2), true);
+        assertEq(store.isPowerOfTwo(3), false);
+        assertEq(store.isPowerOfTwo(4), true);
+        assertEq(store.isPowerOfTwo(5), false);
+        assertEq(store.isPowerOfTwo(6), false);
+        assertEq(store.isPowerOfTwo(7), false);
+        assertEq(store.isPowerOfTwo(8), true);
+        assertEq(store.isPowerOfTwo(2 ** 17), true);
+        assertEq(store.isPowerOfTwo(1 << 255), true);
     }
 
     struct ExpsAndProofs {
@@ -1663,8 +1728,6 @@ contract EdgeChallengeManagerLibTest is Test {
             revertArg = bytes("Incomplete proof usage");
         }
 
-        EdgeChallengeManagerLibAccess a = new EdgeChallengeManagerLibAccess();
-
         CreateEdgeArgs memory args = CreateEdgeArgs({
             level: 0,
             endHistoryRoot: endRoot,
@@ -1681,9 +1744,7 @@ contract EdgeChallengeManagerLibTest is Test {
         if (revertArg.length != 0) {
             vm.expectRevert(revertArg);
         }
-        a.createLayerZeroEdge(
-            args, ard, entry, expectedEndHeight, challengePeriodBlocks, stakeAmount, NUM_BIGSTEP_LEVEL
-        );
+        store.createLayerZeroEdge(args, ard, entry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
     }
 
     function testCreateLayerZeroEdgeBlockA() public {
@@ -1762,7 +1823,6 @@ contract EdgeChallengeManagerLibTest is Test {
         uint256 claimStartHeight;
         uint256 claimEndHeight;
         uint256 expectedEndHeight;
-        EdgeChallengeManagerLibAccess c;
         bytes32 claimId;
         ExpsAndProofs claimRoots;
         ExpsAndProofs roots;
@@ -1778,9 +1838,8 @@ contract EdgeChallengeManagerLibTest is Test {
         vars.claimEndHeight = mode == 161 ? 6 : 5;
 
         vars.expectedEndHeight = 2 ** 5;
-        vars.c = new EdgeChallengeManagerLibAccess();
         (vars.claimId, vars.claimRoots) =
-            createClaimEdge(vars.c, vars.claimStartHeight, vars.claimEndHeight, mode == 160 ? false : true);
+            createClaimEdge(store, vars.claimStartHeight, vars.claimEndHeight, mode == 160 ? false : true);
         if (mode == 160) {
             vars.revertArg = abi.encodeWithSelector(ClaimEdgeNotLengthOneRival.selector, vars.claimId);
         }
@@ -1814,7 +1873,7 @@ contract EdgeChallengeManagerLibTest is Test {
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(vars.roots.states), vars.expectedEndHeight)
         );
         if (mode == 162) {
-            vars.c.setConfirmed(vars.claimId);
+            store.setConfirmed(vars.claimId);
             vars.revertArg = abi.encodeWithSelector(ClaimEdgeNotPending.selector);
         }
 
@@ -1828,7 +1887,7 @@ contract EdgeChallengeManagerLibTest is Test {
         if (vars.revertArg.length != 0) {
             vm.expectRevert(vars.revertArg);
         }
-        vars.c.createLayerZeroEdge(
+        store.createLayerZeroEdge(
             CreateEdgeArgs({
                 level: mode == 163 ? NUM_BIGSTEP_LEVEL : NUM_BIGSTEP_LEVEL + 1,
                 endHistoryRoot: MerkleTreeLib.root(vars.roots.endExp),
@@ -1840,8 +1899,6 @@ contract EdgeChallengeManagerLibTest is Test {
             vars.emptyArd,
             vars.a,
             vars.expectedEndHeight,
-            challengePeriodBlocks,
-            stakeAmount,
             NUM_BIGSTEP_LEVEL
         );
     }

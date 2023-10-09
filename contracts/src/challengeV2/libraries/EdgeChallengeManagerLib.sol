@@ -700,12 +700,9 @@ library EdgeChallengeManagerLib {
     /// @param edgeId           The id of the edge to confirm
     /// @param claimingEdgeId   The id of the edge which has a claimId equal to edgeId
     /// @param numBigStepLevel  The number of big step levels in this challenge
-    function confirmEdgeByClaim(
-        EdgeStore storage store,
-        bytes32 edgeId,
-        bytes32 claimingEdgeId,
-        uint8 numBigStepLevel
-    ) internal {
+    function confirmEdgeByClaim(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel)
+        internal
+    {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
         }
