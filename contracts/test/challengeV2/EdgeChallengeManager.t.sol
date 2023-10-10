@@ -482,21 +482,20 @@ contract EdgeChallengeManagerTest is Test {
         // test the getters
         assertEq(ei.challengeManager.edgeExists(edgeId), true, "Edge exists");
         ChallengeEdge memory edge = ei.challengeManager.getEdge(edgeId);
-        assertEq(ei.challengeManager.calculateMutualId(
-            edge.level,
-            edge.originId,
-            edge.startHeight,
-            edge.startHistoryRoot,
-            edge.endHeight
-        ), edge.mutualIdMem(), "Mutual id");
-        assertEq(ei.challengeManager.calculateEdgeId(
-            edge.level,
-            edge.originId,
-            edge.startHeight,
-            edge.startHistoryRoot,
-            edge.endHeight,
-            edge.endHistoryRoot
-        ), edge.idMem(), "Mutual id");
+        assertEq(
+            ei.challengeManager.calculateMutualId(
+                edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
+            ),
+            edge.mutualIdMem(),
+            "Mutual id"
+        );
+        assertEq(
+            ei.challengeManager.calculateEdgeId(
+                edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot
+            ),
+            edge.idMem(),
+            "Mutual id"
+        );
         assertEq(ei.challengeManager.edgeLength(edgeId), height1, "Edge length");
         assertEq(ei.challengeManager.hasRival(edgeId), false, "Edge has rival");
         assertEq(ei.challengeManager.confirmedRival(edgeId), bytes32(0), "Confirmed rival");
