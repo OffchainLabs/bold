@@ -82,6 +82,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch)
 	toBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch)
+
+	fmt.Printf("Adding edge from batch %d to batch %d\n", fromBatch, toBatch)
 	startCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{

@@ -311,6 +311,12 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, err
 	}
 
+	// fmt.Println("Printing the prefix leaves we are committing to")
+	// fmt.Println("Num states", len(leaves[:lowCommitmentNumLeaves]))
+	// for _, rt := range leaves[:lowCommitmentNumLeaves] {
+	// 	fmt.Printf("%s\n", containers.Trunc(rt.Bytes()))
+	// }
+
 	prefixCommit, err := commitments.New(leaves[:lowCommitmentNumLeaves])
 	if err != nil {
 		return nil, err

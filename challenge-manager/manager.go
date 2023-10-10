@@ -299,13 +299,15 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		if prevCreationErr != nil {
 			return nil, prevCreationErr
 		}
-		fromBatch := protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch
+		fromBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState).Batch
 		toBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
-		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgetracker.AssertionCreationInfo{
+		fmt.Printf("Putting to cache from %d to %d\n", fromBatch, toBatch)
+		edgeTrackerAssertionInfo = edgetracker.AssertionCreationInfo{
 			FromBatch:      l2stateprovider.Batch(fromBatch),
 			ToBatch:        l2stateprovider.Batch(toBatch),
 			WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
-		})
+		}
+		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgeTrackerAssertionInfo)
 	} else {
 		edgeTrackerAssertionInfo = cachedHeightAndInboxMsgCount
 	}

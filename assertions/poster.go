@@ -93,7 +93,7 @@ func (p *Poster) postAssertionImpl(
 	// the valid parent based on its commitment state root.
 	parentAssertionSeq, err := p.findLatestValidAssertion(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not find latest valid assertion")
 	}
 	parentAssertionCreationInfo, err := p.chain.ReadAssertionCreationInfo(ctx, parentAssertionSeq)
 	if err != nil {
