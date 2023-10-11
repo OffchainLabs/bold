@@ -137,7 +137,8 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 	}
 	// Loop over latestCreatedAssertionHashes in reverse order to find the latest valid assertion.
 	for i := len(latestCreatedAssertionHashes) - 1; i >= 0; i-- {
-		info, err := p.chain.ReadAssertionCreationInfo(ctx, latestCreatedAssertionHashes[i])
+		var info *protocol.AssertionCreatedInfo
+		info, err = p.chain.ReadAssertionCreationInfo(ctx, latestCreatedAssertionHashes[i])
 		if err != nil {
 			return protocol.AssertionHash{}, err
 		}
