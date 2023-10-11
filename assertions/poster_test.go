@@ -24,17 +24,25 @@ func TestPostAssertion(t *testing.T) {
 		ctx := context.Background()
 		poster, chain, stateManager := setupPoster(t)
 		_, creationInfo := setupAssertions(ctx, chain, stateManager, 10, func(int) bool { return false })
+		info := creationInfo[len(creationInfo)-1]
+
+		execState := protocol.GoExecutionStateFromSolidity(info.AfterState)
+		stateManager.On("AgreesWithExecutionState", ctx, execState).Return(nil)
+		assertion := &mocks.MockAssertion{}
+
 		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
+
 		chain.On(
 			"ReadAssertionCreationInfo",
 			ctx,
 			latestValid,
-		).Return(creationInfo[len(creationInfo)-1], nil)
+		).Return(info, nil)
 		chain.On("IsStaked", ctx).Return(false, nil)
-		stateManager.On("ExecutionStateAtMessageNumber", ctx, uint64(10)).Return(&protocol.ExecutionState{}, nil)
-		assertion := &mocks.MockAssertion{}
-		chain.On("NewStakeOnNewAssertion", ctx, creationInfo[len(creationInfo)-1], &protocol.ExecutionState{}).Return(assertion, nil)
+		stateManager.On("ExecutionStateAfterBatchCount", ctx, info.InboxMaxCount.Uint64()).Return(execState, nil)
+
+		assertion = &mocks.MockAssertion{}
+		chain.On("NewStakeOnNewAssertion", ctx, info, execState).Return(assertion, nil)
 		posted, err := poster.PostAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, assertion, posted)
@@ -43,17 +51,26 @@ func TestPostAssertion(t *testing.T) {
 		ctx := context.Background()
 		poster, chain, stateManager := setupPoster(t)
 		_, creationInfo := setupAssertions(ctx, chain, stateManager, 10, func(int) bool { return false })
+		info := creationInfo[len(creationInfo)-1]
+
+		execState := protocol.GoExecutionStateFromSolidity(info.AfterState)
+		stateManager.On("AgreesWithExecutionState", ctx, execState).Return(nil)
+		assertion := &mocks.MockAssertion{}
+
 		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
+
 		chain.On(
 			"ReadAssertionCreationInfo",
 			ctx,
 			latestValid,
-		).Return(creationInfo[len(creationInfo)-1], nil)
+		).Return(info, nil)
 		chain.On("IsStaked", ctx).Return(true, nil)
-		stateManager.On("ExecutionStateAtMessageNumber", ctx, uint64(10)).Return(&protocol.ExecutionState{}, nil)
-		assertion := &mocks.MockAssertion{}
-		chain.On("StakeOnNewAssertion", ctx, creationInfo[len(creationInfo)-1], &protocol.ExecutionState{}).Return(assertion, nil)
+
+		stateManager.On("ExecutionStateAfterBatchCount", ctx, info.InboxMaxCount.Uint64()).Return(execState, nil)
+
+		assertion = &mocks.MockAssertion{}
+		chain.On("StakeOnNewAssertion", ctx, info, execState).Return(assertion, nil)
 		posted, err := poster.PostAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, assertion, posted)
@@ -98,9 +115,13 @@ func Test_findLatestValidAssertionWithFork(t *testing.T) {
 }
 
 // Set-ups a chain with a fork at the 1st assertion
-//    /-- 1 = Honest
+//
+//	/-- 1 = Honest
+//
 // 0--
-//    \-- 2 = Evil
+//
+//	\-- 2 = Evil
+//
 // First honest assertion is posted with id 1 and prevId 0
 // Then evil assertion is posted with id 2 and prevId 0
 func setupAssertionsWithFork(ctx context.Context, chain *mocks.MockProtocol, stateManager *mocks.MockStateManager) {
