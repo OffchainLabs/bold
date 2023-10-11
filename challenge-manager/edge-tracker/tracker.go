@@ -228,8 +228,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			fields["err"] = err
 			if !errors.Is(err, errNotYetConfirmable) {
+				fields["err"] = err
 				srvlog.Error("Could not check if edge can be confirmed", fields)
 			}
 		}
@@ -322,8 +322,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case EdgeConfirming:
 		wasConfirmed, err := et.tryToConfirm(ctx)
 		if err != nil {
-			fields["err"] = err
-			srvlog.Trace("Could not check if edge can be confirmed", fields)
+			if !errors.Is(err, errNotYetConfirmable) {
+				fields["err"] = err
+				srvlog.Error("Could not check if edge can be confirmed", fields)
+			}
 		}
 		if !wasConfirmed {
 			return et.fsm.Do(edgeAwaitConfirmation{})
