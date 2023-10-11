@@ -66,7 +66,6 @@ func Test_findLatestValidAssertion(t *testing.T) {
 	t.Run("only valid latest assertion is genesis", func(t *testing.T) {
 		poster, chain, stateManager := setupPoster(t)
 		setupAssertions(ctx, chain, stateManager, numAssertions, func(int) bool { return false })
-		chain.On("LatestConfirmed", ctx).Return(0, nil)
 		latestValid, err := poster.findLatestValidAssertion(ctx)
 		require.NoError(t, err)
 		require.Equal(t, mockId(0), latestValid)
@@ -156,16 +155,13 @@ func setupAssertions(
 		}
 		s.On("ExecutionStateMsgCount", ctx, protocol.GoExecutionStateFromSolidity(mockState)).Return(uint64(i), arg)
 
-		if i == 1 {
-			var firstValid protocol.Assertion = genesis
-			if valid {
-				firstValid = protocol.Assertion(mockAssertion)
-			}
-			p.On("LatestConfirmed", ctx).Return(firstValid, nil)
-		}
 	}
-	p.On("LatestConfirmed", ctx).Return(assertions[0], nil)
-	p.On("LatestCreatedAssertion", ctx).Return(assertions[len(assertions)-1], nil)
+	var assertionHashes []protocol.AssertionHash
+	for _, assertion := range assertions {
+		assertionHashes = append(assertionHashes, assertion.Id())
+	}
+	p.On("LatestConfirmed", ctx).Return(genesis, nil)
+	p.On("LatestCreatedAssertionHashes", ctx).Return(assertionHashes[1:], nil)
 	return assertions, creationInfo
 }
 
