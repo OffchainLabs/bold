@@ -215,14 +215,28 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 	require.Equal(t, true, honestParent.ShouldDespawn(ctx))
 }
 
+type verifiedHonestMock struct {
+	*mocks.MockSpecEdge
+}
+
+func (verifiedHonestMock) Honest() {}
+
 func Test_getEdgeTrackers(t *testing.T) {
 	ctx := context.Background()
 
 	v, m, s := setupValidator(t)
 	edge := &mocks.MockSpecEdge{}
-	edge.On("AssertionHash", ctx).Return(protocol.AssertionHash{}, nil)
-	m.On("ReadAssertionCreationInfo", ctx, protocol.AssertionHash{}).Return(&protocol.AssertionCreatedInfo{InboxMaxCount: big.NewInt(100)}, nil)
+	edge.On("Id").Return(protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))})
+	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(0))
+	edge.On("MutualId").Return(protocol.MutualId{})
+	edge.On("CreatedAtBlock").Return(uint64(1), nil)
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))}
+	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
+	edge.On("AssertionHash", ctx).Return(assertionHash, nil)
+	m.On("ReadAssertionCreationInfo", ctx, assertionHash).Return(&protocol.AssertionCreatedInfo{InboxMaxCount: big.NewInt(100)}, nil)
 	s.On("ExecutionStateMsgCount", ctx, &protocol.ExecutionState{}).Return(uint64(1), nil)
+
+	v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge})
 
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)

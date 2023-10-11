@@ -141,7 +141,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
-			ToBatch:                     1,
+			ToBatch:                     0,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
 			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
@@ -158,7 +158,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		&l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
-			ToBatch:                     1,
+			ToBatch:                     0,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
 			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
