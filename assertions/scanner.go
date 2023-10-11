@@ -203,11 +203,24 @@ func (s *Scanner) ProcessAssertionCreation(
 	if err != nil {
 		return err
 	}
+
 	hasSecondChild, err := prevAssertion.HasSecondChild()
 	if err != nil {
 		return err
 	}
 	if !hasSecondChild {
+		parentAssertionCreationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, prevAssertion.Id())
+		if err != nil {
+			return err
+		}
+		newState, err := s.stateProvider.ExecutionStateAtMessageNumber(ctx, parentAssertionCreationInfo.InboxMaxCount.Uint64())
+		if err != nil {
+			return err
+		}
+		if newState.GlobalState.BlockHash != goGs.BlockHash {
+			// We don't agree with the assertion, so we should post our own and challenge it.
+			// Only if you are a defensive or make mode challenge manager.
+		}
 		srvlog.Info("No fork detected in assertion chain", log.Ctx{"validatorName": s.validatorName})
 		return nil
 	}
