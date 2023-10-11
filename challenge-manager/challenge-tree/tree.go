@@ -64,8 +64,13 @@ func New(
 	}
 }
 
+// HonestBlockChallengeRootEdge gets the honest, root challenge block edge for the top level assertion
+// being challenged.
 func (ht *HonestChallengeTree) HonestBlockChallengeRootEdge() (protocol.ReadOnlyEdge, error) {
-	if rootEdges, ok := ht.honestRootEdgesByLevel.TryGet(protocol.ChallengeLevel(ht.totalChallengeLevels) - 1); ok {
+	// In our locally tracked challenge tree implementation, the
+	// block challenge level is equal to the total challenge levels - 1.
+	blockChallengeLevel := protocol.ChallengeLevel(ht.totalChallengeLevels) - 1
+	if rootEdges, ok := ht.honestRootEdgesByLevel.TryGet(blockChallengeLevel); ok {
 		if rootEdges.Len() != 1 {
 			return nil, fmt.Errorf(
 				"expected one honest root block challenge edge for challenged assertion %#x",
@@ -114,15 +119,14 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		claimedAssertionHash = protocol.AssertionHash{Hash: common.Hash(honestLevelZeroEdge.ClaimId().Unwrap())}
 	}
 
+	// We get the batch range for the claimed assertion of the edge which is needed to compute
+	// history commitments. We need to figure out from what batch to what batch the assertion
+	// is claiming its data for.
 	creationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, claimedAssertionHash)
 	if err != nil {
 		return protocol.Agreement{}, err
 	}
-	prevCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-	if err != nil {
-		return protocol.Agreement{}, err
-	}
-	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch)
+	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.BeforeState.GlobalState).Batch)
 	toBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch)
 
 	// We only track edges we fully agree with (honest edges).

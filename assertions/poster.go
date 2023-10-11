@@ -102,6 +102,8 @@ func (p *Poster) postAssertionImpl(
 	if !parentAssertionCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, errors.New("inbox max count not a uint64")
 	}
+	// The parent assertion tells us what the next posted assertion's batch should be.
+	// We read this value and use it to compute the required execution state we must post.
 	batchCount := parentAssertionCreationInfo.InboxMaxCount.Uint64()
 	newState, err := p.stateManager.ExecutionStateAfterBatchCount(ctx, batchCount)
 	if err != nil {

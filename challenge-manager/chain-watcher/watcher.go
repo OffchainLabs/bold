@@ -122,6 +122,8 @@ func New(
 	}
 }
 
+// HonestBlockChallengeRootEdge gets the honest block challenge root edge for a given challenge
+// by challenged assertion id if it exists.
 func (w *Watcher) HonestBlockChallengeRootEdge(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
