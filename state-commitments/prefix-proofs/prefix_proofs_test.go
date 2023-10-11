@@ -98,7 +98,8 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	toMessageNumber := l2stateprovider.Height(7)
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              wasmModuleRoot,
-		Batch:                       10,
+		FromBatch:                   0,
+		ToBatch:                     10,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
 		FromHeight:                  startMessageNumber,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
@@ -165,7 +166,8 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 	toMessageNumber := l2stateprovider.Height(6)
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              wasmModuleRoot,
-		Batch:                       10,
+		FromBatch:                   0,
+		ToBatch:                     10,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
 		FromHeight:                  startMessageNumber,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
@@ -240,7 +242,8 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 	batch := l2stateprovider.Batch(1)
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              wasmModuleRoot,
-		Batch:                       batch,
+		FromBatch:                   0,
+		ToBatch:                     batch,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
 		FromHeight:                  3,
 		UpToHeight:                  option.None[l2stateprovider.Height](),
