@@ -68,7 +68,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 func (m *Manager) addBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
-) (protocol.VerifiedHonestEdge, *edgetracker.AssertionCreationInfo, error) {
+) (protocol.VerifiedHonestEdge, *edgetracker.AssociatedAssertionMetadata, error) {
 	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get assertion creation info")
@@ -83,7 +83,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(prevCreationInfo.AfterState.GlobalState).Batch)
 	toBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch)
 
-	fmt.Printf("Adding edge from batch %d to batch %d\n", fromBatch, toBatch)
 	startCommit, err := m.stateManager.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
@@ -133,7 +132,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not post block challenge root edge")
 	}
-	return edge, &edgetracker.AssertionCreationInfo{
+	return edge, &edgetracker.AssociatedAssertionMetadata{
 		FromBatch:      fromBatch,
 		ToBatch:        toBatch,
 		WasmModuleRoot: prevCreationInfo.WasmModuleRoot,

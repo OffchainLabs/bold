@@ -175,7 +175,7 @@ func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
 	require.NoError(t, honestParent.Watcher().AddVerifiedHonestEdge(ctx, child1))
 	require.NoError(t, honestParent.Watcher().AddVerifiedHonestEdge(ctx, child2))
 
-	assertionInfo := &edgetracker.AssertionCreationInfo{
+	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
 		FromBatch:      0,
 		ToBatch:        1,
 		WasmModuleRoot: common.Hash{},
@@ -291,7 +291,7 @@ func setupEdgeTrackersForBisection(
 
 	honestWatcher := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice")
 	honestValidator.watcher = honestWatcher
-	assertionInfo := &edgetracker.AssertionCreationInfo{
+	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
 		FromBatch:      0,
 		ToBatch:        1,
 		WasmModuleRoot: common.Hash{},

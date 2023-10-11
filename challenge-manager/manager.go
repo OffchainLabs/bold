@@ -61,7 +61,7 @@ type Manager struct {
 	chainWatcherInterval        time.Duration
 	watcher                     *watcher.Watcher
 	trackedEdgeIds              *threadsafe.Set[protocol.EdgeId]
-	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, edgetracker.AssertionCreationInfo]
+	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
 	poster                      *assertions.Poster
 	scanner                     *assertions.Scanner
 	assertionPostingInterval    time.Duration
@@ -147,7 +147,7 @@ func New(
 		rollupAddr:                  rollupAddr,
 		chainWatcherInterval:        time.Millisecond * 500,
 		trackedEdgeIds:              threadsafe.NewSet[protocol.EdgeId](),
-		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssertionCreationInfo](),
+		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](),
 		assertionPostingInterval:    time.Hour,
 		assertionScanningInterval:   time.Minute,
 	}
@@ -285,7 +285,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	// Smart caching to avoid querying the same assertion number and creation info multiple times.
 	// Edges in the same challenge should have the same creation info.
 	cachedHeightAndInboxMsgCount, ok := m.batchIndexForAssertionCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
-	var edgeTrackerAssertionInfo edgetracker.AssertionCreationInfo
+	var edgeTrackerAssertionInfo edgetracker.AssociatedAssertionMetadata
 	if !ok {
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
@@ -302,7 +302,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		fromBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState).Batch
 		toBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
 		fmt.Printf("Putting to cache from %d to %d\n", fromBatch, toBatch)
-		edgeTrackerAssertionInfo = edgetracker.AssertionCreationInfo{
+		edgeTrackerAssertionInfo = edgetracker.AssociatedAssertionMetadata{
 			FromBatch:      l2stateprovider.Batch(fromBatch),
 			ToBatch:        l2stateprovider.Batch(toBatch),
 			WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
