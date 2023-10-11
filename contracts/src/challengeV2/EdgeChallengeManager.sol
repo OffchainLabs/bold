@@ -162,9 +162,9 @@ interface IEdgeChallengeManager {
     ///         Rival edges share the same mutual id
     function hasRival(bytes32 edgeId) external view returns (bool);
 
-    /// @notice Does this edge currently have a confirmed rival
-    ///         Rival edges share the same mutual id
-    function hasConfirmedRival(bytes32 mutualId) external view returns (bool);
+    /// @notice The confirmed rival of this mutual id
+    ///         Returns 0 if one does not exist
+    function confirmedRival(bytes32 mutualId) external view returns (bytes32);
 
     /// @notice Does the edge have at least one rival, and it has length one
     function hasLengthOneRival(bytes32 edgeId) external view returns (bool);
@@ -536,7 +536,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof
     ) public {
-        bytes32 prevAssertionHash = store.getPrevAssertionHash(edgeId, NUM_BIGSTEP_LEVEL);
+        bytes32 prevAssertionHash = store.getPrevAssertionHash(edgeId);
 
         assertionChain.validateConfig(prevAssertionHash, prevConfig);
 
@@ -588,7 +588,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         } else if (eType == EdgeType.SmallStep) {
             return LAYERZERO_SMALLSTEPEDGE_HEIGHT;
         } else {
-            revert("Unrecognised edge type");
+            revert InvalidEdgeType(eType);
         }
     }
 
@@ -636,8 +636,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function hasConfirmedRival(bytes32 mutualId) public view returns (bool) {
-        return store.confirmedRivals[mutualId] != bytes32(0);
+    function confirmedRival(bytes32 mutualId) public view returns (bytes32) {
+        return store.confirmedRivals[mutualId];
     }
 
     /// @inheritdoc IEdgeChallengeManager
@@ -652,11 +652,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function getPrevAssertionHash(bytes32 edgeId) public view returns (bytes32) {
-        return store.getPrevAssertionHash(edgeId, NUM_BIGSTEP_LEVEL);
+        return store.getPrevAssertionHash(edgeId);
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function firstRival(bytes32 edgeId) public view returns (bytes32) {
-        return store.firstRivals[edgeId];
+    function firstRival(bytes32 mutualId) public view returns (bytes32) {
+        return store.firstRivals[mutualId];
     }
 }
