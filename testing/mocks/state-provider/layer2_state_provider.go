@@ -197,30 +197,30 @@ func NewForSimpleMachine(
 	return s, nil
 }
 
-// ExecutionStateAtMessageNumber produces the l2 state to assert at the message number specified.
-func (s *L2StateBackend) ExecutionStateAtMessageNumber(ctx context.Context, messageNumber uint64) (*protocol.ExecutionState, error) {
+// ExecutionStateAfterBatchCount produces the l2 state to assert at the message number specified.
+func (s *L2StateBackend) ExecutionStateAfterBatchCount(ctx context.Context, batchCount uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
-	if messageNumber >= uint64(len(s.executionStates)) {
-		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", messageNumber, len(s.executionStates))
+	if batchCount >= uint64(len(s.executionStates)) {
+		return nil, fmt.Errorf("message number %v is greater than number of execution states %v", batchCount, len(s.executionStates))
 	}
 	for _, st := range s.executionStates {
-		if st.GlobalState.Batch == messageNumber {
+		if st.GlobalState.Batch == batchCount {
 			return st, nil
 		}
 	}
-	return nil, fmt.Errorf("no execution state at message number %d found", messageNumber)
+	return nil, fmt.Errorf("no execution state at message number %d found", batchCount)
 }
 
-// ExecutionStateMsgCount returns the execution state message count.
-func (s *L2StateBackend) ExecutionStateMsgCount(ctx context.Context, state *protocol.ExecutionState) (uint64, error) {
-	for i, r := range s.executionStates {
+// AgreesWithExecutionState returns whether or not we agree with a state.
+func (s *L2StateBackend) AgreesWithExecutionState(ctx context.Context, state *protocol.ExecutionState) error {
+	for _, r := range s.executionStates {
 		if r.Equals(state) {
-			return uint64(i), nil
+			return nil
 		}
 	}
-	return 0, l2stateprovider.ErrNoExecutionState
+	return l2stateprovider.ErrNoExecutionState
 }
 
 func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) ([]common.Hash, error) {
