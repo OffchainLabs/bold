@@ -20,6 +20,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/math"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	inclusionproofs "github.com/OffchainLabs/bold/state-commitments/inclusion-proofs"
 	utilTime "github.com/OffchainLabs/bold/time"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -674,8 +675,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 
 	fromBlockChallengeHeight := l2stateprovider.Height(originHeights.ChallengeOriginHeights[0])
 
-	startHeight, _ := et.edge.StartCommitment()
-	endHeight, _ := et.edge.EndCommitment()
+	startHeight, startCommit := et.edge.StartCommitment()
+	endHeight, endCommit := et.edge.EndCommitment()
 
 	fields := log.Ctx{
 		"name":                     et.validatorName,
@@ -742,7 +743,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 				FromBatch:                   et.assertionCreationInfo.FromBatch,
 				ToBatch:                     et.assertionCreationInfo.ToBatch,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  fromBlockChallengeHeight,
+				FromHeight:                  0,
 				UpToHeight:                  option.Some(fromBlockChallengeHeight + 1),
 			},
 		)
@@ -756,7 +757,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 				FromBatch:                   et.assertionCreationInfo.FromBatch,
 				ToBatch:                     et.assertionCreationInfo.ToBatch,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  fromBlockChallengeHeight,
+				FromHeight:                  0,
 				UpToHeight:                  option.Some(fromBlockChallengeHeight),
 			},
 		)
@@ -841,13 +842,30 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return err
 		}
 	}
-	fields["firstLeaf"] = containers.Trunc(endHistory.FirstLeaf.Bytes())
+	fields["firstLeaf"] = containers.Trunc(startHistory.LastLeaf.Bytes())
 	fields["lastLeaf"] = containers.Trunc(endHistory.LastLeaf.Bytes())
-	fields["parentFirstLeaf"] = containers.Trunc(endParentCommitment.FirstLeaf.Bytes())
+	fields["parentFirstLeaf"] = containers.Trunc(startParentCommitment.LastLeaf.Bytes())
 	fields["parentLastLeaf"] = containers.Trunc(endParentCommitment.LastLeaf.Bytes())
 	fields["parentStartHeight"] = startParentCommitment.Height
 	fields["parentEndHeight"] = endParentCommitment.Height
 	srvlog.Info("Creating subchallenge edge", fields)
+
+	// MerkleTreeLib.verifyInclusionProofStart(
+	// 	claimEdge.startHistoryRoot, startState, claimEdge.startHeight, claimStartInclusionProof
+	// );
+	claimStartHistoryRoot := startParentCommitment.Merkle
+	startState := startHistory.FirstLeaf
+	claimStartHeight := startHeight
+	claimStartInclusionProof := startParentCommitment.LastLeafProof
+	computedRoot, err := inclusionproofs.CalculateRootFromProof(claimStartInclusionProof, uint64(claimStartHeight), startState)
+	if err != nil {
+		return err
+	}
+	_ = startCommit
+	_ = endCommit
+	if computedRoot != claimStartHistoryRoot {
+		return fmt.Errorf("mismatched roots: %#x != %#x", computedRoot, claimStartHistoryRoot)
+	}
 
 	manager, err := et.chain.SpecChallengeManager(ctx)
 	if err != nil {
