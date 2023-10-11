@@ -116,8 +116,10 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
 	require.NoError(t, err)
-	preExpansion := data[0].([][32]byte)
-	proof := data[1].([][32]byte)
+	preExpansion, ok := data[0].([][32]byte)
+	require.Equal(t, true, ok)
+	proof, ok := data[1].([][32]byte)
+	require.Equal(t, true, ok)
 
 	preExpansionHashes := make([]common.Hash, len(preExpansion))
 	for i := 0; i < len(preExpansion); i++ {
@@ -184,8 +186,10 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
 	require.NoError(t, err)
-	preExpansion := data[0].([][32]byte)
-	proof := data[1].([][32]byte)
+	preExpansion, ok := data[0].([][32]byte)
+	require.Equal(t, true, ok)
+	proof, ok := data[1].([][32]byte)
+	require.Equal(t, true, ok)
 
 	preExpansionHashes := make([]common.Hash, len(preExpansion))
 	for i := 0; i < len(preExpansion); i++ {
@@ -264,8 +268,10 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 
 	data, err := statemanager.ProofArgs.Unpack(packedProof)
 	require.NoError(f, err)
-	preExpansion := data[0].([][32]byte)
-	proof := data[1].([][32]byte)
+	preExpansion, ok := data[0].([][32]byte)
+	require.Equal(f, true, ok)
+	proof, ok := data[1].([][32]byte)
+	require.Equal(f, true, ok)
 	preExp := make([]byte, 0)
 	for _, item := range preExpansion {
 		preExp = append(preExp, item[:]...)

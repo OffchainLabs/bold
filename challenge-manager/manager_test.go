@@ -248,7 +248,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	m.On("ReadAssertionCreationInfo", ctx, protocol.AssertionHash{}).Return(&protocol.AssertionCreatedInfo{}, nil)
 	s.On("ExecutionStateMsgCount", ctx, &protocol.ExecutionState{}).Return(uint64(1), nil)
 
-	v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge})
+	require.NoError(t, v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge}))
 
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)

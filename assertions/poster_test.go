@@ -41,7 +41,6 @@ func TestPostAssertion(t *testing.T) {
 		chain.On("IsStaked", ctx).Return(false, nil)
 		stateManager.On("ExecutionStateAfterBatchCount", ctx, info.InboxMaxCount.Uint64()).Return(execState, nil)
 
-		assertion = &mocks.MockAssertion{}
 		chain.On("NewStakeOnNewAssertion", ctx, info, execState).Return(assertion, nil)
 		posted, err := poster.PostAssertion(ctx)
 		require.NoError(t, err)
@@ -69,7 +68,6 @@ func TestPostAssertion(t *testing.T) {
 
 		stateManager.On("ExecutionStateAfterBatchCount", ctx, info.InboxMaxCount.Uint64()).Return(execState, nil)
 
-		assertion = &mocks.MockAssertion{}
 		chain.On("StakeOnNewAssertion", ctx, info, execState).Return(assertion, nil)
 		posted, err := poster.PostAssertion(ctx)
 		require.NoError(t, err)
