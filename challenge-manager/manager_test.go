@@ -5,7 +5,6 @@ package challengemanager
 
 import (
 	"context"
-	"math/big"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/OffchainLabs/bold/testing/mocks"
 	"github.com/OffchainLabs/bold/testing/setup"
 	customTime "github.com/OffchainLabs/bold/time"
@@ -227,13 +227,25 @@ func Test_getEdgeTrackers(t *testing.T) {
 	v, m, s := setupValidator(t)
 	edge := &mocks.MockSpecEdge{}
 	edge.On("Id").Return(protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))})
-	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(0))
+	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2))
 	edge.On("MutualId").Return(protocol.MutualId{})
 	edge.On("CreatedAtBlock").Return(uint64(1), nil)
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))}
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("AssertionHash", ctx).Return(assertionHash, nil)
-	m.On("ReadAssertionCreationInfo", ctx, assertionHash).Return(&protocol.AssertionCreatedInfo{InboxMaxCount: big.NewInt(100)}, nil)
+	m.On("ReadAssertionCreationInfo", ctx, assertionHash).Return(&protocol.AssertionCreatedInfo{
+		BeforeState: rollupgen.ExecutionState{
+			GlobalState: rollupgen.GlobalState{
+				U64Vals: [2]uint64{1, 0},
+			},
+		},
+		AfterState: rollupgen.ExecutionState{
+			GlobalState: rollupgen.GlobalState{
+				U64Vals: [2]uint64{100, 0},
+			},
+		},
+	}, nil)
+	m.On("ReadAssertionCreationInfo", ctx, protocol.AssertionHash{}).Return(&protocol.AssertionCreatedInfo{}, nil)
 	s.On("ExecutionStateMsgCount", ctx, &protocol.ExecutionState{}).Return(uint64(1), nil)
 
 	v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge})
@@ -241,7 +253,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)
 
-	require.Equal(t, l2stateprovider.Batch(0), trk.AssertionInfo().FromBatch)
+	require.Equal(t, l2stateprovider.Batch(1), trk.AssertionInfo().FromBatch)
 	require.Equal(t, l2stateprovider.Batch(100), trk.AssertionInfo().ToBatch)
 }
 
