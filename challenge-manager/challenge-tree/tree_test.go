@@ -30,7 +30,7 @@ func TestAddEdge(t *testing.T) {
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	ctx := context.Background()
-	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1})
+	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1, claimId: "foo"})
 
 	t.Run("getting top level assertion fails", func(t *testing.T) {
 		ht.metadataReader = &mockMetadataReader{
@@ -45,7 +45,7 @@ func TestAddEdge(t *testing.T) {
 			assertionHash: protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))},
 		}
 		_, err := ht.AddEdge(ctx, edge)
-		require.NoError(t, err)
+		require.ErrorIs(t, err, ErrMismatchedChallengeAssertionHash)
 	})
 	t.Run("getting claim heights fails", func(t *testing.T) {
 		ht.metadataReader = &mockMetadataReader{
@@ -53,6 +53,9 @@ func TestAddEdge(t *testing.T) {
 			assertionHash:   ht.topLevelAssertionHash,
 			claimHeightsErr: errors.New("bad request"),
 		}
+		ht.honestRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+		honestBlockEdges := ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
+		honestBlockEdges.Push(edge)
 		_, err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not get claim heights for edge")
 	})
@@ -71,7 +74,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
@@ -88,7 +91,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
@@ -107,7 +110,7 @@ func TestAddEdge(t *testing.T) {
 			assertionErr:  nil,
 			assertionHash: ht.topLevelAssertionHash,
 		}
-		badEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.f-16.a", createdAt: 1})
+		badEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.f-16.a", createdAt: 1, claimId: "foo"})
 		startHeight, startCommit := badEdge.StartCommitment()
 		endHeight, endCommit := badEdge.EndCommitment()
 		mockStateManager := &mocks.MockStateManager{}
@@ -118,7 +121,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -135,7 +138,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -164,7 +167,12 @@ func TestAddEdge(t *testing.T) {
 			assertionErr:  nil,
 			assertionHash: ht.topLevelAssertionHash,
 		}
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1})
+		rootEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a", createdAt: 1, claimId: "foo"})
+		ht.honestRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+		honestBlockEdges := ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
+		honestBlockEdges.Push(rootEdge)
+
+		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 2})
 		startHeight, startCommit := edge.StartCommitment()
 		endHeight, endCommit := edge.EndCommitment()
 		mockStateManager := &mocks.MockStateManager{}
@@ -175,7 +183,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -192,7 +200,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -218,7 +226,11 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, true, ok)
 
 		// However, we should not have a level zero edge being tracked yet.
-		require.Equal(t, true, ht.honestRootEdgesByLevel.IsEmpty())
+		blockChallengeEdges := ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
+		found := blockChallengeEdges.Find(func(_ int, e protocol.ReadOnlyEdge) bool {
+			return e.Id() == edge.Id()
+		})
+		require.Equal(t, false, found)
 	})
 	t.Run("agrees with edge and is a level zero edge", func(t *testing.T) {
 		ht.metadataReader = &mockMetadataReader{
@@ -236,7 +248,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -253,7 +265,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -295,7 +307,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
@@ -312,7 +324,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				WasmModuleRoot:              common.Hash{},
 				FromBatch:                   0,
-				ToBatch:                     1,
+				ToBatch:                     0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
