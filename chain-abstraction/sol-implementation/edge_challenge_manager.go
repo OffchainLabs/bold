@@ -304,7 +304,13 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	for i, r := range ancestorIds {
 		ancestorStrings[i] = containers.Trunc(r.Hash[:])
 	}
-	return errors.Wrapf(err, "could not confirm edge with tx and %d ancestors %v", len(ancestorIds), strings.Join(ancestorStrings, ", "))
+	return errors.Wrapf(
+		err,
+		"could not confirm edge %s with tx and %d ancestors %v",
+		containers.Trunc(e.id[:]),
+		len(ancestorIds),
+		strings.Join(ancestorStrings, ", "),
+	)
 }
 
 func (e *specEdge) ConfirmByChildren(ctx context.Context) error {

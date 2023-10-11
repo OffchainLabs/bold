@@ -457,18 +457,6 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if agreement.IsHonestEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
-	// startHeight, startCommit := edge.StartCommitment()
-	// endHeight, endCommit := edge.EndCommitment()
-	// srvlog.Info("Chain watcher received new edge", log.Ctx{
-	// 	"validatorName":   w.validatorName,
-	// 	"edgeId":          containers.Trunc(edge.Id().Hash.Bytes()),
-	// 	"isHonest":        agreement.IsHonestEdge,
-	// 	"agreesWithStart": agreement.AgreesWithStartCommit,
-	// 	"startHeight":     startHeight,
-	// 	"endHeight":       endHeight,
-	// 	"startCommit":     containers.Trunc(startCommit.Bytes()),
-	// 	"endCommit":       containers.Trunc(endCommit.Bytes()),
-	// })
 	return nil
 }
 
