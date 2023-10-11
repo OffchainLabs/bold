@@ -42,7 +42,7 @@ func TestEdgeTracker_Act(t *testing.T) {
 	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
 
 	err = tkr.Act(ctx)
-	require.ErrorContains(t, err, "not yet confirmable")
+	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
 }
 
@@ -71,7 +71,7 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 
 	// However, it should not be confirmable yet as we are halfway through the challenge period.
 	err = tkr.Act(ctx)
-	require.ErrorContains(t, err, "not yet confirmable")
+	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
 
 	someEdge, err := chalManager.GetEdge(ctx, tkr.EdgeId())
@@ -97,7 +97,7 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 	// through the challenge period as it gained a rival. That is, no matter how much time passes,
 	// our edge will still not be confirmed by time.
 	err = tkr.Act(ctx)
-	require.ErrorContains(t, err, "not yet confirmable")
+	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
 }
 
