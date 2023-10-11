@@ -109,9 +109,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if challengeLevel == protocol.NewBlockChallengeLevel() && !eg.ClaimId().IsNone() {
 		claimedAssertionHash = protocol.AssertionHash{Hash: common.Hash(eg.ClaimId().Unwrap())}
 	} else {
-		honestLevelZeroEdge, err := ht.HonestBlockChallengeRootEdge()
-		if err != nil {
-			return protocol.Agreement{}, err
+		honestLevelZeroEdge, honestErr := ht.HonestBlockChallengeRootEdge()
+		if honestErr != nil {
+			return protocol.Agreement{}, honestErr
 		}
 		if honestLevelZeroEdge.ClaimId().IsNone() {
 			return protocol.Agreement{}, errors.New("honest level zero edge has no claim id")
