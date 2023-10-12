@@ -5,7 +5,6 @@ package solimpl
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/OffchainLabs/bold/containers"
@@ -39,7 +38,7 @@ func (a *AssertionChain) transact(
 	opts.NoSend = true
 	tx, err := fn(opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "test execution of tx failed before sending payable tx")
 	}
 	// Convert the transaction into a CallMsg.
 	msg := ethereum.CallMsg{
@@ -57,8 +56,6 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation failed for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
-
-	fmt.Printf("Estimate gas %d\n", gas)
 
 	// Now, we send the tx with the estimated gas.
 	opts.GasLimit = gas
