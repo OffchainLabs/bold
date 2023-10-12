@@ -218,10 +218,10 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		bobScanner := assertions.NewScanner(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour, time.Second*10)
 
 		if err := aliceScanner.ProcessAssertionCreation(ctx, aliceLeaf.Id()); err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 		if err := bobScanner.ProcessAssertionCreation(ctx, bobLeaf.Id()); err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 
 		a.Start(ctx)
@@ -238,6 +238,13 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		if err := g.Wait(); err != nil {
 			t.Fatal(err)
 		}
+
+		trackedBacked, ok := aChain.Backend().(*solimpl.TrackedContractBackend)
+		if !ok {
+			t.Fatal("Not a tracked contract backend")
+		}
+		t.Log("Printing Alice's ethclient metrics at the end of a challenge")
+		trackedBackend.PrintMetrics()
 	})
 }
 
@@ -318,6 +325,7 @@ func setupValidator(
 		rollup,
 		txOpts,
 		be.Client(),
+		solimpl.WithTrackedContractBackend(),
 	)
 	if err != nil {
 		return nil, nil, err

@@ -44,12 +44,6 @@ func init() {
 	assertionCreatedId = assertionCreatedEvent.ID
 }
 
-// ChainBackend to interact with the underlying blockchain.
-type ChainBackend interface {
-	bind.ContractBackend
-	ReceiptFetcher
-}
-
 // ChainCommitter defines a type of chain backend that supports
 // committing changes via a direct method, such as a simulated backend
 // for testing purposes.
@@ -57,19 +51,22 @@ type ChainCommitter interface {
 	Commit() common.Hash
 }
 
-// ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.
-type ReceiptFetcher interface {
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-}
-
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	backend    ChainBackend
+	backend    protocol.ChainBackend
 	rollup     *rollupgen.RollupCore
 	userLogic  *rollupgen.RollupUserLogic
 	txOpts     *bind.TransactOpts
 	rollupAddr common.Address
+}
+
+type Opt func(*AssertionChain)
+
+func WithTrackedContractBackend() Opt {
+	return func(a *AssertionChain) {
+		a.backend = NewTrackedContractBackend(a.backend)
+	}
 }
 
 // NewAssertionChain instantiates an assertion chain
@@ -78,12 +75,16 @@ func NewAssertionChain(
 	_ context.Context,
 	rollupAddr common.Address,
 	txOpts *bind.TransactOpts,
-	backend ChainBackend,
+	backend protocol.ChainBackend,
+	opts ...Opt,
 ) (*AssertionChain, error) {
 	chain := &AssertionChain{
 		backend:    backend,
 		txOpts:     txOpts,
 		rollupAddr: rollupAddr,
+	}
+	for _, opt := range opts {
+		opt(chain)
 	}
 	coreBinding, err := rollupgen.NewRollupCore(
 		rollupAddr, chain.backend,
@@ -100,6 +101,10 @@ func NewAssertionChain(
 	chain.rollup = coreBinding
 	chain.userLogic = assertionChainBinding
 	return chain, nil
+}
+
+func (a *AssertionChain) Backend() protocol.ChainBackend {
+	return a.backend
 }
 
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
@@ -665,7 +670,7 @@ func handleCreateAssertionError(err error, blockHash common.Hash) error {
 // an optional transaction receipt. It returns an error if the
 // transaction had a failed status on-chain, or if the execution of the callback
 // failed directly.
-func transact(ctx context.Context, backend ChainBackend, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
+func transact(ctx context.Context, backend protocol.ChainBackend, fn func() (*types.Transaction, error)) (*types.Receipt, error) {
 	tx, err := fn()
 	if err != nil {
 		return nil, err
