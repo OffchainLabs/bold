@@ -223,7 +223,7 @@ func (s *L2StateBackend) AgreesWithExecutionState(ctx context.Context, state *pr
 	return l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) ([]common.Hash, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) ([]common.Hash, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
