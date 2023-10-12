@@ -157,6 +157,7 @@ func New(
 		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](),
 		assertionPostingInterval:    time.Hour,
 		assertionScanningInterval:   time.Minute,
+		assertionConfirmingInterval: time.Second * 10,
 	}
 	for _, o := range opts {
 		o(m)
