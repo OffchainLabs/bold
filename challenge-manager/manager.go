@@ -301,7 +301,6 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		}
 		fromBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState).Batch
 		toBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
-		fmt.Printf("Putting to cache from %d to %d\n", fromBatch, toBatch)
 		edgeTrackerAssertionInfo = edgetracker.AssociatedAssertionMetadata{
 			FromBatch:      l2stateprovider.Batch(fromBatch),
 			ToBatch:        l2stateprovider.Batch(toBatch),
