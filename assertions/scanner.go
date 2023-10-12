@@ -38,17 +38,18 @@ func init() {
 // up to the latest block, and keeps doing so as the chain advances. With each observed assertion,
 // it determines whether or not it should challenge it.
 type Scanner struct {
-	chain                    protocol.AssertionChain
-	backend                  bind.ContractBackend
-	challengeCreator         types.ChallengeCreator
-	challengeReader          types.ChallengeReader
-	stateProvider            l2stateprovider.Provider
-	pollInterval             time.Duration
-	rollupAddr               common.Address
-	validatorName            string
-	forksDetectedCount       uint64
-	challengesSubmittedCount uint64
-	assertionsProcessedCount uint64
+	chain                       protocol.AssertionChain
+	backend                     bind.ContractBackend
+	challengeCreator            types.ChallengeCreator
+	challengeReader             types.ChallengeReader
+	stateProvider               l2stateprovider.Provider
+	pollInterval                time.Duration
+	confirmationAttemptInterval time.Duration
+	rollupAddr                  common.Address
+	validatorName               string
+	forksDetectedCount          uint64
+	challengesSubmittedCount    uint64
+	assertionsProcessedCount    uint64
 }
 
 // NewScanner creates a scanner from the required dependencies.
@@ -169,8 +170,10 @@ func (s *Scanner) checkForAssertionAdded(
 				*filterOpts.End,
 			)
 		}
+		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
+		go s.keepTryingAssertionConfirmation(ctx, assertionHash)
 		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, s.ProcessAssertionCreation(ctx, protocol.AssertionHash{Hash: it.Event.AssertionHash})
+			return true, s.ProcessAssertionCreation(ctx, assertionHash)
 		})
 		if processErr != nil {
 			return processErr
@@ -273,6 +276,37 @@ func (s *Scanner) ChallengesSubmitted() uint64 {
 
 func (s *Scanner) AssertionsProcessed() uint64 {
 	return s.assertionsProcessedCount
+}
+
+func (s *Scanner) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
+	ticker := time.NewTicker(s.confirmationAttemptInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			status, err := s.chain.AssertionStatus(ctx, assertionHash)
+			if err != nil {
+				srvlog.Error("Could not get assertion by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+				continue
+			}
+			if status == protocol.NoAssertion {
+				srvlog.Error("No assertion found by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+				continue
+			}
+			if status == protocol.AssertionConfirmed {
+				srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
+				return
+			}
+			err = s.chain.ConfirmAssertionByTime(ctx, assertionHash)
+			if err != nil {
+				continue
+			}
+			srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func randUint64(max uint64) (uint64, error) {
