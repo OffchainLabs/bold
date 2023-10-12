@@ -138,10 +138,9 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_FirstOpcode(t *testing.T) {
 		SmallStepChallengeHeight: 1 << 5,
 	}
 	numBigSteps := uint8(3)
-	totalOpcodes := totalWasmOpcodes(layerZeroHeights, numBigSteps)
 
 	// Diverge exactly at the first opcode within the block.
-	machineDivergenceStep := 0
+	machineDivergenceStep := uint64(0)
 
 	scenario := &ChallengeScenario{
 		Name: "disagreement at first opcode",
