@@ -66,6 +66,7 @@ type Manager struct {
 	scanner                     *assertions.Scanner
 	assertionPostingInterval    time.Duration
 	assertionScanningInterval   time.Duration
+	assertionConfirmingInterval time.Duration
 	mode                        types.Mode
 	maxDelaySeconds             int
 
@@ -105,6 +106,12 @@ func WithAssertionPostingInterval(d time.Duration) Opt {
 func WithAssertionScanningInterval(d time.Duration) Opt {
 	return func(val *Manager) {
 		val.assertionScanningInterval = d
+	}
+}
+
+func WithAssertionConfirmingInterval(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.assertionConfirmingInterval = d
 	}
 }
 
@@ -206,6 +213,7 @@ func New(
 		m.rollupAddr,
 		m.name,
 		m.assertionScanningInterval,
+		m.assertionConfirmingInterval,
 	)
 
 	if m.apiAddr != "" && m.client == nil {
