@@ -50,13 +50,6 @@ type ChainBackend interface {
 	ReceiptFetcher
 }
 
-// ChainCommitter defines a type of chain backend that supports
-// committing changes via a direct method, such as a simulated backend
-// for testing purposes.
-type ChainCommitter interface {
-	Commit() common.Hash
-}
-
 // ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.
 type ReceiptFetcher interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)

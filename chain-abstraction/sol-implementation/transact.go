@@ -5,6 +5,7 @@ package solimpl
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/OffchainLabs/bold/containers"
@@ -14,6 +15,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
+
+// ChainCommitter defines a type of chain backend that supports
+// committing changes via a direct method, such as a simulated backend
+// for testing purposes.
+type ChainCommitter interface {
+	Commit() common.Hash
+}
 
 // Runs a callback function meant to write to a chain backend, and if the
 // chain backend supports committing directly, we call the commit function before
@@ -49,6 +57,8 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation failed for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
+
+	fmt.Printf("Estimate gas %d\n", gas)
 
 	// Now, we send the tx with the estimated gas.
 	opts.GasLimit = gas
