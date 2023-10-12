@@ -54,10 +54,10 @@ func Test_median(t *testing.T) {
 		require.Equal(t, big.NewInt(5), med)
 	})
 
-	t.Run("Even number of values", func(t *testing.T) {
+	t.Run("Two values takes mean", func(t *testing.T) {
 		gasCosts := []big.Int{*big.NewInt(5), *big.NewInt(15)}
 		med := median(gasCosts)
-		require.Equal(t, big.NewInt(10), med)
+		require.Equal(t, big.NewInt(7), med)
 	})
 
 	t.Run("Odd number of values", func(t *testing.T) {
