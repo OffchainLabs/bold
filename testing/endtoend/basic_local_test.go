@@ -239,7 +239,7 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 			t.Fatal(err)
 		}
 
-		trackedBacked, ok := aChain.Backend().(*solimpl.TrackedContractBackend)
+		trackedBackend, ok := aChain.Backend().(*solimpl.TrackedContractBackend)
 		if !ok {
 			t.Fatal("Not a tracked contract backend")
 		}
