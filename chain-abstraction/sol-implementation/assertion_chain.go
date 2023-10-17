@@ -152,6 +152,7 @@ func (a *AssertionChain) NewStakeOnNewAssertion(
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
+	fmt.Printf("Trying to post new stake on new assertion for address %#x\n", a.txOpts.From)
 	return a.createAndStakeOnAssertion(
 		ctx,
 		parentAssertionCreationInfo,
@@ -168,6 +169,7 @@ func (a *AssertionChain) StakeOnNewAssertion(
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
+	fmt.Printf("Trying to stake on new assertion for address %#x\n", a.txOpts.From)
 	stakeFn := func(opts *bind.TransactOpts, _ *big.Int, assertionInputs rollupgen.AssertionInputs, assertionHash [32]byte) (*types.Transaction, error) {
 		return a.userLogic.RollupUserLogicTransactor.StakeOnNewAssertion(
 			opts,
