@@ -517,7 +517,7 @@ func deployBridgeCreator(
 		return common.Address{}, errors.Wrap(err, "bridgegen.DeployInbox")
 	}
 
-	rollupEventBridgeTemplate, tx, _, err := rollupgen.DeployRollupEventInbox(auth, backend)
+	rollupEventBridgeTemplate, tx, _, err := mocksgen.DeployMockRollupEventInbox(auth, backend)
 	if err != nil {
 		return common.Address{}, err
 	}
