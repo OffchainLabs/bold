@@ -6,6 +6,7 @@
 package inclusionproofs
 
 import (
+	"github.com/OffchainLabs/bold/mmap"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,12 +21,12 @@ var (
 )
 
 // FullTree generates a Merkle tree from a list of leaves.
-func FullTree(leaves []common.Hash) ([][]common.Hash, error) {
-	msb, err := prefixproofs.MostSignificantBit(uint64(len(leaves)))
+func FullTree(leavesMmap mmap.Mmap) ([]mmap.Mmap, error) {
+	msb, err := prefixproofs.MostSignificantBit(uint64(leavesMmap.Length()))
 	if err != nil {
 		return nil, err
 	}
-	lsb, err := prefixproofs.LeastSignificantBit(uint64(len(leaves)))
+	lsb, err := prefixproofs.LeastSignificantBit(uint64(leavesMmap.Length()))
 	if err != nil {
 		return nil, err
 	}
@@ -34,18 +35,21 @@ func FullTree(leaves []common.Hash) ([][]common.Hash, error) {
 		maxLevel = msb
 	}
 
-	layers := make([][]common.Hash, maxLevel+1)
-	layers[0] = leaves
+	layers := make([]mmap.Mmap, maxLevel+1)
+	layers[0] = leavesMmap
 	l := uint64(1)
 
-	prevLayer := leaves
-	for len(prevLayer) > 1 {
-		nextLayer := make([]common.Hash, (len(prevLayer)+1)/2)
-		for i := 0; i < len(nextLayer); i++ {
-			if 2*i+1 < len(prevLayer) {
-				nextLayer[i] = crypto.Keccak256Hash(prevLayer[2*i].Bytes(), prevLayer[2*i+1].Bytes())
+	prevLayer := leavesMmap
+	for prevLayer.Length() > 1 {
+		nextLayer, err := mmap.NewMmap((prevLayer.Length() + 1) / 2)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < nextLayer.Length(); i++ {
+			if 2*i+1 < prevLayer.Length() {
+				nextLayer.Set(i, crypto.Keccak256Hash(prevLayer.Get(2*i).Bytes(), prevLayer.Get(2*i+1).Bytes()))
 			} else {
-				nextLayer[i] = crypto.Keccak256Hash(prevLayer[2*i].Bytes(), (common.Hash{}).Bytes())
+				nextLayer.Set(i, crypto.Keccak256Hash(prevLayer.Get(2*i).Bytes(), (common.Hash{}).Bytes()))
 			}
 		}
 		layers[l] = nextLayer
@@ -56,28 +60,32 @@ func FullTree(leaves []common.Hash) ([][]common.Hash, error) {
 }
 
 // GenerateInclusionProof from a list of Merkle leaves at a specified index.
-func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, error) {
-	if len(leaves) == 0 {
+func GenerateInclusionProof(leavesMmap mmap.Mmap, idx uint64) ([]common.Hash, error) {
+	numLeaves := leavesMmap.Length()
+	if numLeaves == 0 {
 		return nil, ErrInvalidLeaves
 	}
-	if idx >= uint64(len(leaves)) {
+	if idx >= uint64(numLeaves) {
 		return nil, ErrInvalidLeaves
 	}
-	if len(leaves) == 1 {
+	if numLeaves == 1 {
 		return make([]common.Hash, 0), nil
 	}
-	rehashed := make([]common.Hash, len(leaves))
+	rehashed, err := mmap.NewMmap(numLeaves)
+	if err != nil {
+		return nil, err
+	}
 	var waitGroup sync.WaitGroup
 	gomaxprocs := runtime.GOMAXPROCS(-1)
 	waitGroup.Add(gomaxprocs)
-	batchSize := len(leaves) / gomaxprocs
-	batchRemainder := len(leaves) % gomaxprocs
+	batchSize := numLeaves / gomaxprocs
+	batchRemainder := numLeaves % gomaxprocs
 	for i := 0; i < gomaxprocs-1; i++ {
 		start := i * batchSize
 		go func() {
 			defer waitGroup.Done()
 			for j := start; j < start+batchSize; j++ {
-				rehashed[j] = crypto.Keccak256Hash(leaves[j].Bytes())
+				rehashed.Set(j, crypto.Keccak256Hash(leavesMmap.Get(j).Bytes()))
 			}
 		}()
 	}
@@ -85,7 +93,7 @@ func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, er
 	go func() {
 		defer waitGroup.Done()
 		for j := start; j < start+batchSize+batchRemainder; j++ {
-			rehashed[j] = crypto.Keccak256Hash(leaves[j].Bytes())
+			rehashed.Set(j, crypto.Keccak256Hash(leavesMmap.Get(j).Bytes()))
 		}
 	}()
 	waitGroup.Wait()
@@ -94,7 +102,10 @@ func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, er
 	if err != nil {
 		return nil, err
 	}
-	maxLevel, err := prefixproofs.MostSignificantBit(uint64(len(rehashed)) - 1)
+	for i := 0; i < len(fullT); i++ {
+		defer fullT[i].Free()
+	}
+	maxLevel, err := prefixproofs.MostSignificantBit(uint64(rehashed.Length()) - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +116,8 @@ func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, er
 		counterpartIndex := levelIndex ^ 1
 		layer := fullT[level]
 		counterpart := common.Hash{}
-		if counterpartIndex <= uint64(len(layer))-1 {
-			counterpart = layer[counterpartIndex]
+		if counterpartIndex <= uint64(layer.Length())-1 {
+			counterpart = layer.Get(int(counterpartIndex))
 		}
 		proof[level] = counterpart
 	}
