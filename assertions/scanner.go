@@ -98,7 +98,7 @@ func NewManager(
 // 1. It initiates scanning of the assertion chain for newly created assertions, starting from the latest confirmed assertion. This scanning is done via polling.
 // 2. Concurrently, it also starts a routine that is responsible for posting new assertions to the assertion chain.
 func (s *Manager) Start(ctx context.Context) {
-	s.postAssertionRoutine(ctx)
+	go s.postAssertionRoutine(ctx)
 
 	latestConfirmed, err := s.chain.LatestConfirmed(ctx)
 	if err != nil {
