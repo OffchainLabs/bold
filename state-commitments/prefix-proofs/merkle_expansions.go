@@ -4,6 +4,7 @@
 package prefixproofs
 
 import (
+	"github.com/OffchainLabs/bold/mmap"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -46,10 +47,10 @@ func MerkleExpansionFromCompact(comp []common.Hash, size uint64) (MerkleExpansio
 	return me, numRead
 }
 
-func ExpansionFromLeaves(leaves []common.Hash) (MerkleExpansion, error) {
+func ExpansionFromLeaves(leavesMmap mmap.Mmap) (MerkleExpansion, error) {
 	ret := NewEmptyMerkleExpansion()
-	for _, leaf := range leaves {
-		appended, err := AppendLeaf(ret, leaf)
+	for i := 0; i < leavesMmap.Length(); i++ {
+		appended, err := AppendLeaf(ret, leavesMmap.Get(i))
 		if err != nil {
 			return nil, err
 		}
@@ -58,10 +59,10 @@ func ExpansionFromLeaves(leaves []common.Hash) (MerkleExpansion, error) {
 	return ret, nil
 }
 
-type MerkleExpansionRootFetcherFunc = func(leaves []common.Hash, upTo uint64) (common.Hash, error)
+type MerkleExpansionRootFetcherFunc = func(leavesMmap mmap.Mmap, upTo uint64) (common.Hash, error)
 
-func RootFetcherFromExpansion(leaves []common.Hash, upTo uint64) (common.Hash, error) {
-	exp, err := ExpansionFromLeaves(leaves[:upTo])
+func RootFetcherFromExpansion(leavesMmap mmap.Mmap, upTo uint64) (common.Hash, error) {
+	exp, err := ExpansionFromLeaves(leavesMmap.SubMmap(0, int(upTo)))
 	if err != nil {
 		return common.Hash{}, err
 	}

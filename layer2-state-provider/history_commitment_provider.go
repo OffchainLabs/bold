@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/mmap"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -20,7 +22,7 @@ import (
 // and outputs a list of these hashes at the end. This is a computationally expensive process
 // that is best performed if machine hashes are cached after runs.
 type MachineHashCollector interface {
-	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
+	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) (mmap.Mmap, error)
 }
 
 // ProofCollector defines an interface which can collect proof from an Arbitrator machine
@@ -63,7 +65,7 @@ type L2MessageStateCollector interface {
 		toHeight option.Option[Height],
 		fromBatch,
 		toBatch Batch,
-	) ([]common.Hash, error)
+	) (mmap.Mmap, error)
 }
 
 // HistoryCommitmentProvider computes history commitments from input parameters
@@ -110,13 +112,14 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if err != nil {
 		return commitments.History{}, err
 	}
+	defer hashes.Free()
 	return commitments.New(hashes)
 }
 
 func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
-) ([]common.Hash, error) {
+) (mmap.Mmap, error) {
 	// Validate the input heights for correctness.
 	validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
 	if err != nil {
@@ -261,7 +264,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	prefixHeight Height,
 ) ([]byte, error) {
 	// Obtain the leaves we need to produce our Merkle expansion.
-	leaves, err := p.historyCommitmentImpl(
+	leavesMmap, err := p.historyCommitmentImpl(
 		ctx,
 		req,
 	)
@@ -272,7 +275,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	var highCommitmentNumLeaves uint64
 	if req.UpToHeight.IsNone() {
-		highCommitmentNumLeaves = uint64(len(leaves))
+		highCommitmentNumLeaves = uint64(leavesMmap.Length())
 	} else {
 		// Else if it is provided, we expect the number of leaves to be the difference
 		// between the to and from height + 1.
@@ -284,8 +287,8 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	}
 
 	// Validate we are within bounds of the leaves slice.
-	if highCommitmentNumLeaves > uint64(len(leaves)) {
-		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(leaves))
+	if highCommitmentNumLeaves > uint64(leavesMmap.Length()) {
+		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, leavesMmap.Length())
 	}
 
 	// Validate low vs high commitment.
@@ -293,25 +296,25 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, fmt.Errorf("low prefix size %d was greater than high prefix size %d", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 	}
 
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(leaves[:lowCommitmentNumLeaves])
+	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(leavesMmap.SubMmap(0, int(lowCommitmentNumLeaves)))
 	if err != nil {
 		return nil, err
 	}
 	prefixProof, err := prefixproofs.GeneratePrefixProof(
 		lowCommitmentNumLeaves,
 		prefixExpansion,
-		leaves[lowCommitmentNumLeaves:highCommitmentNumLeaves],
+		leavesMmap.SubMmap(int(lowCommitmentNumLeaves), int(highCommitmentNumLeaves)),
 		prefixproofs.RootFetcherFromExpansion,
 	)
 	if err != nil {
 		return nil, err
 	}
-	bigCommit, err := commitments.New(leaves[:highCommitmentNumLeaves])
+	bigCommit, err := commitments.New(leavesMmap.SubMmap(0, int(highCommitmentNumLeaves)))
 	if err != nil {
 		return nil, err
 	}
 
-	prefixCommit, err := commitments.New(leaves[:lowCommitmentNumLeaves])
+	prefixCommit, err := commitments.New(leavesMmap.SubMmap(0, int(lowCommitmentNumLeaves)))
 	if err != nil {
 		return nil, err
 	}

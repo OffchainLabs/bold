@@ -12,9 +12,11 @@ import (
 
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/mmap"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,14 +49,17 @@ func TestAppendCompleteSubTree(t *testing.T) {
 }
 
 func TestGeneratePrefixProof(t *testing.T) {
-	defaultLeaves := []common.Hash{{1}, {2}}
+	defaultLeavesMmap, err := mmap.NewMmap(2)
+	require.NoError(t, err)
+	defaultLeavesMmap.Set(0, common.Hash{1})
+	defaultLeavesMmap.Set(1, common.Hash{2})
 
 	// Test case: Zero PrefixHeight
-	_, err := prefixproofs.GeneratePrefixProof(0, nil, defaultLeaves, nil)
+	_, err = prefixproofs.GeneratePrefixProof(0, nil, defaultLeavesMmap, nil)
 	require.ErrorContains(t, err, "prefixHeight was 0")
 
 	// Test case: Zero Length of Leaves
-	_, err = prefixproofs.GeneratePrefixProof(1, nil, []common.Hash{}, nil)
+	_, err = prefixproofs.GeneratePrefixProof(1, nil, mmap.Mmap{}, nil)
 	require.ErrorContains(t, err, "length of leaves was 0")
 }
 

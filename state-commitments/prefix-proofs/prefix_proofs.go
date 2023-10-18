@@ -106,6 +106,8 @@ import (
 	"math"
 	"math/bits"
 
+	"github.com/OffchainLabs/bold/mmap"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -342,17 +344,17 @@ func MaximumAppendBetween(startSize, endSize uint64) (uint64, error) {
 func GeneratePrefixProof(
 	prefixHeight uint64,
 	prefixExpansion MerkleExpansion,
-	leaves []common.Hash,
+	leavesMmap mmap.Mmap,
 	rootFetcher MerkleExpansionRootFetcherFunc,
 ) ([]common.Hash, error) {
 	if prefixHeight == 0 {
 		return nil, errors.Wrap(ErrCannotBeZero, "prefixHeight was 0")
 	}
-	if len(leaves) == 0 {
+	if leavesMmap.Length() == 0 {
 		return nil, errors.Wrap(ErrCannotBeZero, "length of leaves was 0")
 	}
 	height := prefixHeight
-	postHeight := height + uint64(len(leaves))
+	postHeight := height + uint64(leavesMmap.Length())
 
 	// Impossible to generate a prefix proof if the prefix height is greater than the post height given conditions above
 	if prefixHeight >= postHeight {
@@ -381,12 +383,12 @@ func GeneratePrefixProof(
 				return nil, err
 			}
 			numLeaves := uint64(1) << lowBit
-			root, err := rootFetcher(leaves, numLeaves)
+			root, err := rootFetcher(leavesMmap, numLeaves)
 			if err != nil {
 				return nil, err
 			}
 			proof = append(proof, root)
-			leaves = leaves[numLeaves:]
+			leavesMmap = leavesMmap.SubMmap(int(numLeaves), leavesMmap.Length())
 			height += numLeaves
 		} else if zzz != 0 {
 			highBit, err := MostSignificantBit(zzz)
@@ -394,12 +396,12 @@ func GeneratePrefixProof(
 				return nil, err
 			}
 			numLeaves := uint64(1) << highBit
-			root, err := rootFetcher(leaves, numLeaves)
+			root, err := rootFetcher(leavesMmap, numLeaves)
 			if err != nil {
 				return nil, err
 			}
 			proof = append(proof, root)
-			leaves = leaves[numLeaves:]
+			leavesMmap = leavesMmap.SubMmap(int(numLeaves), leavesMmap.Length())
 			height += numLeaves
 		}
 	}

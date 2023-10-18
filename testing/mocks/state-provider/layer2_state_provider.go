@@ -13,7 +13,9 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/mmap"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -223,21 +225,26 @@ func (s *L2StateBackend) AgreesWithExecutionState(ctx context.Context, state *pr
 	return l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) ([]common.Hash, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) (mmap.Mmap, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
 	desiredStatesLen := int(blockEnd - blockStart + 1)
-	var states []common.Hash
+	statesMmap, err := mmap.NewMmap(desiredStatesLen)
+	statesNum := 0
+	if err != nil {
+		return nil, err
+	}
 	var lastState common.Hash
 	for i := blockStart; i <= blockEnd; i++ {
 		if i >= uint64(len(s.stateRoots)) {
 			break
 		}
 		state := s.stateRoots[i]
-		states = append(states, state)
+		statesMmap.Set(statesNum, state)
+		statesNum++
 		lastState = state
 		if len(s.executionStates) == 0 {
 			// should only happen in tests
@@ -251,10 +258,10 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) ([]com
 			break
 		}
 	}
-	for len(states) < desiredStatesLen {
-		states = append(states, lastState)
+	for i := statesNum; i < desiredStatesLen; i++ {
+		statesMmap.Set(i, lastState)
 	}
-	return states, nil
+	return statesMmap, nil
 }
 
 func (s *L2StateBackend) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {

@@ -11,17 +11,6 @@ func NewMmap(size int) (Mmap, error) {
 	return unix.Mmap(-1, 0, common.HashLength*size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_ANON|unix.MAP_PRIVATE)
 }
 
-func ConvertSliceToMmap(leaves []common.Hash) (Mmap, error) {
-	data, err := NewMmap(len(leaves))
-	if err != nil {
-		return nil, err
-	}
-	for i, r := range leaves {
-		copy(data[i*common.HashLength:], r.Bytes())
-	}
-	return data, nil
-}
-
 func (l Mmap) Free() {
 	err := unix.Munmap(l)
 	if err != nil {

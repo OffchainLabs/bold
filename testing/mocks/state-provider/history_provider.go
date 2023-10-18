@@ -5,13 +5,15 @@ import (
 
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/mmap"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
 // Collects a list of machine hashes at a message number based on some configuration parameters.
 func (s *L2StateBackend) CollectMachineHashes(
 	ctx context.Context, cfg *l2stateprovider.HashCollectorConfig,
-) ([]common.Hash, error) {
+) (mmap.Mmap, error) {
 	// We step through the machine in our desired increments, and gather the
 	// machine hashes along the way for the history commitment.
 	machine, err := s.machineAtBlock(ctx, uint64(cfg.MessageNumber))
@@ -22,15 +24,18 @@ func (s *L2StateBackend) CollectMachineHashes(
 	if machErr := machine.Step(uint64(cfg.MachineStartIndex)); machErr != nil {
 		return nil, machErr
 	}
-	hashes := make([]common.Hash, 0, cfg.NumDesiredHashes)
-	hashes = append(hashes, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
+	hashesMmap, err := mmap.NewMmap(int(cfg.NumDesiredHashes))
+	if err != nil {
+		return nil, err
+	}
+	hashesMmap.Set(0, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
 	for i := uint64(1); i < cfg.NumDesiredHashes; i++ {
 		if stepErr := machine.Step(uint64(cfg.StepSize)); stepErr != nil {
 			return nil, stepErr
 		}
-		hashes = append(hashes, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
+		hashesMmap.Set(int(i), s.getMachineHash(machine, uint64(cfg.MessageNumber)))
 	}
-	return hashes, nil
+	return hashesMmap, nil
 }
 
 // CollectProof Collects osp of at a message number and OpcodeIndex .
@@ -60,7 +65,7 @@ func (s *L2StateBackend) L2MessageStatesUpTo(
 	upTo option.Option[l2stateprovider.Height],
 	_,
 	toBatch l2stateprovider.Batch,
-) ([]common.Hash, error) {
+) (mmap.Mmap, error) {
 	var to l2stateprovider.Height
 	if !upTo.IsNone() {
 		to = upTo.Unwrap()

@@ -36,12 +36,7 @@ type History struct {
 	LastLeaf       common.Hash
 }
 
-func New(leaves []common.Hash) (History, error) {
-	leavesMmap, err := mmap.ConvertSliceToMmap(leaves)
-	if err != nil {
-		return History{}, err
-	}
-	defer leavesMmap.Free()
+func New(leavesMmap mmap.Mmap) (History, error) {
 	if leavesMmap.Length() == 0 {
 		return emptyCommit, errors.New("must commit to at least one leaf")
 	}
