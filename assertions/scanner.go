@@ -287,34 +287,34 @@ func (s *Scanner) AssertionsProcessed() uint64 {
 }
 
 func (s *Scanner) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
-	ticker := time.NewTicker(s.confirmationAttemptInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			status, err := s.chain.AssertionStatus(ctx, assertionHash)
-			if err != nil {
-				srvlog.Error("Could not get assertion by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-				continue
-			}
-			if status == protocol.NoAssertion {
-				srvlog.Error("No assertion found by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-				continue
-			}
-			if status == protocol.AssertionConfirmed {
-				srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
-				return
-			}
-			err = s.chain.ConfirmAssertionByTime(ctx, assertionHash)
-			if err != nil {
-				continue
-			}
-			srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
+	// ticker := time.NewTicker(s.confirmationAttemptInterval)
+	// defer ticker.Stop()
+	// for {
+	// 	select {
+	// 	case <-ticker.C:
+	// 		status, err := s.chain.AssertionStatus(ctx, assertionHash)
+	// 		if err != nil {
+	// 			srvlog.Error("Could not get assertion by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+	// 			continue
+	// 		}
+	// 		if status == protocol.NoAssertion {
+	// 			srvlog.Error("No assertion found by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+	// 			continue
+	// 		}
+	// 		if status == protocol.AssertionConfirmed {
+	// 			srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
+	// 			return
+	// 		}
+	// 		err = s.chain.ConfirmAssertionByTime(ctx, assertionHash)
+	// 		if err != nil {
+	// 			continue
+	// 		}
+	// 		srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
+	// 		return
+	// 	case <-ctx.Done():
+	// 		return
+	// 	}
+	// }
 }
 
 func randUint64(max uint64) (uint64, error) {
