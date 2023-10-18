@@ -21,16 +21,19 @@ import (
 // and starting a challenge transaction. If the challenge creation is successful, we add a leaf
 // with an associated history commitment to it and spawn a challenge tracker in the background.
 func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionHash) error {
+	srvlog.Info("Challenging assertion")
 	assertion, err := m.chain.GetAssertion(ctx, id)
 	if err != nil {
 		return errors.Wrapf(err, "could not get assertion to challenge with id %#x", id)
 	}
 
 	// We then add a level zero edge to initiate a challenge.
+	srvlog.Info("Adding level zero block challenge edge")
 	levelZeroEdge, edgeTrackerAssertionInfo, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
 		return fmt.Errorf("could not add block challenge level zero edge %v: %w", m.name, err)
 	}
+	srvlog.Info("Adding verified honest edge")
 	if verifiedErr := m.watcher.AddVerifiedHonestEdge(ctx, levelZeroEdge); verifiedErr != nil {
 		fields := log.Ctx{
 			"edgeId": levelZeroEdge.Id(),
@@ -38,6 +41,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		}
 		srvlog.Error("could not add verified honest edge to chain watcher", fields)
 	}
+	srvlog.Info("Spinning up edge tracker")
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
 		ctx,
@@ -117,6 +121,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, nil, err
 	}
+	srvlog.Info("Computed history commitment, now computing prefix proof")
 	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
 		req,
