@@ -235,14 +235,19 @@ func (s *Scanner) ProcessAssertionCreation(
 		"batchIndex":    batchIndex,
 		"execState":     fmt.Sprintf("%+v", execState),
 	})
+
 	err = s.stateProvider.AgreesWithExecutionState(ctx, execState)
-	if err != nil {
-		if !errors.Is(err, l2stateprovider.ErrNoExecutionState) {
-			return err
-		}
-	} else {
-		srvlog.Info("Execution state agrees", log.Ctx{"validatorName": s.validatorName})
+	switch {
+	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
+		srvlog.Info("Disagreed with execution state", log.Ctx{
+			"validatorName": s.validatorName,
+			"batchIndex":    batchIndex,
+			"execState":     fmt.Sprintf("%+v", execState),
+		})
 		return nil
+	case err != nil:
+		return err
+	default:
 	}
 
 	if s.challengeReader.Mode() == types.DefensiveMode || s.challengeReader.Mode() == types.MakeMode {

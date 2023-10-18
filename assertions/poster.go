@@ -151,6 +151,10 @@ func (p *Poster) findLatestValidAssertion(ctx context.Context) (protocol.Asserti
 			return protocol.AssertionHash{}, err
 		}
 		if err = p.stateManager.AgreesWithExecutionState(ctx, protocol.GoExecutionStateFromSolidity(info.AfterState)); err == nil {
+			srvlog.Info("Agreed with state", log.Ctx{
+				"validatorName":  p.validatorName,
+				"executionState": fmt.Sprintf("%+v", info.AfterState),
+			})
 			return latestCreatedAssertionHashes[i], nil
 		}
 	}
