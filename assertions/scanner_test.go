@@ -50,7 +50,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		scanner, err := assertions.NewManager(p, mockStateProvider, cfg.Backend, manager, cfg.Addrs.Rollup, "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second)
 		require.NoError(t, err)
 
-		err = scanner.ProcessAssertionCreation(ctx, ev.Id())
+		err = scanner.ProcessAssertionCreationEvent(ctx, ev.Id())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), scanner.AssertionsProcessed())
 		require.Equal(t, uint64(0), scanner.ForksDetected())
@@ -76,7 +76,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		scanner, err := assertions.NewManager(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second)
 		require.NoError(t, err)
 
-		err = scanner.ProcessAssertionCreation(ctx, createdData.Leaf1.Id())
+		err = scanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf1.Id())
 		require.NoError(t, err)
 
 		otherManager, err := challengemanager.New(
@@ -93,10 +93,10 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		otherScanner, err := assertions.NewManager(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second)
 		require.NoError(t, err)
 
-		err = otherScanner.ProcessAssertionCreation(ctx, createdData.Leaf2.Id())
+		err = otherScanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf2.Id())
 		require.NoError(t, err)
 
-		err = otherScanner.ProcessAssertionCreation(ctx, createdData.Leaf2.Id())
+		err = otherScanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf2.Id())
 		require.NoError(t, err)
 
 		require.Equal(t, uint64(2), otherScanner.AssertionsProcessed())
@@ -123,7 +123,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		scanner, err := assertions.NewManager(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second)
 		require.NoError(t, err)
 
-		err = scanner.ProcessAssertionCreation(ctx, createdData.Leaf1.Id())
+		err = scanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf1.Id())
 		require.NoError(t, err)
 
 		otherManager, err := challengemanager.New(
@@ -140,10 +140,10 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		otherScanner, err := assertions.NewManager(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second)
 		require.NoError(t, err)
 
-		err = otherScanner.ProcessAssertionCreation(ctx, createdData.Leaf2.Id())
+		err = otherScanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf2.Id())
 		require.NoError(t, err)
 
-		err = otherScanner.ProcessAssertionCreation(ctx, createdData.Leaf2.Id())
+		err = otherScanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf2.Id())
 		require.NoError(t, err)
 
 		require.Equal(t, uint64(2), otherScanner.AssertionsProcessed())
