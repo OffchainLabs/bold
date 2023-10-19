@@ -17,7 +17,9 @@ import (
 
 func (s *Manager) postAssertionRoutine(ctx context.Context) {
 	if _, err := s.PostAssertion(ctx); err != nil {
-		srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+		if !errors.Is(err, solimpl.ErrAlreadyExists) {
+			srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+		}
 	}
 	ticker := time.NewTicker(s.postInterval)
 	defer ticker.Stop()
@@ -25,7 +27,9 @@ func (s *Manager) postAssertionRoutine(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if _, err := s.PostAssertion(ctx); err != nil {
-				srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+				if !errors.Is(err, solimpl.ErrAlreadyExists) {
+					srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+				}
 			}
 		case <-ctx.Done():
 			return
@@ -52,14 +56,24 @@ func (s *Manager) PostAssertion(ctx context.Context) (protocol.Assertion, error)
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
 	if staked {
-		return s.postAssertionBasedOnParent(
+		assertion, err := s.postAssertionBasedOnParent(
 			ctx, parentAssertionCreationInfo, s.chain.StakeOnNewAssertion,
 		)
+		if err != nil {
+			return nil, err
+		}
+		s.submittedAssertions.Insert(assertion.Id().Hash)
+		return assertion, nil
 	}
 	// Otherwise, we post a new assertion and place a new stake on it.
-	return s.postAssertionBasedOnParent(
+	assertion, err := s.postAssertionBasedOnParent(
 		ctx, parentAssertionCreationInfo, s.chain.NewStakeOnNewAssertion,
 	)
+	if err != nil {
+		return nil, err
+	}
+	s.submittedAssertions.Insert(assertion.Id().Hash)
+	return assertion, nil
 }
 
 // Posts a new assertion onchain based on a parent assertion we agree with.

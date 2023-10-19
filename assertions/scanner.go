@@ -16,6 +16,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -55,6 +56,7 @@ type Manager struct {
 	assertionsProcessedCount    uint64
 	stateManager                l2stateprovider.ExecutionProvider
 	postInterval                time.Duration
+	submittedAssertions         *threadsafe.Set[common.Hash]
 }
 
 // NewManager creates a manager from the required dependencies.
@@ -91,6 +93,7 @@ func NewManager(
 		assertionsProcessedCount:    0,
 		stateManager:                stateManager,
 		postInterval:                postInterval,
+		submittedAssertions:         threadsafe.NewSet[common.Hash](),
 	}, nil
 }
 
@@ -206,7 +209,7 @@ func (s *Manager) checkForAssertionAdded(
 		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
 
 		// Try to confirm the assertion in the background.
-		go s.keepTryingAssertionConfirmation(ctx, assertionHash)
+		//go s.keepTryingAssertionConfirmation(ctx, assertionHash)
 
 		// Try to process the assertion creation event in the background
 		// to not block the processing of other incoming events.
@@ -233,6 +236,10 @@ func (m *Manager) ProcessAssertionCreationEvent(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
 ) error {
+	// Ignore assertions we have submitted ourselves.
+	if m.submittedAssertions.Has(assertionHash.Hash) {
+		return nil
+	}
 	if assertionHash.Hash == (common.Hash{}) {
 		return nil // Assertions cannot have a zero hash, not even genesis.
 	}
@@ -349,14 +356,24 @@ func (m *Manager) maybePostRivalAssertion(
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
 	if staked {
-		return m.postAssertionBasedOnParent(
+		assertion, err := m.postAssertionBasedOnParent(
 			ctx, latestAgreedWithAncestor, m.chain.StakeOnNewAssertion,
 		)
+		if err != nil {
+			return nil, err
+		}
+		m.submittedAssertions.Insert(assertion.Id().Hash)
+		return assertion, nil
 	}
 	// Otherwise, we post a new assertion and place a new stake on it.
-	return m.postAssertionBasedOnParent(
+	assertion, err := m.postAssertionBasedOnParent(
 		ctx, latestAgreedWithAncestor, m.chain.NewStakeOnNewAssertion,
 	)
+	if err != nil {
+		return nil, err
+	}
+	m.submittedAssertions.Insert(assertion.Id().Hash)
+	return assertion, nil
 }
 
 // Look back until we find the ancestor we agree with for the given assertion.
