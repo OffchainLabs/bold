@@ -136,10 +136,12 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	if err != nil {
 		return protocol.Agreement{}, errors.Wrapf(err, "could not get claim heights for edge %#x", eg.Id())
 	}
-
 	startHeights := make([]l2stateprovider.Height, len(heights.ChallengeOriginHeights))
 	for i, h := range heights.ChallengeOriginHeights {
 		startHeights[i] = l2stateprovider.Height(h)
+	}
+	if len(startHeights) > 0 {
+		startHeights[0] += l2stateprovider.Height(fromBatch)
 	}
 
 	var isHonestEdge bool

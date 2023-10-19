@@ -666,7 +666,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		return errors.Wrap(err, "could not get top level claim height")
 	}
 
-	fromBlockChallengeHeight := l2stateprovider.Height(originHeights.ChallengeOriginHeights[0])
+	fromBlockChallengeHeight := l2stateprovider.Height(et.associatedAssertionMetadata.FromBatch) + l2stateprovider.Height(originHeights.ChallengeOriginHeights[0])
 
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
