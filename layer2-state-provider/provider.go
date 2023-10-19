@@ -19,7 +19,7 @@ import (
 
 var (
 	ErrNoExecutionState = errors.New("chain does not have execution state")
-	ErrChainCatchingUp  = errors.New("chain is catching up to the requested execution state")
+	ErrChainCatchingUp  = errors.New("chain is catching up to the execution state")
 )
 
 // Batch index for an Arbitrum L2 state.
