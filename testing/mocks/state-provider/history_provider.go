@@ -31,6 +31,7 @@ func (s *L2StateBackend) CollectMachineHashes(
 	hashesMmap.Set(0, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
 	for i := uint64(1); i < cfg.NumDesiredHashes; i++ {
 		if stepErr := machine.Step(uint64(cfg.StepSize)); stepErr != nil {
+			hashesMmap.Free()
 			return nil, stepErr
 		}
 		hashesMmap.Set(int(i), s.getMachineHash(machine, uint64(cfg.MessageNumber)))

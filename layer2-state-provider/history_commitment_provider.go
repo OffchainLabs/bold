@@ -271,6 +271,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
+	defer leavesMmap.Free()
 	// If no upToHeight is provided, we want to use the max number of leaves in our computation.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	var highCommitmentNumLeaves uint64

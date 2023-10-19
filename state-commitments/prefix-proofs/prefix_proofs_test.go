@@ -51,6 +51,7 @@ func TestAppendCompleteSubTree(t *testing.T) {
 func TestGeneratePrefixProof(t *testing.T) {
 	defaultLeavesMmap, err := mmap.NewMmap(2)
 	require.NoError(t, err)
+	defer defaultLeavesMmap.Free()
 	defaultLeavesMmap.Set(0, common.Hash{1})
 	defaultLeavesMmap.Set(1, common.Hash{2})
 

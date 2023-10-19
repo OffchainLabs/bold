@@ -253,6 +253,7 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) (mmap.
 		gs := s.executionStates[i].GlobalState
 		if gs.Batch >= toBatch {
 			if gs.Batch > toBatch || gs.PosInBatch > 0 {
+				statesMmap.Free()
 				return nil, fmt.Errorf("overran next batch count %v with global state batch %v position %v", toBatch, gs.Batch, gs.PosInBatch)
 			}
 			break
