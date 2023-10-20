@@ -209,7 +209,7 @@ func (s *Manager) checkForAssertionAdded(
 		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
 
 		// Try to confirm the assertion in the background.
-		//go s.keepTryingAssertionConfirmation(ctx, assertionHash)
+		go s.keepTryingAssertionConfirmation(ctx, assertionHash)
 
 		// Try to process the assertion creation event in the background
 		// to not block the processing of other incoming events.

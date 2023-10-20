@@ -87,12 +87,16 @@ type HistoryCommitmentRequest struct {
 	// An optional height at which to end the history commitment. If none, the request
 	// will commit to all the leaves at the specified challenge level.
 	UpToHeight option.Option[Height]
+	// Options
+	disableCache            bool
+	disableFinalStateModify bool
 }
 
 type GeneralHistoryCommitter interface {
 	HistoryCommitment(
 		ctx context.Context,
 		req *HistoryCommitmentRequest,
+		opts ...HistoryCommitOpt,
 	) (commitments.History, error)
 }
 

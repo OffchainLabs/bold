@@ -140,10 +140,6 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	for i, h := range heights.ChallengeOriginHeights {
 		startHeights[i] = l2stateprovider.Height(h)
 	}
-	if len(startHeights) > 0 {
-		startHeights[0] += l2stateprovider.Height(fromBatch)
-	}
-
 	var isHonestEdge bool
 	var agreesWithStart bool
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
