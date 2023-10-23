@@ -54,9 +54,7 @@ type HashCollectorConfig struct {
 	// The opcode index at which to start stepping through the machine at a message number.
 	MachineStartIndex OpcodeIndex
 	// The step size for stepping through the machine in order to collect its hashes.
-	StepSize                StepSize
-	DisableCache            bool
-	DisableFinalStateModify bool
+	StepSize StepSize
 }
 
 // L2MessageStateCollector defines an interface which can obtain the machine hashes at each L2 message
