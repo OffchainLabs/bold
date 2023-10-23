@@ -625,7 +625,14 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 		oneStepData.Proof,
 	)
 	if err != nil {
-		fmt.Printf("Got err in proving one step directly: %v\n", err)
+		return errors.Wrapf(
+			err,
+			"failed to pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
+			machineStep,
+			oneStepData.BeforeHash,
+			oneStepData.AfterHash,
+			result,
+		)
 	}
 	if _, err = cm.assertionChain.transact(
 		ctx,
