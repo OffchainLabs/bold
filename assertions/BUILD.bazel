@@ -38,6 +38,7 @@ go_test(
         "//challenge-manager",
         "//challenge-manager/types",
         "//containers/option",
+        "//containers/threadsafe",
         "//layer2-state-provider",
         "//solgen/go/rollupgen",
         "//testing/mocks",

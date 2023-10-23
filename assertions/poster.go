@@ -56,7 +56,7 @@ func (s *Manager) PostAssertion(ctx context.Context) (protocol.Assertion, error)
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
 	if staked {
-		assertion, err := s.postAssertionBasedOnParent(
+		assertion, err := s.PostAssertionBasedOnParent(
 			ctx, parentAssertionCreationInfo, s.chain.StakeOnNewAssertion,
 		)
 		if err != nil {
@@ -66,7 +66,7 @@ func (s *Manager) PostAssertion(ctx context.Context) (protocol.Assertion, error)
 		return assertion, nil
 	}
 	// Otherwise, we post a new assertion and place a new stake on it.
-	assertion, err := s.postAssertionBasedOnParent(
+	assertion, err := s.PostAssertionBasedOnParent(
 		ctx, parentAssertionCreationInfo, s.chain.NewStakeOnNewAssertion,
 	)
 	if err != nil {
@@ -77,7 +77,7 @@ func (s *Manager) PostAssertion(ctx context.Context) (protocol.Assertion, error)
 }
 
 // Posts a new assertion onchain based on a parent assertion we agree with.
-func (s *Manager) postAssertionBasedOnParent(
+func (s *Manager) PostAssertionBasedOnParent(
 	ctx context.Context,
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 	submitFn func(

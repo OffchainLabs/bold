@@ -356,7 +356,7 @@ func (m *Manager) maybePostRivalAssertion(
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
 	if staked {
-		assertion, err := m.postAssertionBasedOnParent(
+		assertion, err := m.PostAssertionBasedOnParent(
 			ctx, latestAgreedWithAncestor, m.chain.StakeOnNewAssertion,
 		)
 		if err != nil {
@@ -366,7 +366,7 @@ func (m *Manager) maybePostRivalAssertion(
 		return assertion, nil
 	}
 	// Otherwise, we post a new assertion and place a new stake on it.
-	assertion, err := m.postAssertionBasedOnParent(
+	assertion, err := m.PostAssertionBasedOnParent(
 		ctx, latestAgreedWithAncestor, m.chain.NewStakeOnNewAssertion,
 	)
 	if err != nil {
