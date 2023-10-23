@@ -656,7 +656,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 				post,
 			)
 		}); err != nil {
-		errors.Wrapf(
+		return errors.Wrapf(
 			err,
 			"failed to confirm one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
 			machineStep,
