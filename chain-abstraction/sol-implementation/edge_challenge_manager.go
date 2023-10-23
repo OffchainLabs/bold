@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -628,9 +627,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 	if err != nil {
 		fmt.Printf("Got err in proving one step directly: %v\n", err)
 	}
-	fmt.Printf("OSP for machine step %d before hash %#x, local after hash %#x: actual %#x\n", machineStep, oneStepData.BeforeHash, oneStepData.AfterHash, result)
-
-	_, err = cm.assertionChain.transact(
+	if _, err = cm.assertionChain.transact(
 		ctx,
 		cm.assertionChain.backend,
 		func(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -651,8 +648,16 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 				pre,
 				post,
 			)
-		})
-	// TODO: Handle receipt.
+		}); err != nil {
+		errors.Wrapf(
+			err,
+			"failed to confirm one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
+			machineStep,
+			oneStepData.BeforeHash,
+			oneStepData.AfterHash,
+			result,
+		)
+	}
 
 	return err
 }
@@ -766,10 +771,6 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 			levelZeroBlockHeight.Uint64(),
 		)
 	}
-	beforeGlobalState := protocol.GoGlobalStateFromSolidity(parentAssertionCreation.AfterState.GlobalState)
-	afterGlobalState := protocol.GoGlobalStateFromSolidity(assertionCreation.AfterState.GlobalState)
-	lastLeafComputed := crypto.Keccak256Hash([]byte("Machine finished:"), afterGlobalState.Hash().Bytes())
-	fmt.Printf("Last leaf %#x, computed %#x before global %+v, after global %+v\n", endCommit.LastLeaf, lastLeafComputed, beforeGlobalState, afterGlobalState)
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
 		ExecutionStateData{

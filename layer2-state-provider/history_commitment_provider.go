@@ -104,29 +104,14 @@ func NewHistoryCommitmentProvider(
 // and to be less than the total number of challenge levels in the protocol.
 type validatedStartHeights []Height
 
-type HistoryCommitOpt = func(*HistoryCommitmentRequest)
-
-func WithoutCache() HistoryCommitOpt {
-	return func(hcr *HistoryCommitmentRequest) {
-		hcr.disableCache = true
-	}
-}
-
-func WithoutFinalModify() HistoryCommitOpt {
-	return func(hcr *HistoryCommitmentRequest) {
-		hcr.disableFinalStateModify = true
-	}
-}
-
 // HistoryCommitment computes a Merklelized commitment over a set of hashes
 // at specified challenge levels. For block challenges, for example, this is a set
 // of machine hashes corresponding each message in a range N to M.
 func (p *HistoryCommitmentProvider) HistoryCommitment(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
-	opts ...HistoryCommitOpt,
 ) (commitments.History, error) {
-	hashes, err := p.historyCommitmentImpl(ctx, req, opts...)
+	hashes, err := p.historyCommitmentImpl(ctx, req)
 	if err != nil {
 		return commitments.History{}, err
 	}
@@ -136,11 +121,7 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
-	opts ...HistoryCommitOpt,
 ) ([]common.Hash, error) {
-	for _, o := range opts {
-		o(req)
-	}
 	// Validate the input heights for correctness.
 	validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
 	if err != nil {
@@ -197,12 +178,10 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 			// We drop the first index of the validated heights, because the first index is for the block challenge level,
 			// which is over blocks and not over individual machine WASM opcodes. Starting from the second index, we are now
 			// dealing with challenges over ranges of opcodes which are what we care about for our implementation of machine hash collection.
-			StepHeights:             validatedHeights[1:],
-			NumDesiredHashes:        numHashes,
-			MachineStartIndex:       machineStartIndex,
-			StepSize:                stepSize,
-			DisableCache:            req.disableCache,
-			DisableFinalStateModify: req.disableFinalStateModify,
+			StepHeights:       validatedHeights[1:],
+			NumDesiredHashes:  numHashes,
+			MachineStartIndex: machineStartIndex,
+			StepSize:          stepSize,
 		},
 	)
 }

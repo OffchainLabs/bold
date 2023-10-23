@@ -384,14 +384,12 @@ func DeployFullRollupStack(
 	if err != nil {
 		return nil, err
 	}
-
-	disableValidatorWhitelist := true
 	tx, err := rollupCreator.CreateRollup(
 		deployAuth,
 		config,
 		common.Address{},
 		[]common.Address{},
-		disableValidatorWhitelist,
+		true, // Permissionless validation.
 		big.NewInt(challenge_testing.MaxDataSize),
 	)
 
