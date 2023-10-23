@@ -56,11 +56,11 @@ func (s *Manager) PostAssertion(ctx context.Context) (protocol.Assertion, error)
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
 	if staked {
-		assertion, err := s.PostAssertionBasedOnParent(
+		assertion, postErr := s.PostAssertionBasedOnParent(
 			ctx, parentAssertionCreationInfo, s.chain.StakeOnNewAssertion,
 		)
-		if err != nil {
-			return nil, err
+		if postErr != nil {
+			return nil, postErr
 		}
 		s.submittedAssertions.Insert(assertion.Id().Hash)
 		return assertion, nil

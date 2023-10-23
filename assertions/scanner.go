@@ -258,7 +258,11 @@ func (m *Manager) ProcessAssertionCreationEvent(
 	case errors.Is(err, l2stateprovider.ErrNoExecutionState):
 		// If we disagree with the execution state, we should try to post the rival
 		// assertion that we believe is correct and initiate a challenge if possible.
-		return m.postRivalAssertionAndChallenge(ctx, creationInfo)
+		if postRivalErr := m.postRivalAssertionAndChallenge(ctx, creationInfo); postRivalErr != nil {
+			return postRivalErr
+		}
+		m.assertionsProcessedCount++
+		return nil
 	case errors.Is(err, l2stateprovider.ErrChainCatchingUp):
 		// Otherwise, we return the error that we are still catching up to the
 		// execution state claimed by the assertion, and this function will be retried
@@ -280,6 +284,7 @@ func (m *Manager) ProcessAssertionCreationEvent(
 		"machineFinishedHash": machineFinishedHash,
 		"assertionHash":       assertionHash,
 	})
+	m.assertionsProcessedCount++
 	return nil
 }
 
@@ -356,11 +361,11 @@ func (m *Manager) maybePostRivalAssertion(
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
 	if staked {
-		assertion, err := m.PostAssertionBasedOnParent(
+		assertion, postErr := m.PostAssertionBasedOnParent(
 			ctx, latestAgreedWithAncestor, m.chain.StakeOnNewAssertion,
 		)
-		if err != nil {
-			return nil, err
+		if postErr != nil {
+			return nil, postErr
 		}
 		m.submittedAssertions.Insert(assertion.Id().Hash)
 		return assertion, nil
