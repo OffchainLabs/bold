@@ -69,8 +69,7 @@ func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 }
 
 func (e *specEdge) HasConfirmedRival(ctx context.Context) (bool, error) {
-	mutualId, err := e.manager.caller.CalculateMutualId(
-		&bind.CallOpts{Context: ctx},
+	mutualId, err := calculateMutualId(
 		e.inner.Level,
 		e.inner.OriginId,
 		e.inner.StartHeight,
@@ -501,8 +500,7 @@ func (cm *specChallengeManager) GetEdge(
 	if edge.Staker != (common.Address{}) {
 		miniStaker = option.Some(edge.Staker)
 	}
-	mutual, err := cm.caller.CalculateMutualId(
-		&bind.CallOpts{Context: ctx},
+	mutual, err := calculateMutualId(
 		edge.Level,
 		edge.OriginId,
 		edge.StartHeight,
@@ -762,7 +760,8 @@ func calculateMutualId(level uint8, originId [32]byte, startHeight *big.Int, sta
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return crypto.Keccak256Hash(mutualIdByte), nil
+	// Pack stores level(uint8) as 32 bytes, so we need to slice off the first 31 bytes
+	return crypto.Keccak256Hash(mutualIdByte[31:]), nil
 }
 
 type ExecutionStateData struct {
