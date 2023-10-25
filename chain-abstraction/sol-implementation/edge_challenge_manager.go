@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -738,6 +739,30 @@ var blockEdgeCreateProofAbi = abi.Arguments{
 		Name: "endState",
 		Type: executionStateData,
 	},
+}
+
+var uint8Type = newStaticType("uint8", "", nil)
+var uint256Type = newStaticType("uint256", "", nil)
+var mutualIdAbi = abi.Arguments{
+	{Type: uint8Type, Name: "level"},
+	{Type: bytes32Type, Name: "originId"},
+	{Type: uint256Type, Name: "startHeight"},
+	{Type: bytes32Type, Name: "startHistoryRoot"},
+	{Type: uint256Type, Name: "endHeight"},
+}
+
+func calculateMutualId(level uint8, originId [32]byte, startHeight *big.Int, startHistoryRoot [32]byte, endHeight *big.Int) (common.Hash, error) {
+	mutualIdByte, err := mutualIdAbi.Pack(
+		level,
+		originId,
+		startHeight,
+		startHistoryRoot,
+		endHeight,
+	)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return crypto.Keccak256Hash(mutualIdByte), nil
 }
 
 type ExecutionStateData struct {
