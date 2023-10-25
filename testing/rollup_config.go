@@ -83,7 +83,7 @@ func GenerateRollupConfig(
 		MiniStakeValue:      miniStakeValue,
 		ConfirmPeriodBlocks: confirmPeriod,
 		StakeToken:          stakeToken,
-		BaseStake:           big.NewInt(100),
+		BaseStake:           big.NewInt(1),
 		WasmModuleRoot:      wasmModuleRoot,
 		Owner:               rollupOwner,
 		LoserStakeEscrow:    loserStakeEscrow,

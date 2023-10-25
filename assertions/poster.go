@@ -50,6 +50,7 @@ func (s *Manager) PostAssertion(ctx context.Context) (protocol.Assertion, error)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Latest valid to post %+v\n", parentAssertionCreationInfo)
 	staked, err := s.chain.IsStaked(ctx)
 	if err != nil {
 		return nil, err
