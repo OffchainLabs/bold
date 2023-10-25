@@ -58,11 +58,12 @@ type ReceiptFetcher interface {
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	backend    protocol.ChainBackend
-	rollup     *rollupgen.RollupCore
-	userLogic  *rollupgen.RollupUserLogic
-	txOpts     *bind.TransactOpts
-	rollupAddr common.Address
+	backend              protocol.ChainBackend
+	rollup               *rollupgen.RollupCore
+	userLogic            *rollupgen.RollupUserLogic
+	txOpts               *bind.TransactOpts
+	rollupAddr           common.Address
+	challengeManagerAddr common.Address
 }
 
 type Opt func(*AssertionChain)
@@ -76,7 +77,7 @@ func WithTrackedContractBackend() Opt {
 // NewAssertionChain instantiates an assertion chain
 // instance from a chain backend and provided options.
 func NewAssertionChain(
-	_ context.Context,
+	ctx context.Context,
 	rollupAddr common.Address,
 	txOpts *bind.TransactOpts,
 	backend protocol.ChainBackend,
@@ -105,8 +106,15 @@ func NewAssertionChain(
 	if err != nil {
 		return nil, err
 	}
+	challengeManagerAddr, err := assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
+		&bind.CallOpts{Context: ctx},
+	)
+	if err != nil {
+		return nil, err
+	}
 	chain.rollup = coreBinding
 	chain.userLogic = assertionChainBinding
+	chain.challengeManagerAddr = challengeManagerAddr
 	return chain, nil
 }
 
@@ -365,15 +373,9 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 
 // SpecChallengeManager creates a new spec challenge manager
 func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
-	challengeManagerAddr, err := a.userLogic.RollupUserLogicCaller.ChallengeManager(
-		&bind.CallOpts{Context: ctx},
-	)
-	if err != nil {
-		return nil, err
-	}
 	return NewSpecChallengeManager(
 		ctx,
-		challengeManagerAddr,
+		a.challengeManagerAddr,
 		a,
 		a.backend,
 		a.txOpts,
