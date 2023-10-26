@@ -363,4 +363,11 @@ library MerkleTreeLib {
         bytes32 calculatedRoot = MerkleLib.calculateRoot(proof, index, keccak256(abi.encodePacked(leaf)));
         require(rootHash == calculatedRoot, "Invalid inclusion proof");
     }
+    function verifyInclusionProofCustom(bytes32 rootHash, bytes32 leaf, uint256 index, bytes32[] memory proof)
+        internal
+        pure
+    {
+        bytes32 calculatedRoot = MerkleLib.calculateRoot(proof, index, keccak256(abi.encodePacked(leaf)));
+        require(rootHash == calculatedRoot, "Invalid inclusion proof in common checks");
+    }
 }

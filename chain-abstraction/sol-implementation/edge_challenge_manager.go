@@ -16,6 +16,7 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	inclusionproofs "github.com/OffchainLabs/bold/state-commitments/inclusion-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -778,6 +779,13 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 			levelZeroBlockHeight.Uint64(),
 		)
 	}
+	fmt.Printf("End commit last leaf %#x, first %#x, before %+v after state %+v, end commit height %d, start height %d\n", endCommit.LastLeaf, endCommit.FirstLeaf, protocol.GoExecutionStateFromSolidity(parentAssertionCreation.AfterState), protocol.GoExecutionStateFromSolidity(assertionCreation.AfterState), endCommit.Height, startCommit.Height)
+
+	computed, err := inclusionproofs.CalculateRootFromProof(endCommit.LastLeafProof, 32, endCommit.LastLeaf)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Computed %#x vs actual %#x\n", computed, endCommit.Merkle)
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
 		ExecutionStateData{
