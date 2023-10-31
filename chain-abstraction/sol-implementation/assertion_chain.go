@@ -244,10 +244,8 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	default:
 	}
 	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		copied := copyTxOpts(opts)
-		copied.Value = big.NewInt(0)
 		return stakeFn(
-			copied,
+			opts,
 			parentAssertionCreationInfo.RequiredStake,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{

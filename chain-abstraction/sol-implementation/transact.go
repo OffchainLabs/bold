@@ -35,6 +35,9 @@ func (a *AssertionChain) transact(
 ) (*types.Receipt, error) {
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
+
+	// No BOLD transactions require a value.
+	opts.Value = big.NewInt(0)
 	opts.NoSend = true
 	tx, err := fn(opts)
 	if err != nil {
