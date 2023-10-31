@@ -243,22 +243,9 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
 	default:
 	}
-	fmt.Printf("rollup contract %#x\n", a.rollupAddr)
-	fmt.Printf("required stake %d\n", parentAssertionCreationInfo.RequiredStake.Uint64())
-	fmt.Printf("prev prev %#x\n", parentAssertionCreationInfo.ParentAssertionHash)
-	fmt.Printf("sequencer batch acc %#x\n", parentAssertionCreationInfo.AfterInboxBatchAcc)
-	fmt.Printf("challenge manager %#x\n", parentAssertionCreationInfo.ChallengeManager)
-	fmt.Printf("confirm period blocks %#x\n", parentAssertionCreationInfo.ConfirmPeriodBlocks)
-	fmt.Printf("wasm module root %#x\n", parentAssertionCreationInfo.WasmModuleRoot)
-	fmt.Printf("next inbox max count %d\n", parentAssertionCreationInfo.InboxMaxCount.Uint64())
-	fmt.Printf("before state %+v\n", protocol.GoExecutionStateFromSolidity(parentAssertionCreationInfo.AfterState))
-	fmt.Printf("after state %+v\n", postState)
-	fmt.Printf("after state %+v\n", postState)
 	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		copied := copyTxOpts(opts)
 		copied.Value = big.NewInt(0)
-		copied.GasLimit = 3_000_000
-		fmt.Printf("Opts: %+v\n", copied)
 		return stakeFn(
 			copied,
 			parentAssertionCreationInfo.RequiredStake,

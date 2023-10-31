@@ -364,7 +364,7 @@ library EdgeChallengeManagerLib {
         // We then ensure that that same end state is part of the end history root we're creating
         // This ensures continuity of states between levels - the state is present in both this
         // level and the one below
-        MerkleTreeLib.verifyInclusionProofCustom(
+        MerkleTreeLib.verifyInclusionProof(
             args.endHistoryRoot, proofData.endState, args.endHeight, proofData.inclusionProof
         );
 

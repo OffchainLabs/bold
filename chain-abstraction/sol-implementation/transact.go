@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -34,32 +35,32 @@ func (a *AssertionChain) transact(
 ) (*types.Receipt, error) {
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
-	// opts.NoSend = true
-	// tx, err := fn(opts)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "test execution of tx failed before sending payable tx")
-	// }
-	// // Convert the transaction into a CallMsg.
-	// msg := ethereum.CallMsg{
-	// 	From:     opts.From,
-	// 	To:       tx.To(),
-	// 	Gas:      0, // Set to 0 to let the node decide
-	// 	GasPrice: opts.GasPrice,
-	// 	Value:    opts.Value,
-	// 	Data:     tx.Data(),
-	// }
-
-	// // Estimate the gas required for the transaction. This will catch failures early
-	// // without needing to pay for the transaction and waste funds.
-	// gas, err := backend.EstimateGas(ctx, msg)
-	// if err != nil {
-	// 	return nil, errors.Wrapf(err, "gas estimation failed for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
-	// }
-
-	// // Now, we send the tx with the estimated gas.
-	// opts.GasLimit = gas
-	//opts.NoSend = true
+	opts.NoSend = true
 	tx, err := fn(opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "test execution of tx failed before sending payable tx")
+	}
+	// Convert the transaction into a CallMsg.
+	msg := ethereum.CallMsg{
+		From:     opts.From,
+		To:       tx.To(),
+		Gas:      0, // Set to 0 to let the node decide
+		GasPrice: opts.GasPrice,
+		Value:    opts.Value,
+		Data:     tx.Data(),
+	}
+
+	// Estimate the gas required for the transaction. This will catch failures early
+	// without needing to pay for the transaction and waste funds.
+	gas, err := backend.EstimateGas(ctx, msg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "gas estimation failed for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
+	}
+
+	// Now, we send the tx with the estimated gas.
+	opts.GasLimit = gas
+	opts.NoSend = true
+	tx, err = fn(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func (a *AssertionChain) transact(
 		callMsg := ethereum.CallMsg{
 			From:       opts.From,
 			To:         tx.To(),
-			Gas:        3_000_000,
+			Gas:        0,
 			GasPrice:   nil,
 			Value:      tx.Value(),
 			Data:       tx.Data(),
