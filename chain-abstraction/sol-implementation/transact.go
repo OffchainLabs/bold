@@ -59,7 +59,7 @@ func (a *AssertionChain) transact(
 
 	// Now, we send the tx with the estimated gas.
 	opts.GasLimit = gas
-	opts.NoSend = true
+	opts.NoSend = false
 	tx, err = fn(opts)
 	if err != nil {
 		return nil, err
