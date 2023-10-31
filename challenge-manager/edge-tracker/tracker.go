@@ -764,9 +764,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			heights = append(heights, l2stateprovider.Height(h))
 		}
 		heights = append(heights, l2stateprovider.Height(startHeight))
-		for i, h := range heights {
-			fmt.Printf("subchal origin height index %d, height %d\n", i, h)
-		}
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
 			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
