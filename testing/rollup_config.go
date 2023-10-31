@@ -46,6 +46,12 @@ func WithChallengeGracePeriodBlocks(num uint64) Opt {
 	}
 }
 
+func WithBaseStakeValue(num *big.Int) Opt {
+	return func(c *rollupgen.Config) {
+		c.BaseStake = num
+	}
+}
+
 func WithChainConfig(cfg string) Opt {
 	return func(c *rollupgen.Config) {
 		c.ChainConfig = cfg
