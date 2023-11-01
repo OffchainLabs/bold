@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math/big"
 	"strings"
 
+	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,16 +22,16 @@ import (
 var (
 	valPrivKeys       = flag.String("validator-priv-keys", "", "comma-separated, validator private keys to fund and approve mock ERC20 stake token")
 	l1ChainIdStr      = flag.String("l1-chain-id", "11155111", "l1 chain id")
-	l1EndpointUrl     = flag.String("l1-endpoint", "ws://localhost:8546", "l1 endpoint")
-	rollupAddrStr     = flag.String("rollup-address", "", "rollup address")
-	stakeTokenAddrStr = flag.String("stake-token-address", "", "rollup address")
+	l1EndpointUrl     = flag.String("l1-endpoint", "https://sepolia.infura.io/v3/fc8ad4cce91c4529870898717f3fa011", "l1 endpoint")
+	rollupAddrStr     = flag.String("rollup-address", "0x4b4451b23f776cfb72e4fa833639e80d47a9947f", "rollup address")
+	stakeTokenAddrStr = flag.String("stake-token-address", "0xbb8c72f9deb2cd7ee16942b650f331c43f706f54", "rollup address")
 	gweiToDeposit     = flag.Uint64("gwei-to-deposit", 10_000, "tokens to deposit")
 )
 
 func main() {
 	flag.Parse()
 	ctx := context.Background()
-	endpoint, err := rpc.DialWebsocket(ctx, *l1EndpointUrl, "*")
+	endpoint, err := rpc.DialContext(ctx, *l1EndpointUrl)
 	if err != nil {
 		panic(err)
 	}
@@ -60,26 +63,63 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
 		stakeTokenAddr := common.HexToAddress(*stakeTokenAddrStr)
+
 		tokenBindings, err := mocksgen.NewTestWETH9(stakeTokenAddr, client)
 		if err != nil {
 			panic(err)
 		}
+		allow, err := tokenBindings.Allowance(&bind.CallOpts{}, txOpts.From, rollupAddr)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Addr %#x gave rollup %#x allowance of %#x\n", txOpts.From, rollupAddr, allow.Bytes())
+
+		allow, err = tokenBindings.Allowance(&bind.CallOpts{}, txOpts.From, chalManagerAddr)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Addr %#x gave chal manager addr %#x allowance of %#x\n", txOpts.From, chalManagerAddr, allow.Bytes())
+
 		depositAmount := new(big.Int).SetUint64(*gweiToDeposit * params.GWei)
 		txOpts.Value = depositAmount
-		if _, err = tokenBindings.Deposit(txOpts); err != nil {
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			tx, err := tokenBindings.Deposit(txOpts)
+			if err != nil {
+				return false, err
+			}
+			if err = challenge_testing.WaitForTx(ctx, client, tx); err != nil {
+				return false, err
+			}
+			return true, nil
+		}); err != nil {
 			panic(err)
 		}
 		txOpts.Value = big.NewInt(0)
 		maxUint256 := new(big.Int)
 		maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
-		_, err = tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
-		if err != nil {
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			tx, err := tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
+			if err != nil {
+				return false, err
+			}
+			if err = challenge_testing.WaitForTx(ctx, client, tx); err != nil {
+				return false, err
+			}
+			return true, nil
+		}); err != nil {
 			panic(err)
 		}
-		_, err = tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
-		if err != nil {
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			tx, err := tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
+			if err != nil {
+				return false, nil
+			}
+			if err = challenge_testing.WaitForTx(ctx, client, tx); err != nil {
+				return false, err
+			}
+			return true, nil
+		}); err != nil {
 			panic(err)
 		}
 
