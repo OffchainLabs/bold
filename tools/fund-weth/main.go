@@ -21,10 +21,10 @@ import (
 
 var (
 	valPrivKeys       = flag.String("validator-priv-keys", "", "comma-separated, validator private keys to fund and approve mock ERC20 stake token")
-	l1ChainIdStr      = flag.String("l1-chain-id", "11155111", "l1 chain id")
-	l1EndpointUrl     = flag.String("l1-endpoint", "https://sepolia.infura.io/v3/fc8ad4cce91c4529870898717f3fa011", "l1 endpoint")
-	rollupAddrStr     = flag.String("rollup-address", "0x4b4451b23f776cfb72e4fa833639e80d47a9947f", "rollup address")
-	stakeTokenAddrStr = flag.String("stake-token-address", "0xbb8c72f9deb2cd7ee16942b650f331c43f706f54", "rollup address")
+	l1ChainIdStr      = flag.String("l1-chain-id", "11155111", "l1 chain id (sepolia default)")
+	l1EndpointUrl     = flag.String("l1-endpoint", "", "l1 endpoint")
+	rollupAddrStr     = flag.String("rollup-address", "", "rollup address")
+	stakeTokenAddrStr = flag.String("stake-token-address", "", "rollup address")
 	gweiToDeposit     = flag.Uint64("gwei-to-deposit", 10_000, "tokens to deposit")
 )
 
