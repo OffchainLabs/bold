@@ -265,11 +265,11 @@ func testChallengeProtocol_AliceAndBob(t *testing.T, be backend.Backend, scenari
 		}
 
 		// Post assertions.
-		alicePoster, err := assertions.NewManager(aChain, scenario.AliceStateManager, be.Client(), a, rollup, "alice", time.Hour, time.Second*10, scenario.AliceStateManager, time.Hour)
+		alicePoster, err := assertions.NewManager(aChain, scenario.AliceStateManager, be.Client(), a, rollup, "alice", time.Hour, time.Second*10, scenario.AliceStateManager, time.Hour, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bobPoster, err := assertions.NewManager(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour, time.Second*10, scenario.BobStateManager, time.Hour)
+		bobPoster, err := assertions.NewManager(bChain, scenario.BobStateManager, be.Client(), b, rollup, "bob", time.Hour, time.Second*10, scenario.BobStateManager, time.Hour, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -337,9 +337,9 @@ func testSyncBobStopsCharlieJoins(t *testing.T, be backend.Backend, s *Challenge
 		bob, err := validator.New(bobCtx, bChain, be.Client(), s.BobStateManager, rollup, validator.WithAddress(be.Bob().From), validator.WithName("bob"), validator.WithMode(types.MakeMode), validator.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 		require.NoError(t, err)
 
-		alicePoster, err := assertions.NewManager(aChain, s.AliceStateManager, be.Client(), alice, rollup, "alice", time.Hour, time.Second*10, s.AliceStateManager, time.Hour)
+		alicePoster, err := assertions.NewManager(aChain, s.AliceStateManager, be.Client(), alice, rollup, "alice", time.Hour, time.Second*10, s.AliceStateManager, time.Hour, time.Second)
 		require.NoError(t, err)
-		bobPoster, err := assertions.NewManager(bChain, s.BobStateManager, be.Client(), bob, rollup, "bob", time.Hour, time.Second*10, s.BobStateManager, time.Hour)
+		bobPoster, err := assertions.NewManager(bChain, s.BobStateManager, be.Client(), bob, rollup, "bob", time.Hour, time.Second*10, s.BobStateManager, time.Hour, time.Second)
 		require.NoError(t, err)
 		aliceLeaf, err := alicePoster.PostAssertion(ctx)
 		require.NoError(t, err)

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -49,6 +50,7 @@ type Manager struct {
 	stateProvider               l2stateprovider.ExecutionStateAgreementChecker
 	pollInterval                time.Duration
 	confirmationAttemptInterval time.Duration
+	averageTimeForBlockCreation time.Duration
 	rollupAddr                  common.Address
 	validatorName               string
 	forksDetectedCount          uint64
@@ -71,6 +73,7 @@ func NewManager(
 	assertionConfirmationAttemptInterval time.Duration,
 	stateManager l2stateprovider.ExecutionProvider,
 	postInterval time.Duration,
+	averageTimeForBlockCreation time.Duration,
 ) (*Manager, error) {
 	if pollInterval == 0 {
 		return nil, errors.New("assertion scanning interval must be greater than 0")
@@ -94,6 +97,7 @@ func NewManager(
 		stateManager:                stateManager,
 		postInterval:                postInterval,
 		submittedAssertions:         threadsafe.NewSet[common.Hash](),
+		averageTimeForBlockCreation: averageTimeForBlockCreation,
 	}, nil
 }
 
@@ -420,9 +424,9 @@ func (m *Manager) findLastAgreedWithAncestor(
 }
 
 func (s *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
-	ticker := time.NewTicker(s.confirmationAttemptInterval)
-	defer ticker.Stop()
+	interval := s.confirmationAttemptInterval
 	for {
+		ticker := time.NewTicker(interval)
 		select {
 		case <-ticker.C:
 			status, err := s.chain.AssertionStatus(ctx, assertionHash)
@@ -440,11 +444,32 @@ func (s *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			}
 			err = s.chain.ConfirmAssertionByTime(ctx, assertionHash)
 			if err != nil {
+				if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
+					creationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+					if err != nil {
+						continue
+					}
+					prevCreationInfo, err := s.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+					if err != nil {
+						continue
+					}
+					latestHeader, err := s.chain.Backend().HeaderByNumber(ctx, nil)
+					if err != nil {
+						continue
+					}
+					timeLeft := (creationInfo.CreationBlock + prevCreationInfo.ConfirmPeriodBlocks) - latestHeader.Number.Uint64()
+					if s.averageTimeForBlockCreation*time.Duration(timeLeft) > s.confirmationAttemptInterval {
+						interval = s.averageTimeForBlockCreation * time.Duration(timeLeft)
+					} else {
+						interval = s.confirmationAttemptInterval
+					}
+				}
 				continue
 			}
 			srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
 			return
 		case <-ctx.Done():
+			ticker.Stop()
 			return
 		}
 	}

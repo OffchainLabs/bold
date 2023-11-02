@@ -66,6 +66,7 @@ type Manager struct {
 	assertionPostingInterval    time.Duration
 	assertionScanningInterval   time.Duration
 	assertionConfirmingInterval time.Duration
+	averageTimeForBlockCreation time.Duration
 	mode                        types.Mode
 	maxDelaySeconds             int
 
@@ -157,6 +158,7 @@ func New(
 		assertionPostingInterval:    time.Hour,
 		assertionScanningInterval:   time.Minute,
 		assertionConfirmingInterval: time.Second * 10,
+		averageTimeForBlockCreation: time.Millisecond * 500,
 	}
 	for _, o := range opts {
 		o(m)
@@ -214,6 +216,7 @@ func New(
 		m.assertionConfirmingInterval,
 		m.stateManager,
 		m.assertionPostingInterval,
+		m.averageTimeForBlockCreation,
 	)
 	if err != nil {
 		return nil, err
