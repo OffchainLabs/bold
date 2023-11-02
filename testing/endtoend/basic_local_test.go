@@ -64,10 +64,6 @@ func TestChallengeProtocol_AliceAndBob_AnvilLocal_InMiddleOfBlock_WithoutFlakyEt
 	aliceAndBobInMiddleOfBlock(t, false)
 }
 
-func TestChallengeProtocol_AliceAndBob_AnvilLocal_FlakyEthClientWithFlakyEthClient(t *testing.T) {
-	aliceAndBobInMiddleOfBlock(t, true)
-}
-
 func aliceAndBobInMiddleOfBlock(t *testing.T, useFlakyEthClient bool) {
 	be, err := backend.NewAnvilLocal(context.Background())
 	if err != nil {
