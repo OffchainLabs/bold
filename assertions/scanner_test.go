@@ -106,8 +106,8 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		setup.Backend.Commit()
 		count += 1
 
-		prevInfo, err := aliceChain.ReadAssertionCreationInfo(ctx, aliceAssertion.Id())
-		require.NoError(t, err)
+		prevInfo, err2 := aliceChain.ReadAssertionCreationInfo(ctx, aliceAssertion.Id())
+		require.NoError(t, err2)
 		alicePostState, err = aliceStateManager.ExecutionStateAfterBatchCount(ctx, uint64(batch))
 		require.NoError(t, err)
 		t.Logf("Moving stake from alice at post state %+v\n", alicePostState)
