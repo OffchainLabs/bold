@@ -183,6 +183,14 @@ func (s *Manager) AssertionsProcessed() uint64 {
 	return s.assertionsProcessedCount
 }
 
+func (s *Manager) AssertionsSubmittedInProcess() []common.Hash {
+	hashes := make([]common.Hash, 0)
+	s.submittedAssertions.ForEach(func(elem common.Hash) {
+		hashes = append(hashes, elem)
+	})
+	return hashes
+}
+
 func (s *Manager) checkForAssertionAdded(
 	ctx context.Context,
 	filterer *rollupgen.RollupUserLogicFilterer,
@@ -306,8 +314,8 @@ func (m *Manager) postRivalAssertionAndChallenge(
 		"batchCount":            batchCount,
 		"claimedExecutionState": fmt.Sprintf("%+v", claimedState),
 	}
-	if !m.canRespondToAssertion() {
-		srvlog.Warn("Detected invalid assertion, but not configured to challenge", logFields)
+	if !m.canPostRivalAssertion() {
+		srvlog.Warn("Detected invalid assertion, but not configured to post a rival stake", logFields)
 		return nil
 	}
 
@@ -319,6 +327,11 @@ func (m *Manager) postRivalAssertionAndChallenge(
 		return err
 	}
 	correctClaimedAssertionHash := correctRivalAssertion.Id()
+
+	if !m.canPostChallenge() {
+		srvlog.Warn("Attempted to post rival assertion and stake, but not configured to initiate a challenge", logFields)
+		return nil
+	}
 
 	// Generating a random integer between 0 and max delay second to wait before challenging.
 	// This is to avoid all validators challenging at the same time.
@@ -451,8 +464,12 @@ func (s *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 }
 
 // Returns true if the manager can respond to an assertion with a challenge.
-func (m *Manager) canRespondToAssertion() bool {
-	return m.challengeReader.Mode() == types.DefensiveMode || m.challengeReader.Mode() == types.MakeMode
+func (m *Manager) canPostRivalAssertion() bool {
+	return m.challengeReader.Mode() == types.DefensiveMode
+}
+
+func (m *Manager) canPostChallenge() bool {
+	return m.challengeReader.Mode() == types.MakeMode
 }
 
 func randUint64(max uint64) (uint64, error) {

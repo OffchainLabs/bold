@@ -42,6 +42,7 @@ type L2StateBackend struct {
 	forceMachineBlockCompat bool
 	maliciousMachineIndex   uint64
 	numBigSteps             uint64
+	numBatches              uint64
 	challengeLeafHeights    []l2stateprovider.Height
 }
 
@@ -127,6 +128,12 @@ func WithMaliciousMachineIndex(index uint64) Opt {
 	}
 }
 
+func WithNumBatchesRead(n uint64) Opt {
+	return func(s *L2StateBackend) {
+		s.numBatches = n
+	}
+}
+
 func NewForSimpleMachine(
 	opts ...Opt,
 ) (*L2StateBackend, error) {
@@ -137,6 +144,7 @@ func NewForSimpleMachine(
 			challenge_testing.LevelZeroBigStepEdgeHeight,
 			challenge_testing.LevelZeroSmallStepEdgeHeight,
 		},
+		numBatches: 1,
 	}
 	for _, o := range opts {
 		o(s)
@@ -158,7 +166,7 @@ func NewForSimpleMachine(
 		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	maxBatchesRead := big.NewInt(1)
+	maxBatchesRead := big.NewInt(int64(s.numBatches))
 	for block := uint64(0); ; block++ {
 		machine := NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
@@ -179,7 +187,7 @@ func NewForSimpleMachine(
 		s.executionStates = append(s.executionStates, state)
 		s.stateRoots = append(s.stateRoots, machHash)
 
-		if machine.IsStopped() || state.GlobalState.Batch >= 1 {
+		if machine.IsStopped() || state.GlobalState.Batch >= s.numBatches {
 			break
 		}
 		err := machine.Step(s.maxWavmOpcodes)
