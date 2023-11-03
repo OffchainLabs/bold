@@ -465,7 +465,7 @@ func (s *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 
 // Returns true if the manager can respond to an assertion with a challenge.
 func (m *Manager) canPostRivalAssertion() bool {
-	return m.challengeReader.Mode() == types.DefensiveMode
+	return m.challengeReader.Mode() >= types.DefensiveMode
 }
 
 func (m *Manager) canPostChallenge() bool {
