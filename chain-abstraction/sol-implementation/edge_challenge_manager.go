@@ -22,6 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	"github.com/hashicorp/golang-lru/v2"
 )
 
 func (e *specEdge) Id() protocol.EdgeId {
@@ -219,24 +221,15 @@ func (e *specEdge) Bisect(
 	if err != nil {
 		return nil, nil, err
 	}
-	someEdge, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: e.id})
+	refreshedEdge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
 	if err != nil {
 		return nil, nil, err
 	}
-	if someEdge.IsNone() {
-		return nil, nil, errors.New("could not refresh edge after bisecting, got empty result")
-	}
-	edge, ok := someEdge.Unwrap().(*specEdge)
-	if !ok {
-		return nil, nil, errors.New("not a *SpecEdge")
-	}
-	// Refresh the edge.
-	e = edge
-	someLowerChild, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: e.inner.LowerChildId})
+	someLowerChild, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: refreshedEdge.LowerChildId})
 	if err != nil {
 		return nil, nil, err
 	}
-	someUpperChild, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: e.inner.UpperChildId})
+	someUpperChild, err := e.manager.GetEdge(ctx, protocol.EdgeId{Hash: refreshedEdge.UpperChildId})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -369,14 +362,11 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 		if challengeOneStepForkSource.IsNone() {
 			return protocol.OriginHeights{}, errors.New("source edge is none")
 		}
-		bigStepEdge, ok := challengeOneStepForkSource.Unwrap().(*specEdge)
-		if !ok {
-			return protocol.OriginHeights{}, errors.New("not *SpecEdge")
-		}
+		bigStepEdge := challengeOneStepForkSource.Unwrap()
 		bigStepStartHeight, _ := bigStepEdge.StartCommitment()
 
 		challengeOriginHeights[challengeLevel-1] = bigStepStartHeight
-		originId = bigStepEdge.inner.OriginId
+		originId = bigStepEdge.OriginId()
 
 		challengeLevel--
 	}
@@ -396,6 +386,7 @@ type specChallengeManager struct {
 	filterer              *challengeV2gen.EdgeChallengeManagerFilterer
 	challengePeriodBlocks uint64
 	numBigStepLevel       uint8
+	specEdgeCache         *lru.Cache[protocol.EdgeId, protocol.SpecEdge]
 }
 
 // NewSpecChallengeManager returns an instance of the spec challenge manager
@@ -406,6 +397,7 @@ func NewSpecChallengeManager(
 	assertionChain *AssertionChain,
 	backend protocol.ChainBackend,
 	txOpts *bind.TransactOpts,
+	specEdgeCacheSize int,
 ) (protocol.SpecChallengeManager, error) {
 	managerBinding, err := challengeV2gen.NewEdgeChallengeManager(addr, backend)
 	if err != nil {
@@ -419,6 +411,13 @@ func NewSpecChallengeManager(
 	if err != nil {
 		return nil, err
 	}
+	if specEdgeCacheSize < 1<<10 {
+		specEdgeCacheSize = 1 << 10
+	}
+	specEdgeCache, err := lru.New[protocol.EdgeId, protocol.SpecEdge](specEdgeCacheSize)
+	if err != nil {
+		return nil, err
+	}
 	return &specChallengeManager{
 		addr:                  addr,
 		assertionChain:        assertionChain,
@@ -429,6 +428,7 @@ func NewSpecChallengeManager(
 		filterer:              &managerBinding.EdgeChallengeManagerFilterer,
 		challengePeriodBlocks: challengePeriodBlocks,
 		numBigStepLevel:       numBigStepLevel,
+		specEdgeCache:         specEdgeCache,
 	}, nil
 }
 
@@ -492,6 +492,9 @@ func (cm *specChallengeManager) GetEdge(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) (option.Option[protocol.SpecEdge], error) {
+	if specEdge, ok := cm.specEdgeCache.Get(edgeId); ok {
+		return option.Some(specEdge), nil
+	}
 	edge, err := cm.caller.GetEdge(&bind.CallOpts{Context: ctx}, edgeId.Hash)
 	if err != nil {
 		return option.None[protocol.SpecEdge](), err
@@ -520,7 +523,7 @@ func (cm *specChallengeManager) GetEdge(
 	if err != nil {
 		return option.Option[protocol.SpecEdge]{}, err
 	}
-	return option.Some(protocol.SpecEdge(&specEdge{
+	specEdge := &specEdge{
 		id:                   edgeId.Hash,
 		mutualId:             mutual,
 		manager:              cm,
@@ -530,7 +533,9 @@ func (cm *specChallengeManager) GetEdge(
 		miniStaker:           miniStaker,
 		totalChallengeLevels: cm.numBigStepLevel + 2,
 		assertionHash:        protocol.AssertionHash{Hash: common.Hash(assetionHash)},
-	})), nil
+	}
+	cm.specEdgeCache.Add(edgeId, specEdge)
+	return option.Some(protocol.SpecEdge(specEdge)), nil
 }
 
 // CalculateEdgeId calculates an edge hash given its challenge id, start history, and end history.

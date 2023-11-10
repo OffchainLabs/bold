@@ -64,6 +64,7 @@ type AssertionChain struct {
 	txOpts               *bind.TransactOpts
 	rollupAddr           common.Address
 	challengeManagerAddr common.Address
+	specEdgeCacheSize    int
 }
 
 type Opt func(*AssertionChain)
@@ -71,6 +72,12 @@ type Opt func(*AssertionChain)
 func WithTrackedContractBackend() Opt {
 	return func(a *AssertionChain) {
 		a.backend = NewTrackedContractBackend(a.backend)
+	}
+}
+
+func WithSpecEdgeCacheSize(specEdgeCacheSize int) Opt {
+	return func(a *AssertionChain) {
+		a.specEdgeCacheSize = specEdgeCacheSize
 	}
 }
 
@@ -379,6 +386,7 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 		a,
 		a.backend,
 		a.txOpts,
+		a.specEdgeCacheSize,
 	)
 }
 
