@@ -70,6 +70,7 @@ type Manager struct {
 	mode                        types.Mode
 	maxDelaySeconds             int
 
+	challengedAssertions *threadsafe.Set[protocol.AssertionHash]
 	// API
 	apiAddr string
 	api     *api.Server
@@ -159,6 +160,7 @@ func New(
 		assertionScanningInterval:   time.Minute,
 		assertionConfirmingInterval: time.Second * 10,
 		averageTimeForBlockCreation: time.Millisecond * 500,
+		challengedAssertions:        threadsafe.NewSet[protocol.AssertionHash](),
 	}
 	for _, o := range opts {
 		o(m)
