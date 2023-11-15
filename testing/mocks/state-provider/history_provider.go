@@ -16,7 +16,7 @@ func (s *L2StateBackend) CollectMachineHashes(
 ) (mmap.Mmap, error) {
 	// We step through the machine in our desired increments, and gather the
 	// machine hashes along the way for the history commitment.
-	machine, err := s.machineAtBlock(ctx, uint64(cfg.MessageNumber))
+	machine, err := s.machineAtBlock(ctx, uint64(cfg.BlockChallengeHeight))
 	if err != nil {
 		return nil, err
 	}
@@ -28,13 +28,13 @@ func (s *L2StateBackend) CollectMachineHashes(
 	if err != nil {
 		return nil, err
 	}
-	hashesMmap.Set(0, s.getMachineHash(machine, uint64(cfg.MessageNumber)))
+	hashesMmap.Set(0, s.getMachineHash(machine, uint64(cfg.BlockChallengeHeight)))
 	for i := uint64(1); i < cfg.NumDesiredHashes; i++ {
 		if stepErr := machine.Step(uint64(cfg.StepSize)); stepErr != nil {
 			hashesMmap.Free()
 			return nil, stepErr
 		}
-		hashesMmap.Set(int(i), s.getMachineHash(machine, uint64(cfg.MessageNumber)))
+		hashesMmap.Set(int(i), s.getMachineHash(machine, uint64(cfg.BlockChallengeHeight)))
 	}
 	return hashesMmap, nil
 }
@@ -43,10 +43,11 @@ func (s *L2StateBackend) CollectMachineHashes(
 func (s *L2StateBackend) CollectProof(
 	ctx context.Context,
 	wasmModuleRoot common.Hash,
-	messageNumber l2stateprovider.Height,
+	fromBatch l2stateprovider.Batch,
+	blockChallengeHeight l2stateprovider.Height,
 	machineIndex l2stateprovider.OpcodeIndex,
 ) ([]byte, error) {
-	machine, err := s.machineAtBlock(ctx, uint64(messageNumber))
+	machine, err := s.machineAtBlock(ctx, uint64(blockChallengeHeight))
 	if err != nil {
 		return nil, err
 	}

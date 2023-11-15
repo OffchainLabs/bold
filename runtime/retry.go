@@ -14,21 +14,39 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 )
 
-const sleepTime = time.Second * 1
+const defaultSleepTime = time.Second * 1
 
 var (
 	retryCounter = metrics.NewRegisteredCounter("arb/validator/runtime/retry", nil)
 	pkglog       = log.New("package", "retry")
 )
 
-// UntilSucceeds retries the given function until it succeeds or the context is cancelled.
-func UntilSucceeds[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+type RetryConfig struct {
+	sleepTime time.Duration
+}
+
+type Opt func(*RetryConfig)
+
+// WithInterval specifies how often to retry a failing function.
+func WithInterval(d time.Duration) Opt {
+	return func(rc *RetryConfig) {
+		rc.sleepTime = d
+	}
+}
+
+func UntilSucceedsMultipleReturnValue[T, U any](ctx context.Context, fn func() (T, U, error), opts ...Opt) (T, U, error) {
+	cfg := &RetryConfig{
+		sleepTime: defaultSleepTime,
+	}
+	for _, o := range opts {
+		o(cfg)
+	}
 	count := 0
 	for {
 		if ctx.Err() != nil {
-			return zeroVal[T](), ctx.Err()
+			return zeroVal[T](), zeroVal[U](), ctx.Err()
 		}
-		got, err := fn()
+		got, got2, err := fn()
 		if err != nil {
 			count++
 			pkglog.Error("Failed to call function after retries", log.Ctx{
@@ -36,11 +54,20 @@ func UntilSucceeds[T any](ctx context.Context, fn func() (T, error)) (T, error) 
 				"err":        err,
 			})
 			retryCounter.Inc(1)
-			time.Sleep(sleepTime)
+			time.Sleep(cfg.sleepTime)
 			continue
 		}
-		return got, nil
+		return got, got2, nil
 	}
+}
+
+// UntilSucceeds retries the given function until it succeeds or the context is cancelled.
+func UntilSucceeds[T any](ctx context.Context, fn func() (T, error), opts ...Opt) (T, error) {
+	result, _, err := UntilSucceedsMultipleReturnValue(ctx, func() (T, struct{}, error) {
+		got, err := fn()
+		return got, struct{}{}, err
+	})
+	return result, err
 }
 
 func zeroVal[T any]() T {

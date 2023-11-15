@@ -56,6 +56,8 @@ const (
 	AssertionConfirmed
 )
 
+const BeforeDeadlineAssertionConfirmationError = "BEFORE_DEADLINE"
+
 // Assertion represents a top-level claim in the protocol about the
 // chain state created by a validator that stakes on their claim.
 // Assertions can be challenged.
@@ -211,6 +213,7 @@ type ClaimId common.Hash
 // OneStepData used for confirming edges by one step proofs.
 type OneStepData struct {
 	BeforeHash common.Hash
+	AfterHash  common.Hash
 	Proof      []byte
 }
 

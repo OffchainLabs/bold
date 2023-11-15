@@ -62,13 +62,15 @@ type Manager struct {
 	watcher                     *watcher.Watcher
 	trackedEdgeIds              *threadsafe.Set[protocol.EdgeId]
 	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
-	scanner                     *assertions.Manager
+	assertionManager            *assertions.Manager
 	assertionPostingInterval    time.Duration
 	assertionScanningInterval   time.Duration
 	assertionConfirmingInterval time.Duration
+	averageTimeForBlockCreation time.Duration
 	mode                        types.Mode
 	maxDelaySeconds             int
 
+	challengedAssertions *threadsafe.Set[protocol.AssertionHash]
 	// API
 	apiAddr string
 	api     *api.Server
@@ -157,6 +159,8 @@ func New(
 		assertionPostingInterval:    time.Hour,
 		assertionScanningInterval:   time.Minute,
 		assertionConfirmingInterval: time.Second * 10,
+		averageTimeForBlockCreation: time.Millisecond * 500,
+		challengedAssertions:        threadsafe.NewSet[protocol.AssertionHash](),
 	}
 	for _, o := range opts {
 		o(m)
@@ -203,7 +207,7 @@ func New(
 		return nil, err
 	}
 	m.watcher = watcher
-	scanner, err := assertions.NewManager(
+	assertionManager, err := assertions.NewManager(
 		m.chain,
 		m.stateManager,
 		m.backend,
@@ -214,11 +218,12 @@ func New(
 		m.assertionConfirmingInterval,
 		m.stateManager,
 		m.assertionPostingInterval,
+		m.averageTimeForBlockCreation,
 	)
 	if err != nil {
 		return nil, err
 	}
-	m.scanner = scanner
+	m.assertionManager = assertionManager
 
 	if m.apiAddr != "" && m.client == nil {
 		return nil, errors.New("go-ethereum RPC client required to enable API service")
@@ -343,17 +348,12 @@ func (m *Manager) Start(ctx context.Context) {
 		"validatorAddress": m.address.Hex(),
 	})
 
-	// Start the assertion scanner.
-	go m.scanner.Start(ctx)
+	// Start the assertion manager.
+	go m.assertionManager.Start(ctx)
 
 	// Watcher tower and resolve modes don't monitor challenges.
 	if m.mode == types.WatchTowerMode || m.mode == types.ResolveMode {
 		return
-	}
-
-	// Start the assertion poster if we are in make mode.
-	if m.mode == types.MakeMode {
-		go m.scanner.Start(ctx)
 	}
 
 	// Start watching for ongoing chain events in the background.
