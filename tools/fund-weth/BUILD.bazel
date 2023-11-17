@@ -2,8 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "fund-weth_lib",
-    testonly = True,
     srcs = ["main.go"],
+    testonly = True,
     importpath = "github.com/OffchainLabs/bold/tools/fund-weth",
     visibility = ["//visibility:private"],
     deps = [
