@@ -632,7 +632,10 @@ func testSyncAliceStopsBobRemains(t *testing.T, be backend.Backend, s *Challenge
 					require.NoError(t, err)
 					pathTimer, _, _, err := bob.Watcher().ComputeHonestPathTimerByBlockNumber(ctx, assertionHash, edge.Id(), logs.Event.Raw.BlockNumber)
 					require.NoError(t, err)
-					require.Equal(t, logs.Event.TotalTimeUnrivaled, uint64(pathTimer))
+					// Allow for some small error.
+					// Since contract might use have used an old block to compute the path timer.
+					require.True(t, int64(logs.Event.TotalTimeUnrivaled)-int64(pathTimer) <= 1)
+					require.True(t, int64(logs.Event.TotalTimeUnrivaled)-int64(pathTimer) >= -1)
 					t.Log("Local path timer is equal to onchain path timer")
 					t.Logf("edge %v: path timer %v", edge.Id(), pathTimer)
 				}
