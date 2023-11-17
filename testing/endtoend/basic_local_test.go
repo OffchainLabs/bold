@@ -613,7 +613,7 @@ func testSyncAliceStopsBobRemains(t *testing.T, be backend.Backend, s *Challenge
 			})
 		}
 
-		if err := g.Wait(); err != nil {
+		if err = g.Wait(); err != nil {
 			t.Fatal(err)
 		}
 
