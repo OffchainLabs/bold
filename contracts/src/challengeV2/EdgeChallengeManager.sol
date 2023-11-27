@@ -274,9 +274,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @notice The token to supply stake in
     IERC20 public stakeToken;
 
-    /// @notice The amount of stake token to be supplied when creating a zero layer block edge
-    uint256 public stakeAmount;
-
     /// @notice The number of blocks accumulated on an edge before it can be confirmed by time
     uint64 public challengePeriodBlocks;
 
@@ -439,11 +436,51 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         return edgeAdded.edgeId;
     }
 
+    // make sure confirmedRival is actually confirmed
+	// calculate the mutualId of confirmedRival
+	// for each edge in the array:
+	//   make sure it is not refunded
+	//   make sure the mutualId matches
+    //   make sure the stakeAmount is > 0, if not then it isn't a layer zero edge
+	//   mark the edge as refunded
+	//   send the edge's stakeAmount to the excessStakeReceiver
     function sweepExcessStake(bytes32[] calldata edgeIds, bytes32 confirmedRivalId) external {
-        // todo
+        // make sure confirmedRival is actually confirmed
+        ChallengeEdge storage confirmed = store.get(confirmedRivalId);
+        require(confirmed.status == EdgeStatus.Confirmed, "confirmed rival not confirmed");
+
+        // calculate the mutualId of confirmedRival
+        bytes32 mutualId = confirmed.mutualId();
+
+        address _excessStakeReceiver = excessStakeReceiver;
+        uint256 totalStake = 0;
+        for (uint256 i = 0; i < edgeIds.length; i++) {
+            ChallengeEdge storage rival = store.get(edgeIds[i]);
+            // make sure the edge is not refunded
+            require(!rival.refunded, "edge already refunded");
+            // make sure the mutualId matches
+            require(rival.mutualId() == mutualId, "mutual id mismatch");
+            // get stake amount and ensure it is > 0, if not then it isn't a layer zero edge
+            uint256 edgeStakeAmount = rival.stakeAmount;
+            require(edgeStakeAmount > 0, "not a layer zero edge");
+            // mark the edge as refunded
+            rival.refunded = true;
+
+            // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
+            totalStake += edgeStakeAmount;
+        }
+
+        // send the excess stake to the excessStakeReceiver
+        IERC20 st = stakeToken;
+        if (address(st) != address(0) && totalStake != 0) {
+            st.safeTransfer(_excessStakeReceiver, totalStake);
+        }
+
+        // todo: emit new event
     }
 
-    function calculateStakeSize(CreateEdgeArgs calldata args) public view returns (uint256) {
+    // make sure to set maxStakeAmount to type(uint256).max
+    function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256) {
         return createLayerZeroEdgeMem(args).stakeAmount;
     }
 
@@ -584,7 +621,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         edge.setRefunded();
 
         IERC20 st = stakeToken;
-        uint256 sa = stakeAmount;
+        uint256 sa = edge.stakeAmount;
         // no need to refund with the token or amount where zero'd out
         if (address(st) != address(0) && sa != 0) {
             st.safeTransfer(edge.staker, sa);
