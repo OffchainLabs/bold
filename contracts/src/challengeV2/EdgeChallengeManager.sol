@@ -121,6 +121,10 @@ interface IEdgeChallengeManager {
     /// @dev    The defeated edges are marked as refunded.
     function sweepExcessStake(bytes32[] calldata defeatedEdgeIds, bytes32 confirmedEdgeId) external;
 
+    /// @notice Calculate the stake size for a new layer zero edge
+    /// @dev    Will revert if args.maxStakeAmount is too small
+    function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256);
+
     /// @notice Zero layer edges have to be a fixed height.
     ///         This function returns the end height for a given edge type
     function getLayerZeroEndHeight(EdgeType eType) external view returns (uint256);
@@ -624,7 +628,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     // VIEW ONLY SECTION //
     ///////////////////////
 
-    // make sure to set maxStakeAmount to type(uint256).max
+    /// @inheritdoc IEdgeChallengeManager
     function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256) {
         return createLayerZeroEdgeMem(args).stakeAmount;
     }
@@ -711,7 +715,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @notice Create a layer zero edge but do not store it, only return a new ChallengeEdge in memory
-    function createLayerZeroEdgeMem(CreateEdgeArgs calldata args) private view returns (ChallengeEdge memory newEdge) {
+    function createLayerZeroEdgeMem(CreateEdgeArgs calldata args) private view returns (ChallengeEdge memory) {
         EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
         uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
         AssertionReferenceData memory ard;
@@ -744,11 +748,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.executionState
             );
 
-            newEdge = store.createLayerZeroEdgeMem(
+            return store.createLayerZeroEdgeMem(
                 args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
             );
         } else {
-            newEdge = store.createLayerZeroEdgeMem(
+            return store.createLayerZeroEdgeMem(
                 args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
             );
         }

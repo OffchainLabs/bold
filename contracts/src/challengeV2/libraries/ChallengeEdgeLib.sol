@@ -260,6 +260,11 @@ library ChallengeEdgeLib {
         return edge.claimId != 0 && edge.staker != address(0);
     }
 
+    /// @notice Is the edge a layer zero edge.
+    function isLayerZeroMem(ChallengeEdge memory edge) internal pure returns (bool) {
+        return edge.claimId != 0 && edge.staker != address(0);
+    }
+
     /// @notice Set the refunded flag of an edge
     /// @dev    Checks internally that edge is confirmed, layer zero edge and hasnt been refunded already
     function setRefunded(ChallengeEdge storage edge) internal {

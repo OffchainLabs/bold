@@ -83,7 +83,8 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
-    /// @notice A mapping of mutualId to the number of edges that share that mutualId
+    /// @notice A mapping of mutualId to the number of edges that share that mutualId.
+    ///         Only layer zero edges are counted
     mapping(bytes32 => uint256) mutualCount;
 }
 
@@ -175,8 +176,10 @@ library EdgeChallengeManagerLib {
         );
         bytes32 firstRival = store.firstRivals[mutualId];
 
-        // increment the mutualCount
-        store.mutualCount[mutualId]++;
+        // increment the mutualCount if the edge is layer 0
+        if (edge.isLayerZeroMem()) {
+            store.mutualCount[mutualId]++;
+        }
 
         // the first time we add a mutual id we store a magic string hash against it
         // We do this to distinguish from there being no edges
