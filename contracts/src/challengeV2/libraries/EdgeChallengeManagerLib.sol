@@ -57,6 +57,9 @@ struct CreateEdgeArgs {
     ///         bytes32[]: Claim end inclusion proof - proof to show the end state is the last state in the claim edge
     ///         bytes32[]: Inclusion proof - proof to show that the end state is the last state in the end history root
     bytes proof;
+
+    // the maximum stake the validator is willing to put down for this edge
+    uint256 maxStakeAmount;
 }
 
 /// @notice Data parsed raw proof data
@@ -81,6 +84,9 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
+
+    // maps mutual id to the number of existing edges sharing the mutual id 
+	mapping(bytes32 => uint256) mutualCount;
 }
 
 /// @notice Input data to a one step proof
@@ -101,6 +107,9 @@ struct EdgeAddedData {
     uint8 level;
     bool hasRival;
     bool isLayerZero;
+
+    // actual amount staked on the newly created edge
+	uint256 stakeAmount;
 }
 
 /// @notice Data about an assertion that is being claimed by an edge
@@ -170,6 +179,10 @@ library EdgeChallengeManagerLib {
         );
         bytes32 firstRival = store.firstRivals[mutualId];
 
+
+        // increment the mutualCount
+        store.mutualCount[mutualId]++;
+
         // the first time we add a mutual id we store a magic string hash against it
         // We do this to distinguish from there being no edges
         // with this mutual. And to distinguish it from the first rival, where we
@@ -192,7 +205,8 @@ library EdgeChallengeManagerLib {
             store.edges[eId].length(),
             edge.level,
             firstRival != 0,
-            edge.claimId != 0
+            edge.claimId != 0,
+            edge.stakeAmount
         );
     }
 
@@ -384,13 +398,14 @@ library EdgeChallengeManagerLib {
     }
 
     /// @notice Creates a new layer zero edges from edge creation args
+    ///         Sets stakeAmount to 0 as a placeholder
     function toLayerZeroEdge(bytes32 originId, bytes32 startHistoryRoot, CreateEdgeArgs calldata args)
         private
         view
         returns (ChallengeEdge memory)
     {
         return ChallengeEdgeLib.newLayerZeroEdge(
-            originId, startHistoryRoot, 0, args.endHistoryRoot, args.endHeight, args.claimId, msg.sender, args.level
+            originId, startHistoryRoot, 0, args.endHistoryRoot, args.endHeight, args.claimId, msg.sender, 0, args.level
         );
     }
 
@@ -404,22 +419,76 @@ library EdgeChallengeManagerLib {
     /// @param oneStepProofEntry    The one step proof contract that defines how machine states are hashed
     /// @param expectedEndHeight    The expected end height of an edge. Layer zero block edges have predefined heights.
     /// @param numBigStepLevel      The number of big step levels in this challenge
-    function createLayerZeroEdge(
+    // function createLayerZeroEdge(
+    //     EdgeStore storage store,
+    //     CreateEdgeArgs calldata args,
+    //     AssertionReferenceData memory ard,
+    //     IOneStepProofEntry oneStepProofEntry,
+    //     uint256 expectedEndHeight,
+    //     uint8 numBigStepLevel,
+    //     uint256 initialStakeAmount,
+    //     uint256 stakeAmountSlope
+    // ) internal returns (EdgeAddedData memory) {
+    //     // // each edge type requires some specific checks
+    //     // (ProofData memory proofData, bytes32 originId) =
+    //     //     layerZeroTypeSpecificChecks(store, args, ard, oneStepProofEntry, numBigStepLevel);
+    //     // // all edge types share some common checks
+    //     // (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, expectedEndHeight);
+    //     // // we only wrap the struct creation in a function as doing so with exceeds the stack limit
+    //     // // we also don't pass in stakeAmount to avoid the stack limit
+    //     // ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
+        
+    //     // // calculate, check and set stake amount
+    //     // ce.stakeAmount = checkStakeAmount(store, ce, args, initialStakeAmount, stakeAmountSlope);
+    //     ChallengeEdge memory ce = createLayerZeroEdgeMem(store, args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, initialStakeAmount, stakeAmountSlope);
+
+    //     return add(store, ce);
+    // }
+
+    function createLayerZeroEdgeMem(
         EdgeStore storage store,
         CreateEdgeArgs calldata args,
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        uint8 numBigStepLevel
-    ) internal returns (EdgeAddedData memory) {
+        uint8 numBigStepLevel,
+        uint256 initialStakeAmount,
+        uint256 stakeAmountSlope
+    ) internal view returns (ChallengeEdge memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) =
             layerZeroTypeSpecificChecks(store, args, ard, oneStepProofEntry, numBigStepLevel);
         // all edge types share some common checks
         (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, expectedEndHeight);
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit
+        // we also don't pass in stakeAmount to avoid the stack limit
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
-        return add(store, ce);
+        
+        // calculate, check and set stake amount
+        ce.stakeAmount = checkStakeAmount(store, ce, args, initialStakeAmount, stakeAmountSlope);
+
+        return ce;
+    }
+
+    function checkStakeAmount(EdgeStore storage store, ChallengeEdge memory ce, CreateEdgeArgs calldata args, uint256 initialStakeAmount, uint256 stakeAmountSlope) internal view returns (uint256) {
+        uint256 stakeIndex = store.mutualCount[ce.mutualIdMem()];
+        uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, stakeIndex);
+        require(stakeAmount <= args.maxStakeAmount, "todo, err msg");
+        return stakeAmount;
+    }
+
+    // function checkStakeAmount(EdgeStore storage store, bytes32 originId, bytes32 startHistoryRoot, CreateEdgeArgs calldata args, uint256 initialStakeAmount, uint256 stakeAmountSlope) internal view returns (uint256) {
+    //     bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
+    //         args.level, originId, 0, startHistoryRoot, args.endHeight
+    //     );
+    //     uint256 stakeIndex = store.mutualCount[mutualId];
+    //     uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, stakeIndex);
+    //     require(stakeAmount <= args.maxStakeAmount, "todo, err msg");
+    //     return stakeAmount;
+    // }
+
+    function calculateStakeAmountPure(uint256 initialStakeAmount, uint256 stakeAmountSlope, uint256 stakeIndex) internal pure returns (uint256) {
+        return initialStakeAmount + stakeAmountSlope * stakeIndex;
     }
 
     /// @notice From any given edge, get the id of the previous assertion

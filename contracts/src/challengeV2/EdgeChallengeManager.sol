@@ -28,9 +28,9 @@ interface IEdgeChallengeManager {
     /// @param layerZeroBigStepEdgeHeight   The end height of layer zero edges of type BigStep
     /// @param layerZeroSmallStepEdgeHeight The end height of layer zero edges of type SmallStep
     /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
-    /// @param _stakeAmount                 The amount of stake (in units of stake token) required to create a block edge
     /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
     /// @param _numBigStepLevel             The number of bigstep levels
+    // todo: describe new params
     function initialize(
         IAssertionChain _assertionChain,
         uint64 _challengePeriodBlocks,
@@ -39,9 +39,10 @@ interface IEdgeChallengeManager {
         uint256 layerZeroBigStepEdgeHeight,
         uint256 layerZeroSmallStepEdgeHeight,
         IERC20 _stakeToken,
-        uint256 _stakeAmount,
         address _excessStakeReceiver,
-        uint8 _numBigStepLevel
+        uint8 _numBigStepLevel,
+        uint256 _initialStakeAmount,
+        uint256 _stakeAmountSlope
     ) external;
 
     function challengePeriodBlocks() external view returns (uint64);
@@ -295,6 +296,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///         There is 1 block level, 1 small step level and N big step levels
     uint8 public NUM_BIGSTEP_LEVEL;
 
+    // todo: consider setting these in constructor and make them immutable
+    uint256 public initialStakeAmount;
+	uint256 public stakeAmountSlope;
+
     constructor() {
         _disableInitializers();
     }
@@ -308,9 +313,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 layerZeroBigStepEdgeHeight,
         uint256 layerZeroSmallStepEdgeHeight,
         IERC20 _stakeToken,
-        uint256 _stakeAmount,
         address _excessStakeReceiver,
-        uint8 _numBigStepLevel
+        uint8 _numBigStepLevel,
+        uint256 _initialStakeAmount,
+        uint256 _stakeAmountSlope
     ) public initializer {
         if (address(_assertionChain) == address(0)) {
             revert EmptyAssertionChain();
@@ -326,7 +332,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         challengePeriodBlocks = _challengePeriodBlocks;
 
         stakeToken = _stakeToken;
-        stakeAmount = _stakeAmount;
         if (_excessStakeReceiver == address(0)) {
             revert EmptyStakeReceiver();
         }
@@ -355,15 +360,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             revert BigStepLevelsTooMany(_numBigStepLevel);
         }
         NUM_BIGSTEP_LEVEL = _numBigStepLevel;
+
+        initialStakeAmount = _initialStakeAmount;
+        stakeAmountSlope = _stakeAmountSlope;
     }
 
     /////////////////////////////
     // STATE MUTATING SECTIION //
     /////////////////////////////
 
-    /// @inheritdoc IEdgeChallengeManager
-    function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
-        EdgeAddedData memory edgeAdded;
+    // todo: make this private/internal?
+    function createLayerZeroEdgeMem(CreateEdgeArgs calldata args) public view returns (ChallengeEdge memory newEdge) {
         EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
         uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
         AssertionReferenceData memory ard;
@@ -396,27 +403,29 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.executionState
             );
 
-            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
+            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
         } else {
-            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
+            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
         }
+    }
+
+    /// @inheritdoc IEdgeChallengeManager
+    function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
+        EdgeAddedData memory edgeAdded = store.add(createLayerZeroEdgeMem(args));
 
         IERC20 st = stakeToken;
-        uint256 sa = stakeAmount;
+        // uint256 sa = stakeAmount;
         // when a zero layer edge is created it must include stake amount. Each time a zero layer
         // edge is created it forces the honest participants to do some work, so we want to disincentive
         // their creation. The amount should also be enough to pay for the gas costs incurred by the honest
         // participant. This can be arranged out of bound by the excess stake receiver.
         // The contract initializer can disable staking by setting zeros for token or amount, to change
         // this a new challenge manager needs to be deployed and its address updated in the assertion chain
-        if (address(st) != address(0) && sa != 0) {
-            // since only one edge in a group of rivals can ever be confirmed, we know that we
-            // will never need to refund more than one edge. Therefore we can immediately send
-            // all stakes provided after the first one to an excess stake receiver.
-            address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
-            st.safeTransferFrom(msg.sender, receiver, sa);
+        if (address(st) != address(0) && edgeAdded.stakeAmount != 0) {
+            st.safeTransferFrom(msg.sender, address(this), edgeAdded.stakeAmount);
         }
 
+        // todo: add stakeAmount to event
         emit EdgeAdded(
             edgeAdded.edgeId,
             edgeAdded.mutualId,
@@ -429,6 +438,15 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         );
         return edgeAdded.edgeId;
     }
+
+    function sweepExcessStake(bytes32[] calldata edgeIds, bytes32 confirmedRivalId) external {
+        // todo
+    }
+
+    function calculateStakeSize(CreateEdgeArgs calldata args) public view returns (uint256) {
+        return createLayerZeroEdgeMem(args).stakeAmount;
+    }
+
 
     /// @inheritdoc IEdgeChallengeManager
     function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes calldata prefixProof)

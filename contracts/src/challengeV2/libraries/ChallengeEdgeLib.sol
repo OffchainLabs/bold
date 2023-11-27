@@ -60,6 +60,8 @@ struct ChallengeEdge {
     /// @notice Set to true when the staker has been refunded. Can only be set to true if the status is Confirmed
     ///         and the staker is non zero.
     bool refunded;
+
+    uint256 stakeAmount;
 }
 
 library ChallengeEdgeLib {
@@ -96,6 +98,7 @@ library ChallengeEdgeLib {
         uint256 endHeight,
         bytes32 claimId,
         address staker,
+        uint256 stakeAmount,
         uint8 level
     ) internal view returns (ChallengeEdge memory) {
         if (staker == address(0)) {
@@ -118,6 +121,7 @@ library ChallengeEdgeLib {
             createdAtBlock: uint64(block.number),
             claimId: claimId,
             staker: staker,
+            stakeAmount: stakeAmount,
             status: EdgeStatus.Pending,
             level: level,
             refunded: false,
@@ -148,6 +152,7 @@ library ChallengeEdgeLib {
             createdAtBlock: uint64(block.number),
             claimId: 0,
             staker: address(0),
+            stakeAmount: 0,
             status: EdgeStatus.Pending,
             level: level,
             refunded: false,
