@@ -60,8 +60,7 @@ struct ChallengeEdge {
     /// @notice For a confirmed edge, set to true when the staker has been refunded. 
     ///         For a defeated edge, set to true when stake has been sent to the excessStakeReceiver.
     bool refunded;
-
-    // todo: natspec
+    /// @notice The amount of stake accompanying this edge
     uint256 stakeAmount;
 }
 

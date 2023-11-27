@@ -57,9 +57,7 @@ struct CreateEdgeArgs {
     ///         bytes32[]: Claim end inclusion proof - proof to show the end state is the last state in the claim edge
     ///         bytes32[]: Inclusion proof - proof to show that the end state is the last state in the end history root
     bytes proof;
-
-    // todo: natspec
-    // the maximum stake the validator is willing to put down for this edge
+    /// @notice Maximum stake the validator is willing to put down for this edge
     uint256 maxStakeAmount;
 }
 
@@ -85,9 +83,7 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
-
-    // todo: natspec
-    // maps mutual id to the number of existing edges sharing the mutual id 
+    /// @notice A mapping of mutualId to the number of edges that share that mutualId
 	mapping(bytes32 => uint256) mutualCount;
 }
 
@@ -109,9 +105,6 @@ struct EdgeAddedData {
     uint8 level;
     bool hasRival;
     bool isLayerZero;
-
-    // todo: natspec
-    // actual amount staked on the newly created edge
 	uint256 stakeAmount;
 }
 
@@ -412,7 +405,7 @@ library EdgeChallengeManagerLib {
         );
     }
 
-    /// @notice Performs necessary checks and creates a new layer zero edge
+    /// @notice Performs necessary checks and creates a new layer zero edge in memory, does not add to store
     /// @param store                The store containing existing edges
     /// @param args                 Edge data
     /// @param ard                  If the edge being added is of Block type then additional assertion data is required
@@ -422,33 +415,8 @@ library EdgeChallengeManagerLib {
     /// @param oneStepProofEntry    The one step proof contract that defines how machine states are hashed
     /// @param expectedEndHeight    The expected end height of an edge. Layer zero block edges have predefined heights.
     /// @param numBigStepLevel      The number of big step levels in this challenge
-    // function createLayerZeroEdge(
-    //     EdgeStore storage store,
-    //     CreateEdgeArgs calldata args,
-    //     AssertionReferenceData memory ard,
-    //     IOneStepProofEntry oneStepProofEntry,
-    //     uint256 expectedEndHeight,
-    //     uint8 numBigStepLevel,
-    //     uint256 initialStakeAmount,
-    //     uint256 stakeAmountSlope
-    // ) internal returns (EdgeAddedData memory) {
-    //     // // each edge type requires some specific checks
-    //     // (ProofData memory proofData, bytes32 originId) =
-    //     //     layerZeroTypeSpecificChecks(store, args, ard, oneStepProofEntry, numBigStepLevel);
-    //     // // all edge types share some common checks
-    //     // (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, expectedEndHeight);
-    //     // // we only wrap the struct creation in a function as doing so with exceeds the stack limit
-    //     // // we also don't pass in stakeAmount to avoid the stack limit
-    //     // ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
-        
-    //     // // calculate, check and set stake amount
-    //     // ce.stakeAmount = checkStakeAmount(store, ce, args, initialStakeAmount, stakeAmountSlope);
-    //     ChallengeEdge memory ce = createLayerZeroEdgeMem(store, args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, initialStakeAmount, stakeAmountSlope);
-
-    //     return add(store, ce);
-    // }
-
-    // todo: natspec (just use the above function with a couple extra params)
+    /// @param initialStakeAmount   The initial stake amount for layer zero edges with no rivals
+    /// @param stakeAmountSlope     The increase in stake amount caused by each additional rival edge
     function createLayerZeroEdgeMem(
         EdgeStore storage store,
         CreateEdgeArgs calldata args,
@@ -474,27 +442,18 @@ library EdgeChallengeManagerLib {
         return ce;
     }
 
-    // todo: natspec
+    /// @notice Calculate stake amount for an edge and require it is less than the max stake amount
     function checkStakeAmount(EdgeStore storage store, ChallengeEdge memory ce, CreateEdgeArgs calldata args, uint256 initialStakeAmount, uint256 stakeAmountSlope) internal view returns (uint256) {
-        uint256 stakeIndex = store.mutualCount[ce.mutualIdMem()];
-        uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, stakeIndex);
-        require(stakeAmount <= args.maxStakeAmount, "todo, err msg");
+        uint256 numRivals = store.mutualCount[ce.mutualIdMem()];
+        uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, numRivals);
+        // todo: custom error
+        require(stakeAmount <= args.maxStakeAmount, "Stake amount exceeds max stake amount");
         return stakeAmount;
     }
 
-    // function checkStakeAmount(EdgeStore storage store, bytes32 originId, bytes32 startHistoryRoot, CreateEdgeArgs calldata args, uint256 initialStakeAmount, uint256 stakeAmountSlope) internal view returns (uint256) {
-    //     bytes32 mutualId = ChallengeEdgeLib.mutualIdComponent(
-    //         args.level, originId, 0, startHistoryRoot, args.endHeight
-    //     );
-    //     uint256 stakeIndex = store.mutualCount[mutualId];
-    //     uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, stakeIndex);
-    //     require(stakeAmount <= args.maxStakeAmount, "todo, err msg");
-    //     return stakeAmount;
-    // }
-
-    // todo: natspec
-    function calculateStakeAmountPure(uint256 initialStakeAmount, uint256 stakeAmountSlope, uint256 stakeIndex) internal pure returns (uint256) {
-        return initialStakeAmount + stakeAmountSlope * stakeIndex;
+    /// @notice stakeAmount = initialStakeAmount + stakeAmountSlope * numRivals
+    function calculateStakeAmountPure(uint256 initialStakeAmount, uint256 stakeAmountSlope, uint256 numRivals) internal pure returns (uint256) {
+        return initialStakeAmount + stakeAmountSlope * numRivals;
     }
 
     /// @notice From any given edge, get the id of the previous assertion
