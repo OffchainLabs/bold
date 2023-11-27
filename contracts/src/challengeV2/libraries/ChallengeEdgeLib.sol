@@ -57,7 +57,7 @@ struct ChallengeEdge {
     ///         Last level (defined by NUM_BIGSTEP_LEVEL + 1) is type SmallStep
     ///         All levels in between are of type BigStep
     uint8 level;
-    /// @notice For a confirmed edge, set to true when the staker has been refunded. 
+    /// @notice For a confirmed edge, set to true when the staker has been refunded.
     ///         For a defeated edge, set to true when stake has been sent to the excessStakeReceiver.
     bool refunded;
     /// @notice The amount of stake accompanying this edge

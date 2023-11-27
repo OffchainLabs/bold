@@ -116,9 +116,9 @@ interface IEdgeChallengeManager {
     ///         The stake on this edge can be refunded if the edge is confirme
     function refundStake(bytes32 edgeId) external;
 
-    /// @notice Given a set of defeated edges and their confirmed rival, 
+    /// @notice Given a set of defeated edges and their confirmed rival,
     ///         sweep the stakes of the defeated edges to the excess stake receiver.
-    /// @dev    The defeated edges are marked as refunded. 
+    /// @dev    The defeated edges are marked as refunded.
     function sweepExcessStake(bytes32[] calldata defeatedEdgeIds, bytes32 confirmedEdgeId) external;
 
     /// @notice Zero layer edges have to be a fixed height.
@@ -316,7 +316,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     uint8 public NUM_BIGSTEP_LEVEL;
 
     // todo: consider setting these in constructor and make them immutable
-    /// @notice The minimum mini stake amount for a layer zero edge. 
+    /// @notice The minimum mini stake amount for a layer zero edge.
     ///         If there are no rivals to this edge, then the stake amount equals this amount
     uint256 public initialStakeAmount;
     /// @notice The slope of the stake amount for a layer zero edge.
@@ -737,9 +737,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.executionState
             );
 
-            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+            newEdge = store.createLayerZeroEdgeMem(
+                args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
+            );
         } else {
-            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+            newEdge = store.createLayerZeroEdgeMem(
+                args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
+            );
         }
     }
 }

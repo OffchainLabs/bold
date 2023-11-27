@@ -84,7 +84,7 @@ struct EdgeStore {
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
     /// @notice A mapping of mutualId to the number of edges that share that mutualId
-	mapping(bytes32 => uint256) mutualCount;
+    mapping(bytes32 => uint256) mutualCount;
 }
 
 /// @notice Input data to a one step proof
@@ -105,7 +105,7 @@ struct EdgeAddedData {
     uint8 level;
     bool hasRival;
     bool isLayerZero;
-	uint256 stakeAmount;
+    uint256 stakeAmount;
 }
 
 /// @notice Data about an assertion that is being claimed by an edge
@@ -174,7 +174,6 @@ library EdgeChallengeManagerLib {
             edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight
         );
         bytes32 firstRival = store.firstRivals[mutualId];
-
 
         // increment the mutualCount
         store.mutualCount[mutualId]++;
@@ -435,7 +434,7 @@ library EdgeChallengeManagerLib {
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit
         // we also don't pass in stakeAmount to avoid the stack limit
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
-        
+
         // calculate, check and set stake amount
         ce.stakeAmount = checkStakeAmount(store, ce, args, initialStakeAmount, stakeAmountSlope);
 
@@ -443,7 +442,13 @@ library EdgeChallengeManagerLib {
     }
 
     /// @notice Calculate stake amount for an edge and require it is less than the max stake amount
-    function checkStakeAmount(EdgeStore storage store, ChallengeEdge memory ce, CreateEdgeArgs calldata args, uint256 initialStakeAmount, uint256 stakeAmountSlope) internal view returns (uint256) {
+    function checkStakeAmount(
+        EdgeStore storage store,
+        ChallengeEdge memory ce,
+        CreateEdgeArgs calldata args,
+        uint256 initialStakeAmount,
+        uint256 stakeAmountSlope
+    ) internal view returns (uint256) {
         uint256 numRivals = store.mutualCount[ce.mutualIdMem()];
         uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, numRivals);
         // todo: custom error
@@ -452,7 +457,11 @@ library EdgeChallengeManagerLib {
     }
 
     /// @notice stakeAmount = initialStakeAmount + stakeAmountSlope * numRivals
-    function calculateStakeAmountPure(uint256 initialStakeAmount, uint256 stakeAmountSlope, uint256 numRivals) internal pure returns (uint256) {
+    function calculateStakeAmountPure(uint256 initialStakeAmount, uint256 stakeAmountSlope, uint256 numRivals)
+        internal
+        pure
+        returns (uint256)
+    {
         return initialStakeAmount + stakeAmountSlope * numRivals;
     }
 
