@@ -570,12 +570,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function sweepExcessStake(bytes32[] calldata defeatedEdgeIds, bytes32 confirmedEdgeId) external {
-        // make sure confirmedRival is actually confirmed
+        // make sure confirmedRival is actually confirmed and layer 0
         // calculate the mutualId of confirmedRival
         // for each edge in the array:
         //   make sure it is not refunded
         //   make sure the mutualId matches
-        //   make sure the stakeAmount is > 0, if not then it isn't a layer zero edge
         //   mark the edge as refunded
         //   send the edge's stakeAmount to the excessStakeReceiver
 
@@ -583,17 +582,20 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         if (confirmed.status != EdgeStatus.Confirmed) {
             revert EdgeNotConfirmed(confirmedEdgeId, confirmed.status);
         }
+        if (!confirmed.isLayerZero()) {
+            revert EdgeNotLayerZero(confirmedEdgeId, confirmed.staker, confirmed.claimId);
+        }
 
         // calculate the mutualId of confirmedRival
         bytes32 mutualId = confirmed.mutualId();
-
         address _excessStakeReceiver = excessStakeReceiver;
-        uint256 totalStake = 0;
+        uint256 totalStake;
         for (uint256 i = 0; i < defeatedEdgeIds.length; i++) {
             ChallengeEdge storage defeatedEdge = store.get(defeatedEdgeIds[i]);
+
             // make sure the edge is not refunded
             // todo: should we just skip this edge if it is already refunded instead of reverting?
-            // if there are a bunch of edges to sweep, someone could grief by frontrunning the sweep with an array of one edge repeatedly
+            // if there are a bunch of edges to sweep, someone could grief by frontrunning legitimate sweeps with an array of one edge repeatedly
             if (defeatedEdge.refunded) {
                 revert EdgeAlreadyRefunded(defeatedEdgeIds[i]);
             }
@@ -602,16 +604,11 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             if (defeatedMutualId != mutualId) {
                 revert MutualIdMismatch(defeatedMutualId, mutualId);
             }
-            // get stake amount and ensure it is > 0, if not then it isn't a layer zero edge
-            uint256 edgeStakeAmount = defeatedEdge.stakeAmount;
-            if (edgeStakeAmount == 0) {
-                revert EdgeNotLayerZero(defeatedEdgeIds[i], defeatedEdge.staker, defeatedEdge.claimId);
-            }
+
             // mark the edge as refunded
             defeatedEdge.refunded = true;
-
             // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
-            totalStake += edgeStakeAmount;
+            totalStake += defeatedEdge.stakeAmount;
         }
 
         // send the excess stake to the excessStakeReceiver
