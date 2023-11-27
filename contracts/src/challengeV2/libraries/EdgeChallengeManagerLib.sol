@@ -58,6 +58,7 @@ struct CreateEdgeArgs {
     ///         bytes32[]: Inclusion proof - proof to show that the end state is the last state in the end history root
     bytes proof;
 
+    // todo: natspec
     // the maximum stake the validator is willing to put down for this edge
     uint256 maxStakeAmount;
 }
@@ -85,6 +86,7 @@ struct EdgeStore {
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
 
+    // todo: natspec
     // maps mutual id to the number of existing edges sharing the mutual id 
 	mapping(bytes32 => uint256) mutualCount;
 }
@@ -108,6 +110,7 @@ struct EdgeAddedData {
     bool hasRival;
     bool isLayerZero;
 
+    // todo: natspec
     // actual amount staked on the newly created edge
 	uint256 stakeAmount;
 }
@@ -445,6 +448,7 @@ library EdgeChallengeManagerLib {
     //     return add(store, ce);
     // }
 
+    // todo: natspec (just use the above function with a couple extra params)
     function createLayerZeroEdgeMem(
         EdgeStore storage store,
         CreateEdgeArgs calldata args,
@@ -470,6 +474,7 @@ library EdgeChallengeManagerLib {
         return ce;
     }
 
+    // todo: natspec
     function checkStakeAmount(EdgeStore storage store, ChallengeEdge memory ce, CreateEdgeArgs calldata args, uint256 initialStakeAmount, uint256 stakeAmountSlope) internal view returns (uint256) {
         uint256 stakeIndex = store.mutualCount[ce.mutualIdMem()];
         uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, stakeIndex);
@@ -487,6 +492,7 @@ library EdgeChallengeManagerLib {
     //     return stakeAmount;
     // }
 
+    // todo: natspec
     function calculateStakeAmountPure(uint256 initialStakeAmount, uint256 stakeAmountSlope, uint256 stakeIndex) internal pure returns (uint256) {
         return initialStakeAmount + stakeAmountSlope * stakeIndex;
     }
