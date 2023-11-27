@@ -366,46 +366,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     // STATE MUTATING SECTIION //
     /////////////////////////////
 
-    // todo: make this private/internal?
-    function createLayerZeroEdgeMem(CreateEdgeArgs calldata args) public view returns (ChallengeEdge memory newEdge) {
-        EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
-        uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
-        AssertionReferenceData memory ard;
-
-        if (eType == EdgeType.Block) {
-            // for block type edges we need to provide some extra assertion data context
-            if (args.proof.length == 0) {
-                revert EmptyEdgeSpecificProof();
-            }
-            (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
-                abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
-
-            assertionChain.validateAssertionHash(
-                args.claimId, claimStateData.executionState, claimStateData.prevAssertionHash, claimStateData.inboxAcc
-            );
-
-            assertionChain.validateAssertionHash(
-                claimStateData.prevAssertionHash,
-                predecessorStateData.executionState,
-                predecessorStateData.prevAssertionHash,
-                predecessorStateData.inboxAcc
-            );
-
-            ard = AssertionReferenceData(
-                args.claimId,
-                claimStateData.prevAssertionHash,
-                assertionChain.isPending(args.claimId),
-                assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash) > 0,
-                predecessorStateData.executionState,
-                claimStateData.executionState
-            );
-
-            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
-        } else {
-            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
-        }
-    }
-
     /// @inheritdoc IEdgeChallengeManager
     function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
         EdgeAddedData memory edgeAdded = store.add(createLayerZeroEdgeMem(args));
@@ -435,55 +395,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         );
         return edgeAdded.edgeId;
     }
-
-    // make sure confirmedRival is actually confirmed
-	// calculate the mutualId of confirmedRival
-	// for each edge in the array:
-	//   make sure it is not refunded
-	//   make sure the mutualId matches
-    //   make sure the stakeAmount is > 0, if not then it isn't a layer zero edge
-	//   mark the edge as refunded
-	//   send the edge's stakeAmount to the excessStakeReceiver
-    function sweepExcessStake(bytes32[] calldata edgeIds, bytes32 confirmedRivalId) external {
-        // make sure confirmedRival is actually confirmed
-        ChallengeEdge storage confirmed = store.get(confirmedRivalId);
-        require(confirmed.status == EdgeStatus.Confirmed, "confirmed rival not confirmed");
-
-        // calculate the mutualId of confirmedRival
-        bytes32 mutualId = confirmed.mutualId();
-
-        address _excessStakeReceiver = excessStakeReceiver;
-        uint256 totalStake = 0;
-        for (uint256 i = 0; i < edgeIds.length; i++) {
-            ChallengeEdge storage rival = store.get(edgeIds[i]);
-            // make sure the edge is not refunded
-            require(!rival.refunded, "edge already refunded");
-            // make sure the mutualId matches
-            require(rival.mutualId() == mutualId, "mutual id mismatch");
-            // get stake amount and ensure it is > 0, if not then it isn't a layer zero edge
-            uint256 edgeStakeAmount = rival.stakeAmount;
-            require(edgeStakeAmount > 0, "not a layer zero edge");
-            // mark the edge as refunded
-            rival.refunded = true;
-
-            // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
-            totalStake += edgeStakeAmount;
-        }
-
-        // send the excess stake to the excessStakeReceiver
-        IERC20 st = stakeToken;
-        if (address(st) != address(0) && totalStake != 0) {
-            st.safeTransfer(_excessStakeReceiver, totalStake);
-        }
-
-        // todo: emit new event
-    }
-
-    // make sure to set maxStakeAmount to type(uint256).max
-    function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256) {
-        return createLayerZeroEdgeMem(args).stakeAmount;
-    }
-
 
     /// @inheritdoc IEdgeChallengeManager
     function bisectEdge(bytes32 edgeId, bytes32 bisectionHistoryRoot, bytes calldata prefixProof)
@@ -630,9 +541,57 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeRefunded(edgeId, store.edges[edgeId].mutualId(), address(st), sa);
     }
 
+    // make sure confirmedRival is actually confirmed
+	// calculate the mutualId of confirmedRival
+	// for each edge in the array:
+	//   make sure it is not refunded
+	//   make sure the mutualId matches
+    //   make sure the stakeAmount is > 0, if not then it isn't a layer zero edge
+	//   mark the edge as refunded
+	//   send the edge's stakeAmount to the excessStakeReceiver
+    function sweepExcessStake(bytes32[] calldata edgeIds, bytes32 confirmedRivalId) external {
+        // make sure confirmedRival is actually confirmed
+        ChallengeEdge storage confirmed = store.get(confirmedRivalId);
+        require(confirmed.status == EdgeStatus.Confirmed, "confirmed rival not confirmed");
+
+        // calculate the mutualId of confirmedRival
+        bytes32 mutualId = confirmed.mutualId();
+
+        address _excessStakeReceiver = excessStakeReceiver;
+        uint256 totalStake = 0;
+        for (uint256 i = 0; i < edgeIds.length; i++) {
+            ChallengeEdge storage rival = store.get(edgeIds[i]);
+            // make sure the edge is not refunded
+            require(!rival.refunded, "edge already refunded");
+            // make sure the mutualId matches
+            require(rival.mutualId() == mutualId, "mutual id mismatch");
+            // get stake amount and ensure it is > 0, if not then it isn't a layer zero edge
+            uint256 edgeStakeAmount = rival.stakeAmount;
+            require(edgeStakeAmount > 0, "not a layer zero edge");
+            // mark the edge as refunded
+            rival.refunded = true;
+
+            // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
+            totalStake += edgeStakeAmount;
+        }
+
+        // send the excess stake to the excessStakeReceiver
+        IERC20 st = stakeToken;
+        if (address(st) != address(0) && totalStake != 0) {
+            st.safeTransfer(_excessStakeReceiver, totalStake);
+        }
+
+        // todo: emit new event
+    }
+
     ///////////////////////
     // VIEW ONLY SECTION //
     ///////////////////////
+
+    // make sure to set maxStakeAmount to type(uint256).max
+    function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256) {
+        return createLayerZeroEdgeMem(args).stakeAmount;
+    }
 
     /// @inheritdoc IEdgeChallengeManager
     function getLayerZeroEndHeight(EdgeType eType) public view returns (uint256) {
@@ -713,5 +672,45 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function firstRival(bytes32 mutualId) public view returns (bytes32) {
         return store.firstRivals[mutualId];
+    }
+
+    // todo: natspec
+    function createLayerZeroEdgeMem(CreateEdgeArgs calldata args) private view returns (ChallengeEdge memory newEdge) {
+        EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
+        uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
+        AssertionReferenceData memory ard;
+
+        if (eType == EdgeType.Block) {
+            // for block type edges we need to provide some extra assertion data context
+            if (args.proof.length == 0) {
+                revert EmptyEdgeSpecificProof();
+            }
+            (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
+                abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
+
+            assertionChain.validateAssertionHash(
+                args.claimId, claimStateData.executionState, claimStateData.prevAssertionHash, claimStateData.inboxAcc
+            );
+
+            assertionChain.validateAssertionHash(
+                claimStateData.prevAssertionHash,
+                predecessorStateData.executionState,
+                predecessorStateData.prevAssertionHash,
+                predecessorStateData.inboxAcc
+            );
+
+            ard = AssertionReferenceData(
+                args.claimId,
+                claimStateData.prevAssertionHash,
+                assertionChain.isPending(args.claimId),
+                assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash) > 0,
+                predecessorStateData.executionState,
+                claimStateData.executionState
+            );
+
+            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+        } else {
+            newEdge = store.createLayerZeroEdgeMem(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+        }
     }
 }
