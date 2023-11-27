@@ -397,7 +397,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         EdgeAddedData memory edgeAdded = store.add(createLayerZeroEdgeMem(args));
 
         IERC20 st = stakeToken;
-        // uint256 sa = stakeAmount;
         // when a zero layer edge is created it must include stake amount. Each time a zero layer
         // edge is created it forces the honest participants to do some work, so we want to disincentive
         // their creation. The amount should also be enough to pay for the gas costs incurred by the honest
@@ -581,7 +580,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         //   send the edge's stakeAmount to the excessStakeReceiver
 
         ChallengeEdge storage confirmed = store.get(confirmedEdgeId);
-        require(confirmed.status == EdgeStatus.Confirmed, "confirmed edge not confirmed");
+        if (confirmed.status != EdgeStatus.Confirmed) {
+            revert EdgeNotConfirmed(confirmedEdgeId, confirmed.status);
+        }
 
         // calculate the mutualId of confirmedRival
         bytes32 mutualId = confirmed.mutualId();
@@ -591,12 +592,21 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         for (uint256 i = 0; i < defeatedEdgeIds.length; i++) {
             ChallengeEdge storage defeatedEdge = store.get(defeatedEdgeIds[i]);
             // make sure the edge is not refunded
-            require(!defeatedEdge.refunded, "edge already refunded");
+            // todo: should we just skip this edge if it is already refunded instead of reverting?
+            // if there are a bunch of edges to sweep, someone could grief by frontrunning the sweep with an array of one edge repeatedly
+            if (defeatedEdge.refunded) {
+                revert EdgeAlreadyRefunded(defeatedEdgeIds[i]);
+            }
             // make sure the mutualId matches
-            require(defeatedEdge.mutualId() == mutualId, "mutual id mismatch");
+            bytes32 defeatedMutualId = defeatedEdge.mutualId();
+            if (defeatedMutualId != mutualId) {
+                revert MutualIdMismatch(defeatedMutualId, mutualId);
+            }
             // get stake amount and ensure it is > 0, if not then it isn't a layer zero edge
             uint256 edgeStakeAmount = defeatedEdge.stakeAmount;
-            require(edgeStakeAmount > 0, "not a layer zero edge");
+            if (edgeStakeAmount == 0) {
+                revert EdgeNotLayerZero(defeatedEdgeIds[i], defeatedEdge.staker, defeatedEdge.claimId);
+            }
             // mark the edge as refunded
             defeatedEdge.refunded = true;
 

@@ -451,8 +451,9 @@ library EdgeChallengeManagerLib {
     ) internal view returns (uint256) {
         uint256 numRivals = store.mutualCount[ce.mutualIdMem()];
         uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, numRivals);
-        // todo: custom error
-        require(stakeAmount <= args.maxStakeAmount, "Stake amount exceeds max stake amount");
+        if (args.maxStakeAmount < stakeAmount) {
+            revert MaxStakeTooLow(stakeAmount, args.maxStakeAmount);
+        }
         return stakeAmount;
     }
 

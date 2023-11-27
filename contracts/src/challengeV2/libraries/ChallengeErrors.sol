@@ -82,6 +82,10 @@ error ChildrenAlreadySet(bytes32 edgeId, bytes32 lowerChildId, bytes32 upperChil
 error EdgeNotLayerZero(bytes32 edgeId, address staker, bytes32 claimId);
 /// @dev The edge staker has already been refunded
 error EdgeAlreadyRefunded(bytes32 edgeId);
+/// @dev The mutual id of the edges do not match
+error MutualIdMismatch(bytes32 defeatedId, bytes32 confirmedId);
+/// @dev The max stake is too low
+error MaxStakeTooLow(uint256 requiredStake, uint256 maxStake);
 /// @dev No assertion chain address supplied
 error EmptyAssertionChain();
 /// @dev No one step proof entry address supplied
