@@ -255,6 +255,7 @@ library ChallengeEdgeLib {
         edge.confirmedAtBlock = uint64(block.number);
     }
 
+    // todo: potential optimization here to just read one or the other? or stakeAmount?
     /// @notice Is the edge a layer zero edge.
     function isLayerZero(ChallengeEdge storage edge) internal view returns (bool) {
         return edge.claimId != 0 && edge.staker != address(0);
