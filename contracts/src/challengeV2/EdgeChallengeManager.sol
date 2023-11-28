@@ -121,9 +121,8 @@ interface IEdgeChallengeManager {
     /// @dev    The defeated edges are marked as refunded.
     function sweepExcessStake(bytes32[] calldata defeatedEdgeIds, bytes32 confirmedEdgeId) external;
 
-    /// @notice Calculate the stake size for a new layer zero edge
-    /// @dev    Will revert if args.maxStakeAmount is too small
-    function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256);
+    /// @notice Calculate the stake size for a new layer zero edge with the given mutual id
+    function calculateStakeSize(bytes32 mutualId) external view returns (uint256);
 
     /// @notice Zero layer edges have to be a fixed height.
     ///         This function returns the end height for a given edge type
@@ -399,7 +398,43 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
-        EdgeAddedData memory edgeAdded = store.add(createLayerZeroEdgeMem(args));
+        EdgeAddedData memory edgeAdded;
+        EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
+        uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
+        AssertionReferenceData memory ard;
+
+        if (eType == EdgeType.Block) {
+            // for block type edges we need to provide some extra assertion data context
+            if (args.proof.length == 0) {
+                revert EmptyEdgeSpecificProof();
+            }
+            (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
+                abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
+
+            assertionChain.validateAssertionHash(
+                args.claimId, claimStateData.executionState, claimStateData.prevAssertionHash, claimStateData.inboxAcc
+            );
+
+            assertionChain.validateAssertionHash(
+                claimStateData.prevAssertionHash,
+                predecessorStateData.executionState,
+                predecessorStateData.prevAssertionHash,
+                predecessorStateData.inboxAcc
+            );
+
+            ard = AssertionReferenceData(
+                args.claimId,
+                claimStateData.prevAssertionHash,
+                assertionChain.isPending(args.claimId),
+                assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash) > 0,
+                predecessorStateData.executionState,
+                claimStateData.executionState
+            );
+
+            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+        } else {
+            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+        }
 
         IERC20 st = stakeToken;
         // when a zero layer edge is created it must include stake amount. Each time a zero layer
@@ -630,8 +665,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///////////////////////
 
     /// @inheritdoc IEdgeChallengeManager
-    function calculateStakeSize(CreateEdgeArgs calldata args) external view returns (uint256) {
-        return createLayerZeroEdgeMem(args).stakeAmount;
+    function calculateStakeSize(bytes32 mutualId) external view returns (uint256) {
+        return EdgeChallengeManagerLib.calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, store.mutualCount[mutualId]);
     }
 
     /// @inheritdoc IEdgeChallengeManager
@@ -713,49 +748,5 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function firstRival(bytes32 mutualId) public view returns (bytes32) {
         return store.firstRivals[mutualId];
-    }
-
-    /// @notice Create a layer zero edge but do not store it, only return a new ChallengeEdge in memory
-    function createLayerZeroEdgeMem(CreateEdgeArgs calldata args) private view returns (ChallengeEdge memory) {
-        EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
-        uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
-        AssertionReferenceData memory ard;
-
-        if (eType == EdgeType.Block) {
-            // for block type edges we need to provide some extra assertion data context
-            if (args.proof.length == 0) {
-                revert EmptyEdgeSpecificProof();
-            }
-            (, ExecutionStateData memory predecessorStateData, ExecutionStateData memory claimStateData) =
-                abi.decode(args.proof, (bytes32[], ExecutionStateData, ExecutionStateData));
-
-            assertionChain.validateAssertionHash(
-                args.claimId, claimStateData.executionState, claimStateData.prevAssertionHash, claimStateData.inboxAcc
-            );
-
-            assertionChain.validateAssertionHash(
-                claimStateData.prevAssertionHash,
-                predecessorStateData.executionState,
-                predecessorStateData.prevAssertionHash,
-                predecessorStateData.inboxAcc
-            );
-
-            ard = AssertionReferenceData(
-                args.claimId,
-                claimStateData.prevAssertionHash,
-                assertionChain.isPending(args.claimId),
-                assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash) > 0,
-                predecessorStateData.executionState,
-                claimStateData.executionState
-            );
-
-            return store.createLayerZeroEdgeMem(
-                args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
-            );
-        } else {
-            return store.createLayerZeroEdgeMem(
-                args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
-            );
-        }
     }
 }

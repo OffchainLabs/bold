@@ -419,7 +419,7 @@ library EdgeChallengeManagerLib {
     /// @param numBigStepLevel      The number of big step levels in this challenge
     /// @param initialStakeAmount   The initial stake amount for layer zero edges with no rivals
     /// @param stakeAmountSlope     The increase in stake amount caused by each additional rival edge
-    function createLayerZeroEdgeMem(
+    function createLayerZeroEdge(
         EdgeStore storage store,
         CreateEdgeArgs calldata args,
         AssertionReferenceData memory ard,
@@ -428,7 +428,7 @@ library EdgeChallengeManagerLib {
         uint8 numBigStepLevel,
         uint256 initialStakeAmount,
         uint256 stakeAmountSlope
-    ) internal view returns (ChallengeEdge memory) {
+    ) internal returns (EdgeAddedData memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) =
             layerZeroTypeSpecificChecks(store, args, ard, oneStepProofEntry, numBigStepLevel);
@@ -441,7 +441,7 @@ library EdgeChallengeManagerLib {
         // calculate, check and set stake amount
         ce.stakeAmount = checkStakeAmount(store, ce, args, initialStakeAmount, stakeAmountSlope);
 
-        return ce;
+        return add(store, ce);
     }
 
     /// @notice Calculate stake amount for an edge and require it is less than the max stake amount
