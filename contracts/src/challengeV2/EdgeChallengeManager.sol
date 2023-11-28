@@ -309,6 +309,15 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     IOneStepProofEntry public override oneStepProofEntry;
 
+    // todo: consider setting these in constructor and make them immutable
+    // or, pack them into a single word because they will always be read together
+    /// @notice The minimum mini stake amount for a layer zero edge.
+    ///         If there are no rivals to this edge, then the stake amount equals this amount
+    uint256 public initialStakeAmount;
+    /// @notice The slope of the stake amount for a layer zero edge.
+    ///         I.e. if there are N rivals to this edge, then the stake amount equals initialStakeAmount + N * stakeAmountSlope
+    uint256 public stakeAmountSlope;
+
     /// @notice The end height of layer zero Block edges
     uint256 public LAYERZERO_BLOCKEDGE_HEIGHT;
     /// @notice The end height of layer zero BigStep edges
@@ -318,14 +327,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @notice The number of big step levels configured for this challenge manager
     ///         There is 1 block level, 1 small step level and N big step levels
     uint8 public NUM_BIGSTEP_LEVEL;
-
-    // todo: consider setting these in constructor and make them immutable
-    /// @notice The minimum mini stake amount for a layer zero edge.
-    ///         If there are no rivals to this edge, then the stake amount equals this amount
-    uint256 public initialStakeAmount;
-    /// @notice The slope of the stake amount for a layer zero edge.
-    ///         I.e. if there are N rivals to this edge, then the stake amount equals initialStakeAmount + N * stakeAmountSlope
-    uint256 public stakeAmountSlope;
 
     constructor() {
         _disableInitializers();
