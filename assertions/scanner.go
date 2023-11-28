@@ -187,15 +187,15 @@ func (m *Manager) AssertionsProcessed() uint64 {
 	return m.assertionsProcessedCount
 }
 
-func (s *Manager) AssertionsSubmittedInProcess() []common.Hash {
+func (m *Manager) AssertionsSubmittedInProcess() []common.Hash {
 	hashes := make([]common.Hash, 0)
-	s.submittedAssertions.ForEach(func(elem common.Hash) {
+	m.submittedAssertions.ForEach(func(elem common.Hash) {
 		hashes = append(hashes, elem)
 	})
 	return hashes
 }
 
-func (s *Manager) checkForAssertionAdded(
+func (m *Manager) checkForAssertionAdded(
 	ctx context.Context,
 	filterer *rollupgen.RollupUserLogicFilterer,
 	filterOpts *bind.FilterOpts,
@@ -437,6 +437,10 @@ func (m *Manager) findLastAgreedWithAncestor(
 }
 
 func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
+	// Only resolve mode strategies or higher should be confirming assertions.
+	if m.challengeReader.Mode() < types.ResolveMode {
+		return
+	}
 	for {
 		if m.assertionConfirmed(ctx, assertionHash) {
 			return
@@ -505,7 +509,7 @@ func (m *Manager) canPostRivalAssertion() bool {
 }
 
 func (m *Manager) canPostChallenge() bool {
-	return m.challengeReader.Mode() == types.MakeMode
+	return m.challengeReader.Mode() >= types.DefensiveMode
 }
 
 func randUint64(max uint64) (uint64, error) {

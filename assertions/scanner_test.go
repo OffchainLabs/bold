@@ -155,6 +155,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		time.Hour, // confirmation attempt interval
 		charlieStateManager,
 		time.Hour, // poll interval
+		time.Second*1,
 	)
 	require.NoError(t, err)
 
