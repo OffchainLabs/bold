@@ -431,9 +431,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.executionState
             );
 
-            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+            edgeAdded = store.createLayerZeroEdge(
+                args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
+            );
         } else {
-            edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope);
+            edgeAdded = store.createLayerZeroEdge(
+                args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, initialStakeAmount, stakeAmountSlope
+            );
         }
 
         IERC20 st = stakeToken;
@@ -666,7 +670,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function calculateStakeSize(bytes32 mutualId) external view returns (uint256) {
-        return EdgeChallengeManagerLib.calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, store.mutualCount[mutualId]);
+        return EdgeChallengeManagerLib.calculateStakeAmountPure(
+            initialStakeAmount, stakeAmountSlope, store.mutualCount[mutualId]
+        );
     }
 
     /// @inheritdoc IEdgeChallengeManager
