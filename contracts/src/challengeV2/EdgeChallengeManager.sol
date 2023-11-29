@@ -116,8 +116,8 @@ interface IEdgeChallengeManager {
     ///         The stake on this edge can be refunded if the edge is confirme
     function refundStake(bytes32 edgeId) external;
 
-    /// @notice Given a set of defeated edges sweep the stakes of the defeated edges to the excess stake receiver.
-    /// @dev    The defeated edges are marked as refunded. The defeated edges need not share the same mutual id.
+    /// @notice Given a set of defeated layer zero edges sweep their stakes to the excess stake receiver.
+    /// @dev    The defeated edges are marked as refunded.
     function sweepExcessStake(bytes32[] calldata defeatedEdgeIds) external;
 
     /// @notice Calculate the stake size for a new layer zero edge with the given mutual id
