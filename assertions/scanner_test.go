@@ -16,6 +16,7 @@ import (
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/mocks"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/testing/setup"
@@ -32,7 +33,17 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	// and then we have another validator that disagrees with 4, so Charlie
 	// should open a 4' that branches off 3.
 	ctx := context.Background()
-	setup, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockBridge())
+	setup, err := setup.ChainsWithEdgeChallengeManager(
+		setup.WithMockBridge(),
+		setup.WithMockOneStepProver(),
+		setup.WithChallengeTestingOpts(
+			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
+				BlockChallengeHeight:     64,
+				BigStepChallengeHeight:   32,
+				SmallStepChallengeHeight: 32,
+			}),
+		),
+	)
 	require.NoError(t, err)
 
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)

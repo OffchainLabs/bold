@@ -231,16 +231,26 @@ func (s *L2StateBackend) AgreesWithExecutionState(ctx context.Context, state *pr
 	return l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) ([]common.Hash, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) ([]common.Hash, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
+	var startIndex uint64
+	for i, st := range s.executionStates {
+		if st.GlobalState.Batch == fromBatch {
+			startIndex = uint64(i)
+			break
+		}
+	}
+	start := startIndex + blockStart
+	end := start + blockEnd
+
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
 	desiredStatesLen := int(blockEnd - blockStart + 1)
 	var states []common.Hash
 	var lastState common.Hash
-	for i := blockStart; i <= blockEnd; i++ {
+	for i := start; i <= end; i++ {
 		if i >= uint64(len(s.stateRoots)) {
 			break
 		}
