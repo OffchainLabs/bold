@@ -407,7 +407,7 @@ library EdgeChallengeManagerLib {
         );
     }
 
-    /// @notice Performs necessary checks and creates a new layer zero edge in memory, does not add to store
+    /// @notice Performs necessary checks and creates a new layer zero edge
     /// @param store                The store containing existing edges
     /// @param args                 Edge data
     /// @param ard                  If the edge being added is of Block type then additional assertion data is required
