@@ -42,6 +42,7 @@ go_test(
         "//layer2-state-provider",
         "//solgen/go/mocksgen",
         "//solgen/go/rollupgen",
+        "//testing",
         "//testing/mocks",
         "//testing/mocks/state-provider",
         "//testing/setup:setup_lib",
