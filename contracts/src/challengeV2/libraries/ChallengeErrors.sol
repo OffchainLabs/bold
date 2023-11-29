@@ -50,6 +50,10 @@ error EdgeNotPending(bytes32 edgeId, EdgeStatus status);
 error EdgeUnrivaled(bytes32 edgeId);
 /// @dev The edge is not confirmed
 error EdgeNotConfirmed(bytes32 edgeId, EdgeStatus);
+/// @dev The edge is confirmed
+error EdgeConfirmed(bytes32 edgeId);
+/// @dev The edge is not defeated
+error EdgeNotDefeated(bytes32 edgeId);
 /// @dev The edge level is unexpected
 error EdgeLevelInvalid(bytes32 edgeId1, bytes32 edgeId2, uint8 level1, uint8 level2);
 /// @dev The claim id on the claimingEdge does not match the provided edge id

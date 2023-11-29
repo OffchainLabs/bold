@@ -116,10 +116,9 @@ interface IEdgeChallengeManager {
     ///         The stake on this edge can be refunded if the edge is confirme
     function refundStake(bytes32 edgeId) external;
 
-    /// @notice Given a set of defeated edges and their confirmed rival,
-    ///         sweep the stakes of the defeated edges to the excess stake receiver.
-    /// @dev    The defeated edges are marked as refunded.
-    function sweepExcessStake(bytes32[] calldata defeatedEdgeIds, bytes32 confirmedEdgeId) external;
+    /// @notice Given a set of defeated edges sweep the stakes of the defeated edges to the excess stake receiver.
+    /// @dev    The defeated edges are marked as refunded. The defeated edges need not share the same mutual id.
+    function sweepExcessStake(bytes32[] calldata defeatedEdgeIds) external;
 
     /// @notice Calculate the stake size for a new layer zero edge with the given mutual id
     function calculateStakeSize(bytes32 mutualId) external view returns (uint256);
@@ -270,14 +269,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     event EdgeRefunded(bytes32 indexed edgeId, bytes32 indexed mutualId, address stakeToken, uint256 stakeAmount);
 
     /// @notice Some stakes have been swept from defeated layer zero edges
-    /// @param mutualId         The mutual id of the edges
-    /// @param confirmedEdgeId  The id of the confirmed edge
     /// @param defeatedEdgeIds  The ids of the defeated edges
     /// @param stakeToken       The ERC20 being swept
     /// @param totalStake       The total amount of tokens being swept
     event DefeatedEdgeStakesSwept(
-        bytes32 indexed mutualId,
-        bytes32 indexed confirmedEdgeId,
         bytes32[] defeatedEdgeIds,
         address stakeToken,
         uint256 totalStake
@@ -613,44 +608,41 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function sweepExcessStake(bytes32[] calldata defeatedEdgeIds, bytes32 confirmedEdgeId) external {
-        // make sure confirmedRival is actually confirmed and layer 0
-        // calculate the mutualId of confirmedRival
-        // for each edge in the array:
-        //   make sure it is not refunded
-        //   make sure the mutualId matches
-        //   mark the edge as refunded
-        //   send the edge's stakeAmount to the excessStakeReceiver
-
-        ChallengeEdge storage confirmed = store.get(confirmedEdgeId);
-        if (confirmed.status != EdgeStatus.Confirmed) {
-            revert EdgeNotConfirmed(confirmedEdgeId, confirmed.status);
-        }
-        if (!confirmed.isLayerZero()) {
-            revert EdgeNotLayerZero(confirmedEdgeId, confirmed.staker, confirmed.claimId);
-        }
-
-        // calculate the mutualId of confirmedRival
-        bytes32 mutualId = confirmed.mutualId();
-        address _excessStakeReceiver = excessStakeReceiver;
+    function sweepExcessStake(bytes32[] calldata defeatedEdgeIds) external {
         uint256 totalStake;
+        
         for (uint256 i = 0; i < defeatedEdgeIds.length; i++) {
-            ChallengeEdge storage defeatedEdge = store.get(defeatedEdgeIds[i]);
+            bytes32 defeatedId = defeatedEdgeIds[i];
+            ChallengeEdge storage defeatedEdge = store.get(defeatedId);
 
+            // get the mutual id
+            bytes32 mutualId = defeatedEdge.mutualId();
+            // get the confirmed edge id
+            bytes32 confirmedId = store.confirmedRivals[mutualId];
+
+            // make sure confirmedRival is nonzero (i.e. defeatedEdge has a confirmed rival)
+            if (confirmedId == 0) {
+                revert EdgeNotDefeated(defeatedId);
+            }
+            // make sure confirmedRival != defeatedEdge
+            if (confirmedId == defeatedId) {
+                revert EdgeConfirmed(confirmedId);
+            }
+            // we check stakeAmount to determine if the edge is layer zero, this is cheaper than using the utility function
+            uint256 stakeAmount = defeatedEdge.stakeAmount;
+            if (stakeAmount == 0) {
+                revert EdgeNotLayerZero(defeatedId, defeatedEdge.staker, defeatedEdge.claimId);
+            }
             // make sure the edge is not refunded
             // todo: should we just skip this edge if it is already refunded instead of reverting?
             // if there are a bunch of edges to sweep, someone could grief by frontrunning legitimate sweeps with an array of one edge repeatedly
             if (defeatedEdge.refunded) {
                 revert EdgeAlreadyRefunded(defeatedEdgeIds[i]);
             }
-            // make sure the mutualId matches
-            bytes32 defeatedMutualId = defeatedEdge.mutualId();
-            if (defeatedMutualId != mutualId) {
-                revert MutualIdMismatch(defeatedMutualId, mutualId);
-            }
 
             // mark the edge as refunded
             defeatedEdge.refunded = true;
+
             // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
             totalStake += defeatedEdge.stakeAmount;
         }
@@ -658,10 +650,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // send the excess stake to the excessStakeReceiver
         IERC20 st = stakeToken;
         if (address(st) != address(0) && totalStake != 0) {
-            st.safeTransfer(_excessStakeReceiver, totalStake);
+            st.safeTransfer(excessStakeReceiver, totalStake);
         }
 
-        emit DefeatedEdgeStakesSwept(mutualId, confirmedEdgeId, defeatedEdgeIds, address(st), totalStake);
+        emit DefeatedEdgeStakesSwept(defeatedEdgeIds, address(st), totalStake);
     }
 
     ///////////////////////
