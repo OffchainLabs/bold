@@ -623,7 +623,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             // get the confirmed edge id
             bytes32 confirmedId = store.confirmedRivals[mutualId];
 
-            // make sure confirmedRival is nonzero (i.e. defeatedEdge has a confirmed rival)
+            // make sure there is a confirmed edge with the mutual id
             if (confirmedId == 0) {
                 revert EdgeNotDefeated(defeatedId);
             }

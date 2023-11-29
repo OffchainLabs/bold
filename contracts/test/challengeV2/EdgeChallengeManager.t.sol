@@ -1699,18 +1699,9 @@ contract EdgeChallengeManagerTest is Test {
         return (ei, allWinners);
     }
 
-    // todo: figure out a way to test that stake is being set properly on new edges, probably in lib tests
-    // also test that mutual count is updated (kinda part of the above)
-
-    // testCanSweepStake
-    // testRevertSweepUndefeatedEdge
-    // testRevertSweepConfirmedEdge
-    // testRevertSweepNonLayerZeroEdge
-    // testRevertSweepEdgeTwice
-
-    function _confirmEdgeByChildrenByTime(EdgeInitData memory ei, bytes32[] memory states, bytes32 edgeId) internal {
+    function _confirmEdgeByChildrenByTime(EdgeInitData memory ei, bytes32[] memory states, bytes32 edgeId) internal returns (BisectionChildren memory children) {
         // bisect first edge and confirm children by time
-        BisectionChildren memory children = bisect(
+        children = bisect(
             ei.challengeManager, edgeId, states, 16, states.length - 1
         );
 
@@ -1749,20 +1740,25 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
+    // todo: figure out a way to test that stake is being set properly on new edges, probably in lib tests
+    // also test that mutual count is updated (kinda part of the above)
+
+    // testRevertSweepEdgeTwice
+
     function testCanSweepStake() external {
         EdgeInitData memory ei = deployAndInit();
         (bytes32[] memory states,, bytes32 edgeId) = _createLevelZeroLayerZeroEdge(ei);
         (,,bytes32 defeated1) = _createLevelZeroLayerZeroEdge(ei);
         (,,bytes32 defeated2) = _createLevelZeroLayerZeroEdge(ei);
+        bytes32[] memory defeated = new bytes32[](2);
+        defeated[0] = defeated1;
+        defeated[1] = defeated2;
 
         _confirmEdgeByChildrenByTime(ei, states, edgeId);
 
         address receiver = ei.challengeManager.excessStakeReceiver();
         uint256 beforeBalance = ei.challengeManager.stakeToken().balanceOf(receiver);
 
-        bytes32[] memory defeated = new bytes32[](2);
-        defeated[0] = defeated1;
-        defeated[1] = defeated2;
         ei.challengeManager.sweepExcessStake(defeated);
 
         uint256 afterBalance = ei.challengeManager.stakeToken().balanceOf(receiver);
@@ -1772,6 +1768,57 @@ contract EdgeChallengeManagerTest is Test {
 
         assertTrue(ei.challengeManager.getEdge(defeated1).refunded, "1 refunded");
         assertTrue(ei.challengeManager.getEdge(defeated2).refunded, "2 refunded");
+    }
+
+    function testRevertSweepUndefeatedEdge() external {
+        // the edge can either be pending, confirmed, or defeated
+        // test pending case first
+
+        EdgeInitData memory ei = deployAndInit();
+        (bytes32[] memory states,, bytes32 edgeId) = _createLevelZeroLayerZeroEdge(ei);
+        (,,bytes32 defeated1) = _createLevelZeroLayerZeroEdge(ei);
+        bytes32[] memory defeated = new bytes32[](1);
+        defeated[0] = defeated1;
+
+        vm.expectRevert(abi.encodeWithSelector(EdgeNotDefeated.selector, defeated1));
+        ei.challengeManager.sweepExcessStake(defeated);
+
+        _confirmEdgeByChildrenByTime(ei, states, edgeId);
+
+        defeated[0] = edgeId;
+
+        vm.expectRevert(abi.encodeWithSelector(EdgeConfirmed.selector, edgeId));
+        ei.challengeManager.sweepExcessStake(defeated);
+    }
+
+    function testRevertSweepNonLayerZeroEdge() external {
+        EdgeInitData memory ei = deployAndInit();
+        (bytes32[] memory states1,, bytes32 edgeId1) = _createLevelZeroLayerZeroEdge(ei);
+        (bytes32[] memory states2,, bytes32 edgeId2) = _createLevelZeroLayerZeroEdge(ei);
+
+        // bisect both, confirm 1's upper child, 2's upper child will be defeated
+        BisectionChildren memory children1 = bisect(
+            ei.challengeManager, edgeId1, states1, 16, states1.length - 1
+        );
+
+        bytes32[] memory parents1 = new bytes32[](1);
+        parents1[0] = edgeId1;
+        vm.roll(challengePeriodBlock + 2);
+        ei.challengeManager.confirmEdgeByTime(children1.lowerChildId, parents1, ei.a1Data);
+
+        BisectionChildren memory children2 = bisect(
+            ei.challengeManager, edgeId2, states2, 16, states2.length - 1
+        );
+        
+        bytes32[] memory toSweep = new bytes32[](1);
+        toSweep[0] = children2.lowerChildId;
+        vm.expectRevert(abi.encodeWithSelector(
+            EdgeNotLayerZero.selector, 
+            children2.lowerChildId, 
+            ei.challengeManager.getEdge(children2.lowerChildId).staker,
+            ei.challengeManager.getEdge(children2.lowerChildId).claimId
+        ));
+        ei.challengeManager.sweepExcessStake(toSweep);
     }
 
     function testCanRefundStake() external {
