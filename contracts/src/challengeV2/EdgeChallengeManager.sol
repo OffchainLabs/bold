@@ -610,7 +610,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function sweepExcessStake(bytes32[] calldata defeatedEdgeIds) external {
         uint256 totalStake;
-        
+
         for (uint256 i = 0; i < defeatedEdgeIds.length; i++) {
             bytes32 defeatedId = defeatedEdgeIds[i];
             ChallengeEdge storage defeatedEdge = store.get(defeatedId);
@@ -644,7 +644,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             defeatedEdge.refunded = true;
 
             // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
-            totalStake += defeatedEdge.stakeAmount;
+            totalStake += stakeAmount;
         }
 
         // send the excess stake to the excessStakeReceiver
