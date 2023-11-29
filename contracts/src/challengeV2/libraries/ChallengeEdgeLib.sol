@@ -61,6 +61,7 @@ struct ChallengeEdge {
     ///         For a defeated edge, set to true when stake has been sent to the excessStakeReceiver.
     bool refunded;
     /// @notice The amount of stake accompanying this edge
+    ///         Only populated on zero layer edges
     uint256 stakeAmount;
 }
 

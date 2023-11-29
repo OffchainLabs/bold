@@ -334,7 +334,7 @@ contract EdgeChallengeManagerTest is Test {
                     genesisStateData,
                     ExecutionStateData(a1State, genesisAssertionHash, bytes32(0))
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -361,7 +361,7 @@ contract EdgeChallengeManagerTest is Test {
                     genesisStateData,
                     ei.a1Data
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -384,7 +384,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
                     ),
                 proof: "",
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -409,7 +409,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), 0), genesisStateData, ei.a1Data
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -434,7 +434,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), 0), genesisStateData, ei.a1Data
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -459,7 +459,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1), ei.a2Data, ei.a1Data
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -490,7 +490,7 @@ contract EdgeChallengeManagerTest is Test {
                     genesisStateData,
                     ei.a1Data
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
         uint256 afterBalance = stakeToken.balanceOf(address(this));
@@ -520,6 +520,7 @@ contract EdgeChallengeManagerTest is Test {
         assertEq(ei.challengeManager.confirmedRival(edgeId), bytes32(0), "Confirmed rival");
         assertEq(ei.challengeManager.hasLengthOneRival(edgeId), false, "Has length one rival");
         assertEq(ei.challengeManager.firstRival(edge.mutualIdMem()), EdgeChallengeManagerLib.UNRIVALED, "Unrivaled");
+        assertEq(ei.challengeManager.mutualCount(edge.mutualIdMem()), 1, "Mutual count");
 
         return (ei, states, exp, edgeId);
     }
@@ -608,7 +609,7 @@ contract EdgeChallengeManagerTest is Test {
                         genesisStateData,
                         ei.a2Data
                         ),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
 
@@ -652,7 +653,7 @@ contract EdgeChallengeManagerTest is Test {
                     genesisStateData,
                     ei.a2Data
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
 
@@ -829,7 +830,7 @@ contract EdgeChallengeManagerTest is Test {
                 claimId: edges1[0].lowerChildId,
                 prefixProof: "",
                 proof: generateEdgeProof(states1, bigStepStates),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -856,7 +857,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
                     ),
                 proof: generateEdgeProof(states1, bigStepStates),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -890,7 +891,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
                     ),
                 proof: generateEdgeProof(states1, bigStepStates),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -917,7 +918,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
                     ),
                 proof: "",
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -951,7 +952,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     states1[0], states1[1], claimEndInclusionProof, claimEndInclusionProof, edgeInclusionProof
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -985,7 +986,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     states1[0], states1[1], claimStartInclusionProof, claimStartInclusionProof, edgeInclusionProof
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -1019,7 +1020,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     states1[0], states1[1], claimStartInclusionProof, claimEndInclusionProof, claimStartInclusionProof
                     ),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -1046,7 +1047,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
                     ),
                 proof: generateEdgeProof(states1, bigStepStates),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -1080,7 +1081,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
                         ),
                     proof: generateEdgeProof(states1, bigStepStates1),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1102,7 +1103,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
                         ),
                     proof: generateEdgeProof(states2, bigStepStates2),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1131,7 +1132,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
                         ),
                     proof: generateEdgeProof(bigStepStates1, smallStepStates1),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1162,7 +1163,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
                         ),
                     proof: generateEdgeProof(states1, bigStepStates1),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1197,7 +1198,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates1, 1, bigStepStates1.length))
                         ),
                     proof: generateEdgeProof(states1, bigStepStates1),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1219,7 +1220,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates2, 1, bigStepStates2.length))
                         ),
                     proof: generateEdgeProof(states2, bigStepStates2),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1248,7 +1249,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(smallStepStates1, 1, smallStepStates1.length))
                         ),
                     proof: generateEdgeProof(bigStepStates1, smallStepStates1),
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1275,7 +1276,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(bigStepStates, 1, bigStepStates.length))
                     ),
                 proof: generateEdgeProof(states1, bigStepStates),
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
 
@@ -1357,7 +1358,7 @@ contract EdgeChallengeManagerTest is Test {
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
                     ),
                 proof: typeSpecificProof1,
-                maxStakeAmount: type(uint256).max // todo
+                maxStakeAmount: type(uint256).max
             })
         );
     }
@@ -1423,7 +1424,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
                         ),
                     proof: typeSpecificProof1,
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }
@@ -1464,7 +1465,7 @@ contract EdgeChallengeManagerTest is Test {
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
                         ),
                     proof: typeSpecificProof2,
-                    maxStakeAmount: type(uint256).max // todo
+                    maxStakeAmount: type(uint256).max
                 })
             );
         }

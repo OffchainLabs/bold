@@ -194,6 +194,9 @@ interface IEdgeChallengeManager {
     ///         Returns a magic string if the edge exists but is unrivaled
     ///         Returns the id of the second edge created with the same mutual id as this edge, if a rival exists
     function firstRival(bytes32 edgeId) external view returns (bytes32);
+
+    /// @notice The number of edges that share the given mutual id
+    function mutualCount(bytes32 mutualId) external view returns (uint256);
 }
 
 /// @title  A challenge manager that uses edge structures to decide between Assertions
@@ -746,5 +749,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function firstRival(bytes32 mutualId) public view returns (bytes32) {
         return store.firstRivals[mutualId];
+    }
+
+    /// @inheritdoc IEdgeChallengeManager
+    function mutualCount(bytes32 mutualId) public view returns (uint256) {
+        return store.mutualCount[mutualId];
     }
 }
