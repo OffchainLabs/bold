@@ -1699,16 +1699,80 @@ contract EdgeChallengeManagerTest is Test {
         return (ei, allWinners);
     }
 
-    // todo: don't think this makes sense anymore
-    // function testExcessStakeReceived() external {
-    //     (EdgeInitData memory ei,) = testCanConfirmByOneStep();
-    //     IERC20 stakeToken = ei.challengeManager.stakeToken();
-    //     assertEq(
-    //         stakeToken.balanceOf(excessStakeReceiver),
-    //         ei.challengeManager.stakeAmount() * (NUM_BIGSTEP_LEVEL + 2),
-    //         "Excess stake received"
-    //     );
-    // }
+    // todo: figure out a way to test that stake is being set properly on new edges, probably in lib tests
+    // also test that mutual count is updated (kinda part of the above)
+
+    // testCanSweepStake
+    // testRevertSweepUndefeatedEdge
+    // testRevertSweepConfirmedEdge
+    // testRevertSweepNonLayerZeroEdge
+    // testRevertSweepEdgeTwice
+
+    function _confirmEdgeByChildrenByTime(EdgeInitData memory ei, bytes32[] memory states, bytes32 edgeId) internal {
+        // bisect first edge and confirm children by time
+        BisectionChildren memory children = bisect(
+            ei.challengeManager, edgeId, states, 16, states.length - 1
+        );
+
+        vm.roll(challengePeriodBlock + 2);
+        
+        bytes32[] memory parent = new bytes32[](1);
+        parent[0] = edgeId;
+        ei.challengeManager.confirmEdgeByTime(children.lowerChildId, parent, ei.a1Data);
+        ei.challengeManager.confirmEdgeByTime(children.upperChildId, parent, ei.a1Data);
+
+        // finally confirm edge 1 by children
+        ei.challengeManager.confirmEdgeByChildren(edgeId);
+    }
+
+    function _createLevelZeroLayerZeroEdge(EdgeInitData memory ei) internal returns (bytes32[] memory states, bytes32[] memory exp, bytes32 edgeId) {
+        (states, exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
+
+        edgeId = ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                level: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    genesisStateData,
+                    ei.a1Data
+                    ),
+                maxStakeAmount: type(uint256).max
+            })
+        );
+    }
+
+    function testCanSweepStake() external {
+        EdgeInitData memory ei = deployAndInit();
+        (bytes32[] memory states,, bytes32 edgeId) = _createLevelZeroLayerZeroEdge(ei);
+        (,,bytes32 defeated1) = _createLevelZeroLayerZeroEdge(ei);
+        (,,bytes32 defeated2) = _createLevelZeroLayerZeroEdge(ei);
+
+        _confirmEdgeByChildrenByTime(ei, states, edgeId);
+
+        address receiver = ei.challengeManager.excessStakeReceiver();
+        uint256 beforeBalance = ei.challengeManager.stakeToken().balanceOf(receiver);
+
+        bytes32[] memory defeated = new bytes32[](2);
+        defeated[0] = defeated1;
+        defeated[1] = defeated2;
+        ei.challengeManager.sweepExcessStake(defeated);
+
+        uint256 afterBalance = ei.challengeManager.stakeToken().balanceOf(receiver);
+
+        uint256 expectedAmount = ei.challengeManager.getEdge(defeated1).stakeAmount + ei.challengeManager.getEdge(defeated2).stakeAmount;
+        assertEq(afterBalance - beforeBalance, expectedAmount, "Stake swept");
+
+        assertTrue(ei.challengeManager.getEdge(defeated1).refunded, "1 refunded");
+        assertTrue(ei.challengeManager.getEdge(defeated2).refunded, "2 refunded");
+    }
 
     function testCanRefundStake() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
