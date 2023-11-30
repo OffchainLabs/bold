@@ -1739,10 +1739,7 @@ contract EdgeChallengeManagerTest is Test {
             })
         );
     }
-
-    // todo: figure out a way to test that stake is being set properly on new edges, probably in lib tests
-    // also test that mutual count is updated (kinda part of the above)
-
+    
     function testCanSweepStake() public returns (EdgeInitData memory ei, bytes32[] memory defeatedIds, bytes32 confirmedId) {
         ei = deployAndInit();
         bytes32[] memory states;
@@ -1824,6 +1821,114 @@ contract EdgeChallengeManagerTest is Test {
         (EdgeInitData memory ei, bytes32[] memory defeatedIds,) = testCanSweepStake();
         vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyRefunded.selector, defeatedIds[0]));
         ei.challengeManager.sweepExcessStake(defeatedIds);
+    }
+
+    function testStakeAmountCorrectlySet() external {
+        EdgeInitData memory ei = deployAndInit();
+        (,,bytes32 e1) = _createLevelZeroLayerZeroEdge(ei);
+        ChallengeEdge memory edge1 = ei.challengeManager.getEdge(e1);
+        assertEq(edge1.stakeAmount, miniStakeVal, "Stake amount 1");
+        assertEq(ei.challengeManager.mutualCount(edge1.mutualIdMem()), 1, "Mutual Count 1");
+
+        (,,bytes32 e2) = _createLevelZeroLayerZeroEdge(ei);
+        ChallengeEdge memory edge2 = ei.challengeManager.getEdge(e2);
+        assertEq(edge2.stakeAmount, miniStakeVal + miniStakeSlope, "Stake amount 2");
+        assertEq(ei.challengeManager.mutualCount(edge2.mutualIdMem()), 2, "Mutual Count 2");
+
+        (,,bytes32 e3) = _createLevelZeroLayerZeroEdge(ei);
+        ChallengeEdge memory edge3 = ei.challengeManager.getEdge(e3);
+        assertEq(edge3.stakeAmount, miniStakeVal + miniStakeSlope * 2, "Stake amount 3");
+        assertEq(ei.challengeManager.mutualCount(edge3.mutualIdMem()), 3, "Mutual Count 3");
+    }
+
+    function testMaxStakeArgument() external {
+        EdgeInitData memory ei = deployAndInit();
+
+        (bytes32[] memory states, bytes32[] memory exp) =
+            appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
+        vm.expectRevert(abi.encodeWithSelector(MaxStakeTooLow.selector, miniStakeVal, miniStakeVal - 1));
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                level: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    genesisStateData,
+                    ei.a1Data
+                    ),
+                maxStakeAmount: miniStakeVal - 1
+            })
+        );
+
+        // create an edge
+        (states, exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                level: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    genesisStateData,
+                    ei.a1Data
+                    ),
+                maxStakeAmount: miniStakeVal
+            })
+        );
+
+        // now try to low ball again
+        (states, exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
+        vm.expectRevert(abi.encodeWithSelector(MaxStakeTooLow.selector, miniStakeVal + miniStakeSlope, miniStakeVal + miniStakeSlope - 1));
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                level: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    genesisStateData,
+                    ei.a1Data
+                    ),
+                maxStakeAmount: miniStakeVal + miniStakeSlope - 1
+            })
+        );
+
+        // create an edge
+        (states, exp) = appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a1State), height1);
+        ei.challengeManager.createLayerZeroEdge(
+            CreateEdgeArgs({
+                level: 0,
+                endHistoryRoot: MerkleTreeLib.root(exp),
+                endHeight: height1,
+                claimId: ei.a1,
+                prefixProof: abi.encode(
+                    ProofUtils.expansionFromLeaves(states, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ),
+                proof: abi.encode(
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    genesisStateData,
+                    ei.a1Data
+                    ),
+                maxStakeAmount: miniStakeVal + miniStakeSlope
+            })
+        );
     }
 
     function testCanRefundStake() external {
