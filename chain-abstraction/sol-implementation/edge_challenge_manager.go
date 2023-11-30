@@ -811,6 +811,9 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err == nil && !someLevelZeroEdge.IsNone() {
 		return &honestEdge{someLevelZeroEdge.Unwrap()}, nil
 	}
+	maxUint256 := new(big.Int)
+	maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
+
 	args := challengeV2gen.CreateEdgeArgs{
 		Level:          protocol.NewBlockChallengeLevel().Uint8(),
 		EndHistoryRoot: endCommit.Merkle,
@@ -818,6 +821,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		ClaimId:        assertionCreation.AssertionHash,
 		PrefixProof:    startEndPrefixProof,
 		Proof:          blockEdgeProof,
+		MaxStakeAmount: maxUint256, // TODO: Allow customization.
 	}
 	receipt, err := cm.assertionChain.transact(ctx, cm.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
@@ -921,6 +925,8 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+	maxUint256 := new(big.Int)
+	maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
 	_, err = cm.assertionChain.transact(ctx, cm.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			opts,
@@ -931,6 +937,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 				ClaimId:        challengedEdge.Id().Hash,
 				PrefixProof:    startEndPrefixProof,
 				Proof:          subchallengeEdgeProof,
+				MaxStakeAmount: maxUint256, // TODO: Allow customization.
 			},
 		)
 	})
