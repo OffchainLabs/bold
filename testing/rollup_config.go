@@ -52,6 +52,18 @@ func WithBaseStakeValue(num *big.Int) Opt {
 	}
 }
 
+func WithInitialMiniStakeValue(val *big.Int) Opt {
+	return func(c *rollupgen.Config) {
+		c.InitialMiniStakeValue = val
+	}
+}
+
+func WithMiniStakeSlope(b *big.Int) Opt {
+	return func(c *rollupgen.Config) {
+		c.MiniStakeSlope = b
+	}
+}
+
 func WithChainConfig(cfg string) Opt {
 	return func(c *rollupgen.Config) {
 		c.ChainConfig = cfg
@@ -85,16 +97,18 @@ func GenerateRollupConfig(
 		gracePeriod = 3
 	}
 
+	defaultMiniStakeSlope := big.NewInt(2)
 	cfg := rollupgen.Config{
-		MiniStakeValue:      miniStakeValue,
-		ConfirmPeriodBlocks: confirmPeriod,
-		StakeToken:          stakeToken,
-		BaseStake:           big.NewInt(1),
-		WasmModuleRoot:      wasmModuleRoot,
-		Owner:               rollupOwner,
-		LoserStakeEscrow:    loserStakeEscrow,
-		ChainId:             chainId,
-		ChainConfig:         "{ 'config': 'Test config'}",
+		InitialMiniStakeValue: miniStakeValue,
+		MiniStakeSlope:        defaultMiniStakeSlope,
+		ConfirmPeriodBlocks:   confirmPeriod,
+		StakeToken:            stakeToken,
+		BaseStake:             big.NewInt(1),
+		WasmModuleRoot:        wasmModuleRoot,
+		Owner:                 rollupOwner,
+		LoserStakeEscrow:      loserStakeEscrow,
+		ChainId:               chainId,
+		ChainConfig:           "{ 'config': 'Test config'}",
 		SequencerInboxMaxTimeVariation: rollupgen.ISequencerInboxMaxTimeVariation{
 			DelayBlocks:   big.NewInt(60 * 60 * 24 / 15),
 			FutureBlocks:  big.NewInt(12),

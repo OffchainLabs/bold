@@ -818,6 +818,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		ClaimId:        assertionCreation.AssertionHash,
 		PrefixProof:    startEndPrefixProof,
 		Proof:          blockEdgeProof,
+		MaxStakeAmount: nil, // TODO: Allow customization.
 	}
 	receipt, err := cm.assertionChain.transact(ctx, cm.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
