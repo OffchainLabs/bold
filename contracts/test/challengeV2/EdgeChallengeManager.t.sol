@@ -1743,23 +1743,22 @@ contract EdgeChallengeManagerTest is Test {
     // todo: figure out a way to test that stake is being set properly on new edges, probably in lib tests
     // also test that mutual count is updated (kinda part of the above)
 
-    // testRevertSweepEdgeTwice
-
-    function testCanSweepStake() external {
-        EdgeInitData memory ei = deployAndInit();
-        (bytes32[] memory states,, bytes32 edgeId) = _createLevelZeroLayerZeroEdge(ei);
+    function testCanSweepStake() public returns (EdgeInitData memory ei, bytes32[] memory defeatedIds, bytes32 confirmedId) {
+        ei = deployAndInit();
+        bytes32[] memory states;
+        (states,, confirmedId) = _createLevelZeroLayerZeroEdge(ei);
         (,,bytes32 defeated1) = _createLevelZeroLayerZeroEdge(ei);
         (,,bytes32 defeated2) = _createLevelZeroLayerZeroEdge(ei);
-        bytes32[] memory defeated = new bytes32[](2);
-        defeated[0] = defeated1;
-        defeated[1] = defeated2;
+        defeatedIds = new bytes32[](2);
+        defeatedIds[0] = defeated1;
+        defeatedIds[1] = defeated2;
 
-        _confirmEdgeByChildrenByTime(ei, states, edgeId);
+        _confirmEdgeByChildrenByTime(ei, states, confirmedId);
 
         address receiver = ei.challengeManager.excessStakeReceiver();
         uint256 beforeBalance = ei.challengeManager.stakeToken().balanceOf(receiver);
 
-        ei.challengeManager.sweepExcessStake(defeated);
+        ei.challengeManager.sweepExcessStake(defeatedIds);
 
         uint256 afterBalance = ei.challengeManager.stakeToken().balanceOf(receiver);
 
@@ -1819,6 +1818,12 @@ contract EdgeChallengeManagerTest is Test {
             ei.challengeManager.getEdge(children2.lowerChildId).claimId
         ));
         ei.challengeManager.sweepExcessStake(toSweep);
+    }
+
+    function testRevertSweepEdgeTwice() external {
+        (EdgeInitData memory ei, bytes32[] memory defeatedIds,) = testCanSweepStake();
+        vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyRefunded.selector, defeatedIds[0]));
+        ei.challengeManager.sweepExcessStake(defeatedIds);
     }
 
     function testCanRefundStake() external {
