@@ -401,7 +401,7 @@ contract BOLDUpgradeAction {
         Config memory config = createConfig();
 
         // deploy the new challenge manager
-        IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
+        EdgeChallengeManager challengeManager = EdgeChallengeManager(
             address(
                 new TransparentUpgradeableProxy(
                     address(IMPL_CHALLENGE_MANAGER),
@@ -432,18 +432,19 @@ contract BOLDUpgradeAction {
             Create2Upgradeable.computeAddress(rollupSalt, keccak256(type(RollupProxy).creationCode));
         upgradeSurroundingContracts(expectedRollupAddress);
 
-        challengeManager.initialize({
-            _assertionChain: IAssertionChain(expectedRollupAddress),
-            _challengePeriodBlocks: CHALLENGE_PERIOD_BLOCKS,
-            _oneStepProofEntry: OSP,
-            layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
-            layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
-            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
-            _stakeToken: IERC20(config.stakeToken),
-            _stakeAmount: config.miniStakeValue,
-            _excessStakeReceiver: L1_TIMELOCK,
-            _numBigStepLevel: config.numBigStepLevel
-        });
+        // since challengeManager is immutable, we don't initialize
+        // we will still make sure configuration is expected though
+        EdgeChallengeManager ecmImpl = EdgeChallengeManager(IMPL_CHALLENGE_MANAGER);
+        require(ecmImpl.assertionChain() == IAssertionChain(expectedRollupAddress), "UNEXPECTED_ASSERTION_CHAIN");
+        require(ecmImpl.challengePeriodBlocks() == CHALLENGE_PERIOD_BLOCKS, "UNEXPECTED_CHALLENGE_PERIOD_BLOCKS");
+        require(ecmImpl.oneStepProofEntry() == OSP, "UNEXPECTED_ONE_STEP_PROOF_ENTRY");
+        require(ecmImpl.LAYERZERO_BLOCKEDGE_HEIGHT() == config.layerZeroBlockEdgeHeight, "UNEXPECTED_LAYER_ZERO_BLOCK_EDGE_HEIGHT");
+        require(ecmImpl.LAYERZERO_BIGSTEPEDGE_HEIGHT() == config.layerZeroBigStepEdgeHeight, "UNEXPECTED_LAYER_ZERO_BIG_STEP_EDGE_HEIGHT");
+        require(ecmImpl.LAYERZERO_SMALLSTEPEDGE_HEIGHT() == config.layerZeroSmallStepEdgeHeight, "UNEXPECTED_LAYER_ZERO_SMALL_STEP_EDGE_HEIGHT");
+        require(ecmImpl.stakeToken() == IERC20(config.stakeToken), "UNEXPECTED_STAKE_TOKEN");
+        require(ecmImpl.stakeAmount() == config.miniStakeValue, "UNEXPECTED_STAKE_AMOUNT");
+        require(ecmImpl.excessStakeReceiver() == L1_TIMELOCK, "UNEXPECTED_EXCESS_STAKE_RECEIVER");
+        require(ecmImpl.NUM_BIGSTEP_LEVEL() == config.numBigStepLevel, "UNEXPECTED_NUM_BIG_STEP_LEVEL");
 
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}();
         require(address(rollup) == expectedRollupAddress, "UNEXPCTED_ROLLUP_ADDR");

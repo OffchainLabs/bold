@@ -16,34 +16,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title EdgeChallengeManager interface
 interface IEdgeChallengeManager {
-    /// @notice Initialize the EdgeChallengeManager. EdgeChallengeManagers are upgradeable
-    ///         so use the initializer paradigm
-    /// @param _assertionChain              The assertion chain contract
-    /// @param _challengePeriodBlocks       The amount of cumulative time an edge must spend unrivaled before it can be confirmed
-    ///                                     This should be the censorship period + the cumulative amount of time needed to do any
-    ///                                     offchain calculation. We currently estimate around 10 mins for each layer zero edge and 1
-    ///                                     one minute for each other edge.
-    /// @param _oneStepProofEntry           The one step proof logic
-    /// @param layerZeroBlockEdgeHeight     The end height of layer zero edges of type Block
-    /// @param layerZeroBigStepEdgeHeight   The end height of layer zero edges of type BigStep
-    /// @param layerZeroSmallStepEdgeHeight The end height of layer zero edges of type SmallStep
-    /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
-    /// @param _stakeAmount                 The amount of stake (in units of stake token) required to create a block edge
-    /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
-    /// @param _numBigStepLevel             The number of bigstep levels
-    function initialize(
-        IAssertionChain _assertionChain,
-        uint64 _challengePeriodBlocks,
-        IOneStepProofEntry _oneStepProofEntry,
-        uint256 layerZeroBlockEdgeHeight,
-        uint256 layerZeroBigStepEdgeHeight,
-        uint256 layerZeroSmallStepEdgeHeight,
-        IERC20 _stakeToken,
-        uint256 _stakeAmount,
-        address _excessStakeReceiver,
-        uint8 _numBigStepLevel
-    ) external;
-
     function challengePeriodBlocks() external view returns (uint64);
 
     /// @notice The one step proof resolver used to decide between rival SmallStep edges of length 1
@@ -195,7 +167,7 @@ interface IEdgeChallengeManager {
 ///         believe in. These edges are then bisected, reducing the size of the disagreement with each bisection, and narrowing in on the
 ///         exact point of disagreement. Eventually, at step size 1, the step can be proved on-chain directly proving that the related assertion
 ///         must be invalid.
-contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
+contract EdgeChallengeManager is IEdgeChallengeManager {
     using EdgeChallengeManagerLib for EdgeStore;
     using ChallengeEdgeLib for ChallengeEdge;
     using SafeERC20 for IERC20;
@@ -268,39 +240,47 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///         to later refund for that edge. Other stakes can immediately be sent to an excess stake receiver.
     ///         This excess stake receiver can then choose to refund the gas of participants who aided in the confirmation
     ///         of the winning edge
-    address public excessStakeReceiver;
+    address public immutable excessStakeReceiver;
 
     /// @notice The token to supply stake in
-    IERC20 public stakeToken;
+    IERC20 public immutable stakeToken;
 
     /// @notice The amount of stake token to be supplied when creating a zero layer block edge
-    uint256 public stakeAmount;
+    uint256 public immutable stakeAmount;
 
     /// @notice The number of blocks accumulated on an edge before it can be confirmed by time
-    uint64 public challengePeriodBlocks;
+    uint64 public immutable challengePeriodBlocks;
 
     /// @notice The assertion chain about which challenges are created
-    IAssertionChain public assertionChain;
+    IAssertionChain public immutable assertionChain;
 
     /// @inheritdoc IEdgeChallengeManager
-    IOneStepProofEntry public override oneStepProofEntry;
+    IOneStepProofEntry public override immutable oneStepProofEntry;
 
     /// @notice The end height of layer zero Block edges
-    uint256 public LAYERZERO_BLOCKEDGE_HEIGHT;
+    uint256 public immutable LAYERZERO_BLOCKEDGE_HEIGHT;
     /// @notice The end height of layer zero BigStep edges
-    uint256 public LAYERZERO_BIGSTEPEDGE_HEIGHT;
+    uint256 public immutable LAYERZERO_BIGSTEPEDGE_HEIGHT;
     /// @notice The end height of layer zero SmallStep edges
-    uint256 public LAYERZERO_SMALLSTEPEDGE_HEIGHT;
+    uint256 public immutable LAYERZERO_SMALLSTEPEDGE_HEIGHT;
     /// @notice The number of big step levels configured for this challenge manager
     ///         There is 1 block level, 1 small step level and N big step levels
-    uint8 public NUM_BIGSTEP_LEVEL;
+    uint8 public immutable NUM_BIGSTEP_LEVEL;
 
-    constructor() {
-        _disableInitializers();
-    }
-
-    /// @inheritdoc IEdgeChallengeManager
-    function initialize(
+    /// @param _assertionChain              The assertion chain contract
+    /// @param _challengePeriodBlocks       The amount of cumulative time an edge must spend unrivaled before it can be confirmed
+    ///                                     This should be the censorship period + the cumulative amount of time needed to do any
+    ///                                     offchain calculation. We currently estimate around 10 mins for each layer zero edge and 1
+    ///                                     one minute for each other edge.
+    /// @param _oneStepProofEntry           The one step proof logic
+    /// @param layerZeroBlockEdgeHeight     The end height of layer zero edges of type Block
+    /// @param layerZeroBigStepEdgeHeight   The end height of layer zero edges of type BigStep
+    /// @param layerZeroSmallStepEdgeHeight The end height of layer zero edges of type SmallStep
+    /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
+    /// @param _stakeAmount                 The amount of stake (in units of stake token) required to create a block edge
+    /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
+    /// @param _numBigStepLevel             The number of bigstep levels
+    constructor(
         IAssertionChain _assertionChain,
         uint64 _challengePeriodBlocks,
         IOneStepProofEntry _oneStepProofEntry,
@@ -311,7 +291,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 _stakeAmount,
         address _excessStakeReceiver,
         uint8 _numBigStepLevel
-    ) public initializer {
+    ) {
         if (address(_assertionChain) == address(0)) {
             revert EmptyAssertionChain();
         }

@@ -92,7 +92,6 @@ contract AssertinPoolTest is Test {
             oneStepProverMath,
             oneStepProverHostIo
         );
-        EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator(MAX_DATA_SIZE);
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
@@ -101,7 +100,6 @@ contract AssertinPoolTest is Test {
         rollupCreator.setTemplates(
             bridgeCreator,
             oneStepProofEntry,
-            edgeChallengeManager,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
             address(0)

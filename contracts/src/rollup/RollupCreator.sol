@@ -21,7 +21,6 @@ contract RollupCreator is Ownable {
 
     BridgeCreator public bridgeCreator;
     IOneStepProofEntry public osp;
-    IEdgeChallengeManager public challengeManagerTemplate;
     IRollupAdmin public rollupAdminLogic;
     IRollupUser public rollupUserLogic;
 
@@ -32,14 +31,12 @@ contract RollupCreator is Ownable {
     function setTemplates(
         BridgeCreator _bridgeCreator,
         IOneStepProofEntry _osp,
-        IEdgeChallengeManager _challengeManagerLogic,
         IRollupAdmin _rollupAdminLogic,
         IRollupUser _rollupUserLogic,
         address _validatorWalletCreator
     ) external onlyOwner {
         bridgeCreator = _bridgeCreator;
         osp = _osp;
-        challengeManagerTemplate = _challengeManagerLogic;
         rollupAdminLogic = _rollupAdminLogic;
         rollupUserLogic = _rollupUserLogic;
         validatorWalletCreator = _validatorWalletCreator;
@@ -51,17 +48,7 @@ contract RollupCreator is Ownable {
         internal
         returns (IEdgeChallengeManager)
     {
-        IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(challengeManagerTemplate),
-                    proxyAdminAddr,
-                    ""
-                )
-            )
-        );
-
-        challengeManager.initialize({
+        EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager({
             _assertionChain: IAssertionChain(rollupAddr),
             _challengePeriodBlocks: config.confirmPeriodBlocks,
             _oneStepProofEntry: osp,
@@ -73,6 +60,16 @@ contract RollupCreator is Ownable {
             _excessStakeReceiver: config.owner,
             _numBigStepLevel: config.numBigStepLevel
         });
+
+        IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(challengeManagerTemplate),
+                    proxyAdminAddr,
+                    ""
+                )
+            )
+        );
 
         return challengeManager;
     }
