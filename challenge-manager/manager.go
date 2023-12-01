@@ -370,3 +370,7 @@ func (m *Manager) Start(ctx context.Context) {
 		}()
 	}
 }
+
+func (m *Manager) AssertionManager() *assertions.Manager {
+	return m.assertionManager
+}
