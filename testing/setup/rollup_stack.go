@@ -15,7 +15,6 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
-	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -624,17 +623,17 @@ func deployBridgeCreator(
 	return result.bridgeCreatorAddr, nil
 }
 
-func deployChallengeFactory(
+func deployOspEntry(
 	ctx context.Context,
 	auth *bind.TransactOpts,
 	backend Backend,
 	useMockOneStepProver bool,
-) (common.Address, common.Address, error) {
+) (common.Address, error) {
 	var ospEntryAddr common.Address
 	if useMockOneStepProver {
 		ospEntry, tx, _, err := mocksgen.DeploySimpleOneStepProofEntry(auth, backend)
 		if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
-			return common.Address{}, common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
+			return common.Address{}, errors.Wrap(err, "mocksgen.DeployMockOneStepProofEntry")
 		}
 		ospEntryAddr = ospEntry
 	} else {
@@ -647,7 +646,7 @@ func deployChallengeFactory(
 			return osp0Addr, nil
 		})
 		if err != nil {
-			return common.Address{}, common.Address{}, err
+			return common.Address{}, err
 		}
 		srvlog.Info("Deploying ospMem")
 		ospMem, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
@@ -658,7 +657,7 @@ func deployChallengeFactory(
 			return ospMemAddr, nil
 		})
 		if err != nil {
-			return common.Address{}, common.Address{}, err
+			return common.Address{}, err
 		}
 		srvlog.Info("Deploying ospMath")
 		ospMath, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
@@ -669,7 +668,7 @@ func deployChallengeFactory(
 			return ospMathAddr, nil
 		})
 		if err != nil {
-			return common.Address{}, common.Address{}, err
+			return common.Address{}, err
 		}
 		srvlog.Info("Deploying ospHostIo")
 		ospHostIo, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
@@ -680,7 +679,7 @@ func deployChallengeFactory(
 			return ospHostIoAddr, nil
 		})
 		if err != nil {
-			return common.Address{}, common.Address{}, err
+			return common.Address{}, err
 		}
 		srvlog.Info("Deploying ospEntry")
 		ospEntry, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
@@ -691,25 +690,11 @@ func deployChallengeFactory(
 			return ospEntryAddr2, nil
 		})
 		if err != nil {
-			return common.Address{}, common.Address{}, err
+			return common.Address{}, err
 		}
 		ospEntryAddr = ospEntry
 	}
-	srvlog.Info("Deploying edge challenge manager")
-	edgeChallengeManagerAddr, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
-		edgeChallengeManagerAddr2, _, _, err2 := challengeV2gen.DeployEdgeChallengeManager(
-			auth,
-			backend,
-		)
-		if err2 != nil {
-			return common.Address{}, err2
-		}
-		return edgeChallengeManagerAddr2, nil
-	})
-	if err != nil {
-		return common.Address{}, common.Address{}, err
-	}
-	return ospEntryAddr, edgeChallengeManagerAddr, nil
+	return ospEntryAddr, nil
 }
 
 func deployRollupCreator(
@@ -725,7 +710,7 @@ func deployRollupCreator(
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
 	srvlog.Info("Deploying challenge factory contracts")
-	ospEntryAddr, challengeManagerAddr, err := deployChallengeFactory(ctx, auth, backend, useMockOneStepProver)
+	ospEntryAddr, err := deployOspEntry(ctx, auth, backend, useMockOneStepProver)
 	if err != nil {
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
@@ -802,7 +787,6 @@ func deployRollupCreator(
 			auth,
 			bridgeCreator,
 			ospEntryAddr,
-			challengeManagerAddr,
 			rollupAdminLogic,
 			rollupUserLogic,
 			validatorWalletCreator,
