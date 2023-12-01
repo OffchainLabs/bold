@@ -271,14 +271,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @param stakeAmount  The amount of tokens being refunded
     event EdgeRefunded(bytes32 indexed edgeId, bytes32 indexed mutualId, address stakeToken, uint256 stakeAmount);
 
-    /// @notice Some stakes have been swept from defeated layer zero edges
-    /// @param defeatedEdgeIds  The ids of the defeated edges
-    /// @param stakeToken       The ERC20 being swept
-    /// @param totalStake       The total amount of tokens being swept
-    event DefeatedEdgeStakesSwept(
-        bytes32[] defeatedEdgeIds,
-        address stakeToken,
-        uint256 totalStake
+    /// @notice A defeated edge's stake has been swept
+    /// @param edgeId           The edge that was defeated
+    /// @param mutualId         The mutual id of the defeated edge
+    /// @param stakeAmount      The amount of tokens being swept
+    event DefeatedEdgeStakeSwept(
+        bytes32 indexed edgeId,
+        bytes32 indexed mutualId,
+        uint256 stakeAmount
     );
 
     /// @dev Store for all edges and rival data
@@ -648,6 +648,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
             // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
             totalStake += stakeAmount;
+
+            emit DefeatedEdgeStakeSwept(defeatedId, mutualId, stakeAmount);
         }
 
         // send the excess stake to the excessStakeReceiver
@@ -655,8 +657,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         if (address(st) != address(0) && totalStake != 0) {
             st.safeTransfer(excessStakeReceiver, totalStake);
         }
-
-        emit DefeatedEdgeStakesSwept(defeatedEdgeIds, address(st), totalStake);
     }
 
     ///////////////////////
