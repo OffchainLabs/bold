@@ -439,7 +439,7 @@ library EdgeChallengeManagerLib {
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
 
         // calculate, check and set stake amount
-        ce.stakeAmount = checkStakeAmount(store, ce, args, initialStakeAmount, stakeAmountSlope);
+        ce.stakeAmount = checkStakeAmount(store, ce.mutualIdMem(), args, initialStakeAmount, stakeAmountSlope);
 
         return add(store, ce);
     }
@@ -447,12 +447,12 @@ library EdgeChallengeManagerLib {
     /// @notice Calculate stake amount for an edge and require it is less than the max stake amount
     function checkStakeAmount(
         EdgeStore storage store,
-        ChallengeEdge memory ce,
+        bytes32 mutualId,
         CreateEdgeArgs calldata args,
         uint256 initialStakeAmount,
         uint256 stakeAmountSlope
     ) internal view returns (uint256) {
-        uint256 numRivals = store.mutualCount[ce.mutualIdMem()];
+        uint256 numRivals = store.mutualCount[mutualId];
         uint256 stakeAmount = calculateStakeAmountPure(initialStakeAmount, stakeAmountSlope, numRivals);
         if (args.maxStakeAmount < stakeAmount) {
             revert MaxStakeTooLow(stakeAmount, args.maxStakeAmount);
