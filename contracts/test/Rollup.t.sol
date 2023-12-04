@@ -87,13 +87,15 @@ contract RollupTest is Test {
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
         RollupUserLogic rollupUserLogicImpl = new RollupUserLogic();
+        EdgeChallengeManagerFactory challengeManagerFactory = new EdgeChallengeManagerFactory();
 
         rollupCreator.setTemplates(
             bridgeCreator,
             oneStepProofEntry,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
-            address(0)
+            address(0),
+            challengeManagerFactory
         );
 
         ExecutionState memory emptyState =

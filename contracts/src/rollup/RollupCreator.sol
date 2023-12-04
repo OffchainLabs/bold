@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./RollupProxy.sol";
 import "./IRollupAdmin.sol";
+import "../challengeV2/EdgeChallengeManagerFactory.sol";
 
 contract RollupCreator is Ownable {
     event RollupCreated(
@@ -23,6 +24,7 @@ contract RollupCreator is Ownable {
     IOneStepProofEntry public osp;
     IRollupAdmin public rollupAdminLogic;
     IRollupUser public rollupUserLogic;
+    EdgeChallengeManagerFactory public challengeManagerFactory;
 
     address public validatorWalletCreator;
 
@@ -33,13 +35,15 @@ contract RollupCreator is Ownable {
         IOneStepProofEntry _osp,
         IRollupAdmin _rollupAdminLogic,
         IRollupUser _rollupUserLogic,
-        address _validatorWalletCreator
+        address _validatorWalletCreator,
+        EdgeChallengeManagerFactory _challengeManagerFactory
     ) external onlyOwner {
         bridgeCreator = _bridgeCreator;
         osp = _osp;
         rollupAdminLogic = _rollupAdminLogic;
         rollupUserLogic = _rollupUserLogic;
         validatorWalletCreator = _validatorWalletCreator;
+        challengeManagerFactory = _challengeManagerFactory;
         emit TemplatesUpdated();
     }
 
@@ -48,7 +52,7 @@ contract RollupCreator is Ownable {
         internal
         returns (IEdgeChallengeManager)
     {
-        EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager({
+        EdgeChallengeManager impl = challengeManagerFactory.createChallengeManager({
             _assertionChain: IAssertionChain(rollupAddr),
             _challengePeriodBlocks: config.confirmPeriodBlocks,
             _oneStepProofEntry: osp,
@@ -64,7 +68,7 @@ contract RollupCreator is Ownable {
         IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
             address(
                 new TransparentUpgradeableProxy(
-                    address(challengeManagerTemplate),
+                    address(impl),
                     proxyAdminAddr,
                     ""
                 )

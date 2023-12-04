@@ -96,13 +96,15 @@ contract AssertinPoolTest is Test {
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
         RollupUserLogic rollupUserLogicImpl = new RollupUserLogic();
+        EdgeChallengeManagerFactory challengeManagerFactory = new EdgeChallengeManagerFactory();
 
         rollupCreator.setTemplates(
             bridgeCreator,
             oneStepProofEntry,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
-            address(0)
+            address(0),
+            challengeManagerFactory
         );
         ExecutionState memory emptyState =
             ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);

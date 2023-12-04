@@ -15,6 +15,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -781,6 +782,22 @@ func deployRollupCreator(
 		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
 	}
 
+	srvlog.Info("Deploying EdgeChallengeManagerFactory")
+	challengeManagerFactory, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		challengeManagerFactoryAddr, tx, _, err2 := challengeV2gen.DeployEdgeChallengeManagerFactory(auth, backend)
+		if err2 != nil {
+			return common.Address{}, err2
+		}
+		err2 = challenge_testing.TxSucceeded(ctx, tx, challengeManagerFactoryAddr, backend, err2)
+		if err2 != nil {
+			return common.Address{}, err2
+		}
+		return challengeManagerFactoryAddr, nil
+	})
+	if err != nil {
+		return nil, common.Address{}, common.Address{}, common.Address{}, common.Address{}, err
+	}
+
 	srvlog.Info("Setting rollup templates")
 	_, err = retry.UntilSucceeds[*types.Transaction](ctx, func() (*types.Transaction, error) {
 		tx, err2 := result.rollupCreator.SetTemplates(
@@ -790,6 +807,7 @@ func deployRollupCreator(
 			rollupAdminLogic,
 			rollupUserLogic,
 			validatorWalletCreator,
+			challengeManagerFactory,
 		)
 		if err2 != nil {
 			return nil, err2
