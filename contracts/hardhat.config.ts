@@ -20,6 +20,15 @@ const solidity = {
     },
   ],
   overrides: {
+    'src/challengeV2/EdgeChallengeManager.sol': {
+      version: '0.8.17',
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 400,
+        },
+      },
+    },
     'src/challengeV2/EdgeChallengeManagerFactory.sol': {
       version: '0.8.17',
       settings: {
