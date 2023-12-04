@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "./RollupProxy.sol";
 import "./RollupLib.sol";
 import "./RollupAdminLogic.sol";
+import "../challengeV2/EdgeChallengeManagerFactory.sol";
 
 struct Node {
     // Hash of the state of the chain as of this node
@@ -184,6 +185,7 @@ contract BOLDUpgradeAction {
     uint64 public immutable CHALLENGE_GRACE_PERIOD_BLOCKS;
 
     IOneStepProofEntry public immutable OSP;
+    EdgeChallengeManagerFactory public immutable CHALLENGE_MANAGER_FACTORY;
     // proxy admins of the contracts to be upgraded
     ProxyAdmin public immutable PROXY_ADMIN_OUTBOX;
     ProxyAdmin public immutable PROXY_ADMIN_BRIDGE;
@@ -201,7 +203,6 @@ contract BOLDUpgradeAction {
     address public immutable IMPL_PATCHED_OLD_ROLLUP_USER;
     address public immutable IMPL_NEW_ROLLUP_USER;
     address public immutable IMPL_NEW_ROLLUP_ADMIN;
-    address public immutable IMPL_CHALLENGE_MANAGER;
 
     event RollupMigrated(address rollup, address challengeManager);
 
@@ -237,7 +238,6 @@ contract BOLDUpgradeAction {
         address oldRollupUser;
         address newRollupUser;
         address newRollupAdmin;
-        address challengeManager;
     }
 
     struct Contracts {
@@ -249,6 +249,7 @@ contract BOLDUpgradeAction {
         address outbox;
         address inbox;
         IOneStepProofEntry osp;
+        EdgeChallengeManagerFactory challengeManagerFactory;
     }
 
     constructor(
@@ -265,6 +266,7 @@ contract BOLDUpgradeAction {
         OUTBOX = contracts.outbox;
         INBOX = contracts.inbox;
         OSP = contracts.osp;
+        CHALLENGE_MANAGER_FACTORY = contracts.challengeManagerFactory;
 
         PROXY_ADMIN_OUTBOX = ProxyAdmin(proxyAdmins.outbox);
         PROXY_ADMIN_BRIDGE = ProxyAdmin(proxyAdmins.bridge);
@@ -280,7 +282,6 @@ contract BOLDUpgradeAction {
         IMPL_PATCHED_OLD_ROLLUP_USER = implementations.oldRollupUser;
         IMPL_NEW_ROLLUP_USER = implementations.newRollupUser;
         IMPL_NEW_ROLLUP_ADMIN = implementations.newRollupAdmin;
-        IMPL_CHALLENGE_MANAGER = implementations.challengeManager;
 
         CHAIN_ID = settings.chainId;
         CONFIRM_PERIOD_BLOCKS = settings.confirmPeriodBlocks;
@@ -400,16 +401,26 @@ contract BOLDUpgradeAction {
         // create the config, we do this now so that we compute the expected rollup address
         Config memory config = createConfig();
 
-        // deploy the new challenge manager
-        EdgeChallengeManager challengeManager = EdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(IMPL_CHALLENGE_MANAGER),
-                    address(PROXY_ADMIN_BRIDGE), // use the same proxy admin as the bridge
-                    ""
-                )
-            )
-        );
+        // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
+        // to set of the new rollup address
+        bytes32 rollupSalt = keccak256(abi.encode(config));
+        address expectedRollupAddress =
+            Create2Upgradeable.computeAddress(rollupSalt, keccak256(type(RollupProxy).creationCode));
+        upgradeSurroundingContracts(expectedRollupAddress);
+
+        // deploy the challenge manager
+        EdgeChallengeManager challengeManager = CHALLENGE_MANAGER_FACTORY.createChallengeManager({
+            _assertionChain: IAssertionChain(expectedRollupAddress),
+            _challengePeriodBlocks: CHALLENGE_PERIOD_BLOCKS,
+            _oneStepProofEntry: OSP,
+            layerZeroBlockEdgeHeight: config.layerZeroBlockEdgeHeight,
+            layerZeroBigStepEdgeHeight: config.layerZeroBigStepEdgeHeight,
+            layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
+            _stakeToken: IERC20(config.stakeToken),
+            _stakeAmount: config.miniStakeValue,
+            _excessStakeReceiver: L1_TIMELOCK,
+            _numBigStepLevel: config.numBigStepLevel
+        });
 
         // now that all the dependent contracts are pointed at the new address we can
         // deploy and init the new rollup
@@ -424,27 +435,6 @@ contract BOLDUpgradeAction {
             rollupUserLogic: IRollupUser(IMPL_NEW_ROLLUP_USER),
             validatorWalletCreator: ROLLUP_READER.validatorWalletCreator()
         });
-
-        // upgrade the surrounding contracts eg bridge, outbox, seq inbox, rollup event inbox
-        // to set of the new rollup address
-        bytes32 rollupSalt = keccak256(abi.encode(config));
-        address expectedRollupAddress =
-            Create2Upgradeable.computeAddress(rollupSalt, keccak256(type(RollupProxy).creationCode));
-        upgradeSurroundingContracts(expectedRollupAddress);
-
-        // since challengeManager is immutable, we don't initialize
-        // we will still make sure configuration is expected though
-        EdgeChallengeManager ecmImpl = EdgeChallengeManager(IMPL_CHALLENGE_MANAGER);
-        require(ecmImpl.assertionChain() == IAssertionChain(expectedRollupAddress), "UNEXPECTED_ASSERTION_CHAIN");
-        require(ecmImpl.challengePeriodBlocks() == CHALLENGE_PERIOD_BLOCKS, "UNEXPECTED_CHALLENGE_PERIOD_BLOCKS");
-        require(ecmImpl.oneStepProofEntry() == OSP, "UNEXPECTED_ONE_STEP_PROOF_ENTRY");
-        require(ecmImpl.LAYERZERO_BLOCKEDGE_HEIGHT() == config.layerZeroBlockEdgeHeight, "UNEXPECTED_LAYER_ZERO_BLOCK_EDGE_HEIGHT");
-        require(ecmImpl.LAYERZERO_BIGSTEPEDGE_HEIGHT() == config.layerZeroBigStepEdgeHeight, "UNEXPECTED_LAYER_ZERO_BIG_STEP_EDGE_HEIGHT");
-        require(ecmImpl.LAYERZERO_SMALLSTEPEDGE_HEIGHT() == config.layerZeroSmallStepEdgeHeight, "UNEXPECTED_LAYER_ZERO_SMALL_STEP_EDGE_HEIGHT");
-        require(ecmImpl.stakeToken() == IERC20(config.stakeToken), "UNEXPECTED_STAKE_TOKEN");
-        require(ecmImpl.stakeAmount() == config.miniStakeValue, "UNEXPECTED_STAKE_AMOUNT");
-        require(ecmImpl.excessStakeReceiver() == L1_TIMELOCK, "UNEXPECTED_EXCESS_STAKE_RECEIVER");
-        require(ecmImpl.NUM_BIGSTEP_LEVEL() == config.numBigStepLevel, "UNEXPECTED_NUM_BIG_STEP_LEVEL");
 
         RollupProxy rollup = new RollupProxy{ salt: rollupSalt}();
         require(address(rollup) == expectedRollupAddress, "UNEXPCTED_ROLLUP_ADDR");

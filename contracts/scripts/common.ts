@@ -9,7 +9,7 @@ export interface DeployedContracts {
   oldRollupUser: string
   newRollupUser: string
   newRollupAdmin: string
-  challengeManager: string
+  challengeManagerFactory: string
   boldAction: string
   rollupReader: string
   preImageHashLookup: string

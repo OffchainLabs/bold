@@ -3,6 +3,7 @@ import {
   BOLDUpgradeAction__factory,
   Bridge__factory,
   EdgeChallengeManager__factory,
+  EdgeChallengeManagerFactory__factory,
   OneStepProofEntry__factory,
   OneStepProver0__factory,
   OneStepProverHostIo__factory,
@@ -79,10 +80,10 @@ export const deployDependencies = async (
     console.log(`New rollup admin logic deployed at: ${newRollupAdmin.address}`)
   }
 
-  const challengeManagerFac = new EdgeChallengeManager__factory(signer)
-  const challengeManager = await challengeManagerFac.deploy()
+  const challengeManagerFactoryFac = new EdgeChallengeManagerFactory__factory(signer)
+  const challengeManagerFactory = await challengeManagerFactoryFac.deploy()
   if (log) {
-    console.log(`Challenge manager deployed at: ${challengeManager.address}`)
+    console.log(`Challenge manager factory deployed at: ${challengeManagerFactory.address}`)
   }
 
   const prover0Fac = new OneStepProver0__factory(signer)
@@ -133,7 +134,7 @@ export const deployDependencies = async (
     oldRollupUser: oldRollupUser.address,
     newRollupUser: newRollupUser.address,
     newRollupAdmin: newRollupAdmin.address,
-    challengeManager: challengeManager.address,
+    challengeManagerFactory: challengeManagerFactory.address,
     prover0: prover0.address,
     proverMem: proverMem.address,
     proverMath: proverMath.address,
@@ -151,7 +152,7 @@ export const deployBoldUpgrade = async (
 
   const fac = new BOLDUpgradeAction__factory(wallet)
   const boldUpgradeAction = await fac.deploy(
-    { ...config.contracts, osp: deployed.osp },
+    { ...config.contracts, osp: deployed.osp, challengeManagerFactory: deployed.challengeManagerFactory },
     config.proxyAdmins,
     deployed,
     config.settings
