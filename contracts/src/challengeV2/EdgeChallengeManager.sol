@@ -636,20 +636,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             if (stakeAmount == 0) {
                 revert EdgeNotLayerZero(defeatedId, defeatedEdge.staker, defeatedEdge.claimId);
             }
-            // make sure the edge is not refunded
-            // todo: should we just skip this edge if it is already refunded instead of reverting?
-            // if there are a bunch of edges to sweep, someone could grief by frontrunning legitimate sweeps with an array of one edge repeatedly
-            if (defeatedEdge.refunded) {
-                revert EdgeAlreadyRefunded(defeatedEdgeIds[i]);
+
+            // if the edge is not refunded then refund it
+            if (!defeatedEdge.refunded) {
+                // mark the edge as refunded
+                defeatedEdge.refunded = true;
+
+                // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
+                totalStake += stakeAmount;
+
+                emit DefeatedEdgeStakeSwept(defeatedId, mutualId, stakeAmount);
             }
-
-            // mark the edge as refunded
-            defeatedEdge.refunded = true;
-
-            // we will send the edge's stakeAmount to the excessStakeReceiver outside the loop
-            totalStake += stakeAmount;
-
-            emit DefeatedEdgeStakeSwept(defeatedId, mutualId, stakeAmount);
         }
 
         // send the excess stake to the excessStakeReceiver

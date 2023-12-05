@@ -1817,10 +1817,16 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.sweepExcessStake(toSweep);
     }
 
-    function testRevertSweepEdgeTwice() external {
+    function testCannotSweepEdgeTwice() external {
         (EdgeInitData memory ei, bytes32[] memory defeatedIds,) = testCanSweepStake();
-        vm.expectRevert(abi.encodeWithSelector(EdgeAlreadyRefunded.selector, defeatedIds[0]));
+
+        uint256 receiverBalanceBefore = ei.challengeManager.stakeToken().balanceOf(ei.challengeManager.excessStakeReceiver());
+
         ei.challengeManager.sweepExcessStake(defeatedIds);
+
+        uint256 receiverBalanceAfter = ei.challengeManager.stakeToken().balanceOf(ei.challengeManager.excessStakeReceiver());
+
+        assertEq(receiverBalanceAfter, receiverBalanceBefore, "Stake swept");
     }
 
     function testStakeAmountCorrectlySet() external {
