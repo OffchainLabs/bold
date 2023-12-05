@@ -47,9 +47,15 @@ async function main() {
   }
 
   if (
-    !(await edgeChallengeManager.stakeAmount()).eq(config.settings.miniStakeAmt)
+    !(await edgeChallengeManager.initialStakeAmount()).eq(config.settings.initialMiniStakeAmt)
   ) {
-    throw new Error('Mini stake amount does not match')
+    throw new Error('Initial mini stake amount does not match')
+  }
+
+  if (
+    !(await edgeChallengeManager.stakeAmountSlope()).eq(config.settings.miniStakeSlope)
+  ) {
+    throw new Error('Mini stake slope does not match')
   }
 
   if (

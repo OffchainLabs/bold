@@ -56,7 +56,8 @@ export interface Config {
     challengePeriodBlocks: number
     stakeToken: string
     stakeAmt: BigNumber
-    miniStakeAmt: BigNumber
+    initialMiniStakeAmt: BigNumber
+    miniStakeSlope: BigNumber
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
@@ -145,9 +146,13 @@ export const validateConfig = async (
   if (stakeAmount.lt(parseEther('1'))) {
     throw new Error('stakeAmt is less than 1 eth')
   }
-  const miniStakeAmount = BigNumber.from(config.settings.miniStakeAmt)
-  if (miniStakeAmount.lt(parseEther('0.1'))) {
-    throw new Error('miniStakeAmt is less than 0.1 eth')
+  const initialMiniStakeAmt = BigNumber.from(config.settings.initialMiniStakeAmt)
+  if (initialMiniStakeAmt.lt(parseEther('0.1'))) {
+    throw new Error('initialMiniStakeAmt is less than 0.1 eth')
+  }
+  const miniStakeSlope = BigNumber.from(config.settings.miniStakeSlope)
+  if (miniStakeSlope.lt(parseEther('0.01'))) { // todo: pick sensible value
+    throw new Error('miniStakeSlope is less than 0.01 eth')
   }
 
   if (config.validators.length == 0) {
@@ -159,7 +164,8 @@ export const validateConfig = async (
     settings: {
       ...config.settings,
       stakeAmt: stakeAmount,
-      miniStakeAmt: miniStakeAmount,
+      initialMiniStakeAmt,
+      miniStakeSlope,
     },
   }
 }
