@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "edges",
+    srcs = [
+        "edge_table.go",
+        "edge_tree.go",
+    ],
+    importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/ui/edges",
+    visibility = ["//cmd/ctl:__subpackages__"],
+    deps = [
+        "//api",
+        "//cmd/ctl/internal/data",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_gdamore_tcell_v2//:tcell",
+        "@com_github_rivo_tview//:tview",
+    ],
+)

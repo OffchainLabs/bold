@@ -1,0 +1,56 @@
+[
+    {
+      "confirmPeriodBlocks": 25,
+      "requiredStake": "100",
+      "parentAssertionHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "inboxMaxCount": "1",
+      "afterInboxBatchAcc": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "assertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+      "wasmModuleRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "challengeManager": "0x05242d4ac717cdf38c36af290f2b0da99aa82c67",
+      "creationBlock": 16,
+      "transactionHash": "0xed6f60e02358cec9d29eeb5ed0052fd35b6816d605fce334e49f53ff30767f0f",
+      "L2State": {
+        "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "sendRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "batch": 0,
+        "positionInBatch": 0
+      }
+    },
+    {
+      "confirmPeriodBlocks": 25,
+      "requiredStake": "100",
+      "parentAssertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+      "inboxMaxCount": "2",
+      "afterInboxBatchAcc": "0x207ed133997114639b8f6059bf9da8e5f5bbc8f012eaca7820c63cc01bade064",
+      "assertionHash": "0x376ccd00372f3c54cfa3d679b1c716ef011b4bb0afeb92056945e79798e5b49f",
+      "wasmModuleRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "challengeManager": "0x05242d4ac717cdf38c36af290f2b0da99aa82c67",
+      "creationBlock": 128,
+      "transactionHash": "0x12852e176d21a56ed6e958cef1f2ad509a7fa366743ee33c49571757fb3836be",
+      "L2State": {
+        "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "sendRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "batch": 1,
+        "positionInBatch": 0
+      }
+    },
+    {
+      "confirmPeriodBlocks": 25,
+      "requiredStake": "100",
+      "parentAssertionHash": "0x73511b5292c9a73729fd9d9c78c78465c0a2c5f587ed26b1737224d0b63d5338",
+      "inboxMaxCount": "2",
+      "afterInboxBatchAcc": "0x207ed133997114639b8f6059bf9da8e5f5bbc8f012eaca7820c63cc01bade064",
+      "assertionHash": "0xc3cc19dbbf8d53226ea3045762b01c9310a29c2064a9d31d1fc7045b624fafc0",
+      "wasmModuleRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "challengeManager": "0x05242d4ac717cdf38c36af290f2b0da99aa82c67",
+      "creationBlock": 129,
+      "transactionHash": "0x092cea7092f0123c38ced239079e01c4bd263a4ffadc83ef09c4d28d24b12aa6",
+      "L2State": {
+        "blockHash": "0x0100000000000000000000000000000000000000000000000000000000000000",
+        "sendRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "batch": 1,
+        "positionInBatch": 0
+      }
+    }
+  ]

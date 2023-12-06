@@ -1,0 +1,8 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "linkline",
+    srcs = ["linkline.go"],
+    importpath = "github.com/OffchainLabs/bold/cmd/ctl/internal/ui/dag/linkline",
+    visibility = ["//cmd/ctl:__subpackages__"],
+)
