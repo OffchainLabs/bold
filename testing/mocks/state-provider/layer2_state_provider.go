@@ -44,6 +44,7 @@ type L2StateBackend struct {
 	forceMachineBlockCompat bool
 	maliciousMachineIndex   uint64
 	numBigSteps             uint64
+	numBatches              uint64
 	challengeLeafHeights    []l2stateprovider.Height
 }
 
@@ -129,6 +130,12 @@ func WithMaliciousMachineIndex(index uint64) Opt {
 	}
 }
 
+func WithNumBatchesRead(n uint64) Opt {
+	return func(s *L2StateBackend) {
+		s.numBatches = n
+	}
+}
+
 func NewForSimpleMachine(
 	opts ...Opt,
 ) (*L2StateBackend, error) {
@@ -139,6 +146,7 @@ func NewForSimpleMachine(
 			challenge_testing.LevelZeroBigStepEdgeHeight,
 			challenge_testing.LevelZeroSmallStepEdgeHeight,
 		},
+		numBatches: 1,
 	}
 	for _, o := range opts {
 		o(s)
@@ -160,7 +168,7 @@ func NewForSimpleMachine(
 		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	maxBatchesRead := big.NewInt(1)
+	maxBatchesRead := big.NewInt(int64(s.numBatches))
 	for block := uint64(0); ; block++ {
 		machine := NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
@@ -181,7 +189,7 @@ func NewForSimpleMachine(
 		s.executionStates = append(s.executionStates, state)
 		s.stateRoots = append(s.stateRoots, machHash)
 
-		if machine.IsStopped() || state.GlobalState.Batch >= 1 {
+		if machine.IsStopped() || state.GlobalState.Batch >= s.numBatches {
 			break
 		}
 		err := machine.Step(s.maxWavmOpcodes)
@@ -225,10 +233,20 @@ func (s *L2StateBackend) AgreesWithExecutionState(ctx context.Context, state *pr
 	return l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) (mmap.Mmap, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) (mmap.Mmap, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
+	var startIndex uint64
+	for i, st := range s.executionStates {
+		if st.GlobalState.Batch == fromBatch {
+			startIndex = uint64(i)
+			break
+		}
+	}
+	start := startIndex + blockStart
+	end := start + blockEnd
+
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
 	desiredStatesLen := int(blockEnd - blockStart + 1)
@@ -238,7 +256,7 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, toBatch uint64) (mmap.
 		return nil, err
 	}
 	var lastState common.Hash
-	for i := blockStart; i <= blockEnd; i++ {
+	for i := start; i <= end; i++ {
 		if i >= uint64(len(s.stateRoots)) {
 			break
 		}
