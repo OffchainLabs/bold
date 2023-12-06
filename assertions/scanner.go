@@ -112,6 +112,7 @@ func (m *Manager) Start(ctx context.Context) {
 		srvlog.Error("Could not get latest confirmed assertion", log.Ctx{"err": err})
 		return
 	}
+	srvlog.Error("The latest confirmed was in the manager", log.Ctx{"assertionHash": latestConfirmed.Id().Hash.Hex()})
 	fromBlock, err := latestConfirmed.CreatedAtBlock()
 	if err != nil {
 		srvlog.Error("Could not get creation block", log.Ctx{"err": err})

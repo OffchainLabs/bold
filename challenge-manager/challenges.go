@@ -25,11 +25,19 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		srvlog.Info(fmt.Sprintf("Already challenged assertion with id %#x, skipping", id.Hash))
 		return nil
 	}
+	srvlog.Error("Attempting to challenge assertion that is already done")
+	assertionStatus, err := m.chain.AssertionStatus(ctx, id)
+	if err != nil {
+		return errors.Wrapf(err, "could not get assertion status for hash: %#x", id.Hash)
+	}
+	if assertionStatus == protocol.AssertionConfirmed {
+		srvlog.Info(fmt.Sprintf("Skipping challenge on already confirmed assertion %#x, skipping", id.Hash))
+		return nil
+	}
 	assertion, err := m.chain.GetAssertion(ctx, id)
 	if err != nil {
 		return errors.Wrapf(err, "could not get assertion to challenge with id %#x", id)
 	}
-
 	// We then add a level zero edge to initiate a challenge.
 	levelZeroEdge, edgeTrackerAssertionInfo, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
