@@ -287,9 +287,8 @@ func setupEdgeTrackersForBisection(
 	)
 	require.NoError(t, err)
 
-	honestEdge, _, alreadyExists, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
+	honestEdge, _, _, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
 	require.NoError(t, err)
-	require.Equal(t, false, alreadyExists)
 
 	// If we specify an optional amount of blocks to delay the evil root edge creation by, do so
 	// by committing blocks to the simulated backend.
@@ -300,9 +299,8 @@ func setupEdgeTrackersForBisection(
 		}
 	}
 
-	evilEdge, _, alreadyExists, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
+	evilEdge, _, _, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
 	require.NoError(t, err)
-	require.Equal(t, false, alreadyExists)
 
 	// Check unrivaled statuses.
 	hasRival, err := honestEdge.HasRival(ctx)
