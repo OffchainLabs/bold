@@ -151,6 +151,8 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, nil, false, errors.Wrap(err, "could not calculate edge id")
 	}
 	someLevelZeroEdge, err := manager.GetEdge(ctx, precomputedEdgeId)
+
+	// If the edge already exists, we return true and everything else nil.
 	if err == nil && !someLevelZeroEdge.IsNone() {
 		return nil, nil, true, nil
 	}
