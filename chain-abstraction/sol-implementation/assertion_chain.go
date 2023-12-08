@@ -175,7 +175,12 @@ func (a *AssertionChain) IsChallengeComplete(
 	if err != nil {
 		return false, err
 	}
+	// Parent must be confirmed for a challenge to be considered complete, so we can
+	// short-circuit early here.
 	parentIsConfirmed := parentAssertionStatus == protocol.AssertionConfirmed
+	if !parentIsConfirmed {
+		return false, nil
+	}
 	latestConfirmed, err := a.LatestConfirmed(ctx)
 	if err != nil {
 		return false, err
