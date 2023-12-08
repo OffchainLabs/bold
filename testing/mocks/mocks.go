@@ -360,7 +360,7 @@ func (m *MockProtocol) Backend() protocol.ChainBackend {
 	return args.Get(0).(protocol.ChainBackend)
 }
 func (m *MockProtocol) IsChallengeComplete(ctx context.Context, challengeParentAssertionHash protocol.AssertionHash) (bool, error) {
-	args := m.Called()
+	args := m.Called(ctx, challengeParentAssertionHash)
 	return args.Get(0).(bool), args.Error(1)
 }
 func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
