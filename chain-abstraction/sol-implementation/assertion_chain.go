@@ -187,7 +187,7 @@ func (a *AssertionChain) IsChallengeComplete(
 	}
 	// A challenge is complete if the parent assertion of the challenge is confirmed
 	// and the latest confirmed assertion hash is not equal to the challenge's parent assertion hash.
-	challengeConfirmed := parentIsConfirmed && latestConfirmed.Id() != challengeParentAssertionHash
+	challengeConfirmed := latestConfirmed.Id() != challengeParentAssertionHash
 	if challengeConfirmed {
 		a.confirmedChallengesByParentAssertionHash.Insert(challengeParentAssertionHash)
 	}
