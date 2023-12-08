@@ -260,10 +260,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc
+        bytes32 inboxAcc,
+        bool byChallenge
     ) external override whenPaused {
         // this skip deadline, prev, challenge validations
-        confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc);
+        confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc, byChallenge);
         emit OwnerFunctionCalled(24);
     }
 

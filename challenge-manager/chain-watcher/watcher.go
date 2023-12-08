@@ -88,16 +88,15 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	histChecker                l2stateprovider.HistoryChecker
-	chain                      protocol.AssertionChain
-	edgeManager                EdgeManager
-	pollEventsInterval         time.Duration
-	challenges                 *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
-	backend                    bind.ContractBackend
-	validatorName              string
-	numBigStepLevels           uint8
-	initialSyncCompleted       atomic.Bool
-	challengeWinningAssertions *threadsafe.Set[protocol.AssertionHash]
+	histChecker          l2stateprovider.HistoryChecker
+	chain                protocol.AssertionChain
+	edgeManager          EdgeManager
+	pollEventsInterval   time.Duration
+	challenges           *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
+	backend              bind.ContractBackend
+	validatorName        string
+	numBigStepLevels     uint8
+	initialSyncCompleted atomic.Bool
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -115,15 +114,14 @@ func New(
 		return nil, errors.New("chain watcher polling interval must be greater than 0")
 	}
 	return &Watcher{
-		chain:                      chain,
-		edgeManager:                edgeManager,
-		pollEventsInterval:         interval,
-		challenges:                 threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
-		backend:                    backend,
-		histChecker:                histChecker,
-		numBigStepLevels:           numBigStepLevels,
-		validatorName:              validatorName,
-		challengeWinningAssertions: threadsafe.NewSet[protocol.AssertionHash](),
+		chain:              chain,
+		edgeManager:        edgeManager,
+		pollEventsInterval: interval,
+		challenges:         threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
+		backend:            backend,
+		histChecker:        histChecker,
+		numBigStepLevels:   numBigStepLevels,
+		validatorName:      validatorName,
 	}, nil
 }
 
@@ -439,41 +437,46 @@ func (w *Watcher) checkForEdgeAdded(
 	return nil
 }
 
-func (w *Watcher) hasConfirmedClaimedAssertion(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
-	if edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-		return false, nil
-	}
-	claim := edge.ClaimId()
-	if claim.IsNone() {
-		return false, nil
-	}
-	assertionHash := protocol.AssertionHash{Hash: common.Hash(claim.Unwrap())}
-	if w.challengeWinningAssertions.Has(assertionHash) {
-		return true, nil
-	}
-	status, err := w.chain.AssertionStatus(ctx, assertionHash)
-	if err != nil {
-		return false, err
-	}
-	if status == protocol.AssertionConfirmed {
-		w.challengeWinningAssertions.Insert(assertionHash)
-		return true, nil
-	}
+func (w *Watcher) checkChallengeIsComplete(ctx context.Context, assertionHash protocol.AssertionHash) (bool, error) {
+	// if edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
+	// 	return false, nil
+	// }
+	// claim := edge.ClaimId()
+	// if claim.IsNone() {
+	// 	return false, nil
+	// }
+	// assertionHash := protocol.AssertionHash{Hash: common.Hash(claim.Unwrap())}
+	// creationInfo, err := w.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	// if err != nil {
+	// 	return false, err
+	// }
+	// if w.challengeWinningAssertions.Has(creationInfo.ParentAssertionHash) {
+	// 	return true, nil
+	// }
+	// status, err := w.chain.AssertionStatus(ctx, assertionHash)
+	// if err != nil {
+	// 	return false, err
+	// }
+	// if status == protocol.AssertionConfirmed {
+	// 	w.challengeWinningAssertions.Insert(creationInfo.ParentAssertionHash)
+	// 	return true, nil
+	// }
+	// return false, nil
 	return false, nil
 }
 
 // AddEdge to watcher. If it is honest, it will be tracked.
 func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
-	hasWonChallenge, err := w.hasConfirmedClaimedAssertion(ctx, edge)
-	if err != nil {
-		return err
-	}
-	if hasWonChallenge {
-		return nil
-	}
 	assertionHash, err := edge.AssertionHash(ctx)
 	if err != nil {
 		return err
+	}
+	challengeComplete, err := w.checkChallengeIsComplete(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	if challengeComplete {
+		return nil
 	}
 	chal, ok := w.challenges.TryGet(assertionHash)
 	if !ok {
@@ -704,14 +707,6 @@ func (w *Watcher) processEdgeConfirmation(
 	// If an edge does not have a claim ID, it is not a level zero edge, and thus we can return early,
 	// as the following operations only operate on level zero edges.
 	if edge.ClaimId().IsNone() {
-		return nil
-	}
-
-	hasWonChallenge, err := w.hasConfirmedClaimedAssertion(ctx, edge)
-	if err != nil {
-		return err
-	}
-	if hasWonChallenge {
 		return nil
 	}
 

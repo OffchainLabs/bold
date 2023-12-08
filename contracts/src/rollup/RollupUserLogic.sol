@@ -125,9 +125,10 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
                 block.number >= winningEdge.confirmedAtBlock + challengeGracePeriodBlocks,
                 "CHALLENGE_GRACE_PERIOD_NOT_PASSED"
             );
+            confirmAssertionInternal(assertionHash, prevAssertionHash, confirmState, inboxAcc, true);
+        } else {
+            confirmAssertionInternal(assertionHash, prevAssertionHash, confirmState, inboxAcc, false);
         }
-
-        confirmAssertionInternal(assertionHash, prevAssertionHash, confirmState, inboxAcc);
     }
 
     /**
@@ -250,11 +251,12 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc
+        bytes32 inboxAcc,
+        bool byChallenge
     ) public whenNotPaused {
         require(msg.sender == anyTrustFastConfirmer, "NOT_FAST_CONFIRMER");
         // this skip deadline, prev, challenge validations
-        confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc);
+        confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc, byChallenge);
     }
 
     /**
@@ -267,7 +269,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      *         as doing so would result in incorrect accounting of withdrawable funds in the loserStakeEscrow.
      *         This is because the protocol assume there is only 1 unique confirmable child assertion.
      */
-    function fastConfirmNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
+    function fastConfirmNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash, bool byChallenge)
         external
         whenNotPaused
     {
@@ -298,7 +300,8 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             expectedAssertionHash,
             prevAssertion,
             assertion.afterState,
-            bridge.sequencerInboxAccs(assertion.afterState.globalState.getInboxPosition() - 1)
+            bridge.sequencerInboxAccs(assertion.afterState.globalState.getInboxPosition() - 1),
+            byChallenge
         );
     }
 
