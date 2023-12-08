@@ -237,8 +237,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc,
-        bool byChallenge
+        bytes32 inboxAcc
     ) internal {
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
         // Check that assertion is pending, this also checks that assertion exists
@@ -264,7 +263,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         _latestConfirmed = assertionHash;
         assertion.status = AssertionStatus.Confirmed;
 
-        emit AssertionConfirmed(assertionHash, byChallenge, blockHash, sendRoot);
+        emit AssertionConfirmed(assertionHash, blockHash, sendRoot);
     }
 
     /**

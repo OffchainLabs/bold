@@ -33,7 +33,7 @@ interface IRollupCore is IAssertionChain {
         uint64 confirmPeriodBlocks
     );
 
-    event AssertionConfirmed(bytes32 indexed assertionHash, bool indexed byChallenge, bytes32 blockHash, bytes32 sendRoot);
+    event AssertionConfirmed(bytes32 indexed assertionHash, bytes32 blockHash, bytes32 sendRoot);
 
     event RollupChallengeStarted(
         uint64 indexed challengeIndex, address asserter, address challenger, uint64 challengedAssertion

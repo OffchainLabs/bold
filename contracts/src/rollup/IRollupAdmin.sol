@@ -89,8 +89,7 @@ interface IRollupAdmin {
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
         ExecutionState calldata confirmState,
-        bytes32 inboxAcc,
-        bool byChallenge
+        bytes32 inboxAcc
     ) external;
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external;

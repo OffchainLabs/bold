@@ -437,51 +437,23 @@ func (w *Watcher) checkForEdgeAdded(
 	return nil
 }
 
-func (w *Watcher) checkChallengeIsComplete(ctx context.Context, assertionHash protocol.AssertionHash) (bool, error) {
-	// if edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-	// 	return false, nil
-	// }
-	// claim := edge.ClaimId()
-	// if claim.IsNone() {
-	// 	return false, nil
-	// }
-	// assertionHash := protocol.AssertionHash{Hash: common.Hash(claim.Unwrap())}
-	// creationInfo, err := w.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if w.challengeWinningAssertions.Has(creationInfo.ParentAssertionHash) {
-	// 	return true, nil
-	// }
-	// status, err := w.chain.AssertionStatus(ctx, assertionHash)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if status == protocol.AssertionConfirmed {
-	// 	w.challengeWinningAssertions.Insert(creationInfo.ParentAssertionHash)
-	// 	return true, nil
-	// }
-	// return false, nil
-	return false, nil
-}
-
 // AddEdge to watcher. If it is honest, it will be tracked.
 func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
-	assertionHash, err := edge.AssertionHash(ctx)
+	prevAsssertionHash, err := edge.AssertionHash(ctx)
 	if err != nil {
 		return err
 	}
-	challengeComplete, err := w.checkChallengeIsComplete(ctx, assertionHash)
+	challengeComplete, err := w.chain.IsChallengeComplete(ctx, prevAsssertionHash)
 	if err != nil {
 		return err
 	}
 	if challengeComplete {
 		return nil
 	}
-	chal, ok := w.challenges.TryGet(assertionHash)
+	chal, ok := w.challenges.TryGet(prevAsssertionHash)
 	if !ok {
 		tree := challengetree.New(
-			assertionHash,
+			prevAsssertionHash,
 			w.chain,
 			w.histChecker,
 			w.numBigStepLevels,
@@ -491,7 +463,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 			honestEdgeTree:                 tree,
 			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](),
 		}
-		w.challenges.Put(assertionHash, chal)
+		w.challenges.Put(prevAsssertionHash, chal)
 	}
 	// Add the edge to a local challenge tree of tracked edges. If it is honest,
 	// we also spawn a tracker for the edge.
@@ -699,7 +671,7 @@ func (w *Watcher) processEdgeConfirmation(
 		return errors.New("no edge found")
 	}
 	edge := edgeOpt.Unwrap()
-	assertionHash, err := edge.AssertionHash(ctx)
+	challengeParentAssertionHash, err := edge.AssertionHash(ctx)
 	if err != nil {
 		return err
 	}
@@ -711,8 +683,16 @@ func (w *Watcher) processEdgeConfirmation(
 	}
 
 	claimId := edge.ClaimId().Unwrap()
-	chal, ok := w.challenges.TryGet(assertionHash)
+	chal, ok := w.challenges.TryGet(challengeParentAssertionHash)
 	if !ok {
+		return nil
+	}
+
+	challengeComplete, err := w.chain.IsChallengeComplete(ctx, challengeParentAssertionHash)
+	if err != nil {
+		return err
+	}
+	if challengeComplete {
 		return nil
 	}
 
@@ -723,12 +703,12 @@ func (w *Watcher) processEdgeConfirmation(
 			return confirmAssertionErr
 		}
 		srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
-			"assertionHash": containers.Trunc(assertionHash.Bytes()),
+			"challengeParentAssertionHash": containers.Trunc(challengeParentAssertionHash.Bytes()),
 		})
 	}
 
 	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
-	w.challenges.Put(assertionHash, chal)
+	w.challenges.Put(challengeParentAssertionHash, chal)
 	return nil
 }
 
