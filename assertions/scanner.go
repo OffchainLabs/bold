@@ -17,6 +17,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
@@ -530,6 +531,13 @@ func (m *Manager) assertionConfirmed(ctx context.Context, assertionHash protocol
 	if currentBlock < creationBlock+confirmPeriodBlocks {
 		blocksLeftForConfirmation := (creationBlock + confirmPeriodBlocks) - currentBlock
 		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+		srvlog.Info(
+			fmt.Sprintf(
+				"Assertion with has %s needs at least %d blocks before being confirmable, waiting until then",
+				containers.Trunc(creationInfo.AssertionHash.Bytes()),
+				blocksLeftForConfirmation,
+			),
+		)
 		<-time.After(timeToWait)
 	}
 
