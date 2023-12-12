@@ -231,7 +231,8 @@ func (a *AnvilLocal) DeployRollup(opts ...challenge_testing.Opt) (common.Address
 	genesisInboxCount := big.NewInt(0)
 	miniStake := big.NewInt(1)
 
-	ctx := context.TODO()
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*10)
+	defer cancel()
 	stakeToken, tx, tokenBindings, err := mocksgen.DeployTestWETH9(
 		a.deployer,
 		a.client,
