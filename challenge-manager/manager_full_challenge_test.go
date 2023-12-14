@@ -140,7 +140,7 @@ func TestChallenge_IntegrationTest_MaxWavmOpcodes(t *testing.T) {
 func TestChallenge_IntegrationTest_MultipleValidators(t *testing.T) {
 	runChallengeIntegrationTest(t, &integrationTestConfig{
 		protocol: protocolParams{
-			challengePeriodBlocks: 100,
+			challengePeriodBlocks: 60,
 			numBigStepLevels:      1,
 			layerZeroHeights: &protocol.LayerZeroHeights{
 				BlockChallengeHeight:     1 << 6,

@@ -5,13 +5,11 @@ package assertions
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/log"
@@ -25,7 +23,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	}
 	if _, err := m.PostAssertion(ctx); err != nil {
 		if !errors.Is(err, solimpl.ErrAlreadyExists) {
-			srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+			//srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 		}
 	}
 	ticker := time.NewTicker(m.postInterval)
@@ -35,7 +33,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 		case <-ticker.C:
 			if _, err := m.PostAssertion(ctx); err != nil {
 				if !errors.Is(err, solimpl.ErrAlreadyExists) {
-					srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+					//srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 				}
 			}
 		case <-ctx.Done():
@@ -111,12 +109,12 @@ func (m *Manager) PostAssertionBasedOnParent(
 		}
 		return option.None[protocol.Assertion](), errors.Wrapf(err, "could not get execution state at batch count %d", batchCount)
 	}
-	srvlog.Info(
-		"Posting assertion with retrieved state", log.Ctx{
-			"batchCount": batchCount,
-			"newState":   fmt.Sprintf("%+v", newState),
-		},
-	)
+	// srvlog.Info(
+	// 	"Posting assertion with retrieved state", log.Ctx{
+	// 		"batchCount": batchCount,
+	// 		"newState":   fmt.Sprintf("%+v", newState),
+	// 	},
+	// )
 	assertion, err := submitFn(
 		ctx,
 		parentCreationInfo,
@@ -128,12 +126,12 @@ func (m *Manager) PostAssertionBasedOnParent(
 	case err != nil:
 		return option.None[protocol.Assertion](), err
 	}
-	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
-		"validatorName":         m.validatorName,
-		"layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
-		"requiredInboxMaxCount": batchCount,
-		"postedExecutionState":  fmt.Sprintf("%+v", newState),
-	})
+	// srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
+	// 	"validatorName":         m.validatorName,
+	// 	"layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
+	// 	"requiredInboxMaxCount": batchCount,
+	// 	"postedExecutionState":  fmt.Sprintf("%+v", newState),
+	// })
 
 	return option.Some(assertion), nil
 }
