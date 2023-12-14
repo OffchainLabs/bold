@@ -123,6 +123,39 @@ func TestChallenge_IntegrationTest_MaxWavmOpcodes(t *testing.T) {
 	})
 }
 
+func TestChallenge_IntegrationTest_MultipleValidators(t *testing.T) {
+	runChallengeIntegrationTest(t, &integrationTestConfig{
+		protocol: protocolParams{
+			challengePeriodBlocks: 100,
+			numBigStepLevels:      1,
+			layerZeroHeights: &protocol.LayerZeroHeights{
+				BlockChallengeHeight:     1 << 6,
+				BigStepChallengeHeight:   1 << 5,
+				SmallStepChallengeHeight: 1 << 5,
+			},
+		},
+		inbox: inboxParams{
+			// Assume 1 batch has been posted to the inbox contract.
+			numBatchesPosted: 5,
+		},
+		timings: timeParams{
+			// Fast block time.
+			blockTime: time.Second,
+			// Challenge move time.
+			challengeMoveInterval: time.Millisecond * 100,
+			// An extremely high number so that we don't try to post more than 1 assertion, nor keep scanning.
+			assertionPostingInterval:  time.Hour,
+			assertionScanningInterval: time.Hour,
+			// We attempt to confirm possible assertions each second by time.
+			assertionConfirmationAttemptInterval: time.Second,
+		},
+		expectations: []expect{
+			// Expect one assertion is confirmed by challenge win.
+			expectAssertionConfirmedByChallengeWin,
+		},
+	})
+}
+
 func runChallengeIntegrationTest(t *testing.T, cfg *integrationTestConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
