@@ -26,16 +26,19 @@ import (
 func TestFullChallenge_IntegrationTest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	layerZeroHeights := &protocol.LayerZeroHeights{
+		BlockChallengeHeight:     1 << 6,
+		BigStepChallengeHeight:   1 << 5,
+		SmallStepChallengeHeight: 1 << 5,
+	}
+	numBigStepLevels := uint8(4)
 	setup, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
-			challenge_testing.WithConfirmPeriodBlocks(25),
-			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
-				BlockChallengeHeight:     64,
-				BigStepChallengeHeight:   32,
-				SmallStepChallengeHeight: 32,
-			}),
+			challenge_testing.WithConfirmPeriodBlocks(100),
+			challenge_testing.WithLayerZeroHeights(layerZeroHeights),
+			challenge_testing.WithNumBigStepLevels(numBigStepLevels),
 		),
 	)
 	require.NoError(t, err)
@@ -61,20 +64,21 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 
 	stateManagerOpts := []statemanager.Opt{
 		statemanager.WithNumBatchesRead(5),
+		statemanager.WithLayerZeroHeights(layerZeroHeights, numBigStepLevels),
 	}
 	honestStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
 
-	// Bob diverges from Alice at batch 1.
-	// assertionDivergenceHeight := uint64(4)
-	// assertionBlockHeightDifference := int64(4)
+	// Diverge exactly at the last opcode within the block.
+	totalOpcodes := totalWasmOpcodes(layerZeroHeights, numBigStepLevels)
+	machineDivergenceStep := totalOpcodes - 1
+	assertionDivergenceHeight := uint64(4)
+	assertionBlockHeightDifference := int64(4)
 	stateManagerOpts = append(
 		stateManagerOpts,
-		statemanager.WithBlockDivergenceHeight(1),
-		statemanager.WithMachineDivergenceStep(1),
-	// 	statemanager.WithMachineDivergenceStep(machineDivergenceStep),
-	// 	statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
-	// 	statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
+		statemanager.WithMachineDivergenceStep(machineDivergenceStep),
+		statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
+		statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
 	)
 	evilStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
@@ -140,7 +144,7 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 	//time.Sleep(time.Minute * 10)
 
 	// Advance the blockchain in the background.
-	blockTime := time.Millisecond * 100
+	blockTime := time.Second
 	go func() {
 		ticker := time.NewTicker(blockTime)
 		defer ticker.Stop()
