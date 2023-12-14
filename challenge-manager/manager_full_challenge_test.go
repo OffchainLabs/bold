@@ -2,11 +2,12 @@ package challengemanager
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/OffchainLabs/bold/assertions"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
@@ -25,11 +26,18 @@ import (
 // TODO: Support concurrent challenges at the assertion chain level.
 // TODO: Support flooding attack
 // TODO: Support concurrent assertion level challenges + flooding attack
+// TODO: Many evil parties, each with their own claim.
+// TODO: Many evil parties, all supporting the same claim.
 type integrationTestConfig struct {
 	protocol     protocolParams
 	timings      timeParams
 	inbox        inboxParams
+	actors       actorParams
 	expectations []expect
+}
+
+type actorParams struct {
+	numEvilValidators uint64
 }
 
 type timeParams struct {
@@ -65,16 +73,19 @@ func TestChallenge_IntegrationTest_Fast(t *testing.T) {
 			// Assume 5 batches have been posted to the inbox contract.
 			numBatchesPosted: 5,
 		},
+		actors: actorParams{
+			numEvilValidators: 1,
+		},
 		timings: timeParams{
 			// Fast block time.
 			blockTime: time.Millisecond * 100,
 			// Go as fast as possible.
-			challengeMoveInterval: time.Millisecond,
-			// An extremely high number so that we don't try to post more than 1 assertion, nor keep scanning.
-			assertionPostingInterval:  time.Hour,
-			assertionScanningInterval: time.Hour,
-			// We attempt to confirm possible assertions each second by time.
-			assertionConfirmationAttemptInterval: time.Second,
+			challengeMoveInterval:     time.Millisecond,
+			assertionPostingInterval:  time.Second,
+			assertionScanningInterval: time.Second,
+			// An extremely high number so that we never attempt to confirm an assertion by time.
+			// We instead expect the assertion to be confirmed by challenge win.
+			assertionConfirmationAttemptInterval: time.Hour,
 		},
 		expectations: []expect{
 			// Expect one assertion is confirmed by challenge win.
@@ -105,16 +116,19 @@ func TestChallenge_IntegrationTest_MaxWavmOpcodes(t *testing.T) {
 			// Assume 1 batch has been posted to the inbox contract.
 			numBatchesPosted: 5,
 		},
+		actors: actorParams{
+			numEvilValidators: 1,
+		},
 		timings: timeParams{
 			// Fast block time.
 			blockTime: time.Millisecond * 100,
 			// Fast challenge move time.
-			challengeMoveInterval: time.Millisecond,
-			// An extremely high number so that we don't try to post more than 1 assertion, nor keep scanning.
-			assertionPostingInterval:  time.Hour,
-			assertionScanningInterval: time.Hour,
-			// We attempt to confirm possible assertions each second by time.
-			assertionConfirmationAttemptInterval: time.Second,
+			challengeMoveInterval:     time.Millisecond,
+			assertionPostingInterval:  time.Second,
+			assertionScanningInterval: time.Second,
+			// An extremely high number so that we never attempt to confirm an assertion by time.
+			// We instead expect the assertion to be confirmed by challenge win.
+			assertionConfirmationAttemptInterval: time.Hour,
 		},
 		expectations: []expect{
 			// Expect one assertion is confirmed by challenge win.
@@ -138,16 +152,19 @@ func TestChallenge_IntegrationTest_MultipleValidators(t *testing.T) {
 			// Assume 1 batch has been posted to the inbox contract.
 			numBatchesPosted: 5,
 		},
+		actors: actorParams{
+			numEvilValidators: 2,
+		},
 		timings: timeParams{
 			// Fast block time.
 			blockTime: time.Second,
 			// Challenge move time.
-			challengeMoveInterval: time.Millisecond * 100,
-			// An extremely high number so that we don't try to post more than 1 assertion, nor keep scanning.
-			assertionPostingInterval:  time.Hour,
-			assertionScanningInterval: time.Hour,
-			// We attempt to confirm possible assertions each second by time.
-			assertionConfirmationAttemptInterval: time.Second,
+			challengeMoveInterval:     time.Millisecond * 250,
+			assertionPostingInterval:  time.Second,
+			assertionScanningInterval: time.Second,
+			// An extremely high number so that we never attempt to confirm an assertion by time.
+			// We instead expect the assertion to be confirmed by challenge win.
+			assertionConfirmationAttemptInterval: time.Hour,
 		},
 		expectations: []expect{
 			// Expect one assertion is confirmed by challenge win.
@@ -159,9 +176,12 @@ func TestChallenge_IntegrationTest_MultipleValidators(t *testing.T) {
 func runChallengeIntegrationTest(t *testing.T, cfg *integrationTestConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	// Validators include a chain admin, a single honest validators, and any number of evil entities.
+	totalValidators := cfg.actors.numEvilValidators + 2
 	setup, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
+		setup.WithNumAccounts(totalValidators),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithConfirmPeriodBlocks(cfg.protocol.challengePeriodBlocks),
 			challenge_testing.WithLayerZeroHeights(cfg.protocol.layerZeroHeights),
@@ -176,30 +196,19 @@ func runChallengeIntegrationTest(t *testing.T, cfg *integrationTestConfig) {
 	require.NoError(t, err)
 	setup.Backend.Commit()
 
-	stateManagerOpts := []statemanager.Opt{
+	baseStateManagerOpts := []statemanager.Opt{
 		statemanager.WithNumBatchesRead(cfg.inbox.numBatchesPosted),
 		statemanager.WithLayerZeroHeights(cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels),
 	}
-	honestStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
-	require.NoError(t, err)
-
-	// Diverge exactly at the last opcode within the block.
-	totalOpcodes := totalWasmOpcodes(cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels)
-	machineDivergenceStep := totalOpcodes - 1
-	assertionDivergenceHeight := uint64(4)
-	assertionBlockHeightDifference := int64(4)
-	stateManagerOpts = append(
-		stateManagerOpts,
-		statemanager.WithMachineDivergenceStep(machineDivergenceStep),
-		statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
-		statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
-	)
-	evilStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	honestStateManager, err := statemanager.NewForSimpleMachine(baseStateManagerOpts...)
 	require.NoError(t, err)
 
 	baseChallengeManagerOpts := []Opt{
 		WithEdgeTrackerWakeInterval(cfg.timings.challengeMoveInterval),
 		WithMode(types.MakeMode),
+		WithAssertionPostingInterval(cfg.timings.assertionPostingInterval),
+		WithAssertionScanningInterval(cfg.timings.assertionScanningInterval),
+		WithAssertionConfirmingInterval(cfg.timings.assertionConfirmationAttemptInterval),
 	}
 
 	name := "honest"
@@ -209,64 +218,48 @@ func runChallengeIntegrationTest(t *testing.T, cfg *integrationTestConfig) {
 		WithAddress(txOpts.From),
 		WithName(name),
 	)
-	honestManager, honestChain := setupChallengeManager(
+	honestManager := setupChallengeManager(
 		t, ctx, setup.Backend, setup.Addrs.Rollup, honestStateManager, txOpts, name, honestOpts...,
 	)
 
-	name = "evil"
-	txOpts = setup.Accounts[2].TxOpts
-	evilOpts := append(
-		baseChallengeManagerOpts,
-		WithAddress(txOpts.From),
-		WithName(name),
-	)
-	evilManager, evilChain := setupChallengeManager(
-		t, ctx, setup.Backend, setup.Addrs.Rollup, evilStateManager, txOpts, name, evilOpts...,
-	)
+	// Diverge exactly at the last opcode within the block.
+	totalOpcodes := totalWasmOpcodes(cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels)
+	t.Logf("Total wasm opcodes in test: %d", totalOpcodes)
 
-	honestPoster, err := assertions.NewManager(
-		honestChain,
-		honestStateManager,
-		setup.Backend,
-		honestManager,
-		setup.Addrs.Rollup,
-		"honest",
-		cfg.timings.assertionScanningInterval,
-		cfg.timings.assertionConfirmationAttemptInterval,
-		honestStateManager,
-		cfg.timings.assertionPostingInterval,
-		cfg.timings.blockTime,
-	)
-	require.NoError(t, err)
+	assertionDivergenceHeight := uint64(1)
+	assertionBlockHeightDifference := int64(1)
 
-	evilPoster, err := assertions.NewManager(
-		evilChain,
-		evilStateManager,
-		setup.Backend,
-		evilManager,
-		setup.Addrs.Rollup,
-		"evil",
-		cfg.timings.assertionScanningInterval,
-		cfg.timings.assertionConfirmationAttemptInterval,
-		evilStateManager,
-		cfg.timings.assertionPostingInterval,
-		cfg.timings.blockTime,
-	)
-	require.NoError(t, err)
+	evilChallengeManagers := make([]*Manager, cfg.actors.numEvilValidators)
+	for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
+		machineDivergenceStep := randUint64(totalOpcodes)
+		evilStateManagerOpts := append(
+			baseStateManagerOpts,
+			statemanager.WithMachineDivergenceStep(machineDivergenceStep),
+			statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
+			statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
+		)
+		evilStateManager, err := statemanager.NewForSimpleMachine(evilStateManagerOpts...)
+		require.NoError(t, err)
 
-	honestAssertion, err := honestPoster.PostAssertion(ctx)
-	require.NoError(t, err)
-
-	evilAssertion, err := evilPoster.PostAssertion(ctx)
-	require.NoError(t, err)
-
-	err = honestPoster.ProcessAssertionCreationEvent(ctx, honestAssertion.Unwrap().Id())
-	require.NoError(t, err)
-	err = evilPoster.ProcessAssertionCreationEvent(ctx, evilAssertion.Unwrap().Id())
-	require.NoError(t, err)
+		// Honest validator has index 1 in the accounts slice, as 0 is admin, so evil ones should start at 2.
+		txOpts = setup.Accounts[2+i].TxOpts
+		name = fmt.Sprintf("evil-%d", i)
+		evilOpts := append(
+			baseChallengeManagerOpts,
+			WithAddress(txOpts.From),
+			WithName(name),
+		)
+		evilManager := setupChallengeManager(
+			t, ctx, setup.Backend, setup.Addrs.Rollup, evilStateManager, txOpts, name, evilOpts...,
+		)
+		evilChallengeManagers[i] = evilManager
+	}
 
 	honestManager.Start(ctx)
-	evilManager.Start(ctx)
+
+	for _, evilManager := range evilChallengeManagers {
+		evilManager.Start(ctx)
+	}
 
 	// Advance the blockchain in the background.
 	go func() {
@@ -301,7 +294,7 @@ func setupChallengeManager(
 	txOpts *bind.TransactOpts,
 	name string,
 	opts ...Opt,
-) (*Manager, protocol.Protocol) {
+) *Manager {
 	chain, err := solimpl.NewAssertionChain(
 		ctx,
 		rollup,
@@ -310,7 +303,7 @@ func setupChallengeManager(
 	)
 	require.NoError(t, err)
 
-	v, err := New(
+	manager, err := New(
 		ctx,
 		chain,
 		backend,
@@ -319,7 +312,7 @@ func setupChallengeManager(
 		opts...,
 	)
 	require.NoError(t, err)
-	return v, chain
+	return manager
 }
 
 func totalWasmOpcodes(heights *protocol.LayerZeroHeights, numBigSteps uint8) uint64 {
@@ -371,4 +364,13 @@ func expectAssertionConfirmedByChallengeWin(
 		}
 	})
 	return nil
+}
+
+// rand.Uint64() returns a random uint64 value.
+// To get a value in the range [0, n), take the modulo n.
+func randUint64(n uint64) uint64 {
+	if n == 0 {
+		return 0
+	}
+	return rand.Uint64() % n
 }

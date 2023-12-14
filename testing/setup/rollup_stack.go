@@ -201,6 +201,9 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	for _, o := range opts {
 		o(setp)
 	}
+	if setp.numAccountsToGen < 3 {
+		setp.numAccountsToGen = 3
+	}
 	accs, backend, err := Accounts(setp.numAccountsToGen)
 	if err != nil {
 		return nil, err
