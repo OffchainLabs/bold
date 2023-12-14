@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -778,6 +779,10 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 			levelZeroBlockHeight.Uint64(),
 		)
 	}
+	log.Info("Posting block challenge root edge with the following information", log.Ctx{
+		"preState":  fmt.Sprintf("%+v", protocol.GoExecutionStateFromSolidity(parentAssertionCreation.AfterState)),
+		"postState": fmt.Sprintf("%+v", protocol.GoExecutionStateFromSolidity(assertionCreation.AfterState)),
+	})
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
 		ExecutionStateData{
