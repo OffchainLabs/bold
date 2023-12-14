@@ -260,7 +260,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case EdgeAtOneStepProof:
 		if err := et.submitOneStepProof(ctx); err != nil {
 			fields["err"] = err
-			srvlog.Trace("Could not submit one step proof", fields)
+			//srvlog.Trace("Could not submit one step proof", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeConfirm{})
@@ -913,7 +913,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 
 func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	fields := et.uniqueTrackerLogFields()
-	srvlog.Info("Submitting one-step-proof to protocol", fields)
+	//srvlog.Info("Submitting one-step-proof to protocol", fields)
 	originHeights, err := et.edge.TopLevelClaimHeight(ctx)
 	if err != nil {
 		return errors.Wrap(err, "could not get top level claim height")

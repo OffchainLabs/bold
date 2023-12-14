@@ -7,7 +7,7 @@ package endtoend
 import (
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	"github.com/OffchainLabs/bold/testing/endtoend/internal/backend"
+	"github.com/OffchainLabs/bold/testing/endtoend/backend"
 )
 
 // edgeManager fetches the challenge manager contract address from the rollup contract and returns
