@@ -13,8 +13,8 @@ import (
 
 const (
 	LevelZeroBlockEdgeHeight     = 1 << 5
-	LevelZeroBigStepEdgeHeight   = 1 << 10
-	LevelZeroSmallStepEdgeHeight = 1 << 18
+	LevelZeroBigStepEdgeHeight   = 1 << 9
+	LevelZeroSmallStepEdgeHeight = 1 << 6
 	MaxDataSize                  = 117964
 )
 
