@@ -12,7 +12,6 @@ import (
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
@@ -23,27 +22,119 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func TestFullChallenge_IntegrationTest(t *testing.T) {
+// TODO: Support concurrent challenges at the assertion chain level.
+// TODO: Support flooding attack
+// TODO: Support concurrent assertion level challenges + flooding attack
+type integrationTestConfig struct {
+	protocol     protocolParams
+	timings      timeParams
+	inbox        inboxParams
+	expectations []expect
+}
+
+type timeParams struct {
+	blockTime                            time.Duration
+	challengeMoveInterval                time.Duration
+	assertionPostingInterval             time.Duration
+	assertionScanningInterval            time.Duration
+	assertionConfirmationAttemptInterval time.Duration
+}
+
+type inboxParams struct {
+	numBatchesPosted uint64
+}
+
+type protocolParams struct {
+	numBigStepLevels      uint8
+	challengePeriodBlocks uint64
+	layerZeroHeights      *protocol.LayerZeroHeights
+}
+
+func TestChallenge_IntegrationTest_Fast(t *testing.T) {
+	runChallengeIntegrationTest(t, &integrationTestConfig{
+		protocol: protocolParams{
+			challengePeriodBlocks: 150,
+			numBigStepLevels:      1,
+			layerZeroHeights: &protocol.LayerZeroHeights{
+				BlockChallengeHeight:     1 << 6,
+				BigStepChallengeHeight:   1 << 5,
+				SmallStepChallengeHeight: 1 << 5,
+			},
+		},
+		inbox: inboxParams{
+			// Assume 5 batches have been posted to the inbox contract.
+			numBatchesPosted: 5,
+		},
+		timings: timeParams{
+			// Fast block time.
+			blockTime: time.Millisecond * 100,
+			// Go as fast as possible.
+			challengeMoveInterval: time.Millisecond,
+			// An extremely high number so that we don't try to post more than 1 assertion, nor keep scanning.
+			assertionPostingInterval:  time.Hour,
+			assertionScanningInterval: time.Hour,
+			// We attempt to confirm possible assertions each second by time.
+			assertionConfirmationAttemptInterval: time.Second,
+		},
+		expectations: []expect{
+			// Expect one assertion is confirmed by challenge win.
+			expectAssertionConfirmedByChallengeWin,
+			// Other ideas:
+			// All validators are staked at top-level
+			// All subchallenges have mini-stakes
+		},
+	})
+}
+
+func TestChallenge_IntegrationTest_MaxWavmOpcodes(t *testing.T) {
+	runChallengeIntegrationTest(t, &integrationTestConfig{
+		protocol: protocolParams{
+			challengePeriodBlocks: 200,
+			// A block can take a max of 2^43 wavm opcodes to validate.
+			// With three big step levels of 2^10 each, and one small step level of
+			// 2^13 (adding the exponents), we can have full coverage of a block dispute
+			// in a challenge game.
+			numBigStepLevels: 3,
+			layerZeroHeights: &protocol.LayerZeroHeights{
+				BlockChallengeHeight:     1 << 6,
+				BigStepChallengeHeight:   1 << 10,
+				SmallStepChallengeHeight: 1 << 13,
+			},
+		},
+		inbox: inboxParams{
+			// Assume 1 batch has been posted to the inbox contract.
+			numBatchesPosted: 5,
+		},
+		timings: timeParams{
+			// Fast block time.
+			blockTime: time.Millisecond * 100,
+			// Fast challenge move time.
+			challengeMoveInterval: time.Millisecond,
+			// An extremely high number so that we don't try to post more than 1 assertion, nor keep scanning.
+			assertionPostingInterval:  time.Hour,
+			assertionScanningInterval: time.Hour,
+			// We attempt to confirm possible assertions each second by time.
+			assertionConfirmationAttemptInterval: time.Second,
+		},
+		expectations: []expect{
+			// Expect one assertion is confirmed by challenge win.
+			expectAssertionConfirmedByChallengeWin,
+		},
+	})
+}
+
+func runChallengeIntegrationTest(t *testing.T, cfg *integrationTestConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	layerZeroHeights := &protocol.LayerZeroHeights{
-		BlockChallengeHeight:     1 << 6,
-		BigStepChallengeHeight:   1 << 5,
-		SmallStepChallengeHeight: 1 << 5,
-	}
-	numBigStepLevels := uint8(4)
 	setup, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
-			challenge_testing.WithConfirmPeriodBlocks(100),
-			challenge_testing.WithLayerZeroHeights(layerZeroHeights),
-			challenge_testing.WithNumBigStepLevels(numBigStepLevels),
+			challenge_testing.WithConfirmPeriodBlocks(cfg.protocol.challengePeriodBlocks),
+			challenge_testing.WithLayerZeroHeights(cfg.protocol.layerZeroHeights),
+			challenge_testing.WithNumBigStepLevels(cfg.protocol.numBigStepLevels),
 		),
 	)
-	require.NoError(t, err)
-
-	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
 
 	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(setup.Addrs.Rollup, setup.Backend)
@@ -52,25 +143,15 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 	require.NoError(t, err)
 	setup.Backend.Commit()
 
-	msgCount, err := bridgeBindings.SequencerMessageCount(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), msgCount.Uint64())
-
-	genesisHash, err := setup.Chains[1].GenesisAssertionHash(ctx)
-	require.NoError(t, err)
-	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
-	require.NoError(t, err)
-	_ = genesisCreationInfo
-
 	stateManagerOpts := []statemanager.Opt{
-		statemanager.WithNumBatchesRead(5),
-		statemanager.WithLayerZeroHeights(layerZeroHeights, numBigStepLevels),
+		statemanager.WithNumBatchesRead(cfg.inbox.numBatchesPosted),
+		statemanager.WithLayerZeroHeights(cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels),
 	}
 	honestStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Diverge exactly at the last opcode within the block.
-	totalOpcodes := totalWasmOpcodes(layerZeroHeights, numBigStepLevels)
+	totalOpcodes := totalWasmOpcodes(cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels)
 	machineDivergenceStep := totalOpcodes - 1
 	assertionDivergenceHeight := uint64(4)
 	assertionBlockHeightDifference := int64(4)
@@ -83,15 +164,31 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 	evilStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
 
-	honestPostState, err := honestStateManager.ExecutionStateAfterBatchCount(ctx, 1)
-	require.NoError(t, err)
+	baseChallengeManagerOpts := []Opt{
+		WithEdgeTrackerWakeInterval(cfg.timings.challengeMoveInterval),
+		WithMode(types.MakeMode),
+	}
 
-	t.Logf("New stake from alice at post state %+v\n", honestPostState)
+	name := "honest"
+	txOpts := setup.Accounts[1].TxOpts
+	honestOpts := append(
+		baseChallengeManagerOpts,
+		WithAddress(txOpts.From),
+		WithName(name),
+	)
 	honestManager, honestChain := setupChallengeManager(
-		t, ctx, setup.Backend, setup.Addrs.Rollup, honestStateManager, setup.Accounts[1].TxOpts, "honest",
+		t, ctx, setup.Backend, setup.Addrs.Rollup, honestStateManager, txOpts, name, honestOpts...,
+	)
+
+	name = "evil"
+	txOpts = setup.Accounts[2].TxOpts
+	evilOpts := append(
+		baseChallengeManagerOpts,
+		WithAddress(txOpts.From),
+		WithName(name),
 	)
 	evilManager, evilChain := setupChallengeManager(
-		t, ctx, setup.Backend, setup.Addrs.Rollup, evilStateManager, setup.Accounts[2].TxOpts, "evil",
+		t, ctx, setup.Backend, setup.Addrs.Rollup, evilStateManager, txOpts, name, evilOpts...,
 	)
 
 	honestPoster, err := assertions.NewManager(
@@ -101,11 +198,11 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 		honestManager,
 		setup.Addrs.Rollup,
 		"honest",
-		time.Second,
-		time.Second,
+		cfg.timings.assertionScanningInterval,
+		cfg.timings.assertionConfirmationAttemptInterval,
 		honestStateManager,
-		time.Second,
-		time.Millisecond,
+		cfg.timings.assertionPostingInterval,
+		cfg.timings.blockTime,
 	)
 	require.NoError(t, err)
 
@@ -116,11 +213,11 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 		evilManager,
 		setup.Addrs.Rollup,
 		"evil",
-		time.Second,
-		time.Second,
+		cfg.timings.assertionScanningInterval,
+		cfg.timings.assertionConfirmationAttemptInterval,
 		evilStateManager,
-		time.Second,
-		time.Millisecond,
+		cfg.timings.assertionPostingInterval,
+		cfg.timings.blockTime,
 	)
 	require.NoError(t, err)
 
@@ -129,24 +226,18 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 
 	evilAssertion, err := evilPoster.PostAssertion(ctx)
 	require.NoError(t, err)
-	_ = honestAssertion
-	_ = evilAssertion
 
 	err = honestPoster.ProcessAssertionCreationEvent(ctx, honestAssertion.Unwrap().Id())
 	require.NoError(t, err)
 	err = evilPoster.ProcessAssertionCreationEvent(ctx, evilAssertion.Unwrap().Id())
 	require.NoError(t, err)
-	// _ = evilAssertion
 
 	honestManager.Start(ctx)
 	evilManager.Start(ctx)
 
-	//time.Sleep(time.Minute * 10)
-
 	// Advance the blockchain in the background.
-	blockTime := time.Second
 	go func() {
-		ticker := time.NewTicker(blockTime)
+		ticker := time.NewTicker(cfg.timings.blockTime)
 		defer ticker.Stop()
 		for {
 			select {
@@ -158,30 +249,16 @@ func TestFullChallenge_IntegrationTest(t *testing.T) {
 		}
 	}()
 
-	expectations := []expect{
-		expectAssertionConfirmedByChallengeWin,
-	}
 	g, ctx := errgroup.WithContext(ctx)
-	for _, e := range expectations {
+	for _, e := range cfg.expectations {
 		fn := e // loop closure
 		g.Go(func() error {
 			return fn(t, ctx, setup.Addrs, setup.Backend)
 		})
 	}
-
-	if err := g.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	// trackedBackend, ok := aChain.Backend().(*solimpl.TrackedContractBackend)
-	// if !ok {
-	// 	t.Fatal("Not a tracked contract backend")
-	// }
-	// t.Log("Printing Alice's ethclient metrics at the end of a challenge")
-	// trackedBackend.PrintMetrics()
+	require.NoError(t, g.Wait())
 }
 
-// setupValidator initializes a validator with the minimum required configuration.
 func setupChallengeManager(
 	t *testing.T,
 	ctx context.Context,
@@ -190,13 +267,13 @@ func setupChallengeManager(
 	sm l2stateprovider.Provider,
 	txOpts *bind.TransactOpts,
 	name string,
+	opts ...Opt,
 ) (*Manager, protocol.Protocol) {
 	chain, err := solimpl.NewAssertionChain(
 		ctx,
 		rollup,
 		txOpts,
 		backend,
-		//solimpl.WithTrackedContractBackend(),
 	)
 	require.NoError(t, err)
 
@@ -206,10 +283,7 @@ func setupChallengeManager(
 		backend,
 		sm,
 		rollup,
-		WithAddress(txOpts.From),
-		WithName(name),
-		WithEdgeTrackerWakeInterval(time.Millisecond*250),
-		WithMode(types.MakeMode),
+		opts...,
 	)
 	require.NoError(t, err)
 	return v, chain
@@ -265,52 +339,3 @@ func expectAssertionConfirmedByChallengeWin(
 	})
 	return nil
 }
-
-// // expectAliceAndBobStaked monitors EdgeAdded events until Alice and Bob are observed adding edges
-// // with a stake.
-// func expectAliceAndBobStaked(t *testing.T, ctx context.Context, be backend.Backend) error {
-// 	t.Run("alice and bob staked", func(t *testing.T) {
-// 		ecm, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManager, error) {
-// 			return edgeManager(be)
-// 		})
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		var aliceStaked, bobStaked bool
-// 		for ctx.Err() == nil && (!aliceStaked || !bobStaked) {
-// 			i, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerEdgeAddedIterator, error) {
-// 				return ecm.FilterEdgeAdded(nil, nil, nil, nil)
-// 			})
-// 			if err != nil {
-// 				t.Fatal(err)
-// 			}
-// 			for i.Next() {
-// 				e, err := retry.UntilSucceeds(ctx, func() (challengeV2gen.ChallengeEdge, error) {
-// 					return ecm.GetEdge(nil, i.Event.EdgeId)
-// 				})
-// 				if err != nil {
-// 					t.Fatal(err)
-// 				}
-
-// 				switch e.Staker {
-// 				case be.Alice().From:
-// 					aliceStaked = true
-// 				case be.Bob().From:
-// 					bobStaked = true
-// 				}
-
-// 				time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-// 			}
-// 		}
-
-// 		if !aliceStaked {
-// 			t.Error("alice did not stake")
-// 		}
-// 		if !bobStaked {
-// 			t.Error("bob did not stake")
-// 		}
-// 	})
-
-// 	return nil
-// }
