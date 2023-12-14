@@ -34,6 +34,19 @@ type Edge struct {
 	// AgreesWithStartCommitment `json:"agreesWithStartCommitment"`
 }
 
+type StakeInfo struct {
+	StakerAddresses       []common.Address `json:"stakerAddresses"`
+	TotalMinistakes       uint64           `json:"totalMinistakes"`
+	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`
+	EndCommitmentHeight   uint64           `json:"endCommitmentHeight"`
+}
+
+type Ministakes struct {
+	AssertionHash common.Hash `json:"assertionHash"`
+	Level         string      `json:"level"`
+	StakeInfo     *StakeInfo  `json:"ministakes"`
+}
+
 func (e *Edge) IsRootChallenge() bool {
 	return e.Type == protocol.NewBlockChallengeLevel().String() && e.ClaimID == common.Hash{}
 }
