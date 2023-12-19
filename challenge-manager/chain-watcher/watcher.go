@@ -471,6 +471,21 @@ func (w *Watcher) GetHonestEdges() []protocol.SpecEdge {
 	return syncEdges
 }
 
+// GetHonestEdgesByChallenge
+func (w *Watcher) GetHonestEdgesByChallenge(challengedParentAssertionHash protocol.AssertionHash) ([]protocol.SpecEdge, error) {
+	//nolint:err
+	challengeTree, ok := w.challenges.TryGet(challengedParentAssertionHash)
+	if !ok {
+		return nil, errors.New("challenge not found")
+	}
+	syncEdges := make([]protocol.SpecEdge, 0)
+	_ = challengeTree.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
+		syncEdges = append(syncEdges, edge)
+		return nil
+	})
+	return syncEdges, nil
+}
+
 // AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally
 // tracked challenge trees and spawns an edge tracker for it. Should be called after the challenge
 // manager creates a new edge, or bisects an edge and produces two children from that move.
