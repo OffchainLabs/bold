@@ -62,12 +62,7 @@ contract OneStepProofEntry is IOneStepProofEntry {
         return mach.hash();
     }
 
-    function getMachineHash(ExecutionState calldata execState)
-        external
-        pure
-        override
-        returns (bytes32)
-    {
+    function getMachineHash(ExecutionState calldata execState) external pure override returns (bytes32) {
         if (execState.machineStatus == MachineStatus.FINISHED) {
             return keccak256(abi.encodePacked("Machine finished:", execState.globalState.hash()));
         } else if (execState.machineStatus == MachineStatus.ERRORED) {
@@ -98,11 +93,7 @@ contract OneStepProofEntry is IOneStepProofEntry {
                 GlobalState memory globalState;
                 (globalState, offset) = Deserialize.globalState(proof, offset);
                 require(globalState.hash() == mach.globalStateHash, "BAD_GLOBAL_STATE");
-                if (
-                    mach.status == MachineStatus.FINISHED &&
-                    machineStep == 0 &&
-                    globalState.getInboxPosition() < execCtx.maxInboxMessagesRead
-                ) {
+                if (mach.status == MachineStatus.FINISHED && machineStep == 0 && globalState.getInboxPosition() < execCtx.maxInboxMessagesRead) {
                     // Kickstart the machine
                     return getStartMachineHash(mach.globalStateHash, execCtx.initialWasmModuleRoot);
                 }

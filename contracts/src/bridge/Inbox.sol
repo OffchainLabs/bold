@@ -531,6 +531,7 @@ contract Inbox is DelegateCallAware, PausableUpgradeable, IInbox {
             );
     }
 
+
     function _deliverMessage(
         uint8 _kind,
         address _sender,

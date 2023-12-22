@@ -163,7 +163,8 @@ contract BridgeStub is IBridge {
     function setOutbox(
         address, /* outbox */
         bool /* enabled*/
-    ) external pure override {}
+    ) external pure override {
+    }
 
     function delayedMessageCount() external view override returns (uint256) {
         return delayedInboxAccs.length;

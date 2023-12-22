@@ -12,21 +12,15 @@ import "../rollup/Assertion.sol";
 /// @notice The interface required by the EdgeChallengeManager for requesting assertion data from the AssertionChain
 interface IAssertionChain {
     function bridge() external view returns (IBridge);
-
     function validateAssertionHash(
         bytes32 assertionHash,
         ExecutionState calldata state,
         bytes32 prevAssertionHash,
         bytes32 inboxAcc
     ) external view;
-
     function validateConfig(bytes32 assertionHash, ConfigData calldata configData) external view;
-
     function getFirstChildCreationBlock(bytes32 assertionHash) external view returns (uint64);
-
     function getSecondChildCreationBlock(bytes32 assertionHash) external view returns (uint64);
-
     function isFirstChild(bytes32 assertionHash) external view returns (bool);
-
     function isPending(bytes32 assertionHash) external view returns (bool);
 }

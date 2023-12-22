@@ -123,11 +123,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param assertionHash Id of the assertion
      * @return Assertion struct
      */
-    function getAssertionStorage(bytes32 assertionHash)
-        internal
-        view
-        returns (AssertionNode storage)
-    {
+    function getAssertionStorage(bytes32 assertionHash) internal view returns (AssertionNode storage) {
         require(assertionHash != bytes32(0), "ASSERTION_ID_CANNOT_BE_ZERO");
         return _assertions[assertionHash];
     }
@@ -135,12 +131,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     /**
      * @notice Get the Assertion for the given index.
      */
-    function getAssertion(bytes32 assertionHash)
-        public
-        view
-        override
-        returns (AssertionNode memory)
-    {
+    function getAssertion(bytes32 assertionHash) public view override returns (AssertionNode memory) {
         return getAssertionStorage(assertionHash);
     }
 
@@ -151,12 +142,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * This function will revert if the given assertion hash does not exist.
      * @dev This function is meant for internal use only and has no stability guarantees.
      */
-    function getAssertionCreationBlockForLogLookup(bytes32 assertionHash)
-        external
-        view
-        override
-        returns (uint256)
-    {
+    function getAssertionCreationBlockForLogLookup(bytes32 assertionHash) external view override returns (uint256) {
         if (_hostChainIsArbitrum) {
             uint256 blockNum = _assertionCreatedAtArbSysBlock[assertionHash];
             require(blockNum > 0, "NO_ASSERTION");
@@ -259,8 +245,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
         // Authenticate data against assertionHash pre-image
         require(
-            assertionHash ==
-                RollupLib.assertionHash({
+            assertionHash
+                == RollupLib.assertionHash({
                     parentAssertionHash: parentAssertionHash,
                     afterState: confirmState,
                     inboxAcc: inboxAcc
@@ -381,16 +367,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     ) internal returns (bytes32) {
         // Validate the config hash
         RollupLib.validateConfigHash(
-            assertion.beforeStateData.configData,
-            getAssertionStorage(prevAssertionHash).configHash
+            assertion.beforeStateData.configData, getAssertionStorage(prevAssertionHash).configHash
         );
 
         // reading inbox messages always terminates in either a finished or errored state
         // although the challenge protocol that any invalid terminal state will be proven incorrect
         // we can do a quick sanity check here
         require(
-            assertion.afterState.machineStatus == MachineStatus.FINISHED ||
-                assertion.afterState.machineStatus == MachineStatus.ERRORED,
+            assertion.afterState.machineStatus == MachineStatus.FINISHED
+                || assertion.afterState.machineStatus == MachineStatus.ERRORED,
             "BAD_AFTER_STATUS"
         );
 
@@ -428,10 +413,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterInboxPosition >= prevInboxPosition, "INBOX_BACKWARDS");
-            require(
-                afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition,
-                "INBOX_TOO_FAR"
-            );
+            require(afterInboxPosition <= assertion.beforeStateData.configData.nextInboxPosition, "INBOX_TOO_FAR");
 
             // SANITY CHECK: the next inbox position did indeed move forward
             // this is enforced by code in a later section that artificially increases the nextInboxPosition
@@ -439,19 +421,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             // this ensures that assertions will continue to advance.
             // It also means that below, where we check that afterInboxPosition equals prev.nextInboxPosition
             // in the FINISHED state, we can be sure that it processed at least one message
-            require(
-                assertion.beforeStateData.configData.nextInboxPosition > prevInboxPosition,
-                "NEXT_INBOX_BACKWARDS"
-            );
+            require(assertion.beforeStateData.configData.nextInboxPosition > prevInboxPosition, "NEXT_INBOX_BACKWARDS");
 
             // if the position in the message is > 0, then the afterInboxPosition cannot be the nextInboxPosition
             // as this would be outside the range - this can only occur for ERRORED states
             if (assertion.afterState.machineStatus == MachineStatus.ERRORED) {
                 if (assertion.afterState.globalState.getPositionInMessage() > 0) {
                     require(
-                        afterInboxPosition !=
-                            assertion.beforeStateData.configData.nextInboxPosition,
-                        "POSITION_TOO_FAR"
+                        afterInboxPosition != assertion.beforeStateData.configData.nextInboxPosition, "POSITION_TOO_FAR"
                     );
                 }
             } else if (assertion.afterState.machineStatus == MachineStatus.FINISHED) {
@@ -461,10 +438,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
                     "INVALID_FINISHED_INBOX"
                 );
                 // and it should have position in message == 0, ready to start reading the next message
-                require(
-                    assertion.afterState.globalState.getPositionInMessage() == 0,
-                    "NON_ZERO_FINISHED_POS_IN_MSG"
-                );
+                require(assertion.afterState.globalState.getPositionInMessage() == 0, "NON_ZERO_FINISHED_POS_IN_MSG");
             } else {
                 // we checked this above, but include a safety check here in case of refactoring
                 revert("INVALID_STATUS");
@@ -480,8 +454,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             // in this case we need to ensure when the assertion is made the inbox messages are available
             // to ensure that a valid assertion can actually be made.
             require(
-                assertion.beforeStateData.configData.nextInboxPosition <= currentInboxPosition,
-                "INBOX_NOT_POPULATED"
+                assertion.beforeStateData.configData.nextInboxPosition <= currentInboxPosition, "INBOX_NOT_POPULATED"
             );
 
             // The next assertion must consume all the messages that are currently found in the inbox
@@ -508,11 +481,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxPosition - 1);
         }
 
-        bytes32 newAssertionHash = RollupLib.assertionHash(
-            prevAssertionHash,
-            assertion.afterState,
-            sequencerBatchAcc
-        );
+        bytes32 newAssertionHash = RollupLib.assertionHash(prevAssertionHash, assertion.afterState, sequencerBatchAcc);
 
         // allow an assertion creator to ensure that they're creating their assertion against the expected state
         require(
@@ -523,10 +492,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // the assertion hash is unique - it's only possible to have one correct assertion hash
         // per assertion. Therefore we can check if this assertion has already been made, and if so
         // we can revert
-        require(
-            getAssertionStorage(newAssertionHash).status == AssertionStatus.NoAssertion,
-            "ASSERTION_SEEN"
-        );
+        require(getAssertionStorage(newAssertionHash).status == AssertionStatus.NoAssertion, "ASSERTION_SEEN");
 
         // state updates
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
@@ -557,8 +523,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             confirmPeriodBlocks
         );
         if (_hostChainIsArbitrum) {
-            _assertionCreatedAtArbSysBlock[newAssertionHash] = ArbSys(address(100))
-                .arbBlockNumber();
+            _assertionCreatedAtArbSysBlock[newAssertionHash] = ArbSys(address(100)).arbBlockNumber();
         }
 
         return newAssertionHash;
@@ -566,18 +531,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function genesisAssertionHash() external pure returns (bytes32) {
         GlobalState memory emptyGlobalState;
-        ExecutionState memory emptyExecutionState = ExecutionState(
-            emptyGlobalState,
-            MachineStatus.FINISHED
-        );
+        ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
-        return
-            RollupLib.assertionHash({
-                parentAssertionHash: parentAssertionHash,
-                afterState: emptyExecutionState,
-                inboxAcc: inboxAcc
-            });
+        return RollupLib.assertionHash({
+            parentAssertionHash: parentAssertionHash,
+            afterState: emptyExecutionState,
+            inboxAcc: inboxAcc
+        });
     }
 
     function getFirstChildCreationBlock(bytes32 assertionHash) external view returns (uint64) {
@@ -594,10 +555,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 prevAssertionHash,
         bytes32 inboxAcc
     ) external pure {
-        require(
-            assertionHash == RollupLib.assertionHash(prevAssertionHash, state, inboxAcc),
-            "INVALID_ASSERTION_HASH"
-        );
+        require(assertionHash == RollupLib.assertionHash(prevAssertionHash, state, inboxAcc), "INVALID_ASSERTION_HASH");
     }
 
     function validateConfig(bytes32 assertionHash, ConfigData calldata configData) external view {

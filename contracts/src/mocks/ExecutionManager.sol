@@ -28,10 +28,7 @@ contract SingleExecutionChallenge is OldChallengeManager {
         segments[1] = startAndEndHashes[1];
         bytes32 challengeStateHash = OldChallengeLib.hashChallengeState(0, numSteps_, segments);
         challenge.challengeStateHash = challengeStateHash;
-        challenge.next = OldChallengeLib.Participant({
-            addr: asserter_,
-            timeLeft: asserterTimeLeft_
-        });
+        challenge.next = OldChallengeLib.Participant({addr: asserter_, timeLeft: asserterTimeLeft_});
         challenge.current = OldChallengeLib.Participant({
             addr: challenger_,
             timeLeft: challengerTimeLeft_

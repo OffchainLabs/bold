@@ -27,7 +27,7 @@ import {
 export const deployDependencies = async (
   signer: Signer,
   maxDataSize: number,
-  log: boolean = false
+  log: boolean = false,
 ): Promise<
   Omit<DeployedContracts, 'boldAction' | 'preImageHashLookup' | 'rollupReader'>
 > => {
@@ -147,11 +147,7 @@ export const deployBoldUpgrade = async (
   config: Config,
   log: boolean = false
 ): Promise<DeployedContracts> => {
-  const deployed = await deployDependencies(
-    wallet,
-    config.settings.maxDataSize,
-    log
-  )
+  const deployed = await deployDependencies(wallet, config.settings.maxDataSize, log)
 
   const fac = new BOLDUpgradeAction__factory(wallet)
   const boldUpgradeAction = await fac.deploy(

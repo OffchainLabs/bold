@@ -28,7 +28,7 @@ interface IOutbox {
     function OUTBOX_VERSION() external view returns (uint128); // the outbox version
 
     function updateSendRoot(bytes32 sendRoot, bytes32 l2BlockHash) external;
-
+    
     function updateRollupAddress() external;
 
     /// @notice When l2ToL1Sender returns a nonzero address, the message was originated by an L2 account

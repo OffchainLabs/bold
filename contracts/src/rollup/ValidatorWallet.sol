@@ -160,9 +160,7 @@ contract ValidatorWallet is OwnableUpgradeable, DelegateCallAware, GasRefundEnab
         }
     }
 
-    function timeoutChallenges(IOldChallengeManager manager, uint64[] calldata challenges)
-        external
-    {
+    function timeoutChallenges(IOldChallengeManager manager, uint64[] calldata challenges) external {
         timeoutChallengesWithGasRefunder(IGasRefunder(address(0)), manager, challenges);
     }
 

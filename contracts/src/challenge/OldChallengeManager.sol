@@ -59,10 +59,7 @@ contract OldChallengeManager is DelegateCallAware, IOldChallengeManager {
         } else if (expectedMode == ChallengeModeRequirement.BLOCK) {
             require(challenge.mode == OldChallengeLib.ChallengeMode.BLOCK, "CHAL_NOT_BLOCK");
         } else if (expectedMode == ChallengeModeRequirement.EXECUTION) {
-            require(
-                challenge.mode == OldChallengeLib.ChallengeMode.EXECUTION,
-                "CHAL_NOT_EXECUTION"
-            );
+            require(challenge.mode == OldChallengeLib.ChallengeMode.EXECUTION, "CHAL_NOT_EXECUTION");
         } else {
             assert(false);
         }
@@ -149,10 +146,7 @@ contract OldChallengeManager is DelegateCallAware, IOldChallengeManager {
             maxInboxMessagesRead++;
         }
         challenge.maxInboxMessages = maxInboxMessagesRead;
-        challenge.next = OldChallengeLib.Participant({
-            addr: asserter_,
-            timeLeft: asserterTimeLeft_
-        });
+        challenge.next = OldChallengeLib.Participant({addr: asserter_, timeLeft: asserterTimeLeft_});
         challenge.current = OldChallengeLib.Participant({
             addr: challenger_,
             timeLeft: challengerTimeLeft_
@@ -260,11 +254,7 @@ contract OldChallengeManager is DelegateCallAware, IOldChallengeManager {
         }
 
         bytes32 afterHash = osp.proveOneStep(
-            ExecutionContext({
-                maxInboxMessagesRead: challenge.maxInboxMessages,
-                bridge: bridge,
-                initialWasmModuleRoot: challenge.wasmModuleRoot
-            }),
+            ExecutionContext({maxInboxMessagesRead: challenge.maxInboxMessages, bridge: bridge, initialWasmModuleRoot: challenge.wasmModuleRoot}),
             challengeStart,
             selection.oldSegments[selection.challengePosition],
             proof
