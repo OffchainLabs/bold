@@ -73,9 +73,7 @@ contract ValidatorWalletTest is Test {
 
         // Check if a non-set destination is not allowed
         require(
-            !wallet.allowedExecutorDestinations(
-                address(0x1114567812345678123456781234567812341111)
-            ),
+            !wallet.allowedExecutorDestinations(address(0x1114567812345678123456781234567812341111)),
             "Address 0x1114567812345678123456781234567812341111 should not be allowed"
         );
     }
@@ -95,14 +93,7 @@ contract ValidatorWalletTest is Test {
         vm.prank(owner);
         wallet.setExecutor(newExecutors, isExecutor);
         // Expect the transaction to revert with a specific error message when called by the executor
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                OnlyOwnerDestination.selector,
-                owner,
-                executor,
-                address(rollupMock1)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(OnlyOwnerDestination.selector, owner, executor, address(rollupMock1)));
         vm.prank(executor);
         wallet.executeTransaction(data, address(rollupMock1), 0);
 
@@ -157,21 +148,16 @@ contract ValidatorWalletTest is Test {
         wallet.setAllowedExecutorDestinations(destination_addrs, isSet);
 
         // Expect the transaction to revert with a specific error message when called by the executor
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                OnlyOwnerDestination.selector,
-                owner,
-                executor,
-                address(rollupMock2)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(OnlyOwnerDestination.selector, owner, executor, address(rollupMock2)));
         vm.prank(executor);
         wallet.executeTransactions(data, destination_addrs, amount);
     }
 
-    /****
-     **** Event declarations
-     ***/
+    /**
+     *
+     * Event declarations
+     *
+     */
 
     event WithdrawTriggered();
     event ExecutorUpdated(address indexed executor, bool isExecutor);
