@@ -7,7 +7,6 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "../src/rollup/ValidatorWallet.sol";
 import "../src/rollup/ValidatorWalletCreator.sol";
-import "./util/TestUtil.sol";
 import "./RollupMock.sol";
 
 contract ValidatorWalletTest is Test {
