@@ -23,7 +23,7 @@ dotenv.config()
 
 const transferToUpgradeExec = async (
   rollupAdmin: Wallet,
-  rollupAddress: string,
+  rollupAddress: string
 ) => {
   const upgradeExecutorImpl = await new ContractFactory(
     UpgradeExecutorAbi,
@@ -32,7 +32,7 @@ const transferToUpgradeExec = async (
   ).deploy()
   await upgradeExecutorImpl.deployed()
 
-  const proxyAdminAddress = "0xa4884de60AEef09b1b35fa255F56ee37198A80B3"
+  const proxyAdminAddress = '0xa4884de60AEef09b1b35fa255F56ee37198A80B3'
 
   const upExecProxy = await new TransparentUpgradeableProxy__factory(
     rollupAdmin

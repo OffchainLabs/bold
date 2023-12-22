@@ -30,7 +30,5 @@
     "numBigStepLevel": 4,
     "maxDataSize": 117964
   },
-  "validators": [
-    "0xf10EF80c6eF4930A62C5F9661c91339Df4dBB173"
-  ]
+  "validators": ["0xf10EF80c6eF4930A62C5F9661c91339Df4dBB173"]
 }

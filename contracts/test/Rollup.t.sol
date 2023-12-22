@@ -47,7 +47,7 @@ contract RollupTest is Test {
     bytes32 constant FIRST_ASSERTION_BLOCKHASH = keccak256("FIRST_ASSERTION_BLOCKHASH");
     bytes32 constant FIRST_ASSERTION_SENDROOT = keccak256("FIRST_ASSERTION_SENDROOT");
 
-    uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2 ** 5;
+    uint256 constant LAYERZERO_BLOCKEDGE_HEIGHT = 2**5;
 
     IERC20 token;
     RollupProxy rollup;
@@ -61,15 +61,20 @@ contract RollupTest is Test {
 
     GlobalState emptyGlobalState;
     ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
-    bytes32 genesisHash = RollupLib.assertionHash({
-        parentAssertionHash: bytes32(0),
-        afterState: emptyExecutionState,
-        inboxAcc: bytes32(0)
-    });
+    bytes32 genesisHash =
+        RollupLib.assertionHash({
+            parentAssertionHash: bytes32(0),
+            afterState: emptyExecutionState,
+            inboxAcc: bytes32(0)
+        });
     ExecutionState firstState;
 
     event RollupCreated(
-        address indexed rollupAddress, address inboxAddress, address adminProxy, address sequencerInbox, address bridge
+        address indexed rollupAddress,
+        address inboxAddress,
+        address adminProxy,
+        address sequencerInbox,
+        address bridge
     );
 
     function setUp() public {
@@ -98,8 +103,10 @@ contract RollupTest is Test {
             address(0)
         );
 
-        ExecutionState memory emptyState =
-            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
+        ExecutionState memory emptyState = ExecutionState(
+            GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]),
+            MachineStatus.FINISHED
+        );
         token = new TestWETH9("Test", "TEST");
         IWETH9(address(token)).deposit{value: 10 ether}();
 
@@ -121,9 +128,9 @@ contract RollupTest is Test {
             genesisExecutionState: emptyState,
             genesisInboxCount: 0,
             miniStakeValue: MINI_STAKE_VALUE,
-            layerZeroBlockEdgeHeight: 2 ** 5,
-            layerZeroBigStepEdgeHeight: 2 ** 5,
-            layerZeroSmallStepEdgeHeight: 2 ** 5,
+            layerZeroBlockEdgeHeight: 2**5,
+            layerZeroBigStepEdgeHeight: 2**5,
+            layerZeroSmallStepEdgeHeight: 2**5,
             anyTrustFastConfirmer: anyTrustFastConfirmer,
             numBigStepLevel: 3,
             challengeGracePeriodBlocks: CHALLENGE_GRACE_PERIOD_BLOCKS
@@ -131,10 +138,20 @@ contract RollupTest is Test {
 
         vm.expectEmit(false, false, false, false);
         emit RollupCreated(address(0), address(0), address(0), address(0), address(0));
-        address rollupAddr = rollupCreator.createRollup(config, address(0), new address[](0), false, MAX_DATA_SIZE);
-        bytes32 rollupSalt = keccak256(abi.encode(config, address(0), new address[](0), false, MAX_DATA_SIZE));
+        address rollupAddr = rollupCreator.createRollup(
+            config,
+            address(0),
+            new address[](0),
+            false,
+            MAX_DATA_SIZE
+        );
+        bytes32 rollupSalt = keccak256(
+            abi.encode(config, address(0), new address[](0), false, MAX_DATA_SIZE)
+        );
         address expectedRollupAddress = Create2Upgradeable.computeAddress(
-            rollupSalt, keccak256(type(RollupProxy).creationCode), address(rollupCreator)
+            rollupSalt,
+            keccak256(type(RollupProxy).creationCode),
+            address(rollupCreator)
         );
         assertEq(expectedRollupAddress, rollupAddr, "Unexpected rollup address");
 
@@ -210,7 +227,10 @@ contract RollupTest is Test {
     function testGenesisAssertionConfirmed() external {
         bytes32 latestConfirmed = userRollup.latestConfirmed();
         assertEq(latestConfirmed, genesisHash);
-        assertEq(userRollup.getAssertion(latestConfirmed).status == AssertionStatus.Confirmed, true);
+        assertEq(
+            userRollup.getAssertion(latestConfirmed).status == AssertionStatus.Confirmed,
+            true
+        );
     }
 
     function testSuccessPause() public {
@@ -219,7 +239,11 @@ contract RollupTest is Test {
     }
 
     function testConfirmAssertionWhenPaused() public {
-        (bytes32 assertionHash, ExecutionState memory state, uint64 inboxcount) = testSuccessCreateAssertion();
+        (
+            bytes32 assertionHash,
+            ExecutionState memory state,
+            uint64 inboxcount
+        ) = testSuccessCreateAssertion();
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(owner);
@@ -268,7 +292,14 @@ contract RollupTest is Test {
         userRollup.removeWhitelistAfterFork();
     }
 
-    function testSuccessCreateAssertion() public returns (bytes32, ExecutionState memory, uint64) {
+    function testSuccessCreateAssertion()
+        public
+        returns (
+            bytes32,
+            ExecutionState memory,
+            uint64
+        )
+    {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
@@ -316,7 +347,14 @@ contract RollupTest is Test {
         assertEq(userRollup.getStakerAddress(userRollup.getStaker(validator1).index), validator1);
     }
 
-    function testSuccessCreateErroredAssertions() public returns (bytes32, ExecutionState memory, uint64) {
+    function testSuccessCreateErroredAssertions()
+        public
+        returns (
+            bytes32,
+            ExecutionState memory,
+            uint64
+        )
+    {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
@@ -537,8 +575,12 @@ contract RollupTest is Test {
 
         ExecutionState memory afterState2;
         afterState2.machineStatus = MachineStatus.FINISHED;
-        afterState2.globalState.bytes32Vals[0] = keccak256(abi.encodePacked(FIRST_ASSERTION_BLOCKHASH)); // blockhash
-        afterState2.globalState.bytes32Vals[1] = keccak256(abi.encodePacked(FIRST_ASSERTION_SENDROOT)); // sendroot
+        afterState2.globalState.bytes32Vals[0] = keccak256(
+            abi.encodePacked(FIRST_ASSERTION_BLOCKHASH)
+        ); // blockhash
+        afterState2.globalState.bytes32Vals[1] = keccak256(
+            abi.encodePacked(FIRST_ASSERTION_SENDROOT)
+        ); // sendroot
         afterState2.globalState.u64Vals[0] = 1; // inbox count
         afterState2.globalState.u64Vals[1] = 0; // modify the state
 
@@ -582,7 +624,7 @@ contract RollupTest is Test {
     }
 
     function testRevertConfirmWrongInput() public {
-        (bytes32 assertionHash1,,) = testSuccessCreateAssertion();
+        (bytes32 assertionHash1, , ) = testSuccessCreateAssertion();
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
@@ -603,8 +645,19 @@ contract RollupTest is Test {
         );
     }
 
-    function testSuccessConfirmUnchallengedAssertions() public returns (bytes32, ExecutionState memory, uint64) {
-        (bytes32 assertionHash, ExecutionState memory state, uint64 inboxcount) = testSuccessCreateAssertion();
+    function testSuccessConfirmUnchallengedAssertions()
+        public
+        returns (
+            bytes32,
+            ExecutionState memory,
+            uint64
+        )
+    {
+        (
+            bytes32 assertionHash,
+            ExecutionState memory state,
+            uint64 inboxcount
+        ) = testSuccessCreateAssertion();
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
@@ -626,8 +679,12 @@ contract RollupTest is Test {
     }
 
     function testSuccessRemoveWhitelistAfterValidatorAfk() public {
-        (bytes32 assertionHash,,) = testSuccessConfirmUnchallengedAssertions();
-        vm.roll(userRollup.getAssertion(assertionHash).createdAtBlock + userRollup.VALIDATOR_AFK_BLOCKS() + 1);
+        (bytes32 assertionHash, , ) = testSuccessConfirmUnchallengedAssertions();
+        vm.roll(
+            userRollup.getAssertion(assertionHash).createdAtBlock +
+                userRollup.VALIDATOR_AFK_BLOCKS() +
+                1
+        );
         userRollup.removeWhitelistAfterValidatorAfk();
     }
 
@@ -637,7 +694,7 @@ contract RollupTest is Test {
     }
 
     function testRevertConfirmSiblingedAssertions() public {
-        (,,,,, bytes32 assertionHash,) = testSuccessCreateSecondChild();
+        (, , , , , bytes32 assertionHash, ) = testSuccessCreateSecondChild();
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         vm.prank(validator1);
@@ -689,7 +746,9 @@ contract RollupTest is Test {
             states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
         }
 
-        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
+        bytes32 root = MerkleTreeLib.root(
+            ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1)
+        );
 
         data.e1Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -700,12 +759,19 @@ contract RollupTest is Test {
                 prefixProof: abi.encode(
                     ProofUtils.expansionFromLeaves(states, 0, 1),
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-                    ),
+                ),
                 proof: abi.encode(
-                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ProofUtils.generateInclusionProof(
+                        ProofUtils.rehashed(states),
+                        states.length - 1
+                    ),
                     ExecutionStateData(data.beforeState, bytes32(0), bytes32(0)),
-                    ExecutionStateData(data.afterState1, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+                    ExecutionStateData(
+                        data.afterState1,
+                        genesisHash,
+                        userRollup.bridge().sequencerInboxAccs(0)
                     )
+                )
             })
         );
     }
@@ -723,7 +789,9 @@ contract RollupTest is Test {
             states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
         }
 
-        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
+        bytes32 root = MerkleTreeLib.root(
+            ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1)
+        );
 
         bytes32 e2Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -734,19 +802,30 @@ contract RollupTest is Test {
                 prefixProof: abi.encode(
                     ProofUtils.expansionFromLeaves(states, 0, 1),
                     ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
-                    ),
+                ),
                 proof: abi.encode(
-                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ProofUtils.generateInclusionProof(
+                        ProofUtils.rehashed(states),
+                        states.length - 1
+                    ),
                     ExecutionStateData(data.beforeState, bytes32(0), bytes32(0)),
-                    ExecutionStateData(data.afterState2, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+                    ExecutionStateData(
+                        data.afterState2,
+                        genesisHash,
+                        userRollup.bridge().sequencerInboxAccs(0)
                     )
+                )
             })
         );
 
         return (data.e1Id, e2Id);
     }
 
-    function fillStatesInBetween(bytes32 start, bytes32 end, uint256 totalCount) internal returns (bytes32[] memory) {
+    function fillStatesInBetween(
+        bytes32 start,
+        bytes32 end,
+        uint256 totalCount
+    ) internal returns (bytes32[] memory) {
         bytes32[] memory innerStates = rand.hashes(totalCount - 2);
 
         bytes32[] memory states = new bytes32[](totalCount);
@@ -889,15 +968,30 @@ contract RollupTest is Test {
         userRollup.addToDeposit(sequencer, 1);
     }
 
-    function testSuccessCreateSecondAssertion() public returns (bytes32, bytes32, ExecutionState memory, bytes32) {
-        (bytes32 prevHash, ExecutionState memory beforeState, uint64 prevInboxCount) = testSuccessCreateAssertion();
+    function testSuccessCreateSecondAssertion()
+        public
+        returns (
+            bytes32,
+            bytes32,
+            ExecutionState memory,
+            bytes32
+        )
+    {
+        (
+            bytes32 prevHash,
+            ExecutionState memory beforeState,
+            uint64 prevInboxCount
+        ) = testSuccessCreateAssertion();
 
         ExecutionState memory afterState;
         afterState.machineStatus = MachineStatus.FINISHED;
         afterState.globalState.u64Vals[0] = prevInboxCount;
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(1); // 1 because we moved the position within message
-        bytes32 expectedAssertionHash2 =
-            RollupLib.assertionHash({parentAssertionHash: prevHash, afterState: afterState, inboxAcc: inboxAcc});
+        bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
+            parentAssertionHash: prevHash,
+            afterState: afterState,
+            inboxAcc: inboxAcc
+        });
         bytes32 prevInboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + 75);
         vm.prank(validator1);
@@ -923,8 +1017,11 @@ contract RollupTest is Test {
     }
 
     function testRevertCreateChildReducedStake() public {
-        (bytes32 prevHash, ExecutionState memory beforeState, uint64 prevInboxCount) =
-            testSuccessConfirmUnchallengedAssertions();
+        (
+            bytes32 prevHash,
+            ExecutionState memory beforeState,
+            uint64 prevInboxCount
+        ) = testSuccessConfirmUnchallengedAssertions();
 
         vm.prank(validator1);
         userRollup.reduceDeposit(1);
@@ -962,7 +1059,7 @@ contract RollupTest is Test {
     }
 
     function testSuccessFastConfirmNext() public {
-        (bytes32 assertionHash,,) = testSuccessCreateAssertion();
+        (bytes32 assertionHash, , ) = testSuccessCreateAssertion();
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         assertEq(userRollup.latestConfirmed(), genesisHash);
         vm.prank(anyTrustFastConfirmer);
@@ -971,8 +1068,12 @@ contract RollupTest is Test {
     }
 
     function testSuccessFastConfirmSkipOne() public {
-        (bytes32 prevHash, bytes32 assertionHash, ExecutionState memory afterState, bytes32 inboxAcc) =
-            testSuccessCreateSecondAssertion();
+        (
+            bytes32 prevHash,
+            bytes32 assertionHash,
+            ExecutionState memory afterState,
+            bytes32 inboxAcc
+        ) = testSuccessCreateSecondAssertion();
         assertEq(userRollup.latestConfirmed() != prevHash, true);
         vm.prank(anyTrustFastConfirmer);
         userRollup.fastConfirmAssertion(assertionHash, prevHash, afterState, inboxAcc);
@@ -980,7 +1081,7 @@ contract RollupTest is Test {
     }
 
     function testRevertFastConfirmNotPending() public {
-        (bytes32 assertionHash,,) = testSuccessConfirmUnchallengedAssertions();
+        (bytes32 assertionHash, , ) = testSuccessConfirmUnchallengedAssertions();
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         vm.expectRevert("NOT_PENDING");
         vm.prank(anyTrustFastConfirmer);
@@ -988,16 +1089,17 @@ contract RollupTest is Test {
     }
 
     function testRevertFastConfirmNotConfirmer() public {
-        (bytes32 assertionHash,,) = testSuccessCreateAssertion();
+        (bytes32 assertionHash, , ) = testSuccessCreateAssertion();
         bytes32 inboxAccs = userRollup.bridge().sequencerInboxAccs(0);
         vm.expectRevert("NOT_FAST_CONFIRMER");
         userRollup.fastConfirmAssertion(assertionHash, genesisHash, firstState, inboxAccs);
     }
 
-    function _testFastConfirmNewAssertion(address by, string memory err, bool isCreated)
-        internal
-        returns (AssertionInputs memory, bytes32)
-    {
+    function _testFastConfirmNewAssertion(
+        address by,
+        string memory err,
+        bool isCreated
+    ) internal returns (AssertionInputs memory, bytes32) {
         uint64 inboxcount = uint64(_createNewBatch());
         ExecutionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
@@ -1043,7 +1145,10 @@ contract RollupTest is Test {
             vm.expectRevert(bytes(err));
         }
         vm.prank(by);
-        userRollup.fastConfirmNewAssertion({assertion: assertion, expectedAssertionHash: expectedAssertionHash});
+        userRollup.fastConfirmNewAssertion({
+            assertion: assertion,
+            expectedAssertionHash: expectedAssertionHash
+        });
         if (bytes(err).length == 0) {
             assertEq(userRollup.latestConfirmed(), expectedAssertionHash);
         }
@@ -1063,15 +1168,22 @@ contract RollupTest is Test {
     }
 
     function testRevertFastConfirmNewAssertionConfirmed() public {
-        (AssertionInputs memory assertion, bytes32 expectedAssertionHash) =
-            _testFastConfirmNewAssertion(anyTrustFastConfirmer, "", true);
+        (
+            AssertionInputs memory assertion,
+            bytes32 expectedAssertionHash
+        ) = _testFastConfirmNewAssertion(anyTrustFastConfirmer, "", true);
         vm.expectRevert("NOT_PENDING");
         vm.prank(anyTrustFastConfirmer);
-        userRollup.fastConfirmNewAssertion({assertion: assertion, expectedAssertionHash: expectedAssertionHash});
+        userRollup.fastConfirmNewAssertion({
+            assertion: assertion,
+            expectedAssertionHash: expectedAssertionHash
+        });
     }
 
-    bytes32 constant _IMPLEMENTATION_PRIMARY_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-    bytes32 constant _IMPLEMENTATION_SECONDARY_SLOT = 0x2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d;
+    bytes32 constant _IMPLEMENTATION_PRIMARY_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    bytes32 constant _IMPLEMENTATION_SECONDARY_SLOT =
+        0x2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d;
 
     // should only allow admin to upgrade primary logic
     function testRevertUpgradeNotAdmin() public {
@@ -1101,48 +1213,64 @@ contract RollupTest is Test {
     }
 
     function testSuccessUpgradePrimary() public {
-        address ori_secondary_impl =
-            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+        address ori_secondary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT)))
+        );
 
         RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
         vm.prank(owner);
         adminRollup.upgradeTo(address(newAdminLogicImpl));
 
-        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
-        address new_secondary_impl =
-            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+        address new_primary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT)))
+        );
+        address new_secondary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT)))
+        );
 
         assertEq(address(newAdminLogicImpl), new_primary_impl);
         assertEq(ori_secondary_impl, new_secondary_impl);
     }
 
     function testSuccessUpgradePrimaryAndCall() public {
-        address ori_secondary_impl =
-            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+        address ori_secondary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT)))
+        );
 
         RollupAdminLogic newAdminLogicImpl = new RollupAdminLogic();
         vm.prank(owner);
-        adminRollup.upgradeToAndCall(address(newAdminLogicImpl), abi.encodeCall(adminRollup.pause, ()));
+        adminRollup.upgradeToAndCall(
+            address(newAdminLogicImpl),
+            abi.encodeCall(adminRollup.pause, ())
+        );
         assertEq(adminRollup.paused(), true);
 
-        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
-        address new_secondary_impl =
-            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+        address new_primary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT)))
+        );
+        address new_secondary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT)))
+        );
 
         assertEq(address(newAdminLogicImpl), new_primary_impl);
         assertEq(ori_secondary_impl, new_secondary_impl);
     }
 
     function testSuccessUpgradeSecondary() public {
-        address ori_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
+        address ori_primary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT)))
+        );
 
         RollupUserLogic newUserLogicImpl = new RollupUserLogic();
         vm.prank(owner);
         adminRollup.upgradeSecondaryTo(address(newUserLogicImpl));
 
-        address new_primary_impl = address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT))));
-        address new_secondary_impl =
-            address(uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT))));
+        address new_primary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_PRIMARY_SLOT)))
+        );
+        address new_secondary_impl = address(
+            uint160(uint256(vm.load(address(userRollup), _IMPLEMENTATION_SECONDARY_SLOT)))
+        );
 
         assertEq(ori_primary_impl, new_primary_impl);
         assertEq(address(newUserLogicImpl), new_secondary_impl);
@@ -1195,7 +1323,10 @@ contract RollupTest is Test {
 
     function testExecutionStateHash() public {
         ExecutionState memory es = ExecutionState(
-            GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
+            GlobalState(
+                [rand.hash(), rand.hash()],
+                [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]
+            ),
             MachineStatus.FINISHED
         );
         bytes32 expectedHash = keccak256(abi.encodePacked(es.machineStatus, es.globalState.hash()));
@@ -1205,11 +1336,20 @@ contract RollupTest is Test {
     function testAssertionHash() public {
         bytes32 parentHash = rand.hash();
         ExecutionState memory es = ExecutionState(
-            GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
+            GlobalState(
+                [rand.hash(), rand.hash()],
+                [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]
+            ),
             MachineStatus.FINISHED
         );
         bytes32 inboxAcc = rand.hash();
-        bytes32 expectedHash = keccak256(abi.encodePacked(parentHash, RollupLib.executionStateHash(es), inboxAcc));
-        assertEq(RollupLib.assertionHash(parentHash, es, inboxAcc), expectedHash, "Unexpected hash");
+        bytes32 expectedHash = keccak256(
+            abi.encodePacked(parentHash, RollupLib.executionStateHash(es), inboxAcc)
+        );
+        assertEq(
+            RollupLib.assertionHash(parentHash, es, inboxAcc),
+            expectedHash,
+            "Unexpected hash"
+        );
     }
 }

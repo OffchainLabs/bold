@@ -88,16 +88,16 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         bytes32 inboxAcc
     ) external onlyValidator whenNotPaused {
         /*
-        * To confirm an assertion, the following must be true:
-        * 1. The assertion must be pending
-        * 2. The assertion's deadline must have passed
-        * 3. The assertion's prev must be latest confirmed
-        * 4. The assertion's prev's child confirm deadline must have passed
-        * 5. If the assertion's prev has more than 1 child, the assertion must be the winner of the challenge
-        *
-        * Note that we do not need to ever reject invalid assertion because they can never confirm
-        *      and the stake on them is swept to the loserStakeEscrow as soon as the leaf is created
-        */
+         * To confirm an assertion, the following must be true:
+         * 1. The assertion must be pending
+         * 2. The assertion's deadline must have passed
+         * 3. The assertion's prev must be latest confirmed
+         * 4. The assertion's prev's child confirm deadline must have passed
+         * 5. If the assertion's prev has more than 1 child, the assertion must be the winner of the challenge
+         *
+         * Note that we do not need to ever reject invalid assertion because they can never confirm
+         *      and the stake on them is swept to the loserStakeEscrow as soon as the leaf is created
+         */
 
         // The assertion's must exists and be pending and will be validated in RollupCore.confirmAssertionInternal
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
@@ -107,14 +107,18 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         RollupLib.validateConfigHash(prevConfig, prevAssertion.configHash);
 
         // Check that deadline has passed
-        require(block.number >= assertion.createdAtBlock + prevConfig.confirmPeriodBlocks, "BEFORE_DEADLINE");
+        require(
+            block.number >= assertion.createdAtBlock + prevConfig.confirmPeriodBlocks,
+            "BEFORE_DEADLINE"
+        );
 
         // Check that prev is latest confirmed
         require(prevAssertionHash == latestConfirmed(), "PREV_NOT_LATEST_CONFIRMED");
 
         if (prevAssertion.secondChildBlock > 0) {
             // if the prev has more than 1 child, check if this assertion is the challenge winner
-            ChallengeEdge memory winningEdge = IEdgeChallengeManager(prevConfig.challengeManager).getEdge(winningEdgeId);
+            ChallengeEdge memory winningEdge = IEdgeChallengeManager(prevConfig.challengeManager)
+                .getEdge(winningEdgeId);
             require(winningEdge.claimId == assertionHash, "NOT_WINNER");
             require(winningEdge.status == EdgeStatus.Confirmed, "EDGE_NOT_CONFIRMED");
             require(winningEdge.confirmedAtBlock != 0, "ZERO_CONFIRMED_AT_BLOCK");
@@ -147,11 +151,11 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param prevAssertionHash The hash of the assertion's parent
      * @param inboxAcc The inbox batch accumulator
      */
-    function computeAssertionHash(bytes32 prevAssertionHash, ExecutionState calldata state, bytes32 inboxAcc)
-        external
-        pure
-        returns (bytes32)
-    {
+    function computeAssertionHash(
+        bytes32 prevAssertionHash,
+        ExecutionState calldata state,
+        bytes32 inboxAcc
+    ) external pure returns (bytes32) {
         return RollupLib.assertionHash(prevAssertionHash, state, inboxAcc);
     }
 
@@ -167,8 +171,8 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     {
         // Early revert on duplicated assertion if expectedAssertionHash is set
         require(
-            expectedAssertionHash == bytes32(0)
-                || getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
+            expectedAssertionHash == bytes32(0) ||
+                getAssertionStorage(expectedAssertionHash).status == AssertionStatus.NoAssertion,
             "EXPECTED_ASSERTION_SEEN"
         );
 
@@ -179,7 +183,10 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         // the staker may have more than enough stake, and the entire stake will be locked
         // we cannot do a refund here because the staker may be staker on an unconfirmed ancestor that requires more stake
         // excess stake can be removed by calling reduceDeposit when the staker is inactive
-        require(amountStaked(msg.sender) >= assertion.beforeStateData.configData.requiredStake, "INSUFFICIENT_STAKE");
+        require(
+            amountStaked(msg.sender) >= assertion.beforeStateData.configData.requiredStake,
+            "INSUFFICIENT_STAKE"
+        );
 
         bytes32 prevAssertion = RollupLib.assertionHash(
             assertion.beforeStateData.prevPrevAssertionHash,
@@ -193,7 +200,8 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         // b) its last staked assertion have a child
         bytes32 lastAssertion = latestStakedAssertion(msg.sender);
         require(
-            lastAssertion == prevAssertion || getAssertionStorage(lastAssertion).firstChildBlock > 0,
+            lastAssertion == prevAssertion ||
+                getAssertionStorage(lastAssertion).firstChildBlock > 0,
             "STAKED_ON_ANOTHER_BRANCH"
         );
 
@@ -201,7 +209,11 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         // Verify that assertion meets the minimum Delta time requirement
         require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
 
-        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+        bytes32 newAssertionHash = createNewAssertion(
+            assertion,
+            prevAssertion,
+            expectedAssertionHash
+        );
         _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
@@ -209,7 +221,10 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             // only 1 of the children can be confirmed and get their stake refunded
             // so we send the other children's stake to the loserStakeEscrow
             // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
-            increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.configData.requiredStake);
+            increaseWithdrawableFunds(
+                loserStakeEscrow,
+                assertion.beforeStateData.configData.requiredStake
+            );
         }
     }
 
@@ -226,7 +241,11 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param stakerAddress Address of the staker whose stake is increased
      * @param depositAmount The amount of either eth or tokens deposited
      */
-    function _addToDeposit(address stakerAddress, uint256 depositAmount) internal onlyValidator whenNotPaused {
+    function _addToDeposit(address stakerAddress, uint256 depositAmount)
+        internal
+        onlyValidator
+        whenNotPaused
+    {
         require(isStaked(stakerAddress), "NOT_STAKED");
         increaseStakeBy(stakerAddress, depositAmount);
     }
@@ -267,10 +286,10 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      *         as doing so would result in incorrect accounting of withdrawable funds in the loserStakeEscrow.
      *         This is because the protocol assume there is only 1 unique confirmable child assertion.
      */
-    function fastConfirmNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
-        external
-        whenNotPaused
-    {
+    function fastConfirmNewAssertion(
+        AssertionInputs calldata assertion,
+        bytes32 expectedAssertionHash
+    ) external whenNotPaused {
         // Must supply expectedAssertionHash to fastConfirmNewAssertion
         require(expectedAssertionHash != bytes32(0), "EXPECTED_ASSERTION_HASH");
         AssertionStatus status = getAssertionStorage(expectedAssertionHash).status;
@@ -284,12 +303,19 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
 
         if (status == AssertionStatus.NoAssertion) {
             // If not exists, we create the new assertion
-            bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+            bytes32 newAssertionHash = createNewAssertion(
+                assertion,
+                prevAssertion,
+                expectedAssertionHash
+            );
             if (!getAssertionStorage(newAssertionHash).isFirstChild) {
                 // only 1 of the children can be confirmed and get their stake refunded
                 // so we send the other children's stake to the loserStakeEscrow
                 // NOTE: if the losing staker have staked more than requiredStake, the excess stake will be stuck
-                increaseWithdrawableFunds(loserStakeEscrow, assertion.beforeStateData.configData.requiredStake);
+                increaseWithdrawableFunds(
+                    loserStakeEscrow,
+                    assertion.beforeStateData.configData.requiredStake
+                );
             }
         }
 
@@ -328,7 +354,11 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param stakerAddress Address of the staker whose stake is increased
      * @param tokenAmount the amount of tokens staked
      */
-    function addToDeposit(address stakerAddress, uint256 tokenAmount) external onlyValidator whenNotPaused {
+    function addToDeposit(address stakerAddress, uint256 tokenAmount)
+        external
+        onlyValidator
+        whenNotPaused
+    {
         _addToDeposit(stakerAddress, tokenAmount);
         /// @dev This is an external call, safe because it's at the end of the function
         receiveTokens(tokenAmount);

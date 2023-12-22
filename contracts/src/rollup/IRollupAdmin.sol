@@ -13,7 +13,8 @@ import "./Config.sol";
 interface IRollupAdmin {
     event OwnerFunctionCalled(uint256 indexed id);
 
-    function initialize(Config calldata config, ContractDependencies calldata connectedContracts) external;
+    function initialize(Config calldata config, ContractDependencies calldata connectedContracts)
+        external;
 
     /**
      * @notice Add a contract authorized to put messages into this rollup's inbox

@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import {IAssertionChain} from "../src/challengeV2/IAssertionChain.sol";
-import { IEdgeChallengeManager } from "../src/challengeV2/EdgeChallengeManager.sol";
+import {IEdgeChallengeManager} from "../src/challengeV2/EdgeChallengeManager.sol";
 import "../src/bridge/IBridge.sol";
 import "../src/rollup/RollupLib.sol";
 import "./challengeV2/StateTools.sol";
@@ -32,7 +32,7 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionHash].height != 0;
     }
 
-    function stakeToken() public view returns(address) {
+    function stakeToken() public view returns (address) {
         return address(0);
     }
 
@@ -44,7 +44,10 @@ contract MockAssertionChain is IAssertionChain {
     ) external view {
         require(assertionExists(assertionHash), "Assertion does not exist");
         // TODO: HN: This is not how the real assertion chain calculate assertion hash
-        require(assertionHash == calculateAssertionHash(prevAssertionHash, state), "INVALID_ASSERTION_HASH");
+        require(
+            assertionHash == calculateAssertionHash(prevAssertionHash, state),
+            "INVALID_ASSERTION_HASH"
+        );
     }
 
     function getFirstChildCreationBlock(bytes32 assertionHash) external view returns (uint64) {
@@ -57,10 +60,7 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionHash].secondChildCreationBlock;
     }
 
-    function validateConfig(
-        bytes32 assertionHash,
-        ConfigData calldata configData
-    ) external view {
+    function validateConfig(bytes32 assertionHash, ConfigData calldata configData) external view {
         require(
             RollupLib.configHash({
                 wasmModuleRoot: configData.wasmModuleRoot,
@@ -83,19 +83,17 @@ contract MockAssertionChain is IAssertionChain {
         return assertions[assertionHash].isPending;
     }
 
-    function calculateAssertionHash(
-        bytes32 predecessorId,
-        ExecutionState memory afterState
-    )
+    function calculateAssertionHash(bytes32 predecessorId, ExecutionState memory afterState)
         public
         view
         returns (bytes32)
     {
-        return RollupLib.assertionHash({
-            parentAssertionHash: predecessorId,
-            afterState: afterState,
-            inboxAcc: keccak256(abi.encode(afterState.globalState.u64Vals[0])) // mock accumulator based on inbox count
-        });
+        return
+            RollupLib.assertionHash({
+                parentAssertionHash: predecessorId,
+                afterState: afterState,
+                inboxAcc: keccak256(abi.encode(afterState.globalState.u64Vals[0])) // mock accumulator based on inbox count
+            });
     }
 
     function childCreated(bytes32 assertionHash) internal {
@@ -148,8 +146,18 @@ contract MockAssertionChain is IAssertionChain {
         require(!assertionExists(assertionHash), "Assertion already exists");
         require(assertionExists(predecessorId), "Predecessor does not exists");
         require(height > assertions[predecessorId].height, "Height too low");
-        require(beforeStateHash == StateToolsLib.hash(assertions[predecessorId].state), "Before state hash does not match predecessor");
+        require(
+            beforeStateHash == StateToolsLib.hash(assertions[predecessorId].state),
+            "Before state hash does not match predecessor"
+        );
 
-        return addAssertionUnsafe(predecessorId, height, nextInboxPosition, afterState, successionChallenge);
+        return
+            addAssertionUnsafe(
+                predecessorId,
+                height,
+                nextInboxPosition,
+                afterState,
+                successionChallenge
+            );
     }
 }

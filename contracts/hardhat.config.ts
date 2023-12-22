@@ -18,6 +18,15 @@ const solidity = {
         },
       },
     },
+    {
+      version: '0.8.0',
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 2000,
+        },
+      },
+    },
   ],
   overrides: {
     'src/challengeV2/EdgeChallengeManager.sol': {
@@ -176,6 +185,6 @@ module.exports = {
     target: 'ethers-v5',
   },
   contractSizer: {
-    strict: process.env.STRICT ? true : false
-  }
+    strict: process.env.STRICT ? true : false,
+  },
 }

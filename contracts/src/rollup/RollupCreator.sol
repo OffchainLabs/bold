@@ -15,7 +15,11 @@ import "./IRollupAdmin.sol";
 
 contract RollupCreator is Ownable {
     event RollupCreated(
-        address indexed rollupAddress, address inboxAddress, address adminProxy, address sequencerInbox, address bridge
+        address indexed rollupAddress,
+        address inboxAddress,
+        address adminProxy,
+        address sequencerInbox,
+        address bridge
     );
     event TemplatesUpdated();
 
@@ -47,10 +51,11 @@ contract RollupCreator is Ownable {
     }
 
     // internal function to workaround stack limit
-    function createChallengeManager(address rollupAddr, address proxyAdminAddr, Config memory config)
-        internal
-        returns (IEdgeChallengeManager)
-    {
+    function createChallengeManager(
+        address rollupAddr,
+        address proxyAdminAddr,
+        Config memory config
+    ) internal returns (IEdgeChallengeManager) {
         IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
             address(
                 new TransparentUpgradeableProxy(
@@ -109,24 +114,49 @@ contract RollupCreator is Ownable {
         uint256 maxDataSize
     ) public returns (address) {
         // Make sure the immutable maxDataSize is as expected
-        require(maxDataSize == bridgeCreator.sequencerInboxTemplate().maxDataSize(), "SI_MAX_DATA_SIZE_MISMATCH");
-        require(maxDataSize == bridgeCreator.inboxTemplate().maxDataSize(), "I_MAX_DATA_SIZE_MISMATCH");
+        require(
+            maxDataSize == bridgeCreator.sequencerInboxTemplate().maxDataSize(),
+            "SI_MAX_DATA_SIZE_MISMATCH"
+        );
+        require(
+            maxDataSize == bridgeCreator.inboxTemplate().maxDataSize(),
+            "I_MAX_DATA_SIZE_MISMATCH"
+        );
         DeployedContracts memory deployed;
 
         deployed.proxyAdmin = new ProxyAdmin();
         deployed.proxyAdmin.transferOwnership(config.owner);
 
         // Create the rollup proxy to figure out the address and initialize it later
-        deployed.rollup =
-        new RollupProxy{salt: keccak256(abi.encode(config, _batchPoster, _validators, disableValidatorWhitelist, maxDataSize))}();
+        deployed.rollup = new RollupProxy{
+            salt: keccak256(
+                abi.encode(
+                    config,
+                    _batchPoster,
+                    _validators,
+                    disableValidatorWhitelist,
+                    maxDataSize
+                )
+            )
+        }();
 
-        (deployed.bridge, deployed.sequencerInbox, deployed.inbox, deployed.rollupEventInbox, deployed.outbox) =
-        bridgeCreator.createBridge(
-            address(deployed.proxyAdmin), address(deployed.rollup), config.sequencerInboxMaxTimeVariation
+        (
+            deployed.bridge,
+            deployed.sequencerInbox,
+            deployed.inbox,
+            deployed.rollupEventInbox,
+            deployed.outbox
+        ) = bridgeCreator.createBridge(
+            address(deployed.proxyAdmin),
+            address(deployed.rollup),
+            config.sequencerInboxMaxTimeVariation
         );
 
-        deployed.challengeManager =
-            createChallengeManager(address(deployed.rollup), address(deployed.proxyAdmin), config);
+        deployed.challengeManager = createChallengeManager(
+            address(deployed.rollup),
+            address(deployed.proxyAdmin),
+            config
+        );
 
         // initialize the rollup with this contract as owner to set batch poster and validators
         // it will transfer the ownership back to the actual owner later
@@ -161,7 +191,9 @@ contract RollupCreator is Ownable {
             IRollupAdmin(address(deployed.rollup)).setValidator(_validators, _vals);
         }
         if (disableValidatorWhitelist == true) {
-            IRollupAdmin(address(deployed.rollup)).setValidatorWhitelistDisabled(disableValidatorWhitelist);
+            IRollupAdmin(address(deployed.rollup)).setValidatorWhitelistDisabled(
+                disableValidatorWhitelist
+            );
         }
         IRollupAdmin(address(deployed.rollup)).setOwner(actualOwner);
 

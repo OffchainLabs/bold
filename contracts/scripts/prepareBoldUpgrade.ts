@@ -1,10 +1,6 @@
 import { ethers, Wallet } from 'ethers'
 import fs from 'fs'
-import {
-  DeployedContracts,
-  getConfig,
-  getJsonFile,
-} from './common'
+import { DeployedContracts, getConfig, getJsonFile } from './common'
 import { deployBoldUpgrade } from './boldUpgradeFunctions'
 import dotenv from 'dotenv'
 

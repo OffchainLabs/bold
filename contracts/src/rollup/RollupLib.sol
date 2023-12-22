@@ -31,11 +31,7 @@ library RollupLib {
         bytes32 inboxAcc
     ) internal pure returns (bytes32) {
         // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
-        return assertionHash(
-            parentAssertionHash,
-            executionStateHash(afterState),
-            inboxAcc
-        );
+        return assertionHash(parentAssertionHash, executionStateHash(afterState), inboxAcc);
     }
 
     // Takes in a hash of the afterState instead of the afterState itself
@@ -45,14 +41,7 @@ library RollupLib {
         bytes32 inboxAcc
     ) internal pure returns (bytes32) {
         // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
-        return
-            keccak256(
-                abi.encodePacked(
-                    parentAssertionHash,
-                    afterStateHash,
-                    inboxAcc
-                )
-            );
+        return keccak256(abi.encodePacked(parentAssertionHash, afterStateHash, inboxAcc));
     }
 
     // All these should be emited in AssertionCreated event
@@ -75,13 +64,10 @@ library RollupLib {
             );
     }
 
-    function validateConfigHash(
-        ConfigData calldata configData,
-        bytes32 _configHash
-    ) internal pure {
+    function validateConfigHash(ConfigData calldata configData, bytes32 _configHash) internal pure {
         require(
-            _configHash
-                == configHash(
+            _configHash ==
+                configHash(
                     configData.wasmModuleRoot,
                     configData.requiredStake,
                     configData.challengeManager,

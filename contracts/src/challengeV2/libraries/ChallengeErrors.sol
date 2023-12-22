@@ -58,7 +58,11 @@ error EdgeClaimMismatch(bytes32 edgeId, bytes32 claimingEdgeId);
 error OriginIdMutualIdMismatch(bytes32 mutualId, bytes32 originId);
 /// @dev The edge does not have a valid ancestor link
 error EdgeNotAncestor(
-    bytes32 edgeId, bytes32 lowerChildId, bytes32 upperChildId, bytes32 ancestorEdgeId, bytes32 claimId
+    bytes32 edgeId,
+    bytes32 lowerChildId,
+    bytes32 upperChildId,
+    bytes32 ancestorEdgeId,
+    bytes32 claimId
 );
 /// @dev The total number of blocks is not above the threshold
 error InsufficientConfirmationBlocks(uint256 totalBlocks, uint256 thresholdBlocks);

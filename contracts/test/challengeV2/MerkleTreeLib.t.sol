@@ -48,7 +48,11 @@ contract MerkleTreeLibTest is Test {
     function expansionsFromLeaves(bytes32[] memory leaves, uint256 lowSize)
         public
         pure
-        returns (bytes32[] memory, bytes32[] memory, bytes32[] memory)
+        returns (
+            bytes32[] memory,
+            bytes32[] memory,
+            bytes32[] memory
+        )
     {
         bytes32[] memory lowExpansion = new bytes32[](0);
         bytes32[] memory highExpansion = new bytes32[](0);
@@ -69,13 +73,21 @@ contract MerkleTreeLibTest is Test {
 
     function proveVerify(uint256 startSize, uint256 endSize) internal {
         bytes32[] memory leaves = random.hashes(endSize);
-        (bytes32[] memory lowExp, bytes32[] memory highExp, bytes32[] memory diff) =
-            expansionsFromLeaves(leaves, startSize);
+        (
+            bytes32[] memory lowExp,
+            bytes32[] memory highExp,
+            bytes32[] memory diff
+        ) = expansionsFromLeaves(leaves, startSize);
 
         bytes32[] memory proof = ProofUtils.generatePrefixProof(startSize, diff);
 
         MerkleTreeLib.verifyPrefixProof(
-            MerkleTreeLib.root(lowExp), startSize, MerkleTreeLib.root(highExp), endSize, lowExp, proof
+            MerkleTreeLib.root(lowExp),
+            startSize,
+            MerkleTreeLib.root(highExp),
+            endSize,
+            lowExp,
+            proof
         );
     }
 
@@ -140,7 +152,10 @@ contract MerkleTreeLibTest is Test {
 
     function testRoot5() public {
         bytes32[] memory expansion = getExpansion(5);
-        bytes32 expectedRoot = hashTogether(expansion[2], hashTogether(hashTogether(expansion[0], 0), 0));
+        bytes32 expectedRoot = hashTogether(
+            expansion[2],
+            hashTogether(hashTogether(expansion[0], 0), 0)
+        );
         assertEq(MerkleTreeLib.root(expansion), expectedRoot, "Invalid root");
     }
 
@@ -152,7 +167,10 @@ contract MerkleTreeLibTest is Test {
 
     function testRoot7() public {
         bytes32[] memory expansion = getExpansion(7);
-        bytes32 expectedRoot = hashTogether(expansion[2], hashTogether(expansion[1], hashTogether(expansion[0], 0)));
+        bytes32 expectedRoot = hashTogether(
+            expansion[2],
+            hashTogether(expansion[1], hashTogether(expansion[0], 0))
+        );
         assertEq(MerkleTreeLib.root(expansion), expectedRoot, "Invalid root");
     }
 
@@ -164,14 +182,19 @@ contract MerkleTreeLibTest is Test {
 
     function testRoot9() public {
         bytes32[] memory expansion = getExpansion(9);
-        bytes32 expectedRoot =
-            hashTogether(expansion[3], hashTogether(hashTogether(hashTogether(expansion[0], 0), 0), 0));
+        bytes32 expectedRoot = hashTogether(
+            expansion[3],
+            hashTogether(hashTogether(hashTogether(expansion[0], 0), 0), 0)
+        );
         assertEq(MerkleTreeLib.root(expansion), expectedRoot, "Invalid root");
     }
 
     function testRoot11() public {
         bytes32[] memory expansion = getExpansion(10);
-        bytes32 expectedRoot = hashTogether(expansion[3], hashTogether(hashTogether(expansion[1], 0), 0));
+        bytes32 expectedRoot = hashTogether(
+            expansion[3],
+            hashTogether(hashTogether(expansion[1], 0), 0)
+        );
         assertEq(MerkleTreeLib.root(expansion), expectedRoot, "Invalid root");
     }
 
@@ -220,7 +243,7 @@ contract MerkleTreeLibTest is Test {
 
             uint256 preSize = MerkleTreeLib.treeSize(expansion);
             uint256 postSize = MerkleTreeLib.treeSize(post);
-            assertEq(postSize, preSize + (2 ** i), "Sizes");
+            assertEq(postSize, preSize + (2**i), "Sizes");
         }
     }
 
@@ -259,7 +282,11 @@ contract MerkleTreeLibTest is Test {
             if (i == level || i == level + 1) {
                 assertEq(post[i], 0, "Post level equal");
             } else if (i == level + 2) {
-                assertEq(post[i], hashTogether(pre[i - 1], hashTogether(pre[i - 2], rand)), "Post level plus 1 equal");
+                assertEq(
+                    post[i],
+                    hashTogether(pre[i - 1], hashTogether(pre[i - 2], rand)),
+                    "Post level plus 1 equal"
+                );
             } else {
                 assertEq(pre[i], post[i], "Pre post equal");
             }
@@ -278,7 +305,11 @@ contract MerkleTreeLibTest is Test {
             if (i == level || i == level + 1) {
                 assertEq(post[i], 0, "Post level equal");
             } else if (i == level + 2) {
-                assertEq(post[i], hashTogether(pre[i - 1], hashTogether(pre[i - 2], rand)), "Post level plus 1 equal");
+                assertEq(
+                    post[i],
+                    hashTogether(pre[i - 1], hashTogether(pre[i - 2], rand)),
+                    "Post level plus 1 equal"
+                );
             } else {
                 assertEq(pre[i], post[i], "Pre post equal");
             }
@@ -499,7 +530,14 @@ contract MerkleTreeLibTest is Test {
         proof[0] = rehashedLeaves[0];
         proof[1] = hashTogether(rehashedLeaves[1], rehashedLeaves[2]);
         proof[2] = rehashedLeaves[3];
-        MerkleTreeLib.verifyPrefixProof(MerkleTreeLib.root(pre), 5, MerkleTreeLib.root(post), 9, pre, proof);
+        MerkleTreeLib.verifyPrefixProof(
+            MerkleTreeLib.root(pre),
+            5,
+            MerkleTreeLib.root(post),
+            9,
+            pre,
+            proof
+        );
     }
 
     function testVerifyPrefixProofPreZero() public {
@@ -516,7 +554,12 @@ contract MerkleTreeLibTest is Test {
 
         vm.expectRevert("Pre-size cannot be 0");
         MerkleTreeLib.verifyPrefixProof(
-            MerkleTreeLib.root(pre), 0, MerkleTreeLib.root(post), preSize + newLeavesCount, pre, proof
+            MerkleTreeLib.root(pre),
+            0,
+            MerkleTreeLib.root(post),
+            preSize + newLeavesCount,
+            pre,
+            proof
         );
     }
 
@@ -535,7 +578,12 @@ contract MerkleTreeLibTest is Test {
         bytes32 randomHash = random.hash();
         vm.expectRevert("Pre expansion root mismatch");
         MerkleTreeLib.verifyPrefixProof(
-            randomHash, preSize, MerkleTreeLib.root(post), preSize + newLeavesCount, pre, proof
+            randomHash,
+            preSize,
+            MerkleTreeLib.root(post),
+            preSize + newLeavesCount,
+            pre,
+            proof
         );
     }
 
@@ -553,7 +601,14 @@ contract MerkleTreeLibTest is Test {
         bytes32[] memory proof = ProofUtils.generatePrefixProof(preSize, newLeaves);
 
         vm.expectRevert("Pre size not less than post size");
-        MerkleTreeLib.verifyPrefixProof(MerkleTreeLib.root(pre), preSize, MerkleTreeLib.root(post), preSize, pre, proof);
+        MerkleTreeLib.verifyPrefixProof(
+            MerkleTreeLib.root(pre),
+            preSize,
+            MerkleTreeLib.root(post),
+            preSize,
+            pre,
+            proof
+        );
     }
 
     function testVerifyPrefixProofInvalidProofSize() public {
@@ -572,7 +627,12 @@ contract MerkleTreeLibTest is Test {
 
         vm.expectRevert("Incomplete proof usage");
         MerkleTreeLib.verifyPrefixProof(
-            MerkleTreeLib.root(pre), preSize, MerkleTreeLib.root(post), preSize + newLeavesCount, pre, proof
+            MerkleTreeLib.root(pre),
+            preSize,
+            MerkleTreeLib.root(post),
+            preSize + newLeavesCount,
+            pre,
+            proof
         );
     }
 
@@ -591,7 +651,12 @@ contract MerkleTreeLibTest is Test {
 
         vm.expectRevert("Pre size does not match expansion");
         MerkleTreeLib.verifyPrefixProof(
-            MerkleTreeLib.root(pre), preSize - 1, MerkleTreeLib.root(post), preSize + newLeavesCount, pre, proof
+            MerkleTreeLib.root(pre),
+            preSize - 1,
+            MerkleTreeLib.root(post),
+            preSize + newLeavesCount,
+            pre,
+            proof
         );
     }
 
@@ -607,7 +672,10 @@ contract MerkleTreeLibTest is Test {
         proof[0] = re[5];
         proof[1] = hashTogether(re[6], re[7]);
         proof[2] = hashTogether(hashTogether(re[0], re[1]), hashTogether(re[2], re[3]));
-        proof[3] = hashTogether(hashTogether(hashTogether(re[8], re[9]), hashTogether(re[10], 0)), 0);
+        proof[3] = hashTogether(
+            hashTogether(hashTogether(re[8], re[9]), hashTogether(re[10], 0)),
+            0
+        );
 
         MerkleTreeLib.verifyInclusionProof(MerkleTreeLib.root(me), leaves[index], index, proof);
     }
