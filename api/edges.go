@@ -44,7 +44,7 @@ type StakeInfo struct {
 type Ministakes struct {
 	AssertionHash common.Hash `json:"assertionHash"`
 	Level         string      `json:"level"`
-	StakeInfo     *StakeInfo  `json:"ministakes"`
+	StakeInfo     *StakeInfo  `json:"stakeInfo"`
 }
 
 func (e *Edge) IsRootChallenge() bool {
