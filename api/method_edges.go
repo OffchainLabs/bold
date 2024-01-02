@@ -70,13 +70,13 @@ func (s *Server) listMiniStakesHandler(w http.ResponseWriter, r *http.Request) {
 			if stakeInfoMap[edge.AssertionHash][edge.Type] == nil {
 				stakeInfoMap[edge.AssertionHash][edge.Type] = &StakeInfo{
 					StakerAddresses:       []common.Address{},
-					TotalMinistakes:       0,
+					NumberOfMinistakes:    0,
 					StartCommitmentHeight: edge.StartCommitment.Height,
 					EndCommitmentHeight:   edge.EndCommitment.Height,
 				}
 			}
 			stakeInfoMap[edge.AssertionHash][edge.Type].StakerAddresses = append(stakeInfoMap[edge.AssertionHash][edge.Type].StakerAddresses, edge.MiniStaker)
-			stakeInfoMap[edge.AssertionHash][edge.Type].TotalMinistakes++
+			stakeInfoMap[edge.AssertionHash][edge.Type].NumberOfMinistakes++
 		}
 	}
 	ministakesList := make([]Ministakes, 0)

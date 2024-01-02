@@ -36,7 +36,7 @@ type Edge struct {
 
 type StakeInfo struct {
 	StakerAddresses       []common.Address `json:"stakerAddresses"`
-	TotalMinistakes       uint64           `json:"totalMinistakes"`
+	NumberOfMinistakes    uint64           `json:"numberOfMinistakes"`
 	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`
 	EndCommitmentHeight   uint64           `json:"endCommitmentHeight"`
 }
