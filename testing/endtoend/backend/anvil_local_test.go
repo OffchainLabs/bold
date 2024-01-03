@@ -7,6 +7,9 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLocalAnvilLoadAccounts(t *testing.T) {
@@ -32,9 +35,13 @@ func TestLocalAnvilStarts(t *testing.T) {
 	if err := a.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.DeployRollup(ctx); err != nil {
-		t.Fatal(err)
-	}
+	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+		if _, err := a.DeployRollup(ctx); err != nil {
+			return false, err
+		}
+		return true, nil
+	})
+	require.NoError(t, err)
 
 	// There should be at least 100 blocks
 	bn, err2 := a.Client().HeaderByNumber(ctx, nil)
