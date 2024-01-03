@@ -5,7 +5,7 @@ test_suite(
     tags = ["manual"],
     tests = [
         ":endtoend_test",
-        "//testing/endtoend/internal/backend:backend_test",
+        "//testing/endtoend/backend:backend_test",
     ],
 )
 
