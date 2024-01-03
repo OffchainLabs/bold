@@ -131,7 +131,6 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 }
 
 func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
-	t.Skip()
 	protocolCfg := defaultProtocolParams()
 	protocolCfg.numBigStepLevels = 3
 	// A block can take a max of 2^43 wavm opcodes to validate.
@@ -159,7 +158,6 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 }
 
 func TestEndToEnd_MultipleEvilValidators(t *testing.T) {
-	t.Skip()
 	runEndToEndTest(t, &e2eConfig{
 		backend:  simulated,
 		protocol: defaultProtocolParams(),
