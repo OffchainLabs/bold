@@ -63,10 +63,10 @@ func (l *LocalSimulatedBackend) DeployRollup(_ context.Context, _ ...challenge_t
 	return l.setup.Addrs.Rollup, nil
 }
 
-func NewSimulated(opts ...setup.Opt) (*LocalSimulatedBackend, error) {
+func NewSimulated(blockTime time.Duration, opts ...setup.Opt) (*LocalSimulatedBackend, error) {
 	setup, err := setup.ChainsWithEdgeChallengeManager(opts...)
 	if err != nil {
 		return nil, err
 	}
-	return &LocalSimulatedBackend{setup: setup}, nil
+	return &LocalSimulatedBackend{blockTime: blockTime, setup: setup}, nil
 }

@@ -197,7 +197,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	var bk backend.Backend
 	switch cfg.backend {
 	case simulated:
-		simBackend, err := backend.NewSimulated(deployOpts...)
+		simBackend, err := backend.NewSimulated(cfg.timings.blockTime, deployOpts...)
 		require.NoError(t, err)
 		bk = simBackend
 	case anvil:
