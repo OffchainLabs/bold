@@ -5,6 +5,7 @@ go_library(
     testonly = 1,
     srcs = [
         "anvil_local.go",
+        "anvil_priv_keys.go",
         "backend.go",
         "simulated.go",
     ],
@@ -19,9 +20,9 @@ go_library(
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//common/hexutil",
         "@com_github_ethereum_go_ethereum//core/types",
+        "@com_github_ethereum_go_ethereum//crypto",
         "@com_github_ethereum_go_ethereum//ethclient",
         "@com_github_ethereum_go_ethereum//rpc",
-        "@com_github_miguelmota_go_ethereum_hdwallet//:go-ethereum-hdwallet",
         "@com_github_pkg_errors//:errors",
     ],
 )
