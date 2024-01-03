@@ -14,6 +14,7 @@ go_test(
     timeout = "long",
     srcs = [
         "e2e_test.go",
+        "helpers_test.go",
     ],
     embed = [":endtoend"],
     tags = [

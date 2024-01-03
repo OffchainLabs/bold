@@ -21,7 +21,7 @@ go_library(
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//ethclient",
         "@com_github_ethereum_go_ethereum//rpc",
-        "@com_github_miguelmota_go_ethereum_hdwallet//:go_default_library",
+        "@com_github_miguelmota_go_ethereum_hdwallet//:go-ethereum-hdwallet",
         "@com_github_pkg_errors//:errors",
     ],
 )

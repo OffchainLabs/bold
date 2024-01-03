@@ -211,7 +211,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	rollupAddr, err := bk.DeployRollup(ctx, challengeTestingOpts...)
 	require.NoError(t, err)
 
-	bk.Start(ctx)
+	require.NoError(t, bk.Start(ctx))
 
 	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(rollupAddr, bk.Client())
 	require.NoError(t, err)
