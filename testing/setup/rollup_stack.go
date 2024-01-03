@@ -288,7 +288,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	}
 
 	chains := make([]*solimpl.AssertionChain, 0)
-	for _, acc := range accs {
+	for _, acc := range accs[1:] {
 		chain, chainErr := solimpl.NewAssertionChain(
 			ctx,
 			addresses.Rollup,
@@ -466,6 +466,7 @@ func DeployFullRollupStack(
 	if !creationReceipt.BlockNumber.IsUint64() {
 		return nil, errors.New("block number was not a uint64")
 	}
+	srvlog.Info("Done deploying")
 
 	return &RollupAddresses{
 		Bridge:                 info.Bridge,
