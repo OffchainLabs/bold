@@ -6,7 +6,6 @@ package backend
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"os"
 	"os/exec"
@@ -21,15 +20,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/pkg/errors"
 )
 
 var _ Backend = &AnvilLocal{}
-
-var testMnemonic = "test test test test test test test test test test test junk"
 
 type AnvilLocal struct {
 	client    *ethclient.Client
@@ -62,20 +59,12 @@ func NewAnvilLocal(ctx context.Context) (*AnvilLocal, error) {
 
 // Load accounts from test mnemonic. These are not real accounts. Don't even try to use them.
 func (a *AnvilLocal) loadAccounts() error {
-	wallet, err := hdwallet.NewFromMnemonic(testMnemonic)
-	if err != nil {
-		return err
-	}
 	accounts := make([]*bind.TransactOpts, 0)
-	for i := 0; i < 10; i++ {
-		path := hdwallet.MustParseDerivationPath(fmt.Sprintf("m/44'/60'/0'/0/%d", i))
-		account, err := wallet.Derive(path, false)
+	for i := 0; i < len(anvilPrivKeyHexStrings); i++ {
+		privKeyHex := hexutil.MustDecode(anvilPrivKeyHexStrings[i])
+		privKey, err := crypto.ToECDSA(privKeyHex)
 		if err != nil {
-			log.Fatal(err)
-		}
-		privKey, err := wallet.PrivateKey(account)
-		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		txOpts, err := bind.NewKeyedTransactorWithChainID(privKey, anvilLocalChainID)
 		if err != nil {
@@ -107,7 +96,6 @@ func (a *AnvilLocal) Start(ctx context.Context) error {
 		"--chain-id=1002",
 		"--gas-limit=50000000000",
 		"--port=8686",
-		fmt.Sprintf("--mnemonic=%s", testMnemonic),
 	}
 
 	cmd := exec.CommandContext(ctx, binaryPath, args...) // #nosec G204 -- Test only code.

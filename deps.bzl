@@ -8,13 +8,6 @@ def go_dependencies():
         version = "v0.0.0-20190523083050-ea95bdfd59fc",
     )
     go_repository(
-        name = "com_github_aead_siphash",
-        importpath = "github.com/aead/siphash",
-        sum = "h1:FwHfE/T45KPKYuuSAKyyvE+oPWcaQ+CUmFW0bPlM+kg=",
-        version = "v1.0.1",
-    )
-
-    go_repository(
         name = "com_github_ajg_form",
         importpath = "github.com/ajg/form",
         sum = "h1:t9c7v8JUKu/XxOGBU0yjNpaMloxGEJhUkqFRq0ibGeU=",
@@ -162,12 +155,6 @@ def go_dependencies():
         sum = "h1:YjAGVd3XmtK9ktAbX8Zg2g2PwLIMjGREZJHlV4j7NEo=",
         version = "v1.7.0",
     )
-    go_repository(
-        name = "com_github_btcsuite_btcd",
-        importpath = "github.com/btcsuite/btcd",
-        sum = "h1:CnwP9LM/M9xuRrGSCGeMVs9iv09uMqwsVX7EeIpgV2c=",
-        version = "v0.22.1",
-    )
 
     go_repository(
         name = "com_github_btcsuite_btcd_btcec_v2",
@@ -181,49 +168,6 @@ def go_dependencies():
         sum = "h1:q0rUy8C/TYNBQS1+CGKw68tLOFYSNEs0TFnxxnS9+4U=",
         version = "v1.0.1",
     )
-    go_repository(
-        name = "com_github_btcsuite_btclog",
-        importpath = "github.com/btcsuite/btclog",
-        sum = "h1:bAs4lUbRJpnnkd9VhRV3jjAVU7DJVjMaK+IsvSeZvFo=",
-        version = "v0.0.0-20170628155309-84c8d2346e9f",
-    )
-    go_repository(
-        name = "com_github_btcsuite_btcutil",
-        importpath = "github.com/btcsuite/btcutil",
-        sum = "h1:YtWJF7RHm2pYCvA5t0RPmAaLUhREsKuKd+SLhxFbFeQ=",
-        version = "v1.0.3-0.20201208143702-a53e38424cce",
-    )
-    go_repository(
-        name = "com_github_btcsuite_go_socks",
-        importpath = "github.com/btcsuite/go-socks",
-        sum = "h1:R/opQEbFEy9JGkIguV40SvRY1uliPX8ifOvi6ICsFCw=",
-        version = "v0.0.0-20170105172521-4720035b7bfd",
-    )
-    go_repository(
-        name = "com_github_btcsuite_goleveldb",
-        importpath = "github.com/btcsuite/goleveldb",
-        sum = "h1:Tvd0BfvqX9o823q1j2UZ/epQo09eJh6dTcRp79ilIN4=",
-        version = "v1.0.0",
-    )
-    go_repository(
-        name = "com_github_btcsuite_snappy_go",
-        importpath = "github.com/btcsuite/snappy-go",
-        sum = "h1:ZxaA6lo2EpxGddsA8JwWOcxlzRybb444sgmeJQMJGQE=",
-        version = "v1.0.0",
-    )
-    go_repository(
-        name = "com_github_btcsuite_websocket",
-        importpath = "github.com/btcsuite/websocket",
-        sum = "h1:R8vQdOQdZ9Y3SkEwmHoWBmX1DNXhXZqlTpq6s4tyJGc=",
-        version = "v0.0.0-20150119174127-31079b680792",
-    )
-    go_repository(
-        name = "com_github_btcsuite_winsvc",
-        importpath = "github.com/btcsuite/winsvc",
-        sum = "h1:J9B4L7e3oqhXOcm+2IuNApwzQec85lE+QaikUcCs+dk=",
-        version = "v1.0.0",
-    )
-
     go_repository(
         name = "com_github_burntsushi_toml",
         importpath = "github.com/BurntSushi/toml",
@@ -432,13 +376,6 @@ def go_dependencies():
         sum = "h1:HbphB4TFFXpv7MNrT52FGrrgVXF1owhMVTHFZIlnvd4=",
         version = "v4.1.0",
     )
-    go_repository(
-        name = "com_github_decred_dcrd_lru",
-        importpath = "github.com/decred/dcrd/lru",
-        sum = "h1:Kbsb1SFDsIlaupWPwsPp+dkxiBY1frcS07PCPgotKz8=",
-        version = "v1.0.0",
-    )
-
     go_repository(
         name = "com_github_deepmap_oapi_codegen",
         importpath = "github.com/deepmap/oapi-codegen",
@@ -975,13 +912,6 @@ def go_dependencies():
         version = "v0.0.0-20190909160543-45766022959e",
     )
     go_repository(
-        name = "com_github_jessevdk_go_flags",
-        importpath = "github.com/jessevdk/go-flags",
-        sum = "h1:4IU2WS7AumrZ/40jfhf4QVDMsQwqA7VEHozFRrGARJA=",
-        version = "v1.4.0",
-    )
-
-    go_repository(
         name = "com_github_joker_hpp",
         importpath = "github.com/Joker/hpp",
         sum = "h1:65+iuJYdRXv/XyN62C1uEmmOx3432rNG/rKlX6V7Kkc=",
@@ -999,13 +929,6 @@ def go_dependencies():
         sum = "h1:uvFg412JmmHBHw7iwprIxkPMI+sGQ4kzOWsMeHnm2EA=",
         version = "v1.0.0",
     )
-    go_repository(
-        name = "com_github_jrick_logrotate",
-        importpath = "github.com/jrick/logrotate",
-        sum = "h1:lQ1bL/n9mBNeIXoTUoYRlK4dHuNJVofX9oWqBtPnSzI=",
-        version = "v1.0.0",
-    )
-
     go_repository(
         name = "com_github_json_iterator_go",
         importpath = "github.com/json-iterator/go",
@@ -1098,13 +1021,6 @@ def go_dependencies():
         sum = "h1:AV2c/EiW3KqPNT9ZKl07ehoAGi4C5/01Cfbblndcapg=",
         version = "v1.0.0",
     )
-    go_repository(
-        name = "com_github_kkdai_bstream",
-        importpath = "github.com/kkdai/bstream",
-        sum = "h1:FOOIBWrEkLgmlgGfMuZT83xIwfPDxEI2OHu6xUmJMFE=",
-        version = "v0.0.0-20161212061736-f391b8402d23",
-    )
-
     go_repository(
         name = "com_github_klauspost_compress",
         importpath = "github.com/klauspost/compress",
@@ -1223,13 +1139,6 @@ def go_dependencies():
         sum = "h1:dNH3e4PSyE4vNX+KlRGHT5KrSvjeUkoNPwEORjffHJg=",
         version = "v1.0.21",
     )
-    go_repository(
-        name = "com_github_miguelmota_go_ethereum_hdwallet",
-        importpath = "github.com/miguelmota/go-ethereum-hdwallet",
-        sum = "h1:mz9LO6V7QCRkLYb0AH17t5R8KeqCe3E+hx9YXpmZeXA=",
-        version = "v0.1.2",
-    )
-
     go_repository(
         name = "com_github_mitchellh_go_homedir",
         importpath = "github.com/mitchellh/go-homedir",
