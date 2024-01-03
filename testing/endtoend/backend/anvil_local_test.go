@@ -32,8 +32,8 @@ func TestLocalAnvilStarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Start(ctx); err != nil {
-		t.Fatal(err)
+	if err2 := a.Start(ctx); err2 != nil {
+		t.Fatal(err2)
 	}
 	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		if _, err2 := a.DeployRollup(ctx); err2 != nil {
