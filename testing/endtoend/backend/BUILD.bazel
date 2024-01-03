@@ -6,6 +6,7 @@ go_library(
     srcs = [
         "anvil_local.go",
         "backend.go",
+        "simulated.go",
     ],
     importpath = "github.com/OffchainLabs/bold/testing/endtoend/backend",
     visibility = ["//testing/endtoend:__subpackages__"],
@@ -18,9 +19,9 @@ go_library(
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//common/hexutil",
         "@com_github_ethereum_go_ethereum//core/types",
-        "@com_github_ethereum_go_ethereum//crypto",
         "@com_github_ethereum_go_ethereum//ethclient",
         "@com_github_ethereum_go_ethereum//rpc",
+        "@com_github_miguelmota_go_ethereum_hdwallet//:go_default_library",
         "@com_github_pkg_errors//:errors",
     ],
 )
