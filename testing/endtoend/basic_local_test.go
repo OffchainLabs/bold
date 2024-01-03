@@ -321,7 +321,7 @@ type FlakyEthClient struct {
 }
 
 func (f *FlakyEthClient) flaky() error {
-	// 10% chance of failure
+	// 10% chance of error
 	if rand.Intn(10) > 8 {
 		return errors.New("flaky error")
 	}
