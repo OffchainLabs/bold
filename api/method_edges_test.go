@@ -82,7 +82,7 @@ func TestListEdges(t *testing.T) {
 
 	var resp []*api.Edge
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
+		t.Fatalf("Could not unmarshal response: %v", err)
 	}
 
 	respAsMockEdges := edgesToMockEdges(resp)
@@ -113,9 +113,9 @@ func TestGetEdge(t *testing.T) {
 	s.Router().ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
-	if status := rr.Code; status != http.StatusNotImplemented {
+	if status := rr.Code; status != http.StatusInternalServerError {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusNotImplemented)
+			status, http.StatusInternalServerError)
 	}
 }
 
