@@ -378,7 +378,7 @@ func (m *Manager) Start(ctx context.Context) {
 	if m.api != nil {
 		go func() {
 			if err := m.api.Start(ctx); err != nil {
-				srvlog.Error("Failed to start API server", log.Ctx{
+				srvlog.Error("Could not start API server", log.Ctx{
 					"address": m.apiAddr,
 					"err":     err,
 				})
