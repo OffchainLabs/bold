@@ -220,7 +220,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case EdgeStarted:
-		canOsp, err := canOneStepProve(ctx, et.edge)
+		canOsp, err := CanOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not check if edge can be one step proven", fields)
@@ -371,8 +371,8 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if err != nil {
 		if errors.Is(err, challengetree.ErrNoLowerChildYet) {
 			srvlog.Info(
-				"Edge %s does not yet have a child, perhaps its creation event is still being processed",
-				containers.Trunc(et.EdgeId().Hash.Bytes()),
+				"Edge does not yet have a child, perhaps its creation event is still being processed",
+				et.uniqueTrackerLogFields(),
 			)
 			return false
 		}
@@ -427,15 +427,16 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	}
 }
 
-func (et *Tracker) childrenAreConfirmed(
+func ChildrenAreConfirmed(
 	ctx context.Context,
+	edge protocol.SpecEdge,
 	chalManager protocol.SpecChallengeManager,
 ) (bool, error) {
-	lower, err := et.edge.LowerChild(ctx)
+	lower, err := edge.LowerChild(ctx)
 	if err != nil {
 		return false, err
 	}
-	upper, err := et.edge.UpperChild(ctx)
+	upper, err := edge.UpperChild(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -492,7 +493,7 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	}
 
 	// Check if we can confirm by children.
-	childrenConfirmed, err := et.childrenAreConfirmed(ctx, manager)
+	childrenConfirmed, err := ChildrenAreConfirmed(ctx, et.edge, manager)
 	if err != nil {
 		return false, errors.Wrap(err, "could not check if children are confirmed")
 	}
@@ -524,8 +525,8 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		if errors.Is(err, challengetree.ErrNoLowerChildYet) {
 			srvlog.Info(
-				"Edge %s does not yet have a child, perhaps its creation event is still being processed",
-				containers.Trunc(et.EdgeId().Hash.Bytes()),
+				"Edge does not yet have a child, perhaps its creation event is still being processed",
+				et.uniqueTrackerLogFields(),
 			)
 			return false, nil
 		}
@@ -961,7 +962,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	return nil
 }
 
-func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
+func CanOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
 	// Can never happen in the protocol, but added as an additional defensive check.
