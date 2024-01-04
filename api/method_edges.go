@@ -10,13 +10,12 @@ import (
 )
 
 func (s *Server) listHonestEdgesHandler(w http.ResponseWriter, r *http.Request) {
-	e, err := convertSpecEdgeEdgesToEdges(r.Context(), s.edges.GetHonestEdges())
+	e, err := convertSpecEdgeEdgesToEdges(r.Context(), s.edges.GetHonestEdges(), s.edges)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	// TODO: Allow params to sort by other fields
 	sort.Slice(e, func(i, j int) bool {
 		return e[i].CreatedAtBlock < e[j].CreatedAtBlock
 	})
@@ -33,13 +32,55 @@ func (s *Server) listEdgesHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	e, err := convertSpecEdgeEdgesToEdges(r.Context(), specEdges)
+	e, err := convertSpecEdgeEdgesToEdges(r.Context(), specEdges, s.edges)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	// TODO: Allow params to sort by other fields
+	sort.Slice(e, func(i, j int) bool {
+		return e[i].CreatedAtBlock < e[j].CreatedAtBlock
+	})
+
+	if err := writeJSONResponse(w, 200, e); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (s *Server) listHonestConfirmableEdgesHandler(w http.ResponseWriter, r *http.Request) {
+	confirmableHonestEdges, err := s.edges.GetHonestConfirmableEdges(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	result := make(map[string][]*Edge)
+	for reason, specEdges := range confirmableHonestEdges {
+		edges, err := convertSpecEdgeEdgesToEdges(r.Context(), specEdges, s.edges)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		result[reason] = edges
+	}
+	if err := writeJSONResponse(w, 200, result); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (s *Server) listEvilConfirmedEdgesHandler(w http.ResponseWriter, r *http.Request) {
+	confirmedEvilEdges, err := s.edges.GetEvilConfirmedEdges(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	e, err := convertSpecEdgeEdgesToEdges(r.Context(), confirmedEvilEdges, s.edges)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	sort.Slice(e, func(i, j int) bool {
 		return e[i].CreatedAtBlock < e[j].CreatedAtBlock
 	})
@@ -56,7 +97,7 @@ func (s *Server) listMiniStakesHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	e, err := convertSpecEdgeEdgesToEdges(r.Context(), specEdges)
+	e, err := convertSpecEdgeEdgesToEdges(r.Context(), specEdges, s.edges)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -103,7 +144,7 @@ func (s *Server) getEdgeHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	edge, err := convertSpecEdgeEdgeToEdge(r.Context(), specEdge)
+	edge, err := convertSpecEdgeEdgeToEdge(r.Context(), specEdge, s.edges)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
