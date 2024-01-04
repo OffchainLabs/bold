@@ -220,7 +220,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case EdgeStarted:
-		canOsp, err := canOneStepProve(ctx, et.edge)
+		canOsp, err := CanOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not check if edge can be one step proven", fields)
@@ -371,8 +371,8 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if err != nil {
 		if errors.Is(err, challengetree.ErrNoLowerChildYet) {
 			srvlog.Info(
-				"Edge %s does not yet have a child, perhaps its creation event is still being processed",
-				containers.Trunc(et.EdgeId().Hash.Bytes()),
+				"Edge does not yet have a child, perhaps its creation event is still being processed",
+				et.uniqueTrackerLogFields(),
 			)
 			return false
 		}
@@ -427,15 +427,16 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	}
 }
 
-func (et *Tracker) childrenAreConfirmed(
+func ChildrenAreConfirmed(
 	ctx context.Context,
+	edge protocol.SpecEdge,
 	chalManager protocol.SpecChallengeManager,
 ) (bool, error) {
-	lower, err := et.edge.LowerChild(ctx)
+	lower, err := edge.LowerChild(ctx)
 	if err != nil {
 		return false, err
 	}
-	upper, err := et.edge.UpperChild(ctx)
+	upper, err := edge.UpperChild(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -492,7 +493,7 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	}
 
 	// Check if we can confirm by children.
-	childrenConfirmed, err := et.childrenAreConfirmed(ctx, manager)
+	childrenConfirmed, err := ChildrenAreConfirmed(ctx, et.edge, manager)
 	if err != nil {
 		return false, errors.Wrap(err, "could not check if children are confirmed")
 	}
@@ -524,8 +525,8 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		if errors.Is(err, challengetree.ErrNoLowerChildYet) {
 			srvlog.Info(
-				"Edge %s does not yet have a child, perhaps its creation event is still being processed",
-				containers.Trunc(et.EdgeId().Hash.Bytes()),
+				"Edge does not yet have a child, perhaps its creation event is still being processed",
+				et.uniqueTrackerLogFields(),
 			)
 			return false, nil
 		}
@@ -555,7 +556,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	endHeight, _ := et.edge.EndCommitment()
 	bisectTo, err := math.Bisect(uint64(startHeight), uint64(endHeight))
 	if err != nil {
-		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point failed for %d and %d", startHeight, endHeight)
+		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point errored for %d and %d", startHeight, endHeight)
 	}
 	challengeLevel := et.edge.GetChallengeLevel()
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
@@ -665,7 +666,7 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 		"bisectedToMerkle":   containers.Trunc(historyCommit.Merkle.Bytes()),
 	})
 	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, firstChild); addVerifiedErr != nil {
-		// We simply log an error, as if this fails, it will be added later on by the chain watcher
+		// We simply log an error, as if this errored, it will be added later on by the chain watcher
 		// scraping events from the chain, but this is a helpful optimization.
 		srvlog.Error("Could not add verified honest edge to chain watcher", log.Ctx{"err": addVerifiedErr})
 	}
@@ -886,7 +887,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	srvlog.Info("Created subchallenge edge", fields)
 
 	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, addedLeaf); addVerifiedErr != nil {
-		// We simply log an error, as if this fails, it will be added later on by the chain watcher
+		// We simply log an error, as if this errored, it will be added later on by the chain watcher
 		// scraping events from the chain, but this is a helpful optimization.
 		srvlog.Error("Could not add verified honest edge to chain watcher", log.Ctx{"err": addVerifiedErr})
 	}
@@ -961,7 +962,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	return nil
 }
 
-func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
+func CanOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
 	// Can never happen in the protocol, but added as an additional defensive check.

@@ -2,9 +2,12 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
+
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 )
@@ -28,10 +31,24 @@ type Edge struct {
 	Status              string                  `json:"status"`
 	HasLengthOneRival   bool                    `json:"hasLengthOneRival"`
 	TopLevelClaimHeight *protocol.OriginHeights `json:"topLevelClaimHeight"`
+	CumulativePathTimer uint64                  `json:"cumulativePathTimer"`
 
 	// Validator's point of view
 	// IsHonest bool `json:"isHonest"`
 	// AgreesWithStartCommitment `json:"agreesWithStartCommitment"`
+}
+
+type StakeInfo struct {
+	StakerAddresses       []common.Address `json:"stakerAddresses"`
+	NumberOfMinistakes    uint64           `json:"numberOfMinistakes"`
+	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`
+	EndCommitmentHeight   uint64           `json:"endCommitmentHeight"`
+}
+
+type Ministakes struct {
+	AssertionHash common.Hash `json:"assertionHash"`
+	Level         string      `json:"level"`
+	StakeInfo     *StakeInfo  `json:"stakeInfo"`
 }
 
 func (e *Edge) IsRootChallenge() bool {
@@ -43,7 +60,7 @@ type Commitment struct {
 	Hash   common.Hash `json:"hash"`
 }
 
-func convertSpecEdgeEdgesToEdges(ctx context.Context, e []protocol.SpecEdge) ([]*Edge, error) {
+func convertSpecEdgeEdgesToEdges(ctx context.Context, e []protocol.SpecEdge, edgesProvider EdgesProvider) ([]*Edge, error) {
 	// Convert concurrently as some of the underlying methods are API calls.
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -53,14 +70,14 @@ func convertSpecEdgeEdgesToEdges(ctx context.Context, e []protocol.SpecEdge) ([]
 		ee := edge
 
 		eg.Go(func() (err error) {
-			edges[index], err = convertSpecEdgeEdgeToEdge(ctx, ee)
+			edges[index], err = convertSpecEdgeEdgeToEdge(ctx, ee, edgesProvider)
 			return
 		})
 	}
 	return edges, eg.Wait()
 }
 
-func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge, error) {
+func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge, edgesProvider EdgesProvider) (*Edge, error) {
 	challengeLevel := e.GetChallengeLevel()
 	edge := &Edge{
 		ID:              e.Id().Hash,
@@ -97,7 +114,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		hasChildren, err := e.HasChildren(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge children: %w", err)
+			return fmt.Errorf("could not get edge children: %w", err)
 		}
 		edge.HasChildren = hasChildren
 		return nil
@@ -106,7 +123,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		lowerChild, err := e.LowerChild(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge lower child: %w", err)
+			return fmt.Errorf("could not get edge lower child: %w", err)
 		}
 		if !lowerChild.IsNone() {
 			edge.LowerChildID = lowerChild.Unwrap().Hash
@@ -117,7 +134,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		upperChild, err := e.UpperChild(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge upper child: %w", err)
+			return fmt.Errorf("could not get edge upper child: %w", err)
 		}
 		if !upperChild.IsNone() {
 			edge.UpperChildID = upperChild.Unwrap().Hash
@@ -128,16 +145,25 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		ah, err := e.AssertionHash(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge assertion hash: %w", err)
+			return fmt.Errorf("could not get edge assertion hash: %w", err)
 		}
 		edge.AssertionHash = ah.Hash
+
+		cumulativePathTimer, _, _, err := edgesProvider.ComputeHonestPathTimer(ctx, ah, e.Id())
+		if err != nil {
+			if errors.Is(err, challengetree.ErrNoLowerChildYet) {
+				return nil
+			}
+			return fmt.Errorf("failed to get edge cumulative path timer: %w", err)
+		}
+		edge.CumulativePathTimer = uint64(cumulativePathTimer)
 		return nil
 	})
 
 	eg.Go(func() error {
 		timeUnrivaled, err := e.TimeUnrivaled(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge time unrivaled: %w", err)
+			return fmt.Errorf("could not get edge time unrivaled: %w", err)
 		}
 		edge.TimeUnrivaled = timeUnrivaled
 		return nil
@@ -146,7 +172,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		hasRival, err := e.HasRival(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge has rival: %w", err)
+			return fmt.Errorf("could not get edge has rival: %w", err)
 		}
 		edge.HasRival = hasRival
 		return nil
@@ -155,7 +181,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		status, err := e.Status(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge status: %w", err)
+			return fmt.Errorf("could not get edge status: %w", err)
 		}
 		edge.Status = status.String()
 		return nil
@@ -164,7 +190,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		hasLengthOneRival, err := e.HasLengthOneRival(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge has length one rival: %w", err)
+			return fmt.Errorf("could not get edge has length one rival: %w", err)
 		}
 		edge.HasLengthOneRival = hasLengthOneRival
 		return nil
@@ -173,7 +199,7 @@ func convertSpecEdgeEdgeToEdge(ctx context.Context, e protocol.SpecEdge) (*Edge,
 	eg.Go(func() error {
 		topLevelClaimHeight, err := e.TopLevelClaimHeight(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get edge top level claim height: %w", err)
+			return fmt.Errorf("could not get edge top level claim height: %w", err)
 		}
 		edge.TopLevelClaimHeight = &topLevelClaimHeight
 		return nil
