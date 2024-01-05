@@ -69,13 +69,18 @@ contract Bridge is Initializable, DelegateCallAware, IBridge {
     }
 
     modifier onlyRollupOrOwner() {
+        _checkRollupOrOwner();
+        _;
+    }
+
+    /// @dev This internal function is to be used by the modifier 'onlyRollupOrOwner'
+    function _checkRollupOrOwner() internal view {
         if (msg.sender != address(rollup)) {
             address rollupOwner = rollup.owner();
             if (msg.sender != rollupOwner) {
                 revert NotRollupOrOwner(msg.sender, address(rollup), rollupOwner);
             }
         }
-        _;
     }
 
     /// @dev returns the address of current active Outbox, or zero if no outbox is active
