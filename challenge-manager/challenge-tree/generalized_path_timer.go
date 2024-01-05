@@ -107,7 +107,7 @@ func (ht *HonestChallengeTree) ComputeHonestPathTimer(
 		return 0, err
 	}
 	if blockRootEdge.ClaimId().IsNone() {
-		return 0, fmt.Errorf("expected claimId to be found on block level root edge %#x", blockRootEdge.Id())
+		return 0, fmt.Errorf("expected claimId to be found on block level root edge when computing honest path timer %#x", blockRootEdge.Id())
 	}
 
 	assertionUnrivaledTimer, err := ht.metadataReader.AssertionUnrivaledBlocks(
