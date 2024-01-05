@@ -48,28 +48,29 @@ type JsonAssertion struct {
 }
 
 type JsonEdge struct {
-	Id                  common.Hash             `json:"id"`
-	ChallengeLevel      string                  `json:"challengeLevel"`
-	StartCommitment     *JsonCommitment         `json:"startCommitment"`
-	EndCommitment       *JsonCommitment         `json:"endCommitment"`
-	CreatedAtBlock      uint64                  `json:"createdAtBlock"`
-	MutualId            common.Hash             `json:"mutualId"`
-	OriginId            common.Hash             `json:"originId"`
-	ClaimId             common.Hash             `json:"claimId"`
-	HasChildren         bool                    `json:"hasChildren"`
-	LowerChildId        common.Hash             `json:"lowerChildId"`
-	UpperChildId        common.Hash             `json:"upperChildId"`
-	MiniStaker          common.Address          `json:"miniStaker"`
-	AssertionHash       common.Hash             `json:"assertionHash"`
-	TimeUnrivaled       uint64                  `json:"timeUnrivaled"`
-	HasRival            bool                    `json:"hasRival"`
-	Status              string                  `json:"status"`
-	HasLengthOneRival   bool                    `json:"hasLengthOneRival"`
-	TopLevelClaimHeight *protocol.OriginHeights `json:"topLevelClaimHeight"`
-	CumulativePathTimer uint64                  `json:"cumulativePathTimer"`
+	Id                common.Hash    `json:"id" db:"Id"`
+	ChallengeLevel    uint8          `json:"challengeLevel" db:"ChallengeLevel"`
+	StartHistoryRoot  common.Hash    `json:"startHistoryRoot" db:"StartHistoryRoot"`
+	StartHeight       uint64         `json:"startHeight" db:"StartHeight"`
+	EndHistoryRoot    common.Hash    `json:"endHistoryRoot" db:"EndHistoryRoot"`
+	EndHeight         uint64         `json:"endHeight" db:"EndHeight"`
+	CreatedAtBlock    uint64         `json:"createdAtBlock" db:"CreatedAtBlock"`
+	MutualId          common.Hash    `json:"mutualId" db:"MutualId"`
+	OriginId          common.Hash    `json:"originId" db:"OriginId"`
+	ClaimId           common.Hash    `json:"claimId" db:"ClaimId"`
+	HasChildren       bool           `json:"hasChildren" db:"HasChildren"`
+	LowerChildId      common.Hash    `json:"lowerChildId" db:"LowerChildId"`
+	UpperChildId      common.Hash    `json:"upperChildId" db:"UpperChildId"`
+	MiniStaker        common.Address `json:"miniStaker" db:"MiniStaker"`
+	AssertionHash     common.Hash    `json:"assertionHash" db:"AssertionHash"`
+	TimeUnrivaled     uint64         `json:"timeUnrivaled" db:"TimeUnrivaled"`
+	HasRival          bool           `json:"hasRival" db:"HasRival"`
+	Status            string         `json:"status" db:"Status"`
+	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	// Honest validator's point of view
-	IsHonest   bool `json:"isHonest"`
-	IsRelevant bool `json:"isRelevant"`
+	IsHonest            bool   `json:"isHonest"`
+	IsRelevant          bool   `json:"isRelevant"`
+	CumulativePathTimer uint64 `json:"cumulativePathTimer"`
 }
 
 type JsonCommitment struct {
