@@ -11,16 +11,17 @@ import (
 )
 
 func TestGetEdges(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
+	sqlDb := setupTestDB(t)
+	defer sqlDb.Close()
+	db := &Database{sqlDB: sqlDb}
 
 	e := &server.JsonEdge{}
 	// err here is not nil because there are no field destinations for columns in `place`
-	err := db.Get(e, "SELECT * FROM Edges LIMIT 1;")
+	err := sqlDb.Get(e, "SELECT * FROM Edges LIMIT 1;")
 	require.NoError(t, err)
 	t.Logf("%+v\n", e)
 
-	edges, err := GetEdges(db, WithLimit(2), WithOrderBy("CreatedAtBlock DESC"))
+	edges, err := db.GetEdges(WithLimit(2), WithOrderBy("CreatedAtBlock DESC"))
 	require.NoError(t, err)
 	require.Len(t, edges, 1) // Adjust according to your fake data
 	t.Logf("%+v\n", edges)

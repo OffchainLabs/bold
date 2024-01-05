@@ -73,11 +73,6 @@ type JsonEdge struct {
 	CumulativePathTimer uint64 `json:"cumulativePathTimer"`
 }
 
-type JsonCommitment struct {
-	Height uint64      `json:"height"`
-	Hash   common.Hash `json:"hash"`
-}
-
 type JsonStakeInfo struct {
 	StakerAddresses       []common.Address `json:"stakerAddresses"`
 	NumberOfMinistakes    uint64           `json:"numberOfMiniStakes"`
