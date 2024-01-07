@@ -25,54 +25,53 @@ func main() {
 	client := client.NewClient(args[1])
 	var err error
 	switch strings.ToLower(args[2]) {
-	case "Healthz":
+	case "healthz":
 		err = client.Healthz()
-	case "ForceDBUpdate":
+	case "forcedbupdate":
 		err = client.ForceDBUpdate()
-	case "IsHonestPartyActive":
+	case "ishonestpartyactive":
 		err = client.IsHonestPartyActive()
-	case "HonestPartyHasAdvantage":
+	case "honestpartyhasadvantage":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> HonestPartyHasAdvantage <assertion_hash>")
 		}
 		_, err = client.HonestPartyHasAdvantage(common.HexToHash(args[3]))
-	case "IsHonestPartyPlayingSubchallenges":
+	case "ishonestpartyplaying":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> IsHonestPartyPlayingSubchallenges <assertion_hash>")
 		}
 		_, err = client.IsHonestPartyPlayingSubchallenges(common.HexToHash(args[3]))
-	case "AnyHonestEdgeConfirmable":
+	case "anyhonestedgeconfirmable":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> AnyHonestEdgeConfirmable <assertion_hash>")
 		}
 		_, err = client.AnyHonestEdgeConfirmable(common.HexToHash(args[3]))
-	case "SybilActivityHappening":
+	case "sybilactivityhappening":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> SybilActivityHappening <assertion_hash>")
 		}
 		_, err = client.SybilActivityHappening(common.HexToHash(args[3]))
-	case "EvilPartyInsights":
+	case "evilpartyinsights":
 		err = client.EvilPartyInsights()
-	case "AnyEvilEdgeConfirmed":
+	case "anyeviledgeconfirmed":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> EvilPartyInsights <assertion_hash>")
 		}
 		_, err = client.AnyEvilEdgeConfirmed(common.HexToHash(args[3]))
-	case "AssertionChainHealth":
+	case "assertionchainhealth":
 		err = client.AssertionChainHealth()
-	case "ListAssertions":
+	case "listassertions":
 		_, err = client.ListAssertions()
-	case "AllChallengeEdges":
+	case "allchallengeedges":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> AllChallengeEdges <assertion_hash>")
 		}
 		_, err = client.AllChallengeEdges(common.HexToHash(args[3]))
-	case "ChallengeByAssertionHash":
+	case "challengebyassertionhash":
 		if len(args) < 4 {
 			panic("Usage: client_cli_tool <url> ChallengeByAssertionHash <assertion_hash>")
 		}
 		_, err = client.ChallengeByAssertionHash(common.HexToHash(args[3]))
-
 	default:
 		panic(fmt.Sprintf("Unknown method: %s", args[2]))
 	}
