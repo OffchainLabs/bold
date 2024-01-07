@@ -70,6 +70,9 @@ type JsonEdge struct {
 	// Honest validator's point of view
 	IsHonest   bool `json:"isHonest"`
 	IsRelevant bool `json:"isRelevant"`
+	// TODO: make sure to fill confirmable info using something like GetHonestConfirmableEdges
+	IsConfirmable bool   `json:"isConfirmable"`
+	ConfirmableBy string `json:"confirmableBy"`
 }
 
 type JsonCommitment struct {

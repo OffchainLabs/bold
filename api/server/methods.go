@@ -1,5 +1,15 @@
 package server
 
+const (
+	HealthzPath                  = "/api/v1/db/healthz"
+	ForceDBUpdatePath            = "/api/v1/db/update"
+	AssertionHash                = "<assertion-hash>"
+	AllChallengeEdgesPath        = "/api/v1/challenge/" + AssertionHash + "/edges"
+	MiniStakesPath               = "/api/v1/challenge/" + AssertionHash + "/ministakes"
+	ListAssertionsPath           = "/api/v1/assertions"
+	ChallengeByAssertionHashPath = "/api/v1/challenge/" + AssertionHash
+)
+
 // Healthz checks if the API server is ready to serve queries. Returns 200
 // if it is ready, otherwise, other statuses. If the DB is currently reindexing
 // data, it may return a 503.
@@ -148,7 +158,7 @@ func (s *Server) EdgeByHistoryCommitment() {
 // - offset: the offset index in the DB
 // - challenge_level: items in a specific challenge level. level 0 is the block challenge level
 // response:
-// - []*MiniStake
+// - []*JsonMiniStakes
 func (s *Server) MiniStakes() {
 
 }
