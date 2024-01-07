@@ -40,8 +40,9 @@ func (s *Client) ForceDBUpdate() error {
 	return nil
 }
 
-func (s *Client) IsHonestPartyActive() {
+func (s *Client) IsHonestPartyActive() error {
 	// TODO: implement
+	return nil
 }
 
 // HonestPartyHasAdvantage Checks if honest party has an advantage over evil party.
@@ -125,8 +126,9 @@ func (s *Client) SybilActivityHappening(assertionHash common.Hash) (bool, error)
 	return sybilActivityHappening, nil
 }
 
-func (s *Client) EvilPartyInsights() {
+func (s *Client) EvilPartyInsights() error {
 	// TODO: implement
+	return nil
 }
 
 // AnyEvilEdgeConfirmed Checks if any evil edges have been confirmed.
@@ -151,8 +153,9 @@ func (s *Client) AnyEvilEdgeConfirmed(assertionHash common.Hash) (bool, error) {
 	return anyEvilEdgeConfirmed, nil
 }
 
-func (s *Client) AssertionChainHealth() {
+func (s *Client) AssertionChainHealth() error {
 	// TODO: implement
+	return nil
 }
 
 // ListAssertions fetches all assertions from the server.
@@ -168,12 +171,25 @@ func (s *Client) ListAssertions() ([]*server.JsonAssertion, error) {
 		fmt.Printf("Error while parsing assertions: %s\n", err)
 		return nil, err
 	}
+	fmt.Printf("List of assertions: %s\n", string(body))
 	return assertions, nil
 }
 
 // AllChallengeEdges fetches all the edges corresponding to a challenge
 func (s *Client) AllChallengeEdges(assertionHash common.Hash) ([]*server.JsonEdge, error) {
-	return s.getEdges(assertionHash)
+	body, err := s.httpGet(strings.Replace(server.AllChallengeEdgesPath, server.AssertionHash, assertionHash.String(), 1))
+	if err != nil {
+		fmt.Printf("Error while fetching challenge edges: %s\n", err)
+		return nil, err
+	}
+	var edges []*server.JsonEdge
+	err = json.Unmarshal(body, &edges)
+	if err != nil {
+		fmt.Printf("Error while parsing challenge edges: %s\n", err)
+		return nil, err
+	}
+	fmt.Printf("All challenge edges: %s\n", string(body))
+	return edges, nil
 }
 
 // ChallengeByAssertionHash fetches information about a challenge on a specific assertion hash
@@ -189,6 +205,7 @@ func (s *Client) ChallengeByAssertionHash(assertionHash common.Hash) (*server.Js
 		fmt.Printf("Error while parsing challenge: %s\n", err)
 		return nil, err
 	}
+	fmt.Printf("Challenge: %s\n", string(body))
 	return &challenge, nil
 }
 
@@ -205,6 +222,7 @@ func (s *Client) MiniStakes(assertionHash common.Hash) ([]*server.JsonMiniStakes
 		fmt.Printf("Error while parsing ministakes: %s\n", err)
 		return nil, err
 	}
+	fmt.Printf("Ministakes: %s\n", string(body))
 	return ministakesList, nil
 }
 

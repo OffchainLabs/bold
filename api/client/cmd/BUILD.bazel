@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "cmd_lib",
+    srcs = ["client_cli_tool.go"],
+    importpath = "github.com/OffchainLabs/bold/api/client/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//api/client",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)
