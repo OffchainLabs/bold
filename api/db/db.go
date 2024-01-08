@@ -6,19 +6,33 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OffchainLabs/bold/api/server"
+	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type Database struct {
+type Database interface {
+	ReadOnlyDatabase
+	InsertEdges(edges []*api.JsonEdge) error
+	InsertEdge(edge *api.JsonEdge) error
+	InsertAssertions(assertions []*AssertionWithInfo) error
+	InsertAssertion(assertion *AssertionWithInfo) error
+}
+
+type ReadOnlyDatabase interface {
+	GetAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
+	GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error)
+	GetEdgeDescendants(edgeId common.Hash) ([]*api.JsonEdge, error)
+}
+
+type SqliteDatabase struct {
 	sqlDB               *sqlx.DB
 	currentTableVersion int
 }
 
-func NewDatabase(path string) (*Database, error) {
+func NewDatabase(path string) (*SqliteDatabase, error) {
 	if _, err := os.Stat(path); err != nil {
 		_, err = os.Create(path)
 		if err != nil {
@@ -29,7 +43,7 @@ func NewDatabase(path string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Database{
+	return &SqliteDatabase{
 		sqlDB:               db,
 		currentTableVersion: -1,
 	}, nil
@@ -80,10 +94,10 @@ func (q *AssertionQuery) ToSQL() (string, []interface{}) {
 	return baseQuery, q.args
 }
 
-func (d *Database) GetAssertions(opts ...AssertionOption) ([]*server.JsonAssertion, error) {
+func (d *SqliteDatabase) GetAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error) {
 	query := NewAssertionQuery(opts...)
 	sql, args := query.ToSQL()
-	assertions := make([]*server.JsonAssertion, 0)
+	assertions := make([]*api.JsonAssertion, 0)
 	err := d.sqlDB.Select(&assertions, sql, args...)
 	if err != nil {
 		return nil, err
@@ -110,7 +124,41 @@ func NewEdgeQuery(opts ...EdgeOption) *EdgeQuery {
 // Define similar function for Assertions
 type EdgeOption func(e *EdgeQuery)
 
-// EdgeOptions
+func WithId(id string) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "Id = ?")
+		q.args = append(q.args, id)
+	}
+}
+
+func WithChallengeLevel(level uint8) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "Id = ?")
+		q.args = append(q.args, level)
+	}
+}
+
+func WithStartHistoryCommitment(comm commitments.History) EdgeOption {
+	return func(q *EdgeQuery) {
+		// q.filters = append(q.filters, "Id = ?")
+		// q.args = append(q.args, level)
+	}
+}
+
+func WithEndHistoryCommitment(comm commitments.History) EdgeOption {
+	return func(q *EdgeQuery) {
+		// q.filters = append(q.filters, "Id = ?")
+		// q.args = append(q.args, level)
+	}
+}
+
+func WithCreatedAtBlock(blockNum uint64) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "CreatedAtBlock = ?")
+		q.args = append(q.args, blockNum)
+	}
+}
+
 func WithOriginID(originID string) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "OriginId = ?")
@@ -158,10 +206,10 @@ func (q *EdgeQuery) ToSQL() (string, []interface{}) {
 	return baseQuery, q.args
 }
 
-func (d *Database) GetEdges(opts ...EdgeOption) ([]*server.JsonEdge, error) {
+func (d *SqliteDatabase) GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error) {
 	query := NewEdgeQuery(opts...)
 	sql, args := query.ToSQL()
-	edges := make([]*server.JsonEdge, 0)
+	edges := make([]*api.JsonEdge, 0)
 	err := d.sqlDB.Select(&edges, sql, args...)
 	if err != nil {
 		return nil, err
@@ -169,8 +217,8 @@ func (d *Database) GetEdges(opts ...EdgeOption) ([]*server.JsonEdge, error) {
 	return edges, nil
 }
 
-func (d *Database) GetAllChildren(edgeId common.Hash) ([]*server.JsonEdge, error) {
-	var allChildren []*server.JsonEdge
+func (d *SqliteDatabase) GetAllChildren(edgeId common.Hash) ([]*api.JsonEdge, error) {
+	var allChildren []*api.JsonEdge
 	err := d.getChildrenRecursive(edgeId, allChildren)
 	if err != nil {
 		return nil, err
@@ -178,8 +226,8 @@ func (d *Database) GetAllChildren(edgeId common.Hash) ([]*server.JsonEdge, error
 	return allChildren, nil
 }
 
-func (d *Database) getChildrenRecursive(parentID common.Hash, allChildren []*server.JsonEdge) error {
-	var children []*server.JsonEdge
+func (d *SqliteDatabase) getChildrenRecursive(parentID common.Hash, allChildren []*api.JsonEdge) error {
+	var children []*api.JsonEdge
 	query := `SELECT * FROM Edges WHERE LowerChildID = ? OR UpperChildID = ?`
 	err := d.sqlDB.Select(&children, query, parentID, parentID)
 	if err != nil {
@@ -200,7 +248,7 @@ type AssertionWithInfo struct {
 	protocol.AssertionCreatedInfo
 }
 
-func (d *Database) InsertAssertions(assertions []*AssertionWithInfo) error {
+func (d *SqliteDatabase) InsertAssertions(assertions []*AssertionWithInfo) error {
 	for _, a := range assertions {
 		if err := d.InsertAssertion(a); err != nil {
 			return err
@@ -209,11 +257,11 @@ func (d *Database) InsertAssertions(assertions []*AssertionWithInfo) error {
 	return nil
 }
 
-func (d *Database) InsertAssertion(a *AssertionWithInfo) error {
+func (d *SqliteDatabase) InsertAssertion(a *AssertionWithInfo) error {
 	return nil
 }
 
-func (d *Database) InsertEdges(edges []protocol.SpecEdge) error {
+func (d *SqliteDatabase) InsertEdges(edges []*api.JsonEdge) error {
 	for _, e := range edges {
 		if err := d.InsertEdge(e); err != nil {
 			return err
@@ -222,6 +270,6 @@ func (d *Database) InsertEdges(edges []protocol.SpecEdge) error {
 	return nil
 }
 
-func (d *Database) InsertEdge(edge protocol.SpecEdge) error {
+func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	return nil
 }

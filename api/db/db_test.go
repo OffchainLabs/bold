@@ -3,7 +3,7 @@ package db
 import (
 	"testing"
 
-	"github.com/OffchainLabs/bold/api/server"
+	"github.com/OffchainLabs/bold/api"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -13,9 +13,9 @@ import (
 func TestGetEdges(t *testing.T) {
 	sqlDb := setupTestDB(t)
 	defer sqlDb.Close()
-	db := &Database{sqlDB: sqlDb}
+	db := &SqliteDatabase{sqlDB: sqlDb}
 
-	e := &server.JsonEdge{}
+	e := &api.JsonEdge{}
 	// err here is not nil because there are no field destinations for columns in `place`
 	err := sqlDb.Get(e, "SELECT * FROM Edges LIMIT 1;")
 	require.NoError(t, err)
@@ -56,7 +56,7 @@ func populateFakeData(t *testing.T, db *sqlx.DB) error {
 	}
 
 	// Insert data into Edges
-	edgeData := []server.JsonEdge{
+	edgeData := []api.JsonEdge{
 		{
 			Id:                common.BytesToHash([]byte("foobar")),
 			ChallengeLevel:    0,

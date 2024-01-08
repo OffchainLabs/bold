@@ -6,6 +6,7 @@ package backend
 import (
 	"context"
 
+	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 )
 
@@ -17,7 +18,9 @@ type Database interface {
 	Assertions()
 }
 
-type Backend struct{}
+type Backend struct {
+	db db.ReadOnlyDatabase
+}
 
 type AssertionOpt func(b *Backend)
 
