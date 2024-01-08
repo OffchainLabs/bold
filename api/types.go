@@ -8,10 +8,7 @@ import (
 )
 
 type JsonChallenge struct {
-	AssertionHash common.Hash              `json:"assertionHash"`
-	CreationBlock uint64                   `json:"creationBlock"`
-	Status        protocol.AssertionStatus `json:"status"`
-	Config        *JsonChallengeConfig     `json:"config"`
+	AssertionHash common.Hash `json:"assertionHash"`
 }
 
 type JsonChallengeConfig struct {
@@ -28,23 +25,27 @@ type JsonChallengeConfig struct {
 }
 
 type JsonAssertion struct {
-	Hash                common.Hash              `json:"hash"`
-	ConfirmPeriodBlocks uint64                   `json:"confirmPeriodBlocks"`
-	RequiredStake       string                   `json:"requiredStake"`
-	ParentAssertionHash common.Hash              `json:"parentAssertionHash"`
-	InboxMaxCount       string                   `json:"inboxMaxCount"`
-	AfterInboxBatchAcc  common.Hash              `json:"afterInboxBatchAcc"`
-	WasmModuleRoot      common.Hash              `json:"wasmModuleRoot"`
-	ChallengeManager    common.Address           `json:"challengeManager"`
-	CreationBlock       uint64                   `json:"creationBlock"`
-	TransactionHash     common.Hash              `json:"transactionHash"`
-	BeforeState         *protocol.ExecutionState `json:"arbitrumBeforeState"`
-	AfterState          *protocol.ExecutionState `json:"arbitrumAfterState"`
-	FirstChildBlock     uint64                   `json:"firstChildBlock"`
-	SecondChildBlock    uint64                   `json:"secondChildBlock"`
-	IsFirstChild        bool                     `json:"isFirstChild"`
-	Status              protocol.AssertionStatus `json:"status"`
-	ConfigHash          common.Hash              `json:"configHash"`
+	Hash                     common.Hash              `json:"hash" db:"Hash"`
+	ConfirmPeriodBlocks      uint64                   `json:"confirmPeriodBlocks" db:"ConfirmPeriodBlocks"`
+	RequiredStake            string                   `json:"requiredStake" db:"RequiredStake"`
+	ParentAssertionHash      common.Hash              `json:"parentAssertionHash" db:"ParentAssertionHash"`
+	InboxMaxCount            string                   `json:"inboxMaxCount" db:"InboxMaxCount"`
+	AfterInboxBatchAcc       common.Hash              `json:"afterInboxBatchAcc" db:"AfterInboxBatchAcc"`
+	WasmModuleRoot           common.Hash              `json:"wasmModuleRoot" db:"WasmModuleRoot"`
+	ChallengeManager         common.Address           `json:"challengeManager" db:"ChallengeManager"`
+	CreationBlock            uint64                   `json:"creationBlock" db:"CreationBlock"`
+	TransactionHash          common.Hash              `json:"transactionHash" db:"TransactionHash"`
+	BeforeStateBlockHash     common.Hash              `json:"beforeStateBlockHash" db:"BeforeStateBlockHash"`
+	BeforeStateSendRoot      common.Hash              `json:"beforeStateSendRoot" db:"BeforeStateSendRoot"`
+	BeforeStateMachineStatus protocol.MachineStatus   `json:"beforeStateMachineStatus" db:"BeforeStateMachineStatus"`
+	AfterStateBlockHash      common.Hash              `json:"afterStateBlockHash" db:"AfterStateBlockHash"`
+	AfterStateSendRoot       common.Hash              `json:"afterStateSendRoot" db:"AfterStateSendRoot"`
+	AfterStateMachineStatus  protocol.MachineStatus   `json:"afterStateMachineStatus" db:"AfterStateMachineStatus"`
+	FirstChildBlock          *uint64                  `json:"firstChildBlock" db:"FirstChildBlock"`
+	SecondChildBlock         *uint64                  `json:"secondChildBlock" db:"SecondChildBlock"`
+	IsFirstChild             bool                     `json:"isFirstChild" db:"IsFirstChild"`
+	Status                   protocol.AssertionStatus `json:"status" db:"Status"`
+	ConfigHash               common.Hash              `json:"configHash" db:"ConfigHash"`
 }
 
 type JsonEdge struct {

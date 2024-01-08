@@ -56,6 +56,19 @@ const (
 	AssertionConfirmed
 )
 
+func (a AssertionStatus) String() string {
+	switch a {
+	case NoAssertion:
+		return "none"
+	case AssertionPending:
+		return "pending"
+	case AssertionConfirmed:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
+}
+
 const BeforeDeadlineAssertionConfirmationError = "BEFORE_DEADLINE"
 
 // Assertion represents a top-level claim in the protocol about the

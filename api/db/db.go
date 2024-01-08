@@ -3,11 +3,13 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -17,12 +19,13 @@ type Database interface {
 	ReadOnlyDatabase
 	InsertEdges(edges []*api.JsonEdge) error
 	InsertEdge(edge *api.JsonEdge) error
-	InsertAssertions(assertions []*AssertionWithInfo) error
-	InsertAssertion(assertion *AssertionWithInfo) error
+	InsertAssertions(assertions []*api.JsonAssertion) error
+	InsertAssertion(assertion *api.JsonAssertion) error
 }
 
 type ReadOnlyDatabase interface {
 	GetAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
+	GetChallengedAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
 	GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error)
 	GetEdgeDescendants(edgeId common.Hash) ([]*api.JsonEdge, error)
 }
@@ -50,11 +53,12 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 }
 
 type AssertionQuery struct {
-	filters []string
-	args    []interface{}
-	limit   int
-	offset  int
-	orderBy string
+	filters       []string
+	args          []interface{}
+	limit         int
+	offset        int
+	orderBy       string
+	withChallenge bool
 }
 
 func NewAssertionQuery(opts ...AssertionOption) *AssertionQuery {
@@ -67,16 +71,141 @@ func NewAssertionQuery(opts ...AssertionOption) *AssertionQuery {
 
 type AssertionOption func(*AssertionQuery)
 
-// Options for Assertions (similar to EdgeOptions)
-func WithAssertionHash(hash string) AssertionOption {
+func WithChallenge() AssertionOption {
+	return func(q *AssertionQuery) {
+		q.withChallenge = true
+	}
+}
+func WithAssertionHash(hash protocol.AssertionHash) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.filters = append(q.filters, "Hash = ?")
+		q.args = append(q.args, hash.Hash)
+	}
+}
+func WithConfirmPeriodBlocks(confirmPeriodBlocks uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "ConfirmPeriodBlocks = ?")
+		q.args = append(q.args, confirmPeriodBlocks)
+	}
+}
+func WithRequiredStake(requiredStake string) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "RequiredStake = ?")
+		q.args = append(q.args, requiredStake)
+	}
+}
+func WithParentAssertionHash(hash protocol.AssertionHash) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "ParentAssertionHash = ?")
+		q.args = append(q.args, hash.Hash)
+	}
+}
+func WithInboxMaxCount(inboxMaxCount string) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "InboxMaxCount = ?")
+		q.args = append(q.args, inboxMaxCount)
+	}
+}
+func WithAfterInboxBatchAcc(afterInboxBatchAcc common.Hash) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "AfterInboxBatchAcc = ?")
+		q.args = append(q.args, afterInboxBatchAcc)
+	}
+}
+func WithWasmModuleRoot(wasmModuleRoot common.Hash) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "WasmModuleRoot = ?")
+		q.args = append(q.args, wasmModuleRoot)
+	}
+}
+func WithChallengeManager(challengeManager common.Address) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "ChallengeManager = ?")
+		q.args = append(q.args, challengeManager)
+	}
+}
+func WithAssertionCreationBlock(creationBlock uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "CreationBlock = ?")
+		q.args = append(q.args, creationBlock)
+	}
+}
+func WithTransactionHash(hash common.Hash) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "TransactionHash = ?")
 		q.args = append(q.args, hash)
+	}
+}
+func WithBeforeState(state *protocol.ExecutionState) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "BeforeStateBlockHash = ?")
+		q.args = append(q.args, state.GlobalState.BlockHash)
+		q.filters = append(q.filters, "AND BeforeStateSendRoot = ?")
+		q.args = append(q.args, state.GlobalState.SendRoot)
+		q.filters = append(q.filters, "AND BeforeStateMachineStatus = ?")
+		q.args = append(q.args, state.MachineStatus)
+	}
+}
+func WithAfterState(state *protocol.ExecutionState) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "AfterStateBlockHash = ?")
+		q.args = append(q.args, state.GlobalState.BlockHash)
+		q.filters = append(q.filters, "AND AfterStateSendRoot = ?")
+		q.args = append(q.args, state.GlobalState.SendRoot)
+		q.filters = append(q.filters, "AND AfterStateMachineStatus = ?")
+		q.args = append(q.args, state.MachineStatus)
+	}
+}
+func WithFirstChildBlock(n uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "FirstChildBlock = ?")
+		q.args = append(q.args, n)
+	}
+}
+func WithSecondChildBlock(n uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "SecondChildBlock = ?")
+		q.args = append(q.args, n)
+	}
+}
+func WithIsFirstChild() AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "IsFirstChild = tre")
+	}
+}
+func WithAssertionStatus(status protocol.AssertionStatus) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "Status = ?")
+		q.args = append(q.args, status.String())
+	}
+}
+func WithConfigHash(hash common.Hash) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "ConfigHash = ?")
+		q.args = append(q.args, hash)
+	}
+}
+func WithAssertionLimit(limit int) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.limit = limit
+	}
+}
+func WithAssertionOffset(offset int) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.offset = offset
+	}
+}
+func WithAssertionOrderBy(orderBy string) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.orderBy = orderBy
 	}
 }
 
 func (q *AssertionQuery) ToSQL() (string, []interface{}) {
 	baseQuery := "SELECT * FROM Assertions"
+	if q.withChallenge {
+		baseQuery += " INNER JOIN Challenges c ON a.Hash = c.AssertionHash"
+	}
 	if len(q.filters) > 0 {
 		baseQuery += " WHERE " + strings.Join(q.filters, " AND ")
 	}
@@ -105,6 +234,14 @@ func (d *SqliteDatabase) GetAssertions(opts ...AssertionOption) ([]*api.JsonAsse
 	return assertions, nil
 }
 
+func (d *SqliteDatabase) GetChallengedAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error) {
+	newOpts := []AssertionOption{
+		WithChallenge(),
+	}
+	newOpts = append(newOpts, opts...)
+	return d.GetAssertions(newOpts...)
+}
+
 type EdgeQuery struct {
 	filters []string
 	args    []interface{}
@@ -121,7 +258,6 @@ func NewEdgeQuery(opts ...EdgeOption) *EdgeQuery {
 	return query
 }
 
-// Define similar function for Assertions
 type EdgeOption func(e *EdgeQuery)
 
 func WithId(id string) EdgeOption {
@@ -130,57 +266,107 @@ func WithId(id string) EdgeOption {
 		q.args = append(q.args, id)
 	}
 }
-
 func WithChallengeLevel(level uint8) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "Id = ?")
 		q.args = append(q.args, level)
 	}
 }
-
-func WithStartHistoryCommitment(comm commitments.History) EdgeOption {
+func WithOriginId(originId string) EdgeOption {
 	return func(q *EdgeQuery) {
-		// q.filters = append(q.filters, "Id = ?")
-		// q.args = append(q.args, level)
+		q.filters = append(q.filters, "OriginId = ?")
+		q.args = append(q.args, originId)
 	}
 }
-
-func WithEndHistoryCommitment(comm commitments.History) EdgeOption {
+func WithStartHistoryCommitment(startHistory history.History) EdgeOption {
 	return func(q *EdgeQuery) {
-		// q.filters = append(q.filters, "Id = ?")
-		// q.args = append(q.args, level)
+		q.filters = append(q.filters, "StartHistoryRoot = ?")
+		q.args = append(q.args, startHistory.Merkle)
+		q.filters = append(q.filters, "StartHeight = ?")
+		q.args = append(q.args, startHistory.Height)
 	}
 }
-
+func WithEndHistoryCommitment(endHistory history.History) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "EndHistoryRoot = ?")
+		q.args = append(q.args, endHistory.Merkle)
+		q.filters = append(q.filters, "EndHeight = ?")
+		q.args = append(q.args, endHistory.Height)
+	}
+}
 func WithCreatedAtBlock(blockNum uint64) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "CreatedAtBlock = ?")
 		q.args = append(q.args, blockNum)
 	}
 }
-
-func WithOriginID(originID string) EdgeOption {
+func WithMutualId(mutualId string) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "OriginId = ?")
-		q.args = append(q.args, originID)
+		q.filters = append(q.filters, "MutualId = ?")
+		q.args = append(q.args, mutualId)
 	}
 }
-
-// Limit option
+func WithClaimId(claimId string) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "ClaimId = ?")
+		q.args = append(q.args, claimId)
+	}
+}
+func HasChildren() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "HasChildren = true")
+	}
+}
+func WithLowerChildId(id string) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "LowerChildId = ?")
+		q.args = append(q.args, id)
+	}
+}
+func WithUpperChildId(id string) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "UpperChildId = ?")
+		q.args = append(q.args, id)
+	}
+}
+func WithMiniStaker(staker common.Address) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "MiniStaker = ?")
+		q.args = append(q.args, staker)
+	}
+}
+func WithEdgeAssertionHash(hash protocol.AssertionHash) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "AssertionHash = ?")
+		q.args = append(q.args, hash.Hash)
+	}
+}
+func WithHasRival() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "HasRival = true")
+	}
+}
+func WithEdgeStatus(st protocol.EdgeStatus) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "Status = ?")
+		q.args = append(q.args, st.String())
+	}
+}
+func WithHasLengthOneRival() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "HasLengthOneRival = true")
+	}
+}
 func WithLimit(limit int) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.limit = limit
 	}
 }
-
-// Offset option
 func WithOffset(offset int) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.offset = offset
 	}
 }
-
-// OrderBy option
 func WithOrderBy(orderBy string) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.orderBy = orderBy
@@ -244,11 +430,7 @@ func (d *SqliteDatabase) getChildrenRecursive(parentID common.Hash, allChildren 
 	return nil
 }
 
-type AssertionWithInfo struct {
-	protocol.AssertionCreatedInfo
-}
-
-func (d *SqliteDatabase) InsertAssertions(assertions []*AssertionWithInfo) error {
+func (d *SqliteDatabase) InsertAssertions(assertions []*api.JsonAssertion) error {
 	for _, a := range assertions {
 		if err := d.InsertAssertion(a); err != nil {
 			return err
@@ -257,7 +439,24 @@ func (d *SqliteDatabase) InsertAssertions(assertions []*AssertionWithInfo) error
 	return nil
 }
 
-func (d *SqliteDatabase) InsertAssertion(a *AssertionWithInfo) error {
+func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
+	query := `INSERT INTO Assertions (
+        Hash, ConfirmPeriodBlocks, RequiredStake, ParentAssertionHash, InboxMaxCount,
+        AfterInboxBatchAcc, WasmModuleRoot, ChallengeManager, CreationBlock, TransactionHash,
+        BeforeStateBlockHash, BeforeStateSendRoot, BeforeStateMachineStatus, AfterStateBlockHash,
+        AfterStateSendRoot, AfterStateMachineStatus, FirstChildBlock, SecondChildBlock,
+        IsFirstChild, Status, ConfigHash
+    ) VALUES (
+        :Hash, :ConfirmPeriodBlocks, :RequiredStake, :ParentAssertionHash, :InboxMaxCount,
+        :AfterInboxBatchAcc, :WasmModuleRoot, :ChallengeManager, :CreationBlock, :TransactionHash,
+        :BeforeStateBlockHash, :BeforeStateSendRoot, :BeforeStateMachineStatus, :AfterStateBlockHash,
+        :AfterStateSendRoot, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
+        :IsFirstChild, :Status, :ConfigHash
+    )`
+	_, err := d.sqlDB.NamedExec(query, a)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -271,5 +470,52 @@ func (d *SqliteDatabase) InsertEdges(edges []*api.JsonEdge) error {
 }
 
 func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
-	return nil
+	tx, err := d.sqlDB.Beginx()
+	if err != nil {
+		return err
+	}
+	// Check if the assertion exists
+	var assertionExists int
+	err = tx.Get(&assertionExists, "SELECT COUNT(*) FROM Assertions WHERE Hash = ?", edge.AssertionHash)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if assertionExists == 0 {
+		tx.Rollback()
+		return fmt.Errorf("no matching assertion found for edge with id %#x and assertion hash %#x", edge.Id, edge.AssertionHash)
+	}
+	// Check if a challenge exists for the assertion
+	var challengeExists int
+	err = tx.Get(&challengeExists, "SELECT COUNT(*) FROM Challenges WHERE AssertionHash = ?", edge.AssertionHash)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	// If the assertion exists but not the challenge, create the challenge
+	if challengeExists == 0 {
+		insertChallengeQuery := `INSERT INTO Challenges (AssertionHash) VALUES (?)`
+		_, err = tx.Exec(insertChallengeQuery, edge.AssertionHash)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	insertEdgeQuery := `INSERT INTO Edges (
+	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
+	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
+	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
+	   HasRival, Status, HasLengthOneRival
+   ) VALUES (
+	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
+	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
+	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
+	   :HasRival, :Status, :HasLengthOneRival
+   )`
+
+	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
