@@ -275,7 +275,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
 	case EdgeBisecting:
-		lowerChild, upperChild, err := et.bisect(ctx)
+		lowerChild, upperChild, err := et.Bisect(ctx)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not bisect", fields)
@@ -637,7 +637,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	return historyCommit, proof, nil
 }
 
-func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.SpecEdge, error) {
+func (et *Tracker) Bisect(ctx context.Context) (protocol.SpecEdge, protocol.SpecEdge, error) {
 	historyCommit, proof, err := et.DetermineBisectionHistoryWithProof(ctx)
 	if err != nil {
 		return nil, nil, err

@@ -189,7 +189,7 @@ func (w *Watcher) ComputeHonestPathTimerByBlockNumber(
 	chal, ok := w.challenges.TryGet(topLevelAssertionHash)
 	if !ok {
 		return 0, nil, nil, fmt.Errorf(
-			"could not get challenge for top level assertion %#x",
+			"no challenge found yet in local chain watcher for top level assertion %#x",
 			topLevelAssertionHash,
 		)
 	}

@@ -10,6 +10,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers/option"
@@ -255,6 +256,108 @@ func Test_getEdgeTrackers(t *testing.T) {
 
 	require.Equal(t, l2stateprovider.Batch(1), trk.AssertionInfo().FromBatch)
 	require.Equal(t, l2stateprovider.Batch(100), trk.AssertionInfo().ToBatch)
+}
+
+func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
+	ctx := context.Background()
+	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	require.NoError(t, err)
+
+	// Set up a challenge with 2 rival edges.
+	honestValidator, err := New(
+		ctx,
+		createdData.Chains[0],
+		createdData.Backend,
+		createdData.HonestStateManager,
+		createdData.Addrs.Rollup,
+		WithName("alice"),
+		WithMode(types.MakeMode),
+		WithEdgeTrackerWakeInterval(100*time.Millisecond),
+	)
+	require.NoError(t, err)
+
+	evilValidator, err := New(
+		ctx,
+		createdData.Chains[1],
+		createdData.Backend,
+		createdData.EvilStateManager,
+		createdData.Addrs.Rollup,
+		WithName("bob"),
+		WithMode(types.MakeMode),
+		WithEdgeTrackerWakeInterval(100*time.Millisecond),
+	)
+	require.NoError(t, err)
+
+	honestEdge, _, _, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
+	require.NoError(t, err)
+	honestValidator.watcher.AddVerifiedHonestEdge(ctx, honestEdge)
+
+	// Delay the evil root edge by 10 blocks.
+	for i := 0; i < 10; i++ {
+		createdData.Backend.Commit()
+	}
+
+	evilEdge, _, _, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
+	require.NoError(t, err)
+	evilValidator.watcher.AddVerifiedHonestEdge(ctx, evilEdge)
+
+	// Get the parent assertion id.
+	assertionHash, err := honestEdge.AssertionHash(ctx)
+	require.NoError(t, err)
+
+	// Check the path timer for both edges.
+	pathTimer, ancestors, localTimers, err := honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, honestEdge.Id())
+	require.NoError(t, err)
+	t.Log(pathTimer, ancestors, localTimers)
+
+	pathTimer, _, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, evilEdge.Id())
+	require.NoError(t, err)
+
+	// Ensure this new edge has a path timer of 0, as it had a rival on creation.
+	require.Equal(t, uint64(pathTimer), uint64(0))
+
+	// Set up an edge tracker for the evil edge.
+	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
+		FromBatch:      0,
+		ToBatch:        1,
+		WasmModuleRoot: common.Hash{},
+	}
+	evilEdgeTracker, err := edgetracker.New(
+		ctx,
+		evilEdge,
+		evilValidator.chain,
+		createdData.EvilStateManager,
+		evilValidator.watcher,
+		evilValidator,
+		assertionInfo,
+		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
+	)
+	require.NoError(t, err)
+
+	// Bisect the evil edge into two children.
+	historyCommit, proof, err := evilEdgeTracker.DetermineBisectionHistoryWithProof(ctx)
+	require.NoError(t, err)
+	lowerChild, upperChild, err := evilEdge.Bisect(ctx, historyCommit.Merkle, proof)
+	require.NoError(t, err)
+
+	// Add both children to the evil validator's chain watcher as verified honest edges
+	// from its own perspective.
+	require.NoError(t, evilValidator.watcher.AddVerifiedHonestEdge(ctx, lowerChild))
+	require.NoError(t, evilValidator.watcher.AddVerifiedHonestEdge(ctx, upperChild))
+
+	// Ensure we can compute the path timer for both of these children.
+	_, _, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
+	require.NoError(t, err)
+
+	// The honest validator agrees with the lower child, so we'll add this lower child
+	// to the honest validator's watcher as well as a verified honest edge.
+	require.NoError(t, honestValidator.watcher.AddVerifiedHonestEdge(ctx, lowerChild))
+
+	// However, if we then try to compute the path timer for this edge we just added
+	// from the honest validator's perspective, we will fail, because it is not linked to an "honest parent"
+	// Its parent, instead, is the evil rival edge that bisected.
+	_, _, _, err = honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
+	require.ErrorIs(t, err, challengetree.ErrNoLowerChildYet)
 }
 
 func setupEdgeTrackersForBisection(
