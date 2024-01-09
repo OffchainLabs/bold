@@ -6,6 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/sync v0.1.0
