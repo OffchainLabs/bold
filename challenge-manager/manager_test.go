@@ -292,7 +292,8 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 	evilValidator.watcher.AddVerifiedHonestEdge(ctx, evilEdge)
 
 	// Delay the honest root edge by 10 blocks.
-	for i := 0; i < 10; i++ {
+	evilValidatorUnrivaledTime := uint64(10)
+	for i := uint64(0); i < evilValidatorUnrivaledTime; i++ {
 		createdData.Backend.Commit()
 	}
 
@@ -304,10 +305,13 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 	assertionHash, err := honestEdge.AssertionHash(ctx)
 	require.NoError(t, err)
 
-	// Check the path timer of the honest edge is 0, as it had a rival on creation.
+	// Check the path timer of the honest edge is just the unrivaled time of its claimed assertion. By itself,
+	// it should have a path timer of 0, as it had a rival on creation.
+	assertionUnrivaledTimer, err := honestValidator.chain.AssertionUnrivaledBlocks(ctx, protocol.AssertionHash{Hash: common.Hash(honestEdge.ClaimId().Unwrap())})
+	require.NoError(t, err)
 	pathTimer, _, _, err := honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, honestEdge.Id())
 	require.NoError(t, err)
-	require.Equal(t, uint64(pathTimer), uint64(0))
+	require.Equal(t, uint64(pathTimer), assertionUnrivaledTimer)
 
 	// Check the path timer of the evil edge is > 0.
 	pathTimer, _, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, evilEdge.Id())
@@ -358,11 +362,24 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 	//
 	// This regression test checks that computing the honest path timer will not fail, given we have
 	// revamped our path timer computation algorithm since.
-	_, _, _, err = honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
+	pathTimer, ancestors, _, err := honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
 	require.NoError(t, err)
+	require.Equal(t, true, len(ancestors) == 1)
+	require.Equal(t, ancestors[0], honestEdge.Id())
 
-	// TODO: Check that only the honest ancestors' path timer count towards this lower child's
-	// path timer when performing the computation.
+	// Check that only the honest ancestors' path timer count towards this lower child's
+	// path timer when performing the computation. That is, it should have a path timer of exactly 1
+	// block of its claimed assertion being unrivaled, and 1 block of the lower edge existing.
+	// It should not have more than that.
+	require.Equal(t, assertionUnrivaledTimer+1, uint64(pathTimer))
+
+	// From the perspective of the evil validator, however, the path timer of this child edge should also encompass its
+	// top-level, root edge's path timer.
+	pathTimer, ancestors, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
+	require.NoError(t, err)
+	require.Equal(t, true, len(ancestors) == 1)
+	require.Equal(t, ancestors[0], evilEdge.Id())
+	require.True(t, uint64(pathTimer) > evilValidatorUnrivaledTime)
 }
 
 func setupEdgeTrackersForBisection(

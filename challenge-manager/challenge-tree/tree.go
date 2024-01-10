@@ -272,7 +272,7 @@ func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) err
 		return nil
 	}
 	startHeight, _ := eg.StartCommitment()
-	endHeight, _ := eg.StartCommitment()
+	endHeight, _ := eg.EndCommitment()
 	commit := edgeCommitment{startHeight: startHeight, endHeight: endHeight}
 	ht.edges.Put(id, eg)
 	ht.edgeIdByCommitment.Put(commit, id)
