@@ -4,103 +4,83 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/bold/api"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetEdges(t *testing.T) {
-	sqlDb := setupTestDB(t)
-	defer sqlDb.Close()
-	db := &SqliteDatabase{sqlDB: sqlDb}
-
-	e := &api.JsonEdge{}
-	// err here is not nil because there are no field destinations for columns in `place`
-	err := sqlDb.Get(e, "SELECT * FROM Edges LIMIT 1;")
+func TestSqliteDatabase_Edges(t *testing.T) {
+	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
 	require.NoError(t, err)
-	t.Logf("%+v\n", e)
+	defer sqlDB.Close()
 
-	edges, err := db.GetEdges(WithLimit(2), WithOrderBy("CreatedAtBlock DESC"))
+	_, err = sqlDB.Exec(schema)
 	require.NoError(t, err)
-	require.Len(t, edges, 1) // Adjust according to your fake data
-	t.Logf("%+v\n", edges)
-	t.Fatal("Error")
+
+	db := &SqliteDatabase{sqlDB: sqlDB}
+	assertionsToCreate := []*api.JsonAssertion{
+		baseAssertion(),
+	}
+	require.NoError(t, db.InsertAssertions(assertionsToCreate))
+	edgesToCreate := []*api.JsonEdge{
+		baseEdge(),
+	}
+	require.NoError(t, db.InsertEdges(edgesToCreate))
+
+	edges, err := db.GetEdges(WithLimit(1))
+	require.NoError(t, err)
+	t.Log(edges)
 }
 
-func setupTestDB(t *testing.T) *sqlx.DB {
-	db, err := sqlx.Connect("sqlite3", ":memory:")
-	require.NoError(t, err)
-
-	// Execute schema creation
-	_, err = db.Exec(schema)
-	require.NoError(t, err, "failed here")
-
-	// Populate the database with fake data
-	populateFakeData(t, db)
-
-	return db
+func baseAssertion() *api.JsonAssertion {
+	return &api.JsonAssertion{
+		Hash:                     common.Hash{},
+		ConfirmPeriodBlocks:      100,
+		RequiredStake:            "1",
+		ParentAssertionHash:      common.Hash{},
+		InboxMaxCount:            "1",
+		AfterInboxBatchAcc:       common.Hash{},
+		WasmModuleRoot:           common.Hash{},
+		ChallengeManager:         common.Address{},
+		CreationBlock:            1,
+		TransactionHash:          common.Hash{},
+		BeforeStateBlockHash:     common.Hash{},
+		BeforeStateSendRoot:      common.Hash{},
+		BeforeStateMachineStatus: protocol.MachineStatusFinished,
+		AfterStateBlockHash:      common.Hash{},
+		AfterStateSendRoot:       common.Hash{},
+		AfterStateMachineStatus:  protocol.MachineStatusFinished,
+		FirstChildBlock:          nil,
+		SecondChildBlock:         nil,
+		IsFirstChild:             true,
+		Status:                   protocol.AssertionPending,
+		ConfigHash:               common.Hash{},
+	}
 }
 
-func populateFakeData(t *testing.T, db *sqlx.DB) error {
-	// Insert data into Challenges
-	challengeData := []string{
-		"assertion_hash_1",
-		"assertion_hash_2",
-		"assertion_hash_3",
+func baseEdge() *api.JsonEdge {
+	return &api.JsonEdge{
+		Id:                common.Hash{},
+		ChallengeLevel:    0,
+		OriginId:          common.Hash{},
+		AssertionHash:     common.Hash{},
+		StartHistoryRoot:  common.Hash{},
+		StartHeight:       0,
+		EndHistoryRoot:    common.Hash{},
+		EndHeight:         0,
+		MutualId:          common.Hash{},
+		ClaimId:           common.Hash{},
+		HasChildren:       false,
+		LowerChildId:      common.Hash{},
+		UpperChildId:      common.Hash{},
+		MiniStaker:        common.Address{},
+		HasRival:          true,
+		Status:            "pending",
+		HasLengthOneRival: true,
+		CreatedAtBlock:    1,
 	}
-	for _, hash := range challengeData {
-		if _, err := db.Exec("INSERT INTO Challenges (AssertionHash) VALUES (?)", hash); err != nil {
-			return err
-		}
-	}
-
-	// Insert data into Edges
-	edgeData := []api.JsonEdge{
-		{
-			Id:                common.BytesToHash([]byte("foobar")),
-			ChallengeLevel:    0,
-			OriginId:          common.BytesToHash([]byte("origin")),
-			AssertionHash:     common.BytesToHash([]byte("assertion_hash")),
-			StartHistoryRoot:  common.BytesToHash([]byte("start")),
-			StartHeight:       0,
-			EndHistoryRoot:    common.BytesToHash([]byte("end")),
-			EndHeight:         32,
-			MutualId:          common.BytesToHash([]byte("mutual")),
-			ClaimId:           common.BytesToHash([]byte("claim")),
-			HasChildren:       false,
-			LowerChildId:      common.Hash{},
-			UpperChildId:      common.Hash{},
-			MiniStaker:        common.Address{},
-			HasRival:          true,
-			Status:            "confirmed",
-			HasLengthOneRival: true,
-			CreatedAtBlock:    230239,
-		},
-	}
-	for _, e := range edgeData {
-		_, err := db.NamedExec("INSERT INTO Edges (Id, ChallengeLevel, OriginId, AssertionHash, StartHistoryRoot, StartHeight, EndHistoryRoot, EndHeight, MutualId, ClaimId, HasChildren, LowerChildId, UpperChildId, MiniStaker, HasRival, Status, HasLengthOneRival, CreatedAtBlock) VALUES (:Id, :ChallengeLevel, :OriginId, :AssertionHash, :StartHistoryRoot, :StartHeight, :EndHistoryRoot, :EndHeight, :MutualId, :ClaimId, :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :HasRival, :Status, :HasLengthOneRival, :CreatedAtBlock)", e)
-		require.NoError(t, err)
-	}
-
-	// // Insert data into Assertions
-	// assertionData := []struct {
-	// 	Hash                string
-	// 	ConfirmPeriodBlocks int
-	// 	// Add other fields as necessary
-	// }{
-	// 	{"assertion_hash_1", 100},
-	// 	{"assertion_hash_2", 200},
-	// 	// Add more records as necessary
-	// }
-	// for _, a := range assertionData {
-	// 	if _, err := db.Exec("INSERT INTO Assertions (Hash, ConfirmPeriodBlocks) VALUES (?, ?)",
-	// 		a.Hash, a.ConfirmPeriodBlocks); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	return nil
 }
 
 // func TestGetAllChildren(t *testing.T) {
