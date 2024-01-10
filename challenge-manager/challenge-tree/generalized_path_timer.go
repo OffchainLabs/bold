@@ -247,27 +247,29 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 			return nil, nil, errors.Wrapf(err, "could not bisect start=%d, end=%d", currStart, currEnd)
 		}
 		// If the wanted edge's start commitment is less than the bisection height of the current
-		// edge in the loop, it means it is part of its lower children.
+		// edge in the loop, it means it is part of its lower descendants.
+		var descendantCommitment edgeCommitment
 		if uint64(wantedEdgeStart) < bisectTo {
-			lowerChild, lowerErr := cursor.LowerChild(ctx)
-			if lowerErr != nil {
-				return nil, nil, errors.Wrapf(lowerErr, "could not get lower child for edge %#x", cursor.Id())
+			descendantCommitment = edgeCommitment{
+				startHeight: currStart,
+				endHeight:   protocol.Height(bisectTo),
 			}
-			if lowerChild.IsNone() {
-				return nil, nil, errors.Wrapf(ErrNoLowerChildYet, "edge id %#x", cursor.Id())
-			}
-			cursor = ht.edges.Get(lowerChild.Unwrap())
 		} else {
-			// Else, it is part of the upper children.
-			upperChild, upperErr := cursor.UpperChild(ctx)
-			if upperErr != nil {
-				return nil, nil, errors.Wrapf(upperErr, "could not get upper child for edge %#x", cursor.Id())
+			// Otherwise, the wanted edge is part of the higher descendants.
+			descendantCommitment = edgeCommitment{
+				startHeight: protocol.Height(bisectTo),
+				endHeight:   currEnd,
 			}
-			if upperChild.IsNone() {
-				return nil, nil, fmt.Errorf("edge %#x had no upper child", cursor.Id())
-			}
-			cursor = ht.edges.Get(upperChild.Unwrap())
 		}
+		edgeId, ok := ht.edgeIdByCommitment.TryGet(descendantCommitment)
+		if !ok {
+			return nil, nil, fmt.Errorf("wanted edge not found in lower descendants of edge with start=%d, end=%d", currStart, currEnd)
+		}
+		lowerDescendant, ok := ht.edges.TryGet(edgeId)
+		if !ok {
+			return nil, nil, fmt.Errorf("edge with id %#x not found in honest edges map", edgeId)
+		}
+		cursor = lowerDescendant
 	}
 	if !found {
 		return nil, nil, errNotFound(queryingFor.Id())

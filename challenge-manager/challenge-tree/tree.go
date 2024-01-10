@@ -31,10 +31,16 @@ type MetadataReader interface {
 
 type creationTime uint64
 
+type edgeCommitment struct {
+	startHeight protocol.Height
+	endHeight   protocol.Height
+}
+
 // HonestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
 	edges                  *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	edgeIdByCommitment     *threadsafe.Map[edgeCommitment, protocol.EdgeId]
 	mutualIds              *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionHash  protocol.AssertionHash
 	metadataReader         MetadataReader
@@ -53,6 +59,7 @@ func New(
 ) *HonestChallengeTree {
 	return &HonestChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeIdByCommitment:    threadsafe.NewMap[edgeCommitment, protocol.EdgeId](),
 		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		topLevelAssertionHash: assertionHash,
 		metadataReader:        metadataReader,
@@ -218,7 +225,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	// we keep track of it specifically in our struct.
 	if isHonestEdge {
 		id := eg.Id()
+		commit := edgeCommitment{startHeight: startHeight, endHeight: endHeight}
 		ht.edges.Put(id, eg)
+		ht.edgeIdByCommitment.Put(commit, id)
 		if !eg.ClaimId().IsNone() {
 			reversedChallengeLevel := eg.GetReversedChallengeLevel()
 			rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(reversedChallengeLevel)
@@ -262,7 +271,11 @@ func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) err
 		// Already being tracked.
 		return nil
 	}
+	startHeight, _ := eg.StartCommitment()
+	endHeight, _ := eg.StartCommitment()
+	commit := edgeCommitment{startHeight: startHeight, endHeight: endHeight}
 	ht.edges.Put(id, eg)
+	ht.edgeIdByCommitment.Put(commit, id)
 	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
 	if !eg.ClaimId().IsNone() {
 		reversedChallengeLevel := eg.GetReversedChallengeLevel()
