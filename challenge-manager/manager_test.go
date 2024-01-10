@@ -228,8 +228,11 @@ func Test_getEdgeTrackers(t *testing.T) {
 	edge := &mocks.MockSpecEdge{}
 	edge.On("Id").Return(protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))})
 	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2))
+	edge.On("GetChallengeLevel").Return(protocol.ChallengeLevel(0))
 	edge.On("MutualId").Return(protocol.MutualId{})
 	edge.On("CreatedAtBlock").Return(uint64(1), nil)
+	edge.On("StartCommitment").Return(protocol.Height(0), common.Hash{})
+	edge.On("EndCommitment").Return(protocol.Height(16), common.Hash{})
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))}
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("AssertionHash", ctx).Return(assertionHash, nil)

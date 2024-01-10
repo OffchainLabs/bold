@@ -24,10 +24,14 @@ import (
 func TestAddEdge(t *testing.T) {
 	ht := &HonestChallengeTree{
 		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeIdByCommitment:     threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
 		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 		totalChallengeLevels:   3,
 	}
+	ht.edgeIdByCommitment.Put(0, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+	ht.edgeIdByCommitment.Put(1, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+	ht.edgeIdByCommitment.Put(2, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	ctx := context.Background()
 	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1, claimId: "foo"})
@@ -364,9 +368,13 @@ func TestAddHonestEdge(t *testing.T) {
 	edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: createdAt, claimId: "bar"})
 	ht := &HonestChallengeTree{
 		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeIdByCommitment:     threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
 		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
+	ht.edgeIdByCommitment.Put(0, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+	ht.edgeIdByCommitment.Put(1, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+	ht.edgeIdByCommitment.Put(2, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	honest := &mockHonestEdge{edge}
 

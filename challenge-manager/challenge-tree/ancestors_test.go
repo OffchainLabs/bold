@@ -109,11 +109,14 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 	bobEdges["blk-4.a-6.b"].UpperChildID = "blk-5.b-6.b"
 
 	transformedEdges := make(map[protocol.EdgeId]protocol.SpecEdge)
+	edgeIdsByCommitment := threadsafe.NewMap[edgeCommitment, protocol.EdgeId]()
 	for _, v := range aliceEdges {
 		transformedEdges[v.Id()] = v
+		edgeIdsByCommitment.Put(edgeCommitment{startHeight: protocol.Height(v.StartHeight), endHeight: protocol.Height(v.EndHeight)}, v.Id())
 	}
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	tree.edges = allEdges
+	tree.edgeIdByCommitment.Put(0, edgeIdsByCommitment)
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["blk-0.a-16.a"].MutualId()
@@ -234,9 +237,12 @@ func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, clai
 	bobEdges["big-4.a-6.b"].LowerChildID = "big-4.a-5.b"
 	bobEdges["big-4.a-6.b"].UpperChildID = "big-5.b-6.b"
 
+	edgeIdByCommitment := threadsafe.NewMap[edgeCommitment, protocol.EdgeId]()
 	for _, v := range aliceEdges {
 		tree.edges.Put(v.Id(), v)
+		edgeIdByCommitment.Put(edgeCommitment{startHeight: protocol.Height(v.StartHeight), endHeight: protocol.Height(v.EndHeight)}, v.Id())
 	}
+	tree.edgeIdByCommitment.Put(1, edgeIdByCommitment)
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["big-0.a-16.a"].MutualId()
@@ -357,9 +363,12 @@ func setupSmallStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 	bobEdges["smol-4.a-6.b"].LowerChildID = "smol-4.a-5.b"
 	bobEdges["smol-4.a-6.b"].UpperChildID = "smol-5.b-6.b"
 
+	edgeIdByCommitment := threadsafe.NewMap[edgeCommitment, protocol.EdgeId]()
 	for _, v := range aliceEdges {
 		tree.edges.Put(v.Id(), v)
+		edgeIdByCommitment.Put(edgeCommitment{startHeight: protocol.Height(v.StartHeight), endHeight: protocol.Height(v.EndHeight)}, v.Id())
 	}
+	tree.edgeIdByCommitment.Put(2, edgeIdByCommitment)
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["smol-0.a-16.a"].MutualId()

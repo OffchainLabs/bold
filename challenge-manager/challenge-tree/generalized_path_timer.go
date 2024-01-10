@@ -261,7 +261,8 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 				endHeight:   currEnd,
 			}
 		}
-		edgeId, ok := ht.edgeIdByCommitment.TryGet(descendantCommitment)
+		mapping := ht.edgeIdByCommitment.Get(rootEdge.GetChallengeLevel())
+		edgeId, ok := mapping.TryGet(descendantCommitment)
 		if !ok {
 			return nil, nil, fmt.Errorf("wanted edge not found in lower descendants of edge with start=%d, end=%d", currStart, currEnd)
 		}

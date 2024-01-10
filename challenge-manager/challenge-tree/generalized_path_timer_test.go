@@ -42,10 +42,14 @@ func TestComputeAncestorsWithTimers(t *testing.T) {
 	ctx := context.Background()
 	tree := &HonestChallengeTree{
 		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeIdByCommitment:     threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
 		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader:         &mockMetadataReader{},
 		totalChallengeLevels:   3,
 		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+	}
+	for i := 0; i < int(tree.totalChallengeLevels); i++ {
+		tree.edgeIdByCommitment.Put(protocol.ChallengeLevel(i), threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
 	}
 	tree.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	tree.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
@@ -359,40 +363,34 @@ func TestHasConfirmableAncestor(t *testing.T) {
 // In this contrived example, Alice and Bob's edges will have
 // a time interval of 1 in which they are unrivaled.
 func TestComputeHonestPathTimer(t *testing.T) {
-	edges := buildEdges(
+	honestEdges := buildEdges(
 		// Alice.
 		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1, claimId: "ass.a"}),
 		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.a", createdAt: 3}),
 		newEdge(&newCfg{t: t, edgeId: "blk-8.a-16.a", createdAt: 3}),
 		newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.a", createdAt: 5}),
 		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.a", createdAt: 5}),
+	)
+	evilEdges := buildEdges(
 		// Bob.
 		newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.b", createdAt: 2, claimId: "ass.b"}),
 		newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.b", createdAt: 4}),
 		newEdge(&newCfg{t: t, edgeId: "blk-8.b-16.b", createdAt: 4}),
 		newEdge(&newCfg{t: t, edgeId: "blk-4.a-8.b", createdAt: 6}),
 	)
-	// Child-relationship linking.
-	// Alice.
-	edges["blk-0.a-16.a"].LowerChildID = "blk-0.a-8.a"
-	edges["blk-0.a-16.a"].UpperChildID = "blk-8.a-16.a"
-	edges["blk-0.a-8.a"].LowerChildID = "blk-0.a-4.a"
-	edges["blk-0.a-8.a"].UpperChildID = "blk-4.a-8.a"
-	// Bob.
-	edges["blk-0.a-16.b"].LowerChildID = "blk-0.a-8.b"
-	edges["blk-0.a-16.b"].UpperChildID = "blk-8.b-16.b"
-	edges["blk-0.a-8.b"].LowerChildID = "blk-0.a-4.a"
-	edges["blk-0.a-8.b"].UpperChildID = "blk-4.a-8.b"
 
 	transformedEdges := make(map[protocol.EdgeId]protocol.SpecEdge)
+	edgeIdByCommitment := threadsafe.NewMap[edgeCommitment, protocol.EdgeId]()
 	timers := make(map[protocol.EdgeId]uint64)
-	for _, v := range edges {
+	for _, v := range honestEdges {
 		transformedEdges[v.Id()] = v
+		edgeIdByCommitment.Put(edgeCommitment{startHeight: protocol.Height(v.StartHeight), endHeight: protocol.Height(v.EndHeight)}, v.Id())
 		timers[v.Id()] = 0
 	}
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	ht := &HonestChallengeTree{
 		edges:                  allEdges,
+		edgeIdByCommitment:     threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
 		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader:         &mockMetadataReader{},
 		totalChallengeLevels:   3,
@@ -401,9 +399,10 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	ht.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(0, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+	ht.edgeIdByCommitment.Put(0, edgeIdByCommitment)
 
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
-	mutual := edges["blk-0.a-16.a"].MutualId()
+	mutual := honestEdges["blk-0.a-16.a"].MutualId()
 
 	ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals := ht.mutualIds.Get(mutual)
@@ -411,12 +410,11 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	iddCreation, err := ht.edges.Get(idd).CreatedAtBlock()
 	require.NoError(t, err)
 	mutuals.Put(idd, creationTime(iddCreation))
-	idd = id("blk-0.a-16.b")
-	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-	require.NoError(t, err)
-	mutuals.Put(idd, creationTime(iddCreation))
+	evilEdge := evilEdges["blk-0.a-16.b"]
+	mutuals.Put(evilEdge.Id(), creationTime(evilEdge.CreationBlock))
+	ht.mutualIds.Put(mutual, mutuals)
 
-	mutual = edges["blk-0.a-8.a"].MutualId()
+	mutual = honestEdges["blk-0.a-8.a"].MutualId()
 
 	ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = ht.mutualIds.Get(mutual)
@@ -424,12 +422,11 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 	require.NoError(t, err)
 	mutuals.Put(idd, creationTime(iddCreation))
-	idd = id("blk-0.a-8.b")
-	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-	require.NoError(t, err)
-	mutuals.Put(idd, creationTime(iddCreation))
+	evilEdge = evilEdges["blk-0.a-8.b"]
+	mutuals.Put(evilEdge.Id(), creationTime(evilEdge.CreationBlock))
+	ht.mutualIds.Put(mutual, mutuals)
 
-	mutual = edges["blk-4.a-8.a"].MutualId()
+	mutual = honestEdges["blk-4.a-8.a"].MutualId()
 
 	ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 	mutuals = ht.mutualIds.Get(mutual)
@@ -437,10 +434,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 	require.NoError(t, err)
 	mutuals.Put(idd, creationTime(iddCreation))
-	idd = id("blk-4.a-8.b")
-	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-	require.NoError(t, err)
-	mutuals.Put(idd, creationTime(iddCreation))
+	evilEdge = evilEdges["blk-4.a-8.b"]
+	mutuals.Put(evilEdge.Id(), creationTime(evilEdge.CreationBlock))
+	ht.mutualIds.Put(mutual, mutuals)
 
 	blockRootEdges := ht.honestRootEdgesByLevel.Get(2 /* big step level */)
 	blockRootEdges.Push(ht.edges.Get(id("blk-0.a-16.a")))
@@ -478,7 +474,6 @@ func TestComputeHonestPathTimer(t *testing.T) {
 
 		// Now we look at the lower honest child, 0.a-8.a. It will have spent
 		// 1 second unrivaled and will inherit the local timers of its honest ancestors.
-		// which is 1 for a total of 2.
 		edge = ht.edges.Get(id("blk-0.a-8.a"))
 		creation, err = edge.CreatedAtBlock()
 		require.NoError(t, err)
@@ -531,76 +526,40 @@ func TestComputeHonestPathTimer(t *testing.T) {
 		// We add a new set of edges that were created late that rival the lower-most,
 		// unrivaled honest edge from before. This means that edge will no longer have
 		// an ever-increasing unrivaled timer after these new edges are being tracked.
-		edges = buildEdges(
+		newEdges := buildEdges(
 			// Charlie.
 			newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.c", createdAt: 7}),
 			newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.c", createdAt: 8}),
-			newEdge(&newCfg{t: t, edgeId: "blk-8.c-16.c", createdAt: 8}),
 			newEdge(&newCfg{t: t, edgeId: "blk-0.a-4.c", createdAt: 9}),
-			newEdge(&newCfg{t: t, edgeId: "blk-4.c-8.c", createdAt: 9}),
 		)
-		// Child-relationship linking.
-		edges["blk-0.a-16.c"].LowerChildID = "blk-0.a-8.c"
-		edges["blk-0.a-16.c"].UpperChildID = "blk-8.c-16.c"
-		edges["blk-0.a-8.c"].LowerChildID = "blk-0.a-4.c"
-		edges["blk-0.a-8.c"].UpperChildID = "blk-4.c-8.c"
 
 		// Add the new edges into the mapping.
-		for k, v := range edges {
-			ht.edges.Put(id(k), v)
+		for _, v := range newEdges {
+			mutuals, ok := ht.mutualIds.TryGet(v.MutualId())
+			if !ok {
+				mutuals = threadsafe.NewMap[protocol.EdgeId, creationTime]()
+			}
+			mutuals.Put(v.Id(), creationTime(v.CreationBlock))
+			ht.mutualIds.Put(v.MutualId(), mutuals)
 		}
-
-		// Three pairs of edges are rivaled in this test: 0-16, 0-8, 0-4
-		mutual := edges["blk-0.a-16.c"].MutualId()
-		mutuals := ht.mutualIds.Get(mutual)
-		idd := id("blk-0.a-16.c")
-		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-		require.NoError(t, err)
-		mutuals.Put(idd, creationTime(iddCreation))
-
-		mutual = edges["blk-0.a-8.c"].MutualId()
-
-		mutuals = ht.mutualIds.Get(mutual)
-		idd = id("blk-0.a-8.c")
-		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-		require.NoError(t, err)
-		mutuals.Put(idd, creationTime(iddCreation))
-
-		mutual = edges["blk-0.a-4.c"].MutualId()
-
-		ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
-		mutuals = ht.mutualIds.Get(mutual)
-		idd = id("blk-0.a-4.a")
-		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-		require.NoError(t, err)
-		mutuals.Put(idd, creationTime(iddCreation))
-		idd = id("blk-0.a-4.c")
-		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
-		require.NoError(t, err)
-		mutuals.Put(idd, creationTime(iddCreation))
 
 		// The path timer of the old, unrivaled edge should no longer increase
 		// as it is now rivaled as of the time of the last created edge above.
-		lastCreated := ht.edges.Get(id("blk-0.a-4.c"))
+		latestCreatedAt := creationTime(9)
 		edge := ht.edges.Get(id("blk-0.a-4.a"))
-		latestCreation, err := lastCreated.CreatedAtBlock()
+		resp, err := ht.ComputeAncestorsWithTimers(ctx, edge.Id(), uint64(latestCreatedAt))
 		require.NoError(t, err)
-		edgeCreation, err := edge.CreatedAtBlock()
+		timer, err := ht.ComputeHonestPathTimer(ctx, edge.Id(), resp.AncestorLocalTimers, uint64(latestCreatedAt))
 		require.NoError(t, err)
-		resp, err := ht.ComputeAncestorsWithTimers(ctx, edge.Id(), latestCreation)
-		require.NoError(t, err)
-		timer, err := ht.ComputeHonestPathTimer(ctx, edge.Id(), resp.AncestorLocalTimers, latestCreation)
-		require.NoError(t, err)
-		ancestorTimers := uint64(2)
-		require.Equal(t, PathTimer(latestCreation-edgeCreation+ancestorTimers), timer)
+		require.Equal(t, PathTimer(6), timer)
 
 		// Should no longer increase.
 		for i := 0; i < 10; i++ {
-			resp, err = ht.ComputeAncestorsWithTimers(ctx, edge.Id(), latestCreation+uint64(i))
+			resp, err = ht.ComputeAncestorsWithTimers(ctx, edge.Id(), uint64(latestCreatedAt)+uint64(i))
 			require.NoError(t, err)
-			timer, err := ht.ComputeHonestPathTimer(ctx, edge.Id(), resp.AncestorLocalTimers, latestCreation+uint64(i))
+			timer, err := ht.ComputeHonestPathTimer(ctx, edge.Id(), resp.AncestorLocalTimers, uint64(latestCreatedAt)+uint64(i))
 			require.NoError(t, err)
-			require.Equal(t, PathTimer(latestCreation-edgeCreation+ancestorTimers), timer)
+			require.Equal(t, PathTimer(6), timer)
 		}
 	})
 }
@@ -611,8 +570,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 func TestComputePathTimer_AllChallengeLevels(t *testing.T) {
 	unrivaledAssertionBlocks := uint64(10) // Should incorporate the assertion's unrivaled blocks into the total timer.
 	ht := &HonestChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edges:              threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeIdByCommitment: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
+		mutualIds:          threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader: &mockMetadataReader{
 			unrivaledAssertionBlocks: unrivaledAssertionBlocks,
 		},
@@ -622,6 +582,9 @@ func TestComputePathTimer_AllChallengeLevels(t *testing.T) {
 	ht.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(0, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+	ht.edgeIdByCommitment.Put(2, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+	ht.edgeIdByCommitment.Put(1, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+	ht.edgeIdByCommitment.Put(0, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
 
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
