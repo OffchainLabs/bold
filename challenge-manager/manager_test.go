@@ -10,7 +10,6 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
-	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers/option"
@@ -288,33 +287,32 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	honestEdge, _, _, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
+	evilEdge, _, _, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
 	require.NoError(t, err)
-	honestValidator.watcher.AddVerifiedHonestEdge(ctx, honestEdge)
+	evilValidator.watcher.AddVerifiedHonestEdge(ctx, evilEdge)
 
-	// Delay the evil root edge by 10 blocks.
+	// Delay the honest root edge by 10 blocks.
 	for i := 0; i < 10; i++ {
 		createdData.Backend.Commit()
 	}
 
-	evilEdge, _, _, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
+	honestEdge, _, _, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
 	require.NoError(t, err)
-	evilValidator.watcher.AddVerifiedHonestEdge(ctx, evilEdge)
+	honestValidator.watcher.AddVerifiedHonestEdge(ctx, honestEdge)
 
 	// Get the parent assertion id.
 	assertionHash, err := honestEdge.AssertionHash(ctx)
 	require.NoError(t, err)
 
-	// Check the path timer for both edges.
-	pathTimer, ancestors, localTimers, err := honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, honestEdge.Id())
+	// Check the path timer of the honest edge is 0, as it had a rival on creation.
+	pathTimer, _, _, err := honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, honestEdge.Id())
 	require.NoError(t, err)
-	t.Log(pathTimer, ancestors, localTimers)
+	require.Equal(t, uint64(pathTimer), uint64(0))
 
+	// Check the path timer of the evil edge is > 0.
 	pathTimer, _, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, evilEdge.Id())
 	require.NoError(t, err)
-
-	// Ensure this new edge has a path timer of 0, as it had a rival on creation.
-	require.Equal(t, uint64(pathTimer), uint64(0))
+	require.Equal(t, true, pathTimer > 0)
 
 	// Set up an edge tracker for the evil edge.
 	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
@@ -349,15 +347,22 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 	_, _, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
 	require.NoError(t, err)
 
-	// The honest validator agrees with the lower child, so we'll add this lower child
-	// to the honest validator's watcher as well as a verified honest edge.
+	// The honest validator, in this example, agrees with the lower child, so we'll add this lower child
+	// to the honest validator's watcher as a verified honest edge.
 	require.NoError(t, honestValidator.watcher.AddVerifiedHonestEdge(ctx, lowerChild))
 
-	// However, if we then try to compute the path timer for this edge we just added
-	// from the honest validator's perspective, we will fail, because it is not linked to an "honest parent"
-	// Its parent, instead, is the evil rival edge that bisected.
+	// Previously, if we tried to compute the path timer for this edge we just added
+	// from the honest validator's perspective, we would have fail, because our older algorithm
+	// Depended on direct, child linkages to traverse the tree of edges. However, in this case, the lower
+	// child's parent is an evil rival edge that was bisected.
+	//
+	// This regression test checks that computing the honest path timer will not fail, given we have
+	// revamped our path timer computation algorithm since.
 	_, _, _, err = honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, lowerChild.Id())
-	require.ErrorIs(t, err, challengetree.ErrNoLowerChildYet)
+	require.NoError(t, err)
+
+	// TODO: Check that only the honest ancestors' path timer count towards this lower child's
+	// path timer when performing the computation.
 }
 
 func setupEdgeTrackersForBisection(
