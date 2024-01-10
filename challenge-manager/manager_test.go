@@ -305,18 +305,17 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 	assertionHash, err := honestEdge.AssertionHash(ctx)
 	require.NoError(t, err)
 
-	// Check the path timer of the honest edge is just the unrivaled time of its claimed assertion. By itself,
-	// it should have a path timer of 0, as it had a rival on creation.
+	// Check the path timer of the honest edge is just the unrivaled time of its claimed assertion.
 	assertionUnrivaledTimer, err := honestValidator.chain.AssertionUnrivaledBlocks(ctx, protocol.AssertionHash{Hash: common.Hash(honestEdge.ClaimId().Unwrap())})
 	require.NoError(t, err)
 	pathTimer, _, _, err := honestValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, honestEdge.Id())
 	require.NoError(t, err)
 	require.Equal(t, uint64(pathTimer), assertionUnrivaledTimer)
 
-	// Check the path timer of the evil edge is > 0.
-	pathTimer, _, _, err = evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, evilEdge.Id())
+	// Check the path timer of the evil edge is greater than the honest edge's path timer.
+	evilPathTimer, _, _, err := evilValidator.watcher.ComputeHonestPathTimer(ctx, assertionHash, evilEdge.Id())
 	require.NoError(t, err)
-	require.Equal(t, true, pathTimer > 0)
+	require.Equal(t, true, evilPathTimer > pathTimer)
 
 	// Set up an edge tracker for the evil edge.
 	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
