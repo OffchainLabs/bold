@@ -289,7 +289,7 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 
 	evilEdge, _, _, err := evilValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf2)
 	require.NoError(t, err)
-	evilValidator.watcher.AddVerifiedHonestEdge(ctx, evilEdge)
+	require.NoError(t, evilValidator.watcher.AddVerifiedHonestEdge(ctx, evilEdge))
 
 	// Delay the honest root edge by 10 blocks.
 	evilValidatorUnrivaledTime := uint64(10)
@@ -299,7 +299,7 @@ func TestPathTimerComputationError_RivalEdgeBisectsFirst(t *testing.T) {
 
 	honestEdge, _, _, err := honestValidator.addBlockChallengeLevelZeroEdge(ctx, createdData.Leaf1)
 	require.NoError(t, err)
-	honestValidator.watcher.AddVerifiedHonestEdge(ctx, honestEdge)
+	require.NoError(t, honestValidator.watcher.AddVerifiedHonestEdge(ctx, honestEdge))
 
 	// Get the parent assertion id.
 	assertionHash, err := honestEdge.AssertionHash(ctx)
