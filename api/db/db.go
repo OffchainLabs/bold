@@ -206,9 +206,9 @@ func WithAssertionOrderBy(orderBy string) AssertionOption {
 }
 
 func (q *AssertionQuery) ToSQL() (string, []interface{}) {
-	baseQuery := "SELECT * FROM Assertions"
+	baseQuery := "SELECT * FROM Assertions a"
 	if q.withChallenge {
-		baseQuery += " INNER JOIN Challenges c ON a.Hash = c.AssertionHash"
+		baseQuery += " INNER JOIN Challenges c ON a.Hash = c.Hash"
 	}
 	if len(q.filters) > 0 {
 		baseQuery += " WHERE " + strings.Join(q.filters, " AND ")
@@ -264,7 +264,7 @@ func NewEdgeQuery(opts ...EdgeOption) *EdgeQuery {
 
 type EdgeOption func(e *EdgeQuery)
 
-func WithId(id string) EdgeOption {
+func WithId(id protocol.EdgeId) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "Id = ?")
 		q.args = append(q.args, id)
@@ -272,14 +272,14 @@ func WithId(id string) EdgeOption {
 }
 func WithChallengeLevel(level uint8) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "Id = ?")
+		q.filters = append(q.filters, "ChallengeLevel = ?")
 		q.args = append(q.args, level)
 	}
 }
-func WithOriginId(originId string) EdgeOption {
+func WithOriginId(originId protocol.OriginId) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "OriginId = ?")
-		q.args = append(q.args, originId)
+		q.args = append(q.args, common.Hash(originId))
 	}
 }
 func WithStartHistoryCommitment(startHistory history.History) EdgeOption {
@@ -304,16 +304,16 @@ func WithCreatedAtBlock(blockNum uint64) EdgeOption {
 		q.args = append(q.args, blockNum)
 	}
 }
-func WithMutualId(mutualId string) EdgeOption {
+func WithMutualId(mutualId protocol.MutualId) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "MutualId = ?")
-		q.args = append(q.args, mutualId)
+		q.args = append(q.args, common.Hash(mutualId))
 	}
 }
-func WithClaimId(claimId string) EdgeOption {
+func WithClaimId(claimId protocol.ClaimId) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "ClaimId = ?")
-		q.args = append(q.args, claimId)
+		q.args = append(q.args, common.Hash(claimId))
 	}
 }
 func HasChildren() EdgeOption {
@@ -321,16 +321,16 @@ func HasChildren() EdgeOption {
 		q.filters = append(q.filters, "HasChildren = true")
 	}
 }
-func WithLowerChildId(id string) EdgeOption {
+func WithLowerChildId(id protocol.EdgeId) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "LowerChildId = ?")
-		q.args = append(q.args, id)
+		q.args = append(q.args, id.Hash)
 	}
 }
-func WithUpperChildId(id string) EdgeOption {
+func WithUpperChildId(id protocol.EdgeId) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "UpperChildId = ?")
-		q.args = append(q.args, id)
+		q.args = append(q.args, id.Hash)
 	}
 }
 func WithMiniStaker(staker common.Address) EdgeOption {
@@ -345,7 +345,7 @@ func WithEdgeAssertionHash(hash protocol.AssertionHash) EdgeOption {
 		q.args = append(q.args, hash.Hash)
 	}
 }
-func WithHasRival() EdgeOption {
+func WithRival() EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "HasRival = true")
 	}
@@ -356,7 +356,7 @@ func WithEdgeStatus(st protocol.EdgeStatus) EdgeOption {
 		q.args = append(q.args, st.String())
 	}
 }
-func WithHasLengthOneRival() EdgeOption {
+func WithLengthOneRival() EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "HasLengthOneRival = true")
 	}
@@ -491,14 +491,14 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	}
 	// Check if a challenge exists for the assertion
 	var challengeExists int
-	err = tx.Get(&challengeExists, "SELECT COUNT(*) FROM Challenges WHERE AssertionHash = ?", edge.AssertionHash)
+	err = tx.Get(&challengeExists, "SELECT COUNT(*) FROM Challenges WHERE Hash = ?", edge.AssertionHash)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 	// If the assertion exists but not the challenge, create the challenge
 	if challengeExists == 0 {
-		insertChallengeQuery := `INSERT INTO Challenges (AssertionHash) VALUES (?)`
+		insertChallengeQuery := `INSERT INTO Challenges (Hash) VALUES (?)`
 		_, err = tx.Exec(insertChallengeQuery, edge.AssertionHash)
 		if err != nil {
 			tx.Rollback()

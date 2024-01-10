@@ -4,8 +4,8 @@ var (
 	//nolint:unused
 	schema = `
 CREATE TABLE Challenges (
-    AssertionHash TEXT NOT NULL PRIMARY KEY,
-    UNIQUE(AssertionHash)
+    Hash TEXT NOT NULL PRIMARY KEY,
+    UNIQUE(Hash)
 );
 
 CREATE TABLE Edges (
@@ -29,7 +29,7 @@ CREATE TABLE Edges (
     HasLengthOneRival BOOLEAN NOT NULL,
     FOREIGN KEY(LowerChildID) REFERENCES Edges(Id),
     FOREIGN KEY(UpperChildID) REFERENCES Edges(Id),
-    FOREIGN KEY(AssertionHash) REFERENCES Challenges(AssertionHash)
+    FOREIGN KEY(AssertionHash) REFERENCES Challenges(Hash)
 );
 
 CREATE TABLE Assertions (
@@ -54,7 +54,7 @@ CREATE TABLE Assertions (
     IsFirstChild BOOLEAN NOT NULL,
     Status TEXT NOT NULL,
     ConfigHash TEXT NOT NULL,
-    FOREIGN KEY(Hash) REFERENCES Challenges(AssertionHash),
+    FOREIGN KEY(Hash) REFERENCES Challenges(Hash),
     FOREIGN KEY(ParentAssertionHash) REFERENCES Assertions(Hash)
 );
 
