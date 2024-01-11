@@ -13,6 +13,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRealDB(t *testing.T) {
+	db, err := NewDatabase("/tmp/boldsqlite.db")
+	require.NoError(t, err)
+	assertions, err := db.GetAssertions()
+	require.NoError(t, err)
+	for _, a := range assertions {
+		t.Logf("%+v", a)
+	}
+	t.Log("=======")
+	assertions, err = db.GetChallengedAssertions()
+	require.NoError(t, err)
+	for _, a := range assertions {
+		t.Logf("%+v", a)
+	}
+
+	t.Fatal("Failed")
+}
+
 func TestSqliteDatabase_Assertions(t *testing.T) {
 	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
 	require.NoError(t, err)

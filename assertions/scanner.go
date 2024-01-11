@@ -262,12 +262,12 @@ func (m *Manager) ProcessAssertionCreationEvent(
 	if err != nil {
 		return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
-	if creationInfo.ParentAssertionHash == (common.Hash{}) {
-		return nil // Skip processing genesis, as it has a parent assertion hash of 0x0.
-	}
 	// Save the assertion creation event to the DB if possible.
 	if err2 := m.saveAssertionToDB(ctx, assertionHash); err2 != nil {
 		return err2
+	}
+	if creationInfo.ParentAssertionHash == (common.Hash{}) {
+		return nil // Skip processing genesis, as it has a parent assertion hash of 0x0.
 	}
 	// Check if we agree with the assertion's claimed state.
 	claimedState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)

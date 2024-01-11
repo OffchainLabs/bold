@@ -8,7 +8,6 @@ package challengemanager
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -212,21 +211,21 @@ func New(
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-	if m.apiAddr != "" && m.client == nil {
-		return nil, errors.New("go-ethereum RPC client required to enable API service")
-	}
+	// if m.apiAddr != "" && m.client == nil {
+	// 	return nil, errors.New("go-ethereum RPC client required to enable API service")
+	// }
 
 	if m.apiAddr != "" {
-		a, err2 := api.NewServer(&api.Config{
-			Address:            m.apiAddr,
-			EdgesProvider:      m.watcher,
-			AssertionsProvider: m.chain,
-			DBConfig:           m.apiDBConfig,
-		})
-		if err2 != nil {
-			return nil, err2
-		}
-		m.api = a
+		// a, err2 := api.NewServer(&api.Config{
+		// 	Address:            m.apiAddr,
+		// 	EdgesProvider:      m.watcher,
+		// 	AssertionsProvider: m.chain,
+		// 	DBConfig:           m.apiDBConfig,
+		// })
+		// if err2 != nil {
+		// 	return nil, err2
+		// }
+		// m.api = a
 		apiDB, err2 := db.NewDatabase("/tmp/boldsqlite.db")
 		if err2 != nil {
 			return nil, err2
