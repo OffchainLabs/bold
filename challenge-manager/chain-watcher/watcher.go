@@ -988,28 +988,6 @@ func (w *Watcher) saveEdgeToDB(ctx context.Context, edge protocol.SpecEdge) erro
 	if err != nil {
 		return err
 	}
-	hasChildren, err := edge.HasChildren(ctx)
-	if err != nil {
-		return err
-	}
-	var lowerChildId common.Hash
-	var upperChildId common.Hash
-	if hasChildren {
-		lower, err := edge.LowerChild(ctx)
-		if err != nil {
-			return err
-		}
-		upper, err := edge.UpperChild(ctx)
-		if err != nil {
-			return err
-		}
-		if lower.IsSome() {
-			lowerChildId = lower.Unwrap().Hash
-		}
-		if upper.IsSome() {
-			upperChildId = upper.Unwrap().Hash
-		}
-	}
 	var miniStaker common.Address
 	if edge.MiniStaker().IsSome() {
 		miniStaker = edge.MiniStaker().Unwrap()
@@ -1018,45 +996,22 @@ func (w *Watcher) saveEdgeToDB(ctx context.Context, edge protocol.SpecEdge) erro
 	if err != nil {
 		return err
 	}
-	timeUnrivaled, err := edge.TimeUnrivaled(ctx)
-	if err != nil {
-		return err
-	}
-	hasRival, err := edge.HasRival(ctx)
-	if err != nil {
-		return err
-	}
-	hasLengthOneRival, err := edge.HasLengthOneRival(ctx)
-	if err != nil {
-		return err
-	}
-	status, err := edge.Status(ctx)
-	if err != nil {
-		return err
-	}
 	var claimId common.Hash
 	if edge.ClaimId().IsSome() {
 		claimId = common.Hash(edge.ClaimId().Unwrap())
 	}
 	return w.apiDB.InsertEdge(&api.JsonEdge{
-		Id:                edge.Id().Hash,
-		ChallengeLevel:    uint8(edge.GetChallengeLevel()),
-		StartHistoryRoot:  startCommit,
-		StartHeight:       uint64(start),
-		EndHistoryRoot:    endCommit,
-		EndHeight:         uint64(end),
-		CreatedAtBlock:    creation,
-		MutualId:          common.Hash(edge.MutualId()),
-		OriginId:          common.Hash(edge.OriginId()),
-		ClaimId:           claimId,
-		HasChildren:       hasChildren,
-		LowerChildId:      lowerChildId,
-		UpperChildId:      upperChildId,
-		MiniStaker:        miniStaker,
-		AssertionHash:     assertionHash.Hash,
-		TimeUnrivaled:     timeUnrivaled,
-		HasRival:          hasRival,
-		Status:            status.String(),
-		HasLengthOneRival: hasLengthOneRival,
+		Id:               edge.Id().Hash,
+		ChallengeLevel:   uint8(edge.GetChallengeLevel()),
+		StartHistoryRoot: startCommit,
+		StartHeight:      uint64(start),
+		EndHistoryRoot:   endCommit,
+		EndHeight:        uint64(end),
+		CreatedAtBlock:   creation,
+		MutualId:         common.Hash(edge.MutualId()),
+		OriginId:         common.Hash(edge.OriginId()),
+		ClaimId:          claimId,
+		MiniStaker:       miniStaker,
+		AssertionHash:    assertionHash.Hash,
 	})
 }
