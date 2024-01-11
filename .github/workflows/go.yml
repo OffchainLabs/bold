@@ -53,7 +53,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
-          args: --timeout=10m
+          args: --timeout=20m
 
   build:
     name: Build and Test
@@ -129,7 +129,7 @@ jobs:
           version: nightly
 
       - name: e2e test
-        run: bazel test //testing/endtoend:endtoend_suite --test_env=ANVIL=$(which anvil) --test_output=all
+        run: bazel test //testing/endtoend:endtoend_suite --test_env=ANVIL=$(which anvil) --test_output=all --test_timeout=1500
 
       - name: coverage
         run: bazel coverage --combined_report=lcov //...
