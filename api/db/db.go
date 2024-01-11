@@ -32,7 +32,6 @@ type ReadOnlyDatabase interface {
 	GetAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
 	GetChallengedAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
 	GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error)
-	GetEdgeDescendants(edgeId common.Hash) ([]*api.JsonEdge, error)
 }
 
 type SqliteDatabase struct {

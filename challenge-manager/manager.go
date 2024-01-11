@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/OffchainLabs/bold/api"
+	"github.com/OffchainLabs/bold/api/db"
 	"github.com/OffchainLabs/bold/assertions"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
@@ -75,6 +76,7 @@ type Manager struct {
 	apiAddr     string
 	api         *api.Server
 	apiDBConfig *api.DBConfig
+	apiDB       db.Database
 }
 
 // WithName is a human-readable identifier for this challenge manager for logging purposes.
@@ -210,11 +212,34 @@ func New(
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-	watcher, err := watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name)
+	if m.apiAddr != "" && m.client == nil {
+		return nil, errors.New("go-ethereum RPC client required to enable API service")
+	}
+
+	if m.apiAddr != "" {
+		a, err := api.NewServer(&api.Config{
+			Address:            m.apiAddr,
+			EdgesProvider:      m.watcher,
+			AssertionsProvider: m.chain,
+			DBConfig:           m.apiDBConfig,
+		})
+		if err != nil {
+			return nil, err
+		}
+		m.api = a
+		apiDB, err := db.NewDatabase("/tmp/boldsqlite.db")
+		if err != nil {
+			return nil, err
+		}
+		m.apiDB = apiDB
+	}
+
+	watcher, err := watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB)
 	if err != nil {
 		return nil, err
 	}
 	m.watcher = watcher
+
 	assertionManager, err := assertions.NewManager(
 		m.chain,
 		m.stateManager,
@@ -232,24 +257,6 @@ func New(
 		return nil, err
 	}
 	m.assertionManager = assertionManager
-
-	if m.apiAddr != "" && m.client == nil {
-		return nil, errors.New("go-ethereum RPC client required to enable API service")
-	}
-
-	if m.apiAddr != "" {
-		a, err := api.NewServer(&api.Config{
-			Address:            m.apiAddr,
-			EdgesProvider:      m.watcher,
-			AssertionsProvider: m.chain,
-			DBConfig:           m.apiDBConfig,
-		})
-		if err != nil {
-			return nil, err
-		}
-		m.api = a
-	}
-
 	return m, nil
 }
 

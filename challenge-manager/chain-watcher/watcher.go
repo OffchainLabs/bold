@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
@@ -106,6 +107,7 @@ type Watcher struct {
 	validatorName        string
 	numBigStepLevels     uint8
 	initialSyncCompleted atomic.Bool
+	apiDB                db.Database
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -118,6 +120,7 @@ func New(
 	interval time.Duration,
 	numBigStepLevels uint8,
 	validatorName string,
+	apiDB db.Database,
 ) (*Watcher, error) {
 	if interval == 0 {
 		return nil, errors.New("chain watcher polling interval must be greater than 0")
@@ -131,6 +134,7 @@ func New(
 		histChecker:        histChecker,
 		numBigStepLevels:   numBigStepLevels,
 		validatorName:      validatorName,
+		apiDB:              apiDB,
 	}, nil
 }
 
@@ -623,6 +627,8 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	if err := chal.honestEdgeTree.AddHonestEdge(edge); err != nil {
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
+
+	// If a DB is enabled, save the edge to the database.
 	return nil
 }
 
