@@ -1,23 +1,26 @@
 package server
 
-// Healthz checks if the API server is ready to serve queries. Returns 200
-// if it is ready, otherwise, other statuses. If the DB is currently reindexing
-// data, it may return a 503.
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/OffchainLabs/bold/api"
+	"github.com/OffchainLabs/bold/api/db"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gorilla/mux"
+)
+
+// Healthz checks if the API server is ready to serve queries. Returns 200 if it is ready.
 //
 // method:
 // - GET
 // - /api/v1/db/healthz
 func (s *Server) Healthz() {
-
-}
-
-// ForceDBUpdate causes the DB scraper to reindex and fetch data
-// from onchain and the challenge manager to update tables in the database.
-//
-// method:
-// - POST
-// - /api/v1/db/update
-func (s *Server) ForceDBUpdate() {
 
 }
 
@@ -36,8 +39,44 @@ func (s *Server) ForceDBUpdate() {
 //
 // response:
 // - []*JsonAssertion
-func (s *Server) ListAssertions() {
-
+func (s *Server) ListAssertions(r *http.Request, w http.ResponseWriter) {
+	opts := make([]db.AssertionOption, 0)
+	query := r.URL.Query()
+	if val, ok := query["limit"]; ok && len(val) > 0 {
+		if v, err := strconv.Atoi(val[0]); err == nil {
+			opts = append(opts, db.WithAssertionLimit(v))
+		}
+	}
+	if val, ok := query["offset"]; ok && len(val) > 0 {
+		if v, err := strconv.Atoi(val[0]); err == nil {
+			opts = append(opts, db.WithAssertionOffset(v))
+		}
+	}
+	if val, ok := query["inbox_max_count"]; ok && len(val) > 0 {
+		opts = append(opts, db.WithInboxMaxCount(strings.Join(val, "")))
+	}
+	if val, ok := query["from_block_number"]; ok && len(val) > 0 {
+		if v, err := strconv.ParseUint(val[0], 10, 64); err == nil {
+			opts = append(opts, db.FromAssertionCreationBlock(v))
+		}
+	}
+	if val, ok := query["to_block_number"]; ok && len(val) > 0 {
+		if v, err := strconv.ParseUint(val[0], 10, 64); err == nil {
+			opts = append(opts, db.ToAssertionCreationBlock(v))
+		}
+	}
+	assertions, err := s.backend.GetAssertions(r.Context(), opts...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Could not get assertions: %v", err)))
+		return
+	}
+	if err = json.NewEncoder(w).Encode(assertions); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Could not write assertions response: %v", err)))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // AssertionByIdentifier since the latest confirmed assertion.
@@ -52,8 +91,42 @@ func (s *Server) ListAssertions() {
 //
 // response:
 // - *JsonAssertion
-func (s *Server) AssertionByIdentifier() {
+func (s *Server) AssertionByIdentifier(r *http.Request, w http.ResponseWriter) {
+	vars := mux.Vars(r)
+	identifier := vars["identifier"]
 
+	var assertion *api.JsonAssertion
+	opts := []db.AssertionOption{
+		db.WithAssertionLimit(1),
+	}
+	if identifier == "latest-confirmed" {
+		a, err := s.backend.LatestConfirmedAssertion(r.Context())
+		if err != nil {
+			return
+		}
+		assertion = a
+	} else {
+		// Otherwise, get the assertion by hash.
+		hash, err := hexutil.Decode(identifier)
+		if err != nil {
+			return
+		}
+		opts = append(opts, db.WithAssertionHash(protocol.AssertionHash{Hash: common.BytesToHash(hash)}))
+		assertions, err := s.backend.GetAssertions(r.Context(), opts...)
+		if err != nil {
+			return
+		}
+		if len(assertions) != 1 {
+			return
+		}
+		assertion = assertions[0]
+	}
+	if err := json.NewEncoder(w).Encode(assertion); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Could not write assertion response: %v", err)))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // ChallengeByAssertionHash fetches information about a challenge on a specific assertion hash
@@ -66,7 +139,11 @@ func (s *Server) AssertionByIdentifier() {
 //
 // response:
 // - *JsonChallenge
-func (s *Server) ChallengeByAssertionHash() {}
+func (s *Server) ChallengeByAssertionHash(r *http.Request, w http.ResponseWriter) {
+	vars := mux.Vars(r)
+	identifier := vars["assertion-hash"]
+	_ = identifier
+}
 
 // AllChallengeEdges fetches all the edges corresponding to a challenged
 // assertion with a specific hash. This assertion hash must be the "parent assertion"
@@ -87,7 +164,6 @@ func (s *Server) ChallengeByAssertionHash() {}
 // - root_edges: boolean true or false to filter out only root edges (those that have a claim id)
 // - from_block_number: items that were created since a specific block number. Defaults to challenge creation block
 // - to_block_number: caps the response to edges up to and including a block number
-// response:
 // - origin_id: edges that have a 0x-prefixed origin id
 // - mutual_id: edges that have a 0x-prefixed mutual id
 // - claim_id: edges that have a 0x-prefixed claim id
@@ -113,8 +189,38 @@ func (s *Server) AllChallengeEdges() {
 //
 // response:
 // - *JsonEdge
-func (s *Server) EdgeByIdentifier() {
-
+func (s *Server) EdgeByIdentifier(r *http.Request, w http.ResponseWriter) {
+	vars := mux.Vars(r)
+	assertionHashStr := vars["assertion-hash"]
+	edgeIdStr := vars["edge-id"]
+	hash, err := hexutil.Decode(assertionHashStr)
+	if err != nil {
+		return
+	}
+	id, err := hexutil.Decode(edgeIdStr)
+	if err != nil {
+		return
+	}
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash(hash)}
+	edgeId := protocol.EdgeId{Hash: common.BytesToHash(id)}
+	edges, err := s.backend.GetEdges(
+		r.Context(),
+		db.WithLimit(1),
+		db.WithEdgeAssertionHash(assertionHash),
+		db.WithId(edgeId),
+	)
+	if err != nil {
+		return
+	}
+	if len(edges) != 1 {
+		return
+	}
+	if err := json.NewEncoder(w).Encode(edges[0]); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Could not write edge response: %v", err)))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // EdgeByHistoryCommitment fetches an edge by its specific history commitment in a challenge.
@@ -130,8 +236,19 @@ func (s *Server) EdgeByIdentifier() {
 //
 // response:
 // - *JsonEdge
-func (s *Server) EdgeByHistoryCommitment() {
+func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter) {
+	vars := mux.Vars(r)
+	historyCommitment := vars["history-commitment"]
+	parts := strings.Split(historyCommitment, ":")
+	if len(parts) != 4 {
+		return
+	}
 
+	// Extract the parts
+	startHeightStr := parts[0]
+	startHashStr := parts[1]
+	endHeightStr := parts[2]
+	endHashStr := parts[3]
 }
 
 // MiniStakes fetches all the mini-stakes present in a single challenged assertion.
@@ -149,6 +266,39 @@ func (s *Server) EdgeByHistoryCommitment() {
 // - challenge_level: items in a specific challenge level. level 0 is the block challenge level
 // response:
 // - []*MiniStake
-func (s *Server) MiniStakes() {
-
+func (s *Server) MiniStakes(r *http.Request, w http.ResponseWriter) {
+	vars := mux.Vars(r)
+	assertionHashStr := vars["assertion-hash"]
+	hash, err := hexutil.Decode(assertionHashStr)
+	if err != nil {
+		return
+	}
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash(hash)}
+	query := r.URL.Query()
+	opts := make([]db.EdgeOption, 0)
+	if val, ok := query["limit"]; ok && len(val) > 0 {
+		if v, err := strconv.Atoi(val[0]); err == nil {
+			opts = append(opts, db.WithLimit(v))
+		}
+	}
+	if val, ok := query["offset"]; ok && len(val) > 0 {
+		if v, err := strconv.Atoi(val[0]); err == nil {
+			opts = append(opts, db.WithOffset(v))
+		}
+	}
+	if val, ok := query["challenge_level"]; ok && len(val) > 0 {
+		if v, err := strconv.ParseUint(val[0], 10, 8); err == nil {
+			opts = append(opts, db.WithChallengeLevel(uint8(v)))
+		}
+	}
+	miniStakes, err := s.backend.GetMiniStakes(r.Context(), assertionHash, opts...)
+	if err != nil {
+		return
+	}
+	if err := json.NewEncoder(w).Encode(miniStakes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("Could not write ministakes response: %v", err)))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
