@@ -46,33 +46,35 @@ type JsonAssertion struct {
 	AfterStateBatch          uint64                 `json:"afterStateBatch" db:"AfterStateBatch"`
 	AfterStatePosInBatch     uint64                 `json:"afterStatePosInBatch" db:"AfterStatePosInBatch"`
 	AfterStateMachineStatus  protocol.MachineStatus `json:"afterStateMachineStatus" db:"AfterStateMachineStatus"`
-	FirstChildBlock          *uint64                `json:"firstChildBlock" db:"FirstChildBlock"`
-	SecondChildBlock         *uint64                `json:"secondChildBlock" db:"SecondChildBlock"`
-	IsFirstChild             bool                   `json:"isFirstChild" db:"IsFirstChild"`
-	Status                   string                 `json:"status" db:"Status"`
 	ConfigHash               common.Hash            `json:"configHash" db:"ConfigHash"`
+	// Non-DB fields.
+	FirstChildBlock  uint64 `json:"firstChildBlock"`
+	SecondChildBlock uint64 `json:"secondChildBlock"`
+	Status           string `json:"status"`
+	IsFirstChild     bool   `json:"isFirstChild"`
 }
 
 type JsonEdge struct {
-	Id                common.Hash    `json:"id" db:"Id"`
-	ChallengeLevel    uint8          `json:"challengeLevel" db:"ChallengeLevel"`
-	StartHistoryRoot  common.Hash    `json:"startHistoryRoot" db:"StartHistoryRoot"`
-	StartHeight       uint64         `json:"startHeight" db:"StartHeight"`
-	EndHistoryRoot    common.Hash    `json:"endHistoryRoot" db:"EndHistoryRoot"`
-	EndHeight         uint64         `json:"endHeight" db:"EndHeight"`
-	CreatedAtBlock    uint64         `json:"createdAtBlock" db:"CreatedAtBlock"`
-	MutualId          common.Hash    `json:"mutualId" db:"MutualId"`
-	OriginId          common.Hash    `json:"originId" db:"OriginId"`
-	ClaimId           common.Hash    `json:"claimId" db:"ClaimId"`
-	HasChildren       bool           `json:"hasChildren" db:"HasChildren"`
-	LowerChildId      common.Hash    `json:"lowerChildId" db:"LowerChildId"`
-	UpperChildId      common.Hash    `json:"upperChildId" db:"UpperChildId"`
-	MiniStaker        common.Address `json:"miniStaker" db:"MiniStaker"`
-	AssertionHash     common.Hash    `json:"assertionHash" db:"AssertionHash"`
-	TimeUnrivaled     uint64         `json:"timeUnrivaled" db:"TimeUnrivaled"`
-	HasRival          bool           `json:"hasRival" db:"HasRival"`
-	Status            string         `json:"status" db:"Status"`
-	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
+	Id               common.Hash    `json:"id" db:"Id"`
+	ChallengeLevel   uint8          `json:"challengeLevel" db:"ChallengeLevel"`
+	StartHistoryRoot common.Hash    `json:"startHistoryRoot" db:"StartHistoryRoot"`
+	StartHeight      uint64         `json:"startHeight" db:"StartHeight"`
+	EndHistoryRoot   common.Hash    `json:"endHistoryRoot" db:"EndHistoryRoot"`
+	EndHeight        uint64         `json:"endHeight" db:"EndHeight"`
+	CreatedAtBlock   uint64         `json:"createdAtBlock" db:"CreatedAtBlock"`
+	MutualId         common.Hash    `json:"mutualId" db:"MutualId"`
+	OriginId         common.Hash    `json:"originId" db:"OriginId"`
+	ClaimId          common.Hash    `json:"claimId" db:"ClaimId"`
+	MiniStaker       common.Address `json:"miniStaker" db:"MiniStaker"`
+	AssertionHash    common.Hash    `json:"assertionHash" db:"AssertionHash"`
+	// Non-DB fields.
+	HasChildren       bool        `json:"hasChildren"`
+	LowerChildId      common.Hash `json:"lowerChildId"`
+	UpperChildId      common.Hash `json:"upperChildId"`
+	TimeUnrivaled     uint64      `json:"timeUnrivaled"`
+	HasRival          bool        `json:"hasRival"`
+	Status            string      `json:"status"`
+	HasLengthOneRival bool        `json:"hasLengthOneRival"`
 	// Honest validator's point of view
 	IsHonest            bool   `json:"isHonest"`
 	IsRelevant          bool   `json:"isRelevant"`
