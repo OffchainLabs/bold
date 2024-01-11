@@ -169,29 +169,6 @@ func WithAfterState(state *protocol.ExecutionState) AssertionOption {
 		q.args = append(q.args, state.MachineStatus)
 	}
 }
-func WithFirstChildBlock(n uint64) AssertionOption {
-	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "FirstChildBlock = ?")
-		q.args = append(q.args, n)
-	}
-}
-func WithSecondChildBlock(n uint64) AssertionOption {
-	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "SecondChildBlock = ?")
-		q.args = append(q.args, n)
-	}
-}
-func WithIsFirstChild() AssertionOption {
-	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "IsFirstChild = true")
-	}
-}
-func WithAssertionStatus(status protocol.AssertionStatus) AssertionOption {
-	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "Status = ?")
-		q.args = append(q.args, status.String())
-	}
-}
 func WithConfigHash(hash common.Hash) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.filters = append(q.filters, "ConfigHash = ?")
@@ -344,23 +321,6 @@ func WithClaimId(claimId protocol.ClaimId) EdgeOption {
 		q.args = append(q.args, common.Hash(claimId))
 	}
 }
-func HasChildren() EdgeOption {
-	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "HasChildren = true")
-	}
-}
-func WithLowerChildId(id protocol.EdgeId) EdgeOption {
-	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "LowerChildId = ?")
-		q.args = append(q.args, id.Hash)
-	}
-}
-func WithUpperChildId(id protocol.EdgeId) EdgeOption {
-	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "UpperChildId = ?")
-		q.args = append(q.args, id.Hash)
-	}
-}
 func WithMiniStaker(staker common.Address) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "MiniStaker = ?")
@@ -371,22 +331,6 @@ func WithEdgeAssertionHash(hash protocol.AssertionHash) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "AssertionHash = ?")
 		q.args = append(q.args, hash.Hash)
-	}
-}
-func WithRival() EdgeOption {
-	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "HasRival = true")
-	}
-}
-func WithEdgeStatus(st protocol.EdgeStatus) EdgeOption {
-	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "Status = ?")
-		q.args = append(q.args, st.String())
-	}
-}
-func WithLengthOneRival() EdgeOption {
-	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "HasLengthOneRival = true")
 	}
 }
 func WithLimit(limit int) EdgeOption {
@@ -449,14 +393,12 @@ func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
         Hash, ConfirmPeriodBlocks, RequiredStake, ParentAssertionHash, InboxMaxCount,
         AfterInboxBatchAcc, WasmModuleRoot, ChallengeManager, CreationBlock, TransactionHash,
         BeforeStateBlockHash, BeforeStateSendRoot, BeforeStateBatch, BeforeStatePosInBatch, BeforeStateMachineStatus, AfterStateBlockHash,
-        AfterStateSendRoot, AfterStateBatch, AfterStatePosInBatch, AfterStateMachineStatus, FirstChildBlock, SecondChildBlock,
-        IsFirstChild, Status, ConfigHash
+        AfterStateSendRoot, AfterStateBatch, AfterStatePosInBatch, AfterStateMachineStatus, ConfigHash
     ) VALUES (
         :Hash, :ConfirmPeriodBlocks, :RequiredStake, :ParentAssertionHash, :InboxMaxCount,
         :AfterInboxBatchAcc, :WasmModuleRoot, :ChallengeManager, :CreationBlock, :TransactionHash,
         :BeforeStateBlockHash, :BeforeStateSendRoot, :BeforeStateBatch, :BeforeStatePosInBatch, :BeforeStateMachineStatus, :AfterStateBlockHash,
-        :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
-        :IsFirstChild, :Status, :ConfigHash
+        :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :ConfigHash
     )`
 	_, err := d.sqlDB.NamedExec(query, a)
 	if err != nil {
@@ -516,14 +458,10 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	}
 	insertEdgeQuery := `INSERT INTO Edges (
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
-	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
-	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
-	   HasRival, Status, HasLengthOneRival
+	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId, MiniStaker, AssertionHash
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
-	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
-	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
-	   :HasRival, :Status, :HasLengthOneRival
+	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId, :MiniStaker, :AssertionHash
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
