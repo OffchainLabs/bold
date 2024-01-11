@@ -482,18 +482,24 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	var assertionExists int
 	err = tx.Get(&assertionExists, "SELECT COUNT(*) FROM Assertions WHERE Hash = ?", edge.AssertionHash)
 	if err != nil {
-		tx.Rollback()
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return err
 	}
 	if assertionExists == 0 {
-		tx.Rollback()
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return errors.Wrapf(ErrNoAssertionForEdge, "edge_id=%#x, assertion_hash=%#x", edge.Id, edge.AssertionHash)
 	}
 	// Check if a challenge exists for the assertion
 	var challengeExists int
 	err = tx.Get(&challengeExists, "SELECT COUNT(*) FROM Challenges WHERE Hash = ?", edge.AssertionHash)
 	if err != nil {
-		tx.Rollback()
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return err
 	}
 	// If the assertion exists but not the challenge, create the challenge
@@ -501,7 +507,9 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 		insertChallengeQuery := `INSERT INTO Challenges (Hash) VALUES (?)`
 		_, err = tx.Exec(insertChallengeQuery, edge.AssertionHash)
 		if err != nil {
-			tx.Rollback()
+			if err2 := tx.Rollback(); err2 != nil {
+				return err2
+			}
 			return err
 		}
 	}
@@ -518,7 +526,9 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
-		tx.Rollback()
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return err
 	}
 	return tx.Commit()
