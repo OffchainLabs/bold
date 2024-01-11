@@ -304,10 +304,12 @@ func WithEndHistoryCommitment(endHistory history.History) EdgeOption {
 		q.args = append(q.args, endHistory.Height)
 	}
 }
-func WithCreatedAtBlock(blockNum uint64) EdgeOption {
+func FromEdgeCreationBlock(n uint64) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "CreatedAtBlock = ?")
-		q.args = append(q.args, blockNum)
+	}
+}
+func ToEdgeCreationBlock(n uint64) EdgeOption {
+	return func(q *EdgeQuery) {
 	}
 }
 func WithMutualId(mutualId protocol.MutualId) EdgeOption {
@@ -342,6 +344,18 @@ func WithLimit(limit int) EdgeOption {
 func WithOffset(offset int) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.offset = offset
+	}
+}
+func WithEdgeStatus(status protocol.EdgeStatus) EdgeOption {
+	return func(q *EdgeQuery) {
+	}
+}
+func WithHonestEdges() EdgeOption {
+	return func(q *EdgeQuery) {
+	}
+}
+func WithRootEdges() EdgeOption {
+	return func(q *EdgeQuery) {
 	}
 }
 func WithOrderBy(orderBy string) EdgeOption {
