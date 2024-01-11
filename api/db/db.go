@@ -8,6 +8,7 @@ import (
 
 	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
@@ -57,16 +58,21 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 }
 
 type AssertionQuery struct {
-	filters       []string
-	args          []interface{}
-	limit         int
-	offset        int
-	orderBy       string
-	withChallenge bool
+	filters           []string
+	args              []interface{}
+	limit             int
+	offset            int
+	orderBy           string
+	withChallenge     bool
+	fromCreationBlock option.Option[uint64]
+	toCreationBlock   option.Option[uint64]
 }
 
 func NewAssertionQuery(opts ...AssertionOption) *AssertionQuery {
-	query := &AssertionQuery{}
+	query := &AssertionQuery{
+		fromCreationBlock: option.None[uint64](),
+		toCreationBlock:   option.None[uint64](),
+	}
 	for _, opt := range opts {
 		opt(query)
 	}
@@ -128,12 +134,6 @@ func WithChallengeManager(challengeManager common.Address) AssertionOption {
 		q.args = append(q.args, challengeManager)
 	}
 }
-func WithAssertionCreationBlock(creationBlock uint64) AssertionOption {
-	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "CreationBlock = ?")
-		q.args = append(q.args, creationBlock)
-	}
-}
 func WithTransactionHash(hash common.Hash) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.filters = append(q.filters, "TransactionHash = ?")
@@ -144,9 +144,13 @@ func WithBeforeState(state *protocol.ExecutionState) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.filters = append(q.filters, "BeforeStateBlockHash = ?")
 		q.args = append(q.args, state.GlobalState.BlockHash)
-		q.filters = append(q.filters, "AND BeforeStateSendRoot = ?")
+		q.filters = append(q.filters, "BeforeStateSendRoot = ?")
 		q.args = append(q.args, state.GlobalState.SendRoot)
-		q.filters = append(q.filters, "AND BeforeStateMachineStatus = ?")
+		q.filters = append(q.filters, "BeforeStateBatch = ?")
+		q.args = append(q.args, state.GlobalState.Batch)
+		q.filters = append(q.filters, "BeforeStatePosInBatch = ?")
+		q.args = append(q.args, state.GlobalState.PosInBatch)
+		q.filters = append(q.filters, "BeforeStateMachineStatus = ?")
 		q.args = append(q.args, state.MachineStatus)
 	}
 }
@@ -154,9 +158,13 @@ func WithAfterState(state *protocol.ExecutionState) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.filters = append(q.filters, "AfterStateBlockHash = ?")
 		q.args = append(q.args, state.GlobalState.BlockHash)
-		q.filters = append(q.filters, "AND AfterStateSendRoot = ?")
+		q.filters = append(q.filters, "AfterStateSendRoot = ?")
 		q.args = append(q.args, state.GlobalState.SendRoot)
-		q.filters = append(q.filters, "AND AfterStateMachineStatus = ?")
+		q.filters = append(q.filters, "AfterStateBatch = ?")
+		q.args = append(q.args, state.GlobalState.Batch)
+		q.filters = append(q.filters, "AfterStatePosInBatch = ?")
+		q.args = append(q.args, state.GlobalState.PosInBatch)
+		q.filters = append(q.filters, "AfterStateMachineStatus = ?")
 		q.args = append(q.args, state.MachineStatus)
 	}
 }
@@ -174,7 +182,7 @@ func WithSecondChildBlock(n uint64) AssertionOption {
 }
 func WithIsFirstChild() AssertionOption {
 	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "IsFirstChild = tre")
+		q.filters = append(q.filters, "IsFirstChild = true")
 	}
 }
 func WithAssertionStatus(status protocol.AssertionStatus) AssertionOption {
@@ -187,6 +195,16 @@ func WithConfigHash(hash common.Hash) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.filters = append(q.filters, "ConfigHash = ?")
 		q.args = append(q.args, hash)
+	}
+}
+func FromAssertionCreationBlock(n uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.fromCreationBlock = option.Some(n)
+	}
+}
+func ToAssertionCreationBlock(n uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.toCreationBlock = option.Some(n)
 	}
 }
 func WithAssertionLimit(limit int) AssertionOption {
@@ -210,9 +228,18 @@ func (q *AssertionQuery) ToSQL() (string, []interface{}) {
 	if q.withChallenge {
 		baseQuery += " INNER JOIN Challenges c ON a.Hash = c.Hash"
 	}
+	if q.fromCreationBlock.IsSome() {
+		q.filters = append(q.filters, "a.CreationBlock >= ?")
+		q.args = append(q.args, q.fromCreationBlock.Unwrap())
+	}
+	if q.toCreationBlock.IsSome() {
+		q.filters = append(q.filters, "a.CreationBlock < ?")
+		q.args = append(q.args, q.toCreationBlock.Unwrap())
+	}
 	if len(q.filters) > 0 {
 		baseQuery += " WHERE " + strings.Join(q.filters, " AND ")
 	}
+
 	if q.orderBy != "" {
 		baseQuery += " ORDER BY " + q.orderBy
 	}
@@ -407,33 +434,6 @@ func (d *SqliteDatabase) GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error) {
 	return edges, nil
 }
 
-func (d *SqliteDatabase) GetAllChildren(edgeId common.Hash) ([]*api.JsonEdge, error) {
-	var allChildren []*api.JsonEdge
-	err := d.getChildrenRecursive(edgeId, allChildren)
-	if err != nil {
-		return nil, err
-	}
-	return allChildren, nil
-}
-
-func (d *SqliteDatabase) getChildrenRecursive(parentID common.Hash, allChildren []*api.JsonEdge) error {
-	var children []*api.JsonEdge
-	query := `SELECT * FROM Edges WHERE LowerChildID = ? OR UpperChildID = ?`
-	err := d.sqlDB.Select(&children, query, parentID, parentID)
-	if err != nil {
-		return err
-	}
-
-	for _, child := range children {
-		allChildren = append(allChildren, child)
-		err := d.getChildrenRecursive(child.Id, allChildren)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d *SqliteDatabase) InsertAssertions(assertions []*api.JsonAssertion) error {
 	for _, a := range assertions {
 		if err := d.InsertAssertion(a); err != nil {
@@ -447,14 +447,14 @@ func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
 	query := `INSERT INTO Assertions (
         Hash, ConfirmPeriodBlocks, RequiredStake, ParentAssertionHash, InboxMaxCount,
         AfterInboxBatchAcc, WasmModuleRoot, ChallengeManager, CreationBlock, TransactionHash,
-        BeforeStateBlockHash, BeforeStateSendRoot, BeforeStateMachineStatus, AfterStateBlockHash,
-        AfterStateSendRoot, AfterStateMachineStatus, FirstChildBlock, SecondChildBlock,
+        BeforeStateBlockHash, BeforeStateSendRoot, BeforeStateBatch, BeforeStatePosInBatch, BeforeStateMachineStatus, AfterStateBlockHash,
+        AfterStateSendRoot, AfterStateBatch, AfterStatePosInBatch, AfterStateMachineStatus, FirstChildBlock, SecondChildBlock,
         IsFirstChild, Status, ConfigHash
     ) VALUES (
         :Hash, :ConfirmPeriodBlocks, :RequiredStake, :ParentAssertionHash, :InboxMaxCount,
         :AfterInboxBatchAcc, :WasmModuleRoot, :ChallengeManager, :CreationBlock, :TransactionHash,
-        :BeforeStateBlockHash, :BeforeStateSendRoot, :BeforeStateMachineStatus, :AfterStateBlockHash,
-        :AfterStateSendRoot, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
+        :BeforeStateBlockHash, :BeforeStateSendRoot, :BeforeStateBatch, :BeforeStatePosInBatch, :BeforeStateMachineStatus, :AfterStateBlockHash,
+        :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
         :IsFirstChild, :Status, :ConfigHash
     )`
 	_, err := d.sqlDB.NamedExec(query, a)

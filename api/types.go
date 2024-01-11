@@ -25,27 +25,31 @@ type JsonChallengeConfig struct {
 }
 
 type JsonAssertion struct {
-	Hash                     common.Hash              `json:"hash" db:"Hash"`
-	ConfirmPeriodBlocks      uint64                   `json:"confirmPeriodBlocks" db:"ConfirmPeriodBlocks"`
-	RequiredStake            string                   `json:"requiredStake" db:"RequiredStake"`
-	ParentAssertionHash      common.Hash              `json:"parentAssertionHash" db:"ParentAssertionHash"`
-	InboxMaxCount            string                   `json:"inboxMaxCount" db:"InboxMaxCount"`
-	AfterInboxBatchAcc       common.Hash              `json:"afterInboxBatchAcc" db:"AfterInboxBatchAcc"`
-	WasmModuleRoot           common.Hash              `json:"wasmModuleRoot" db:"WasmModuleRoot"`
-	ChallengeManager         common.Address           `json:"challengeManager" db:"ChallengeManager"`
-	CreationBlock            uint64                   `json:"creationBlock" db:"CreationBlock"`
-	TransactionHash          common.Hash              `json:"transactionHash" db:"TransactionHash"`
-	BeforeStateBlockHash     common.Hash              `json:"beforeStateBlockHash" db:"BeforeStateBlockHash"`
-	BeforeStateSendRoot      common.Hash              `json:"beforeStateSendRoot" db:"BeforeStateSendRoot"`
-	BeforeStateMachineStatus protocol.MachineStatus   `json:"beforeStateMachineStatus" db:"BeforeStateMachineStatus"`
-	AfterStateBlockHash      common.Hash              `json:"afterStateBlockHash" db:"AfterStateBlockHash"`
-	AfterStateSendRoot       common.Hash              `json:"afterStateSendRoot" db:"AfterStateSendRoot"`
-	AfterStateMachineStatus  protocol.MachineStatus   `json:"afterStateMachineStatus" db:"AfterStateMachineStatus"`
-	FirstChildBlock          *uint64                  `json:"firstChildBlock" db:"FirstChildBlock"`
-	SecondChildBlock         *uint64                  `json:"secondChildBlock" db:"SecondChildBlock"`
-	IsFirstChild             bool                     `json:"isFirstChild" db:"IsFirstChild"`
-	Status                   protocol.AssertionStatus `json:"status" db:"Status"`
-	ConfigHash               common.Hash              `json:"configHash" db:"ConfigHash"`
+	Hash                     common.Hash            `json:"hash" db:"Hash"`
+	ConfirmPeriodBlocks      uint64                 `json:"confirmPeriodBlocks" db:"ConfirmPeriodBlocks"`
+	RequiredStake            string                 `json:"requiredStake" db:"RequiredStake"`
+	ParentAssertionHash      common.Hash            `json:"parentAssertionHash" db:"ParentAssertionHash"`
+	InboxMaxCount            string                 `json:"inboxMaxCount" db:"InboxMaxCount"`
+	AfterInboxBatchAcc       common.Hash            `json:"afterInboxBatchAcc" db:"AfterInboxBatchAcc"`
+	WasmModuleRoot           common.Hash            `json:"wasmModuleRoot" db:"WasmModuleRoot"`
+	ChallengeManager         common.Address         `json:"challengeManager" db:"ChallengeManager"`
+	CreationBlock            uint64                 `json:"creationBlock" db:"CreationBlock"`
+	TransactionHash          common.Hash            `json:"transactionHash" db:"TransactionHash"`
+	BeforeStateBlockHash     common.Hash            `json:"beforeStateBlockHash" db:"BeforeStateBlockHash"`
+	BeforeStateSendRoot      common.Hash            `json:"beforeStateSendRoot" db:"BeforeStateSendRoot"`
+	BeforeStateBatch         uint64                 `json:"beforeStateBatch" db:"BeforeStateBatch"`
+	BeforeStatePosInBatch    uint64                 `json:"beforeStatePosInBatch" db:"BeforeStatePosInBatch"`
+	BeforeStateMachineStatus protocol.MachineStatus `json:"beforeStateMachineStatus" db:"BeforeStateMachineStatus"`
+	AfterStateBlockHash      common.Hash            `json:"afterStateBlockHash" db:"AfterStateBlockHash"`
+	AfterStateSendRoot       common.Hash            `json:"afterStateSendRoot" db:"AfterStateSendRoot"`
+	AfterStateBatch          uint64                 `json:"afterStateBatch" db:"AfterStateBatch"`
+	AfterStatePosInBatch     uint64                 `json:"afterStatePosInBatch" db:"AfterStatePosInBatch"`
+	AfterStateMachineStatus  protocol.MachineStatus `json:"afterStateMachineStatus" db:"AfterStateMachineStatus"`
+	FirstChildBlock          *uint64                `json:"firstChildBlock" db:"FirstChildBlock"`
+	SecondChildBlock         *uint64                `json:"secondChildBlock" db:"SecondChildBlock"`
+	IsFirstChild             bool                   `json:"isFirstChild" db:"IsFirstChild"`
+	Status                   string                 `json:"status" db:"Status"`
+	ConfigHash               common.Hash            `json:"configHash" db:"ConfigHash"`
 }
 
 type JsonEdge struct {

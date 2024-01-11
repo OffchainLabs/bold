@@ -32,6 +32,36 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 		base := baseAssertion()
 		base.Hash = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
 		base.CreationBlock = uint64(i)
+		if i == 1 {
+			base.ConfirmPeriodBlocks = 20
+			base.BeforeStateBlockHash = common.BytesToHash([]byte("block"))
+			base.BeforeStateSendRoot = common.BytesToHash([]byte("send"))
+			base.BeforeStateBatch = 4
+			base.BeforeStatePosInBatch = 0
+		}
+		if i == 2 || i == 3 {
+			base.RequiredStake = "1000"
+			base.ChallengeManager = common.BytesToAddress([]byte("foo"))
+			b1 := uint64(2)
+			b2 := uint64(3)
+			base.FirstChildBlock = &b1
+			base.SecondChildBlock = &b2
+			base.Status = protocol.AssertionConfirmed.String()
+		}
+		if i == 4 {
+			base.ParentAssertionHash = common.BytesToHash([]byte("3"))
+			base.InboxMaxCount = "1000"
+			base.AfterInboxBatchAcc = common.BytesToHash([]byte("nyan"))
+			base.WasmModuleRoot = common.BytesToHash([]byte("nyan"))
+			base.TransactionHash = common.BytesToHash([]byte("baz"))
+			base.AfterStateBlockHash = common.BytesToHash([]byte("block2"))
+			base.AfterStateSendRoot = common.BytesToHash([]byte("send2"))
+			base.AfterStateBatch = 6
+			base.AfterStatePosInBatch = 2
+			base.IsFirstChild = true
+			base.ConfigHash = common.BytesToHash([]byte("config"))
+		}
+		base.CreationBlock = uint64(i)
 		assertionsToCreate[i] = base
 	}
 	require.NoError(t, db.InsertAssertions(assertionsToCreate))
@@ -46,7 +76,97 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 	require.Equal(t, 0, len(challengedAssertions))
 
 	t.Run("query options", func(t *testing.T) {
+		assertions, err := db.GetAssertions(WithAssertionHash(protocol.AssertionHash{Hash: common.BytesToHash([]byte("3"))}))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
 
+		assertions, err = db.GetAssertions(WithAssertionHash(protocol.AssertionHash{Hash: common.BytesToHash([]byte("100"))}))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(assertions))
+
+		assertions, err = db.GetAssertions(WithConfirmPeriodBlocks(20))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithRequiredStake("1000"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(WithParentAssertionHash(protocol.AssertionHash{Hash: common.BytesToHash([]byte("3"))}))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithInboxMaxCount("1000"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithAfterInboxBatchAcc(common.BytesToHash([]byte("nyan"))))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithWasmModuleRoot(common.BytesToHash([]byte("nyan"))))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithChallengeManager(common.BytesToAddress([]byte("foo"))))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(FromAssertionCreationBlock(5), ToAssertionCreationBlock(6))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(FromAssertionCreationBlock(1), ToAssertionCreationBlock(4))
+		require.NoError(t, err)
+		require.Equal(t, 3, len(assertions))
+
+		assertions, err = db.GetAssertions(WithTransactionHash(common.BytesToHash([]byte("baz"))))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithBeforeState(&protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash:  common.BytesToHash([]byte("block")),
+				SendRoot:   common.BytesToHash([]byte("send")),
+				PosInBatch: 0,
+				Batch:      4,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithAfterState(&protocol.ExecutionState{
+			GlobalState: protocol.GoGlobalState{
+				BlockHash:  common.BytesToHash([]byte("block2")),
+				SendRoot:   common.BytesToHash([]byte("send2")),
+				PosInBatch: 2,
+				Batch:      6,
+			},
+			MachineStatus: protocol.MachineStatusFinished,
+		}))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithFirstChildBlock(2))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(WithSecondChildBlock(3))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(WithIsFirstChild())
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithAssertionStatus(protocol.AssertionConfirmed))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(WithConfigHash(common.BytesToHash([]byte("config"))))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
 	})
 	t.Run("orderings limits and offsets", func(t *testing.T) {
 		gotIds := make([]protocol.AssertionHash, 0)
@@ -251,14 +371,18 @@ func baseAssertion() *api.JsonAssertion {
 		TransactionHash:          common.Hash{},
 		BeforeStateBlockHash:     common.Hash{},
 		BeforeStateSendRoot:      common.Hash{},
+		BeforeStateBatch:         0,
+		BeforeStatePosInBatch:    0,
 		BeforeStateMachineStatus: protocol.MachineStatusFinished,
 		AfterStateBlockHash:      common.Hash{},
 		AfterStateSendRoot:       common.Hash{},
+		AfterStateBatch:          0,
+		AfterStatePosInBatch:     0,
 		AfterStateMachineStatus:  protocol.MachineStatusFinished,
 		FirstChildBlock:          nil,
 		SecondChildBlock:         nil,
-		IsFirstChild:             true,
-		Status:                   protocol.AssertionPending,
+		IsFirstChild:             false,
+		Status:                   protocol.AssertionPending.String(),
 		ConfigHash:               common.Hash{},
 	}
 }
