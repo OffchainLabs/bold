@@ -266,58 +266,9 @@ func (m *Manager) ProcessAssertionCreationEvent(
 		return nil // Skip processing genesis, as it has a parent assertion hash of 0x0.
 	}
 	// Save the assertion creation event to the DB if possible.
-	if !api.IsNil(m.apiDB) {
-		assertion, err := m.chain.GetAssertion(ctx, assertionHash)
-		if err != nil {
-			return err
-		}
-		beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
-		afterState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
-		firstChildBlock, err := assertion.FirstChildCreationBlock()
-		if err != nil {
-			return err
-		}
-		secondChildBlock, err := assertion.SecondChildCreationBlock()
-		if err != nil {
-			return err
-		}
-		status, err := assertion.Status(ctx)
-		if err != nil {
-			return err
-		}
-		isFirstChild, err := assertion.IsFirstChild()
-		if err != nil {
-			return err
-		}
-		m.apiDB.InsertAssertion(&api.JsonAssertion{
-			Hash:                     assertionHash.Hash,
-			ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
-			RequiredStake:            creationInfo.RequiredStake.String(),
-			ParentAssertionHash:      creationInfo.ParentAssertionHash,
-			InboxMaxCount:            creationInfo.InboxMaxCount.String(),
-			AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
-			WasmModuleRoot:           creationInfo.WasmModuleRoot,
-			ChallengeManager:         creationInfo.ChallengeManager,
-			CreationBlock:            creationInfo.CreationBlock,
-			TransactionHash:          creationInfo.TransactionHash,
-			BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
-			BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
-			BeforeStateBatch:         beforeState.GlobalState.Batch,
-			BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
-			BeforeStateMachineStatus: beforeState.MachineStatus,
-			AfterStateBlockHash:      afterState.GlobalState.BlockHash,
-			AfterStateSendRoot:       afterState.GlobalState.SendRoot,
-			AfterStateBatch:          afterState.GlobalState.Batch,
-			AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
-			AfterStateMachineStatus:  afterState.MachineStatus,
-			FirstChildBlock:          &firstChildBlock,
-			SecondChildBlock:         &secondChildBlock,
-			IsFirstChild:             isFirstChild,
-			Status:                   status.String(),
-			ConfigHash:               common.Hash{},
-		})
+	if err2 := m.saveAssertionToDB(ctx, assertionHash); err2 != nil {
+		return err2
 	}
-
 	// Check if we agree with the assertion's claimed state.
 	claimedState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 	err = m.stateProvider.AgreesWithExecutionState(ctx, claimedState)
@@ -482,65 +433,70 @@ func (m *Manager) maybePostRivalAssertion(
 	}
 	if assertionOpt.IsSome() {
 		m.submittedAssertions.Insert(assertionOpt.Unwrap().Id().Hash)
-
-		// Save the assertion creation event to the DB if possible.
-		if !api.IsNil(m.apiDB) {
-			assertion, err := m.chain.GetAssertion(ctx, assertionOpt.Unwrap().Id())
-			if err != nil {
-				return option.None[protocol.Assertion](), err
-			}
-			creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionOpt.Unwrap().Id())
-			if err != nil {
-				return option.None[protocol.Assertion](), err
-			}
-			beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
-			afterState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
-			firstChildBlock, err := assertion.FirstChildCreationBlock()
-			if err != nil {
-				return option.None[protocol.Assertion](), err
-			}
-			secondChildBlock, err := assertion.SecondChildCreationBlock()
-			if err != nil {
-				return option.None[protocol.Assertion](), err
-			}
-			isFirstChild, err := assertion.IsFirstChild()
-			if err != nil {
-				return option.None[protocol.Assertion](), err
-			}
-			status, err := assertion.Status(ctx)
-			if err != nil {
-				return option.None[protocol.Assertion](), err
-			}
-			m.apiDB.InsertAssertion(&api.JsonAssertion{
-				Hash:                     assertionOpt.Unwrap().Id().Hash,
-				ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
-				RequiredStake:            creationInfo.RequiredStake.String(),
-				ParentAssertionHash:      creationInfo.ParentAssertionHash,
-				InboxMaxCount:            creationInfo.InboxMaxCount.String(),
-				AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
-				WasmModuleRoot:           creationInfo.WasmModuleRoot,
-				ChallengeManager:         creationInfo.ChallengeManager,
-				CreationBlock:            creationInfo.CreationBlock,
-				TransactionHash:          creationInfo.TransactionHash,
-				BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
-				BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
-				BeforeStateBatch:         beforeState.GlobalState.Batch,
-				BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
-				BeforeStateMachineStatus: beforeState.MachineStatus,
-				AfterStateBlockHash:      afterState.GlobalState.BlockHash,
-				AfterStateSendRoot:       afterState.GlobalState.SendRoot,
-				AfterStateBatch:          afterState.GlobalState.Batch,
-				AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
-				AfterStateMachineStatus:  afterState.MachineStatus,
-				FirstChildBlock:          &firstChildBlock,
-				SecondChildBlock:         &secondChildBlock,
-				IsFirstChild:             isFirstChild,
-				Status:                   status.String(),
-				ConfigHash:               common.Hash{},
-			})
+		if err2 := m.saveAssertionToDB(ctx, assertionOpt.Unwrap().Id()); err2 != nil {
+			return option.None[protocol.Assertion](), err2
 		}
 	}
 	return assertionOpt, nil
+}
+
+func (m *Manager) saveAssertionToDB(ctx context.Context, assertionHash protocol.AssertionHash) error {
+	if api.IsNil(m.apiDB) {
+		return nil
+	}
+	assertion, err := m.chain.GetAssertion(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	firstChildBlock, err := assertion.FirstChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	secondChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	isFirstChild, err := assertion.IsFirstChild()
+	if err != nil {
+		return err
+	}
+	status, err := assertion.Status(ctx)
+	if err != nil {
+		return err
+	}
+	return m.apiDB.InsertAssertion(&api.JsonAssertion{
+		Hash:                     assertionHash.Hash,
+		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
+		RequiredStake:            creationInfo.RequiredStake.String(),
+		ParentAssertionHash:      creationInfo.ParentAssertionHash,
+		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
+		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
+		WasmModuleRoot:           creationInfo.WasmModuleRoot,
+		ChallengeManager:         creationInfo.ChallengeManager,
+		CreationBlock:            creationInfo.CreationBlock,
+		TransactionHash:          creationInfo.TransactionHash,
+		BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
+		BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
+		BeforeStateBatch:         beforeState.GlobalState.Batch,
+		BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
+		BeforeStateMachineStatus: beforeState.MachineStatus,
+		AfterStateBlockHash:      afterState.GlobalState.BlockHash,
+		AfterStateSendRoot:       afterState.GlobalState.SendRoot,
+		AfterStateBatch:          afterState.GlobalState.Batch,
+		AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
+		AfterStateMachineStatus:  afterState.MachineStatus,
+		FirstChildBlock:          &firstChildBlock,
+		SecondChildBlock:         &secondChildBlock,
+		IsFirstChild:             isFirstChild,
+		Status:                   status.String(),
+		ConfigHash:               common.Hash{},
+	})
 }
 
 // Look back until we find the ancestor we agree with for the given assertion.

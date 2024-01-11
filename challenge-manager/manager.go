@@ -217,19 +217,19 @@ func New(
 	}
 
 	if m.apiAddr != "" {
-		a, err := api.NewServer(&api.Config{
+		a, err2 := api.NewServer(&api.Config{
 			Address:            m.apiAddr,
 			EdgesProvider:      m.watcher,
 			AssertionsProvider: m.chain,
 			DBConfig:           m.apiDBConfig,
 		})
-		if err != nil {
-			return nil, err
+		if err2 != nil {
+			return nil, err2
 		}
 		m.api = a
-		apiDB, err := db.NewDatabase("/tmp/boldsqlite.db")
-		if err != nil {
-			return nil, err
+		apiDB, err2 := db.NewDatabase("/tmp/boldsqlite.db")
+		if err2 != nil {
+			return nil, err2
 		}
 		m.apiDB = apiDB
 	}

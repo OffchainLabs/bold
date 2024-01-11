@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/OffchainLabs/bold/challenge-manager/chain-watcher",
     visibility = ["//visibility:public"],
     deps = [
+        "//api/db",
         "//chain-abstraction:protocol",
         "//challenge-manager/challenge-tree",
         "//challenge-manager/edge-tracker",

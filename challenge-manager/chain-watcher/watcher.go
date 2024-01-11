@@ -962,10 +962,7 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	if err != nil {
 		return filterRange{}, err
 	}
-	firstBlock, err := latestConfirmed.CreatedAtBlock()
-	if err != nil {
-		return filterRange{}, err
-	}
+	firstBlock := latestConfirmed.CreatedAtBlock()
 	startBlock := firstBlock
 	header, err := w.backend.HeaderByNumber(ctx, nil)
 	if err != nil {
