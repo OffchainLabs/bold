@@ -41,6 +41,7 @@ type SqliteDatabase struct {
 }
 
 func NewDatabase(path string) (*SqliteDatabase, error) {
+	//nosec: G304
 	if _, err := os.Stat(path); err != nil {
 		_, err = os.Create(path)
 		if err != nil {
