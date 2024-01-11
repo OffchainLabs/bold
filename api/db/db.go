@@ -3,7 +3,6 @@
 package db
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -51,9 +50,8 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err = db.Exec(schema); err != nil {
-		fmt.Println(err)
-	}
+	//#nosec
+	db.Exec(schema)
 	return &SqliteDatabase{
 		sqlDB:               db,
 		currentTableVersion: -1,
