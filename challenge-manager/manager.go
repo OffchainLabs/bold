@@ -252,6 +252,7 @@ func New(
 		m.stateManager,
 		m.assertionPostingInterval,
 		m.averageTimeForBlockCreation,
+		m.apiDB,
 	)
 	if err != nil {
 		return nil, err

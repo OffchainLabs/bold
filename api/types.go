@@ -2,6 +2,7 @@ package api
 
 import (
 	"math/big"
+	"reflect"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
@@ -89,4 +90,8 @@ type JsonMiniStakes struct {
 	AssertionHash common.Hash    `json:"assertionHash"`
 	Level         string         `json:"level"`
 	StakeInfo     *JsonStakeInfo `json:"stakeInfo"`
+}
+
+func IsNil(i interface{}) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
 }
