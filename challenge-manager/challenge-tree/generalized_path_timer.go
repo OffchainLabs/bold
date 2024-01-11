@@ -209,6 +209,19 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 	}, nil
 }
 
+// When finding ancestors, we find the edge we are querying for when
+// the start and end history commitment heights match up at a specific
+// challenge level.
+func edgeEqForAncestryCheck(a, b protocol.ReadOnlyEdge) bool {
+	aStart, _ := a.StartCommitment()
+	aEnd, _ := a.EndCommitment()
+	bStart, _ := b.StartCommitment()
+	bEnd, _ := b.EndCommitment()
+	lvlsEq := a.GetChallengeLevel() == b.GetChallengeLevel()
+	startEq := aStart == bStart && aEnd == bEnd
+	return lvlsEq && startEq
+}
+
 // Computes the list of ancestors in a challenge level from a root edge down
 // to a specified child edge within the same level. The edge we are querying must be
 // a child of this start edge for this function to succeed without error.
@@ -228,7 +241,7 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 		if ctx.Err() != nil {
 			return nil, nil, ctx.Err()
 		}
-		if cursor.Id() == queryingFor.Id() {
+		if edgeEqForAncestryCheck(cursor, queryingFor) {
 			found = true
 			break
 		}
