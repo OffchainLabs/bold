@@ -1,29 +1,11 @@
 package api
 
 import (
-	"math/big"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
 )
-
-type JsonChallenge struct {
-	AssertionHash common.Hash `json:"assertionHash"`
-}
-
-type JsonChallengeConfig struct {
-	ConfirmPeriodBlocks          uint64         `json:"confirmPeriodBlocks"`
-	StakeToken                   common.Address `json:"stakeToken"`
-	BaseStake                    *big.Int       `json:"baseStake"`
-	WasmModuleRoot               common.Hash    `json:"wasmModuleRoot"`
-	MiniStakeValue               *big.Int       `json:"miniStakeValue"`
-	LayerZeroBlockEdgeHeight     uint64         `json:"layerZeroBlockEdgeHeight"`
-	LayerZeroBigStepEdgeHeight   uint64         `json:"layerZeroBigStepEdgeHeight"`
-	LayerZeroSmallStepEdgeHeight uint64         `json:"layerZeroSmallStepEdgeHeight"`
-	NumBigStepLevel              uint8          `json:"numBigStepLevel"`
-	ChallengeGracePeriodBlocks   uint64         `json:"challengeGracePeriodBlocks"`
-}
 
 type JsonAssertion struct {
 	Hash                     common.Hash            `json:"hash" db:"Hash"`
@@ -79,17 +61,4 @@ type JsonEdge struct {
 	IsHonest            bool   `json:"isHonest"`
 	IsRelevant          bool   `json:"isRelevant"`
 	CumulativePathTimer uint64 `json:"cumulativePathTimer"`
-}
-
-type JsonStakeInfo struct {
-	StakerAddresses       []common.Address `json:"stakerAddresses"`
-	NumberOfMinistakes    uint64           `json:"numberOfMiniStakes"`
-	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`
-	EndCommitmentHeight   uint64           `json:"endCommitmentHeight"`
-}
-
-type JsonMiniStakes struct {
-	AssertionHash common.Hash    `json:"assertionHash"`
-	Level         string         `json:"level"`
-	StakeInfo     *JsonStakeInfo `json:"stakeInfo"`
 }

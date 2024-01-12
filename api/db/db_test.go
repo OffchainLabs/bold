@@ -292,6 +292,7 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 			base.UpperChildId = common.BytesToHash([]byte("1"))
 			base.HasRival = true
 			base.HasLengthOneRival = true
+			base.ClaimId = common.BytesToHash([]byte("1"))
 		}
 		edgesToCreate[i] = base
 		endHeight = endHeight / 2
@@ -398,6 +399,10 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 		require.Equal(t, 1, len(edges))
 
 		edges, err = db.GetEdges(WithLengthOneRival())
+		require.NoError(t, err)
+		require.Equal(t, 2, len(edges))
+
+		edges, err = db.GetEdges(WithClaimId(protocol.ClaimId(common.BytesToHash([]byte("1")))))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(edges))
 	})
