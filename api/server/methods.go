@@ -401,6 +401,7 @@ func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter)
 		db.WithLimit(1),
 	)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not get edges from backend: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if len(edges) != 1 {
@@ -408,8 +409,7 @@ func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter)
 	}
 	w.Header().Set("Content-Type", contentType)
 	if err := json.NewEncoder(w).Encode(edges[0]); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("Could not write edge response: %v", err)))
+		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -457,12 +457,12 @@ func (s *Server) MiniStakes(r *http.Request, w http.ResponseWriter) {
 	}
 	miniStakes, err := s.backend.GetMiniStakes(r.Context(), assertionHash, opts...)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not get ministakes from backend: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
 	if err := json.NewEncoder(w).Encode(miniStakes); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("Could not write ministakes response: %v", err)))
+		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
