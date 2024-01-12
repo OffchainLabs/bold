@@ -173,17 +173,17 @@ contract EdgeChallengeManagerLibAccess {
         uint256 smallStepHeight
     ) public returns(uint256) {
         return store.confirmEdgeByOneStepProof(
-            EdgeChallengeManagerLib.ConfirmOneStepArgs(
-            edgeId,
-            oneStepProofEntry,
-            oneStepData,
-            execCtx,
-            beforeHistoryInclusionProof,
-            afterHistoryInclusionProof,
-            numBigStepLevel,
-            bigStepHeight,
-            smallStepHeight
-            )
+            ConfirmOneStepArgs({
+                edgeId: edgeId,
+                oneStepProofEntry: oneStepProofEntry,
+                oneStepData: oneStepData,
+                execCtx: execCtx,
+                beforeHistoryInclusionProof: beforeHistoryInclusionProof,
+                afterHistoryInclusionProof: afterHistoryInclusionProof,
+                numBigStepLevel: numBigStepLevel,
+                bigStepHeight: bigStepHeight,
+                smallStepHeight: smallStepHeight
+            })
         );
     }
 }

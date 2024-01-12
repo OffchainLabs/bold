@@ -103,6 +103,29 @@ struct EdgeAddedData {
     bool isLayerZero;
 }
 
+
+/// @notice Arguments to be supplied when confirming an edge by one step
+struct ConfirmOneStepArgs {
+    /// @notice The id of the edge to confirm
+    bytes32 edgeId;
+    /// @notice The one step proof contract
+    IOneStepProofEntry oneStepProofEntry;
+    /// @notice Input data to the one step proof
+    OneStepData oneStepData;
+    /// @notice The execution context to be supplied to the one step proof entry
+    ExecutionContext execCtx;
+    /// @notice Proof that the state which is the start of the edge is committed to by the startHistoryRoot
+    bytes32[] beforeHistoryInclusionProof;
+    /// @notice Proof that the state which is the end of the edge is committed to by the endHistoryRoot
+    bytes32[] afterHistoryInclusionProof;
+    /// @notice The number of big step levels in this challenge
+    uint8 numBigStepLevel;
+    /// @notice The height of the zero layer levels of big step type
+    uint256 bigStepHeight;
+    /// @notice The height of the zero layer levels of big step type
+    uint256 smallStepHeight;
+}
+
 /// @notice Data about an assertion that is being claimed by an edge
 /// @dev    This extra information that is needed in order to verify that a block edge can be created
 struct AssertionReferenceData {
@@ -814,28 +837,6 @@ library EdgeChallengeManagerLib {
         }
 
         return machineStep;
-    }
-
-    /// @notice Arguments to be supplied when confirming an edge by one step
-    struct ConfirmOneStepArgs {
-        /// @notice The id of the edge to confirm
-        bytes32 edgeId;
-        /// @notice The one step proof contract
-        IOneStepProofEntry oneStepProofEntry;
-        /// @notice Input data to the one step proof
-        OneStepData oneStepData;
-        /// @notice The execution context to be supplied to the one step proof entry
-        ExecutionContext execCtx;
-        /// @notice Proof that the state which is the start of the edge is committed to by the startHistoryRoot
-        bytes32[] beforeHistoryInclusionProof;
-        /// @notice Proof that the state which is the end of the edge is committed to by the endHistoryRoot
-        bytes32[] afterHistoryInclusionProof;
-        /// @notice The number of big step levels in this challenge
-        uint8 numBigStepLevel;
-        /// @notice The height of the zero layer levels of big step type
-        uint256 bigStepHeight;
-        /// @notice The height of the zero layer levels of big step type
-        uint256 smallStepHeight;
     }
 
     /// @notice Confirm an edge by executing a one step proof
