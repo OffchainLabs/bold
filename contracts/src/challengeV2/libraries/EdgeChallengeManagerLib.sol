@@ -849,7 +849,7 @@ library EdgeChallengeManagerLib {
         uint256 bigStepHeight,
         uint256 smallStepHeight
     ) internal {
-        // get checks existence
+        // importantly, get start machine step also checks existence
         uint256 machineStep = getStartMachineStep(store, edgeId, numBigStepLevel, bigStepHeight, smallStepHeight);
 
         // edge must be length one and be of type SmallStep
