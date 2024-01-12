@@ -863,6 +863,8 @@ library EdgeChallengeManagerLib {
 
         // Get the machine step that corresponds to the start height of this edge
         // To do this we sum the machine steps of the edges in each of the preceeding levels. 
+        // We do not include the block height, since each step at the block level is a new block
+        // and new blocks reset the machine step to 0.
         bytes32 cursor = confirmArgs.edgeId;
         uint256 machineStep = store.edges[cursor].startHeight;
         uint256 stepSize = confirmArgs.smallStepHeight;
