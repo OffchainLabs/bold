@@ -44,8 +44,8 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 			base.ChallengeManager = common.BytesToAddress([]byte("foo"))
 			b1 := uint64(2)
 			b2 := uint64(3)
-			base.FirstChildBlock = b1
-			base.SecondChildBlock = b2
+			base.FirstChildBlock = &b1
+			base.SecondChildBlock = &b2
 			base.Status = protocol.AssertionConfirmed.String()
 		}
 		if i == 4 {
@@ -147,6 +147,22 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 		}))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithFirstChildBlock(2))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(WithSecondChildBlock(3))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
+
+		assertions, err = db.GetAssertions(WithIsFirstChild())
+		require.NoError(t, err)
+		require.Equal(t, 1, len(assertions))
+
+		assertions, err = db.GetAssertions(WithAssertionStatus(protocol.AssertionConfirmed))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(assertions))
 
 		assertions, err = db.GetAssertions(WithConfigHash(common.BytesToHash([]byte("config"))))
 		require.NoError(t, err)
@@ -287,6 +303,18 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(edges))
 
+		edges, err = db.GetEdges(HasChildren())
+		require.NoError(t, err)
+		require.Equal(t, 2, len(edges))
+
+		edges, err = db.GetEdges(WithLowerChildId(protocol.EdgeId{Hash: common.BytesToHash([]byte("0"))}))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(edges))
+
+		edges, err = db.GetEdges(WithUpperChildId(protocol.EdgeId{Hash: common.BytesToHash([]byte("1"))}))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(edges))
+
 		edges, err = db.GetEdges(WithMiniStaker(common.BytesToAddress([]byte("nyan"))))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(edges))
@@ -298,6 +326,18 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 		edges, err = db.GetEdges(WithEdgeAssertionHash(protocol.AssertionHash{Hash: common.BytesToHash([]byte("0"))}))
 		require.NoError(t, err)
 		require.Equal(t, 0, len(edges))
+
+		edges, err = db.GetEdges(WithRival())
+		require.NoError(t, err)
+		require.Equal(t, 2, len(edges))
+
+		edges, err = db.GetEdges(WithEdgeStatus(protocol.EdgeConfirmed))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(edges))
+
+		edges, err = db.GetEdges(WithLengthOneRival())
+		require.NoError(t, err)
+		require.Equal(t, 2, len(edges))
 	})
 	t.Run("orderings limits and offsets", func(t *testing.T) {
 		gotIds := make([]protocol.EdgeId, 0)
@@ -339,8 +379,8 @@ func baseAssertion() *api.JsonAssertion {
 		AfterStateBatch:          0,
 		AfterStatePosInBatch:     0,
 		AfterStateMachineStatus:  protocol.MachineStatusFinished,
-		FirstChildBlock:          0,
-		SecondChildBlock:         0,
+		FirstChildBlock:          nil,
+		SecondChildBlock:         nil,
 		IsFirstChild:             false,
 		Status:                   protocol.AssertionPending.String(),
 		ConfigHash:               common.Hash{},

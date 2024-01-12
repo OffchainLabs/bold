@@ -19,8 +19,16 @@ CREATE TABLE Edges (
     CreatedAtBlock INTEGER NOT NULL,
     MutualId TEXT NOT NULL,
     ClaimId TEXT,
+    HasChildren BOOLEAN NOT NULL,
+    LowerChildId TEXT NOT NULL,
+    UpperChildId TEXT NOT NULL,
     MiniStaker TEXT,
     AssertionHash TEXT NOT NULL,
+    HasRival BOOLEAN NOT NULL,
+    Status TEXT NOT NULL,
+    HasLengthOneRival BOOLEAN NOT NULL,
+    FOREIGN KEY(LowerChildID) REFERENCES Edges(Id),
+    FOREIGN KEY(UpperChildID) REFERENCES Edges(Id),
     FOREIGN KEY(AssertionHash) REFERENCES Challenges(Hash)
 );
 
@@ -45,6 +53,10 @@ CREATE TABLE Assertions (
     AfterStateBatch INTEGER NOT NULL,
     AfterStatePosInBatch INTEGER NOT NULL,
     AfterStateMachineStatus INTEGER NOT NULL,
+    FirstChildBlock INTEGER,
+    SecondChildBlock INTEGER,
+    IsFirstChild BOOLEAN NOT NULL,
+    Status TEXT NOT NULL,
     ConfigHash TEXT NOT NULL,
     FOREIGN KEY(Hash) REFERENCES Challenges(Hash),
     FOREIGN KEY(ParentAssertionHash) REFERENCES Assertions(Hash)
