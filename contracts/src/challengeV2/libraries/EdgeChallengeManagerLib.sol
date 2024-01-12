@@ -784,6 +784,50 @@ library EdgeChallengeManagerLib {
         return totalTimeUnrivaled;
     }
 
+
+    /// @notice The machine step is the total number of steps taken throughout the execution of the
+    ///         current block. Layer zero edges always start from 0, so we need to look at the start height
+    ///         of the origin id and use that as the offset. We do this for each level in the challenge, except
+    ///         the block level. The heights in the block level represent block height throught the assertion, blocks
+    ///         always start on machine step 0.
+    /// @param store            The edge store containing all edges and rival data
+    /// @param edgeId           The id of the edge to confirm
+    /// @param numBigStepLevel  The number of big step levels
+    /// @param bigStepHeight    The height of the big step zero layer edges
+    /// @param smallStepHeight  The height of the small step zero layer edges
+    function getStartMachineStep(
+        EdgeStore storage store,
+        bytes32 edgeId,
+        uint256 numBigStepLevel,
+        uint256 bigStepHeight,
+        uint256 smallStepHeight
+    ) internal view returns (uint256) {
+        ChallengeEdge memory edge = get(store, edgeId);
+        uint256 height = 0;
+
+        // we dont add the block height, since that doesnt contribute to the machine step
+        // creating a new block reset the machine step
+        while (edge.level > 0) {
+            uint256 stepSize = 1;
+            // The step size at this level is the product of the zero layer edge heights in the
+            // succeeding levels
+            // There are numBigStepLevel + 2 levels in total, so the index of the last level
+            // is numBigStepLevel + 1. We take the product from the next level (edge.level + 1)
+            // of all the steps sizes up to the last level - numBigStepLevel + 1.
+            // East level has size pf bigStepHeight, except the last which is smallStepHeight
+            for (uint256 j = edge.level + 1; j <= numBigStepLevel + 1; j++) {
+                stepSize *= j == numBigStepLevel + 1 ? smallStepHeight : bigStepHeight;
+            }
+
+            // increase the height by the amount of steps taken at this level
+            height += stepSize * edge.startHeight;
+
+            // traverse up to the next level by using the origin id
+            edge = get(store, store.firstRivals[edge.originId]);
+        }
+        return height;
+    }
+
     /// @notice Confirm an edge by executing a one step proof
     /// @dev    One step proofs can only be executed against edges that have length one and of type SmallStep
     /// @param store                        The edge store containing all edges and rival data
@@ -801,10 +845,12 @@ library EdgeChallengeManagerLib {
         ExecutionContext memory execCtx,
         bytes32[] calldata beforeHistoryInclusionProof,
         bytes32[] calldata afterHistoryInclusionProof,
-        uint8 numBigStepLevel
+        uint8 numBigStepLevel,
+        uint256 bigStepHeight,
+        uint256 smallStepHeight
     ) internal {
         // get checks existence
-        uint256 machineStep = get(store, edgeId).startHeight;
+        uint256 machineStep = getStartMachineStep(store, edgeId, numBigStepLevel, bigStepHeight, smallStepHeight);
 
         // edge must be length one and be of type SmallStep
         if (ChallengeEdgeLib.levelToType(store.edges[edgeId].level, numBigStepLevel) != EdgeType.SmallStep) {
