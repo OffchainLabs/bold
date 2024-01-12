@@ -19,14 +19,15 @@ CREATE TABLE Edges (
     CreatedAtBlock INTEGER NOT NULL,
     MutualId TEXT NOT NULL,
     ClaimId TEXT,
+    MiniStaker TEXT,
+    AssertionHash TEXT NOT NULL,
     HasChildren BOOLEAN NOT NULL,
     LowerChildId TEXT NOT NULL,
     UpperChildId TEXT NOT NULL,
-    MiniStaker TEXT,
-    AssertionHash TEXT NOT NULL,
     HasRival BOOLEAN NOT NULL,
     Status TEXT NOT NULL,
     HasLengthOneRival BOOLEAN NOT NULL,
+    LastUpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(LowerChildID) REFERENCES Edges(Id),
     FOREIGN KEY(UpperChildID) REFERENCES Edges(Id),
     FOREIGN KEY(AssertionHash) REFERENCES Challenges(Hash)
@@ -58,6 +59,7 @@ CREATE TABLE Assertions (
     IsFirstChild BOOLEAN NOT NULL,
     Status TEXT NOT NULL,
     ConfigHash TEXT NOT NULL,
+    LastUpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(Hash) REFERENCES Challenges(Hash),
     FOREIGN KEY(ParentAssertionHash) REFERENCES Assertions(Hash)
 );
@@ -67,5 +69,19 @@ CREATE INDEX idx_assertions_assertion ON Assertions(Hash);
 CREATE INDEX idx_edge_claim_id ON Edges(ClaimId);
 CREATE INDEX idx_edge_end_height ON Edges(EndHeight);
 CREATE INDEX idx_edge_end_history_root ON Edges(EndHistoryRoot);
+
+CREATE TRIGGER UpdateEdgeTimestamp
+AFTER UPDATE ON Edges
+FOR EACH ROW
+BEGIN
+   UPDATE Edges SET LastUpdatedAt = CURRENT_TIMESTAMP WHERE Id = NEW.Id;
+END;
+
+CREATE TRIGGER UpdateAssertionTimestamp
+AFTER UPDATE ON Assertions
+FOR EACH ROW
+BEGIN
+   UPDATE Assertions SET LastUpdatedAt = CURRENT_TIMESTAMP WHERE Hash = NEW.Hash;
+END;
 `
 )

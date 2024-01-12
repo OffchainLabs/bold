@@ -534,3 +534,68 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	}
 	return tx.Commit()
 }
+
+func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
+	query := `UPDATE Edges SET 
+	 ChallengeLevel = :ChallengeLevel,
+	 OriginId = :OriginId,
+	 StartHistoryRoot = :StartHistoryRoot,
+	 StartHeight = :StartHeight,
+	 EndHistoryRoot = :EndHistoryRoot,
+	 EndHeight = :EndHeight,
+	 CreatedAtBlock = :CreatedAtBlock,
+	 MutualId = :MutualId,
+	 ClaimId = :ClaimId,
+	 MiniStaker = :MiniStaker,
+	 AssertionHash = :AssertionHash,
+	 HasChildren = :HasChildren,
+	 LowerChildId = :LowerChildId,
+	 UpperChildId = :UpperChildId,
+	 HasRival = :HasRival,
+	 Status = :Status,
+	 HasLengthOneRival = :HasLengthOneRival
+	 WHERE Id = :Id`
+	_, err := d.sqlDB.NamedExec(query, edge)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *SqliteDatabase) UpdateAssertion(assertion *api.JsonAssertion) error {
+	// Construct the query
+	query := `UPDATE Assertions SET 
+   ConfirmPeriodBlocks = :ConfirmPeriodBlocks,
+   RequiredStake = :RequiredStake,
+   ParentAssertionHash = :ParentAssertionHash,
+   InboxMaxCount = :InboxMaxCount,
+   AfterInboxBatchAcc = :AfterInboxBatchAcc,
+   WasmModuleRoot = :WasmModuleRoot,
+   ChallengeManager = :ChallengeManager,
+   CreationBlock = :CreationBlock,
+   TransactionHash = :TransactionHash,
+   BeforeStateBlockHash = :BeforeStateBlockHash,
+   BeforeStateSendRoot = :BeforeStateSendRoot,
+   BeforeStateBatch = :BeforeStateBatch,
+   BeforeStatePosInBatch = :BeforeStatePosInBatch,
+   BeforeStateMachineStatus = :BeforeStateMachineStatus,
+   AfterStateBlockHash = :AfterStateBlockHash,
+   AfterStateSendRoot = :AfterStateSendRoot,
+   AfterStateBatch = :AfterStateBatch,
+   AfterStatePosInBatch = :AfterStatePosInBatch,
+   AfterStateMachineStatus = :AfterStateMachineStatus,
+   FirstChildBlock = :FirstChildBlock,
+   SecondChildBlock = :SecondChildBlock,
+   IsFirstChild = :IsFirstChild,
+   Status = :Status,
+   ConfigHash = :ConfigHash
+   WHERE Hash = :Hash`
+
+	// Execute the query with the assertion data
+	_, err := d.sqlDB.NamedExec(query, assertion)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

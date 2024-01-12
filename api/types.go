@@ -2,6 +2,7 @@ package api
 
 import (
 	"math/big"
+	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
@@ -49,6 +50,7 @@ type JsonAssertion struct {
 	SecondChildBlock         *uint64                `json:"secondChildBlock" db:"SecondChildBlock"`
 	IsFirstChild             bool                   `json:"isFirstChild" db:"IsFirstChild"`
 	Status                   string                 `json:"status" db:"Status"`
+	LastUpdatedAt            time.Time              `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	ConfigHash               common.Hash            `json:"configHash" db:"ConfigHash"`
 }
 
@@ -72,6 +74,7 @@ type JsonEdge struct {
 	HasRival          bool           `json:"hasRival" db:"HasRival"`
 	Status            string         `json:"status" db:"Status"`
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
+	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
 	IsHonest            bool   `json:"isHonest"`
 	IsRelevant          bool   `json:"isRelevant"`

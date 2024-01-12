@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -12,6 +13,67 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSqliteDatabase_Updates(t *testing.T) {
+	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer sqlDB.Close()
+
+	_, err = sqlDB.Exec(schema)
+	require.NoError(t, err)
+
+	db := &SqliteDatabase{sqlDB: sqlDB}
+	numAssertions := 10
+	assertionsToCreate := make([]*api.JsonAssertion, numAssertions)
+	for i := 0; i < numAssertions; i++ {
+		base := baseAssertion()
+		base.Hash = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
+		base.CreationBlock = uint64(i)
+		assertionsToCreate[i] = base
+	}
+	require.NoError(t, db.InsertAssertions(assertionsToCreate))
+
+	// Get the inserted assertions.
+	assertions, err := db.GetAssertions()
+	require.NoError(t, err)
+	require.Equal(t, numAssertions, len(assertions))
+
+	time.Sleep(time.Second)
+
+	lastAssertion := assertions[len(assertions)-1]
+	lastUpdated := lastAssertion.LastUpdatedAt
+	lastAssertion.Status = "confirmed"
+	require.NoError(t, db.UpdateAssertion(lastAssertion))
+
+	// Check the last updated timestamp gets increased.
+	updatedAssertions, err := db.GetAssertions(WithAssertionHash(protocol.AssertionHash{Hash: lastAssertion.Hash}), WithAssertionLimit(1))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(updatedAssertions))
+	require.Equal(t, "confirmed", updatedAssertions[0].Status)
+	require.Equal(t, true, lastUpdated.Before(updatedAssertions[0].LastUpdatedAt))
+
+	// Insert an edge, update it, then check the last updated timestamp increased.
+	edge := baseEdge()
+	edge.AssertionHash = lastAssertion.Hash
+	require.NoError(t, db.InsertEdge(edge))
+
+	edges, err := db.GetEdges()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(edges))
+	lastUpdated = edges[0].LastUpdatedAt
+
+	time.Sleep(time.Second)
+
+	edge.Status = "confirmed"
+	require.NoError(t, db.UpdateEdge(edge))
+
+	// Check the last updated timestamp gets increased.
+	updatedEdges, err := db.GetEdges(WithEdgeAssertionHash(protocol.AssertionHash{Hash: lastAssertion.Hash}), WithLimit(1))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(updatedEdges))
+	require.Equal(t, "confirmed", updatedEdges[0].Status)
+	require.Equal(t, true, lastUpdated.Before(updatedEdges[0].LastUpdatedAt))
+}
 
 func TestSqliteDatabase_Assertions(t *testing.T) {
 	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
