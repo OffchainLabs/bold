@@ -12,7 +12,7 @@ import "./Utils.sol";
 contract MockOneStepProofEntry is IOneStepProofEntry {
     using GlobalStateLib for GlobalState;
 
-    function proveOneStep(ExecutionContext calldata, uint256, bytes32, bytes calldata proof)
+    function proveOneStep(ExecutionContext calldata, uint256 machineStep, bytes32, bytes calldata proof)
         external
         pure
         returns (bytes32 afterHash)
@@ -139,14 +139,14 @@ contract EdgeChallengeManagerLibAccess {
 
     function getStartMachineStep(
         bytes32 edgeId,
-        uint256 numBigStepLevel,
         uint256 bigStepHeight,
         uint256 smallStepHeight
     ) public returns(uint256) {
-        return store.getStartMachineStep(edgeId,
-            numBigStepLevel,
+        return store.getStartMachineStep(
+            edgeId,
             bigStepHeight,
-            smallStepHeight);
+            smallStepHeight
+        );
     }
 
     function confirmEdgeByTime(
@@ -171,8 +171,9 @@ contract EdgeChallengeManagerLibAccess {
         uint8 numBigStepLevel,
         uint256 bigStepHeight,
         uint256 smallStepHeight
-    ) public {
+    ) public returns(uint256) {
         return store.confirmEdgeByOneStepProof(
+            EdgeChallengeManagerLib.ConfirmOneStepArgs(
             edgeId,
             oneStepProofEntry,
             oneStepData,
@@ -182,6 +183,7 @@ contract EdgeChallengeManagerLibAccess {
             numBigStepLevel,
             bigStepHeight,
             smallStepHeight
+            )
         );
     }
 }
@@ -1516,41 +1518,70 @@ contract EdgeChallengeManagerLibTest is Test {
     struct ConfirmByOneStepData {
         ChallengeEdge e1;
         ChallengeEdge e2;
+        bytes32[] beforeProof;
+        bytes32[] afterProof;
         bytes revertArg;
     }
 
-    function addUpLastLevel() internal returns(bytes32 originId) {
+    uint256 BIGSTEPHEIGHT = 1 << 4;
+    uint256 SMALLSTEPHEIGHT = 1 << 6;
+
+    function addUpLastLevel() internal returns(bytes32 originId, uint256[] memory startHeights) {
         originId = rand.hash();
 
+        startHeights = new uint256[](NUM_BIGSTEP_LEVEL + 1);
         for (uint i = 0; i < NUM_BIGSTEP_LEVEL + 1; i++) {
+            uint256 startHeight = rand.unsignedInt(BIGSTEPHEIGHT);
             ChallengeEdge memory e1 = ChallengeEdgeLib.newChildEdge(
                 originId,
                 rand.hash(),
-                4,
+                startHeight,
                 rand.hash(),
-                5,
+                startHeight + 1,
                 uint8(i)
             );
             store.add(e1);
             ChallengeEdge memory e2 = ChallengeEdgeLib.newChildEdge(
                 originId,
                 e1.startHistoryRoot,
-                4,
+                startHeight,
                 rand.hash(),
-                5,
+                startHeight + 1,
                 uint8(i)
             );
             store.add(e2);
 
             originId = e1.mutualIdMem();
+            startHeights[i] = startHeight;
         }
     }
 
+    function getLayerZeroStepSize(
+        uint256 numBigStepLevel,
+        uint256 bigStepHeight,
+        uint256 smallStepHeight, 
+        uint256 level)
+        internal
+        returns (uint256)
+    {
+        uint stepSize = 1;
+        uint maxLevelIndex = numBigStepLevel + 1;
+        for(uint256 i = level; i < maxLevelIndex; i++) {
+            if(i == maxLevelIndex - 1) {
+                stepSize *= smallStepHeight;
+            } else {
+                stepSize *= bigStepHeight;
+            }
+        }
+        return stepSize;
+    }
+
+
     function confirmByOneStep(uint256 flag) internal {
-        uint256 startHeight = 5;
+        uint256 startHeight = rand.unsignedInt(SMALLSTEPHEIGHT);
         (bytes32[] memory states1, bytes32[] memory states2) = rivalStates(startHeight, startHeight, startHeight + 1);
 
-        bytes32 originId = addUpLastLevel();
+        (bytes32 originId, uint256[] memory startHeights) = addUpLastLevel();
         ConfirmByOneStepData memory data;
         data.e1 = ChallengeEdgeLib.newChildEdge(
             originId,
@@ -1597,16 +1628,16 @@ contract EdgeChallengeManagerLibTest is Test {
             OneStepData({beforeHash: states1[startHeight], proof: abi.encodePacked(states1[startHeight + 1])});
         ExecutionContext memory e =
             ExecutionContext({maxInboxMessagesRead: 0, bridge: IBridge(address(0)), initialWasmModuleRoot: bytes32(0)});
-        bytes32[] memory beforeProof = ProofUtils.generateInclusionProof(
+        data.beforeProof = ProofUtils.generateInclusionProof(
             ProofUtils.rehashed(ArrayUtilsLib.slice(states1, 0, startHeight + 1)), startHeight
         );
         if (flag == 6) {
-            beforeProof[0] = rand.hash();
+            data.beforeProof[0] = rand.hash();
             data.revertArg = "Invalid inclusion proof";
         }
-        bytes32[] memory afterProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), startHeight + 1);
+        data.afterProof = ProofUtils.generateInclusionProof(ProofUtils.rehashed(states1), startHeight + 1);
         if (flag == 7) {
-            afterProof[0] = rand.hash();
+            data.afterProof[0] = rand.hash();
             data.revertArg = "Invalid inclusion proof";
         }
         if (flag == 8) {
@@ -1622,7 +1653,7 @@ contract EdgeChallengeManagerLibTest is Test {
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
-        store.confirmEdgeByOneStepProof(eid, entry, d, e, beforeProof, afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6);
+        uint256 machineStep = store.confirmEdgeByOneStepProof(eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6);
 
         if (bytes(data.revertArg).length != 0) {
             // for flag one the edge does not exist
@@ -1633,8 +1664,24 @@ contract EdgeChallengeManagerLibTest is Test {
         } else {
             assertTrue(store.get(eid).status == EdgeStatus.Confirmed, "Edge confirmed");
             assertEq(store.getConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e1)), eid, "Confirmed rival");
+
+            uint256 expectedStartMachineStep = startHeight;
+
+            for (uint i = 1; i < startHeights.length; i++) {
+                expectedStartMachineStep += getLayerZeroStepSize(
+                    NUM_BIGSTEP_LEVEL,
+                    BIGSTEPHEIGHT,
+                    SMALLSTEPHEIGHT, 
+                    i
+                ) * startHeights[i];
+            }
+            if(machineStep != expectedStartMachineStep) {
+                revert MachineStep(machineStep, expectedStartMachineStep, startHeights, startHeight);
+            }
         }
     }
+
+    error MachineStep(uint256 actual, uint256 expected, uint256[] startHeights, uint256 smallStartHeight);
 
     function testConfirmByOneStep() public {
         confirmByOneStep(0);
@@ -2328,8 +2375,6 @@ contract EdgeChallengeManagerLibTest is Test {
         return BisectionData(states1, states2, edges1, edges2);
     }
 
-    function getPrevAssertionHash(uint8 flag) internal {}
-
     function testGetPrevAssertionHashCorrectly() public {
         bytes32 a1 = rand.hash();
         bytes32 a2 = rand.hash();
@@ -2464,311 +2509,5 @@ contract EdgeChallengeManagerLibTest is Test {
                 "Block level losing edge upper"
             );
         }
-    }
-
-    function getLayerZeroStepSize(
-        uint256 numBigStepLevel,
-        uint256 bigStepHeight,
-        uint256 smallStepHeight, 
-        uint256 level)
-        internal
-        returns (uint256)
-    {
-        uint256 stepSize = 1;
-        // skip the block level, and then product from +1
-        for (uint256 i = level + 2; i <= numBigStepLevel + 2; i++) {
-            if (i < numBigStepLevel + 2) {
-                stepSize *= bigStepHeight;
-            } else {
-                stepSize *= smallStepHeight;
-            }
-        }
-        return stepSize;
-    }
-
-    uint256 BIGSTEPHEIGHT = 1 << 4;
-    uint256 SMALLSTEPHEIGHT = 1 << 6;
-
-    function testGetStartMachineStepBlock() public {
-        uint256 startHeight = 4;
-        uint256 endHeight = 8;
-        ChallengeEdge memory blockEdge = ChallengeEdgeLib.newChildEdge(
-            rand.hash(),
-            rand.hash(),
-            startHeight,
-            rand.hash(),
-            endHeight,
-            0
-        );
-        store.add(blockEdge);
-
-        uint256 startMachineStep = store.getStartMachineStep(
-            blockEdge.idMem(),
-            2,
-            BIGSTEPHEIGHT,
-            SMALLSTEPHEIGHT
-        );
-
-        // block always start on machine step 0
-        uint256 expectedStartMachineStep = startHeight;
-        assertEq(startMachineStep, 0, "Block start machine step");
-    }
-
-    function testGetStartMachineStepBlockZero() public {
-        uint256 startHeight = 0;
-        uint256 endHeight = 8;
-        ChallengeEdge memory blockEdge = ChallengeEdgeLib.newChildEdge(
-            rand.hash(),
-            rand.hash(),
-            startHeight,
-            rand.hash(),
-            endHeight,
-            0
-        );
-        store.add(blockEdge);
-
-        uint256 startMachineStep = store.getStartMachineStep(
-            blockEdge.idMem(),
-            2,
-            BIGSTEPHEIGHT,
-            SMALLSTEPHEIGHT
-        );
-        assertEq(startMachineStep, 0, "Block start machine step");
-    }
-
-    function testGetStartMachineStepBig1Step() public {
-        uint256 blockStartHeight = 4;
-        uint256 blockEndHeight = 5;
-        uint256 bigStep1StartHeight = 2;
-        uint256 bigStep1EndHeight = 4;
-
-        ChallengeEdge memory blockEdge = ChallengeEdgeLib.newChildEdge(
-            rand.hash(),
-            rand.hash(),
-            blockStartHeight,
-            rand.hash(),
-            blockEndHeight,
-            0
-        );
-        store.add(blockEdge);
-        store.add(
-            ChallengeEdgeLib.newChildEdge(
-                blockEdge.originId,
-                blockEdge.startHistoryRoot,
-                blockStartHeight,
-                rand.hash(),
-                blockEndHeight,
-                0
-            )
-        );
-
-        ChallengeEdge memory bigStep1Edge = ChallengeEdgeLib.newChildEdge(
-            blockEdge.mutualIdMem(),
-            rand.hash(),
-            bigStep1StartHeight,
-            rand.hash(),
-            bigStep1EndHeight,
-            1
-        );
-        store.add(bigStep1Edge);
-
-        uint256 startMachineStep = store.getStartMachineStep(
-            bigStep1Edge.idMem(),
-            2,
-            BIGSTEPHEIGHT,
-            SMALLSTEPHEIGHT
-        );
-
-        uint256 expectedStartMachineStep = bigStep1StartHeight *
-            getLayerZeroStepSize(
-                2,
-                BIGSTEPHEIGHT,
-                SMALLSTEPHEIGHT, 
-                1
-            );
-        assertEq(startMachineStep, expectedStartMachineStep, "Big step start machine step");
-        assertEq(startMachineStep, 2048, "Big step start machine step exact");
-    }
-
-    function testGetStartMachineStepBig2Step() public {
-        uint256 blockStartHeight = 4;
-        uint256 blockEndHeight = 5;
-        uint256 bigStep1StartHeight = 2;
-        uint256 bigStep1EndHeight = 3;
-        uint256 bigStep2StartHeight = 8;
-        uint256 bigStep2EndHeight = 16;
-
-        ChallengeEdge memory blockEdge = ChallengeEdgeLib.newChildEdge(
-            rand.hash(),
-            rand.hash(),
-            blockStartHeight,
-            rand.hash(),
-            blockEndHeight,
-            0
-        );
-        store.add(blockEdge);
-        store.add(
-            ChallengeEdgeLib.newChildEdge(
-                blockEdge.originId,
-                blockEdge.startHistoryRoot,
-                blockStartHeight,
-                rand.hash(),
-                blockEndHeight,
-                0
-            )
-        );
-
-        ChallengeEdge memory bigStep1Edge = ChallengeEdgeLib.newChildEdge(
-            blockEdge.mutualIdMem(),
-            rand.hash(),
-            bigStep1StartHeight,
-            rand.hash(),
-            bigStep1EndHeight,
-            1
-        );
-        store.add(bigStep1Edge);
-        store.add(
-            ChallengeEdgeLib.newChildEdge(
-                bigStep1Edge.originId,
-                bigStep1Edge.startHistoryRoot,
-                bigStep1StartHeight,
-                rand.hash(),
-                bigStep1EndHeight,
-                1
-            )
-        );
-        ChallengeEdge memory bigStep2Edge = ChallengeEdgeLib.newChildEdge(
-            bigStep1Edge.mutualIdMem(),
-            rand.hash(),
-            bigStep2StartHeight,
-            rand.hash(),
-            bigStep2EndHeight,
-            2
-        );
-        store.add(bigStep2Edge);
-
-        uint256 startMachineStep = store.getStartMachineStep(
-            bigStep2Edge.idMem(),
-            2,
-            BIGSTEPHEIGHT,
-            SMALLSTEPHEIGHT
-        );
-
-        uint256 expectedStartMachineStep = bigStep1StartHeight *
-            getLayerZeroStepSize(2,
-                BIGSTEPHEIGHT,
-                SMALLSTEPHEIGHT, 
-                1) +
-            bigStep2StartHeight *
-            getLayerZeroStepSize(2,
-                BIGSTEPHEIGHT,
-                SMALLSTEPHEIGHT, 
-                2);
-        assertEq(startMachineStep, expectedStartMachineStep, "Big step 2 start machine step");
-        assertEq(startMachineStep, 2560, "Big step 2 start machine step exact");
-    }
-
-    function testGetStartMachineSmallStep() public {
-        uint256 blockEndHeight = 5;
-        uint256 bigStep1EndHeight = 3;
-        uint256 bigStep2EndHeight = 9;
-        uint256 smallStepEndHeight = 32;
-
-        ChallengeEdge memory blockEdge = ChallengeEdgeLib.newChildEdge(
-            rand.hash(),
-            rand.hash(),
-            4,
-            rand.hash(),
-            blockEndHeight,
-            0
-        );
-        store.add(blockEdge);
-        store.add(
-            ChallengeEdgeLib.newChildEdge(
-                blockEdge.originId,
-                blockEdge.startHistoryRoot,
-                blockEdge.startHeight,
-                rand.hash(),
-                blockEndHeight,
-                0
-            )
-        );
-
-        ChallengeEdge memory bigStep1Edge = ChallengeEdgeLib.newChildEdge(
-            blockEdge.mutualIdMem(),
-            rand.hash(),
-            2,
-            rand.hash(),
-            bigStep1EndHeight,
-            1
-        );
-        store.add(bigStep1Edge);
-        store.add(
-            ChallengeEdgeLib.newChildEdge(
-                bigStep1Edge.originId,
-                bigStep1Edge.startHistoryRoot,
-                bigStep1Edge.startHeight,
-                rand.hash(),
-                bigStep1EndHeight,
-                1
-            )
-        );
-
-        ChallengeEdge memory bigStep2Edge = ChallengeEdgeLib.newChildEdge(
-            bigStep1Edge.mutualIdMem(),
-            rand.hash(),
-            8,
-            rand.hash(),
-            bigStep2EndHeight,
-            2
-        );
-        store.add(bigStep2Edge);
-        store.add(
-            ChallengeEdgeLib.newChildEdge(
-                bigStep2Edge.originId,
-                bigStep2Edge.startHistoryRoot,
-                bigStep2Edge.startHeight,
-                rand.hash(),
-                bigStep2EndHeight,
-                2
-            )
-        );
-
-        ChallengeEdge memory smallStepEdge = ChallengeEdgeLib.newChildEdge(
-            bigStep2Edge.mutualIdMem(),
-            rand.hash(),
-            16,
-            rand.hash(),
-            smallStepEndHeight,
-            3
-        );
-        store.add(smallStepEdge);
-
-        uint256 startMachineStep = store.getStartMachineStep(
-            smallStepEdge.idMem(),
-            2,
-            BIGSTEPHEIGHT,
-            SMALLSTEPHEIGHT
-        );
-
-        uint256 expectedStartMachineStep = 2 *
-            getLayerZeroStepSize(2,
-                BIGSTEPHEIGHT,
-                SMALLSTEPHEIGHT, 
-                1
-            ) + 8 *
-            getLayerZeroStepSize(
-                2,
-                BIGSTEPHEIGHT,
-                SMALLSTEPHEIGHT, 
-                2
-            ) +
-            16 * getLayerZeroStepSize(2,
-                BIGSTEPHEIGHT,
-                SMALLSTEPHEIGHT, 
-                3
-            );
-        assertEq(startMachineStep, expectedStartMachineStep, "Small step 2 start machine step");
-        assertEq(startMachineStep, 2576, "Small step 2 start machine step exact");
     }
 }

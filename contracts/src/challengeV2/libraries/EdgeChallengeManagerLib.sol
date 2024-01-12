@@ -785,99 +785,115 @@ library EdgeChallengeManagerLib {
     }
 
 
-    /// @notice The machine step is the total number of steps taken throughout the execution of the
+    /// @notice Get the machine step that corresponds to the start height of the supplied edge.
+    ///         The machine step is the total number of steps taken throughout the execution of the
     ///         current block. Layer zero edges always start from 0, so we need to look at the start height
     ///         of the origin id and use that as the offset. We do this for each level in the challenge, except
     ///         the block level. The heights in the block level represent block height throught the assertion, blocks
-    ///         always start on machine step 0.
+    ///         always reset the machine step to 0.
+    /// @dev    Only edges that exist and are of type SmallStep can be supplied here. These are assumed rather
+    ///         than checked by this function to avoid duplicate checks elsewhere.
     /// @param store            The edge store containing all edges and rival data
-    /// @param edgeId           The id of the edge to confirm
-    /// @param numBigStepLevel  The number of big step levels
+    /// @param edgeId           The id of the edge to get machine step from start height. Must exist and be of type SmallStep
     /// @param bigStepHeight    The height of the big step zero layer edges
     /// @param smallStepHeight  The height of the small step zero layer edges
     function getStartMachineStep(
         EdgeStore storage store,
         bytes32 edgeId,
-        uint256 numBigStepLevel,
         uint256 bigStepHeight,
         uint256 smallStepHeight
     ) internal view returns (uint256) {
-        ChallengeEdge memory edge = get(store, edgeId);
-        uint256 height = 0;
-
-        // we dont add the block height, since that doesnt contribute to the machine step
-        // creating a new block reset the machine step
-        while (edge.level > 0) {
-            uint256 stepSize = 1;
-            // The step size at this level is the product of the zero layer edge heights in the
-            // succeeding levels
-            // There are numBigStepLevel + 2 levels in total, so the index of the last level
-            // is numBigStepLevel + 1. We take the product from the next level (edge.level + 1)
-            // of all the steps sizes up to the last level - numBigStepLevel + 1.
-            // East level has size pf bigStepHeight, except the last which is smallStepHeight
-            for (uint256 j = edge.level + 1; j <= numBigStepLevel + 1; j++) {
-                stepSize *= j == numBigStepLevel + 1 ? smallStepHeight : bigStepHeight;
-            }
-
-            // increase the height by the amount of steps taken at this level
-            height += stepSize * edge.startHeight;
-
-            // traverse up to the next level by using the origin id
-            edge = get(store, store.firstRivals[edge.originId]);
+        bytes32 cursor = edgeId;
+        uint256 machineStep = store.edges[cursor].startHeight;
+        uint256 stepSize = smallStepHeight;
+        
+        while(store.edges[cursor].level > 1) {
+            cursor = store.firstRivals[store.edges[cursor].originId];
+            machineStep += store.edges[cursor].startHeight * stepSize;
+            stepSize *= bigStepHeight;
         }
-        return height;
+
+        return machineStep;
+    }
+
+    /// @notice Arguments to be supplied when confirming an edge by one step
+    struct ConfirmOneStepArgs {
+        /// @notice The id of the edge to confirm
+        bytes32 edgeId;
+        /// @notice The one step proof contract
+        IOneStepProofEntry oneStepProofEntry;
+        /// @notice Input data to the one step proof
+        OneStepData oneStepData;
+        /// @notice The execution context to be supplied to the one step proof entry
+        ExecutionContext execCtx;
+        /// @notice Proof that the state which is the start of the edge is committed to by the startHistoryRoot
+        bytes32[] beforeHistoryInclusionProof;
+        /// @notice Proof that the state which is the end of the edge is committed to by the endHistoryRoot
+        bytes32[] afterHistoryInclusionProof;
+        /// @notice The number of big step levels in this challenge
+        uint8 numBigStepLevel;
+        /// @notice The height of the zero layer levels of big step type
+        uint256 bigStepHeight;
+        /// @notice The height of the zero layer levels of big step type
+        uint256 smallStepHeight;
     }
 
     /// @notice Confirm an edge by executing a one step proof
     /// @dev    One step proofs can only be executed against edges that have length one and of type SmallStep
-    /// @param store                        The edge store containing all edges and rival data
-    /// @param edgeId                       The id of the edge to confirm
-    /// @param oneStepProofEntry            The one step proof contract
-    /// @param oneStepData                  Input data to the one step proof
-    /// @param beforeHistoryInclusionProof  Proof that the state which is the start of the edge is committed to by the startHistoryRoot
-    /// @param afterHistoryInclusionProof   Proof that the state which is the end of the edge is committed to by the endHistoryRoot
-    /// @param numBigStepLevel              The number of big step levels in this challenge
+    /// @param store        The edge store containing all edges and rival data
+    /// @param confirmArgs  Arguments required to confirm by one step
     function confirmEdgeByOneStepProof(
         EdgeStore storage store,
-        bytes32 edgeId,
-        IOneStepProofEntry oneStepProofEntry,
-        OneStepData calldata oneStepData,
-        ExecutionContext memory execCtx,
-        bytes32[] calldata beforeHistoryInclusionProof,
-        bytes32[] calldata afterHistoryInclusionProof,
-        uint8 numBigStepLevel,
-        uint256 bigStepHeight,
-        uint256 smallStepHeight
-    ) internal {
-        // importantly, get start machine step also checks existence
-        uint256 machineStep = getStartMachineStep(store, edgeId, numBigStepLevel, bigStepHeight, smallStepHeight);
-
-        // edge must be length one and be of type SmallStep
-        if (ChallengeEdgeLib.levelToType(store.edges[edgeId].level, numBigStepLevel) != EdgeType.SmallStep) {
-            revert EdgeTypeNotSmallStep(store.edges[edgeId].level);
+        ConfirmOneStepArgs memory confirmArgs
+    ) internal returns(uint256) {
+        if (!store.edges[confirmArgs.edgeId].exists()) {
+            revert EdgeNotExists(confirmArgs.edgeId);
         }
-        if (store.edges[edgeId].length() != 1) {
-            revert EdgeNotLengthOne(store.edges[edgeId].length());
+
+        // edge must of type SmallStep
+        if (ChallengeEdgeLib.levelToType(store.edges[confirmArgs.edgeId].level, confirmArgs.numBigStepLevel) != EdgeType.SmallStep) {
+            revert EdgeTypeNotSmallStep(store.edges[confirmArgs.edgeId].level);
+        }
+  
+        // edge must be length one to execute one step proofs against
+        if (store.edges[confirmArgs.edgeId].length() != 1) {
+            revert EdgeNotLengthOne(store.edges[confirmArgs.edgeId].length());
+        }
+
+        // Get the machine step that corresponds to the start height of this edge
+        // To do this we sum the machine steps of the edges in each of the preceeding levels. 
+        bytes32 cursor = confirmArgs.edgeId;
+        uint256 machineStep = store.edges[cursor].startHeight;
+        uint256 stepSize = confirmArgs.smallStepHeight;
+        while(store.edges[cursor].level > 1) {
+            // We can traverse to previous levels using the origin id
+            cursor = store.firstRivals[store.edges[cursor].originId];
+            // sum the stepSize * offset from 0 at this level
+            machineStep += store.edges[cursor].startHeight * stepSize;
+            // the step size at each level is the product of the heights at all succeeding levels
+            stepSize *= confirmArgs.bigStepHeight;
         }
 
         // the state in the onestep data must be committed to by the startHistoryRoot
         MerkleTreeLib.verifyInclusionProof(
-            store.edges[edgeId].startHistoryRoot, oneStepData.beforeHash, machineStep, beforeHistoryInclusionProof
+            store.edges[confirmArgs.edgeId].startHistoryRoot, confirmArgs.oneStepData.beforeHash, store.edges[confirmArgs.edgeId].startHeight, confirmArgs.beforeHistoryInclusionProof
         );
 
         // execute the single step to produce the after state
         bytes32 afterHash =
-            oneStepProofEntry.proveOneStep(execCtx, machineStep, oneStepData.beforeHash, oneStepData.proof);
+            confirmArgs.oneStepProofEntry.proveOneStep(confirmArgs.execCtx, machineStep, confirmArgs.oneStepData.beforeHash, confirmArgs.oneStepData.proof);
 
         // check that the after state was indeed committed to by the endHistoryRoot
         MerkleTreeLib.verifyInclusionProof(
-            store.edges[edgeId].endHistoryRoot, afterHash, machineStep + 1, afterHistoryInclusionProof
+            store.edges[confirmArgs.edgeId].endHistoryRoot, afterHash, store.edges[confirmArgs.edgeId].startHeight + 1, confirmArgs.afterHistoryInclusionProof
         );
 
         // also checks that no other rival has been confirmed
-        setConfirmedRival(store, edgeId);
+        setConfirmedRival(store, confirmArgs.edgeId);
 
         // we also check the edge is pending in setConfirmed()
-        store.edges[edgeId].setConfirmed();
+        store.edges[confirmArgs.edgeId].setConfirmed();
+
+        return machineStep;
     }
 }

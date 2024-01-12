@@ -547,15 +547,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         });
 
         store.confirmEdgeByOneStepProof(
-            edgeId,
-            oneStepProofEntry,
-            oneStepData,
-            execCtx,
-            beforeHistoryInclusionProof,
-            afterHistoryInclusionProof,
-            NUM_BIGSTEP_LEVEL,
-            LAYERZERO_BIGSTEPEDGE_HEIGHT,
-            LAYERZERO_SMALLSTEPEDGE_HEIGHT
+            EdgeChallengeManagerLib.ConfirmOneStepArgs(
+                edgeId,
+                oneStepProofEntry,
+                oneStepData,
+                execCtx,
+                beforeHistoryInclusionProof,
+                afterHistoryInclusionProof,
+                NUM_BIGSTEP_LEVEL,
+                LAYERZERO_BIGSTEPEDGE_HEIGHT,
+                LAYERZERO_SMALLSTEPEDGE_HEIGHT
+            )
         );
 
         emit EdgeConfirmedByOneStepProof(edgeId, store.edges[edgeId].mutualId());
