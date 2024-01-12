@@ -2488,7 +2488,6 @@ contract EdgeChallengeManagerLibTest is Test {
 
     uint256 BIGSTEPHEIGHT = 1 << 4;
     uint256 SMALLSTEPHEIGHT = 1 << 6;
-            
 
     function testGetStartMachineStepBlock() public {
         uint256 startHeight = 4;
