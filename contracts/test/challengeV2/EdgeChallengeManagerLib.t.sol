@@ -144,18 +144,6 @@ contract EdgeChallengeManagerLibAccess {
         return store.confirmEdgeByClaim(edgeId, claimingEdgeId, numBigStepLevel);
     }
 
-    function getStartMachineStep(
-        bytes32 edgeId,
-        uint256 bigStepHeight,
-        uint256 smallStepHeight
-    ) public returns(uint256) {
-        return store.getStartMachineStep(
-            edgeId,
-            bigStepHeight,
-            smallStepHeight
-        );
-    }
-
     function confirmEdgeByTime(
         bytes32 edgeId,
         bytes32[] memory ancestorEdgeIds,
@@ -178,18 +166,17 @@ contract EdgeChallengeManagerLibAccess {
         uint8 numBigStepLevel,
         uint256 bigStepHeight,
         uint256 smallStepHeight
-    ) public returns(uint256) {
-        return store.confirmEdgeByOneStepProof({
-                edgeId: edgeId,
-                oneStepProofEntry: oneStepProofEntry,
-                oneStepData: oneStepData,
-                execCtx: execCtx,
-                beforeHistoryInclusionProof: beforeHistoryInclusionProof,
-                afterHistoryInclusionProof: afterHistoryInclusionProof,
-                numBigStepLevel: numBigStepLevel,
-                bigStepHeight: bigStepHeight,
-                smallStepHeight: smallStepHeight
-            }
+    ) public {
+        store.confirmEdgeByOneStepProof(
+            edgeId,
+            oneStepProofEntry,
+            oneStepData,
+            execCtx,
+            beforeHistoryInclusionProof,
+            afterHistoryInclusionProof,
+            numBigStepLevel,
+            bigStepHeight,
+            smallStepHeight
         );
     }
 }
