@@ -12,11 +12,18 @@ import "./Utils.sol";
 contract MockOneStepProofEntry is IOneStepProofEntry {
     using GlobalStateLib for GlobalState;
 
+    constructor(uint256 _testMachineStep) {
+        testMachineStep = _testMachineStep;
+    }
+
+    uint256 public testMachineStep;
+
     function proveOneStep(ExecutionContext calldata, uint256 machineStep, bytes32, bytes calldata proof)
         external
-        pure
+        view
         returns (bytes32 afterHash)
     {
+        if(testMachineStep != 0) require(testMachineStep == machineStep, "Invalid machine step");
         return bytes32(proof);
     }
 
@@ -190,7 +197,7 @@ contract EdgeChallengeManagerLibAccess {
 contract EdgeChallengeManagerLibTest is Test {
     using ChallengeEdgeLib for ChallengeEdge;
 
-    MockOneStepProofEntry mockOsp = new MockOneStepProofEntry();
+    MockOneStepProofEntry mockOsp = new MockOneStepProofEntry(0);
 
     uint64 challengePeriodBlocks = 7;
     uint256 stakeAmount = 13;
@@ -1613,7 +1620,18 @@ contract EdgeChallengeManagerLibTest is Test {
             data.revertArg = abi.encodeWithSelector(EdgeNotPending.selector, eid, data.e1.status);
         }
 
-        MockOneStepProofEntry entry = new MockOneStepProofEntry();
+        uint256 expectedStartMachineStep = startHeight;
+        {
+            for (uint i = 1; i < startHeights.length; i++) {
+                expectedStartMachineStep += getLayerZeroStepSize(
+                    NUM_BIGSTEP_LEVEL,
+                    BIGSTEPHEIGHT,
+                    SMALLSTEPHEIGHT, 
+                    i
+                ) * startHeights[i];
+            }
+        }
+        MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
 
         if (flag != 1) {
             store.add(data.e1);
@@ -1652,7 +1670,7 @@ contract EdgeChallengeManagerLibTest is Test {
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
-        uint256 machineStep = store.confirmEdgeByOneStepProof(eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6);
+        store.confirmEdgeByOneStepProof(eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6);
 
         if (bytes(data.revertArg).length != 0) {
             // for flag one the edge does not exist
@@ -1663,20 +1681,6 @@ contract EdgeChallengeManagerLibTest is Test {
         } else {
             assertTrue(store.get(eid).status == EdgeStatus.Confirmed, "Edge confirmed");
             assertEq(store.getConfirmedRival(ChallengeEdgeLib.mutualIdMem(data.e1)), eid, "Confirmed rival");
-
-            uint256 expectedStartMachineStep = startHeight;
-
-            for (uint i = 1; i < startHeights.length; i++) {
-                expectedStartMachineStep += getLayerZeroStepSize(
-                    NUM_BIGSTEP_LEVEL,
-                    BIGSTEPHEIGHT,
-                    SMALLSTEPHEIGHT, 
-                    i
-                ) * startHeights[i];
-            }
-            if(machineStep != expectedStartMachineStep) {
-                revert MachineStep(machineStep, expectedStartMachineStep, startHeights, startHeight);
-            }
         }
     }
 
@@ -1793,7 +1797,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function createZeroBlockEdge(uint256 mode) internal {
         bytes memory revertArg;
-        MockOneStepProofEntry entry = new MockOneStepProofEntry();
+        MockOneStepProofEntry entry = new MockOneStepProofEntry(0);
         uint256 expectedEndHeight = 2 ** 2;
         if (mode == 139) {
             expectedEndHeight = 2 ** 5 - 1;
@@ -2033,7 +2037,7 @@ contract EdgeChallengeManagerLibTest is Test {
             vars.revertArg = abi.encodeWithSelector(ClaimEdgeNotPending.selector);
         }
 
-        vars.a = new MockOneStepProofEntry();
+        vars.a = new MockOneStepProofEntry(0);
         vars.emptyArd;
 
         if (mode == 163) {

@@ -855,16 +855,11 @@ library EdgeChallengeManagerLib {
         uint256 bigStepHeight,
         uint256 smallStepHeight
     ) internal returns(uint256) {
-        ChallengeEdge memory edge;
+        ChallengeEdge memory edge = getNoCheck(store, edgeId);
 
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
         }
-
-        edge.level = store.edges[edgeId].level;
-        edge.startHistoryRoot = store.edges[edgeId].startHistoryRoot;
-        edge.startHeight = store.edges[edgeId].startHeight;
-        edge.endHistoryRoot = store.edges[edgeId].endHistoryRoot;
 
         // edge must of type SmallStep
         if (ChallengeEdgeLib.levelToType(edge.level, numBigStepLevel) != EdgeType.SmallStep) {
@@ -880,29 +875,29 @@ library EdgeChallengeManagerLib {
         // To do this we sum the machine steps of the edges in each of the preceeding levels. 
         // We do not include the block height, since each step at the block level is a new block
         // and new blocks reset the machine step to 0.
-        // uint256 machineStep = store.edges[edgeId].startHeight;
-        uint256 machineStep = getStartMachineStep(store, edgeId, bigStepHeight, smallStepHeight);
-        // {
-        //     bytes32 cursor = edgeId;
-        //     uint256 stepSize = smallStepHeight;
-        //     while(store.edges[cursor].level > 1) {
-        //         // We can traverse to previous levels using the origin id
-        //         cursor = store.firstRivals[store.edges[cursor].originId];
-        //         // sum the stepSize * offset from 0 at this level
-        //         machineStep += store.edges[cursor].startHeight * stepSize;
-        //         // the step size at each level is the product of the heights at all succeeding levels
-        //         stepSize *= bigStepHeight;
-        //     }
-        // }
+        uint256 machineStep = store.edges[edgeId].startHeight;
+        // uint256 machineStep = getStartMachineStep(store, edgeId, bigStepHeight, smallStepHeight);
+        {
+            bytes32 cursor = edgeId;
+            uint256 stepSize = smallStepHeight;
+            while(store.edges[cursor].level > 1) {
+                // We can traverse to previous levels using the origin id
+                cursor = store.firstRivals[store.edges[cursor].originId];
+                // sum the stepSize * offset from 0 at this level
+                machineStep += store.edges[cursor].startHeight * stepSize;
+                // the step size at each level is the product of the heights at all succeeding levels
+                stepSize *= bigStepHeight;
+            }
+        }
 
         // the state in the onestep data must be committed to by the startHistoryRoot
         bytes32 beforeHash = oneStepData.beforeHash;
+        bytes memory proof = oneStepData.proof;
         MerkleTreeLib.verifyInclusionProof(
             edge.startHistoryRoot, beforeHash, edge.startHeight, beforeHistoryInclusionProof
         );
 
         // execute the single step to produce the after state
-        bytes memory proof = oneStepData.proof;
         bytes32 afterHash =
             oneStepProofEntry.proveOneStep(execCtx, machineStep, beforeHash, proof);
 
