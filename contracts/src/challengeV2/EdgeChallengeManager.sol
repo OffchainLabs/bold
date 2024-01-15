@@ -547,7 +547,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         });
 
         store.confirmEdgeByOneStepProof(
-            ConfirmOneStepArgs({
+            {
                 edgeId: edgeId,
                 oneStepProofEntry: oneStepProofEntry,
                 oneStepData: oneStepData,
@@ -557,7 +557,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 numBigStepLevel: NUM_BIGSTEP_LEVEL,
                 bigStepHeight: LAYERZERO_BIGSTEPEDGE_HEIGHT,
                 smallStepHeight: LAYERZERO_SMALLSTEPEDGE_HEIGHT
-            })
+            }
         );
 
         emit EdgeConfirmedByOneStepProof(edgeId, store.edges[edgeId].mutualId());

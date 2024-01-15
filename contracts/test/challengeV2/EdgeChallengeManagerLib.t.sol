@@ -172,8 +172,7 @@ contract EdgeChallengeManagerLibAccess {
         uint256 bigStepHeight,
         uint256 smallStepHeight
     ) public returns(uint256) {
-        return store.confirmEdgeByOneStepProof(
-            ConfirmOneStepArgs({
+        return store.confirmEdgeByOneStepProof({
                 edgeId: edgeId,
                 oneStepProofEntry: oneStepProofEntry,
                 oneStepData: oneStepData,
@@ -183,7 +182,7 @@ contract EdgeChallengeManagerLibAccess {
                 numBigStepLevel: numBigStepLevel,
                 bigStepHeight: bigStepHeight,
                 smallStepHeight: smallStepHeight
-            })
+            }
         );
     }
 }
