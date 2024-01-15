@@ -786,6 +786,7 @@ library EdgeChallengeManagerLib {
 
     /// @notice Confirm an edge by executing a one step proof
     /// @dev    One step proofs can only be executed against edges that have length one and of type SmallStep
+    /// @param store                        The edge store containing all edges and rival data
     /// @param edgeId                       The id of the edge to confirm
     /// @param oneStepProofEntry            The one step proof contract 
     /// @param oneStepData                  Input data to the one step proof 
