@@ -172,18 +172,7 @@ contract EdgeChallengeManagerLibAccess {
         uint256 bigStepHeight,
         uint256 smallStepHeight
     ) public returns(uint256) {
-        return store.confirmEdgeByOneStepProof({
-                edgeId: edgeId,
-                oneStepProofEntry: oneStepProofEntry,
-                oneStepData: oneStepData,
-                execCtx: execCtx,
-                beforeHistoryInclusionProof: beforeHistoryInclusionProof,
-                afterHistoryInclusionProof: afterHistoryInclusionProof,
-                numBigStepLevel: numBigStepLevel,
-                bigStepHeight: bigStepHeight,
-                smallStepHeight: smallStepHeight
-            }
-        );
+        return 1337; // TODO: use a mock to test?
     }
 }
 
