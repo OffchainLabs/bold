@@ -463,6 +463,7 @@ func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter)
 		return
 	}
 	if len(edges) != 1 {
+		http.Error(w, fmt.Sprintf("Got more edges than expected: %d", len(edges)), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
