@@ -36,25 +36,25 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 	}
 	// Check if assertion hash is correct.
 	if err = ht.checkAssertionHash(ctx, edgeId); err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "could not check if the edge's assertion hash is correct %#x", edgeId)
 	}
 	if err = ht.keepTrackOfMutualId(eg); err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "could not track mutual id: %#x", edgeId)
 	}
 	hasHonestAncestry, err := ht.hasHonestAncestry(ctx, eg)
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "could not check if edge has honest ancestors: %#x", edgeId)
 	}
 	if !hasHonestAncestry {
 		return false, nil
 	}
 	claimedAssertionHash, err := ht.claimedAssertionHash(ctx, eg)
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "could not fetch claimed assertion hash for edge: %#x", edgeId)
 	}
 	historyCommitRequest, err := ht.prepareHistoryCommitmentRequest(ctx, eg, claimedAssertionHash)
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "could not prepare history commitment request for edge: %#x", edgeId)
 	}
 	endHeight, endCommit := eg.EndCommitment()
 	challengeLevel := eg.GetChallengeLevel()
@@ -68,8 +68,9 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		},
 	)
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "could not check history commitment agreement for edge: %#x", edgeId)
 	}
+	// Edges are royal if they have an honest ancestry and are also honest from our perspective.
 	isRoyal = hasHonestAncestry && isHonestEdge
 	if isRoyal {
 		ht.keepTrackOfHonestEdge(eg)
