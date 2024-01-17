@@ -58,9 +58,9 @@ type JsonEdge struct {
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
-	IsHonest            bool   `json:"isHonest"`
-	IsRelevant          bool   `json:"isRelevant"`
-	CumulativePathTimer uint64 `json:"cumulativePathTimer"`
+	IsHonest            bool   `json:"isHonest" db:"IsHonest"`
+	IsRelevant          bool   `json:"isRelevant" db:"IsRelevant"`
+	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
 }
 
 func IsNil(i any) bool {

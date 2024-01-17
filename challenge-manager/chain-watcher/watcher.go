@@ -630,7 +630,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 
 	// If a DB is enabled, save the edge to the database.
-	return w.saveEdgeToDB(ctx, edge, protocol.Agreement{IsHonestEdge: true, AgreesWithStartCommit: true})
+	return w.saveEdgeToDB(ctx, edge, &protocol.Agreement{IsHonestEdge: true, AgreesWithStartCommit: true})
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -713,7 +713,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if agreement.IsHonestEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
-	return w.saveEdgeToDB(ctx, edge, agreement)
+	return w.saveEdgeToDB(ctx, edge, &agreement)
 }
 
 // Processes an edge added event by adding it to the honest challenge tree if it is honest.
@@ -985,7 +985,7 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 func (w *Watcher) saveEdgeToDB(
 	ctx context.Context,
 	edge protocol.SpecEdge,
-	agreement protocol.Agreement,
+	agreement *protocol.Agreement,
 ) error {
 	if api.IsNil(w.apiDB) {
 		return nil
@@ -1010,11 +1010,11 @@ func (w *Watcher) saveEdgeToDB(
 	}
 	var pathTimer uint64
 	if agreement.IsHonestEdge {
-		timer, _, _, err := w.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
-		if err != nil {
-			return err
-		}
-		pathTimer = uint64(timer)
+		// timer, _, _, err := w.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+		// if err != nil {
+		// 	return err
+		// }
+		// pathTimer = uint64(timer)
 	}
 	lowerChild, err := edge.LowerChild(ctx)
 	if err != nil {

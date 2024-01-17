@@ -51,6 +51,7 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.Exec(schema)
 	return &SqliteDatabase{
 		sqlDB:               db,
 		currentTableVersion: -1,
@@ -511,12 +512,12 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
 	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
 	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
-	   HasRival, Status, HasLengthOneRival
+	   HasRival, Status, HasLengthOneRival, IsHonest, IsRelevant, CumulativePathTimer
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
 	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
 	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
-	   :HasRival, :Status, :HasLengthOneRival
+	   :HasRival, :Status, :HasLengthOneRival, :IsHonest, :IsRelevant, :CumulativePathTimer
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
@@ -546,7 +547,10 @@ func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
 	 UpperChildId = :UpperChildId,
 	 HasRival = :HasRival,
 	 Status = :Status,
-	 HasLengthOneRival = :HasLengthOneRival
+	 HasLengthOneRival = :HasLengthOneRival,
+	 IsHonest = :IsHonest,
+	 IsRelevant = :IsRelevant,
+	 CumulativePathTimer = :CumulativePathTimer
 	 WHERE Id = :Id`
 	_, err := d.sqlDB.NamedExec(query, edge)
 	if err != nil {
