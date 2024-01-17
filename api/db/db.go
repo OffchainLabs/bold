@@ -32,6 +32,7 @@ type ReadOnlyDatabase interface {
 	GetAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
 	GetChallengedAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
 	GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error)
+	GetEdgeDescendants(edgeId common.Hash) ([]*api.JsonEdge, error)
 }
 
 type SqliteDatabase struct {
@@ -51,8 +52,6 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	//#nosec
-	db.Exec(schema)
 	return &SqliteDatabase{
 		sqlDB:               db,
 		currentTableVersion: -1,

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"reflect"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -62,8 +61,4 @@ type JsonEdge struct {
 	IsHonest            bool   `json:"isHonest"`
 	IsRelevant          bool   `json:"isRelevant"`
 	CumulativePathTimer uint64 `json:"cumulativePathTimer"`
-}
-
-func IsNil(i interface{}) bool {
-	return i == nil || reflect.ValueOf(i).IsNil()
 }
