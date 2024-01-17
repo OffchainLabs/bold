@@ -13,6 +13,13 @@ import (
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 )
 
+type BusinessLogicProvider interface {
+	GetAssertions(ctx context.Context, opts ...db.AssertionOption) ([]*api.JsonAssertion, error)
+	GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.JsonEdge, error)
+	GetMiniStakes(ctx context.Context, assertionHash protocol.AssertionHash, opts ...db.EdgeOption) ([]*api.JsonEdge, error)
+	LatestConfirmedAssertion(ctx context.Context) (*api.JsonAssertion, error)
+}
+
 type Backend struct {
 	db               db.ReadOnlyDatabase
 	chainDataFetcher protocol.AssertionChain

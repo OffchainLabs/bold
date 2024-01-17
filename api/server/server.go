@@ -5,5 +5,5 @@ package server
 import "github.com/OffchainLabs/bold/api/backend"
 
 type Server struct {
-	backend *backend.Backend
+	backend backend.BusinessLogicProvider
 }
