@@ -39,15 +39,15 @@ type edgeCommitment struct {
 // HonestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type HonestChallengeTree struct {
-	edges                  *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	edgeIdByCommitment     *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]]
-	mutualIds              *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash  protocol.AssertionHash
-	metadataReader         MetadataReader
-	histChecker            l2stateprovider.HistoryChecker
-	validatorName          string
-	totalChallengeLevels   uint8
-	honestRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	edges                            *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	edgeCommitmentsByChallengeOrigin *threadsafe.Map[protocol.OriginId, *threadsafe.Map[edgeCommitment, protocol.EdgeId]]
+	mutualIds                        *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash            protocol.AssertionHash
+	metadataReader                   MetadataReader
+	histChecker                      l2stateprovider.HistoryChecker
+	validatorName                    string
+	totalChallengeLevels             uint8
+	honestRootEdgesByLevel           *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
 }
 
 func New(
@@ -57,22 +57,17 @@ func New(
 	numBigStepLevels uint8,
 	validatorName string,
 ) *HonestChallengeTree {
-	// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
 	totalChallengeLevels := numBigStepLevels + 2
-	edgeIdsByCommitment := threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]]()
-	for i := 0; i < int(totalChallengeLevels); i++ {
-		edgeIdsByCommitment.Put(protocol.ChallengeLevel(i), threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
-	}
 	return &HonestChallengeTree{
-		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		edgeIdByCommitment:     edgeIdsByCommitment,
-		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		topLevelAssertionHash:  assertionHash,
-		metadataReader:         metadataReader,
-		histChecker:            histChecker,
-		validatorName:          validatorName,
-		totalChallengeLevels:   totalChallengeLevels,
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		edges:                            threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeCommitmentsByChallengeOrigin: threadsafe.NewMap[protocol.OriginId, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
+		mutualIds:                        threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		topLevelAssertionHash:            assertionHash,
+		metadataReader:                   metadataReader,
+		histChecker:                      histChecker,
+		validatorName:                    validatorName,
+		totalChallengeLevels:             totalChallengeLevels,
+		honestRootEdgesByLevel:           threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
 }
 
@@ -232,10 +227,14 @@ func (ht *HonestChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge
 		id := eg.Id()
 		ht.edges.Put(id, eg)
 		commit := edgeCommitment{startHeight: startHeight, endHeight: endHeight}
-		challengeLevel := eg.GetChallengeLevel()
-		mapping := ht.edgeIdByCommitment.Get(challengeLevel)
+		originId := eg.OriginId()
+		mapping, mappingOk := ht.edgeCommitmentsByChallengeOrigin.TryGet(originId)
+		if !mappingOk {
+			mapping = threadsafe.NewMap[edgeCommitment, protocol.EdgeId]()
+		}
 		mapping.Put(commit, id)
-		ht.edgeIdByCommitment.Put(challengeLevel, mapping)
+		ht.edgeCommitmentsByChallengeOrigin.Put(originId, mapping)
+
 		if !eg.ClaimId().IsNone() {
 			reversedChallengeLevel := eg.GetReversedChallengeLevel()
 			rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(reversedChallengeLevel)
@@ -283,10 +282,14 @@ func (ht *HonestChallengeTree) AddHonestEdge(eg protocol.VerifiedHonestEdge) err
 	endHeight, _ := eg.EndCommitment()
 	ht.edges.Put(id, eg)
 	commit := edgeCommitment{startHeight: startHeight, endHeight: endHeight}
-	challengeLevel := eg.GetChallengeLevel()
-	mapping := ht.edgeIdByCommitment.Get(challengeLevel)
+	originId := eg.OriginId()
+	mapping, mappingOk := ht.edgeCommitmentsByChallengeOrigin.TryGet(originId)
+	if !mappingOk {
+		mapping = threadsafe.NewMap[edgeCommitment, protocol.EdgeId]()
+	}
 	mapping.Put(commit, id)
-	ht.edgeIdByCommitment.Put(challengeLevel, mapping)
+	ht.edgeCommitmentsByChallengeOrigin.Put(originId, mapping)
+
 	// If the edge has a claim id, it means it is a level zero edge and we keep track of it.
 	if !eg.ClaimId().IsNone() {
 		reversedChallengeLevel := eg.GetReversedChallengeLevel()

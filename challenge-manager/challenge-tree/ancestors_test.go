@@ -116,7 +116,6 @@ func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 	}
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	tree.edges = allEdges
-	tree.edgeIdByCommitment.Put(0, edgeIdsByCommitment)
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["blk-0.a-16.a"].MutualId()
@@ -242,7 +241,6 @@ func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, clai
 		tree.edges.Put(v.Id(), v)
 		edgeIdByCommitment.Put(edgeCommitment{startHeight: protocol.Height(v.StartHeight), endHeight: protocol.Height(v.EndHeight)}, v.Id())
 	}
-	tree.edgeIdByCommitment.Put(1, edgeIdByCommitment)
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["big-0.a-16.a"].MutualId()
@@ -368,7 +366,6 @@ func setupSmallStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, cl
 		tree.edges.Put(v.Id(), v)
 		edgeIdByCommitment.Put(edgeCommitment{startHeight: protocol.Height(v.StartHeight), endHeight: protocol.Height(v.EndHeight)}, v.Id())
 	}
-	tree.edgeIdByCommitment.Put(2, edgeIdByCommitment)
 
 	// Set up rivaled edges.
 	mutual := aliceEdges["smol-0.a-16.a"].MutualId()

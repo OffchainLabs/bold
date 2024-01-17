@@ -41,15 +41,12 @@ import (
 func TestComputeAncestorsWithTimers(t *testing.T) {
 	ctx := context.Background()
 	tree := &HonestChallengeTree{
-		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		edgeIdByCommitment:     threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
-		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		metadataReader:         &mockMetadataReader{},
-		totalChallengeLevels:   3,
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
-	}
-	for i := 0; i < int(tree.totalChallengeLevels); i++ {
-		tree.edgeIdByCommitment.Put(protocol.ChallengeLevel(i), threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
+		edges:                            threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeCommitmentsByChallengeOrigin: threadsafe.NewMap[protocol.OriginId, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
+		mutualIds:                        threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		metadataReader:                   &mockMetadataReader{},
+		totalChallengeLevels:             3,
+		honestRootEdgesByLevel:           threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
 	tree.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	tree.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
@@ -389,17 +386,16 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	}
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	ht := &HonestChallengeTree{
-		edges:                  allEdges,
-		edgeIdByCommitment:     threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
-		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		metadataReader:         &mockMetadataReader{},
-		totalChallengeLevels:   3,
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		edges:                            allEdges,
+		edgeCommitmentsByChallengeOrigin: threadsafe.NewMap[protocol.OriginId, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
+		mutualIds:                        threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		metadataReader:                   &mockMetadataReader{},
+		totalChallengeLevels:             3,
+		honestRootEdgesByLevel:           threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
 	ht.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(0, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
-	ht.edgeIdByCommitment.Put(0, edgeIdByCommitment)
 
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
 	mutual := honestEdges["blk-0.a-16.a"].MutualId()
@@ -570,9 +566,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 func TestComputePathTimer_AllChallengeLevels(t *testing.T) {
 	unrivaledAssertionBlocks := uint64(10) // Should incorporate the assertion's unrivaled blocks into the total timer.
 	ht := &HonestChallengeTree{
-		edges:              threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		edgeIdByCommitment: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
-		mutualIds:          threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edges:                            threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeCommitmentsByChallengeOrigin: threadsafe.NewMap[protocol.OriginId, *threadsafe.Map[edgeCommitment, protocol.EdgeId]](),
+		mutualIds:                        threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader: &mockMetadataReader{
 			unrivaledAssertionBlocks: unrivaledAssertionBlocks,
 		},
@@ -582,9 +578,6 @@ func TestComputePathTimer_AllChallengeLevels(t *testing.T) {
 	ht.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(0, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
-	ht.edgeIdByCommitment.Put(2, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
-	ht.edgeIdByCommitment.Put(1, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
-	ht.edgeIdByCommitment.Put(0, threadsafe.NewMap[edgeCommitment, protocol.EdgeId]())
 
 	// Edge ids that belong to block challenges are prefixed with "blk".
 	// For big step, prefixed with "big", and small step, prefixed with "smol".
