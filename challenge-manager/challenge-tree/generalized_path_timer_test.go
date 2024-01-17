@@ -396,6 +396,7 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	ht.honestRootEdgesByLevel.Put(2, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(1, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
 	ht.honestRootEdgesByLevel.Put(0, threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+	ht.edgeCommitmentsByChallengeOrigin.Put(honestEdges["blk-0.a-16.a"].OriginId(), edgeIdByCommitment)
 
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
 	mutual := honestEdges["blk-0.a-16.a"].MutualId()

@@ -230,6 +230,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2))
 	edge.On("GetChallengeLevel").Return(protocol.ChallengeLevel(0))
 	edge.On("MutualId").Return(protocol.MutualId{})
+	edge.On("OriginId").Return(protocol.OriginId{})
 	edge.On("CreatedAtBlock").Return(uint64(1), nil)
 	edge.On("StartCommitment").Return(protocol.Height(0), common.Hash{})
 	edge.On("EndCommitment").Return(protocol.Height(16), common.Hash{})
