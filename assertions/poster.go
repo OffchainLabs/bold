@@ -25,7 +25,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	}
 	if _, err := m.PostAssertion(ctx); err != nil {
 		if !errors.Is(err, solimpl.ErrAlreadyExists) {
-			srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+			// srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 		}
 	}
 	ticker := time.NewTicker(m.postInterval)
@@ -35,7 +35,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 		case <-ticker.C:
 			if _, err := m.PostAssertion(ctx); err != nil {
 				if !errors.Is(err, solimpl.ErrAlreadyExists) {
-					srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+					// srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
 				}
 			}
 		case <-ctx.Done():
