@@ -111,12 +111,12 @@ func (m *Manager) PostAssertionBasedOnParent(
 		}
 		return option.None[protocol.Assertion](), errors.Wrapf(err, "could not get execution state at batch count %d", batchCount)
 	}
-	srvlog.Info(
-		"Posting assertion with retrieved state", log.Ctx{
-			"batchCount": batchCount,
-			"newState":   fmt.Sprintf("%+v", newState),
-		},
-	)
+	// srvlog.Info(
+	// 	"Posting assertion with retrieved state", log.Ctx{
+	// 		"batchCount": batchCount,
+	// 		"newState":   fmt.Sprintf("%+v", newState),
+	// 	},
+	// )
 	assertion, err := submitFn(
 		ctx,
 		parentCreationInfo,
