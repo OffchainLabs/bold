@@ -1,4 +1,4 @@
-// Package challengetree includes logic for keeping track of honest edges within a challenge
+// Package challengetree includes logic for keeping track of royal edges within a challenge
 // with utilities for computing cumulative path timers for said edges. This is helpful during
 // the confirmation process needed by edge trackers.
 //
@@ -29,17 +29,17 @@ type MetadataReader interface {
 
 type creationTime uint64
 
-// HonestChallengeTree keeps track of edges the honest node agrees with in a particular challenge.
+// RoyalChallengeTree keeps track of royal edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
-type HonestChallengeTree struct {
-	edges                  *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	mutualIds              *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash  protocol.AssertionHash
-	metadataReader         MetadataReader
-	histChecker            l2stateprovider.HistoryChecker
-	validatorName          string
-	totalChallengeLevels   uint8
-	honestRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+type RoyalChallengeTree struct {
+	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	mutualIds             *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash protocol.AssertionHash
+	metadataReader        MetadataReader
+	histChecker           l2stateprovider.HistoryChecker
+	validatorName         string
+	totalChallengeLevels  uint8
+	royalRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
 }
 
 func New(
@@ -48,8 +48,8 @@ func New(
 	histChecker l2stateprovider.HistoryChecker,
 	numBigStepLevels uint8,
 	validatorName string,
-) *HonestChallengeTree {
-	return &HonestChallengeTree{
+) *RoyalChallengeTree {
+	return &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		topLevelAssertionHash: assertionHash,
@@ -57,27 +57,27 @@ func New(
 		histChecker:           histChecker,
 		validatorName:         validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
-		totalChallengeLevels:   numBigStepLevels + 2,
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		totalChallengeLevels:  numBigStepLevels + 2,
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
 }
 
-// HonestBlockChallengeRootEdge gets the honest, root challenge block edge for the top level assertion
+// RoyalBlockChallengeRootEdge gets the royal, root challenge block edge for the top level assertion
 // being challenged.
-func (ht *HonestChallengeTree) HonestBlockChallengeRootEdge() (protocol.ReadOnlyEdge, error) {
+func (ht *RoyalChallengeTree) RoyalBlockChallengeRootEdge() (protocol.ReadOnlyEdge, error) {
 	// In our locally tracked challenge tree implementation, the
 	// block challenge level is equal to the total challenge levels - 1.
 	blockChallengeLevel := protocol.ChallengeLevel(ht.totalChallengeLevels) - 1
-	if rootEdges, ok := ht.honestRootEdgesByLevel.TryGet(blockChallengeLevel); ok {
+	if rootEdges, ok := ht.royalRootEdgesByLevel.TryGet(blockChallengeLevel); ok {
 		if rootEdges.Len() != 1 {
 			return nil, fmt.Errorf(
-				"expected one honest root block challenge edge for challenged assertion %#x",
+				"expected one royal root block challenge edge for challenged assertion %#x",
 				ht.topLevelAssertionHash,
 			)
 		}
 		return rootEdges.Get(0).Unwrap(), nil
 	}
-	return nil, fmt.Errorf("no honest root edges for block challenge level for assertion %#x", ht.topLevelAssertionHash)
+	return nil, fmt.Errorf("no royal root edges for block challenge level for assertion %#x", ht.topLevelAssertionHash)
 }
 
 var (
@@ -85,6 +85,6 @@ var (
 	ErrMismatchedChallengeAssertionHash = errors.New("edge challenged assertion hash is not the expected one for the challenge")
 )
 
-func (ht *HonestChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {
+func (ht *RoyalChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {
 	return ht.edges
 }

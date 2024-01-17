@@ -22,11 +22,11 @@ import (
 )
 
 func TestAddEdge(t *testing.T) {
-	ht := &HonestChallengeTree{
-		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
-		totalChallengeLevels:   3,
+	ht := &RoyalChallengeTree{
+		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		totalChallengeLevels:  3,
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	ctx := context.Background()
@@ -53,8 +53,8 @@ func TestAddEdge(t *testing.T) {
 			assertionHash:   ht.topLevelAssertionHash,
 			claimHeightsErr: errors.New("bad request"),
 		}
-		ht.honestRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
-		honestBlockEdges := ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
+		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+		honestBlockEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
 		honestBlockEdges.Push(edge)
 		_, err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not get claim heights for edge")
@@ -103,7 +103,7 @@ func TestAddEdge(t *testing.T) {
 		).Return(false, errors.New("something went wrong"))
 		ht.histChecker = mockStateManager
 		_, err := ht.AddEdge(ctx, edge)
-		require.ErrorContains(t, err, "could not check if agrees with")
+		require.ErrorContains(t, err, "could not check history commitment agreement")
 	})
 	t.Run("fully disagrees with edge", func(t *testing.T) {
 		ht.metadataReader = &mockMetadataReader{
@@ -133,25 +133,22 @@ func TestAddEdge(t *testing.T) {
 		ht.histChecker = mockStateManager
 		agreement, err := ht.AddEdge(ctx, badEdge)
 		require.NoError(t, err)
-		require.Equal(t, protocol.Agreement{
-			IsHonestEdge:          false,
-			AgreesWithStartCommit: false,
-		}, agreement)
+		require.Equal(t, false, agreement)
 
-		// Check the edge is not kept track of anywhere.
+		// Check the edge is not kept track of in the honest edge, but we do track its mutual id.
 		_, ok := ht.edges.TryGet(badEdge.Id())
 		require.Equal(t, false, ok)
 		_, ok = ht.mutualIds.TryGet(badEdge.MutualId())
-		require.Equal(t, false, ok)
+		require.Equal(t, true, ok)
 	})
-	t.Run("agrees with edge but is not a level zero edge", func(t *testing.T) {
+	t.Run("agrees with edge but is not royal", func(t *testing.T) {
 		ht.metadataReader = &mockMetadataReader{
 			assertionErr:  nil,
 			assertionHash: ht.topLevelAssertionHash,
 		}
 		rootEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a", createdAt: 1, claimId: "foo"})
-		ht.honestRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
-		honestBlockEdges := ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
+		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+		honestBlockEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
 		honestBlockEdges.Push(rootEdge)
 
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 2})
@@ -195,20 +192,17 @@ func TestAddEdge(t *testing.T) {
 		ht.histChecker = mockStateManager
 		agreement, err := ht.AddEdge(ctx, edge)
 		require.NoError(t, err)
-		require.Equal(t, protocol.Agreement{
-			IsHonestEdge:          true,
-			AgreesWithStartCommit: true,
-		}, agreement)
+		require.Equal(t, false, agreement)
 
-		// Exists.
+		// Not tracked.
 		_, ok := ht.edges.TryGet(edge.Id())
-		require.Equal(t, true, ok)
-		// Exists in the mutual ids mapping.
+		require.Equal(t, false, ok)
+		// However, exists in the mutual ids mapping.
 		_, ok = ht.mutualIds.TryGet(edge.MutualId())
 		require.Equal(t, true, ok)
 
 		// However, we should not have a level zero edge being tracked yet.
-		blockChallengeEdges := ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
+		blockChallengeEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
 		found := blockChallengeEdges.Find(func(_ int, e protocol.ReadOnlyEdge) bool {
 			return e.Id() == edge.Id()
 		})
@@ -251,8 +245,8 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, true, ok)
 
 		// We should have a level zero edge being tracked.
-		require.Equal(t, false, ht.honestRootEdgesByLevel.IsEmpty())
-		_, ok = ht.honestRootEdgesByLevel.TryGet(protocol.ChallengeLevel(2))
+		require.Equal(t, false, ht.royalRootEdgesByLevel.IsEmpty())
+		_, ok = ht.royalRootEdgesByLevel.TryGet(protocol.ChallengeLevel(2))
 		require.Equal(t, true, ok)
 	})
 }
@@ -266,20 +260,20 @@ func (m *mockHonestEdge) Honest() {}
 func TestAddHonestEdge(t *testing.T) {
 	createdAt := uint64(1)
 	edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: createdAt, claimId: "bar"})
-	ht := &HonestChallengeTree{
-		edges:                  threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds:              threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		honestRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+	ht := &RoyalChallengeTree{
+		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	honest := &mockHonestEdge{edge}
 
-	err := ht.AddHonestEdge(honest)
+	err := ht.AddRoyalEdge(honest)
 	require.NoError(t, err)
 
 	// We now check if the challenge tree has a populated
 	// block challenge level zero edge.
-	require.Equal(t, 1, ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
+	require.Equal(t, 1, ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
 
 	// Check if it exists in the mutual ids mapping.
 	mutualId := edge.MutualId()
@@ -290,10 +284,10 @@ func TestAddHonestEdge(t *testing.T) {
 	require.Equal(t, createdAt, uint64(gotCreatedAt))
 
 	// Does not add it again.
-	err = ht.AddHonestEdge(honest)
+	err = ht.AddRoyalEdge(honest)
 	require.NoError(t, err)
 
-	require.Equal(t, 1, ht.honestRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
+	require.Equal(t, 1, ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
 }
 
 type mockMetadataReader struct {

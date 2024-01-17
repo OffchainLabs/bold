@@ -50,7 +50,7 @@ type AncestorsQueryResponse struct {
 //
 // IMPORTANT: The list of ancestors must be ordered from child to root edge, where the root edge timer is
 // the last element in the list of local timers.
-func (ht *HonestChallengeTree) HasConfirmableAncestor(
+func (ht *RoyalChallengeTree) HasConfirmableAncestor(
 	ctx context.Context,
 	honestAncestorLocalTimers []EdgeLocalTimer,
 	challengePeriodBlocks uint64,
@@ -59,7 +59,7 @@ func (ht *HonestChallengeTree) HasConfirmableAncestor(
 		return false, nil
 	}
 
-	blockRootEdge, err := ht.HonestBlockChallengeRootEdge()
+	blockRootEdge, err := ht.RoyalBlockChallengeRootEdge()
 	if err != nil {
 		return false, err
 	}
@@ -86,7 +86,7 @@ func (ht *HonestChallengeTree) HasConfirmableAncestor(
 // ComputeHonestPathTimer for an honest edge at a block number given its ancestors'
 // local timers. It adds up all their values including the assertion
 // unrivaled timer and the edge's local timer.
-func (ht *HonestChallengeTree) ComputeHonestPathTimer(
+func (ht *RoyalChallengeTree) ComputeHonestPathTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 	ancestorLocalTimers []EdgeLocalTimer,
@@ -102,7 +102,7 @@ func (ht *HonestChallengeTree) ComputeHonestPathTimer(
 	}
 	total := PathTimer(edgeLocalTimer)
 
-	blockRootEdge, err := ht.HonestBlockChallengeRootEdge()
+	blockRootEdge, err := ht.RoyalBlockChallengeRootEdge()
 	if err != nil {
 		return 0, err
 	}
@@ -126,7 +126,7 @@ func (ht *HonestChallengeTree) ComputeHonestPathTimer(
 // ComputeAncestorsWithTimers computes the ancestors of the given edge and their respective path timers, even
 // across challenge levels. Ancestor lists are linked through challenge levels via claimed edges. It is generalized
 // to any number of challenge levels in the protocol.
-func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
+func (ht *RoyalChallengeTree) ComputeAncestorsWithTimers(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 	blockNumber uint64,
@@ -214,7 +214,7 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 // Computes the list of ancestors in a challenge level from a root edge down
 // to a specified child edge within the same level. The edge we are querying must be
 // a child of this start edge for this function to succeed without error.
-func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
+func (ht *RoyalChallengeTree) findHonestAncestorsWithinChallengeLevel(
 	ctx context.Context,
 	rootEdge protocol.ReadOnlyEdge,
 	queryingFor protocol.ReadOnlyEdge,
@@ -277,7 +277,7 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 	return localTimers, ancestry, nil
 }
 
-func (ht *HonestChallengeTree) hasHonestAncestry(ctx context.Context, eg protocol.SpecEdge) (bool, error) {
+func (ht *RoyalChallengeTree) hasHonestAncestry(ctx context.Context, eg protocol.SpecEdge) (bool, error) {
 	chalLevel := eg.GetChallengeLevel()
 	claimId := eg.ClaimId()
 
@@ -314,13 +314,13 @@ func (ht *HonestChallengeTree) hasHonestAncestry(ctx context.Context, eg protoco
 //	      \--5'--6'----8'----------16B = Bob
 //
 // where Alice is the honest party, edge 0-16A is the honest root edge.
-func (ht *HonestChallengeTree) honestRootAncestorAtChallengeLevel(
+func (ht *RoyalChallengeTree) honestRootAncestorAtChallengeLevel(
 	childEdge protocol.ReadOnlyEdge,
 	challengeLevel protocol.ChallengeLevel,
 ) (protocol.ReadOnlyEdge, error) {
 	originId := childEdge.OriginId()
 	// // Otherwise, finds the honest root edge at the appropriate challenge level.
-	rootEdgesAtLevel, ok := ht.honestRootEdgesByLevel.TryGet(challengeLevel)
+	rootEdgesAtLevel, ok := ht.royalRootEdgesByLevel.TryGet(challengeLevel)
 	if !ok || rootEdgesAtLevel == nil {
 		return nil, fmt.Errorf("no honest edges found at challenge level %d", challengeLevel)
 	}
@@ -332,7 +332,7 @@ func (ht *HonestChallengeTree) honestRootAncestorAtChallengeLevel(
 }
 
 // Gets the edge a specified edge claims, if any.
-func (ht *HonestChallengeTree) getClaimedEdge(edge protocol.ReadOnlyEdge) (protocol.SpecEdge, error) {
+func (ht *RoyalChallengeTree) getClaimedEdge(edge protocol.ReadOnlyEdge) (protocol.SpecEdge, error) {
 	if edge.ClaimId().IsNone() {
 		return nil, errors.New("does not claim any edge")
 	}
