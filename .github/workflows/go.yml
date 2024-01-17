@@ -129,7 +129,7 @@ jobs:
           version: nightly
 
       - name: e2e test
-        run: bazel test //testing/endtoend:endtoend_suite --test_env=ANVIL=$(which anvil) --test_output=all --test_timeout=1500
+        run: bazel test //testing/endtoend:endtoend_suite --test_env=ANVIL=$(which anvil) --test_output=streamed --test_timeout=1500 --test_arg=-test.v
 
       - name: coverage
         run: bazel coverage --combined_report=lcov //...
