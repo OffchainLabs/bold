@@ -51,6 +51,7 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
+	//nolint:errcheck
 	db.Exec(schema)
 	return &SqliteDatabase{
 		sqlDB:               db,
