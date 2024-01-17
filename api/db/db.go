@@ -552,7 +552,7 @@ func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
 	 HasLengthOneRival = :HasLengthOneRival,
 	 IsHonest = :IsHonest,
 	 IsRelevant = :IsRelevant,
-	 CumulativePathTimer = :CumulativePathTimer,
+	 CumulativePathTimer = :CumulativePathTimer
 	 WHERE Id = :Id`
 	_, err := d.sqlDB.NamedExec(query, edge)
 	if err != nil {
@@ -586,7 +586,7 @@ func (d *SqliteDatabase) UpdateAssertion(assertion *api.JsonAssertion) error {
    FirstChildBlock = :FirstChildBlock,
    SecondChildBlock = :SecondChildBlock,
    IsFirstChild = :IsFirstChild,
-   Status = :Status,
+   Status = :Status
    WHERE Hash = :Hash`
 
 	// Execute the query with the assertion data
