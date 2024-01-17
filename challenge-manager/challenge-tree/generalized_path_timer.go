@@ -157,7 +157,9 @@ func (ht *HonestChallengeTree) ComputeAncestorsWithTimers(
 		}
 
 		// Compute the ancestors for the current edge in the current challenge level.
-		ancestorLocalTimers, ancestorsAtLevel, err := ht.findHonestAncestorsWithinChallengeLevel(ctx, rootEdge, currentEdge, blockNumber)
+		ancestorLocalTimers, ancestorsAtLevel, err := ht.findHonestAncestorsWithinChallengeLevel(
+			ctx, rootEdge, currentEdge, blockNumber,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +256,7 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 				return nil, nil, errors.Wrapf(lowerErr, "could not get lower child for edge %#x", cursor.Id())
 			}
 			if lowerChild.IsNone() {
-				return nil, nil, errors.Wrapf(ErrNoLowerChildYet, "edge id %#x", cursor.Id())
+				return nil, nil, errNotFound(queryingFor.Id())
 			}
 			cursor = ht.edges.Get(lowerChild.Unwrap())
 		} else {
@@ -264,7 +266,7 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 				return nil, nil, errors.Wrapf(upperErr, "could not get upper child for edge %#x", cursor.Id())
 			}
 			if upperChild.IsNone() {
-				return nil, nil, fmt.Errorf("edge %#x had no upper child", cursor.Id())
+				return nil, nil, errNotFound(queryingFor.Id())
 			}
 			cursor = ht.edges.Get(upperChild.Unwrap())
 		}
@@ -273,6 +275,35 @@ func (ht *HonestChallengeTree) findHonestAncestorsWithinChallengeLevel(
 		return nil, nil, errNotFound(queryingFor.Id())
 	}
 	return localTimers, ancestry, nil
+}
+
+func (ht *HonestChallengeTree) hasHonestAncestry(ctx context.Context, eg protocol.SpecEdge) (bool, error) {
+	chalLevel := eg.GetChallengeLevel()
+	claimId := eg.ClaimId()
+
+	// If the edge is a root edge at the block challenge level, then we return true early.
+	if chalLevel == protocol.NewBlockChallengeLevel() && claimId.IsSome() {
+		return true, nil
+	}
+	ancestry, err := ht.ComputeAncestorsWithTimers(
+		ctx,
+		eg.Id(),
+		0, /* block num (unimportant here) */
+	)
+	if err != nil {
+		// If the edge we were looking for had no direct ancestry links, we return false.
+		if errors.Is(err, ErrNotFound) {
+			return false, nil
+		}
+		// Otherwise, we received a real error in the computation.
+		return false, err
+	}
+	// No ancestors found, we return false.
+	if len(ancestry.AncestorEdgeIds) == 0 {
+		return false, nil
+	}
+	// The edge has an honest ancestry.
+	return true, nil
 }
 
 // Computes the root edge for a given child edge at a challenge level.

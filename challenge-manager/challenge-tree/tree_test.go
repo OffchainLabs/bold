@@ -111,26 +111,8 @@ func TestAddEdge(t *testing.T) {
 			assertionHash: ht.topLevelAssertionHash,
 		}
 		badEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.f-16.a", createdAt: 1, claimId: "foo"})
-		startHeight, startCommit := badEdge.StartCommitment()
 		endHeight, endCommit := badEdge.EndCommitment()
 		mockStateManager := &mocks.MockStateManager{}
-		mockStateManager.On(
-			"AgreesWithHistoryCommitment",
-			ctx,
-			protocol.NewBlockChallengeLevel(),
-			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              common.Hash{},
-				FromBatch:                   0,
-				ToBatch:                     0,
-				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
-				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
-			},
-			l2stateprovider.History{
-				Height:     uint64(startHeight),
-				MerkleRoot: startCommit,
-			},
-		).Return(false, nil)
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
@@ -238,26 +220,8 @@ func TestAddEdge(t *testing.T) {
 			assertionHash: ht.topLevelAssertionHash,
 		}
 		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a", createdAt: 1, claimId: "foo"})
-		startHeight, startCommit := edge.StartCommitment()
 		endHeight, endCommit := edge.EndCommitment()
 		mockStateManager := &mocks.MockStateManager{}
-		mockStateManager.On(
-			"AgreesWithHistoryCommitment",
-			ctx,
-			protocol.NewBlockChallengeLevel(),
-			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              common.Hash{},
-				FromBatch:                   0,
-				ToBatch:                     0,
-				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
-				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
-			},
-			l2stateprovider.History{
-				Height:     uint64(startHeight),
-				MerkleRoot: startCommit,
-			},
-		).Return(true, nil)
 		mockStateManager.On(
 			"AgreesWithHistoryCommitment",
 			ctx,
@@ -290,66 +254,6 @@ func TestAddEdge(t *testing.T) {
 		require.Equal(t, false, ht.honestRootEdgesByLevel.IsEmpty())
 		_, ok = ht.honestRootEdgesByLevel.TryGet(protocol.ChallengeLevel(2))
 		require.Equal(t, true, ok)
-	})
-	t.Run("edge is not honest but we agree with start commit and keep it as a rival", func(t *testing.T) {
-		ht.metadataReader = &mockMetadataReader{
-			assertionErr:  nil,
-			assertionHash: ht.topLevelAssertionHash,
-		}
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.b", createdAt: 1, claimId: "bar"})
-		startHeight, startCommit := edge.StartCommitment()
-		endHeight, endCommit := edge.EndCommitment()
-		mockStateManager := &mocks.MockStateManager{}
-		mockStateManager.On(
-			"AgreesWithHistoryCommitment",
-			ctx,
-			protocol.NewBlockChallengeLevel(),
-			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              common.Hash{},
-				FromBatch:                   0,
-				ToBatch:                     0,
-				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
-				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
-			},
-			l2stateprovider.History{
-				Height:     uint64(startHeight),
-				MerkleRoot: startCommit,
-			},
-		).Return(true, nil)
-		mockStateManager.On(
-			"AgreesWithHistoryCommitment",
-			ctx,
-			protocol.NewBlockChallengeLevel(),
-			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              common.Hash{},
-				FromBatch:                   0,
-				ToBatch:                     0,
-				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
-				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
-			},
-			l2stateprovider.History{
-				Height:     uint64(endHeight),
-				MerkleRoot: endCommit,
-			},
-		).Return(false, nil)
-		ht.histChecker = mockStateManager
-		agreement, err := ht.AddEdge(ctx, edge)
-		require.NoError(t, err)
-		require.Equal(t, protocol.Agreement{
-			IsHonestEdge:          false,
-			AgreesWithStartCommit: true,
-		}, agreement)
-
-		// Is not being tracked by the honest challenge tree.
-		_, ok := ht.edges.TryGet(edge.Id())
-		require.Equal(t, false, ok)
-		// Exists in the mutual ids mapping.
-		mutuals, ok := ht.mutualIds.TryGet(edge.MutualId())
-		require.Equal(t, true, ok)
-		require.Equal(t, true, mutuals.Has(edge.Id()))
-		require.Equal(t, true, mutuals.NumItems() > 0)
 	})
 }
 
