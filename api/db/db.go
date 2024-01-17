@@ -28,6 +28,12 @@ type Database interface {
 	InsertAssertion(assertion *api.JsonAssertion) error
 }
 
+type ReadUpdateDatabase interface {
+	ReadOnlyDatabase
+	UpdateAssertions(assertion []*api.JsonAssertion) error
+	UpdateEdges(edge []*api.JsonEdge) error
+}
+
 type ReadOnlyDatabase interface {
 	GetAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
 	GetChallengedAssertions(opts ...AssertionOption) ([]*api.JsonAssertion, error)
@@ -81,6 +87,10 @@ func NewAssertionQuery(opts ...AssertionOption) *AssertionQuery {
 		opt(query)
 	}
 	return query
+}
+
+func (q *AssertionQuery) ShouldForceUpdate() bool {
+	return q.forceUpdate
 }
 
 type AssertionOption func(*AssertionQuery)
@@ -277,11 +287,16 @@ func (d *SqliteDatabase) GetChallengedAssertions(opts ...AssertionOption) ([]*ap
 }
 
 type EdgeQuery struct {
-	filters []string
-	args    []interface{}
-	limit   int
-	offset  int
-	orderBy string
+	filters     []string
+	args        []interface{}
+	limit       int
+	offset      int
+	orderBy     string
+	forceUpdate bool
+}
+
+func (q *EdgeQuery) ShouldForceUpdate() bool {
+	return q.forceUpdate
 }
 
 func NewEdgeQuery(opts ...EdgeOption) *EdgeQuery {
@@ -390,6 +405,7 @@ func WithHonestEdges() EdgeOption {
 }
 func WithEdgeForceUpdate() EdgeOption {
 	return func(q *EdgeQuery) {
+		q.forceUpdate = true
 	}
 }
 func WithRootEdges() EdgeOption {
@@ -538,12 +554,12 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
 	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
 	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
-	   HasRival, Status, HasLengthOneRival, IsHonest, IsRelevant, CumulativePathTimer
+	   HasRival, Status, HasLengthOneRival, IsRoyal, CumulativePathTimer
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
 	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
 	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
-	   :HasRival, :Status, :HasLengthOneRival, :IsHonest, :IsRelevant, :CumulativePathTimer
+	   :HasRival, :Status, :HasLengthOneRival, :IsRoyal, :CumulativePathTimer
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
@@ -555,7 +571,7 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	return tx.Commit()
 }
 
-func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
+func (d *SqliteDatabase) UpdateEdges(edges []*api.JsonEdge) error {
 	query := `UPDATE Edges SET 
 	 ChallengeLevel = :ChallengeLevel,
 	 OriginId = :OriginId,
@@ -574,18 +590,29 @@ func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
 	 HasRival = :HasRival,
 	 Status = :Status,
 	 HasLengthOneRival = :HasLengthOneRival,
-	 IsHonest = :IsHonest,
-	 IsRelevant = :IsRelevant,
+	 IsRoyal = :IsRoyal,
 	 CumulativePathTimer = :CumulativePathTimer
 	 WHERE Id = :Id`
-	_, err := d.sqlDB.NamedExec(query, edge)
+	tx, err := d.sqlDB.Beginx()
 	if err != nil {
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return err
 	}
-	return nil
+	for _, e := range edges {
+		_, err := tx.NamedExec(query, e)
+		if err != nil {
+			if err2 := tx.Rollback(); err2 != nil {
+				return err2
+			}
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
-func (d *SqliteDatabase) UpdateAssertion(assertion *api.JsonAssertion) error {
+func (d *SqliteDatabase) UpdateAssertions(assertions []*api.JsonAssertion) error {
 	// Construct the query
 	query := `UPDATE Assertions SET 
    ConfirmPeriodBlocks = :ConfirmPeriodBlocks,
@@ -612,12 +639,21 @@ func (d *SqliteDatabase) UpdateAssertion(assertion *api.JsonAssertion) error {
    IsFirstChild = :IsFirstChild,
    Status = :Status
    WHERE Hash = :Hash`
-
-	// Execute the query with the assertion data
-	_, err := d.sqlDB.NamedExec(query, assertion)
+	tx, err := d.sqlDB.Beginx()
 	if err != nil {
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return err
 	}
-
-	return nil
+	for _, a := range assertions {
+		_, err := tx.NamedExec(query, a)
+		if err != nil {
+			if err2 := tx.Rollback(); err2 != nil {
+				return err2
+			}
+			return err
+		}
+	}
+	return tx.Commit()
 }

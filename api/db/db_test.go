@@ -43,7 +43,7 @@ func TestSqliteDatabase_Updates(t *testing.T) {
 	lastAssertion := assertions[len(assertions)-1]
 	lastUpdated := lastAssertion.LastUpdatedAt
 	lastAssertion.Status = "confirmed"
-	require.NoError(t, db.UpdateAssertion(lastAssertion))
+	require.NoError(t, db.UpdateAssertions([]*api.JsonAssertion{lastAssertion}))
 
 	// Check the last updated timestamp gets increased.
 	updatedAssertions, err := db.GetAssertions(WithAssertionHash(protocol.AssertionHash{Hash: lastAssertion.Hash}), WithAssertionLimit(1))
@@ -65,7 +65,7 @@ func TestSqliteDatabase_Updates(t *testing.T) {
 	time.Sleep(time.Second)
 
 	edge.Status = "confirmed"
-	require.NoError(t, db.UpdateEdge(edge))
+	require.NoError(t, db.UpdateEdges([]*api.JsonEdge{edge}))
 
 	// Check the last updated timestamp gets increased.
 	updatedEdges, err := db.GetEdges(WithEdgeAssertionHash(protocol.AssertionHash{Hash: lastAssertion.Hash}), WithLimit(1))

@@ -58,8 +58,7 @@ type JsonEdge struct {
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
-	IsHonest            bool   `json:"isHonest" db:"IsHonest"`
-	IsRelevant          bool   `json:"isRelevant" db:"IsRelevant"`
+	IsRoyal             bool   `json:"isHonest" db:"IsRoyal"`
 	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
 }
 
