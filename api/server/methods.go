@@ -500,17 +500,17 @@ func (s *Server) MiniStakes(r *http.Request, w http.ResponseWriter) {
 	query := r.URL.Query()
 	opts := make([]db.EdgeOption, 0)
 	if val, ok := query["limit"]; ok && len(val) > 0 {
-		if v, err := strconv.Atoi(val[0]); err == nil {
+		if v, err2 := strconv.Atoi(val[0]); err2 == nil {
 			opts = append(opts, db.WithLimit(v))
 		}
 	}
 	if val, ok := query["offset"]; ok && len(val) > 0 {
-		if v, err := strconv.Atoi(val[0]); err == nil {
+		if v, err2 := strconv.Atoi(val[0]); err2 == nil {
 			opts = append(opts, db.WithOffset(v))
 		}
 	}
 	if val, ok := query["challenge_level"]; ok && len(val) > 0 {
-		if v, err := strconv.ParseUint(val[0], 10, 8); err == nil {
+		if v, err2 := strconv.ParseUint(val[0], 10, 8); err2 == nil {
 			opts = append(opts, db.WithChallengeLevel(uint8(v)))
 		}
 	}
