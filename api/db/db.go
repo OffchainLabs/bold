@@ -52,6 +52,7 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 		return nil, err
 	}
 	//nolint:errcheck
+	//#nosec G104
 	db.Exec(schema)
 	return &SqliteDatabase{
 		sqlDB:               db,
@@ -551,7 +552,7 @@ func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
 	 HasLengthOneRival = :HasLengthOneRival,
 	 IsHonest = :IsHonest,
 	 IsRelevant = :IsRelevant,
-	 CumulativePathTimer = :CumulativePathTimer
+	 CumulativePathTimer = :CumulativePathTimer,
 	 WHERE Id = :Id`
 	_, err := d.sqlDB.NamedExec(query, edge)
 	if err != nil {

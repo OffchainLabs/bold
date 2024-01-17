@@ -1010,9 +1010,9 @@ func (w *Watcher) saveEdgeToDB(
 	}
 	var pathTimer uint64
 	if agreement.IsHonestEdge {
-		timer, _, _, err := w.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
-		if err != nil {
-			return err
+		timer, _, _, err2 := w.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+		if err2 != nil {
+			return err2
 		}
 		pathTimer = uint64(timer)
 	}
