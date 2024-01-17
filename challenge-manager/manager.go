@@ -227,11 +227,13 @@ func New(
 			return nil, err2
 		}
 		m.api = a
-		apiDB, err2 := db.NewDatabase(m.apiDBConfig.DBPath)
-		if err2 != nil {
-			return nil, err2
+		if m.apiDBConfig != nil {
+			apiDB, err2 := db.NewDatabase(m.apiDBConfig.DBPath)
+			if err2 != nil {
+				return nil, err2
+			}
+			m.apiDB = apiDB
 		}
-		m.apiDB = apiDB
 	}
 
 	watcher, err := watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB)
