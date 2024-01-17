@@ -8,6 +8,7 @@ package challengemanager
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -211,26 +212,28 @@ func New(
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-	// if m.apiAddr != "" && m.client == nil {
-	// 	return nil, errors.New("go-ethereum RPC client required to enable API service")
-	// }
+	if m.apiAddr != "" && m.client == nil {
+		return nil, errors.New("go-ethereum RPC client required to enable API service")
+	}
 
 	if m.apiAddr != "" {
-		// a, err2 := api.NewServer(&api.Config{
-		// 	Address:            m.apiAddr,
-		// 	EdgesProvider:      m.watcher,
-		// 	AssertionsProvider: m.chain,
-		// 	DBConfig:           m.apiDBConfig,
-		// })
-		// if err2 != nil {
-		// 	return nil, err2
-		// }
-		// m.api = a
-		apiDB, err2 := db.NewDatabase("/tmp/boldsqlite.db")
+		a, err2 := api.NewServer(&api.Config{
+			Address:            m.apiAddr,
+			EdgesProvider:      m.watcher,
+			AssertionsProvider: m.chain,
+			DBConfig:           m.apiDBConfig,
+		})
 		if err2 != nil {
 			return nil, err2
 		}
-		m.apiDB = apiDB
+		m.api = a
+		if m.apiDBConfig != nil {
+			apiDB, err2 := db.NewDatabase(m.apiDBConfig.DBPath)
+			if err2 != nil {
+				return nil, err2
+			}
+			m.apiDB = apiDB
+		}
 	}
 
 	watcher, err := watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB)

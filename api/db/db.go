@@ -51,7 +51,8 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	//#nosec
+	//nolint:errcheck
+	//#nosec G104
 	db.Exec(schema)
 	return &SqliteDatabase{
 		sqlDB:               db,
@@ -170,10 +171,27 @@ func WithAfterState(state *protocol.ExecutionState) AssertionOption {
 		q.args = append(q.args, state.MachineStatus)
 	}
 }
-func WithConfigHash(hash common.Hash) AssertionOption {
+func WithFirstChildBlock(n uint64) AssertionOption {
 	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "ConfigHash = ?")
-		q.args = append(q.args, hash)
+		q.filters = append(q.filters, "FirstChildBlock = ?")
+		q.args = append(q.args, n)
+	}
+}
+func WithSecondChildBlock(n uint64) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "SecondChildBlock = ?")
+		q.args = append(q.args, n)
+	}
+}
+func WithIsFirstChild() AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "IsFirstChild = true")
+	}
+}
+func WithAssertionStatus(status protocol.AssertionStatus) AssertionOption {
+	return func(q *AssertionQuery) {
+		q.filters = append(q.filters, "Status = ?")
+		q.args = append(q.args, status.String())
 	}
 }
 func FromAssertionCreationBlock(n uint64) AssertionOption {
@@ -324,6 +342,23 @@ func WithClaimId(claimId protocol.ClaimId) EdgeOption {
 		q.args = append(q.args, common.Hash(claimId))
 	}
 }
+func HasChildren() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "HasChildren = true")
+	}
+}
+func WithLowerChildId(id protocol.EdgeId) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "LowerChildId = ?")
+		q.args = append(q.args, id.Hash)
+	}
+}
+func WithUpperChildId(id protocol.EdgeId) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "UpperChildId = ?")
+		q.args = append(q.args, id.Hash)
+	}
+}
 func WithMiniStaker(staker common.Address) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "MiniStaker = ?")
@@ -334,6 +369,22 @@ func WithEdgeAssertionHash(hash protocol.AssertionHash) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "AssertionHash = ?")
 		q.args = append(q.args, hash.Hash)
+	}
+}
+func WithRival() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "HasRival = true")
+	}
+}
+func WithEdgeStatus(st protocol.EdgeStatus) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "Status = ?")
+		q.args = append(q.args, st.String())
+	}
+}
+func WithLengthOneRival() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "HasLengthOneRival = true")
 	}
 }
 func WithLimit(limit int) EdgeOption {
@@ -408,12 +459,14 @@ func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
         Hash, ConfirmPeriodBlocks, RequiredStake, ParentAssertionHash, InboxMaxCount,
         AfterInboxBatchAcc, WasmModuleRoot, ChallengeManager, CreationBlock, TransactionHash,
         BeforeStateBlockHash, BeforeStateSendRoot, BeforeStateBatch, BeforeStatePosInBatch, BeforeStateMachineStatus, AfterStateBlockHash,
-        AfterStateSendRoot, AfterStateBatch, AfterStatePosInBatch, AfterStateMachineStatus, ConfigHash
+        AfterStateSendRoot, AfterStateBatch, AfterStatePosInBatch, AfterStateMachineStatus, FirstChildBlock, SecondChildBlock,
+        IsFirstChild, Status
     ) VALUES (
         :Hash, :ConfirmPeriodBlocks, :RequiredStake, :ParentAssertionHash, :InboxMaxCount,
         :AfterInboxBatchAcc, :WasmModuleRoot, :ChallengeManager, :CreationBlock, :TransactionHash,
         :BeforeStateBlockHash, :BeforeStateSendRoot, :BeforeStateBatch, :BeforeStatePosInBatch, :BeforeStateMachineStatus, :AfterStateBlockHash,
-        :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :ConfigHash
+        :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
+        :IsFirstChild, :Status
     )`
 	_, err := d.sqlDB.NamedExec(query, a)
 	if err != nil {
@@ -473,10 +526,14 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	}
 	insertEdgeQuery := `INSERT INTO Edges (
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
-	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId, MiniStaker, AssertionHash
+	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
+	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
+	   HasRival, Status, HasLengthOneRival, IsHonest, IsRelevant, CumulativePathTimer
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
-	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId, :MiniStaker, :AssertionHash
+	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
+	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
+	   :HasRival, :Status, :HasLengthOneRival, :IsHonest, :IsRelevant, :CumulativePathTimer
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
@@ -486,4 +543,71 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (d *SqliteDatabase) UpdateEdge(edge *api.JsonEdge) error {
+	query := `UPDATE Edges SET 
+	 ChallengeLevel = :ChallengeLevel,
+	 OriginId = :OriginId,
+	 StartHistoryRoot = :StartHistoryRoot,
+	 StartHeight = :StartHeight,
+	 EndHistoryRoot = :EndHistoryRoot,
+	 EndHeight = :EndHeight,
+	 CreatedAtBlock = :CreatedAtBlock,
+	 MutualId = :MutualId,
+	 ClaimId = :ClaimId,
+	 MiniStaker = :MiniStaker,
+	 AssertionHash = :AssertionHash,
+	 HasChildren = :HasChildren,
+	 LowerChildId = :LowerChildId,
+	 UpperChildId = :UpperChildId,
+	 HasRival = :HasRival,
+	 Status = :Status,
+	 HasLengthOneRival = :HasLengthOneRival,
+	 IsHonest = :IsHonest,
+	 IsRelevant = :IsRelevant,
+	 CumulativePathTimer = :CumulativePathTimer
+	 WHERE Id = :Id`
+	_, err := d.sqlDB.NamedExec(query, edge)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *SqliteDatabase) UpdateAssertion(assertion *api.JsonAssertion) error {
+	// Construct the query
+	query := `UPDATE Assertions SET 
+   ConfirmPeriodBlocks = :ConfirmPeriodBlocks,
+   RequiredStake = :RequiredStake,
+   ParentAssertionHash = :ParentAssertionHash,
+   InboxMaxCount = :InboxMaxCount,
+   AfterInboxBatchAcc = :AfterInboxBatchAcc,
+   WasmModuleRoot = :WasmModuleRoot,
+   ChallengeManager = :ChallengeManager,
+   CreationBlock = :CreationBlock,
+   TransactionHash = :TransactionHash,
+   BeforeStateBlockHash = :BeforeStateBlockHash,
+   BeforeStateSendRoot = :BeforeStateSendRoot,
+   BeforeStateBatch = :BeforeStateBatch,
+   BeforeStatePosInBatch = :BeforeStatePosInBatch,
+   BeforeStateMachineStatus = :BeforeStateMachineStatus,
+   AfterStateBlockHash = :AfterStateBlockHash,
+   AfterStateSendRoot = :AfterStateSendRoot,
+   AfterStateBatch = :AfterStateBatch,
+   AfterStatePosInBatch = :AfterStatePosInBatch,
+   AfterStateMachineStatus = :AfterStateMachineStatus,
+   FirstChildBlock = :FirstChildBlock,
+   SecondChildBlock = :SecondChildBlock,
+   IsFirstChild = :IsFirstChild,
+   Status = :Status
+   WHERE Hash = :Hash`
+
+	// Execute the query with the assertion data
+	_, err := d.sqlDB.NamedExec(query, assertion)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

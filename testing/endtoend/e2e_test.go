@@ -70,7 +70,7 @@ func defaultTimeParams() timeParams {
 		// Fast block time.
 		blockTime: time.Millisecond * 100,
 		// Go very fast.
-		challengeMoveInterval:     time.Millisecond * 100,
+		challengeMoveInterval:     time.Millisecond * 250,
 		assertionPostingInterval:  time.Second,
 		assertionScanningInterval: time.Second,
 		// An extremely high number so that we never attempt to confirm an assertion by time.
@@ -240,7 +240,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		baseChallengeManagerOpts,
 		challengemanager.WithAddress(txOpts.From),
 		challengemanager.WithName(name),
-		challengemanager.WithAPIEnabled("localhost:3000"),
 	)
 	honestManager := setupChallengeManager(
 		t, ctx, bk.Client(), rollupAddr, honestStateManager, txOpts, name, honestOpts...,
