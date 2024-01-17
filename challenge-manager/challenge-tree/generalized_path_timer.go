@@ -218,8 +218,9 @@ func edgeEqForAncestryCheck(a, b protocol.ReadOnlyEdge) bool {
 	bStart, _ := b.StartCommitment()
 	bEnd, _ := b.EndCommitment()
 	lvlsEq := a.GetChallengeLevel() == b.GetChallengeLevel()
+	originEq := a.OriginId() == b.OriginId()
 	startEq := aStart == bStart && aEnd == bEnd
-	return lvlsEq && startEq
+	return lvlsEq && startEq && originEq
 }
 
 // Computes the list of ancestors in a challenge level from a root edge down
