@@ -1,6 +1,7 @@
 package api
 
 import (
+	"reflect"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -33,7 +34,6 @@ type JsonAssertion struct {
 	IsFirstChild             bool                   `json:"isFirstChild" db:"IsFirstChild"`
 	Status                   string                 `json:"status" db:"Status"`
 	LastUpdatedAt            time.Time              `json:"lastUpdatedAt" db:"LastUpdatedAt"`
-	ConfigHash               common.Hash            `json:"configHash" db:"ConfigHash"`
 }
 
 type JsonEdge struct {
@@ -61,4 +61,8 @@ type JsonEdge struct {
 	IsHonest            bool   `json:"isHonest"`
 	IsRelevant          bool   `json:"isRelevant"`
 	CumulativePathTimer uint64 `json:"cumulativePathTimer"`
+}
+
+func IsNil(i any) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
 }

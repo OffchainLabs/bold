@@ -192,12 +192,6 @@ func WithAssertionStatus(status protocol.AssertionStatus) AssertionOption {
 		q.args = append(q.args, status.String())
 	}
 }
-func WithConfigHash(hash common.Hash) AssertionOption {
-	return func(q *AssertionQuery) {
-		q.filters = append(q.filters, "ConfigHash = ?")
-		q.args = append(q.args, hash)
-	}
-}
 func FromAssertionCreationBlock(n uint64) AssertionOption {
 	return func(q *AssertionQuery) {
 		q.fromCreationBlock = option.Some(n)
@@ -450,13 +444,13 @@ func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
         AfterInboxBatchAcc, WasmModuleRoot, ChallengeManager, CreationBlock, TransactionHash,
         BeforeStateBlockHash, BeforeStateSendRoot, BeforeStateBatch, BeforeStatePosInBatch, BeforeStateMachineStatus, AfterStateBlockHash,
         AfterStateSendRoot, AfterStateBatch, AfterStatePosInBatch, AfterStateMachineStatus, FirstChildBlock, SecondChildBlock,
-        IsFirstChild, Status, ConfigHash
+        IsFirstChild, Status
     ) VALUES (
         :Hash, :ConfirmPeriodBlocks, :RequiredStake, :ParentAssertionHash, :InboxMaxCount,
         :AfterInboxBatchAcc, :WasmModuleRoot, :ChallengeManager, :CreationBlock, :TransactionHash,
         :BeforeStateBlockHash, :BeforeStateSendRoot, :BeforeStateBatch, :BeforeStatePosInBatch, :BeforeStateMachineStatus, :AfterStateBlockHash,
         :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
-        :IsFirstChild, :Status, :ConfigHash
+        :IsFirstChild, :Status
     )`
 	_, err := d.sqlDB.NamedExec(query, a)
 	if err != nil {
@@ -588,7 +582,6 @@ func (d *SqliteDatabase) UpdateAssertion(assertion *api.JsonAssertion) error {
    SecondChildBlock = :SecondChildBlock,
    IsFirstChild = :IsFirstChild,
    Status = :Status,
-   ConfigHash = :ConfigHash
    WHERE Hash = :Hash`
 
 	// Execute the query with the assertion data

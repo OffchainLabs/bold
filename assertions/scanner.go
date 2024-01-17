@@ -450,6 +450,26 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, assertionHash protocol.
 	}
 	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
 	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	status, err := m.chain.AssertionStatus(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	assertion, err := m.chain.GetAssertion(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	isFirstChild, err := assertion.IsFirstChild()
+	if err != nil {
+		return err
+	}
+	firstChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	secondChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
 	return m.apiDB.InsertAssertion(&api.JsonAssertion{
 		Hash:                     assertionHash.Hash,
 		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
@@ -471,7 +491,10 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, assertionHash protocol.
 		AfterStateBatch:          afterState.GlobalState.Batch,
 		AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
 		AfterStateMachineStatus:  afterState.MachineStatus,
-		ConfigHash:               common.Hash{},
+		FirstChildBlock:          &firstChildBlock,
+		SecondChildBlock:         &secondChildBlock,
+		IsFirstChild:             isFirstChild,
+		Status:                   status.String(),
 	})
 }
 
