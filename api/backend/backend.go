@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/api/db"
@@ -173,5 +174,62 @@ func (b *Backend) GetMiniStakes(ctx context.Context, assertionHash protocol.Asse
 }
 
 func (b *Backend) LatestConfirmedAssertion(ctx context.Context) (*api.JsonAssertion, error) {
-	return nil, errors.New("unimplemented")
+	latestConfirmedAssertion, err := b.chainDataFetcher.LatestConfirmed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	hash := latestConfirmedAssertion.Id()
+	creationInfo, err := b.chainDataFetcher.ReadAssertionCreationInfo(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	status, err := b.chainDataFetcher.AssertionStatus(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	fetchedAssertion, err := b.chainDataFetcher.GetAssertion(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	isFirstChild, err := fetchedAssertion.IsFirstChild()
+	if err != nil {
+		return nil, err
+	}
+	firstChildBlock, err := fetchedAssertion.FirstChildCreationBlock()
+	if err != nil {
+		return nil, err
+	}
+	secondChildBlock, err := fetchedAssertion.SecondChildCreationBlock()
+	if err != nil {
+		return nil, err
+	}
+	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
+	return &api.JsonAssertion{
+		Hash:                     hash.Hash,
+		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
+		RequiredStake:            creationInfo.RequiredStake.String(),
+		ParentAssertionHash:      creationInfo.ParentAssertionHash,
+		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
+		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
+		WasmModuleRoot:           creationInfo.WasmModuleRoot,
+		TransactionHash:          creationInfo.TransactionHash,
+		CreationBlock:            creationInfo.CreationBlock,
+		ChallengeManager:         creationInfo.ChallengeManager,
+		AfterStateBlockHash:      afterState.GlobalState.BlockHash,
+		AfterStateSendRoot:       afterState.GlobalState.SendRoot,
+		AfterStateBatch:          afterState.GlobalState.Batch,
+		AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
+		AfterStateMachineStatus:  afterState.MachineStatus,
+		BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
+		BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
+		BeforeStateBatch:         beforeState.GlobalState.Batch,
+		BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
+		BeforeStateMachineStatus: beforeState.MachineStatus,
+		IsFirstChild:             isFirstChild,
+		FirstChildBlock:          &firstChildBlock,
+		SecondChildBlock:         &secondChildBlock,
+		Status:                   status.String(),
+		LastUpdatedAt:            time.Now(),
+	}, nil
 }
