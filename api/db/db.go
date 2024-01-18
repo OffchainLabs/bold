@@ -381,6 +381,12 @@ func WithMiniStaker(staker common.Address) EdgeOption {
 		q.args = append(q.args, staker)
 	}
 }
+func WithMiniStakerDefined() EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "MiniStaker != ?")
+		q.args = append(q.args, common.Address{})
+	}
+}
 func WithEdgeAssertionHash(hash protocol.AssertionHash) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "AssertionHash = ?")

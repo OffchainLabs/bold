@@ -5,7 +5,6 @@ package backend
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -169,8 +168,42 @@ func (b *Backend) GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.J
 	return edges, nil
 }
 
-func (b *Backend) GetMiniStakes(ctx context.Context, assertionHash protocol.AssertionHash, opts ...db.EdgeOption) ([]*api.JsonEdge, error) {
-	return nil, errors.New("unimplemented")
+func (b *Backend) GetMiniStakes(ctx context.Context, assertionHash protocol.AssertionHash, opts ...db.EdgeOption) (*api.JsonMiniStakes, error) {
+	edgeOpts := opts
+	edgeOpts = append(
+		edgeOpts,
+		db.WithMiniStakerDefined(),
+		db.WithEdgeAssertionHash(assertionHash),
+		db.WithRootEdges(),
+	)
+	edges, err := b.db.GetEdges(edgeOpts...)
+	if err != nil {
+		return nil, err
+	}
+	stakeInfo := &api.JsonMiniStakes{
+		ChallengedAssertionHash: assertionHash.Hash,
+	}
+	for _, e := range edges {
+		lvl := protocol.ChallengeLevel(e.ChallengeLevel)
+		origin := e.OriginId
+		if stakeInfo.StakesByLvlAndOrigin[lvl] == nil {
+			stakeInfo.StakesByLvlAndOrigin[lvl] = make(map[common.Hash]*api.JsonMiniStakeInfo)
+		}
+		if stakeInfo.StakesByLvlAndOrigin[lvl][origin] == nil {
+			stakeInfo.StakesByLvlAndOrigin[lvl][origin] = &api.JsonMiniStakeInfo{
+				StakerAddresses:       []common.Address{},
+				NumberOfMiniStakes:    0,
+				StartCommitmentHeight: e.StartHeight,
+				EndCommitmentHeight:   e.EndHeight,
+			}
+		}
+		stakeInfo.StakesByLvlAndOrigin[lvl][origin].StakerAddresses = append(
+			stakeInfo.StakesByLvlAndOrigin[lvl][origin].StakerAddresses,
+			e.MiniStaker,
+		)
+		stakeInfo.StakesByLvlAndOrigin[lvl][origin].NumberOfMiniStakes += 1
+	}
+	return stakeInfo, nil
 }
 
 func (b *Backend) LatestConfirmedAssertion(ctx context.Context) (*api.JsonAssertion, error) {

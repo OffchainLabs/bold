@@ -63,6 +63,18 @@ type JsonEdge struct {
 	RefersTo            string `json:"refersTo" db:"RefersTo"`
 }
 
+type JsonMiniStakes struct {
+	ChallengedAssertionHash common.Hash                                                    `json:"challengedAssertionHash"`
+	StakesByLvlAndOrigin    map[protocol.ChallengeLevel]map[common.Hash]*JsonMiniStakeInfo `json:"stakesByLvlAndOrigin"`
+}
+
+type JsonMiniStakeInfo struct {
+	StakerAddresses       []common.Address `json:"stakerAddresses"`
+	NumberOfMiniStakes    uint64           `json:"numberOfMiniStakes"`
+	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`
+	EndCommitmentHeight   uint64           `json:"endCommitmentHeight"`
+}
+
 func IsNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
