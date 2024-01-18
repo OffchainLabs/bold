@@ -465,8 +465,8 @@ func WithOrderBy(orderBy string) EdgeOption {
 func (q *EdgeQuery) ToSQL() (string, []interface{}) {
 	baseQuery := "SELECT * FROM Edges e"
 	if q.withSubchallenge {
-		baseQuery += ` INNER JOIN EdgeClaims ON Edges.Id = EdgeClaims.ClaimId
-		WHERE EdgeClaims.RefersTo = 'edge'`
+		baseQuery += ` INNER JOIN EdgeClaims ec ON e.Id = ec.ClaimId
+		WHERE ec.RefersTo = 'edge'`
 	}
 	if q.fromCreationBlock.IsSome() {
 		q.filters = append(q.filters, "e.CreatedAtBlock >= ?")
