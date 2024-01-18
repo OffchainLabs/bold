@@ -158,12 +158,15 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 }
 
 func TestEndToEnd_MultipleEvilValidators(t *testing.T) {
+	timeCfg := defaultTimeParams()
+	timeCfg.blockTime = time.Millisecond * 500
+	timeCfg.challengeMoveInterval = time.Millisecond * 500
 	runEndToEndTest(t, &e2eConfig{
 		backend:  simulated,
 		protocol: defaultProtocolParams(),
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
-			numEvilValidators: 2,
+			numEvilValidators: 4,
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
@@ -240,7 +243,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		baseChallengeManagerOpts,
 		challengemanager.WithAddress(txOpts.From),
 		challengemanager.WithName(name),
-		challengemanager.WithAPIEnabled("localhost:3000", "/Users/zypherpunk/Desktop/boldsqlite.db"),
 	)
 	honestManager := setupChallengeManager(
 		t, ctx, bk.Client(), rollupAddr, honestStateManager, txOpts, name, honestOpts...,
