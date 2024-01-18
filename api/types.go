@@ -60,6 +60,7 @@ type JsonEdge struct {
 	// Honest validator's point of view
 	IsRoyal             bool   `json:"isHonest" db:"IsRoyal"`
 	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
+	RefersTo            string `json:"refersTo" db:"RefersTo"`
 }
 
 func IsNil(i any) bool {
