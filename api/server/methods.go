@@ -176,7 +176,7 @@ func (s *Server) AssertionByIdentifier(w http.ResponseWriter, r *http.Request) {
 // - root_edges: boolean true or false to filter out only root edges (those that have a claim_id)
 // - rivaled: boolean true or false to get only rivaled edges
 // - has_length_one_rival: boolean true or false to get only edges that have a length one rival
-// - has_subchallenge: boolean true or false to get only edges that have a subchallenge claiming them
+// - only_subchallenged_edges: boolean true or false to get only edges that have a subchallenge claiming them
 // - from_block_number: items that were created since a specific block number.
 // - to_block_number: caps the response to edges up to a block number
 // - path_timer_geq: edges with a path timer greater than some N number of blocks
@@ -191,7 +191,17 @@ func (s *Server) AssertionByIdentifier(w http.ResponseWriter, r *http.Request) {
 // response:
 // - []*JsonEdge
 func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
-	opts := make([]db.EdgeOption, 0)
+	vars := mux.Vars(r)
+	assertionHashStr := vars["assertion-hash"]
+	hash, err := hexutil.Decode(assertionHashStr)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse assertion hash: %v", err), http.StatusBadRequest)
+		return
+	}
+	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash(hash)}
+	opts := []db.EdgeOption{
+		db.WithEdgeAssertionHash(assertionHash),
+	}
 	query := r.URL.Query()
 	if val, ok := query["limit"]; ok && len(val) > 0 {
 		if v, err := strconv.Atoi(val[0]); err == nil {
@@ -211,16 +221,26 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 		}
 		opts = append(opts, db.WithEdgeStatus(status))
 	}
-	if _, ok := query["royal"]; ok {
-		opts = append(opts, db.WithRoyal())
+	if val, ok := query["royal"]; ok {
+		v := strings.Join(val, "")
+		if v == "false" {
+			opts = append(opts, db.WithRoyal(false))
+		} else if v == "true" {
+			opts = append(opts, db.WithRoyal(true))
+		}
 	}
 	if _, ok := query["has_length_one_rival"]; ok {
 		opts = append(opts, db.WithLengthOneRival())
 	}
-	if _, ok := query["rivaled"]; ok {
-		opts = append(opts, db.WithRival())
+	if val, ok := query["rivaled"]; ok {
+		v := strings.Join(val, "")
+		if v == "false" {
+			opts = append(opts, db.WithRival(false))
+		} else if v == "true" {
+			opts = append(opts, db.WithRival(true))
+		}
 	}
-	if _, ok := query["has_subchallenge"]; ok {
+	if _, ok := query["only_subchallenged_edges"]; ok {
 		opts = append(opts, db.WithSubchallenge())
 	}
 	if _, ok := query["root_edges"]; ok {

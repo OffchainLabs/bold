@@ -58,17 +58,18 @@ type JsonEdge struct {
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
-	IsRoyal             bool   `json:"isHonest" db:"IsRoyal"`
+	IsRoyal             bool   `json:"isRoyal" db:"IsRoyal"`
 	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
 	RefersTo            string `json:"refersTo" db:"RefersTo"`
 }
 
 type JsonMiniStakes struct {
-	ChallengedAssertionHash common.Hash                                                    `json:"challengedAssertionHash"`
-	StakesByLvlAndOrigin    map[protocol.ChallengeLevel]map[common.Hash]*JsonMiniStakeInfo `json:"stakesByLvlAndOrigin"`
+	ChallengedAssertionHash common.Hash                                      `json:"challengedAssertionHash"`
+	StakesByLvlAndOrigin    map[protocol.ChallengeLevel][]*JsonMiniStakeInfo `json:"stakesByLvlAndOrigin"`
 }
 
 type JsonMiniStakeInfo struct {
+	ChallengeOriginId     common.Hash      `json:"challengeOriginId"`
 	StakerAddresses       []common.Address `json:"stakerAddresses"`
 	NumberOfMiniStakes    uint64           `json:"numberOfMiniStakes"`
 	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`

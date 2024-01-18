@@ -28,6 +28,7 @@ func New(addr string, backend backend.BusinessLogicProvider) (*Server, error) {
 	r := mux.NewRouter()
 
 	s := &Server{
+		backend: backend,
 		srv: &http.Server{
 			Handler:           r,
 			Addr:              addr,

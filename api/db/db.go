@@ -21,7 +21,7 @@ var (
 )
 
 type Database interface {
-	ReadOnlyDatabase
+	ReadUpdateDatabase
 	InsertEdges(edges []*api.JsonEdge) error
 	InsertEdge(edge *api.JsonEdge) error
 	InsertAssertions(assertions []*api.JsonAssertion) error
@@ -295,7 +295,7 @@ type EdgeQuery struct {
 	fromCreationBlock option.Option[uint64]
 	toCreationBlock   option.Option[uint64]
 	forceUpdate       bool
-	withSubchallenge  bool
+	onlySubchallenged bool
 }
 
 func (q *EdgeQuery) ShouldForceUpdate() bool {
@@ -358,9 +358,10 @@ func WithClaimId(claimId protocol.ClaimId) EdgeOption {
 		q.args = append(q.args, common.Hash(claimId))
 	}
 }
-func HasChildren() EdgeOption {
+func HasChildren(x bool) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "HasChildren = true")
+		q.filters = append(q.filters, "HasChildren = ?")
+		q.args = append(q.args, x)
 	}
 }
 func WithLowerChildId(id protocol.EdgeId) EdgeOption {
@@ -393,14 +394,15 @@ func WithEdgeAssertionHash(hash protocol.AssertionHash) EdgeOption {
 		q.args = append(q.args, hash.Hash)
 	}
 }
-func WithRival() EdgeOption {
+func WithRival(x bool) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "HasRival = true")
+		q.filters = append(q.filters, "HasRival = ?")
+		q.args = append(q.args, x)
 	}
 }
 func WithSubchallenge() EdgeOption {
 	return func(q *EdgeQuery) {
-		q.withSubchallenge = true
+		q.onlySubchallenged = true
 	}
 }
 func WithEdgeStatus(st protocol.EdgeStatus) EdgeOption {
@@ -409,9 +411,10 @@ func WithEdgeStatus(st protocol.EdgeStatus) EdgeOption {
 		q.args = append(q.args, st.String())
 	}
 }
-func WithRoyal() EdgeOption {
+func WithRoyal(x bool) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "IsRoyal = true")
+		q.filters = append(q.filters, "IsRoyal = ?")
+		q.args = append(q.args, x)
 	}
 }
 func WithEdgeForceUpdate() EdgeOption {
@@ -464,9 +467,9 @@ func WithOrderBy(orderBy string) EdgeOption {
 
 func (q *EdgeQuery) ToSQL() (string, []interface{}) {
 	baseQuery := "SELECT * FROM Edges e"
-	if q.withSubchallenge {
-		baseQuery += ` INNER JOIN EdgeClaims ON Edges.Id = EdgeClaims.ClaimId
-		WHERE EdgeClaims.RefersTo = 'edge'`
+	if q.onlySubchallenged {
+		baseQuery += ` INNER JOIN EdgeClaims ec ON e.Id = ec.ClaimId
+		WHERE ec.RefersTo = 'edge'`
 	}
 	if q.fromCreationBlock.IsSome() {
 		q.filters = append(q.filters, "e.CreatedAtBlock >= ?")
@@ -477,8 +480,10 @@ func (q *EdgeQuery) ToSQL() (string, []interface{}) {
 		q.args = append(q.args, q.toCreationBlock.Unwrap())
 	}
 	if len(q.filters) > 0 {
-		if !q.withSubchallenge {
+		if !q.onlySubchallenged {
 			baseQuery += " WHERE "
+		} else {
+			baseQuery += " AND "
 		}
 		baseQuery += strings.Join(q.filters, " AND ")
 	}
@@ -517,6 +522,14 @@ func (d *SqliteDatabase) InsertAssertions(assertions []*api.JsonAssertion) error
 }
 
 func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
+	var assertionExists int
+	err := d.sqlDB.Get(&assertionExists, "SELECT COUNT(*) FROM Assertions WHERE Hash = ?", a.Hash)
+	if err != nil {
+		return err
+	}
+	if assertionExists != 0 {
+		return nil
+	}
 	query := `INSERT INTO Assertions (
         Hash, ConfirmPeriodBlocks, RequiredStake, ParentAssertionHash, InboxMaxCount,
         AfterInboxBatchAcc, WasmModuleRoot, ChallengeManager, CreationBlock, TransactionHash,
@@ -530,7 +543,7 @@ func (d *SqliteDatabase) InsertAssertion(a *api.JsonAssertion) error {
         :AfterStateSendRoot,:AfterStateBatch,:AfterStatePosInBatch, :AfterStateMachineStatus, :FirstChildBlock, :SecondChildBlock,
         :IsFirstChild, :Status
     )`
-	_, err := d.sqlDB.NamedExec(query, a)
+	_, err = d.sqlDB.NamedExec(query, a)
 	if err != nil {
 		return err
 	}
@@ -550,6 +563,18 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	tx, err := d.sqlDB.Beginx()
 	if err != nil {
 		return err
+	}
+	// Check if the edge already exists
+	var edgeExists int
+	err = tx.Get(&edgeExists, "SELECT COUNT(*) FROM Edges WHERE Id = ?", edge.Id)
+	if err != nil {
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
+		return err
+	}
+	if edgeExists != 0 {
+		return nil
 	}
 	// Check if the assertion exists
 	var assertionExists int

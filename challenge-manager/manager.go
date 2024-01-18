@@ -8,7 +8,6 @@ package challengemanager
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -208,23 +207,22 @@ func New(
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
 
+	if m.apiDBPath != "" {
+		apiDB, err2 := db.NewDatabase(m.apiDBPath)
+		if err2 != nil {
+			return nil, err2
+		}
+		m.apiDB = apiDB
+	}
+
 	watcher, err := watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB)
 	if err != nil {
 		return nil, err
 	}
 	m.watcher = watcher
 
-	if m.apiAddr != "" && m.client == nil {
-		return nil, errors.New("go-ethereum RPC client required to enable API service")
-	}
-
 	if m.apiAddr != "" {
-		apiDB, err2 := db.NewDatabase(m.apiDBPath)
-		if err2 != nil {
-			return nil, err2
-		}
-		m.apiDB = apiDB
-		bknd := apibackend.NewBackend(apiDB, m.chain, m.watcher)
+		bknd := apibackend.NewBackend(m.apiDB, m.chain, m.watcher)
 		srv, err2 := server.New(m.apiAddr, bknd)
 		if err2 != nil {
 			return nil, err2

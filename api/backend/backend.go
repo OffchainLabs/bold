@@ -182,26 +182,27 @@ func (b *Backend) GetMiniStakes(ctx context.Context, assertionHash protocol.Asse
 	}
 	stakeInfo := &api.JsonMiniStakes{
 		ChallengedAssertionHash: assertionHash.Hash,
+		StakesByLvlAndOrigin:    make(map[protocol.ChallengeLevel][]*api.JsonMiniStakeInfo),
 	}
+	edgesByOriginId := make(map[common.Hash][]*api.JsonEdge)
 	for _, e := range edges {
-		lvl := protocol.ChallengeLevel(e.ChallengeLevel)
-		origin := e.OriginId
+		edgesByOriginId[e.OriginId] = append(edgesByOriginId[e.OriginId], e)
+	}
+	for originId, originDefinedEdges := range edgesByOriginId {
+		lvl := protocol.ChallengeLevel(originDefinedEdges[0].ChallengeLevel)
 		if stakeInfo.StakesByLvlAndOrigin[lvl] == nil {
-			stakeInfo.StakesByLvlAndOrigin[lvl] = make(map[common.Hash]*api.JsonMiniStakeInfo)
+			stakeInfo.StakesByLvlAndOrigin[lvl] = make([]*api.JsonMiniStakeInfo, 0)
 		}
-		if stakeInfo.StakesByLvlAndOrigin[lvl][origin] == nil {
-			stakeInfo.StakesByLvlAndOrigin[lvl][origin] = &api.JsonMiniStakeInfo{
-				StakerAddresses:       []common.Address{},
-				NumberOfMiniStakes:    0,
-				StartCommitmentHeight: e.StartHeight,
-				EndCommitmentHeight:   e.EndHeight,
-			}
+		info := &api.JsonMiniStakeInfo{
+			ChallengeOriginId:  originId,
+			StakerAddresses:    []common.Address{},
+			NumberOfMiniStakes: 0,
 		}
-		stakeInfo.StakesByLvlAndOrigin[lvl][origin].StakerAddresses = append(
-			stakeInfo.StakesByLvlAndOrigin[lvl][origin].StakerAddresses,
-			e.MiniStaker,
-		)
-		stakeInfo.StakesByLvlAndOrigin[lvl][origin].NumberOfMiniStakes += 1
+		for _, e := range originDefinedEdges {
+			info.StakerAddresses = append(info.StakerAddresses, e.MiniStaker)
+			info.NumberOfMiniStakes += 1
+		}
+		stakeInfo.StakesByLvlAndOrigin[lvl] = append(stakeInfo.StakesByLvlAndOrigin[lvl], info)
 	}
 	return stakeInfo, nil
 }
