@@ -69,11 +69,9 @@ type JsonMiniStakes struct {
 }
 
 type JsonMiniStakeInfo struct {
-	ChallengeOriginId     common.Hash      `json:"challengeOriginId"`
-	StakerAddresses       []common.Address `json:"stakerAddresses"`
-	NumberOfMiniStakes    uint64           `json:"numberOfMiniStakes"`
-	StartCommitmentHeight uint64           `json:"startCommitmentHeight"`
-	EndCommitmentHeight   uint64           `json:"endCommitmentHeight"`
+	ChallengeOriginId  common.Hash      `json:"challengeOriginId"`
+	StakerAddresses    []common.Address `json:"stakerAddresses"`
+	NumberOfMiniStakes uint64           `json:"numberOfMiniStakes"`
 }
 
 func IsNil(i any) bool {
