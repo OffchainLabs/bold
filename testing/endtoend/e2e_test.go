@@ -293,6 +293,4 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		})
 	}
 	require.NoError(t, g.Wait())
-	ch := make(chan struct{})
-	<-ch
 }
