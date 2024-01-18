@@ -168,7 +168,7 @@ func TestEndToEnd_MultipleEvilValidators(t *testing.T) {
 		protocol: protocolCfg,
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
-			numEvilValidators: 3,
+			numEvilValidators: 4,
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
