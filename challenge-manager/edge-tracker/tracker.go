@@ -62,7 +62,7 @@ type ConfirmationMetadataChecker interface {
 		challengePeriodBlocks uint64,
 	) (bool, error)
 	AddVerifiedHonestEdge(
-		ctx context.Context, verifiedHonest protocol.VerifiedHonestEdge,
+		ctx context.Context, verifiedHonest protocol.VerifiedRoyalEdge,
 	) error
 }
 

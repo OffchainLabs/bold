@@ -87,7 +87,7 @@ type ConfirmationMetadataChecker interface {
 // the challenge watcher service will add it to its respective "trackedChallenge"
 // namespaced under the top-level assertion hash the edge belongs to.
 type trackedChallenge struct {
-	honestEdgeTree                 *challengetree.HonestChallengeTree
+	honestEdgeTree                 *challengetree.RoyalChallengeTree
 	confirmedLevelZeroEdgeClaimIds *threadsafe.Map[protocol.ClaimId, protocol.EdgeId]
 }
 
@@ -149,7 +149,7 @@ func (w *Watcher) HonestBlockChallengeRootEdge(
 	if !ok {
 		return nil, fmt.Errorf("no challenge for assertion hash %#x", assertionHash)
 	}
-	return chal.honestEdgeTree.HonestBlockChallengeRootEdge()
+	return chal.honestEdgeTree.RoyalBlockChallengeRootEdge()
 }
 
 // ConfirmedEdgeWithClaimExists checks if a confirmed, level zero edge exists that claims a particular
@@ -609,7 +609,7 @@ func (w *Watcher) GetEvilConfirmedEdges(ctx context.Context) ([]protocol.SpecEdg
 // AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally
 // tracked challenge trees and spawns an edge tracker for it. Should be called after the challenge
 // manager creates a new edge, or bisects an edge and produces two children from that move.
-func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.VerifiedHonestEdge) error {
+func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.VerifiedRoyalEdge) error {
 	assertionHash, err := edge.AssertionHash(ctx)
 	if err != nil {
 		return err
@@ -633,7 +633,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 	// Add the edge to a local challenge tree of honest edges and, if needed,
 	// we also spawn a tracker for the edge.
-	if err := chal.honestEdgeTree.AddHonestEdge(edge); err != nil {
+	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
 
@@ -710,7 +710,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	}
 	// Add the edge to a local challenge tree of tracked edges. If it is honest,
 	// we also spawn a tracker for the edge.
-	agreement, err := chal.honestEdgeTree.AddEdge(ctx, edge)
+	isRoyalEdge, err := chal.honestEdgeTree.AddEdge(ctx, edge)
 	if err != nil {
 		if !errors.Is(err, challengetree.ErrAlreadyBeingTracked) {
 			return errors.Wrap(err, "could not add edge to challenge tree")
@@ -718,7 +718,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 		// If the error is that we are already tracking the edge, we exit early.
 		return nil
 	}
-	if agreement.IsHonestEdge {
+	if isRoyalEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
 	return w.saveEdgeToDB(ctx, edge, &agreement)
