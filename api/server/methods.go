@@ -204,19 +204,19 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 	}
 	query := r.URL.Query()
 	if val, ok := query["limit"]; ok && len(val) > 0 {
-		if v, err := strconv.Atoi(val[0]); err == nil {
+		if v, err2 := strconv.Atoi(val[0]); err2 == nil {
 			opts = append(opts, db.WithLimit(v))
 		}
 	}
 	if val, ok := query["offset"]; ok && len(val) > 0 {
-		if v, err := strconv.Atoi(val[0]); err == nil {
+		if v, err2 := strconv.Atoi(val[0]); err2 == nil {
 			opts = append(opts, db.WithOffset(v))
 		}
 	}
 	if val, ok := query["status"]; ok && len(val) > 0 {
-		status, err := parseEdgeStatus(strings.Join(val, ""))
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse status: %v", err), http.StatusBadRequest)
+		status, err2 := parseEdgeStatus(strings.Join(val, ""))
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse status: %v", err2), http.StatusBadRequest)
 			return
 		}
 		opts = append(opts, db.WithEdgeStatus(status))
@@ -250,40 +250,40 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 		opts = append(opts, db.WithEdgeForceUpdate())
 	}
 	if val, ok := query["from_block_number"]; ok && len(val) > 0 {
-		if v, err := strconv.ParseUint(val[0], 10, 64); err == nil {
+		if v, err2 := strconv.ParseUint(val[0], 10, 64); err2 == nil {
 			opts = append(opts, db.FromEdgeCreationBlock(v))
 		}
 	}
 	if val, ok := query["to_block_number"]; ok && len(val) > 0 {
-		if v, err := strconv.ParseUint(val[0], 10, 64); err == nil {
+		if v, err2 := strconv.ParseUint(val[0], 10, 64); err2 == nil {
 			opts = append(opts, db.ToEdgeCreationBlock(v))
 		}
 	}
 	if val, ok := query["path_timer_geq"]; ok && len(val) > 0 {
-		if v, err := strconv.ParseUint(val[0], 10, 64); err == nil {
+		if v, err2 := strconv.ParseUint(val[0], 10, 64); err2 == nil {
 			opts = append(opts, db.WithPathTimerGreaterOrEq(v))
 		}
 	}
 	if val, ok := query["origin_id"]; ok && len(val) > 0 {
-		hash, err := hexutil.Decode(strings.Join(val, ""))
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse origin_id: %v", err), http.StatusBadRequest)
+		hash, err2 := hexutil.Decode(strings.Join(val, ""))
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse origin_id: %v", err2), http.StatusBadRequest)
 			return
 		}
 		opts = append(opts, db.WithOriginId(protocol.OriginId(common.BytesToHash(hash))))
 	}
 	if val, ok := query["mutual_id"]; ok && len(val) > 0 {
-		hash, err := hexutil.Decode(strings.Join(val, ""))
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse mutual_id: %v", err), http.StatusBadRequest)
+		hash, err2 := hexutil.Decode(strings.Join(val, ""))
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse mutual_id: %v", err2), http.StatusBadRequest)
 			return
 		}
 		opts = append(opts, db.WithMutualId(protocol.MutualId(common.BytesToHash(hash))))
 	}
 	if val, ok := query["claim_id"]; ok && len(val) > 0 {
-		hash, err := hexutil.Decode(strings.Join(val, ""))
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse claim_id: %v", err), http.StatusBadRequest)
+		hash, err2 := hexutil.Decode(strings.Join(val, ""))
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse claim_id: %v", err2), http.StatusBadRequest)
 			return
 		}
 		opts = append(opts, db.WithClaimId(protocol.ClaimId(common.BytesToHash(hash))))
@@ -295,14 +295,14 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Wrong start history commitment format, wanted height:hash", http.StatusBadRequest)
 			return
 		}
-		startHeight, err := strconv.ParseUint(commitParts[0], 10, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse start commit height: %v", err), http.StatusBadRequest)
+		startHeight, err2 := strconv.ParseUint(commitParts[0], 10, 64)
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse start commit height: %v", err2), http.StatusBadRequest)
 			return
 		}
-		startHash, err := hexutil.Decode(commitParts[1])
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse start commit hash: %v", err), http.StatusBadRequest)
+		startHash, err2 := hexutil.Decode(commitParts[1])
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse start commit hash: %v", err2), http.StatusBadRequest)
 			return
 		}
 		opts = append(opts, db.WithStartHistoryCommitment(history.History{
@@ -317,14 +317,14 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Wrong start history commitment format, wanted height:hash", http.StatusBadRequest)
 			return
 		}
-		endHeight, err := strconv.ParseUint(commitParts[0], 10, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse end commit height: %v", err), http.StatusBadRequest)
+		endHeight, err2 := strconv.ParseUint(commitParts[0], 10, 64)
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse end commit height: %v", err2), http.StatusBadRequest)
 			return
 		}
-		endHash, err := hexutil.Decode(commitParts[1])
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not parse end commit hash: %v", err), http.StatusBadRequest)
+		endHash, err2 := hexutil.Decode(commitParts[1])
+		if err2 != nil {
+			http.Error(w, fmt.Sprintf("Could not parse end commit hash: %v", err2), http.StatusBadRequest)
 			return
 		}
 		opts = append(opts, db.WithEndHistoryCommitment(history.History{
@@ -333,7 +333,7 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 		}))
 	}
 	if val, ok := query["challenge_level"]; ok && len(val) > 0 {
-		if v, err := strconv.ParseUint(val[0], 10, 8); err == nil {
+		if v, err2 := strconv.ParseUint(val[0], 10, 8); err2 == nil {
 			opts = append(opts, db.WithChallengeLevel(uint8(v)))
 		}
 	}

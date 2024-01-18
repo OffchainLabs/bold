@@ -88,3 +88,7 @@ var (
 func (ht *RoyalChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge] {
 	return ht.edges
 }
+
+func (ht *RoyalChallengeTree) HasRoyalEdge(edgeId protocol.EdgeId) bool {
+	return ht.edges.Has(edgeId)
+}

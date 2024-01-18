@@ -638,7 +638,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 
 	// If a DB is enabled, save the edge to the database.
-	return w.saveEdgeToDB(ctx, edge, &protocol.Agreement{IsHonestEdge: true, AgreesWithStartCommit: true})
+	return w.saveEdgeToDB(ctx, edge, true /* is royal */)
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -721,7 +721,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if isRoyalEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
-	return w.saveEdgeToDB(ctx, edge, &agreement)
+	return w.saveEdgeToDB(ctx, edge, isRoyalEdge)
 }
 
 // Processes an edge added event by adding it to the honest challenge tree if it is honest.
@@ -993,7 +993,7 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 func (w *Watcher) saveEdgeToDB(
 	ctx context.Context,
 	edge protocol.SpecEdge,
-	agreement *protocol.Agreement,
+	isRoyal bool,
 ) error {
 	if api.IsNil(w.apiDB) {
 		return nil
@@ -1017,7 +1017,7 @@ func (w *Watcher) saveEdgeToDB(
 		claimId = common.Hash(edge.ClaimId().Unwrap())
 	}
 	var pathTimer uint64
-	if agreement.IsHonestEdge {
+	if isRoyal {
 		timer, _, _, err2 := w.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
 		if err2 != nil {
 			return err2
@@ -1075,7 +1075,7 @@ func (w *Watcher) saveEdgeToDB(
 		LowerChildId:        lowerChildId,
 		UpperChildId:        upperChildId,
 		HasChildren:         hasChildren,
-		IsRoyal:             agreement.IsHonestEdge,
+		IsRoyal:             isRoyal,
 		CumulativePathTimer: pathTimer,
 		TimeUnrivaled:       timeUnrivaled,
 		HasRival:            hasRival,
