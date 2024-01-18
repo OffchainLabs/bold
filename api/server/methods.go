@@ -24,7 +24,7 @@ var contentType = "application/json"
 // method:
 // - GET
 // - /api/v1/db/healthz
-func (s *Server) Healthz(r *http.Request, w http.ResponseWriter) {
+func (s *Server) Healthz(w http.ResponseWriter, r *http.Request) {
 	// TODO: Respond with a 503 if the client the BOLD validator is
 	// connected to is syncing.
 	w.WriteHeader(http.StatusOK)
@@ -47,7 +47,7 @@ func (s *Server) Healthz(r *http.Request, w http.ResponseWriter) {
 //
 // response:
 // - []*JsonAssertion
-func (s *Server) ListAssertions(r *http.Request, w http.ResponseWriter) {
+func (s *Server) ListAssertions(w http.ResponseWriter, r *http.Request) {
 	opts := make([]db.AssertionOption, 0)
 	query := r.URL.Query()
 	if val, ok := query["limit"]; ok && len(val) > 0 {
@@ -96,7 +96,7 @@ func (s *Server) ListAssertions(r *http.Request, w http.ResponseWriter) {
 //
 // method:
 // - GET
-// - /api/v1/assertion/<identifier>
+// - /api/v1/assertions/<identifier>
 //
 // identifier options:
 // - an assertion hash (0x-prefixed): gets the assertion by hash
@@ -107,7 +107,7 @@ func (s *Server) ListAssertions(r *http.Request, w http.ResponseWriter) {
 //
 // response:
 // - *JsonAssertion
-func (s *Server) AssertionByIdentifier(r *http.Request, w http.ResponseWriter) {
+func (s *Server) AssertionByIdentifier(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	identifier := vars["identifier"]
 
@@ -190,7 +190,7 @@ func (s *Server) AssertionByIdentifier(r *http.Request, w http.ResponseWriter) {
 // - force_update: refetch the updatable fields of each item in the response
 // response:
 // - []*JsonEdge
-func (s *Server) AllChallengeEdges(r *http.Request, w http.ResponseWriter) {
+func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 	opts := make([]db.EdgeOption, 0)
 	query := r.URL.Query()
 	if val, ok := query["limit"]; ok && len(val) > 0 {
@@ -355,7 +355,7 @@ func parseEdgeStatus(str string) (protocol.EdgeStatus, error) {
 //
 // response:
 // - *JsonEdge
-func (s *Server) EdgeByIdentifier(r *http.Request, w http.ResponseWriter) {
+func (s *Server) EdgeByIdentifier(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	assertionHashStr := vars["assertion-hash"]
 	edgeIdStr := vars["edge-id"]
@@ -404,7 +404,7 @@ func (s *Server) EdgeByIdentifier(r *http.Request, w http.ResponseWriter) {
 //
 // method:
 // - GET
-// - /api/v1/challenge/<assertion-hash>/edges/<history-commitment>
+// - /api/v1/challenge/<assertion-hash>/edges/history/<history-commitment>
 //
 // identifier options:
 //   - 0x-prefixed assertion hash
@@ -416,7 +416,7 @@ func (s *Server) EdgeByIdentifier(r *http.Request, w http.ResponseWriter) {
 //
 // response:
 // - *JsonEdge
-func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter) {
+func (s *Server) EdgeByHistoryCommitment(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	assertionHashStr := vars["assertion-hash"]
 	hash, err := hexutil.Decode(assertionHashStr)
@@ -497,7 +497,7 @@ func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter)
 // - challenge_level: items in a specific challenge level. level 0 is the block challenge level
 // response:
 // - []*MiniStake
-func (s *Server) MiniStakes(r *http.Request, w http.ResponseWriter) {
+func (s *Server) MiniStakes(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	assertionHashStr := vars["assertion-hash"]
 	hash, err := hexutil.Decode(assertionHashStr)
