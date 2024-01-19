@@ -47,16 +47,16 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	if err != nil {
 		return fmt.Errorf("could not add block challenge level zero edge %v: %w", m.name, err)
 	}
-	if alreadyExists {
-		srvlog.Info("Root level edge for challenged assertion already exists, skipping move", log.Ctx{"assertionHash": id.Hash})
-		return nil
-	}
 	if verifiedErr := m.watcher.AddVerifiedHonestEdge(ctx, levelZeroEdge); verifiedErr != nil {
 		fields := log.Ctx{
 			"edgeId": levelZeroEdge.Id(),
 			"err":    verifiedErr,
 		}
 		srvlog.Error("could not add verified honest edge to chain watcher", fields)
+	}
+	if alreadyExists {
+		srvlog.Info("Root level edge for challenged assertion already exists, skipping move", log.Ctx{"assertionHash": id.Hash})
+		return nil
 	}
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
