@@ -15,6 +15,7 @@ import (
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 )
 
 type BusinessLogicProvider interface {
@@ -176,16 +177,18 @@ func (b *Backend) GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.J
 		}
 	}
 	for _, e := range edges {
-		ancestorsStr := strings.Split(e.RawAncestors, ",")
-		ancestors := make([]common.Hash, len(ancestorsStr))
-		for i, an := range ancestorsStr {
-			edgeId, err := hexutil.Decode(an)
-			if err != nil {
-				return nil, err
+		if e.RawAncestors != "" {
+			ancestorsStr := strings.Split(e.RawAncestors, ",")
+			ancestors := make([]common.Hash, len(ancestorsStr))
+			for i, an := range ancestorsStr {
+				edgeId, err := hexutil.Decode(an)
+				if err != nil {
+					return nil, errors.Wrap(err, "fails here")
+				}
+				ancestors[i] = common.BytesToHash(edgeId)
 			}
-			ancestors[i] = common.BytesToHash(edgeId)
+			e.Ancestors = ancestors
 		}
-		e.Ancestors = ancestors
 	}
 	return edges, nil
 }

@@ -62,7 +62,7 @@ func (s *Server) registerMethods() error {
 	r.HandleFunc("/assertions", s.ListAssertions).Methods("GET")
 	r.HandleFunc("/assertions/{identifier}", s.ListAssertions).Methods("GET")
 	r.HandleFunc("/challenge/{assertion-hash}/edges", s.AllChallengeEdges).Methods("GET")
-	r.HandleFunc("/challenge/{assertion-hash}/edges/{edge-id}", s.EdgeByIdentifier).Methods("GET")
+	r.HandleFunc("/challenge/{assertion-hash}/edges/id/{edge-id}", s.EdgeByIdentifier).Methods("GET")
 	r.HandleFunc("/challenge/{assertion-hash}/edges/history/{history-commitment}", s.EdgeByHistoryCommitment).Methods("GET")
 	r.HandleFunc("/challenge/{assertion-hash}/ministakes", s.MiniStakes).Methods("GET")
 	s.registered = true

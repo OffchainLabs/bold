@@ -376,7 +376,7 @@ func parseEdgeStatus(str string) (protocol.EdgeStatus, error) {
 //
 // method:
 // - GET
-// - /api/v1/challenge/<assertion-hash>/edges/<edge-id>
+// - /api/v1/challenge/<assertion-hash>/edges/id/<edge-id>
 //
 // identifier options:
 // - 0x-prefixed assertion hash
