@@ -184,6 +184,8 @@ func (s *Server) AssertionByIdentifier(w http.ResponseWriter, r *http.Request) {
 // - origin_id: edges that have a 0x-prefixed origin id
 // - mutual_id: edges that have a 0x-prefixed mutual id
 // - claim_id: edges that have a 0x-prefixed claim id
+// - start_height: edges with a start height
+// - end_height: edges with an end height
 // - start_commitment: edges with a start history commitment of format "height:hash", such as 32:0xdeadbeef
 // - end_commitment: edges with an end history commitment of format "height:hash", such as 32:0xdeadbeef
 // - challenge_level: edges in a specific challenge level. level 0 is the block challenge level
@@ -257,6 +259,16 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 	if val, ok := query["to_block_number"]; ok && len(val) > 0 {
 		if v, err2 := strconv.ParseUint(val[0], 10, 64); err2 == nil {
 			opts = append(opts, db.ToEdgeCreationBlock(v))
+		}
+	}
+	if val, ok := query["start_height"]; ok && len(val) > 0 {
+		if v, err2 := strconv.ParseUint(val[0], 10, 64); err2 == nil {
+			opts = append(opts, db.WithStartHeight(v))
+		}
+	}
+	if val, ok := query["end_height"]; ok && len(val) > 0 {
+		if v, err2 := strconv.ParseUint(val[0], 10, 64); err2 == nil {
+			opts = append(opts, db.WithEndHeight(v))
 		}
 	}
 	if val, ok := query["path_timer_geq"]; ok && len(val) > 0 {
@@ -391,6 +403,7 @@ func (s *Server) EdgeByIdentifier(w http.ResponseWriter, r *http.Request) {
 	}
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash(hash)}
 	edgeId := protocol.EdgeId{Hash: common.BytesToHash(id)}
+	fmt.Println(edgeId.String())
 	opts := []db.EdgeOption{
 		db.WithLimit(1),
 		db.WithEdgeAssertionHash(assertionHash),
