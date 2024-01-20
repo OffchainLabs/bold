@@ -43,13 +43,9 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	}
 
 	// We then add a level zero edge to initiate a challenge.
-	levelZeroEdge, edgeTrackerAssertionInfo, alreadyExists, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
+	levelZeroEdge, edgeTrackerAssertionInfo, _, err := m.addBlockChallengeLevelZeroEdge(ctx, assertion)
 	if err != nil {
 		return fmt.Errorf("could not add block challenge level zero edge %v: %w", m.name, err)
-	}
-	if alreadyExists {
-		srvlog.Info("Root level edge for challenged assertion already exists, skipping move", log.Ctx{"assertionHash": id.Hash})
-		return nil
 	}
 	if verifiedErr := m.watcher.AddVerifiedHonestEdge(ctx, levelZeroEdge); verifiedErr != nil {
 		fields := log.Ctx{
@@ -58,6 +54,10 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		}
 		srvlog.Error("could not add verified honest edge to chain watcher", fields)
 	}
+	// if alreadyExists {
+	// 	srvlog.Info("Root level edge for challenged assertion already exists, skipping move", log.Ctx{"assertionHash": id.Hash})
+	// 	return nil
+	// }
 	// Start tracking the challenge.
 	tracker, err := edgetracker.New(
 		ctx,
@@ -154,7 +154,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 
 	// If the edge already exists, we return true and everything else nil.
 	if err == nil && !someLevelZeroEdge.IsNone() {
-		return nil, nil, true, nil
+		return &HonestEdge{someLevelZeroEdge.Unwrap()}, nil, true, nil
 	}
 	startEndPrefixProof, err := m.stateManager.PrefixProof(
 		ctx,
@@ -173,4 +173,12 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		ToBatch:        toBatch,
 		WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
 	}, true, nil
+}
+
+type HonestEdge struct {
+	protocol.SpecEdge
+}
+
+func (h *HonestEdge) Honest() {
+
 }

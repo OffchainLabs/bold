@@ -58,9 +58,11 @@ type JsonEdge struct {
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
-	IsRoyal             bool   `json:"isRoyal" db:"IsRoyal"`
-	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
-	RefersTo            string `json:"refersTo" db:"RefersTo"`
+	Ancestors           []common.Hash `json:"ancestors"`
+	RawAncestors        string        `json:"-" db:"RawAncestors"`
+	IsRoyal             bool          `json:"isRoyal" db:"IsRoyal"`
+	CumulativePathTimer uint64        `json:"cumulativePathTimer" db:"CumulativePathTimer"`
+	RefersTo            string        `json:"refersTo" db:"RefersTo"`
 }
 
 type JsonMiniStakes struct {

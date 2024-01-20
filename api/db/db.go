@@ -3,6 +3,7 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -330,6 +331,18 @@ func WithOriginId(originId protocol.OriginId) EdgeOption {
 		q.args = append(q.args, common.Hash(originId))
 	}
 }
+func WithStartHeight(start uint64) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "StartHeight = ?")
+		q.args = append(q.args, start)
+	}
+}
+func WithEndHeight(end uint64) EdgeOption {
+	return func(q *EdgeQuery) {
+		q.filters = append(q.filters, "EndHeight = ?")
+		q.args = append(q.args, end)
+	}
+}
 func WithStartHistoryCommitment(startHistory history.History) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "StartHistoryRoot = ?")
@@ -498,6 +511,7 @@ func (q *EdgeQuery) ToSQL() (string, []interface{}) {
 		baseQuery += " OFFSET ?"
 		q.args = append(q.args, q.offset)
 	}
+	fmt.Println(baseQuery, q.args)
 	return baseQuery, q.args
 }
 
@@ -615,12 +629,12 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
 	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
 	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
-	   HasRival, Status, HasLengthOneRival, IsRoyal, CumulativePathTimer
+	   HasRival, Status, HasLengthOneRival, RawAncestors, IsRoyal, CumulativePathTimer
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
 	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
 	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
-	   :HasRival, :Status, :HasLengthOneRival, :IsRoyal, :CumulativePathTimer
+	   :HasRival, :Status, :HasLengthOneRival, :RawAncestors, :IsRoyal, :CumulativePathTimer
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
@@ -680,6 +694,7 @@ func (d *SqliteDatabase) UpdateEdges(edges []*api.JsonEdge) error {
 	 Status = :Status,
 	 HasLengthOneRival = :HasLengthOneRival,
 	 IsRoyal = :IsRoyal,
+	 RawAncestors = :RawAncestors,
 	 CumulativePathTimer = :CumulativePathTimer
 	 WHERE Id = :Id`
 	tx, err := d.sqlDB.Beginx()

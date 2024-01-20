@@ -6,6 +6,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/OffchainLabs/bold/api"
@@ -13,6 +14,8 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 )
 
 type BusinessLogicProvider interface {
@@ -153,16 +156,38 @@ func (b *Backend) GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.J
 			e.TimeUnrivaled = timeUnrivaled
 			isRoyal := b.chainWatcher.IsRoyal(assertionHash, edge.Id())
 			if isRoyal {
-				pathTimer, _, _, err := b.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+				pathTimer, ancestors, _, err := b.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
 				if err != nil {
 					return nil, err
 				}
+				rawAncestors := ""
+				for i, an := range ancestors {
+					rawAncestors += an.Hex()
+					if i != len(ancestors)-1 {
+						rawAncestors += ","
+					}
+				}
+				e.RawAncestors = rawAncestors
 				e.CumulativePathTimer = uint64(pathTimer)
 			}
 			e.IsRoyal = isRoyal
 		}
 		if err := b.db.UpdateEdges(edges); err != nil {
 			return nil, err
+		}
+	}
+	for _, e := range edges {
+		if e.RawAncestors != "" {
+			ancestorsStr := strings.Split(e.RawAncestors, ",")
+			ancestors := make([]common.Hash, len(ancestorsStr))
+			for i, an := range ancestorsStr {
+				edgeId, err := hexutil.Decode(an)
+				if err != nil {
+					return nil, errors.Wrap(err, "fails here")
+				}
+				ancestors[i] = common.BytesToHash(edgeId)
+			}
+			e.Ancestors = ancestors
 		}
 	}
 	return edges, nil
