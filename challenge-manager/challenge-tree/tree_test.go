@@ -24,7 +24,7 @@ import (
 func TestAddEdge(t *testing.T) {
 	ht := &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 		totalChallengeLevels:  3,
 	}
@@ -138,7 +138,8 @@ func TestAddEdge(t *testing.T) {
 		// Check the edge is not kept track of in the honest edge, but we do track its mutual id.
 		_, ok := ht.edges.TryGet(badEdge.Id())
 		require.Equal(t, false, ok)
-		_, ok = ht.mutualIds.TryGet(badEdge.MutualId())
+		key := buildEdgeCreationTimeKey(protocol.OriginId{}, badEdge.MutualId())
+		_, ok = ht.edgeCreationTimes.TryGet(key)
 		require.Equal(t, true, ok)
 	})
 	t.Run("agrees with edge but is not royal", func(t *testing.T) {
@@ -198,7 +199,8 @@ func TestAddEdge(t *testing.T) {
 		_, ok := ht.edges.TryGet(edge.Id())
 		require.Equal(t, false, ok)
 		// However, exists in the mutual ids mapping.
-		_, ok = ht.mutualIds.TryGet(edge.MutualId())
+		key := buildEdgeCreationTimeKey(protocol.OriginId{}, edge.MutualId())
+		_, ok = ht.edgeCreationTimes.TryGet(key)
 		require.Equal(t, true, ok)
 
 		// However, we should not have a level zero edge being tracked yet.
@@ -241,7 +243,8 @@ func TestAddEdge(t *testing.T) {
 		_, ok := ht.edges.TryGet(edge.Id())
 		require.Equal(t, true, ok)
 		// Exists in the mutual ids mapping.
-		_, ok = ht.mutualIds.TryGet(edge.MutualId())
+		key := buildEdgeCreationTimeKey(protocol.OriginId{}, edge.MutualId())
+		_, ok = ht.edgeCreationTimes.TryGet(key)
 		require.Equal(t, true, ok)
 
 		// We should have a level zero edge being tracked.
@@ -262,7 +265,7 @@ func TestAddHonestEdge(t *testing.T) {
 	edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: createdAt, claimId: "bar"})
 	ht := &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
@@ -277,7 +280,8 @@ func TestAddHonestEdge(t *testing.T) {
 
 	// Check if it exists in the mutual ids mapping.
 	mutualId := edge.MutualId()
-	mutuals, ok := ht.mutualIds.TryGet(mutualId)
+	key := buildEdgeCreationTimeKey(protocol.OriginId{}, mutualId)
+	mutuals, ok := ht.edgeCreationTimes.TryGet(key)
 	require.Equal(t, true, ok)
 	gotCreatedAt, ok := mutuals.TryGet(edge.Id())
 	require.Equal(t, true, ok)

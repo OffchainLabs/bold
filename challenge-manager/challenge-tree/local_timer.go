@@ -97,10 +97,10 @@ type rival struct {
 // We exclude the specified edge from the returned list of rivals.
 func (ht *RoyalChallengeTree) rivalsWithCreationTimes(eg protocol.ReadOnlyEdge) []*rival {
 	rivals := make([]*rival, 0)
-	mutualId := eg.MutualId()
-	mutuals := ht.mutualIds.Get(mutualId)
+	key := buildEdgeCreationTimeKey(eg.OriginId(), eg.MutualId())
+	mutuals := ht.edgeCreationTimes.Get(key)
 	if mutuals == nil {
-		ht.mutualIds.Put(mutualId, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		ht.edgeCreationTimes.Put(key, threadsafe.NewMap[protocol.EdgeId, creationTime]())
 		return rivals
 	}
 	_ = mutuals.ForEach(func(rivalId protocol.EdgeId, t creationTime) error {

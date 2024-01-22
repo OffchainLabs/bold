@@ -42,7 +42,7 @@ func TestComputeAncestorsWithTimers(t *testing.T) {
 	ctx := context.Background()
 	tree := &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader:        &mockMetadataReader{},
 		totalChallengeLevels:  3,
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
@@ -393,7 +393,7 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	allEdges := threadsafe.NewMapFromItems(transformedEdges)
 	ht := &RoyalChallengeTree{
 		edges:                 allEdges,
-		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader:        &mockMetadataReader{},
 		totalChallengeLevels:  3,
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
@@ -405,8 +405,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 	// Three pairs of edges are rivaled in this test: 0-16, 0-8, and 4-8.
 	mutual := edges["blk-0.a-16.a"].MutualId()
 
-	ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
-	mutuals := ht.mutualIds.Get(mutual)
+	key := buildEdgeCreationTimeKey(protocol.OriginId{}, mutual)
+	ht.edgeCreationTimes.Put(key, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+	mutuals := ht.edgeCreationTimes.Get(key)
 	idd := id("blk-0.a-16.a")
 	iddCreation, err := ht.edges.Get(idd).CreatedAtBlock()
 	require.NoError(t, err)
@@ -418,8 +419,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 
 	mutual = edges["blk-0.a-8.a"].MutualId()
 
-	ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
-	mutuals = ht.mutualIds.Get(mutual)
+	key = buildEdgeCreationTimeKey(protocol.OriginId{}, mutual)
+	ht.edgeCreationTimes.Put(key, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+	mutuals = ht.edgeCreationTimes.Get(key)
 	idd = id("blk-0.a-8.a")
 	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 	require.NoError(t, err)
@@ -431,8 +433,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 
 	mutual = edges["blk-4.a-8.a"].MutualId()
 
-	ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
-	mutuals = ht.mutualIds.Get(mutual)
+	key = buildEdgeCreationTimeKey(protocol.OriginId{}, mutual)
+	ht.edgeCreationTimes.Put(key, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+	mutuals = ht.edgeCreationTimes.Get(key)
 	idd = id("blk-4.a-8.a")
 	iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 	require.NoError(t, err)
@@ -552,7 +555,8 @@ func TestComputeHonestPathTimer(t *testing.T) {
 
 		// Three pairs of edges are rivaled in this test: 0-16, 0-8, 0-4
 		mutual := edges["blk-0.a-16.c"].MutualId()
-		mutuals := ht.mutualIds.Get(mutual)
+		key = buildEdgeCreationTimeKey(protocol.OriginId{}, mutual)
+		mutuals := ht.edgeCreationTimes.Get(key)
 		idd := id("blk-0.a-16.c")
 		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 		require.NoError(t, err)
@@ -560,7 +564,8 @@ func TestComputeHonestPathTimer(t *testing.T) {
 
 		mutual = edges["blk-0.a-8.c"].MutualId()
 
-		mutuals = ht.mutualIds.Get(mutual)
+		key = buildEdgeCreationTimeKey(protocol.OriginId{}, mutual)
+		mutuals = ht.edgeCreationTimes.Get(key)
 		idd = id("blk-0.a-8.c")
 		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 		require.NoError(t, err)
@@ -568,8 +573,9 @@ func TestComputeHonestPathTimer(t *testing.T) {
 
 		mutual = edges["blk-0.a-4.c"].MutualId()
 
-		ht.mutualIds.Put(mutual, threadsafe.NewMap[protocol.EdgeId, creationTime]())
-		mutuals = ht.mutualIds.Get(mutual)
+		key = buildEdgeCreationTimeKey(protocol.OriginId{}, mutual)
+		ht.edgeCreationTimes.Put(key, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		mutuals = ht.edgeCreationTimes.Get(key)
 		idd = id("blk-0.a-4.a")
 		iddCreation, err = ht.edges.Get(idd).CreatedAtBlock()
 		require.NoError(t, err)
@@ -611,8 +617,8 @@ func TestComputeHonestPathTimer(t *testing.T) {
 func TestComputePathTimer_AllChallengeLevels(t *testing.T) {
 	unrivaledAssertionBlocks := uint64(10) // Should incorporate the assertion's unrivaled blocks into the total timer.
 	ht := &RoyalChallengeTree{
-		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edges:             threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
+		edgeCreationTimes: threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		metadataReader: &mockMetadataReader{
 			unrivaledAssertionBlocks: unrivaledAssertionBlocks,
 		},

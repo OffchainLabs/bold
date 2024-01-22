@@ -18,7 +18,7 @@ func (ht *RoyalChallengeTree) AddRoyalEdge(eg protocol.VerifiedRoyalEdge) error 
 		// Already being tracked.
 		return nil
 	}
-	if err := ht.keepTrackOfMutualId(eg); err != nil {
+	if err := ht.keepTrackOfCreationTime(eg); err != nil {
 		return err
 	}
 	ht.keepTrackOfHonestEdge(eg)
@@ -38,7 +38,7 @@ func (ht *RoyalChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge)
 	if err = ht.checkAssertionHash(ctx, edgeId); err != nil {
 		return false, errors.Wrapf(err, "could not check if the edge's assertion hash is correct %#x", edgeId)
 	}
-	if err = ht.keepTrackOfMutualId(eg); err != nil {
+	if err = ht.keepTrackOfCreationTime(eg); err != nil {
 		return false, errors.Wrapf(err, "could not track mutual id: %#x", edgeId)
 	}
 	hasHonestAncestry, err := ht.hasHonestAncestry(ctx, eg)
@@ -157,18 +157,19 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 // Check if the edge id should be added to the rivaled edges set.
 // Here we only care about edges here that are either honest or those whose start
 // history commitments we agree with.
-func (ht *RoyalChallengeTree) keepTrackOfMutualId(eg protocol.SpecEdge) error {
-	mutualId := eg.MutualId()
-	mutuals := ht.mutualIds.Get(mutualId)
+func (ht *RoyalChallengeTree) keepTrackOfCreationTime(eg protocol.SpecEdge) error {
+	key := buildEdgeCreationTimeKey(eg.OriginId(), eg.MutualId())
+	mutuals := ht.edgeCreationTimes.Get(key)
 	if mutuals == nil {
-		ht.mutualIds.Put(mutualId, threadsafe.NewMap[protocol.EdgeId, creationTime]())
-		mutuals = ht.mutualIds.Get(mutualId)
+		ht.edgeCreationTimes.Put(key, threadsafe.NewMap[protocol.EdgeId, creationTime]())
+		mutuals = ht.edgeCreationTimes.Get(key)
 	}
 	createdAtBlock, err := eg.CreatedAtBlock()
 	if err != nil {
 		return err
 	}
 	mutuals.Put(eg.Id(), creationTime(createdAtBlock))
+	ht.edgeCreationTimes.Put(key, mutuals)
 	return nil
 }
 
