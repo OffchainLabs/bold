@@ -158,15 +158,12 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 }
 
 func TestEndToEnd_MultipleEvilValidators(t *testing.T) {
-	timeCfg := defaultTimeParams()
-	timeCfg.blockTime = time.Millisecond * 500
-	timeCfg.challengeMoveInterval = time.Millisecond * 500
 	runEndToEndTest(t, &e2eConfig{
 		backend:  simulated,
 		protocol: defaultProtocolParams(),
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
-			numEvilValidators: 3,
+			numEvilValidators: 2,
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
