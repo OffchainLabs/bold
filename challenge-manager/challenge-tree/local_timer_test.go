@@ -14,7 +14,7 @@ import (
 )
 
 func Test_localTimer(t *testing.T) {
-	ct := &HonestChallengeTree{
+	ct := &RoyalChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
@@ -79,7 +79,7 @@ func Test_localTimer(t *testing.T) {
 }
 
 func Test_earliestCreatedRivalBlockNumber(t *testing.T) {
-	ct := &HonestChallengeTree{
+	ct := &RoyalChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
@@ -118,7 +118,7 @@ func Test_earliestCreatedRivalBlockNumber(t *testing.T) {
 }
 
 func Test_unrivaledAtBlockNum(t *testing.T) {
-	ct := &HonestChallengeTree{
+	ct := &RoyalChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}
@@ -160,7 +160,7 @@ func Test_unrivaledAtBlockNum(t *testing.T) {
 }
 
 func Test_rivalsWithCreationTimes(t *testing.T) {
-	ct := &HonestChallengeTree{
+	ct := &RoyalChallengeTree{
 		edges:     threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		mutualIds: threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 	}

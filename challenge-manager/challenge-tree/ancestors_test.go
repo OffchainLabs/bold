@@ -63,7 +63,7 @@ func buildEdges(allEdges ...*mock.Edge) map[mock.EdgeId]*mock.Edge {
 //	      \--5'--6'----8'----------16' = Bob
 //
 // and then inserts the respective edges into a challenge tree.
-func setupBlockChallengeTreeSnapshot(t *testing.T, tree *HonestChallengeTree, claimId string) {
+func setupBlockChallengeTreeSnapshot(t *testing.T, tree *RoyalChallengeTree, claimId string) {
 	t.Helper()
 	aliceEdges := buildEdges(
 		// Alice.
@@ -186,7 +186,7 @@ func id(eId mock.EdgeId) protocol.EdgeId {
 //	      \--5'--6'----8'----------16' = Bob
 //
 // and then inserts the respective edges into a challenge tree.
-func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, claimId string) {
+func setupBigStepChallengeSnapshot(t *testing.T, tree *RoyalChallengeTree, claimId string) {
 	t.Helper()
 	originEdge, ok := tree.edges.Get(id(mock.EdgeId(claimId))).(*mock.Edge)
 	require.Equal(t, true, ok)
@@ -309,7 +309,7 @@ func setupBigStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, clai
 // and then inserts the respective edges into a challenge tree.
 //
 // and then inserts the respective edges into a challenge tree.
-func setupSmallStepChallengeSnapshot(t *testing.T, tree *HonestChallengeTree, claimId string) {
+func setupSmallStepChallengeSnapshot(t *testing.T, tree *RoyalChallengeTree, claimId string) {
 	t.Helper()
 	originEdge, ok := tree.edges.Get(id(mock.EdgeId(claimId))).(*mock.Edge)
 	require.Equal(t, true, ok)
