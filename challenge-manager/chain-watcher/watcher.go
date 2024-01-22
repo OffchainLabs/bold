@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
@@ -628,9 +627,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
-
-	// If a DB is enabled, save the edge to the database.
-	return w.saveEdgeToDB(ctx, edge, &protocol.Agreement{IsHonestEdge: true, AgreesWithStartCommit: true})
+	return nil
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -713,7 +710,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if isRoyalEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
-	return w.saveEdgeToDB(ctx, edge, &agreement)
+	return nil
 }
 
 // Processes an edge added event by adding it to the honest challenge tree if it is honest.
@@ -938,11 +935,7 @@ func (w *Watcher) processEdgeConfirmation(
 	// Check if we should confirm the assertion by challenge winner.
 	challengeLevel := edge.GetChallengeLevel()
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
-		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(
-			ctx,
-			protocol.AssertionHash{Hash: common.Hash(claimId)},
-			edgeId,
-		); confirmAssertionErr != nil {
+		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edgeId); confirmAssertionErr != nil {
 			return confirmAssertionErr
 		}
 		srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
@@ -980,98 +973,4 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 		startBlockNum: startBlock,
 		endBlockNum:   header.Number.Uint64(),
 	}, nil
-}
-
-func (w *Watcher) saveEdgeToDB(
-	ctx context.Context,
-	edge protocol.SpecEdge,
-	agreement *protocol.Agreement,
-) error {
-	if api.IsNil(w.apiDB) {
-		return nil
-	}
-	start, startCommit := edge.StartCommitment()
-	end, endCommit := edge.EndCommitment()
-	creation, err := edge.CreatedAtBlock()
-	if err != nil {
-		return err
-	}
-	var miniStaker common.Address
-	if edge.MiniStaker().IsSome() {
-		miniStaker = edge.MiniStaker().Unwrap()
-	}
-	assertionHash, err := edge.AssertionHash(ctx)
-	if err != nil {
-		return err
-	}
-	var claimId common.Hash
-	if edge.ClaimId().IsSome() {
-		claimId = common.Hash(edge.ClaimId().Unwrap())
-	}
-	var pathTimer uint64
-	if agreement.IsHonestEdge {
-		timer, _, _, err2 := w.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
-		if err2 != nil {
-			return err2
-		}
-		pathTimer = uint64(timer)
-	}
-	lowerChild, err := edge.LowerChild(ctx)
-	if err != nil {
-		return err
-	}
-	upperChild, err := edge.UpperChild(ctx)
-	if err != nil {
-		return err
-	}
-	var lowerChildId, upperChildId common.Hash
-	var hasChildren bool
-	if lowerChild.IsSome() {
-		hasChildren = true
-		lowerChildId = lowerChild.Unwrap().Hash
-	}
-	if upperChild.IsSome() {
-		hasChildren = true
-		upperChildId = upperChild.Unwrap().Hash
-	}
-	status, err := edge.Status(ctx)
-	if err != nil {
-		return err
-	}
-	timeUnrivaled, err := edge.TimeUnrivaled(ctx)
-	if err != nil {
-		return err
-	}
-	hasRival, err := edge.HasRival(ctx)
-	if err != nil {
-		return err
-	}
-	hasLengthOneRival, err := edge.HasLengthOneRival(ctx)
-	if err != nil {
-		return err
-	}
-	return w.apiDB.InsertEdge(&api.JsonEdge{
-		Id:                  edge.Id().Hash,
-		ChallengeLevel:      uint8(edge.GetChallengeLevel()),
-		StartHistoryRoot:    startCommit,
-		StartHeight:         uint64(start),
-		EndHistoryRoot:      endCommit,
-		EndHeight:           uint64(end),
-		CreatedAtBlock:      creation,
-		MutualId:            common.Hash(edge.MutualId()),
-		OriginId:            common.Hash(edge.OriginId()),
-		ClaimId:             claimId,
-		MiniStaker:          miniStaker,
-		AssertionHash:       assertionHash.Hash,
-		Status:              status.String(),
-		LowerChildId:        lowerChildId,
-		UpperChildId:        upperChildId,
-		HasChildren:         hasChildren,
-		IsHonest:            agreement.IsHonestEdge,
-		IsRelevant:          agreement.AgreesWithStartCommit,
-		CumulativePathTimer: pathTimer,
-		TimeUnrivaled:       timeUnrivaled,
-		HasRival:            hasRival,
-		HasLengthOneRival:   hasLengthOneRival,
-	})
 }
