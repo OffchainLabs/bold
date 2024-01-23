@@ -1,7 +1,6 @@
 package db
 
 var (
-	//nolint:unused
 	schema = `
 CREATE TABLE Challenges (
     Hash TEXT NOT NULL PRIMARY KEY,
