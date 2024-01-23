@@ -588,6 +588,9 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 		return err
 	}
 	if edgeExists != 0 {
+		if err2 := tx.Rollback(); err2 != nil {
+			return err2
+		}
 		return nil
 	}
 	// Check if the assertion exists
