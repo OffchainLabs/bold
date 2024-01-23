@@ -60,7 +60,7 @@ func (s *Server) registerMethods() error {
 	r := s.router.PathPrefix(apiVersion).Subrouter()
 	r.HandleFunc("/healthz", s.Healthz).Methods("GET")
 	r.HandleFunc("/assertions", s.ListAssertions).Methods("GET")
-	r.HandleFunc("/assertions/{identifier}", s.ListAssertions).Methods("GET")
+	r.HandleFunc("/assertions/{identifier}", s.AssertionByIdentifier).Methods("GET")
 	r.HandleFunc("/challenge/{assertion-hash}/edges", s.AllChallengeEdges).Methods("GET")
 	r.HandleFunc("/challenge/{assertion-hash}/edges/id/{edge-id}", s.EdgeByIdentifier).Methods("GET")
 	r.HandleFunc("/challenge/{assertion-hash}/edges/history/{history-commitment}", s.EdgeByHistoryCommitment).Methods("GET")
