@@ -51,11 +51,11 @@ func (b *Backend) GetAssertions(ctx context.Context, opts ...db.AssertionOption)
 	}
 	if query.ShouldForceUpdate() {
 		for _, a := range assertions {
-			status, err := b.chainDataFetcher.AssertionStatus(ctx, protocol.AssertionHash{Hash: a.Hash})
+			fetchedAssertion, err := b.chainDataFetcher.GetAssertion(ctx, protocol.AssertionHash{Hash: a.Hash})
 			if err != nil {
 				return nil, err
 			}
-			fetchedAssertion, err := b.chainDataFetcher.GetAssertion(ctx, protocol.AssertionHash{Hash: a.Hash})
+			status, err := fetchedAssertion.Status(ctx)
 			if err != nil {
 				return nil, err
 			}
