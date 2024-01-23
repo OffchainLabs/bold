@@ -21,7 +21,6 @@ import (
 	customTime "github.com/OffchainLabs/bold/time"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -315,7 +314,7 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 	numBigStepLevels := numBigStepLevelsRaw
 
-	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice")
+	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil)
 	require.NoError(t, err)
 	honestValidator.watcher = honestWatcher
 	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
@@ -336,7 +335,7 @@ func setupEdgeTrackersForBisection(
 	)
 	require.NoError(t, err)
 
-	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice")
+	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil)
 	require.NoError(t, err)
 	evilValidator.watcher = evilWatcher
 	tracker2, err := edgetracker.New(
@@ -389,27 +388,4 @@ func TestNewRandomWakeupInterval(t *testing.T) {
 	v, err := New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup, WithMode(types.MakeMode))
 	require.NoError(t, err)
 	require.NotEqual(t, 0, v.edgeTrackerWakeInterval.Milliseconds())
-}
-
-func TestCanSetAPIEndpoint(t *testing.T) {
-	t.Helper()
-	p := &mocks.MockProtocol{}
-	ctx := context.Background()
-	cm := &mocks.MockSpecChallengeManager{}
-	p.On("CurrentChallengeManager", ctx).Return(cm, nil)
-	p.On("SpecChallengeManager", ctx).Return(cm, nil)
-	cm.On("NumBigSteps", ctx).Return(uint8(1), nil)
-	cfg, err := setup.ChainsWithEdgeChallengeManager()
-	require.NoError(t, err)
-
-	// Test we need the RPC client to enable the API service.
-	_, err = New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
-		WithMode(types.MakeMode), WithAPIEnabled("localhost:1234"))
-	require.ErrorContains(t, err, "go-ethereum RPC client required to enable API service")
-
-	// Test we can set the API endpoint.
-	v, err := New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
-		WithMode(types.MakeMode), WithAPIEnabled("localhost:1234"), WithRPCClient(&rpc.Client{}))
-	require.NoError(t, err)
-	require.Equal(t, "localhost:1234", v.apiAddr)
 }

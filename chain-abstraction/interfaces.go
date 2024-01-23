@@ -56,6 +56,19 @@ const (
 	AssertionConfirmed
 )
 
+func (a AssertionStatus) String() string {
+	switch a {
+	case NoAssertion:
+		return "no_assertion"
+	case AssertionPending:
+		return "pending"
+	case AssertionConfirmed:
+		return "confirmed"
+	default:
+		return "unknown_status"
+	}
+}
+
 const BeforeDeadlineAssertionConfirmationError = "BEFORE_DEADLINE"
 
 // Assertion represents a top-level claim in the protocol about the
@@ -65,7 +78,11 @@ type Assertion interface {
 	Id() AssertionHash
 	PrevId(ctx context.Context) (AssertionHash, error)
 	HasSecondChild() (bool, error)
-	CreatedAtBlock() (uint64, error)
+	FirstChildCreationBlock() (uint64, error)
+	SecondChildCreationBlock() (uint64, error)
+	IsFirstChild() (bool, error)
+	CreatedAtBlock() uint64
+	Status(ctx context.Context) (AssertionStatus, error)
 }
 
 // AssertionCreatedInfo from an event creation.
