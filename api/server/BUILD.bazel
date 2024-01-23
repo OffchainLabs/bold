@@ -17,6 +17,7 @@ go_library(
         "//state-commitments/history",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//common/hexutil",
+        "@com_github_ethereum_go_ethereum//log",
         "@com_github_gorilla_mux//:mux",
     ],
 )
