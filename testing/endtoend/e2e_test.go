@@ -180,7 +180,7 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 
 func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 2500
+	protocolCfg.challengePeriodBlocks = 1000
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Millisecond * 500
 	timeCfg.challengeMoveInterval = time.Millisecond * 500
@@ -190,7 +190,7 @@ func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 		protocol: protocolCfg,
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
-			numEvilValidators: 2,
+			numEvilValidators: 6,
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
