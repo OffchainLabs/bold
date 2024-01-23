@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/OffchainLabs/bold/api"
 	"io"
 	"net/http"
 	"strings"
@@ -22,22 +23,6 @@ func (s *Client) Healthz() error {
 		fmt.Printf("Server is healthy\n")
 	}
 	return err
-}
-
-// ForceDBUpdate Forces the server to update its database.
-func (s *Client) ForceDBUpdate() error {
-	res, err := http.Post(s.url+server.ForceDBUpdatePath, "application/json", nil)
-	if err != nil {
-		fmt.Printf("Error while forcing DB update: %s\n", err)
-		return err
-	}
-	if res.StatusCode != http.StatusOK {
-		fmt.Printf("Unable to force DB update: %s\n", http.StatusText(res.StatusCode))
-		return fmt.Errorf("HTTP error with status %d returned by server: %s", res.StatusCode, http.StatusText(res.StatusCode))
-	}
-
-	fmt.Printf("DB update forced\n")
-	return nil
 }
 
 func (s *Client) IsHonestPartyActive() error {
@@ -70,7 +55,7 @@ func (s *Client) IsHonestPartyPlayingSubchallenges(assertionHash common.Hash) (b
 	}
 	numHonestEdges := 0
 	for _, edge := range edges {
-		if edge.IsHonest {
+		if edge.IsRoyal {
 			numHonestEdges++
 		}
 	}
@@ -88,7 +73,7 @@ func (s *Client) AnyHonestEdgeConfirmable(assertionHash common.Hash) (bool, erro
 
 	anyHonestEdgeConfirmable := false
 	for _, edge := range edges {
-		if edge.IsHonest {
+		if edge.IsRoyal {
 			if edge.IsConfirmable {
 				fmt.Printf("Honest edge %s is %s\n", edge.Id, edge.ConfirmableBy)
 				anyHonestEdgeConfirmable = true
@@ -108,18 +93,22 @@ func (s *Client) SybilActivityHappening(assertionHash common.Hash) (bool, error)
 		fmt.Printf("Error while fetching ministakes: %s\n", err)
 		return false, err
 	}
-	var ministakesList []*server.JsonMiniStakes
-	err = json.Unmarshal(body, &ministakesList)
+	var miniStakes *api.JsonMiniStakes
+	err = json.Unmarshal(body, &miniStakes)
 	if err != nil {
 		fmt.Printf("Error while parsing ministakes: %s\n", err)
 		return false, err
 	}
 
 	sybilActivityHappening := false
-	for _, ministakes := range ministakesList {
-		if ministakes.StakeInfo.NumberOfMinistakes > 2 {
-			fmt.Printf("Sybil activity happening at level %s\n", ministakes.Level)
-			fmt.Printf("Number of ministakes: %d\n", ministakes.StakeInfo.NumberOfMinistakes)
+	for level, miniStakeInfoList := range miniStakes.StakesByLvlAndOrigin {
+		totalMiniStakesPerLevel := uint64(0)
+		for _, miniStakeInfo := range miniStakeInfoList {
+			totalMiniStakesPerLevel += miniStakeInfo.NumberOfMiniStakes
+		}
+		if totalMiniStakesPerLevel > 2 {
+			fmt.Printf("Sybil activity happening at level %s\n", level)
+			fmt.Printf("Number of ministakes: %d\n", totalMiniStakesPerLevel)
 			sybilActivityHappening = true
 		}
 	}
@@ -140,7 +129,7 @@ func (s *Client) AnyEvilEdgeConfirmed(assertionHash common.Hash) (bool, error) {
 
 	anyEvilEdgeConfirmed := false
 	for _, edge := range edges {
-		if !edge.IsHonest {
+		if !edge.IsRoyal {
 			if edge.Status == protocol.EdgeConfirmed.String() {
 				fmt.Printf("Evil edge %s is confirmed\n", edge.Id)
 				anyEvilEdgeConfirmed = true
@@ -159,13 +148,13 @@ func (s *Client) AssertionChainHealth() error {
 }
 
 // ListAssertions fetches all assertions from the server.
-func (s *Client) ListAssertions() ([]*server.JsonAssertion, error) {
+func (s *Client) ListAssertions() ([]*api.JsonAssertion, error) {
 	body, err := s.httpGet(server.ListAssertionsPath)
 	if err != nil {
 		fmt.Printf("Error while fetching assertions: %s\n", err)
 		return nil, err
 	}
-	var assertions []*server.JsonAssertion
+	var assertions []*api.JsonAssertion
 	err = json.Unmarshal(body, &assertions)
 	if err != nil {
 		fmt.Printf("Error while parsing assertions: %s\n", err)
@@ -176,13 +165,13 @@ func (s *Client) ListAssertions() ([]*server.JsonAssertion, error) {
 }
 
 // AllChallengeEdges fetches all the edges corresponding to a challenge
-func (s *Client) AllChallengeEdges(assertionHash common.Hash) ([]*server.JsonEdge, error) {
+func (s *Client) AllChallengeEdges(assertionHash common.Hash) ([]*api.JsonEdge, error) {
 	body, err := s.httpGet(strings.Replace(server.AllChallengeEdgesPath, server.AssertionHash, assertionHash.String(), 1))
 	if err != nil {
 		fmt.Printf("Error while fetching challenge edges: %s\n", err)
 		return nil, err
 	}
-	var edges []*server.JsonEdge
+	var edges []*api.JsonEdge
 	err = json.Unmarshal(body, &edges)
 	if err != nil {
 		fmt.Printf("Error while parsing challenge edges: %s\n", err)
@@ -192,31 +181,14 @@ func (s *Client) AllChallengeEdges(assertionHash common.Hash) ([]*server.JsonEdg
 	return edges, nil
 }
 
-// ChallengeByAssertionHash fetches information about a challenge on a specific assertion hash
-func (s *Client) ChallengeByAssertionHash(assertionHash common.Hash) (*server.JsonChallenge, error) {
-	body, err := s.httpGet(strings.Replace(server.ChallengeByAssertionHashPath, server.AssertionHash, assertionHash.String(), 1))
-	if err != nil {
-		fmt.Printf("Error while fetching challenge: %s\n", err)
-		return nil, err
-	}
-	var challenge server.JsonChallenge
-	err = json.Unmarshal(body, &challenge)
-	if err != nil {
-		fmt.Printf("Error while parsing challenge: %s\n", err)
-		return nil, err
-	}
-	fmt.Printf("Challenge: %s\n", string(body))
-	return &challenge, nil
-}
-
 // MiniStakes fetches all ministakes for a specific assertion hash
-func (s *Client) MiniStakes(assertionHash common.Hash) ([]*server.JsonMiniStakes, error) {
+func (s *Client) MiniStakes(assertionHash common.Hash) ([]*api.JsonMiniStakes, error) {
 	body, err := s.httpGet(strings.Replace(server.MiniStakesPath, server.AssertionHash, assertionHash.String(), 1))
 	if err != nil {
 		fmt.Printf("Error while fetching ministakes: %s\n", err)
 		return nil, err
 	}
-	var ministakesList []*server.JsonMiniStakes
+	var ministakesList []*api.JsonMiniStakes
 	err = json.Unmarshal(body, &ministakesList)
 	if err != nil {
 		fmt.Printf("Error while parsing ministakes: %s\n", err)
@@ -238,13 +210,13 @@ func (s *Client) httpGet(path string) ([]byte, error) {
 	return io.ReadAll(res.Body)
 }
 
-func (s *Client) getEdges(assertionHash common.Hash) ([]*server.JsonEdge, error) {
+func (s *Client) getEdges(assertionHash common.Hash) ([]*api.JsonEdge, error) {
 	body, err := s.httpGet(strings.Replace(server.AllChallengeEdgesPath, server.AssertionHash, assertionHash.String(), 1))
 	if err != nil {
 		fmt.Printf("Error while fetching challenge edges: %s\n", err)
 		return nil, err
 	}
-	var edges []*server.JsonEdge
+	var edges []*api.JsonEdge
 	err = json.Unmarshal(body, &edges)
 	if err != nil {
 		fmt.Printf("Error while parsing challenge edges: %s\n", err)
@@ -253,11 +225,11 @@ func (s *Client) getEdges(assertionHash common.Hash) ([]*server.JsonEdge, error)
 	return edges, nil
 }
 
-func noUnrivaledEvilEdge(edges []*server.JsonEdge) bool {
+func noUnrivaledEvilEdge(edges []*api.JsonEdge) bool {
 	noUnrivaledEvilEdge := true
 	for _, edge := range edges {
 		if !edge.HasRival {
-			if !edge.IsHonest {
+			if !edge.IsRoyal {
 				fmt.Printf("Evil edge %s is not rivaled\n", edge.Id)
 				noUnrivaledEvilEdge = false
 			}
@@ -266,7 +238,7 @@ func noUnrivaledEvilEdge(edges []*server.JsonEdge) bool {
 	return noUnrivaledEvilEdge
 }
 
-func evilEdgesHaveLowerCumulativePathTimer(edges []*server.JsonEdge) bool {
+func evilEdgesHaveLowerCumulativePathTimer(edges []*api.JsonEdge) bool {
 	evilEdgesHaveLowerCumulativePathTimer := true
 	honestEdgesMap, evilEdgesMap := getHonestEvilEdgeMap(edges)
 
@@ -295,19 +267,19 @@ func evilEdgesHaveLowerCumulativePathTimer(edges []*server.JsonEdge) bool {
 	return evilEdgesHaveLowerCumulativePathTimer
 }
 
-func getHonestEvilEdgeMap(edges []*server.JsonEdge) (map[common.Hash][]*server.JsonEdge, map[common.Hash][]*server.JsonEdge) {
-	honestEdgesMap := make(map[common.Hash][]*server.JsonEdge)
-	evilEdgesMap := make(map[common.Hash][]*server.JsonEdge)
+func getHonestEvilEdgeMap(edges []*api.JsonEdge) (map[common.Hash][]*api.JsonEdge, map[common.Hash][]*api.JsonEdge) {
+	honestEdgesMap := make(map[common.Hash][]*api.JsonEdge)
+	evilEdgesMap := make(map[common.Hash][]*api.JsonEdge)
 	for _, edge := range edges {
-		if edge.IsHonest {
+		if edge.IsRoyal {
 			if honestEdgesMap[edge.MutualId] == nil {
-				honestEdgesMap[edge.MutualId] = []*server.JsonEdge{}
+				honestEdgesMap[edge.MutualId] = []*api.JsonEdge{}
 			}
 			honestEdgesMap[edge.MutualId] = append(honestEdgesMap[edge.MutualId], edge)
 
 		} else {
 			if evilEdgesMap[edge.MutualId] == nil {
-				evilEdgesMap[edge.MutualId] = []*server.JsonEdge{}
+				evilEdgesMap[edge.MutualId] = []*api.JsonEdge{}
 			}
 			evilEdgesMap[edge.MutualId] = append(evilEdgesMap[edge.MutualId], edge)
 		}

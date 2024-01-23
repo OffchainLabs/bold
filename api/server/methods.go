@@ -19,13 +19,11 @@ import (
 )
 
 const (
-	HealthzPath                  = "/api/v1/db/healthz"
-	ForceDBUpdatePath            = "/api/v1/db/update"
-	AssertionHash                = "<assertion-hash>"
-	AllChallengeEdgesPath        = "/api/v1/challenge/" + AssertionHash + "/edges"
-	MiniStakesPath               = "/api/v1/challenge/" + AssertionHash + "/ministakes"
-	ListAssertionsPath           = "/api/v1/assertions"
-	ChallengeByAssertionHashPath = "/api/v1/challenge/" + AssertionHash
+	HealthzPath           = "/api/v1/db/healthz"
+	AssertionHash         = "<assertion-hash>"
+	AllChallengeEdgesPath = "/api/v1/challenge/" + AssertionHash + "/edges"
+	MiniStakesPath        = "/api/v1/challenge/" + AssertionHash + "/ministakes"
+	ListAssertionsPath    = "/api/v1/assertions"
 )
 
 var contentType = "application/json"
@@ -521,7 +519,7 @@ func (s *Server) EdgeByHistoryCommitment(w http.ResponseWriter, r *http.Request)
 // - force_update: refetch the updatable fields of each item in the response
 // - challenge_level: items in a specific challenge level. level 0 is the block challenge level
 // response:
-// - []*MiniStake
+// - *JsonMiniStakes
 func (s *Server) MiniStakes(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	assertionHashStr := vars["assertion-hash"]

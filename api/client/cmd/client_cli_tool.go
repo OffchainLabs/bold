@@ -27,8 +27,6 @@ func main() {
 	switch strings.ToLower(args[2]) {
 	case "healthz":
 		err = client.Healthz()
-	case "forcedbupdate":
-		err = client.ForceDBUpdate()
 	case "ishonestpartyactive":
 		err = client.IsHonestPartyActive()
 	case "honestpartyhasadvantage":
@@ -67,11 +65,6 @@ func main() {
 			panic("Usage: client_cli_tool <url> AllChallengeEdges <assertion_hash>")
 		}
 		_, err = client.AllChallengeEdges(common.HexToHash(args[3]))
-	case "challengebyassertionhash":
-		if len(args) < 4 {
-			panic("Usage: client_cli_tool <url> ChallengeByAssertionHash <assertion_hash>")
-		}
-		_, err = client.ChallengeByAssertionHash(common.HexToHash(args[3]))
 	default:
 		panic(fmt.Sprintf("Unknown method: %s", args[2]))
 	}
