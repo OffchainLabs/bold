@@ -29,11 +29,24 @@ type MetadataReader interface {
 
 type creationTime uint64
 
+// OriginPlusMutualId combines a mutual id and origin id as a key for a mapping.
+// This is used for computing the rivals of an edge, as all rivals share a mutual id.
+// However, we also add the origin id as that allows us to namespace to lookup
+// to a specific challenge.
+type OriginPlusMutualId [64]byte
+
+func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.MutualId) OriginPlusMutualId {
+	var key OriginPlusMutualId
+	copy(key[0:32], originId[:])
+	copy(key[32:64], mutualId[:])
+	return key
+}
+
 // RoyalChallengeTree keeps track of royal edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
 	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	mutualIds             *threadsafe.Map[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionHash protocol.AssertionHash
 	metadataReader        MetadataReader
 	histChecker           l2stateprovider.HistoryChecker
@@ -51,7 +64,7 @@ func New(
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		mutualIds:             threadsafe.NewMap[protocol.MutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
+		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
 		topLevelAssertionHash: assertionHash,
 		metadataReader:        metadataReader,
 		histChecker:           histChecker,
