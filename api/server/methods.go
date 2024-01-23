@@ -14,6 +14,7 @@ import (
 	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/gorilla/mux"
 )
 
@@ -84,12 +85,7 @@ func (s *Server) ListAssertions(r *http.Request, w http.ResponseWriter) {
 		http.Error(w, fmt.Sprintf("Could not get assertions from backend: %v", err), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	if err = json.NewEncoder(w).Encode(assertions); err != nil {
-		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	writeJSONResponse(w, assertions)
 }
 
 // AssertionByIdentifier since the latest confirmed assertion.
@@ -149,12 +145,7 @@ func (s *Server) AssertionByIdentifier(r *http.Request, w http.ResponseWriter) {
 		}
 		assertion = assertions[0]
 	}
-	w.Header().Set("Content-Type", contentType)
-	if err := json.NewEncoder(w).Encode(assertion); err != nil {
-		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	writeJSONResponse(w, assertion)
 }
 
 // AllChallengeEdges fetches all the edges corresponding to a challenged
@@ -315,12 +306,7 @@ func (s *Server) AllChallengeEdges(r *http.Request, w http.ResponseWriter) {
 		http.Error(w, fmt.Sprintf("Could not get edges from backend: %v", err), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	if err := json.NewEncoder(w).Encode(edges); err != nil {
-		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	writeJSONResponse(w, edges)
 }
 
 func parseEdgeStatus(str string) (protocol.EdgeStatus, error) {
@@ -385,12 +371,7 @@ func (s *Server) EdgeByIdentifier(r *http.Request, w http.ResponseWriter) {
 		http.Error(w, fmt.Sprintf("Got more edges than expected: %d", len(edges)), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	if err := json.NewEncoder(w).Encode(edges[0]); err != nil {
-		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	writeJSONResponse(w, edges[0])
 }
 
 // EdgeByHistoryCommitment fetches an edge by its specific history commitment in a challenge.
@@ -414,28 +395,34 @@ func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter)
 	assertionHashStr := vars["assertion-hash"]
 	hash, err := hexutil.Decode(assertionHashStr)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse assertion hash: %v", err), http.StatusBadRequest)
 		return
 	}
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash(hash)}
 	historyCommitment := vars["history-commitment"]
 	parts := strings.Split(historyCommitment, ":")
 	if len(parts) != 4 {
+		http.Error(w, "Wrong history commitment format, wanted startheight:starthash:endheight:endhash", http.StatusBadRequest)
 		return
 	}
 	startHeight, err := strconv.ParseUint(parts[0], 10, 64)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse start height: %v", err), http.StatusBadRequest)
 		return
 	}
 	startHash, err := hexutil.Decode(parts[1])
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse start hash: %v", err), http.StatusBadRequest)
 		return
 	}
 	endHeight, err := strconv.ParseUint(parts[2], 10, 64)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse end height: %v", err), http.StatusBadRequest)
 		return
 	}
 	endHash, err := hexutil.Decode(parts[3])
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse end hash: %v", err), http.StatusBadRequest)
 		return
 	}
 	opts := []db.EdgeOption{
@@ -466,12 +453,7 @@ func (s *Server) EdgeByHistoryCommitment(r *http.Request, w http.ResponseWriter)
 		http.Error(w, fmt.Sprintf("Got more edges than expected: %d", len(edges)), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	if err := json.NewEncoder(w).Encode(edges[0]); err != nil {
-		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	writeJSONResponse(w, edges[0])
 }
 
 // MiniStakes fetches all the mini-stakes present in a single challenged assertion.
@@ -495,6 +477,7 @@ func (s *Server) MiniStakes(r *http.Request, w http.ResponseWriter) {
 	assertionHashStr := vars["assertion-hash"]
 	hash, err := hexutil.Decode(assertionHashStr)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not parse assertion hash: %v", err), http.StatusBadRequest)
 		return
 	}
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash(hash)}
@@ -523,10 +506,20 @@ func (s *Server) MiniStakes(r *http.Request, w http.ResponseWriter) {
 		http.Error(w, fmt.Sprintf("Could not get ministakes from backend: %v", err), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	if err := json.NewEncoder(w).Encode(miniStakes); err != nil {
+	writeJSONResponse(w, miniStakes)
+}
+
+func writeJSONResponse(w http.ResponseWriter, data any) {
+	body, err := json.Marshal(data)
+	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not write response: %v", err), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(body)
+	if err != nil {
+		log.Error("could not write response body", "err", err, "status", http.StatusInternalServerError)
+		return
+	}
 }
