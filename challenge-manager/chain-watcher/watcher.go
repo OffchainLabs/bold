@@ -636,7 +636,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
-	return nil
+	return w.saveEdgeToDB(ctx, edge, true /* is royal */)
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -719,7 +719,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if isRoyalEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
-	return nil
+	return w.saveEdgeToDB(ctx, edge, isRoyalEdge)
 }
 
 // Processes an edge added event by adding it to the honest challenge tree if it is honest.

@@ -13,11 +13,11 @@ import (
 
 // AddRoyalEdge known to be honest, such as those created by the local validator.
 func (ht *RoyalChallengeTree) AddRoyalEdge(eg protocol.VerifiedRoyalEdge) error {
-	id := eg.Id()
-	if _, ok := ht.edges.TryGet(id); ok {
-		// Already being tracked.
-		return nil
-	}
+	// id := eg.Id()
+	// if _, ok := ht.edges.TryGet(id); ok {
+	// 	// Already being tracked.
+	// 	return nil
+	// }
 	if err := ht.keepTrackOfCreationTime(eg); err != nil {
 		return err
 	}

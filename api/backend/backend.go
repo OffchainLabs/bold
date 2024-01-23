@@ -91,6 +91,7 @@ func (b *Backend) GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.J
 	for _, o := range opts {
 		o(query)
 	}
+	fmt.Printf("%+v and %+v\n", query, opts)
 	edges, err := b.db.GetEdges(opts...)
 	if err != nil {
 		return nil, err

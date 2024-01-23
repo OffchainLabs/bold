@@ -658,7 +658,9 @@ func (et *Tracker) bisect(ctx context.Context) (protocol.SpecEdge, protocol.Spec
 	}
 	challengeLevel := et.edge.GetChallengeLevel()
 	srvlog.Info("Successfully bisected edge", log.Ctx{
-		"name":               et.validatorName,
+		"validatorName":      et.validatorName,
+		"id":                 et.edge.Id(),
+		"originId":           et.edge.OriginId(),
 		"challengeType":      challengeLevel,
 		"bisectedFrom":       endHeight,
 		"bisectedFromMerkle": containers.Trunc(endCommit.Bytes()),
