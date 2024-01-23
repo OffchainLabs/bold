@@ -63,6 +63,9 @@ type JsonEdge struct {
 	IsRoyal             bool          `json:"isRoyal" db:"IsRoyal"`
 	CumulativePathTimer uint64        `json:"cumulativePathTimer" db:"CumulativePathTimer"`
 	RefersTo            string        `json:"refersTo" db:"RefersTo"`
+	// TODO: make sure to fill confirmable info using something like GetHonestConfirmableEdges
+	IsConfirmable bool   `json:"isConfirmable"`
+	ConfirmableBy string `json:"confirmableBy"`
 }
 
 type JsonMiniStakes struct {
