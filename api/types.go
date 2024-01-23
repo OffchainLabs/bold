@@ -58,9 +58,22 @@ type JsonEdge struct {
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
-	IsHonest            bool   `json:"isHonest" db:"IsHonest"`
-	IsRelevant          bool   `json:"isRelevant" db:"IsRelevant"`
-	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
+	Ancestors           []common.Hash `json:"ancestors"`
+	RawAncestors        string        `json:"-" db:"RawAncestors"`
+	IsRoyal             bool          `json:"isRoyal" db:"IsRoyal"`
+	CumulativePathTimer uint64        `json:"cumulativePathTimer" db:"CumulativePathTimer"`
+	RefersTo            string        `json:"refersTo" db:"RefersTo"`
+}
+
+type JsonMiniStakes struct {
+	ChallengedAssertionHash common.Hash                                      `json:"challengedAssertionHash"`
+	StakesByLvlAndOrigin    map[protocol.ChallengeLevel][]*JsonMiniStakeInfo `json:"stakesByLvlAndOrigin"`
+}
+
+type JsonMiniStakeInfo struct {
+	ChallengeOriginId  common.Hash      `json:"challengeOriginId"`
+	StakerAddresses    []common.Address `json:"stakerAddresses"`
+	NumberOfMiniStakes uint64           `json:"numberOfMiniStakes"`
 }
 
 func IsNil(i any) bool {
