@@ -345,6 +345,7 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Could not get edges from backend: %v", err), http.StatusInternalServerError)
 		return
 	}
+	log.Info("Got edges from DB", log.Ctx{"numEdges": len(edges)})
 	writeJSONResponse(w, edges)
 }
 

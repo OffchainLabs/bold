@@ -3,6 +3,7 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
@@ -520,6 +522,7 @@ func (q *EdgeQuery) ToSQL() (string, []interface{}) {
 func (d *SqliteDatabase) GetEdges(opts ...EdgeOption) ([]*api.JsonEdge, error) {
 	query := NewEdgeQuery(opts...)
 	sql, args := query.ToSQL()
+	log.Info(fmt.Sprintf("Query is %s", sql))
 	edges := make([]*api.JsonEdge, 0)
 	d.lock.Lock()
 	defer d.lock.Unlock()
