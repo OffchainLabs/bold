@@ -90,10 +90,6 @@ error EmptyOneStepProofEntry();
 error EmptyChallengePeriod();
 /// @dev No stake receiver address supplied
 error EmptyStakeReceiver();
-/// @dev No stake token address supplied
-error EmptyStakeToken();
-/// @dev No stake amount supplied
-error EmptyStakeAmount();
 /// @dev A rival edge is already confirmed
 error RivalEdgeConfirmed(bytes32 edgeId, bytes32 confirmedRivalId);
 /// @dev Thrown when big step levels is set to 0
