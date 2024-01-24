@@ -25,7 +25,7 @@ const solidity = {
       settings: {
         optimizer: {
           enabled: true,
-          runs: 400,
+          runs: 200,
         },
       },
     },
@@ -34,7 +34,7 @@ const solidity = {
       settings: {
         optimizer: {
           enabled: true,
-          runs: 400,
+          runs: 200,
         },
       },
     },
