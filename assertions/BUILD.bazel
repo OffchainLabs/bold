@@ -9,10 +9,13 @@ go_library(
     importpath = "github.com/OffchainLabs/bold/assertions",
     visibility = ["//visibility:public"],
     deps = [
+        "//api",
+        "//api/db",
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
         "//challenge-manager/types",
         "//containers",
+        "//containers/option",
         "//containers/threadsafe",
         "//layer2-state-provider",
         "//runtime",

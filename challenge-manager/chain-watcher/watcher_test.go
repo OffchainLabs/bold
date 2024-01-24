@@ -29,6 +29,11 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 	).Return(mockChallengeManager, nil)
 
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
+	mockChain.On(
+		"IsChallengeComplete",
+		ctx,
+		assertionHash,
+	).Return(false, nil)
 	edgeId := protocol.EdgeId{Hash: common.BytesToHash([]byte("bar"))}
 	edge := &mocks.MockSpecEdge{}
 
@@ -76,6 +81,11 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	originId := protocol.OriginId(common.BytesToHash([]byte("origin bar")))
 	edge := &mocks.MockSpecEdge{}
 
+	mockChain.On(
+		"IsChallengeComplete",
+		ctx,
+		assertionHash,
+	).Return(false, nil)
 	mockChain.On(
 		"TopLevelAssertion",
 		ctx,
@@ -173,10 +183,11 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockManager.On("TrackEdge", ctx, edge).Return(nil)
 
 	watcher := &Watcher{
-		challenges:  threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
-		histChecker: mockStateManager,
-		chain:       mockChain,
-		edgeManager: mockManager,
+		challenges:       threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
+		histChecker:      mockStateManager,
+		chain:            mockChain,
+		edgeManager:      mockManager,
+		numBigStepLevels: 1,
 	}
 	err := watcher.processEdgeAddedEvent(ctx, &challengeV2gen.EdgeChallengeManagerEdgeAdded{
 		EdgeId:   edgeId.Hash,
@@ -239,10 +250,11 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	mockManager.On("TrackEdge", ctx, honest).Return(nil)
 
 	watcher := &Watcher{
-		challenges:  threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
-		histChecker: mockStateManager,
-		chain:       mockChain,
-		edgeManager: mockManager,
+		challenges:       threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
+		histChecker:      mockStateManager,
+		chain:            mockChain,
+		edgeManager:      mockManager,
+		numBigStepLevels: 1,
 	}
 
 	err := watcher.AddVerifiedHonestEdge(ctx, honest)

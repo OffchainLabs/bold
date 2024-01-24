@@ -15,8 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OffchainLabs/bold/api"
+	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
@@ -59,6 +63,7 @@ type Manager struct {
 	stateManager                l2stateprovider.ExecutionProvider
 	postInterval                time.Duration
 	submittedAssertions         *threadsafe.Set[common.Hash]
+	apiDB                       db.Database
 }
 
 // NewManager creates a manager from the required dependencies.
@@ -74,6 +79,7 @@ func NewManager(
 	stateManager l2stateprovider.ExecutionProvider,
 	postInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
+	apiDB db.Database,
 ) (*Manager, error) {
 	if pollInterval == 0 {
 		return nil, errors.New("assertion scanning interval must be greater than 0")
@@ -83,6 +89,7 @@ func NewManager(
 	}
 	return &Manager{
 		chain:                       chain,
+		apiDB:                       apiDB,
 		backend:                     backend,
 		stateProvider:               stateProvider,
 		challengeCreator:            challengeManager,
@@ -112,11 +119,7 @@ func (m *Manager) Start(ctx context.Context) {
 		srvlog.Error("Could not get latest confirmed assertion", log.Ctx{"err": err})
 		return
 	}
-	fromBlock, err := latestConfirmed.CreatedAtBlock()
-	if err != nil {
-		srvlog.Error("Could not get creation block", log.Ctx{"err": err})
-		return
-	}
+	fromBlock := latestConfirmed.CreatedAtBlock()
 
 	filterer, err := retry.UntilSucceeds(ctx, func() (*rollupgen.RollupUserLogicFilterer, error) {
 		return rollupgen.NewRollupUserLogicFilterer(m.rollupAddr, m.backend)
@@ -227,7 +230,11 @@ func (m *Manager) checkForAssertionAdded(
 		// to not block the processing of other incoming events.
 		go func() {
 			_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-				return true, m.ProcessAssertionCreationEvent(ctx, assertionHash)
+				assertionCreationErr := m.ProcessAssertionCreationEvent(ctx, assertionHash)
+				if assertionCreationErr != nil {
+					log.Error(fmt.Sprintf("Could not process assertion creation event: %v", assertionCreationErr))
+				}
+				return true, assertionCreationErr
 			}, retry.WithInterval(time.Minute))
 			if processErr != nil {
 				srvlog.Error(
@@ -259,10 +266,13 @@ func (m *Manager) ProcessAssertionCreationEvent(
 	if err != nil {
 		return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
+	// Save the assertion creation event to the DB if possible.
+	if err2 := m.saveAssertionToDB(ctx, assertionHash); err2 != nil {
+		return err2
+	}
 	if creationInfo.ParentAssertionHash == (common.Hash{}) {
 		return nil // Skip processing genesis, as it has a parent assertion hash of 0x0.
 	}
-
 	// Check if we agree with the assertion's claimed state.
 	claimedState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 	err = m.stateProvider.AgreesWithExecutionState(ctx, claimedState)
@@ -330,8 +340,10 @@ func (m *Manager) postRivalAssertionAndChallenge(
 	if err != nil {
 		return err
 	}
-	correctClaimedAssertionHash := correctRivalAssertion.Id()
-
+	if correctRivalAssertion.IsNone() {
+		srvlog.Warn(fmt.Sprintf("Expected to post a rival assertion to %#x, but did not post anything", creationInfo.AssertionHash))
+		return nil
+	}
 	if !m.canPostChallenge() {
 		srvlog.Warn("Attempted to post rival assertion and stake, but not configured to initiate a challenge", logFields)
 		return nil
@@ -350,13 +362,44 @@ func (m *Manager) postRivalAssertionAndChallenge(
 	}
 	srvlog.Info("Waiting before submitting challenge on assertion", log.Ctx{"delay": randSecs})
 	time.Sleep(time.Duration(randSecs) * time.Second)
-
+	correctClaimedAssertionHash := correctRivalAssertion.Unwrap().Id()
 	if err := m.challengeCreator.ChallengeAssertion(ctx, correctClaimedAssertionHash); err != nil {
 		return err
 	}
+
+	if err := m.logChallengeConfigs(ctx); err != nil {
+		srvlog.Error("Could not log challenge configs", log.Ctx{"err": err})
+	}
+
 	m.challengesSubmittedCount++
 	return nil
 
+}
+
+func (m *Manager) logChallengeConfigs(ctx context.Context) error {
+	cm, err := m.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return err
+	}
+	bigStepNum, err := cm.NumBigSteps(ctx)
+	if err != nil {
+		return err
+	}
+	challengePeriodBlocks, err := cm.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		return err
+	}
+	layerZeroHeights, err := cm.LayerZeroHeights(ctx)
+	if err != nil {
+		return err
+	}
+	srvlog.Info("Challenge configs", log.Ctx{
+		"address":               cm.Address(),
+		"bigStepNumber":         bigStepNum,
+		"challengePeriodBlocks": challengePeriodBlocks,
+		"layerZeroHeights":      layerZeroHeights,
+	})
+	return nil
 }
 
 // Attempt to post a rival assertion based on the last agreed with ancestor
@@ -366,36 +409,97 @@ func (m *Manager) postRivalAssertionAndChallenge(
 // then this function will return that assertion.
 func (m *Manager) maybePostRivalAssertion(
 	ctx context.Context, creationInfo *protocol.AssertionCreatedInfo,
-) (protocol.Assertion, error) {
+) (option.Option[protocol.Assertion], error) {
 	latestAgreedWithAncestor, err := m.findLastAgreedWithAncestor(ctx, creationInfo)
 	if err != nil {
-		return nil, err
+		return option.None[protocol.Assertion](), err
 	}
 	// Post what we believe is the correct assertion that follows the ancestor we agree with.
 	staked, err := m.chain.IsStaked(ctx)
 	if err != nil {
-		return nil, err
+		return option.None[protocol.Assertion](), err
 	}
 	// If the validator is already staked, we post an assertion and move existing stake to it.
+	var assertionOpt option.Option[protocol.Assertion]
+	var postErr error
 	if staked {
-		assertion, postErr := m.PostAssertionBasedOnParent(
+		assertionOpt, postErr = m.PostAssertionBasedOnParent(
 			ctx, latestAgreedWithAncestor, m.chain.StakeOnNewAssertion,
 		)
-		if postErr != nil {
-			return nil, postErr
+	} else {
+		// Otherwise, we post a new assertion and place a new stake on it.
+		assertionOpt, postErr = m.PostAssertionBasedOnParent(
+			ctx, latestAgreedWithAncestor, m.chain.NewStakeOnNewAssertion,
+		)
+	}
+	if postErr != nil {
+		return option.None[protocol.Assertion](), postErr
+	}
+	if assertionOpt.IsSome() {
+		m.submittedAssertions.Insert(assertionOpt.Unwrap().Id().Hash)
+		if err2 := m.saveAssertionToDB(ctx, assertionOpt.Unwrap().Id()); err2 != nil {
+			return option.None[protocol.Assertion](), err2
 		}
-		m.submittedAssertions.Insert(assertion.Id().Hash)
-		return assertion, nil
 	}
-	// Otherwise, we post a new assertion and place a new stake on it.
-	assertion, err := m.PostAssertionBasedOnParent(
-		ctx, latestAgreedWithAncestor, m.chain.NewStakeOnNewAssertion,
-	)
+	return assertionOpt, nil
+}
+
+func (m *Manager) saveAssertionToDB(ctx context.Context, assertionHash protocol.AssertionHash) error {
+	if api.IsNil(m.apiDB) {
+		return nil
+	}
+	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	m.submittedAssertions.Insert(assertion.Id().Hash)
-	return assertion, nil
+	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	status, err := m.chain.AssertionStatus(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	assertion, err := m.chain.GetAssertion(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	isFirstChild, err := assertion.IsFirstChild()
+	if err != nil {
+		return err
+	}
+	firstChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	secondChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	return m.apiDB.InsertAssertion(&api.JsonAssertion{
+		Hash:                     assertionHash.Hash,
+		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
+		RequiredStake:            creationInfo.RequiredStake.String(),
+		ParentAssertionHash:      creationInfo.ParentAssertionHash,
+		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
+		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
+		WasmModuleRoot:           creationInfo.WasmModuleRoot,
+		ChallengeManager:         creationInfo.ChallengeManager,
+		CreationBlock:            creationInfo.CreationBlock,
+		TransactionHash:          creationInfo.TransactionHash,
+		BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
+		BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
+		BeforeStateBatch:         beforeState.GlobalState.Batch,
+		BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
+		BeforeStateMachineStatus: beforeState.MachineStatus,
+		AfterStateBlockHash:      afterState.GlobalState.BlockHash,
+		AfterStateSendRoot:       afterState.GlobalState.SendRoot,
+		AfterStateBatch:          afterState.GlobalState.Batch,
+		AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
+		AfterStateMachineStatus:  afterState.MachineStatus,
+		FirstChildBlock:          &firstChildBlock,
+		SecondChildBlock:         &secondChildBlock,
+		IsFirstChild:             isFirstChild,
+		Status:                   status.String(),
+	})
 }
 
 // Look back until we find the ancestor we agree with for the given assertion.
@@ -442,15 +546,15 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		return
 	}
 	for {
-		if m.assertionConfirmed(ctx, assertionHash) {
-			return
-		}
 		ticker := time.NewTicker(m.confirmationAttemptInterval)
+		defer ticker.Stop()
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
+			if m.assertionConfirmed(ctx, assertionHash) {
+				return
+			}
 		}
 	}
 }
@@ -469,38 +573,53 @@ func (m *Manager) assertionConfirmed(ctx context.Context, assertionHash protocol
 		srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
 		return true
 	}
+	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	if err != nil {
+		srvlog.Error("Could not get assertion creation info by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+		return false
+	}
+	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		srvlog.Error("Could not get assertion creation info by hash", log.Ctx{"err": err, "assertionHash": creationInfo.ParentAssertionHash})
+		return false
+	}
+	latestHeader, err := m.chain.Backend().HeaderByNumber(ctx, nil)
+	if err != nil {
+		srvlog.Error("Could not get latest header", log.Ctx{"err": err})
+		return false
+	}
+	if !latestHeader.Number.IsUint64() {
+		srvlog.Error("Latest block number is not a uint64", log.Ctx{"number": latestHeader.Number.String()})
+		return false
+	}
+	creationBlock := creationInfo.CreationBlock
+	confirmPeriodBlocks := prevCreationInfo.ConfirmPeriodBlocks
+	currentBlock := latestHeader.Number.Uint64()
+
+	// If the assertion is not yet confirmable, we can simply wait until we are confirmable by time.
+	if currentBlock < creationBlock+confirmPeriodBlocks {
+		blocksLeftForConfirmation := (creationBlock + confirmPeriodBlocks) - currentBlock
+		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+		srvlog.Info(
+			fmt.Sprintf(
+				"Assertion with has %s needs at least %d blocks before being confirmable, waiting until then",
+				containers.Trunc(creationInfo.AssertionHash.Bytes()),
+				blocksLeftForConfirmation,
+			),
+		)
+		<-time.After(timeToWait)
+	}
+
 	err = m.chain.ConfirmAssertionByTime(ctx, assertionHash)
 	if err != nil {
 		if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
-			creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-			if err != nil {
-				srvlog.Error("Could not get assertion creation info by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-				return false
-			}
-			prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-			if err != nil {
-				srvlog.Error("Could not get assertion creation info by hash", log.Ctx{"err": err, "assertionHash": creationInfo.ParentAssertionHash})
-				return false
-			}
-			latestHeader, err := m.chain.Backend().HeaderByNumber(ctx, nil)
-			if err != nil {
-				srvlog.Error("Could not get latest header", log.Ctx{"err": err})
-				return false
-			}
-			<-time.After(m.getConfirmationInterval(creationInfo.CreationBlock, prevCreationInfo.ConfirmPeriodBlocks, latestHeader.Number.Uint64()))
+			return false
 		}
+		srvlog.Error("Could not confirm assertion by time", log.Ctx{"blockNumber": latestHeader.Number.String()})
 		return false
 	}
 	srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
 	return true
-}
-
-func (m *Manager) getConfirmationInterval(creationBlock uint64, confirmPeriodBlocks uint64, latestHeaderNumber uint64) time.Duration {
-	if creationBlock+confirmPeriodBlocks > latestHeaderNumber {
-		blocksLeftForConfirmation := (creationBlock + confirmPeriodBlocks) - latestHeaderNumber
-		return m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
-	}
-	return 0
 }
 
 // Returns true if the manager can respond to an assertion with a challenge.
