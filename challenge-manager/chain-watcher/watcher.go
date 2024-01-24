@@ -992,6 +992,7 @@ func (w *Watcher) saveEdgeToDB(
 	if api.IsNil(w.apiDB) {
 		return nil
 	}
+	log.Info(fmt.Sprintf("Saving edge to DB with id %#x", edge.Id()))
 	start, startCommit := edge.StartCommitment()
 	end, endCommit := edge.EndCommitment()
 	creation, err := edge.CreatedAtBlock()
