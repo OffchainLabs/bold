@@ -52,7 +52,7 @@ func WaitForTx(ctx context.Context, be bind.DeployBackend, tx *types.Transaction
 		simulated.Commit()
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	_, err := bind.WaitMined(ctx, be, tx)
