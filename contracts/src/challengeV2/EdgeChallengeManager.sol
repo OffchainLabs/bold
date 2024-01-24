@@ -305,8 +305,16 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         }
         challengePeriodBlocks = _challengePeriodBlocks;
 
+        if (address(_stakeToken) == address(0)) {
+            revert EmptyStakeToken();
+        }
+        if (_stakeAmount == 0) {
+            revert EmptyStakeAmount();
+        }
+
         stakeToken = _stakeToken;
         stakeAmount = _stakeAmount;
+
         if (_excessStakeReceiver == address(0)) {
             revert EmptyStakeReceiver();
         }
@@ -381,21 +389,18 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
             edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
         }
 
-        IERC20 st = stakeToken;
-        uint256 sa = stakeAmount;
         // when a zero layer edge is created it must include stake amount. Each time a zero layer
         // edge is created it forces the honest participants to do some work, so we want to disincentive
         // their creation. The amount should also be enough to pay for the gas costs incurred by the honest
         // participant. This can be arranged out of bound by the excess stake receiver.
         // The contract initializer can disable staking by setting zeros for token or amount, to change
         // this a new challenge manager needs to be deployed and its address updated in the assertion chain
-        if (address(st) != address(0) && sa != 0) {
-            // since only one edge in a group of rivals can ever be confirmed, we know that we
-            // will never need to refund more than one edge. Therefore we can immediately send
-            // all stakes provided after the first one to an excess stake receiver.
-            address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
-            st.safeTransferFrom(msg.sender, receiver, sa);
-        }
+        
+        // since only one edge in a group of rivals can ever be confirmed, we know that we
+        // will never need to refund more than one edge. Therefore we can immediately send
+        // all stakes provided after the first one to an excess stake receiver.
+        address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
+        stakeToken.safeTransferFrom(msg.sender, receiver, stakeAmount);
 
         emit EdgeAdded(
             edgeAdded.edgeId,
@@ -547,14 +552,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager {
         // setting refunded also do checks that the edge cannot be refunded twice
         edge.setRefunded();
 
-        IERC20 st = stakeToken;
-        uint256 sa = stakeAmount;
-        // no need to refund with the token or amount where zero'd out
-        if (address(st) != address(0) && sa != 0) {
-            st.safeTransfer(edge.staker, sa);
-        }
+        stakeToken.safeTransfer(edge.staker, stakeAmount);
 
-        emit EdgeRefunded(edgeId, store.edges[edgeId].mutualId(), address(st), sa);
+        emit EdgeRefunded(edgeId, store.edges[edgeId].mutualId(), address(stakeToken), stakeAmount);
     }
 
     ///////////////////////
