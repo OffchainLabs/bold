@@ -409,7 +409,7 @@ contract BOLDUpgradeAction {
         upgradeSurroundingContracts(expectedRollupAddress);
 
         // deploy the challenge manager
-        EdgeChallengeManager challengeManager = CHALLENGE_MANAGER_FACTORY.createChallengeManager({
+        address challengeManagerImpl = address(CHALLENGE_MANAGER_FACTORY.createChallengeManager({
             _assertionChain: IAssertionChain(expectedRollupAddress),
             _challengePeriodBlocks: CHALLENGE_PERIOD_BLOCKS,
             _oneStepProofEntry: OSP,
@@ -420,7 +420,17 @@ contract BOLDUpgradeAction {
             _stakeAmount: config.miniStakeValue,
             _excessStakeReceiver: L1_TIMELOCK,
             _numBigStepLevel: config.numBigStepLevel
-        });
+        }));
+
+        IEdgeChallengeManager challengeManager = IEdgeChallengeManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    challengeManagerImpl,
+                    address(PROXY_ADMIN_BRIDGE), // use the same proxy admin as the bridge
+                    ""
+                )
+            )
+        );
 
         // now that all the dependent contracts are pointed at the new address we can
         // deploy and init the new rollup
