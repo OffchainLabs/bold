@@ -109,7 +109,7 @@ func NewManager(
 		assertionsProcessedCount:    0,
 		stateManager:                stateManager,
 		postInterval:                postInterval,
-		submittedAssertions:         threadsafe.NewSet[common.Hash](),
+		submittedAssertions:         threadsafe.NewSet[common.Hash](threadsafe.SetWithMetric[common.Hash]("submittedAssertions")),
 		averageTimeForBlockCreation: averageTimeForBlockCreation,
 	}, nil
 }
