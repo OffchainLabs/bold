@@ -75,7 +75,6 @@ func (h *HashCollectorConfig) String() string {
 	str += fmt.Sprintf("%d", h.MachineStartIndex)
 	str += "/"
 	str += fmt.Sprintf("%d", h.StepSize)
-	str += "/"
 	return ""
 }
 
