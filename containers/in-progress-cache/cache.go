@@ -19,7 +19,7 @@ func New[K comparable, V any]() *InProgressCache[K, V] {
 	}
 }
 
-// Compute an expensive closure. The request must be representable as a string.
+// Compute an expensive closure. The request must be representable as a comparable.
 func (c *InProgressCache[K, V]) Compute(requestId K, f func() (V, error)) (V, error) {
 	c.lock.RLock()
 	if ok := c.inProgress[requestId]; ok {
