@@ -1,6 +1,11 @@
 package inprogresscache
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+
+	"github.com/ethereum/go-ethereum/log"
+)
 
 // Cache for expensive computations that ensures only
 // one request is in-flight at a time. If a future request comes in with the same request id
@@ -23,6 +28,12 @@ func New[K comparable, V any]() *Cache[K, V] {
 func (c *Cache[K, V]) Compute(requestId K, f func() (V, error)) (V, error) {
 	c.lock.RLock()
 	if ok := c.inProgress[requestId]; ok {
+		log.Info(
+			fmt.Sprintf(
+				"In-flight request received for request id %v, awaiting completion of first computation",
+				requestId,
+			),
+		)
 		c.lock.RUnlock()
 		responseChan := make(chan V, 1)
 		defer close(responseChan)
