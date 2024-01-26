@@ -51,10 +51,13 @@ func TestConcurrentComputations(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go func() {
+		go func(tt *testing.T) {
 			defer wg.Done()
-			cache.Compute(requestId, computeFunc)
-		}()
+			_, err := cache.Compute(requestId, computeFunc)
+			if err != nil {
+				t.Error("Failed compute")
+			}
+		}(t)
 	}
 	wg.Wait()
 
