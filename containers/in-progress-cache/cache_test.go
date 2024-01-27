@@ -53,7 +53,9 @@ func TestConcurrentComputations(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cache.Compute(requestId, computeFunc)
+			if _, err := cache.Compute(requestId, computeFunc); err != nil {
+				t.Error(err)
+			}
 		}()
 	}
 	wg.Wait()

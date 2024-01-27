@@ -75,7 +75,7 @@ func (h *HashCollectorConfig) String() string {
 	str += fmt.Sprintf("%d", h.MachineStartIndex)
 	str += "/"
 	str += fmt.Sprintf("%d", h.StepSize)
-	return ""
+	return str
 }
 
 // L2MessageStateCollector defines an interface which can obtain the machine hashes at each L2 message
