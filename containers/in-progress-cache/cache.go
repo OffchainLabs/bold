@@ -1,6 +1,29 @@
 package inprogresscache
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	inFlightRequestsCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "inprogresscache_in_flight_requests_total",
+			Help: "Total number of in-flight requests.",
+		},
+		[]string{"requestId"},
+	)
+	pendingRequestsCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "inprogresscache_pending_requests_total",
+			Help: "Total number of pending requests received while a request with the same ID was in-flight.",
+		},
+		[]string{"requestId"},
+	)
+)
 
 // Cache for expensive computations that ensures only
 // one request is in-flight at a time. If a future request comes in with the same request id
@@ -23,6 +46,8 @@ func New[K comparable, V any]() *Cache[K, V] {
 func (c *Cache[K, V]) Compute(requestId K, f func() (V, error)) (V, error) {
 	c.lock.RLock()
 	if ok := c.inProgress[requestId]; ok {
+		pendingRequestsCounter.WithLabelValues(fmt.Sprintf("%v", requestId)).Inc()
+
 		c.lock.RUnlock()
 		responseChan := make(chan V, 1)
 		defer close(responseChan)
@@ -45,6 +70,8 @@ func (c *Cache[K, V]) Compute(requestId K, f func() (V, error)) (V, error) {
 	if err != nil {
 		return zeroVal, err
 	}
+
+	inFlightRequestsCounter.WithLabelValues(fmt.Sprintf("%v", requestId)).Inc()
 
 	c.lock.RLock()
 	receiversWaiting, ok := c.awaitingCompletion[requestId]
