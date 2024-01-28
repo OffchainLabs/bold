@@ -205,9 +205,9 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// Requests collecting machine hashes for the specified config, and uses an in-flight
 	// request cache to make sure the same request is not spawned twice, but rather
 	// the second request would wait for the in-flight request to complete and use its result.
-	// return p.inFlightRequestCache.Compute(cfg.String(), func() ([]common.Hash, error) {
-	return p.machineHashCollector.CollectMachineHashes(ctx, cfg)
-	// })
+	return p.inFlightRequestCache.Compute(cfg.String(), func() ([]common.Hash, error) {
+		return p.machineHashCollector.CollectMachineHashes(ctx, cfg)
+	})
 }
 
 // AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end

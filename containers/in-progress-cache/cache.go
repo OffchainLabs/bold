@@ -62,6 +62,7 @@ func (c *Cache[K, V]) Compute(requestId K, f func() (V, error)) (V, error) {
 
 	c.lock.Lock()
 	c.inProgress[requestId] = true
+	inFlightRequestsCounter.WithLabelValues(fmt.Sprintf("%v", requestId)).Inc()
 	c.lock.Unlock()
 
 	// Do expensive operation
@@ -70,8 +71,6 @@ func (c *Cache[K, V]) Compute(requestId K, f func() (V, error)) (V, error) {
 	if err != nil {
 		return zeroVal, err
 	}
-
-	inFlightRequestsCounter.WithLabelValues(fmt.Sprintf("%v", requestId)).Inc()
 
 	c.lock.RLock()
 	receiversWaiting, ok := c.awaitingCompletion[requestId]
