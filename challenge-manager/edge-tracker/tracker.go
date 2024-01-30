@@ -367,6 +367,16 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 		srvlog.Error("Could not get assertion hash", fields)
 		return false
 	}
+	assertionStatus, err := et.chain.AssertionStatus(ctx, assertionHash)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not check assertion status", fields)
+		return false
+	}
+	if assertionStatus == protocol.AssertionConfirmed {
+		srvlog.Info("Challenged assertion corresponding to edge was confirmed, exiting", fields)
+		return true
+	}
 	_, _, ancestorLocalTimers, err := et.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, et.edge.Id())
 	if err != nil {
 		if errors.Is(err, challengetree.ErrNoLowerChildYet) {
