@@ -652,7 +652,7 @@ func (m *Manager) assertionConfirmed(ctx context.Context, assertionHash protocol
 		if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
 			return false
 		}
-		srvlog.Error("Could not confirm assertion by time", log.Ctx{"blockNumber": latestHeader.Number.String()})
+		srvlog.Error("Could not confirm assertion by time", log.Ctx{"blockNumber": latestHeader.Number.String(), "error": err, "hash": assertionHash.Hash})
 		errorConfirmingAssertionByTimeCounter.Inc(1)
 		return false
 	}
