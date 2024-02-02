@@ -18,6 +18,7 @@ jobs:
         id: gomodtidy
         uses: ./.github/actions/gomodtidy
 
+
   gosec:
     name: Gosec scan
     runs-on: ubuntu-latest
