@@ -1,6 +1,6 @@
 module github.com/OffchainLabs/bold
 
-go 1.19
+go 1.20
 
 replace github.com/ethereum/go-ethereum => github.com/OffchainLabs/go-ethereum v0.0.0-20240128182756-f04bb30c320f
 
