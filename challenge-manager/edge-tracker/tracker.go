@@ -241,9 +241,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		hasRival, err := et.edge.HasRival(ctx)
 		if err != nil {
-			fields["err"] = err
-			srvlog.Error("Could not check if edge has rival", fields)
-			return et.fsm.Do(edgeBackToStart{})
+			return errors.Wrap(err, "could not check presumptive")
 		}
 		if !hasRival {
 			return et.fsm.Do(edgeBackToStart{})

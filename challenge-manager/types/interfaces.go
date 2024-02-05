@@ -24,5 +24,4 @@ type ChallengeCreator interface {
 type ChallengeReader interface {
 	Mode() Mode
 	MaxDelaySeconds() int
-	IsChallengedAssertion(assertionHash protocol.AssertionHash) bool
 }
