@@ -493,22 +493,22 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 		return t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
 			start, startRoot := edge.StartCommitment()
 			end, endRoot := edge.EndCommitment()
-			createdAt, err := edge.CreatedAtBlock()
-			if err != nil {
-				return err
+			createdAt, err2 := edge.CreatedAtBlock()
+			if err2 != nil {
+				return err2
 			}
 			hasRival := t.honestEdgeTree.HasRival(edge)
-			timeUnrivaled, err := t.honestEdgeTree.TimeUnrivaled(edge, blockNum)
-			if err != nil {
-				return err
+			timeUnrivaled, err2 := t.honestEdgeTree.TimeUnrivaled(edge, blockNum)
+			if err2 != nil {
+				return err2
 			}
-			ancestorDetails, err := t.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNum)
-			if err != nil {
-				return err
+			ancestorDetails, err2 := t.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNum)
+			if err2 != nil {
+				return err2
 			}
-			pathTimer, err := t.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, ancestorDetails.AncestorLocalTimers, blockNum)
-			if err != nil {
-				return err
+			pathTimer, err2 := t.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, ancestorDetails.AncestorLocalTimers, blockNum)
+			if err2 != nil {
+				return err2
 			}
 			ancestors := make([]common.Hash, len(ancestorDetails.AncestorEdgeIds))
 			for i := range ancestorDetails.AncestorEdgeIds {
