@@ -118,7 +118,13 @@ func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum
 	}
 	earliestRivalNum := ht.EarliestCreatedRivalBlockNumber(edge)
 	if earliestRivalNum.IsSome() {
+		if createdAt > earliestRivalNum.Unwrap() {
+			return 0, fmt.Errorf("created at %d is > earliest rival num %d, underflow", createdAt, earliestRivalNum)
+		}
 		return earliestRivalNum.Unwrap() - createdAt, nil
+	}
+	if createdAt > blockNum {
+		return 0, fmt.Errorf("created at %d is > specified block num %d, underflow", createdAt, blockNum)
 	}
 	return blockNum - createdAt, nil
 }
