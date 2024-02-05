@@ -476,7 +476,7 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, assertionHash protocol.
 		return err
 	}
 	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
-	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
 	status, err := m.chain.AssertionStatus(ctx, assertionHash)
 	if err != nil {
 		return err
