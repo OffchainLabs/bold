@@ -12,7 +12,6 @@ import (
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	bisection "github.com/OffchainLabs/bold/math"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -69,8 +68,6 @@ func (ht *RoyalChallengeTree) HasConfirmableAncestor(
 	}
 
 	assertionHash := protocol.AssertionHash{Hash: common.Hash(blockRootEdge.ClaimId().Unwrap())}
-	rootEdgeId := blockRootEdge.Id()
-	log.Info(fmt.Sprintf("Assertion hash used as claim id for confirmable ancestor computation: %#x and edge id %#x", assertionHash.Hash, rootEdgeId.Hash))
 
 	assertionUnrivaledNumBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(
 		ctx, assertionHash,
