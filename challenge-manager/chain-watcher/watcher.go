@@ -478,6 +478,78 @@ func (w *Watcher) getEdgeFromEvent(
 	return edgeOpt.Unwrap(), nil
 }
 
+// GetRoyalEdges returns all royal, tracked edges in the watcher by assertion hash.
+func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge, error) {
+	header, err := w.chain.Backend().HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	if !header.Number.IsUint64() {
+		return nil, errors.New("block header is not a uint64")
+	}
+	blockNum := header.Number.Uint64()
+	response := make(map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge)
+	if err = w.challenges.ForEach(func(assertionHash protocol.AssertionHash, t *trackedChallenge) error {
+		return t.honestEdgeTree.GetEdges().ForEach(func(edgeId protocol.EdgeId, edge protocol.SpecEdge) error {
+			start, startRoot := edge.StartCommitment()
+			end, endRoot := edge.EndCommitment()
+			createdAt, err := edge.CreatedAtBlock()
+			if err != nil {
+				return err
+			}
+			hasRival := t.honestEdgeTree.HasRival(edge)
+			timeUnrivaled, err := t.honestEdgeTree.TimeUnrivaled(edge, blockNum)
+			if err != nil {
+				return err
+			}
+			ancestorDetails, err := t.honestEdgeTree.ComputeAncestorsWithTimers(ctx, edgeId, blockNum)
+			if err != nil {
+				return err
+			}
+			pathTimer, err := t.honestEdgeTree.ComputeHonestPathTimer(ctx, edgeId, ancestorDetails.AncestorLocalTimers, blockNum)
+			if err != nil {
+				return err
+			}
+			ancestors := make([]common.Hash, len(ancestorDetails.AncestorEdgeIds))
+			for i := range ancestorDetails.AncestorEdgeIds {
+				ancestors[i] = ancestorDetails.AncestorEdgeIds[i].Hash
+			}
+			var miniStaker common.Address
+			if edge.MiniStaker().IsSome() {
+				miniStaker = edge.MiniStaker().Unwrap()
+			}
+			var claimId common.Hash
+			if edge.ClaimId().IsSome() {
+				claimId = common.Hash(edge.ClaimId().Unwrap())
+			}
+			response[assertionHash] = append(
+				response[assertionHash],
+				&api.JsonTrackedRoyalEdge{
+					Id:                  edgeId.Hash,
+					ChallengeLevel:      uint8(edge.GetChallengeLevel()),
+					StartHistoryRoot:    startRoot,
+					StartHeight:         uint64(start),
+					EndHeight:           uint64(end),
+					EndHistoryRoot:      endRoot,
+					CreatedAtBlock:      createdAt,
+					MutualId:            common.Hash(edge.MutualId()),
+					OriginId:            common.Hash(edge.OriginId()),
+					ClaimId:             claimId,
+					HasRival:            hasRival,
+					CumulativePathTimer: uint64(pathTimer),
+					TimeUnrivaled:       timeUnrivaled,
+					Ancestors:           ancestors,
+					MiniStaker:          miniStaker,
+				},
+			)
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
 // GetHonestEdges returns all edges in the watcher.
 func (w *Watcher) GetHonestEdges() []protocol.SpecEdge {
 	syncEdges := make([]protocol.SpecEdge, 0)

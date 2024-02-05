@@ -105,3 +105,20 @@ func (ht *RoyalChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protoc
 func (ht *RoyalChallengeTree) HasRoyalEdge(edgeId protocol.EdgeId) bool {
 	return ht.edges.Has(edgeId)
 }
+
+func (ht *RoyalChallengeTree) HasRival(edge protocol.ReadOnlyEdge) bool {
+	earliestRivalNum := ht.EarliestCreatedRivalBlockNumber(edge)
+	return earliestRivalNum.IsSome()
+}
+
+func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
+	createdAt, err := edge.CreatedAtBlock()
+	if err != nil {
+		return 0, err
+	}
+	earliestRivalNum := ht.EarliestCreatedRivalBlockNumber(edge)
+	if earliestRivalNum.IsSome() {
+		return earliestRivalNum.Unwrap() - createdAt, nil
+	}
+	return blockNum - createdAt, nil
+}

@@ -32,7 +32,7 @@ func (ht *RoyalChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint6
 	}
 	// Else we return the earliest created rival's block number: t_rival - t_creation(e).
 	// This unwrap is safe because the edge has rivals at this point due to the check above.
-	earliest := ht.earliestCreatedRivalBlockNumber(e)
+	earliest := ht.EarliestCreatedRivalBlockNumber(e)
 	tRival := earliest.Unwrap()
 	if createdAtBlock >= tRival {
 		return 0, nil
@@ -42,7 +42,7 @@ func (ht *RoyalChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint6
 
 // Gets the minimum creation block number across all of an edge's rivals. If an edge
 // has no rivals, this minimum is undefined.
-func (ht *RoyalChallengeTree) earliestCreatedRivalBlockNumber(e protocol.ReadOnlyEdge) option.Option[uint64] {
+func (ht *RoyalChallengeTree) EarliestCreatedRivalBlockNumber(e protocol.ReadOnlyEdge) option.Option[uint64] {
 	rivals := ht.rivalsWithCreationTimes(e)
 	creationBlocks := make([]uint64, len(rivals))
 	earliestCreatedRivalBlock := option.None[uint64]()
