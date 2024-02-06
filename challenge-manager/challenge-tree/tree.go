@@ -106,25 +106,10 @@ func (ht *RoyalChallengeTree) HasRoyalEdge(edgeId protocol.EdgeId) bool {
 	return ht.edges.Has(edgeId)
 }
 
-func (ht *RoyalChallengeTree) HasRival(edge protocol.ReadOnlyEdge) bool {
-	earliestRivalNum := ht.EarliestCreatedRivalBlockNumber(edge)
-	return earliestRivalNum.IsSome()
+func (ht *RoyalChallengeTree) IsUnrivaledAtBlockNum(edge protocol.ReadOnlyEdge, blockNum uint64) (bool, error) {
+	return ht.UnrivaledAtBlockNum(edge, blockNum)
 }
 
 func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
-	createdAt, err := edge.CreatedAtBlock()
-	if err != nil {
-		return 0, err
-	}
-	earliestRivalNum := ht.EarliestCreatedRivalBlockNumber(edge)
-	if earliestRivalNum.IsSome() {
-		if createdAt > earliestRivalNum.Unwrap() {
-			return 0, fmt.Errorf("created at %d is > earliest rival num %d, underflow", createdAt, earliestRivalNum)
-		}
-		return earliestRivalNum.Unwrap() - createdAt, nil
-	}
-	if createdAt > blockNum {
-		return 0, fmt.Errorf("created at %d is > specified block num %d, underflow", createdAt, blockNum)
-	}
-	return blockNum - createdAt, nil
+	return ht.LocalTimer(edge, blockNum)
 }
