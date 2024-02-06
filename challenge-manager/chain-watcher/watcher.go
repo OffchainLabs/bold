@@ -497,7 +497,11 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 			if err2 != nil {
 				return err2
 			}
-			hasRival := t.honestEdgeTree.HasRival(edge)
+			unrivaled, err2 := t.honestEdgeTree.IsUnrivaledAtBlockNum(edge, blockNum)
+			if err2 != nil {
+				return err2
+			}
+			hasRival := !unrivaled
 			timeUnrivaled, err2 := t.honestEdgeTree.TimeUnrivaled(edge, blockNum)
 			if err2 != nil {
 				return err2
@@ -705,7 +709,20 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 	// Add the edge to a local challenge tree of honest edges and, if needed,
 	// we also spawn a tracker for the edge.
+	start, startRoot := edge.StartCommitment()
+	end, endRoot := edge.EndCommitment()
+	fields := log.Ctx{
+		"edgeId":         edge.Id().Hash,
+		"challengeLevel": edge.GetChallengeLevel(),
+		"assertionHash":  assertionHash.Hash,
+		"startHeight":    start,
+		"endHeight":      end,
+		"startRoot":      startRoot,
+		"endRoot":        endRoot,
+	}
+	log.Info("Adding verified honest edge to honest edge tree", fields)
 	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
+		log.Error("Could not add verified royal edge to local tree", log.Ctx{"error": err})
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
 	return w.saveEdgeToDB(ctx, edge, true /* is royal */)
@@ -760,6 +777,8 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 			challengeParentAssertionHash.Hash,
 		)
 	}
+	start, startRoot := edge.StartCommitment()
+	end, endRoot := edge.EndCommitment()
 	if challengeComplete {
 		return nil
 	}
@@ -791,6 +810,17 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if isRoyalEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
+	fields := log.Ctx{
+		"edgeId":         edge.Id().Hash,
+		"challengeLevel": edge.GetChallengeLevel(),
+		"assertionHash":  challengeParentAssertionHash.Hash,
+		"startHeight":    start,
+		"endHeight":      end,
+		"startRoot":      startRoot,
+		"endRoot":        endRoot,
+		"isRoyal":        isRoyalEdge,
+	}
+	log.Info("Observed edge from onchain event", fields)
 	return w.saveEdgeToDB(ctx, edge, isRoyalEdge)
 }
 

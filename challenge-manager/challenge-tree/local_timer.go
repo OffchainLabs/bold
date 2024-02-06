@@ -13,7 +13,7 @@ import (
 
 // Gets the local timer of an edge at a block number, T. If T is earlier than the edge's creation,
 // this function will return 0.
-func (ht *RoyalChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
+func (ht *RoyalChallengeTree) LocalTimer(e protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
 	createdAtBlock, err := e.CreatedAtBlock()
 	if err != nil {
 		return 0, err
@@ -23,7 +23,7 @@ func (ht *RoyalChallengeTree) localTimer(e protocol.ReadOnlyEdge, blockNum uint6
 	}
 	// If no rival at a block num, then the local timer is defined
 	// as t - t_creation(e).
-	unrivaled, err := ht.unrivaledAtBlockNum(e, blockNum)
+	unrivaled, err := ht.UnrivaledAtBlockNum(e, blockNum)
 	if err != nil {
 		return 0, err
 	}
@@ -59,7 +59,7 @@ func (ht *RoyalChallengeTree) EarliestCreatedRivalBlockNumber(e protocol.ReadOnl
 
 // Determines if an edge was unrivaled at a block num T. If any rival existed
 // for the edge at T, this function will return false.
-func (ht *RoyalChallengeTree) unrivaledAtBlockNum(e protocol.ReadOnlyEdge, blockNum uint64) (bool, error) {
+func (ht *RoyalChallengeTree) UnrivaledAtBlockNum(e protocol.ReadOnlyEdge, blockNum uint64) (bool, error) {
 	createdAtBlock, err := e.CreatedAtBlock()
 	if err != nil {
 		return false, err
