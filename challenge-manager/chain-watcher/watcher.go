@@ -709,7 +709,20 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 	// Add the edge to a local challenge tree of honest edges and, if needed,
 	// we also spawn a tracker for the edge.
+	start, startRoot := edge.StartCommitment()
+	end, endRoot := edge.EndCommitment()
+	fields := log.Ctx{
+		"edgeId":         edge.Id().Hash,
+		"challengeLevel": edge.GetChallengeLevel(),
+		"assertionHash":  assertionHash.Hash,
+		"startHeight":    start,
+		"endHeight":      end,
+		"startRoot":      startRoot,
+		"endRoot":        endRoot,
+	}
+	log.Info("Adding verified honest edge to honest edge tree", fields)
 	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
+		log.Error("Could not add verified royal edge to local tree", log.Ctx{"error": err})
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
 	return w.saveEdgeToDB(ctx, edge, true /* is royal */)
