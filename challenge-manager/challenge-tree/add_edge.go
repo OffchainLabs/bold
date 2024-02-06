@@ -8,6 +8,7 @@ import (
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -170,6 +171,19 @@ func (ht *RoyalChallengeTree) keepTrackOfCreationTime(eg protocol.SpecEdge) erro
 	}
 	mutuals.Put(eg.Id(), creationTime(createdAtBlock))
 	ht.edgeCreationTimes.Put(key, mutuals)
+	start, startRoot := eg.StartCommitment()
+	end, endRoot := eg.EndCommitment()
+	log.Info("Keeping track of edge creation time in mutual ids mapping", log.Ctx{
+		"edgeId":         eg.Id(),
+		"creationTime":   createdAtBlock,
+		"mutualId":       eg.MutualId(),
+		"originId":       eg.OriginId(),
+		"challengeLevel": eg.GetChallengeLevel(),
+		"startHeight":    start,
+		"startRoot":      startRoot,
+		"endHeight":      end,
+		"endRoot":        endRoot,
+	})
 	return nil
 }
 
