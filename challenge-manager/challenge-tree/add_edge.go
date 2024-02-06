@@ -176,8 +176,8 @@ func (ht *RoyalChallengeTree) keepTrackOfCreationTime(eg protocol.SpecEdge) erro
 	log.Info("Keeping track of edge creation time in mutual ids mapping", log.Ctx{
 		"edgeId":         eg.Id(),
 		"creationTime":   createdAtBlock,
-		"mutualId":       eg.MutualId(),
-		"originId":       eg.OriginId(),
+		"mutualId":       common.Hash(eg.MutualId()),
+		"originId":       common.Hash(eg.OriginId()),
 		"challengeLevel": eg.GetChallengeLevel(),
 		"startHeight":    start,
 		"startRoot":      startRoot,

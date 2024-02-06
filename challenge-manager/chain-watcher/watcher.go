@@ -779,17 +779,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	}
 	start, startRoot := edge.StartCommitment()
 	end, endRoot := edge.EndCommitment()
-	fields := log.Ctx{
-		"edgeId":         edge.Id().Hash,
-		"challengeLevel": edge.GetChallengeLevel(),
-		"assertionHash":  challengeParentAssertionHash.Hash,
-		"startHeight":    start,
-		"endHeight":      end,
-		"startRoot":      startRoot,
-		"endRoot":        endRoot,
-	}
 	if challengeComplete {
-		// log.Info("Attempted to add edge from confirmed challenge, skipping", fields)
 		return nil
 	}
 	chal, ok := w.challenges.TryGet(challengeParentAssertionHash)
@@ -820,7 +810,16 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if isRoyalEdge {
 		return w.edgeManager.TrackEdge(ctx, edge)
 	}
-	fields["isRoyal"] = isRoyalEdge
+	fields := log.Ctx{
+		"edgeId":         edge.Id().Hash,
+		"challengeLevel": edge.GetChallengeLevel(),
+		"assertionHash":  challengeParentAssertionHash.Hash,
+		"startHeight":    start,
+		"endHeight":      end,
+		"startRoot":      startRoot,
+		"endRoot":        endRoot,
+		"isRoyal":        isRoyalEdge,
+	}
 	log.Info("Observed edge from onchain event", fields)
 	return w.saveEdgeToDB(ctx, edge, isRoyalEdge)
 }
