@@ -789,7 +789,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) error {
 		"endRoot":        endRoot,
 	}
 	if challengeComplete {
-		log.Info("Attempted to add edge from confirmed challenge, skipping", fields)
+		// log.Info("Attempted to add edge from confirmed challenge, skipping", fields)
 		return nil
 	}
 	chal, ok := w.challenges.TryGet(challengeParentAssertionHash)
