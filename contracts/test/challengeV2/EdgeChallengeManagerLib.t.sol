@@ -108,6 +108,12 @@ contract EdgeChallengeManagerLibAccess {
         return EdgeChallengeManagerLib.setConfirmedRival(store, edgeId);
     }
 
+    function unconfirmEdge(bytes32 edgeId) public {
+        bytes32 mutualId = store.get(edgeId).mutualIdMem();
+        store.edges[edgeId].status = EdgeStatus.Pending;
+        store.confirmedRivals[mutualId] = bytes32(0);
+    }
+
     function setClaimId(bytes32 edgeId, bytes32 claimId) public {
         store.get(edgeId).claimId = claimId;
     }
@@ -1457,6 +1463,20 @@ contract EdgeChallengeManagerLibTest is Test {
                 timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks,
                 "Invalid total time"
             );
+        }
+
+        // test for caching
+        if (timeAfterParent1 == 3 && timeAfterParent2 == 3) {
+            store.unconfirmEdge(bsId);
+            vm.roll(block.number - 1); // total time 11
+            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock, NUM_BIGSTEP_LEVEL);
+            store.unconfirmEdge(bsId);
+            vm.roll(block.number - 1); // total time 10
+            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock, NUM_BIGSTEP_LEVEL);
+            store.unconfirmEdge(bsId);
+            vm.roll(block.number - 1); // total time 9
+            vm.expectRevert(abi.encodeWithSelector(InsufficientConfirmationBlocks.selector, 9, 10));
+            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock, NUM_BIGSTEP_LEVEL);
         }
     }
 
