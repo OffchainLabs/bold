@@ -100,7 +100,8 @@ func (b *Backend) GetCollectMachineHashes(ctx context.Context, opts ...db.Collec
 			stepHeightsStr := strings.Split(cmh.RawStepHeights, ",")
 			stepHeights := make([]uint64, len(stepHeightsStr))
 			for i, stepHeightStr := range stepHeightsStr {
-				stepHeight, err := strconv.Atoi(stepHeightStr)
+				stepHeight := 0
+				stepHeight, err = strconv.Atoi(stepHeightStr)
 				if err != nil {
 					return nil, err
 				}
