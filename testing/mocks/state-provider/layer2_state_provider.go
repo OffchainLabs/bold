@@ -66,7 +66,7 @@ func NewWithMockedStateRoots(stateRoots []common.Hash, opts ...Opt) (*L2StateBac
 	for _, o := range opts {
 		o(s)
 	}
-	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s)
+	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, nil)
 	s.HistoryCommitmentProvider = *commitmentProvider
 	return s, nil
 }
@@ -149,7 +149,7 @@ func NewForSimpleMachine(
 	for _, o := range opts {
 		o(s)
 	}
-	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s)
+	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, nil)
 	s.HistoryCommitmentProvider = *commitmentProvider
 	totalWavmOpcodes := uint64(1)
 	for _, h := range s.challengeLeafHeights[1:] {

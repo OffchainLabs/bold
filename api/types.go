@@ -100,6 +100,19 @@ type JsonMiniStakeInfo struct {
 	NumberOfMiniStakes uint64           `json:"numberOfMiniStakes"`
 }
 
+type JsonCollectMachineHashes struct {
+	WasmModuleRoot       common.Hash `json:"wasmModuleRoot" db:"wasmModuleRoot"`
+	FromBatch            uint64      `json:"fromBatch" db:"fromBatch"`
+	BlockChallengeHeight uint64      `json:"blockChallengeHeight" db:"blockChallengeHeight"`
+	StepHeights          []uint64    `json:"stepHeights"`
+	RawStepHeights       string      `json:"-" db:"rawStepHeights"`
+	NumDesiredHashes     uint64      `json:"numDesiredHashes" db:"numDesiredHashes"`
+	MachineStartIndex    uint64      `json:"machineStartIndex" db:"machineStartIndex"`
+	StepSize             uint64      `json:"stepSize" db:"stepSize"`
+	StartTime            time.Time   `json:"startTime" db:"startTime"`
+	FinishTime           time.Time   `json:"finishTime" db:"finishTime"`
+}
+
 func IsNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
