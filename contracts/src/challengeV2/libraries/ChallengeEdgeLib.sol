@@ -49,6 +49,8 @@ struct ChallengeEdge {
     /// @notice The block number at which this edge was confirmed
     ///         Zero if not confirmed
     uint64 confirmedAtBlock;
+    /// CHRIS: TODO
+    uint64 ancestryTimeUnrivaled;
     /// @notice Current status of this edge. All edges are created Pending, and may be updated to Confirmed
     ///         Once Confirmed they cannot transition back to Pending
     EdgeStatus status;
@@ -116,6 +118,7 @@ library ChallengeEdgeLib {
             lowerChildId: 0,
             upperChildId: 0,
             createdAtBlock: uint64(block.number),
+            ancestryTimeUnrivaled: 0,
             claimId: claimId,
             staker: staker,
             status: EdgeStatus.Pending,
@@ -146,6 +149,7 @@ library ChallengeEdgeLib {
             lowerChildId: 0,
             upperChildId: 0,
             createdAtBlock: uint64(block.number),
+            ancestryTimeUnrivaled: 0,
             claimId: 0,
             staker: address(0),
             status: EdgeStatus.Pending,
@@ -281,6 +285,13 @@ library ChallengeEdgeLib {
             return EdgeType.SmallStep;
         } else {
             revert LevelTooHigh(level, numBigStepLevels);
+        }
+    }
+
+    // CHRIS: TODO: only update is >. docs
+    function updateAncestryTimeUnrivaled(ChallengeEdge storage edge, uint64 newAncestryTimeUnrivaled) internal {
+        if(newAncestryTimeUnrivaled > edge.ancestryTimeUnrivaled) {
+            edge.ancestryTimeUnrivaled = newAncestryTimeUnrivaled;
         }
     }
 }

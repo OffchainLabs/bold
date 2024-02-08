@@ -713,6 +713,11 @@ library EdgeChallengeManagerLib {
         store.edges[edgeId].setConfirmed();
     }
 
+    struct AccumulatedTime {
+        bytes32 edgeId;
+        uint64 time;
+    }
+
     /// @notice An edge can be confirmed if the total amount of time (in blocks) it and a single chain of its direct ancestors
     ///         has spent unrivaled is greater than the challenge period.
     /// @dev    Edges inherit time from their parents, so the sum of unrivaled timer is compared against the threshold.
@@ -739,8 +744,20 @@ library EdgeChallengeManagerLib {
             revert EdgeNotExists(edgeId);
         }
 
+        // working from the bottom up we keep collecting time
+        // we need to know how much we collect at each level - the we can subtract that from the total
+        // to get the previous time
+
         bytes32 currentEdgeId = edgeId;
         uint64 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
+        // since sibling assertions have the same predecessor, they can be viewed as
+        // rival edges. Adding the assertion unrivaled time allows us to start the confirmation
+        // timer from the moment the first assertion is made, rather than having to wait until the
+        // second assertion is made.
+        totalTimeUnrivaled += claimedAssertionUnrivaledBlocks;
+
+        // for each level store the total accumulated so far - starting from small step moving up
+        AccumulatedTime[] memory accumulatedTimeByLevel = new AccumulatedTime[](numBigStepLevel + 1);
 
         // ancestors start from parent, then extend upwards
         for (uint256 i = 0; i < ancestorEdgeIds.length; i++) {
@@ -752,6 +769,16 @@ library EdgeChallengeManagerLib {
                 currentEdgeId = ancestorEdgeIds[i];
             } else if (ancestorEdgeIds[i] == store.edges[currentEdgeId].claimId) {
                 checkClaimIdLink(store, ancestorEdgeIds[i], currentEdgeId, numBigStepLevel);
+
+                // first check if this edge has a ancestry time unrivaled
+                uint64 ancestryTimeUnrivaled = e.ancestryTimeUnrivaled;
+                if(ancestryTimeUnrivaled > 0 && totalTimeUnrivaled + ancestryTimeUnrivaled >= confirmationThresholdBlock) {
+                    totalTimeUnrivaled += ancestryTimeUnrivaled;
+                    break;
+                } 
+
+                // when moving between levels we record how much time had been accumulated up to that point
+                accumulatedTimeByLevel[store.edges[currentEdgeId].level - 1] = AccumulatedTime({edgeId: ancestorEdgeIds[i], time: totalTimeUnrivaled});
                 totalTimeUnrivaled += timeUnrivaled(store, e.id());
                 currentEdgeId = ancestorEdgeIds[i];
             } else {
@@ -765,14 +792,17 @@ library EdgeChallengeManagerLib {
             }
         }
 
-        // since sibling assertions have the same predecessor, they can be viewed as
-        // rival edges. Adding the assertion unrivaled time allows us to start the confirmation
-        // timer from the moment the first assertion is made, rather than having to wait until the
-        // second assertion is made.
-        totalTimeUnrivaled += claimedAssertionUnrivaledBlocks;
-
         if (totalTimeUnrivaled < confirmationThresholdBlock) {
             revert InsufficientConfirmationBlocks(totalTimeUnrivaled, confirmationThresholdBlock);
+        }
+
+        // update new cached items
+        for (uint8 level = 0; level < accumulatedTimeByLevel.length; level++) {
+            if(accumulatedTimeByLevel[level].edgeId != 0) {
+                uint64 timeUnrivaledAtLevel = totalTimeUnrivaled - accumulatedTimeByLevel[level].time;
+                // update the sum time unrivaled
+                store.edges[accumulatedTimeByLevel[level].edgeId].updateAncestryTimeUnrivaled(timeUnrivaledAtLevel);
+            }
         }
 
         // also checks that no other rival has been confirmed

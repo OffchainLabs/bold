@@ -15,7 +15,7 @@ contract TestChallengeEdge {
 }
 
 contract ChallengeEdgeLibAccess {
-    ChallengeEdge public storageEdge;
+    ChallengeEdge internal storageEdge;
 
     function getChallengeEdge() public returns (ChallengeEdge memory) {
         return storageEdge;
