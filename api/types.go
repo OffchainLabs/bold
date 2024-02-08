@@ -101,16 +101,16 @@ type JsonMiniStakeInfo struct {
 }
 
 type JsonCollectMachineHashes struct {
-	WasmModuleRoot       common.Hash `json:"wasmModuleRoot" db:"wasmModuleRoot"`
-	FromBatch            uint64      `json:"fromBatch" db:"fromBatch"`
-	BlockChallengeHeight uint64      `json:"blockChallengeHeight" db:"blockChallengeHeight"`
+	WasmModuleRoot       common.Hash `json:"wasmModuleRoot" db:"WasmModuleRoot"`
+	FromBatch            uint64      `json:"fromBatch" db:"FromBatch"`
+	BlockChallengeHeight uint64      `json:"blockChallengeHeight" db:"BlockChallengeHeight"`
 	StepHeights          []uint64    `json:"stepHeights"`
-	RawStepHeights       string      `json:"-" db:"rawStepHeights"`
-	NumDesiredHashes     uint64      `json:"numDesiredHashes" db:"numDesiredHashes"`
-	MachineStartIndex    uint64      `json:"machineStartIndex" db:"machineStartIndex"`
-	StepSize             uint64      `json:"stepSize" db:"stepSize"`
-	StartTime            time.Time   `json:"startTime" db:"startTime"`
-	FinishTime           time.Time   `json:"finishTime" db:"finishTime"`
+	RawStepHeights       string      `json:"-" db:"RawStepHeights"`
+	NumDesiredHashes     uint64      `json:"numDesiredHashes" db:"NumDesiredHashes"`
+	MachineStartIndex    uint64      `json:"machineStartIndex" db:"MachineStartIndex"`
+	StepSize             uint64      `json:"stepSize" db:"StepSize"`
+	StartTime            time.Time   `json:"startTime" db:"StartTime"`
+	FinishTime           *time.Time  `json:"finishTime" db:"FinishTime"`
 }
 
 func IsNil(i any) bool {

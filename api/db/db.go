@@ -579,7 +579,7 @@ func WithCollectMachineHashesOrderBy(orderBy string) CollectMachineHashesOption 
 func (q *CollectMachineHashesQuery) ToSQL() (string, []interface{}) {
 	baseQuery := "SELECT * FROM CollectMachineHashes"
 	if q.ongoing {
-		baseQuery += " WHERE FinalTime IS NULL"
+		baseQuery += " WHERE FinishTime IS NULL"
 	}
 	if q.orderBy != "" {
 		baseQuery += " ORDER BY " + q.orderBy
@@ -809,10 +809,10 @@ func (d *SqliteDatabase) InsertCollectMachineHash(h *api.JsonCollectMachineHashe
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	query := `INSERT INTO CollectMachineHashes (
-		WasmModuleRoot, FromBatch, BlockChallengeHeight, RawStepHeights, NumDesiredHashes, MachineStartIndex, StepSize, StartTime
-	) VALUES (
-		:WasmModuleRoot, :FromBatch, :BlockChallengeHeight, :RawStepHeights, :NumDesiredHashes, :MachineStartIndex, :StepSize, :StartTime
-	)`
+        WasmModuleRoot, FromBatch, BlockChallengeHeight, RawStepHeights, NumDesiredHashes, MachineStartIndex, StepSize, StartTime
+    ) VALUES (
+        :WasmModuleRoot, :FromBatch, :BlockChallengeHeight, :RawStepHeights, :NumDesiredHashes, :MachineStartIndex, :StepSize, :StartTime
+    )`
 	_, err := d.sqlDB.NamedExec(query, h)
 	if err != nil {
 		return err

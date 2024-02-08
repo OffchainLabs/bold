@@ -229,14 +229,15 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 				NumDesiredHashes:     cfg.NumDesiredHashes,
 				MachineStartIndex:    uint64(cfg.MachineStartIndex),
 				StepSize:             uint64(cfg.StepSize),
-				StartTime:            time.Now(),
+				StartTime:            time.Now().UTC(),
 			}
 			err := p.apiDB.InsertCollectMachineHash(&collectMachineHashes)
 			if err != nil {
 				return nil, err
 			}
 			defer func() {
-				collectMachineHashes.FinishTime = time.Now()
+				finishTime := time.Now().UTC()
+				collectMachineHashes.FinishTime = &finishTime
 				err := p.apiDB.UpdateCollectMachineHash(&collectMachineHashes)
 				if err != nil {
 					return
