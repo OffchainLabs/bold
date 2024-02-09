@@ -102,6 +102,14 @@ func (e *specEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
 	return protocol.EdgeStatus(edge.Status), nil
 }
 
+func (e *specEdge) ConfirmedAtBlock(ctx context.Context) (uint64, error) {
+	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if err != nil {
+		return 0, err
+	}
+	return edge.ConfirmedAtBlock, nil
+}
+
 // CreatedAtBlock the  block number the edge was created at.
 func (e *specEdge) CreatedAtBlock() (uint64, error) {
 	return e.inner.CreatedAtBlock, nil

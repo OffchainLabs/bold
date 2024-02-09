@@ -113,6 +113,10 @@ func NewAssertionChain(
 	return chain, nil
 }
 
+func (a *AssertionChain) RollupUserLogic() *rollupgen.RollupUserLogic {
+	return a.userLogic
+}
+
 func (a *AssertionChain) Backend() protocol.ChainBackend {
 	return a.backend
 }

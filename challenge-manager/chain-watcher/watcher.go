@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -99,16 +100,18 @@ type trackedChallenge struct {
 // (b) the ability to check if an edge with a certain claim id has been confirmed. Both
 // are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
-	histChecker          l2stateprovider.HistoryChecker
-	chain                protocol.AssertionChain
-	edgeManager          EdgeManager
-	pollEventsInterval   time.Duration
-	challenges           *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
-	backend              bind.ContractBackend
-	validatorName        string
-	numBigStepLevels     uint8
-	initialSyncCompleted atomic.Bool
-	apiDB                db.Database
+	histChecker                 l2stateprovider.HistoryChecker
+	chain                       protocol.AssertionChain
+	edgeManager                 EdgeManager
+	pollEventsInterval          time.Duration
+	challenges                  *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
+	backend                     bind.ContractBackend
+	validatorName               string
+	numBigStepLevels            uint8
+	initialSyncCompleted        atomic.Bool
+	apiDB                       db.Database
+	assertionConfirmingInterval time.Duration
+	averageTimeForBlockCreation time.Duration
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -122,20 +125,24 @@ func New(
 	numBigStepLevels uint8,
 	validatorName string,
 	apiDB db.Database,
+	assertionConfirmingInterval time.Duration,
+	averageTimeForBlockCreation time.Duration,
 ) (*Watcher, error) {
 	if interval == 0 {
 		return nil, errors.New("chain watcher polling interval must be greater than 0")
 	}
 	return &Watcher{
-		chain:              chain,
-		edgeManager:        edgeManager,
-		pollEventsInterval: interval,
-		challenges:         threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](threadsafe.MapWithMetric[protocol.AssertionHash, *trackedChallenge]("challenges")),
-		backend:            backend,
-		histChecker:        histChecker,
-		numBigStepLevels:   numBigStepLevels,
-		validatorName:      validatorName,
-		apiDB:              apiDB,
+		chain:                       chain,
+		edgeManager:                 edgeManager,
+		pollEventsInterval:          interval,
+		challenges:                  threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](threadsafe.MapWithMetric[protocol.AssertionHash, *trackedChallenge]("challenges")),
+		backend:                     backend,
+		histChecker:                 histChecker,
+		numBigStepLevels:            numBigStepLevels,
+		validatorName:               validatorName,
+		apiDB:                       apiDB,
+		assertionConfirmingInterval: assertionConfirmingInterval,
+		averageTimeForBlockCreation: averageTimeForBlockCreation,
 	}, nil
 }
 
@@ -1046,17 +1053,88 @@ func (w *Watcher) processEdgeConfirmation(
 	// Check if we should confirm the assertion by challenge winner.
 	challengeLevel := edge.GetChallengeLevel()
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
-		if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edgeId); confirmAssertionErr != nil {
-			return confirmAssertionErr
-		}
-		srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
-			"challengeParentAssertionHash": containers.Trunc(challengeParentAssertionHash.Bytes()),
-		})
+		return w.confirmAssertionByChallengeWinner(ctx, edge, claimId, challengeParentAssertionHash)
 	}
 
 	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
 	w.challenges.Put(challengeParentAssertionHash, chal)
 	return nil
+}
+
+func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge protocol.SpecEdge, claimId protocol.ClaimId, challengeParentAssertionHash protocol.AssertionHash) error {
+	edgeConfirmedAtBlock, err := edge.ConfirmedAtBlock(ctx)
+	if err != nil {
+		return err
+	}
+	challengeGracePeriodBlocks, err := w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("could not get challenge grace period blocks: %w", err)
+	}
+	for {
+		ticker := time.NewTicker(w.assertionConfirmingInterval)
+		defer ticker.Stop()
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			confrimed, err := w.tryConfirmingChallengeByWinner(
+				ctx,
+				edgeConfirmedAtBlock,
+				challengeGracePeriodBlocks,
+				claimId,
+				challengeParentAssertionHash,
+				edge,
+			)
+			if err != nil {
+				return err
+			}
+			if confrimed {
+				return nil
+			}
+		}
+	}
+}
+
+func (w *Watcher) tryConfirmingChallengeByWinner(
+	ctx context.Context,
+	edgeConfirmedAtBlock uint64,
+	challengeGracePeriodBlocks uint64,
+	claimId protocol.ClaimId,
+	challengeParentAssertionHash protocol.AssertionHash,
+	edge protocol.SpecEdge,
+) (bool, error) {
+	latestHeader, err := w.chain.Backend().HeaderByNumber(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("could not get latest header: %w", err)
+	}
+	if !latestHeader.Number.IsUint64() {
+		return false, errors.New("latest block number is not a uint64, got: " + latestHeader.Number.String())
+	}
+	confirmable := latestHeader.Number.Uint64() > edgeConfirmedAtBlock+challengeGracePeriodBlocks
+	if !confirmable {
+		blocksLeftForConfirmation := (edgeConfirmedAtBlock + challengeGracePeriodBlocks) - latestHeader.Number.Uint64()
+		timeToWait := w.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+		srvlog.Info(
+			fmt.Sprintf(
+				"Assertion %s needs at least %d blocks before being confirmable, waiting for %s",
+				containers.Trunc(common.Hash(claimId).Bytes()),
+				blocksLeftForConfirmation,
+				timeToWait,
+			),
+		)
+		<-time.After(timeToWait)
+	}
+	if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edge.Id()); confirmAssertionErr != nil {
+		if strings.Contains(confirmAssertionErr.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
+			return false, nil
+		}
+		return false, confirmAssertionErr
+
+	}
+	srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
+		"challengeParentAssertionHash": containers.Trunc(challengeParentAssertionHash.Bytes()),
+	})
+	return true, nil
 }
 
 type filterRange struct {

@@ -318,7 +318,7 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 	numBigStepLevels := numBigStepLevelsRaw
 
-	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil)
+	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil, honestValidator.assertionConfirmingInterval, honestValidator.averageTimeForBlockCreation)
 	require.NoError(t, err)
 	honestValidator.watcher = honestWatcher
 	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
@@ -339,7 +339,7 @@ func setupEdgeTrackersForBisection(
 	)
 	require.NoError(t, err)
 
-	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil)
+	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil, evilValidator.assertionConfirmingInterval, evilValidator.averageTimeForBlockCreation)
 	require.NoError(t, err)
 	evilValidator.watcher = evilWatcher
 	tracker2, err := edgetracker.New(
