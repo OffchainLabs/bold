@@ -93,7 +93,7 @@ func (s *Server) ListAssertions(w http.ResponseWriter, r *http.Request) {
 //
 // method:
 // - GET
-// - /api/v1/collectMachineHashes
+// - /api/v1/state-provider/requests/collect-machine-hashes
 //
 // request query params:
 //   - limit: the max number of items in the response
