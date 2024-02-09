@@ -61,7 +61,7 @@ type Manager struct {
 	edgeTrackerWakeInterval     time.Duration
 	chainWatcherInterval        time.Duration
 	watcher                     *watcher.Watcher
-	trackedEdgeIds              *threadsafe.Set[protocol.EdgeId]
+	trackedEdgeIds              *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
 	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
 	assertionManager            *assertions.Manager
 	assertionPostingInterval    time.Duration
@@ -158,7 +158,7 @@ func New(
 		timeRef:                     utilTime.NewRealTimeReference(),
 		rollupAddr:                  rollupAddr,
 		chainWatcherInterval:        time.Millisecond * 500,
-		trackedEdgeIds:              threadsafe.NewSet[protocol.EdgeId](threadsafe.SetWithMetric[protocol.EdgeId]("trackedEdgeIds")),
+		trackedEdgeIds:              threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](threadsafe.MapWithMetric[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		assertionPostingInterval:    time.Hour,
 		assertionScanningInterval:   time.Minute,
@@ -257,8 +257,8 @@ func (m *Manager) IsTrackingEdge(edgeId protocol.EdgeId) bool {
 }
 
 // MarkTrackedEdge marks an edge id as being tracked by our challenge manager.
-func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId) {
-	m.trackedEdgeIds.Insert(edgeId)
+func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId, tracker *edgetracker.Tracker) {
+	m.trackedEdgeIds.Put(edgeId, tracker)
 }
 
 // Mode returns the mode of the challenge manager.
