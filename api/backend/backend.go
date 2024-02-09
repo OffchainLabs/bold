@@ -101,9 +101,12 @@ func (b *Backend) GetCollectMachineHashes(ctx context.Context, opts ...db.Collec
 			stepHeights := make([]uint64, len(stepHeightsStr))
 			for i, stepHeightStr := range stepHeightsStr {
 				stepHeight := 0
+				if stepHeightStr == "" {
+					continue
+				}
 				stepHeight, err = strconv.Atoi(stepHeightStr)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("could not parse step height %s: %w", stepHeightStr, err)
 				}
 				stepHeights[i] = uint64(stepHeight)
 			}
