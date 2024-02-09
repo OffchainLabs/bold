@@ -568,6 +568,26 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 	if m.challengeReader.Mode() < types.ResolveMode {
 		return
 	}
+	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	if err != nil {
+		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		log.Error("Could not get prev assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	latestHeader, err := m.chain.Backend().HeaderByNumber(ctx, nil)
+	if err != nil {
+		srvlog.Error("Could not get latest header", log.Ctx{"err": err})
+		return
+	}
+	if !latestHeader.Number.IsUint64() {
+		srvlog.Error("Latest block number is not a uint64", log.Ctx{"number": latestHeader.Number.String()})
+		return
+	}
+	blockNumber := latestHeader.Number.Uint64()
 	for {
 		ticker := time.NewTicker(m.confirmationAttemptInterval)
 		defer ticker.Stop()
@@ -575,62 +595,49 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Challenged assertions should not be confirmed by time.
-			if m.challengeReader.IsChallengedAssertion(assertionHash) {
+			// Assertions that are specified as the claim id in a challenge
+			// cannot be confirmed by time, so we exit early.
+			if m.challengeReader.IsClaimedByChallenge(assertionHash) {
 				return
 			}
-			if m.assertionConfirmed(ctx, assertionHash) {
+			confirmed, err := m.confirmAssertion(ctx, creationInfo, prevCreationInfo, blockNumber)
+			if err != nil {
+				srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+				errorConfirmingAssertionByTimeCounter.Inc(1)
+				continue
+			}
+			if confirmed {
+				assertionConfirmedCounter.Inc(1)
+				srvlog.Info("Confirmed assertion", log.Ctx{"assertionHash": creationInfo.AssertionHash})
 				return
 			}
 		}
 	}
 }
 
-func (m *Manager) assertionConfirmed(ctx context.Context, assertionHash protocol.AssertionHash) bool {
-	// Challenged assertions should not be confirmed by time.
-	if m.challengeReader.IsChallengedAssertion(assertionHash) {
-		return false
-	}
-	status, err := m.chain.AssertionStatus(ctx, assertionHash)
+func (m *Manager) confirmAssertion(
+	ctx context.Context,
+	creationInfo *protocol.AssertionCreatedInfo,
+	prevCreationInfo *protocol.AssertionCreatedInfo,
+	blockNumber uint64,
+) (bool, error) {
+	status, err := m.chain.AssertionStatus(ctx, protocol.AssertionHash{Hash: creationInfo.AssertionHash})
 	if err != nil {
-		srvlog.Error("Could not get assertion by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-		return false
+		return false, fmt.Errorf("could not get assertion by hash: %#x: %w", creationInfo.AssertionHash, err)
 	}
 	if status == protocol.NoAssertion {
-		srvlog.Error("No assertion found by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-		return false
+		return false, fmt.Errorf("no assertion found by hash: %#x", creationInfo.AssertionHash)
 	}
 	if status == protocol.AssertionConfirmed {
-		assertionConfirmedCounter.Inc(1)
-		srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
-		return true
-	}
-	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-	if err != nil {
-		srvlog.Error("Could not get assertion creation info by hash", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-		return false
-	}
-	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-	if err != nil {
-		srvlog.Error("Could not get assertion creation info by hash", log.Ctx{"err": err, "assertionHash": creationInfo.ParentAssertionHash})
-		return false
-	}
-	latestHeader, err := m.chain.Backend().HeaderByNumber(ctx, nil)
-	if err != nil {
-		srvlog.Error("Could not get latest header", log.Ctx{"err": err})
-		return false
-	}
-	if !latestHeader.Number.IsUint64() {
-		srvlog.Error("Latest block number is not a uint64", log.Ctx{"number": latestHeader.Number.String()})
-		return false
+		return true, nil
 	}
 	creationBlock := creationInfo.CreationBlock
-	confirmPeriodBlocks := prevCreationInfo.ConfirmPeriodBlocks
-	currentBlock := latestHeader.Number.Uint64()
+	confirmPeriodBlocks := creationInfo.ConfirmPeriodBlocks
+	confirmableByTime := blockNumber >= creationBlock+confirmPeriodBlocks
 
-	// If the assertion is not yet confirmable, we can simply wait until we are confirmable by time.
-	if currentBlock < creationBlock+confirmPeriodBlocks {
-		blocksLeftForConfirmation := (creationBlock + confirmPeriodBlocks) - currentBlock
+	// If the assertion is not yet confirmable, we can simply wait.
+	if !confirmableByTime {
+		blocksLeftForConfirmation := (creationBlock + confirmPeriodBlocks) - blockNumber
 		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
 		srvlog.Info(
 			fmt.Sprintf(
@@ -642,23 +649,15 @@ func (m *Manager) assertionConfirmed(ctx context.Context, assertionHash protocol
 		)
 		<-time.After(timeToWait)
 	}
-	// Challenged assertions should not be confirmed by time.
-	if m.challengeReader.IsChallengedAssertion(assertionHash) {
-		return false
-	}
 
-	err = m.chain.ConfirmAssertionByTime(ctx, assertionHash)
+	err = m.chain.ConfirmAssertionByTime(ctx, protocol.AssertionHash{Hash: creationInfo.AssertionHash})
 	if err != nil {
 		if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
-			return false
+			return false, nil
 		}
-		srvlog.Error("Could not confirm assertion by time", log.Ctx{"blockNumber": latestHeader.Number.String(), "error": err, "hash": assertionHash.Hash})
-		errorConfirmingAssertionByTimeCounter.Inc(1)
-		return false
+		return false, err
 	}
-	assertionConfirmedByTimeCounter.Inc(1)
-	srvlog.Info("Assertion confirmed", log.Ctx{"assertionHash": assertionHash.Hash})
-	return true
+	return true, nil
 }
 
 // Returns true if the manager can respond to an assertion with a challenge.
