@@ -21,6 +21,7 @@ import (
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
@@ -222,7 +223,7 @@ func New(
 	m.watcher = watcher
 
 	if m.apiAddr != "" {
-		bknd := apibackend.NewBackend(m.apiDB, m.chain, m.watcher)
+		bknd := apibackend.NewBackend(m.apiDB, m.chain, m.watcher, m)
 		srv, err2 := server.New(m.apiAddr, bknd)
 		if err2 != nil {
 			return nil, err2
@@ -249,6 +250,13 @@ func New(
 	}
 	m.assertionManager = assertionManager
 	return m, nil
+}
+
+func (m *Manager) GetEdgeTracker(edgeId protocol.EdgeId) option.Option[*edgetracker.Tracker] {
+	if m.IsTrackingEdge(edgeId) {
+		return option.Some(m.trackedEdgeIds.Get(edgeId))
+	}
+	return option.None[*edgetracker.Tracker]()
 }
 
 // IsTrackingEdge returns true if we are currently tracking a specified edge id as an edge tracker goroutine.
