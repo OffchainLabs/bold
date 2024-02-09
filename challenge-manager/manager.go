@@ -264,6 +264,10 @@ func (m *Manager) IsTrackingEdge(edgeId protocol.EdgeId) bool {
 	return m.trackedEdgeIds.Has(edgeId)
 }
 
+func (m *Manager) Database() db.Database {
+	return m.apiDB
+}
+
 // MarkTrackedEdge marks an edge id as being tracked by our challenge manager.
 func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId, tracker *edgetracker.Tracker) {
 	m.trackedEdgeIds.Put(edgeId, tracker)
