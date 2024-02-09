@@ -39,7 +39,6 @@ var (
 	evilAssertionCounter                  = metrics.NewRegisteredCounter("arb/validator/scanner/evil_assertion", nil)
 	challengeSubmittedCounter             = metrics.NewRegisteredCounter("arb/validator/scanner/challenge_submitted", nil)
 	assertionConfirmedCounter             = metrics.NewRegisteredCounter("arb/validator/scanner/assertion_confirmed", nil)
-	assertionConfirmedByTimeCounter       = metrics.NewRegisteredCounter("arb/validator/scanner/assertion_confirmed_time", nil)
 	errorConfirmingAssertionByTimeCounter = metrics.NewRegisteredCounter("arb/validator/scanner/error_confirming_assertion_by_time", nil)
 )
 

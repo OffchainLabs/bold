@@ -159,7 +159,7 @@ func New(
 		timeRef:                      utilTime.NewRealTimeReference(),
 		rollupAddr:                   rollupAddr,
 		chainWatcherInterval:         time.Millisecond * 500,
-		trackedEdgeIds:              threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
+		trackedEdgeIds:               threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache:  threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](threadsafe.MapWithMetric[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		assertionPostingInterval:     time.Hour,
 		assertionScanningInterval:    time.Minute,
