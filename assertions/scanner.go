@@ -631,6 +631,14 @@ func (m *Manager) confirmAssertion(
 	if status == protocol.AssertionConfirmed {
 		return true, nil
 	}
+	latestConfirmed, err := m.chain.LatestConfirmed(ctx)
+	if err != nil {
+		return false, fmt.Errorf("could not get latest confirmed assertion: %v", err)
+	}
+	// The parent assertion must be the latest confirmed.
+	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
+		return false, nil
+	}
 	creationBlock := creationInfo.CreationBlock
 	confirmPeriodBlocks := creationInfo.ConfirmPeriodBlocks
 	confirmableByTime := blockNumber >= creationBlock+confirmPeriodBlocks
