@@ -219,35 +219,35 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// the second request would wait for the in-flight request to complete and use its result.
 	return p.inFlightRequestCache.Compute(cfg.String(), func() ([]common.Hash, error) {
 		if !api.IsNil(p.apiDB) {
-			var rawStepHeights string
-			for i, stepHeight := range cfg.StepHeights {
-				rawStepHeights += strconv.Itoa(int(stepHeight))
-				if i != len(rawStepHeights)-1 {
-					rawStepHeights += ","
-				}
-			}
-			collectMachineHashes := api.JsonCollectMachineHashes{
-				WasmModuleRoot:       cfg.WasmModuleRoot,
-				FromBatch:            uint64(cfg.FromBatch),
-				BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
-				RawStepHeights:       rawStepHeights,
-				NumDesiredHashes:     cfg.NumDesiredHashes,
-				MachineStartIndex:    uint64(cfg.MachineStartIndex),
-				StepSize:             uint64(cfg.StepSize),
-				StartTime:            time.Now().UTC(),
-			}
-			err := p.apiDB.InsertCollectMachineHash(&collectMachineHashes)
-			if err != nil {
-				return nil, err
-			}
-			defer func() {
-				finishTime := time.Now().UTC()
-				collectMachineHashes.FinishTime = &finishTime
-				err := p.apiDB.UpdateCollectMachineHash(&collectMachineHashes)
-				if err != nil {
-					return
-				}
-			}()
+			// var rawStepHeights string
+			// for i, stepHeight := range cfg.StepHeights {
+			// 	rawStepHeights += strconv.Itoa(int(stepHeight))
+			// 	if i != len(rawStepHeights)-1 {
+			// 		rawStepHeights += ","
+			// 	}
+			// }
+			// collectMachineHashes := api.JsonCollectMachineHashes{
+			// 	WasmModuleRoot:       cfg.WasmModuleRoot,
+			// 	FromBatch:            uint64(cfg.FromBatch),
+			// 	BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
+			// 	RawStepHeights:       rawStepHeights,
+			// 	NumDesiredHashes:     cfg.NumDesiredHashes,
+			// 	MachineStartIndex:    uint64(cfg.MachineStartIndex),
+			// 	StepSize:             uint64(cfg.StepSize),
+			// 	StartTime:            time.Now().UTC(),
+			// }
+			// err := p.apiDB.InsertCollectMachineHash(&collectMachineHashes)
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// defer func() {
+			// 	finishTime := time.Now().UTC()
+			// 	collectMachineHashes.FinishTime = &finishTime
+			// 	err := p.apiDB.UpdateCollectMachineHash(&collectMachineHashes)
+			// 	if err != nil {
+			// 		return
+			// 	}
+			// }()
 		}
 		startTime := time.Now()
 		defer func() {
