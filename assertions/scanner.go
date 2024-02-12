@@ -569,12 +569,16 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 	if m.challengeReader.Mode() < types.ResolveMode {
 		return
 	}
-	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	creationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	})
 	if err != nil {
 		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
 		return
 	}
-	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	prevCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	})
 	if err != nil {
 		log.Error("Could not get prev assertion creation info", log.Ctx{"error": err})
 		return
@@ -621,14 +625,6 @@ func (m *Manager) confirmAssertion(
 	if status == protocol.AssertionConfirmed {
 		return true, nil
 	}
-	latestConfirmed, err := m.chain.LatestConfirmed(ctx)
-	if err != nil {
-		return false, fmt.Errorf("could not get latest confirmed assertion: %v", err)
-	}
-	// The parent assertion must be the latest confirmed.
-	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
-		return false, nil
-	}
 	latestHeader, err := m.chain.Backend().HeaderByNumber(ctx, nil)
 	if err != nil {
 		return false, err
@@ -639,10 +635,10 @@ func (m *Manager) confirmAssertion(
 	blockNumber := latestHeader.Number.Uint64()
 	creationBlock := creationInfo.CreationBlock
 	confirmPeriodBlocks := prevCreationInfo.ConfirmPeriodBlocks
-	confirmableByTime := blockNumber >= creationBlock+confirmPeriodBlocks
+	confirmable := blockNumber >= creationBlock+confirmPeriodBlocks
 
 	// If the assertion is not yet confirmable, we can simply wait.
-	if !confirmableByTime {
+	if !confirmable {
 		blocksLeftForConfirmation := (creationBlock + confirmPeriodBlocks) - blockNumber
 		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
 		srvlog.Info(

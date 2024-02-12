@@ -35,12 +35,13 @@ import (
 )
 
 var (
-	srvlog                         = log.New("service", "chain-watcher")
-	edgeAddedCounter               = metrics.NewRegisteredCounter("arb/validator/watcher/edge_added", nil)
-	edgeConfirmedByChildrenCounter = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_children", nil)
-	edgeConfirmedByTimeCounter     = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_time", nil)
-	edgeConfirmedByOSPCounter      = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_osp", nil)
-	edgeConfirmedByClaimCounter    = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_claim", nil)
+	srvlog                                  = log.New("service", "chain-watcher")
+	edgeAddedCounter                        = metrics.NewRegisteredCounter("arb/validator/watcher/edge_added", nil)
+	edgeConfirmedByChildrenCounter          = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_children", nil)
+	edgeConfirmedByTimeCounter              = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_time", nil)
+	edgeConfirmedByOSPCounter               = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_osp", nil)
+	edgeConfirmedByClaimCounter             = metrics.NewRegisteredCounter("arb/validator/watcher/confirmed_by_claim", nil)
+	errorConfirmingAssertionByWinnerCounter = metrics.NewRegisteredCounter("arb/validator/watcher/error_confirming_assertion_by_winner", nil)
 )
 
 const (
@@ -1053,7 +1054,7 @@ func (w *Watcher) processEdgeConfirmation(
 	// Check if we should confirm the assertion by challenge winner.
 	challengeLevel := edge.GetChallengeLevel()
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
-		return w.confirmAssertionByChallengeWinner(ctx, edge, claimId, challengeParentAssertionHash)
+		go w.confirmAssertionByChallengeWinner(ctx, edge, claimId, challengeParentAssertionHash)
 	}
 
 	chal.confirmedLevelZeroEdgeClaimIds.Put(claimId, edge.Id())
@@ -1061,21 +1062,27 @@ func (w *Watcher) processEdgeConfirmation(
 	return nil
 }
 
-func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge protocol.SpecEdge, claimId protocol.ClaimId, challengeParentAssertionHash protocol.AssertionHash) error {
-	edgeConfirmedAtBlock, err := edge.ConfirmedAtBlock(ctx)
+func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge protocol.SpecEdge, claimId protocol.ClaimId, challengeParentAssertionHash protocol.AssertionHash) {
+	edgeConfirmedAtBlock, err := retry.UntilSucceeds(ctx, func() (uint64, error) {
+		return edge.ConfirmedAtBlock(ctx)
+	})
 	if err != nil {
-		return err
+		log.Error("Could not get edge confirmed at block", log.Ctx{"err": err})
+		return
 	}
-	challengeGracePeriodBlocks, err := w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(&bind.CallOpts{Context: ctx})
+	challengeGracePeriodBlocks, err := retry.UntilSucceeds(ctx, func() (uint64, error) {
+		return w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(&bind.CallOpts{Context: ctx})
+	})
 	if err != nil {
-		return fmt.Errorf("could not get challenge grace period blocks: %w", err)
+		log.Error("Could not get challenge grace period blocks", log.Ctx{"err": err})
+		return
 	}
 	for {
 		ticker := time.NewTicker(w.assertionConfirmingInterval)
 		defer ticker.Stop()
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-ticker.C:
 			confrimed, err := w.tryConfirmingChallengeByWinner(
 				ctx,
@@ -1086,10 +1093,15 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 				edge,
 			)
 			if err != nil {
-				return err
+				log.Error("Could not try confirming challenge by winner", log.Ctx{"err": err})
+				errorConfirmingAssertionByWinnerCounter.Inc(1)
+				continue
 			}
 			if confrimed {
-				return nil
+				srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
+					"challengeParentAssertionHash": containers.Trunc(challengeParentAssertionHash.Bytes()),
+				})
+				return
 			}
 		}
 	}
@@ -1100,17 +1112,28 @@ func (w *Watcher) tryConfirmingChallengeByWinner(
 	edgeConfirmedAtBlock uint64,
 	challengeGracePeriodBlocks uint64,
 	claimId protocol.ClaimId,
-	challengeParentAssertionHash protocol.AssertionHash,
+	assertionHash protocol.AssertionHash,
 	edge protocol.SpecEdge,
 ) (bool, error) {
+	status, err := w.chain.AssertionStatus(ctx, protocol.AssertionHash{Hash: assertionHash.Hash})
+	if err != nil {
+		return false, fmt.Errorf("could not get assertion by hash: %#x: %w", assertionHash.Hash, err)
+	}
+	if status == protocol.NoAssertion {
+		return false, fmt.Errorf("no assertion found by hash: %#x", assertionHash.Hash)
+	}
+	if status == protocol.AssertionConfirmed {
+		return true, nil
+	}
 	latestHeader, err := w.chain.Backend().HeaderByNumber(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("could not get latest header: %w", err)
+		return false, err
 	}
 	if !latestHeader.Number.IsUint64() {
-		return false, errors.New("latest block number is not a uint64, got: " + latestHeader.Number.String())
+		return false, errors.New("latest block number is not a uint64")
 	}
-	confirmable := latestHeader.Number.Uint64() > edgeConfirmedAtBlock+challengeGracePeriodBlocks
+	blockNumber := latestHeader.Number.Uint64()
+	confirmable := blockNumber > edgeConfirmedAtBlock+challengeGracePeriodBlocks
 	if !confirmable {
 		blocksLeftForConfirmation := (edgeConfirmedAtBlock + challengeGracePeriodBlocks) - latestHeader.Number.Uint64()
 		timeToWait := w.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
@@ -1124,16 +1147,14 @@ func (w *Watcher) tryConfirmingChallengeByWinner(
 		)
 		<-time.After(timeToWait)
 	}
-	if confirmAssertionErr := w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edge.Id()); confirmAssertionErr != nil {
-		if strings.Contains(confirmAssertionErr.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
+	err = w.chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)}, edge.Id())
+	if err != nil {
+		if strings.Contains(err.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
 			return false, nil
 		}
-		return false, confirmAssertionErr
+		return false, err
 
 	}
-	srvlog.Info("Assertion confirmed by challenge win", log.Ctx{
-		"challengeParentAssertionHash": containers.Trunc(challengeParentAssertionHash.Bytes()),
-	})
 	return true, nil
 }
 
