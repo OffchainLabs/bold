@@ -9,11 +9,15 @@ package solimpl
 import (
 	"context"
 	"fmt"
+
 	"math/big"
 	"sort"
 	"strings"
+	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -21,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -328,6 +333,69 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 
 func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
 	return a.userLogic.GenesisAssertionHash(&bind.CallOpts{Context: ctx})
+}
+
+func TryConfirmingAssertion(
+	ctx context.Context,
+	assertionHash common.Hash,
+	confirmableAfterBlock uint64,
+	chain protocol.AssertionChain,
+	averageTimeForBlockCreation time.Duration,
+	winningEdgeId option.Option[protocol.EdgeId],
+) (bool, error) {
+	status, err := chain.AssertionStatus(ctx, protocol.AssertionHash{Hash: assertionHash})
+	if err != nil {
+		return false, fmt.Errorf("could not get assertion by hash: %#x: %w", assertionHash, err)
+	}
+	if status == protocol.NoAssertion {
+		return false, fmt.Errorf("no assertion found by hash: %#x", assertionHash)
+	}
+	if status == protocol.AssertionConfirmed {
+		return true, nil
+	}
+	latestHeader, err := chain.Backend().HeaderByNumber(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	if !latestHeader.Number.IsUint64() {
+		return false, errors.New("latest block number is not a uint64")
+	}
+	confirmable := latestHeader.Number.Uint64() >= confirmableAfterBlock
+
+	// If the assertion is not yet confirmable, we can simply wait.
+	if !confirmable {
+		blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
+		timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+		log.Info(
+			fmt.Sprintf(
+				"Assertion with has %s needs at least %d blocks before being confirmable, waiting for %s",
+				containers.Trunc(assertionHash.Bytes()),
+				blocksLeftForConfirmation,
+				timeToWait,
+			),
+		)
+		<-time.After(timeToWait)
+	}
+
+	if winningEdgeId.IsSome() {
+		err = chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: assertionHash}, winningEdgeId.Unwrap())
+		if err != nil {
+			if strings.Contains(err.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
+				return false, nil
+			}
+			return false, err
+
+		}
+	} else {
+		err = chain.ConfirmAssertionByTime(ctx, protocol.AssertionHash{Hash: assertionHash})
+		if err != nil {
+			if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
+				return false, nil
+			}
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func (a *AssertionChain) ConfirmAssertionByTime(ctx context.Context, assertionHash protocol.AssertionHash) error {
