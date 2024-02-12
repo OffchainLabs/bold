@@ -638,7 +638,7 @@ func (m *Manager) confirmAssertion(
 	}
 	blockNumber := latestHeader.Number.Uint64()
 	creationBlock := creationInfo.CreationBlock
-	confirmPeriodBlocks := creationInfo.ConfirmPeriodBlocks
+	confirmPeriodBlocks := prevCreationInfo.ConfirmPeriodBlocks
 	confirmableByTime := blockNumber >= creationBlock+confirmPeriodBlocks
 
 	// If the assertion is not yet confirmable, we can simply wait.
