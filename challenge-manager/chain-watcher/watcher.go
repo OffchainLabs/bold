@@ -1079,9 +1079,9 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		log.Error("Could not get challenge grace period blocks", log.Ctx{"err": err})
 		return
 	}
+	ticker := time.NewTicker(w.assertionConfirmingInterval)
+	defer ticker.Stop()
 	for {
-		ticker := time.NewTicker(w.assertionConfirmingInterval)
-		defer ticker.Stop()
 		select {
 		case <-ctx.Done():
 			return

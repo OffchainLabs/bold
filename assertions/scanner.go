@@ -583,9 +583,9 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		log.Error("Could not get prev assertion creation info", log.Ctx{"error": err})
 		return
 	}
+	ticker := time.NewTicker(m.confirmationAttemptInterval)
+	defer ticker.Stop()
 	for {
-		ticker := time.NewTicker(m.confirmationAttemptInterval)
-		defer ticker.Stop()
 		select {
 		case <-ctx.Done():
 			return
