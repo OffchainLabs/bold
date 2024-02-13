@@ -21,6 +21,7 @@ import (
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -129,7 +130,7 @@ func (a *AssertionChain) Backend() protocol.ChainBackend {
 func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	res, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+	res, err := a.userLogic.GetAssertion(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +149,7 @@ func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protoco
 }
 
 func (a *AssertionChain) AssertionStatus(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.AssertionStatus, error) {
-	res, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, assertionHash.Hash)
+	res, err := a.rollup.GetAssertion(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), assertionHash.Hash)
 	if err != nil {
 		return protocol.NoAssertion, err
 	}
@@ -156,7 +157,7 @@ func (a *AssertionChain) AssertionStatus(ctx context.Context, assertionHash prot
 }
 
 func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	res, err := a.rollup.LatestConfirmed(&bind.CallOpts{Context: ctx})
+	res, err := a.rollup.LatestConfirmed(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +166,7 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertio
 
 // Returns true if the staker's address is currently staked in the assertion chain.
 func (a *AssertionChain) IsStaked(ctx context.Context) (bool, error) {
-	return a.rollup.IsStaked(&bind.CallOpts{Context: ctx}, a.txOpts.From)
+	return a.rollup.IsStaked(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), a.txOpts.From)
 }
 
 // RollupAddress for the assertion chain.
@@ -255,7 +256,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if postState.GlobalState.Batch == 0 {
 		return nil, errors.New("assertion post state cannot have a batch count of 0, as only genesis can")
 	}
-	bridgeAddr, err := a.userLogic.Bridge(&bind.CallOpts{Context: ctx})
+	bridgeAddr, err := a.userLogic.Bridge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not retrieve bridge address for user rollup logic contract")
 	}
@@ -264,14 +265,14 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
 	}
 	inboxBatchAcc, err := bridge.SequencerInboxAccs(
-		&bind.CallOpts{Context: ctx},
+		util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
 		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
 	}
 	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
-		&bind.CallOpts{Context: ctx},
+		util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
 		parentAssertionCreationInfo.AssertionHash,
 		postState.AsSolidityStruct(),
 		inboxBatchAcc,
@@ -332,7 +333,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 }
 
 func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
-	return a.userLogic.GenesisAssertionHash(&bind.CallOpts{Context: ctx})
+	return a.userLogic.GenesisAssertionHash(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
 }
 
 func TryConfirmingAssertion(
@@ -353,7 +354,7 @@ func TryConfirmingAssertion(
 	if status == protocol.AssertionConfirmed {
 		return true, nil
 	}
-	latestHeader, err := chain.Backend().HeaderByNumber(ctx, nil)
+	latestHeader, err := chain.Backend().HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 	if err != nil {
 		return false, err
 	}
@@ -411,7 +412,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 ) error {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	node, err := a.userLogic.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+	node, err := a.userLogic.GetAssertion(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return err
 	}
@@ -473,7 +474,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 // SpecChallengeManager creates a new spec challenge manager
 func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
 	challengeManagerAddr, err := a.userLogic.RollupUserLogicCaller.ChallengeManager(
-		&bind.CallOpts{Context: ctx},
+		util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
 	)
 	if err != nil {
 		return nil, err
@@ -493,7 +494,7 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	wantNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+	wantNode, err := a.rollup.GetAssertion(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return 0, err
 	}
@@ -518,7 +519,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 		return 0, err
 	}
 	copy(b[:], prevId.Bytes())
-	prevNode, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+	prevNode, err := a.rollup.GetAssertion(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return 0, err
 	}
@@ -532,7 +533,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		latestHeader, err := a.backend.HeaderByNumber(ctx, nil)
+		latestHeader, err := a.backend.HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 		if err != nil {
 			return 0, err
 		}
@@ -694,7 +695,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	var creationBlock uint64
 	var topics [][]common.Hash
 	if id == (protocol.AssertionHash{}) {
-		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(&bind.CallOpts{Context: ctx})
+		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
 		if err != nil {
 			return nil, err
 		}
@@ -706,7 +707,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	} else {
 		var b [32]byte
 		copy(b[:], id.Bytes())
-		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+		node, err := a.rollup.GetAssertion(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), b)
 		if err != nil {
 			return nil, err
 		}

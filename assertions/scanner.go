@@ -26,6 +26,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -135,7 +136,7 @@ func (m *Manager) Start(ctx context.Context) {
 		srvlog.Error("Could not get rollup user logic filterer", log.Ctx{"err": err})
 		return
 	}
-	latestBlock, err := m.backend.HeaderByNumber(ctx, nil)
+	latestBlock, err := m.backend.HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 	if err != nil {
 		srvlog.Error("Could not get header by number", log.Ctx{"err": err})
 		return
@@ -166,7 +167,7 @@ func (m *Manager) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			latestBlock, err := m.backend.HeaderByNumber(ctx, nil)
+			latestBlock, err := m.backend.HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 			if err != nil {
 				srvlog.Error("Could not get header by number", log.Ctx{"err": err})
 				continue
