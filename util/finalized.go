@@ -14,8 +14,18 @@ func GetFinalizedCallOpts(opts *bind.CallOpts) *bind.CallOpts {
 	}
 	// If we are running tests, we want to use the latest block number since
 	// simulated backends only support the latest block number.
-	if flag.Lookup("test.v") == nil {
-		opts.BlockNumber = big.NewInt(int64(rpc.FinalizedBlockNumber))
+	if flag.Lookup("test.v") != nil {
+		return opts
 	}
+	opts.BlockNumber = big.NewInt(int64(rpc.FinalizedBlockNumber))
 	return opts
+}
+
+func GetFinalizedBlockNumber() *big.Int {
+	// If we are running tests, we want to use the latest block number since
+	// simulated backends only support the latest block number.
+	if flag.Lookup("test.v") != nil {
+		return nil
+	}
+	return nil
 }

@@ -354,7 +354,7 @@ func TryConfirmingAssertion(
 	if status == protocol.AssertionConfirmed {
 		return true, nil
 	}
-	latestHeader, err := chain.Backend().HeaderByNumber(ctx, nil)
+	latestHeader, err := chain.Backend().HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 	if err != nil {
 		return false, err
 	}
@@ -533,7 +533,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		latestHeader, err := a.backend.HeaderByNumber(ctx, nil)
+		latestHeader, err := a.backend.HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 		if err != nil {
 			return 0, err
 		}
