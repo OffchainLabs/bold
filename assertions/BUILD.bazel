@@ -50,6 +50,7 @@ go_test(
         "//testing/mocks",
         "//testing/mocks/state-provider",
         "//testing/setup:setup_lib",
+        "//util",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_pkg_errors//:errors",

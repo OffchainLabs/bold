@@ -26,6 +26,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/util"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -1072,7 +1073,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		return
 	}
 	challengeGracePeriodBlocks, err := retry.UntilSucceeds(ctx, func() (uint64, error) {
-		return w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(&bind.CallOpts{Context: ctx})
+		return w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
 	})
 	if err != nil {
 		log.Error("Could not get challenge grace period blocks", log.Ctx{"err": err})
