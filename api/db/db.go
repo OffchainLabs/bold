@@ -14,11 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
-)
-
-var (
-	ErrNoAssertionForEdge = errors.New("no matching assertion found for edge")
 )
 
 type Database interface {
