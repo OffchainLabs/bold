@@ -31,10 +31,11 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("item not found on-chain")
-	ErrAlreadyExists    = errors.New("item already exists on-chain")
-	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
-	ErrTooLate          = errors.New("too late to create assertion sibling")
+	ErrNotFound                 = errors.New("item not found on-chain")
+	ErrAlreadyExists            = errors.New("item already exists on-chain")
+	ErrPrevDoesNotExist         = errors.New("assertion predecessor does not exist")
+	ErrTooLate                  = errors.New("too late to create assertion sibling")
+	ErrParentNotLatestConfirmed = errors.New("parent not latest confirmed")
 )
 
 var assertionCreatedId common.Hash
@@ -391,6 +392,9 @@ func TryConfirmingAssertion(
 		err = chain.ConfirmAssertionByTime(ctx, protocol.AssertionHash{Hash: assertionHash})
 		if err != nil {
 			if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
+				return false, nil
+			}
+			if strings.Contains(err.Error(), protocol.ParentNotLatestConfirmedError) {
 				return false, nil
 			}
 			return false, err

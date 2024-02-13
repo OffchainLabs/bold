@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -1093,6 +1094,9 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		case <-ticker.C:
 			confirmed, err := solimpl.TryConfirmingAssertion(ctx, common.Hash(claimId), edgeConfirmedAtBlock+challengeGracePeriodBlocks, w.chain, w.averageTimeForBlockCreation, option.Some(edge.Id()))
 			if err != nil {
+				if strings.Contains(err.Error(), protocol.ParentNotLatestConfirmedError) {
+					continue
+				}
 				srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": common.Hash(claimId)})
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue

@@ -71,6 +71,7 @@ func (a AssertionStatus) String() string {
 
 const BeforeDeadlineAssertionConfirmationError = "BEFORE_DEADLINE"
 const ChallengeGracePeriodNotPassedAssertionConfirmationError = "CHALLENGE_GRACE_PERIOD_NOT_PASSED"
+const ParentNotLatestConfirmedError = "not the latest confirmed assertion"
 
 // Assertion represents a top-level claim in the protocol about the
 // chain state created by a validator that stakes on their claim.
