@@ -27,5 +27,5 @@ func GetFinalizedBlockNumber() *big.Int {
 	if flag.Lookup("test.v") != nil {
 		return nil
 	}
-	return nil
+	return big.NewInt(int64(rpc.FinalizedBlockNumber))
 }
