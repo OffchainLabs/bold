@@ -441,17 +441,18 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	endHeight, endCommit := et.edge.EndCommitment()
 	chalLevel := et.edge.GetChallengeLevel()
 	return log.Ctx{
-		"id":            et.edge.Id().Hash,
-		"fromBatch":     et.associatedAssertionMetadata.FromBatch,
-		"toBatch":       et.associatedAssertionMetadata.ToBatch,
-		"startHeight":   startHeight,
-		"startCommit":   startCommit,
-		"endHeight":     endHeight,
-		"endCommit":     endCommit,
-		"validatorName": et.validatorName,
-		"challengeType": chalLevel.String(),
-		"originId":      common.Hash(et.edge.OriginId()),
-		"mutualId":      common.Hash(et.edge.MutualId()),
+		"id":                   et.edge.Id().Hash,
+		"fromBatch":            et.associatedAssertionMetadata.FromBatch,
+		"toBatch":              et.associatedAssertionMetadata.ToBatch,
+		"claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
+		"startHeight":          startHeight,
+		"startCommit":          startCommit,
+		"endHeight":            endHeight,
+		"endCommit":            endCommit,
+		"validatorName":        et.validatorName,
+		"challengeType":        chalLevel.String(),
+		"originId":             common.Hash(et.edge.OriginId()),
+		"mutualId":             common.Hash(et.edge.MutualId()),
 	}
 }
 
