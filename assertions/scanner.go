@@ -618,17 +618,15 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			parentAssertion, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
-				return m.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-			})
+			parentAssertion, err := m.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 			if err != nil {
 				log.Error("Could not get parent assertion", log.Ctx{"error": err})
-				return
+				continue
 			}
 			parentAssertionHasSecondChild, err := parentAssertion.HasSecondChild()
 			if err != nil {
 				log.Error("Could not confirm if parent assertion has second child", log.Ctx{"error": err})
-				return
+				continue
 			}
 			// Assertions that have a rival assertion cannot be confirmed by time.
 			if parentAssertionHasSecondChild {
