@@ -593,9 +593,20 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Assertions that are specified as the claim id in a challenge
-			// cannot be confirmed by time, so we exit early.
-			if m.challengeReader.IsClaimedByChallenge(assertionHash) {
+			parentAssertion, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
+				return m.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+			})
+			if err != nil {
+				log.Error("Could not get parent assertion", log.Ctx{"error": err})
+				return
+			}
+			parentAssertionHasSecondChild, err := parentAssertion.HasSecondChild()
+			if err != nil {
+				log.Error("Could not confirm if parent assertion has second child", log.Ctx{"error": err})
+				return
+			}
+			// Assertions that have a rival assertion cannot be confirmed by time.
+			if parentAssertionHasSecondChild {
 				return
 			}
 			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.averageTimeForBlockCreation, option.None[protocol.EdgeId]())
