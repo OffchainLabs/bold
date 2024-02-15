@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"math/big"
 	"testing"
 
@@ -51,11 +52,11 @@ func TestGeneratePrefixProof(t *testing.T) {
 	defaultLeaves := []common.Hash{{1}, {2}}
 
 	// Test case: Zero PrefixHeight
-	_, err := prefixproofs.GeneratePrefixProof(0, nil, defaultLeaves, nil)
+	_, err := prefixproofs.GeneratePrefixProof(0, nil, state_hashes.NewStateHashes(defaultLeaves, uint64(len(defaultLeaves))), nil)
 	require.ErrorContains(t, err, "prefixHeight was 0")
 
 	// Test case: Zero Length of Leaves
-	_, err = prefixproofs.GeneratePrefixProof(1, nil, []common.Hash{}, nil)
+	_, err = prefixproofs.GeneratePrefixProof(1, nil, state_hashes.NewStateHashes([]common.Hash{}, 0), nil)
 	require.ErrorContains(t, err, "length of leaves was 0")
 }
 

@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//state-commitments/inclusion-proofs",
         "//state-commitments/prefix-proofs",
+        "//state-commitments/state-hashes",
         "@com_github_ethereum_go_ethereum//common",
     ],
 )
@@ -18,6 +19,7 @@ go_test(
     embed = [":history"],
     deps = [
         "//state-commitments/inclusion-proofs",
+        "//state-commitments/state-hashes",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_stretchr_testify//require",
     ],

@@ -7,6 +7,7 @@ package inclusionproofs
 
 import (
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -56,28 +57,28 @@ func FullTree(leaves []common.Hash) ([][]common.Hash, error) {
 }
 
 // GenerateInclusionProof from a list of Merkle leaves at a specified index.
-func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, error) {
-	if len(leaves) == 0 {
+func GenerateInclusionProof(leaves *state_hashes.StateHashes, idx uint64) ([]common.Hash, error) {
+	if leaves.Length() == 0 {
 		return nil, ErrInvalidLeaves
 	}
-	if idx >= uint64(len(leaves)) {
+	if idx >= uint64(leaves.Length()) {
 		return nil, ErrInvalidLeaves
 	}
-	if len(leaves) == 1 {
+	if leaves.Length() == 1 {
 		return make([]common.Hash, 0), nil
 	}
-	rehashed := make([]common.Hash, len(leaves))
+	rehashed := make([]common.Hash, leaves.Length())
 	var waitGroup sync.WaitGroup
 	gomaxprocs := runtime.GOMAXPROCS(-1)
 	waitGroup.Add(gomaxprocs)
-	batchSize := len(leaves) / gomaxprocs
-	batchRemainder := len(leaves) % gomaxprocs
+	batchSize := int(leaves.Length()) / gomaxprocs
+	batchRemainder := int(leaves.Length()) % gomaxprocs
 	for i := 0; i < gomaxprocs-1; i++ {
 		start := i * batchSize
 		go func() {
 			defer waitGroup.Done()
 			for j := start; j < start+batchSize; j++ {
-				rehashed[j] = crypto.Keccak256Hash(leaves[j].Bytes())
+				rehashed[j] = crypto.Keccak256Hash(leaves.At(uint64(j)).Bytes())
 			}
 		}()
 	}
@@ -85,7 +86,7 @@ func GenerateInclusionProof(leaves []common.Hash, idx uint64) ([]common.Hash, er
 	go func() {
 		defer waitGroup.Done()
 		for j := start; j < start+batchSize+batchRemainder; j++ {
-			rehashed[j] = crypto.Keccak256Hash(leaves[j].Bytes())
+			rehashed[j] = crypto.Keccak256Hash(leaves.At(uint64(j)).Bytes())
 		}
 	}()
 	waitGroup.Wait()

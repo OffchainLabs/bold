@@ -5,6 +5,7 @@ package inclusionproofs
 
 import (
 	"fmt"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"testing"
 
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
@@ -18,7 +19,7 @@ func TestInclusionProof(t *testing.T) {
 		leaves[i] = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
 	}
 	index := uint64(0)
-	proof, err := GenerateInclusionProof(leaves, index)
+	proof, err := GenerateInclusionProof(state_hashes.NewStateHashes(leaves, uint64(len(leaves))), index)
 	require.NoError(t, err)
 	require.Equal(t, true, len(proof) > 0)
 
@@ -39,7 +40,7 @@ func TestInclusionProof(t *testing.T) {
 	})
 	t.Run("first leaf proof", func(t *testing.T) {
 		index = uint64(0)
-		proof, err = GenerateInclusionProof(leaves, index)
+		proof, err = GenerateInclusionProof(state_hashes.NewStateHashes(leaves, uint64(len(leaves))), index)
 		require.NoError(t, err)
 		require.Equal(t, true, len(proof) > 0)
 		computedRoot, err = CalculateRootFromProof(proof, index, leaves[index])
@@ -48,7 +49,7 @@ func TestInclusionProof(t *testing.T) {
 	})
 	t.Run("last leaf proof", func(t *testing.T) {
 		index = uint64(len(leaves) - 1)
-		proof, err = GenerateInclusionProof(leaves, index)
+		proof, err = GenerateInclusionProof(state_hashes.NewStateHashes(leaves, uint64(len(leaves))), index)
 		require.NoError(t, err)
 		require.Equal(t, true, len(proof) > 0)
 		computedRoot, err = CalculateRootFromProof(proof, index, leaves[index])
@@ -57,11 +58,11 @@ func TestInclusionProof(t *testing.T) {
 	})
 	t.Run("Invalid inputs", func(t *testing.T) {
 		// Empty tree should not generate a proof.
-		_, err := GenerateInclusionProof([]common.Hash{}, 0)
+		_, err := GenerateInclusionProof(state_hashes.NewStateHashes([]common.Hash{}, 0), 0)
 		require.Equal(t, ErrInvalidLeaves, err)
 
 		// Index greater than the number of leaves should not generate a proof.
-		_, err = GenerateInclusionProof(leaves, uint64(len(leaves)))
+		_, err = GenerateInclusionProof(state_hashes.NewStateHashes(leaves, uint64(len(leaves))), uint64(len(leaves)))
 		require.Equal(t, ErrInvalidLeaves, err)
 
 		// Proof with more than 256 elements should not calculate a root...

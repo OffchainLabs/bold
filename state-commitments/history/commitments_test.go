@@ -5,6 +5,7 @@ package history
 
 import (
 	"fmt"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"testing"
 
 	inclusionproofs "github.com/OffchainLabs/bold/state-commitments/inclusion-proofs"
@@ -17,7 +18,7 @@ func TestHistoryCommitment_LeafProofs(t *testing.T) {
 	for i := 0; i < len(leaves); i++ {
 		leaves[i] = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
 	}
-	history, err := New(leaves)
+	history, err := New(state_hashes.NewStateHashes(leaves, uint64(len(leaves))))
 	require.NoError(t, err)
 	require.Equal(t, history.FirstLeaf, leaves[0])
 	require.Equal(t, history.LastLeaf, leaves[len(leaves)-1])

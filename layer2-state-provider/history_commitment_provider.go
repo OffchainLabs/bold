@@ -17,6 +17,7 @@ import (
 	"github.com/OffchainLabs/bold/api/db"
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -26,7 +27,7 @@ import (
 // and outputs a list of these hashes at the end. This is a computationally expensive process
 // that is best performed if machine hashes are cached after runs.
 type MachineHashCollector interface {
-	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) ([]common.Hash, error)
+	CollectMachineHashes(ctx context.Context, cfg *HashCollectorConfig) (*state_hashes.StateHashes, error)
 }
 
 // ProofCollector defines an interface which can collect proof from an Arbitrator machine
@@ -92,7 +93,7 @@ type L2MessageStateCollector interface {
 		toHeight option.Option[Height],
 		fromBatch,
 		toBatch Batch,
-	) ([]common.Hash, error)
+	) (*state_hashes.StateHashes, error)
 }
 
 // HistoryCommitmentProvider computes history commitments from input parameters
@@ -103,7 +104,7 @@ type HistoryCommitmentProvider struct {
 	machineHashCollector    MachineHashCollector
 	proofCollector          ProofCollector
 	challengeLeafHeights    []Height
-	inFlightRequestCache    *inprogresscache.Cache[string, []common.Hash]
+	inFlightRequestCache    *inprogresscache.Cache[string, *state_hashes.StateHashes]
 	apiDB                   db.Database
 	ExecutionProvider
 }
@@ -124,7 +125,7 @@ func NewHistoryCommitmentProvider(
 		proofCollector:          proofCollector,
 		challengeLeafHeights:    challengeLeafHeights,
 		ExecutionProvider:       executionProvider,
-		inFlightRequestCache:    inprogresscache.New[string, []common.Hash](),
+		inFlightRequestCache:    inprogresscache.New[string, *state_hashes.StateHashes](),
 		apiDB:                   apiDB,
 	}
 }
@@ -154,7 +155,7 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
-) ([]common.Hash, error) {
+) (*state_hashes.StateHashes, error) {
 	// Validate the input heights for correctness.
 	validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
 	if err != nil {
@@ -217,7 +218,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// Requests collecting machine hashes for the specified config, and uses an in-flight
 	// request cache to make sure the same request is not spawned twice, but rather
 	// the second request would wait for the in-flight request to complete and use its result.
-	return p.inFlightRequestCache.Compute(cfg.String(), func() ([]common.Hash, error) {
+	return p.inFlightRequestCache.Compute(cfg.String(), func() (*state_hashes.StateHashes, error) {
 		if !api.IsNil(p.apiDB) {
 			var rawStepHeights string
 			for i, stepHeight := range cfg.StepHeights {
@@ -350,7 +351,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	var highCommitmentNumLeaves uint64
 	if req.UpToHeight.IsNone() {
-		highCommitmentNumLeaves = uint64(len(leaves))
+		highCommitmentNumLeaves = leaves.Length()
 	} else {
 		// Else if it is provided, we expect the number of leaves to be the difference
 		// between the to and from height + 1.
@@ -362,8 +363,8 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	}
 
 	// Validate we are within bounds of the leaves slice.
-	if highCommitmentNumLeaves > uint64(len(leaves)) {
-		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(leaves))
+	if highCommitmentNumLeaves > leaves.Length() {
+		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, leaves.Length())
 	}
 
 	// Validate low vs high commitment.
@@ -371,25 +372,25 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, fmt.Errorf("low prefix size %d was greater than high prefix size %d", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 	}
 
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(leaves[:lowCommitmentNumLeaves])
+	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(leaves.SubSlice(0, lowCommitmentNumLeaves))
 	if err != nil {
 		return nil, err
 	}
 	prefixProof, err := prefixproofs.GeneratePrefixProof(
 		lowCommitmentNumLeaves,
 		prefixExpansion,
-		leaves[lowCommitmentNumLeaves:highCommitmentNumLeaves],
+		leaves.SubSlice(lowCommitmentNumLeaves, highCommitmentNumLeaves),
 		prefixproofs.RootFetcherFromExpansion,
 	)
 	if err != nil {
 		return nil, err
 	}
-	bigCommit, err := commitments.New(leaves[:highCommitmentNumLeaves])
+	bigCommit, err := commitments.New(leaves.SubSlice(0, highCommitmentNumLeaves))
 	if err != nil {
 		return nil, err
 	}
 
-	prefixCommit, err := commitments.New(leaves[:lowCommitmentNumLeaves])
+	prefixCommit, err := commitments.New(leaves.SubSlice(0, lowCommitmentNumLeaves))
 	if err != nil {
 		return nil, err
 	}

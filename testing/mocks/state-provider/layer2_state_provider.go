@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"math/big"
 
 	"github.com/OffchainLabs/bold/api/db"
@@ -237,7 +238,7 @@ func (s *L2StateBackend) AgreesWithExecutionState(ctx context.Context, state *pr
 	return l2stateprovider.ErrNoExecutionState
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) ([]common.Hash, error) {
+func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) (*state_hashes.StateHashes, error) {
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
@@ -278,7 +279,7 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uin
 	for len(states) < desiredStatesLen {
 		states = append(states, lastState)
 	}
-	return states, nil
+	return state_hashes.NewStateHashes(states, uint64(desiredStatesLen)), nil
 }
 
 func (s *L2StateBackend) maybeDivergeState(state *protocol.ExecutionState, block uint64, step uint64) {

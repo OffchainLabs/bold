@@ -8,6 +8,7 @@ package history
 import (
 	"errors"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"sync"
 
 	inclusionproofs "github.com/OffchainLabs/bold/state-commitments/inclusion-proofs"
@@ -34,8 +35,8 @@ type History struct {
 	LastLeaf       common.Hash
 }
 
-func New(leaves []common.Hash) (History, error) {
-	if len(leaves) == 0 {
+func New(leaves *state_hashes.StateHashes) (History, error) {
+	if leaves.Length() == 0 {
 		return emptyCommit, errors.New("must commit to at least one leaf")
 	}
 	var waitGroup sync.WaitGroup
@@ -52,7 +53,7 @@ func New(leaves []common.Hash) (History, error) {
 	var err2 error
 	go func() {
 		defer waitGroup.Done()
-		lastLeafProof, err2 = inclusionproofs.GenerateInclusionProof(leaves, uint64(len(leaves))-1)
+		lastLeafProof, err2 = inclusionproofs.GenerateInclusionProof(leaves, leaves.Length()-1)
 	}()
 
 	var root common.Hash
@@ -60,8 +61,8 @@ func New(leaves []common.Hash) (History, error) {
 	go func() {
 		defer waitGroup.Done()
 		exp := prefixproofs.NewEmptyMerkleExpansion()
-		for _, r := range leaves {
-			exp, err3 = prefixproofs.AppendLeaf(exp, r)
+		for i := uint64(0); i < leaves.Length(); i++ {
+			exp, err3 = prefixproofs.AppendLeaf(exp, leaves.At(i))
 			if err3 != nil {
 				return
 			}
@@ -82,9 +83,9 @@ func New(leaves []common.Hash) (History, error) {
 
 	return History{
 		Merkle:         root,
-		Height:         uint64(len(leaves) - 1),
-		FirstLeaf:      leaves[0],
-		LastLeaf:       leaves[len(leaves)-1],
+		Height:         leaves.Length() - 1,
+		FirstLeaf:      leaves.At(0),
+		LastLeaf:       leaves.At(leaves.Length() - 1),
 		FirstLeafProof: firstLeafProof,
 		LastLeafProof:  lastLeafProof,
 	}, nil

@@ -4,6 +4,7 @@
 package prefixproofs
 
 import (
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -46,10 +47,10 @@ func MerkleExpansionFromCompact(comp []common.Hash, size uint64) (MerkleExpansio
 	return me, numRead
 }
 
-func ExpansionFromLeaves(leaves []common.Hash) (MerkleExpansion, error) {
+func ExpansionFromLeaves(leaves *state_hashes.StateHashes) (MerkleExpansion, error) {
 	ret := NewEmptyMerkleExpansion()
-	for _, leaf := range leaves {
-		appended, err := AppendLeaf(ret, leaf)
+	for i := uint64(0); i < leaves.Length(); i++ {
+		appended, err := AppendLeaf(ret, leaves.At(i))
 		if err != nil {
 			return nil, err
 		}
@@ -58,10 +59,10 @@ func ExpansionFromLeaves(leaves []common.Hash) (MerkleExpansion, error) {
 	return ret, nil
 }
 
-type MerkleExpansionRootFetcherFunc = func(leaves []common.Hash, upTo uint64) (common.Hash, error)
+type MerkleExpansionRootFetcherFunc = func(leaves *state_hashes.StateHashes, upTo uint64) (common.Hash, error)
 
-func RootFetcherFromExpansion(leaves []common.Hash, upTo uint64) (common.Hash, error) {
-	exp, err := ExpansionFromLeaves(leaves[:upTo])
+func RootFetcherFromExpansion(leaves *state_hashes.StateHashes, upTo uint64) (common.Hash, error) {
+	exp, err := ExpansionFromLeaves(leaves.SubSlice(0, upTo))
 	if err != nil {
 		return common.Hash{}, err
 	}
