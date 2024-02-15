@@ -797,7 +797,7 @@ library EdgeChallengeManagerLib {
         }
 
         // update new cached items
-        for (uint8 level = 0; level < accumulatedTimeByLevel.length; level++) {
+        for (uint256 level = 0; level < accumulatedTimeByLevel.length; level++) {
             if(accumulatedTimeByLevel[level].edgeId != 0) {
                 uint64 timeUnrivaledAtLevel = totalTimeUnrivaled - accumulatedTimeByLevel[level].time;
                 // update the sum time unrivaled
