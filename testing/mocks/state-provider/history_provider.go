@@ -2,10 +2,11 @@ package stateprovider
 
 import (
 	"context"
-	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 

@@ -103,13 +103,14 @@
 package prefixproofs
 
 import (
-	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"math"
 	"math/bits"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 )
 
 const (

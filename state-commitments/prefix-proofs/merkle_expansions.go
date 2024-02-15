@@ -5,6 +5,7 @@ package prefixproofs
 
 import (
 	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 

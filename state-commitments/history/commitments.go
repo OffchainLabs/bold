@@ -7,11 +7,12 @@ package history
 
 import (
 	"errors"
-	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
-	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"sync"
 
 	inclusionproofs "github.com/OffchainLabs/bold/state-commitments/inclusion-proofs"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 

@@ -8,63 +8,63 @@ import "github.com/ethereum/go-ethereum/common"
 // If the requested index is greater than the length of the state hashes,
 // the last hash in the slice is returned.
 type StateHashes struct {
-	hashes []common.Hash
-	length uint64
+	Hashes []common.Hash `json:"hashes"`
+	Len    uint64        `json:"len"`
 }
 
 func NewStateHashes(hashes []common.Hash, length uint64) *StateHashes {
 	return &StateHashes{
-		hashes: hashes,
-		length: length,
+		Hashes: hashes,
+		Len:    length,
 	}
 }
 
 func (s *StateHashes) Length() uint64 {
-	return s.length
+	return s.Len
 }
 
 func (s *StateHashes) At(i uint64) common.Hash {
-	if i >= s.length {
+	if i >= s.Len {
 		panic("index out of range")
 	}
-	if len(s.hashes) == 0 {
+	if len(s.Hashes) == 0 {
 		panic("empty state hashes")
 	}
-	if uint64(len(s.hashes)) > i {
-		return s.hashes[i]
+	if uint64(len(s.Hashes)) > i {
+		return s.Hashes[i]
 	}
 	// If the requested index is greater than the length of the state hashes, return the last hash
-	return s.hashes[len(s.hashes)-1]
+	return s.Hashes[len(s.Hashes)-1]
 }
 
 func (s *StateHashes) SubSlice(start, end uint64) *StateHashes {
-	if start > s.length {
+	if start > s.Len {
 		panic("index out of range")
 	}
-	if end > s.length {
+	if end > s.Len {
 		panic("index out of range")
 	}
 	if start > end {
 		panic("invalid slice indices")
 	}
 	// If start and end are within the length of the state hashes, return the sub-slice
-	if end < uint64(len(s.hashes)) {
+	if end < uint64(len(s.Hashes)) {
 		return &StateHashes{
-			hashes: s.hashes[start:end],
-			length: end - start,
+			Hashes: s.Hashes[start:end],
+			Len:    end - start,
 		}
 	}
 	// If start is within the length of the state hashes, but end is greater than the length of the state hashes,
 	// return the sub-slice from start to the end of the state hashes
-	if start < uint64(len(s.hashes)) {
+	if start < uint64(len(s.Hashes)) {
 		return &StateHashes{
-			hashes: s.hashes[start:],
-			length: end - start,
+			Hashes: s.Hashes[start:],
+			Len:    end - start,
 		}
 	}
 	// If both start and end are greater than the length of the state hashes, return the last hash in the slice
 	return &StateHashes{
-		hashes: s.hashes[len(s.hashes)-1:],
-		length: end - start,
+		Hashes: s.Hashes[len(s.Hashes)-1:],
+		Len:    end - start,
 	}
 }

@@ -5,10 +5,11 @@ package history
 
 import (
 	"fmt"
-	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"testing"
 
 	inclusionproofs "github.com/OffchainLabs/bold/state-commitments/inclusion-proofs"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )

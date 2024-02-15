@@ -7,18 +7,18 @@ import (
 	"strconv"
 	"time"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	inprogresscache "github.com/OffchainLabs/bold/containers/in-progress-cache"
-	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/metrics"
 
 	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/api/db"
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	inprogresscache "github.com/OffchainLabs/bold/containers/in-progress-cache"
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // MachineHashCollector defines an interface which can collect hashes from an Arbitrator machine

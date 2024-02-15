@@ -9,13 +9,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	"math/big"
 
 	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )

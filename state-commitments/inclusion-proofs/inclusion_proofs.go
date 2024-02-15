@@ -6,13 +6,15 @@
 package inclusionproofs
 
 import (
-	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
-	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"runtime"
 	"sync"
+
+	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (
