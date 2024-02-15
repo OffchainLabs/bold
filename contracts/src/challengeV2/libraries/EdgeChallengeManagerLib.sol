@@ -778,7 +778,7 @@ library EdgeChallengeManagerLib {
                 } 
 
                 // when moving between levels we record how much time had been accumulated up to that point
-                accumulatedTimeByLevel[e.level - 1] = AccumulatedTime({edgeId: ancestorEdgeIds[i], time: totalTimeUnrivaled});
+                accumulatedTimeByLevel[store.edges[currentEdgeId].level - 1] = AccumulatedTime({edgeId: ancestorEdgeIds[i], time: totalTimeUnrivaled});
                 totalTimeUnrivaled += timeUnrivaled(store, e.id());
                 currentEdgeId = ancestorEdgeIds[i];
             } else {
