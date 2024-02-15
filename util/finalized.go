@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func GetFinalizedCallOpts(opts *bind.CallOpts) *bind.CallOpts {
@@ -17,7 +16,7 @@ func GetFinalizedCallOpts(opts *bind.CallOpts) *bind.CallOpts {
 	if flag.Lookup("test.v") != nil {
 		return opts
 	}
-	opts.BlockNumber = big.NewInt(int64(rpc.FinalizedBlockNumber))
+	// opts.BlockNumber = big.NewInt(int64(rpc.FinalizedBlockNumber))
 	return opts
 }
 
@@ -27,5 +26,6 @@ func GetFinalizedBlockNumber() *big.Int {
 	if flag.Lookup("test.v") != nil {
 		return nil
 	}
-	return big.NewInt(int64(rpc.FinalizedBlockNumber))
+	// return big.NewInt(int64(rpc.FinalizedBlockNumber))
+	return nil
 }
