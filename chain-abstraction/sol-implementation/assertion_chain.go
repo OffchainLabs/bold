@@ -310,6 +310,13 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			assertionItem, err2 := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+			if err2 != nil {
+				return nil, err2
+			}
+			return assertionItem, nil
+		}
 		return nil, fmt.Errorf("could not create assertion: %w", createErr)
 	}
 	if len(receipt.Logs) == 0 {

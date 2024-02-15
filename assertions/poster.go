@@ -132,7 +132,6 @@ func (m *Manager) PostAssertionBasedOnParent(
 		parentCreationInfo,
 		newState,
 	)
-	srvlog.Error("Got error posting", log.Ctx{"error": err})
 	switch {
 	case errors.Is(err, solimpl.ErrAlreadyExists):
 		return option.None[protocol.Assertion](), errors.Wrap(err, "assertion already exists, was unable to post")
