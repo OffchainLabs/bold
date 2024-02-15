@@ -97,10 +97,10 @@ func (m *Manager) PostAssertionBasedOnParent(
 	ctx context.Context,
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 	submitFn func(
-	ctx context.Context,
-	parentCreationInfo *protocol.AssertionCreatedInfo,
-	newState *protocol.ExecutionState,
-) (protocol.Assertion, error),
+		ctx context.Context,
+		parentCreationInfo *protocol.AssertionCreatedInfo,
+		newState *protocol.ExecutionState,
+	) (protocol.Assertion, error),
 ) (option.Option[protocol.Assertion], error) {
 	if !parentCreationInfo.InboxMaxCount.IsUint64() {
 		return option.None[protocol.Assertion](), errors.New("inbox max count not a uint64")
@@ -132,6 +132,7 @@ func (m *Manager) PostAssertionBasedOnParent(
 		parentCreationInfo,
 		newState,
 	)
+	srvlog.Error("Got error posting", log.Ctx{"error": err})
 	switch {
 	case errors.Is(err, solimpl.ErrAlreadyExists):
 		return option.None[protocol.Assertion](), errors.Wrap(err, "assertion already exists, was unable to post")
