@@ -861,4 +861,31 @@ library EdgeChallengeManagerLib {
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
     }
+
+    error E();
+    // implements this function: s(l)=\sum_{m=l}^La^{L-m}[(a-1)G_m + aW_m]
+    function stakePerLevel(uint256 l, uint256 a, uint256[] memory g, uint256[] memory w)
+        internal
+        pure
+        returns (uint256[] memory)
+    {
+        if (l == 0) {
+            revert E();
+        }
+        if (g.length != l || w.length != l) {
+            revert E();
+        }
+        if (a < 1) {
+            revert E();
+        }
+
+        uint256[] memory stakeAmounts = new uint256[](l);
+
+        for (uint256 m = l; m > 0; m--) {
+            uint256 thisTerm = a**(l - m) * ((a - 1) * g[m - 1] + a * w[m - 1]);
+            stakeAmounts[m - 1] = m == l ? thisTerm : stakeAmounts[m] + thisTerm;
+        }
+
+        return stakeAmounts;
+    }
 }

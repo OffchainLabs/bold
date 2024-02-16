@@ -191,34 +191,6 @@ interface IEdgeChallengeManager {
     function firstRival(bytes32 edgeId) external view returns (bytes32);
 }
 
-library GeometricMiniStakeCalculatorLib {
-    error E();
-    function calculateStakeAmounts(uint256 l, uint256 a, uint256[] memory g, uint256[] memory w)
-        internal
-        pure
-        returns (uint256[] memory)
-    {
-        if (l == 0) {
-            revert E();
-        }
-        if (g.length != l || w.length != l) {
-            revert E();
-        }
-        if (a < 1) {
-            revert E();
-        }
-
-        uint256[] memory stakeAmounts = new uint256[](l);
-
-        for (uint256 m = l; m > 0; m--) {
-            uint256 thisTerm = a**(l-m) * ((a - 1) * g[m - 1] + a * w[m - 1]);
-            stakeAmounts[m - 1] = m == l ? thisTerm : stakeAmounts[m] + thisTerm;
-        }
-
-        return stakeAmounts;
-    }
-}
-
 /// @title  A challenge manager that uses edge structures to decide between Assertions
 /// @notice When two assertions are created that have the same predecessor the protocol needs to decide which of the two is correct
 ///         This challenge manager allows the staker who has created the valid assertion to enforce that it will be confirmed, and all
@@ -365,13 +337,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         }
         excessStakeReceiver = _excessStakeReceiver;
 
-        stakeAmounts = GeometricMiniStakeCalculatorLib.calculateStakeAmounts(
-            _numBigStepLevel + 2, // add 2 for block and small step levels
-            stakeRatio,
-            workPerLevel,
-            gasPerLevel
-        );
-
         if (!EdgeChallengeManagerLib.isPowerOfTwo(layerZeroBlockEdgeHeight)) {
             revert NotPowerOfTwo(layerZeroBlockEdgeHeight);
         }
@@ -395,6 +360,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             revert BigStepLevelsTooMany(_numBigStepLevel);
         }
         NUM_BIGSTEP_LEVEL = _numBigStepLevel;
+
+        // calculate and store stake amounts for each level
+        stakeAmounts = EdgeChallengeManagerLib.stakePerLevel(
+            _numBigStepLevel + 2, // add 2 for block and small step levels
+            stakeRatio,
+            workPerLevel,
+            gasPerLevel
+        );
     }
 
     /////////////////////////////
