@@ -25,7 +25,16 @@ const solidity = {
       settings: {
         optimizer: {
           enabled: true,
-          runs: 500,
+          runs: 200,
+        },
+      },
+    },
+    'src/challengeV2/EdgeChallengeManagerFactory.sol': {
+      version: '0.8.17',
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 200,
         },
       },
     },

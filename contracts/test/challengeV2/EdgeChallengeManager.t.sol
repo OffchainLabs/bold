@@ -78,18 +78,7 @@ contract EdgeChallengeManagerTest is Test {
 
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
-        EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager();
-        EdgeChallengeManager challengeManager = EdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(challengeManagerTemplate),
-                    address(new ProxyAdmin()),
-                    ""
-                )
-            )
-        );
-        challengeManager.initialize(
-            assertionChain,
+        EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager(assertionChain,
             challengePeriodBlock,
             new MockOneStepProofEntry(),
             2 ** 5,
@@ -105,6 +94,15 @@ contract EdgeChallengeManagerTest is Test {
             excessStakeReceiver,
             NUM_BIGSTEP_LEVEL
         );
+        EdgeChallengeManager challengeManager = EdgeChallengeManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(challengeManagerTemplate),
+                    address(new ProxyAdmin()),
+                    ""
+                )
+            )
+        );
 
         challengeManager.stakeToken().approve(address(challengeManager), type(uint256).max);
 
@@ -115,16 +113,7 @@ contract EdgeChallengeManagerTest is Test {
 
     function testDeployInit() public {
         MockAssertionChain assertionChain = new MockAssertionChain();
-        EdgeChallengeManager emt = new EdgeChallengeManager();
-        EdgeChallengeManager ecm = EdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emt),
-                    address(new ProxyAdmin()),
-                    ""
-                )
-            )
-        );
+        
         MockOneStepProofEntry osp = new MockOneStepProofEntry();
         ERC20Mock erc20 = new ERC20Mock(
                 "StakeToken",
@@ -133,8 +122,9 @@ contract EdgeChallengeManagerTest is Test {
                 1000000 ether
             );
 
+
         vm.expectRevert(abi.encodeWithSelector(EmptyAssertionChain.selector));
-        ecm.initialize(
+        new EdgeChallengeManager(
             IAssertionChain(address(0)),
             challengePeriodBlock,
             osp,
@@ -148,7 +138,7 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(EmptyOneStepProofEntry.selector));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             IOneStepProofEntry(address(0)),
@@ -162,12 +152,12 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(EmptyChallengePeriod.selector));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain, 0, osp, 2 ** 5, 2 ** 5, 2 ** 5, erc20, miniStakeVal, excessStakeReceiver, NUM_BIGSTEP_LEVEL
         );
 
         vm.expectRevert(abi.encodeWithSelector(EmptyStakeReceiver.selector));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             osp,
@@ -181,7 +171,7 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(NotPowerOfTwo.selector, (2 ** 5) + 1));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             osp,
@@ -195,7 +185,7 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(NotPowerOfTwo.selector, (2 ** 5) + 1));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             osp,
@@ -209,7 +199,7 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(NotPowerOfTwo.selector, (2 ** 5) + 1));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             osp,
@@ -223,7 +213,7 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(ZeroBigStepLevels.selector));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             osp,
@@ -237,7 +227,7 @@ contract EdgeChallengeManagerTest is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(BigStepLevelsTooMany.selector, 254));
-        ecm.initialize(
+        new EdgeChallengeManager(
             assertionChain,
             challengePeriodBlock,
             osp,

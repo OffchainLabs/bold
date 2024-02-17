@@ -83,19 +83,19 @@ contract RollupTest is Test {
             oneStepProverMath,
             oneStepProverHostIo
         );
-        EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator(MAX_DATA_SIZE);
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
         RollupUserLogic rollupUserLogicImpl = new RollupUserLogic();
+        EdgeChallengeManagerFactory challengeManagerFactory = new EdgeChallengeManagerFactory();
 
         rollupCreator.setTemplates(
             bridgeCreator,
             oneStepProofEntry,
-            edgeChallengeManager,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
-            address(0)
+            address(0),
+            challengeManagerFactory
         );
 
         ExecutionState memory emptyState =
