@@ -904,18 +904,28 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	addedEnd, addedEndMerkle := addedLeaf.EndCommitment()
 	addedStart, addedStartMerkle := addedLeaf.StartCommitment()
 	if addedLeafChallengeLevel == 2 {
+		startParentLeafProofStr := ""
+		for _, p := range startParentCommitment.LastLeafProof {
+			startParentLeafProofStr += p.Hex() + ","
+		}
+		endParentLeafProofStr := ""
+		for _, p := range endParentCommitment.LastLeafProof {
+			endParentLeafProofStr += p.Hex() + ","
+		}
 		srvlog.Info("Exiting...printing challenge information", log.Ctx{
-			"claimId":            et.edge.Id().Hash,
-			"createdId":          addedLeaf.Id().Hash,
-			"createdEnd":         addedEnd,
-			"createdEndMerkle":   addedEndMerkle,
-			"createdStart":       addedStart,
-			"createdStartMerkle": addedStartMerkle,
-			"createdFirstLeaf":   endHistory.FirstLeaf,
-			"createdLastLeaf":    endHistory.LastLeaf,
-			"claimedAssertionId": et.associatedAssertionMetadata.ClaimedAssertionHash,
-			"fromBatch":          et.associatedAssertionMetadata.FromBatch,
-			"toBatch":            et.associatedAssertionMetadata.ToBatch,
+			"claimId":              et.edge.Id().Hash,
+			"createdId":            addedLeaf.Id().Hash,
+			"createdEnd":           addedEnd,
+			"createdEndMerkle":     addedEndMerkle,
+			"createdStart":         addedStart,
+			"createdStartMerkle":   addedStartMerkle,
+			"createdFirstLeaf":     endHistory.FirstLeaf,
+			"createdLastLeaf":      endHistory.LastLeaf,
+			"claimedAssertionId":   et.associatedAssertionMetadata.ClaimedAssertionHash,
+			"fromBatch":            et.associatedAssertionMetadata.FromBatch,
+			"toBatch":              et.associatedAssertionMetadata.ToBatch,
+			"startParentLeafProof": startParentLeafProofStr,
+			"endParentLeafProof":   endParentLeafProofStr,
 		})
 		panic("Exiting, we saved the leaf challenge level edge")
 	}
