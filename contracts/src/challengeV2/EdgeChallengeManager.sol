@@ -30,7 +30,7 @@ interface IEdgeChallengeManager {
     /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
     /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
     /// @param _numBigStepLevel             The number of bigstep levels
-    /// @param stakeAmounts                 The stake amount for each level. (first element is for block level)
+    /// @param _stakeAmounts                The stake amount for each level. (first element is for block level)
     function initialize(
         IAssertionChain _assertionChain,
         uint64 _challengePeriodBlocks,
@@ -41,7 +41,7 @@ interface IEdgeChallengeManager {
         IERC20 _stakeToken,
         address _excessStakeReceiver,
         uint8 _numBigStepLevel,
-        uint256[] calldata stakeAmounts
+        uint256[] calldata _stakeAmounts
     ) external;
 
     function challengePeriodBlocks() external view returns (uint64);
