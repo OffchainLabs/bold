@@ -30,9 +30,7 @@ interface IEdgeChallengeManager {
     /// @param _stakeToken                  The token that stake will be provided in when creating zero layer block edges
     /// @param _excessStakeReceiver         The address that excess stake will be sent to when 2nd+ block edge is created
     /// @param _numBigStepLevel             The number of bigstep levels
-    /// @param stakeRatio                   Constant input to the geometric stake calculator
-    /// @param workPerLevel                 Input to the geometric stake calculator
-    /// @param gasPerLevel                  Input to the geometric stake calculator
+    /// @param stakeAmounts                 The stake amount for each level. (first element is for block level)
     function initialize(
         IAssertionChain _assertionChain,
         uint64 _challengePeriodBlocks,
@@ -43,9 +41,7 @@ interface IEdgeChallengeManager {
         IERC20 _stakeToken,
         address _excessStakeReceiver,
         uint8 _numBigStepLevel,
-        uint256 stakeRatio,
-        uint256[] calldata workPerLevel,
-        uint256[] calldata gasPerLevel
+        uint256[] calldata stakeAmounts
     ) external;
 
     function challengePeriodBlocks() external view returns (uint64);
@@ -314,9 +310,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         IERC20 _stakeToken,
         address _excessStakeReceiver,
         uint8 _numBigStepLevel,
-        uint256 stakeRatio,
-        uint256[] calldata workPerLevel,
-        uint256[] calldata gasPerLevel
+        uint256[] calldata _stakeAmounts
     ) public initializer {
         if (address(_assertionChain) == address(0)) {
             revert EmptyAssertionChain();
@@ -361,13 +355,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         }
         NUM_BIGSTEP_LEVEL = _numBigStepLevel;
 
-        // calculate and store stake amounts for each level
-        stakeAmounts = EdgeChallengeManagerLib.stakePerLevel(
-            _numBigStepLevel + 2, // add 2 for block and small step levels
-            stakeRatio,
-            workPerLevel,
-            gasPerLevel
-        );
+        if (_numBigStepLevel + 2 != _stakeAmounts.length) {
+            revert StakeAmountsMismatch(_stakeAmounts.length, _numBigStepLevel + 2);
+        }
+        stakeAmounts = _stakeAmounts;
     }
 
     /////////////////////////////
