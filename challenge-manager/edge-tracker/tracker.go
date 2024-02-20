@@ -901,6 +901,24 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	addedLeafChallengeLevel := addedLeaf.GetChallengeLevel()
 	fields["subChallengeType"] = addedLeafChallengeLevel
 	srvlog.Info("Created subchallenge edge", fields)
+	addedEnd, addedEndMerkle := addedLeaf.EndCommitment()
+	addedStart, addedStartMerkle := addedLeaf.StartCommitment()
+	if addedLeafChallengeLevel == 2 {
+		srvlog.Info("Exiting...printing challenge information", log.Ctx{
+			"claimId":            et.edge.Id().Hash,
+			"createdId":          addedLeaf.Id().Hash,
+			"createdEnd":         addedEnd,
+			"createdEndMerkle":   addedEndMerkle,
+			"createdStart":       addedStart,
+			"createdStartMerkle": addedStartMerkle,
+			"createdFirstLeaf":   endHistory.FirstLeaf,
+			"createdLastLeaf":    endHistory.LastLeaf,
+			"claimedAssertionId": et.associatedAssertionMetadata.ClaimedAssertionHash,
+			"fromBatch":          et.associatedAssertionMetadata.FromBatch,
+			"toBatch":            et.associatedAssertionMetadata.ToBatch,
+		})
+		panic("Exiting, we saved the leaf challenge level edge")
+	}
 
 	if addVerifiedErr := et.chainWatcher.AddVerifiedHonestEdge(ctx, addedLeaf); addVerifiedErr != nil {
 		// We simply log an error, as if this errored, it will be added later on by the chain watcher
