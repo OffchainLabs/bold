@@ -273,7 +273,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @notice The token to supply stake in
     IERC20 public stakeToken;
 
-    /// @notice The amount of stake token to be supplied when creating a zero layer block edge at a given level    
+    /// @notice The amount of stake token to be supplied when creating a zero layer block edge at a given level
     uint256[] public stakeAmounts;
 
     /// @notice The number of blocks accumulated on an edge before it can be confirmed by time
