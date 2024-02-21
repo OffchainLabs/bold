@@ -10,11 +10,13 @@ import (
 	"github.com/OffchainLabs/bold/api"
 	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/endtoend/backend"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/testing/setup"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
@@ -159,18 +161,18 @@ func runEndToEndTestMidChallengeUpgrade(t *testing.T, cfg *e2eConfig) {
 
 	time.Sleep(time.Second * 5)
 	g.Go(func() error {
-		// existingChalManagerAddr, err := rollupAdminBindings.ChallengeManager(&bind.CallOpts{})
-		// require.NoError(t, err)
-		// chalManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
-		// 	accounts[0],
-		// 	bk.Client(),
-		// )
-		// require.NoError(t, err)
-		// require.NoError(t, challenge_testing.TxSucceeded(ctx, tx, chalManagerAddr, bk.Client(), err))
-		// tx, err = rollupAdminBindings.SetChallengeManager(accounts[0], chalManagerAddr)
-		// require.NoError(t, err)
-		// require.NoError(t, challenge_testing.TxSucceeded(ctx, tx, chalManagerAddr, bk.Client(), err))
-		// t.Logf("Challenge manager address updated from %#x to %#x", existingChalManagerAddr, chalManagerAddr)
+		existingChalManagerAddr, err := rollupAdminBindings.ChallengeManager(&bind.CallOpts{})
+		require.NoError(t, err)
+		chalManagerAddr, tx, _, err := challengeV2gen.DeployEdgeChallengeManager(
+			accounts[0],
+			bk.Client(),
+		)
+		require.NoError(t, err)
+		require.NoError(t, challenge_testing.TxSucceeded(ctx, tx, chalManagerAddr, bk.Client(), err))
+		tx, err = rollupAdminBindings.SetChallengeManager(accounts[0], chalManagerAddr)
+		require.NoError(t, err)
+		require.NoError(t, challenge_testing.TxSucceeded(ctx, tx, chalManagerAddr, bk.Client(), err))
+		t.Logf("Challenge manager address updated from %#x to %#x", existingChalManagerAddr, chalManagerAddr)
 		return nil
 	})
 	require.NoError(t, g.Wait())
