@@ -64,6 +64,7 @@ type Manager struct {
 	confirmationAttemptInterval time.Duration
 	averageTimeForBlockCreation time.Duration
 	rollupAddr                  common.Address
+	challengeManagerAddr        common.Address
 	validatorName               string
 	forksDetectedCount          uint64
 	challengesSubmittedCount    uint64
@@ -83,6 +84,7 @@ func NewManager(
 	backend bind.ContractBackend,
 	challengeManager types.ChallengeManager,
 	rollupAddr common.Address,
+	challengeManagerAddr common.Address,
 	validatorName string,
 	pollInterval,
 	assertionConfirmationAttemptInterval time.Duration,
@@ -105,6 +107,7 @@ func NewManager(
 		challengeCreator:            challengeManager,
 		challengeReader:             challengeManager,
 		rollupAddr:                  rollupAddr,
+		challengeManagerAddr:        challengeManagerAddr,
 		validatorName:               validatorName,
 		pollInterval:                pollInterval,
 		confirmationAttemptInterval: assertionConfirmationAttemptInterval,
@@ -263,6 +266,13 @@ func (m *Manager) checkForAssertionAdded(
 		}
 		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
 
+		assertionCreatedInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+		if err != nil {
+			return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
+		}
+		if assertionCreatedInfo.ChallengeManager != m.challengeManagerAddr {
+			continue
+		}
 		// Try to confirm the assertion in the background.
 		go m.keepTryingAssertionConfirmation(ctx, assertionHash)
 
