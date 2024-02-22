@@ -410,7 +410,7 @@ func (m *Manager) postRivalAssertionAndChallenge(
 		if err != nil {
 			return errors.Wrapf(err, "could not read assertion creation info for %#x", correctRivalAssertion.Unwrap().Id())
 		}
-		srvlog.Warn("Attempted to post rival assertion and stake, but challenge manager address did not match, "+
+		srvlog.Warn("Posted rival assertion, but could not challenge as challenge manager address did not match, "+
 			"start a new server with the right challenge manager address", log.Ctx{
 			"correctAssertion":                 correctRivalAssertionCreatedInfo.AssertionHash,
 			"correctAssertionChallengeManager": correctRivalAssertionCreatedInfo.ChallengeManager,
