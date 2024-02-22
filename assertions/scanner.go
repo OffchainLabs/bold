@@ -266,13 +266,6 @@ func (m *Manager) checkForAssertionAdded(
 		}
 		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
 
-		assertionCreatedInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-		if err != nil {
-			return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
-		}
-		if assertionCreatedInfo.ChallengeManager != m.challengeManagerAddr {
-			continue
-		}
 		// Try to confirm the assertion in the background.
 		go m.keepTryingAssertionConfirmation(ctx, assertionHash)
 
@@ -408,6 +401,23 @@ func (m *Manager) postRivalAssertionAndChallenge(
 	}
 	if !m.canPostChallenge() {
 		srvlog.Warn("Attempted to post rival assertion and stake, but not configured to initiate a challenge", logFields)
+		return nil
+	}
+
+	if creationInfo.ChallengeManager != m.challengeManagerAddr {
+		var correctRivalAssertionCreatedInfo *protocol.AssertionCreatedInfo
+		correctRivalAssertionCreatedInfo, err = m.chain.ReadAssertionCreationInfo(ctx, correctRivalAssertion.Unwrap().Id())
+		if err != nil {
+			return errors.Wrapf(err, "could not read assertion creation info for %#x", correctRivalAssertion.Unwrap().Id())
+		}
+		srvlog.Warn("Attempted to post rival assertion and stake, but challenge manager address did not match, "+
+			"start a new server with the right challenge manager address", log.Ctx{
+			"correctAssertion":                 correctRivalAssertionCreatedInfo.AssertionHash,
+			"correctAssertionChallengeManager": correctRivalAssertionCreatedInfo.ChallengeManager,
+			"evilAssertion":                    creationInfo.AssertionHash,
+			"evilAssertionChallengeManager":    creationInfo.ChallengeManager,
+			"expectedChallengeManager":         m.challengeManagerAddr,
+		})
 		return nil
 	}
 
