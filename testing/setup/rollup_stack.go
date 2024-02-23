@@ -259,8 +259,6 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		big.NewInt(1),
 		big.NewInt(2),
 		big.NewInt(3),
-		big.NewInt(4),
-		big.NewInt(5),
 	}
 	genesisExecutionState := rollupgen.ExecutionState{
 		GlobalState:   rollupgen.GlobalState{},
