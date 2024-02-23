@@ -255,10 +255,14 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	miniStakeValues := []*big.Int{
-		big.NewInt(1),
-		big.NewInt(2),
-		big.NewInt(3),
+	cfgOpts := &rollupgen.Config{}
+	for _, o := range setp.challengeTestingOpts {
+		o(cfgOpts)
+	}
+	numLevels := cfgOpts.NumBigStepLevel + 2
+	miniStakeValues := make([]*big.Int, numLevels)
+	for i := 1; i <= int(numLevels); i++ {
+		miniStakeValues[i-1] = big.NewInt(int64(i))
 	}
 	genesisExecutionState := rollupgen.ExecutionState{
 		GlobalState:   rollupgen.GlobalState{},
