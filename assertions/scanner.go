@@ -64,6 +64,7 @@ type Manager struct {
 	confirmationAttemptInterval time.Duration
 	averageTimeForBlockCreation time.Duration
 	rollupAddr                  common.Address
+	challengeManagerAddr        common.Address
 	validatorName               string
 	forksDetectedCount          uint64
 	challengesSubmittedCount    uint64
@@ -71,8 +72,8 @@ type Manager struct {
 	submittedRivalsCount        uint64
 	stateManager                l2stateprovider.ExecutionProvider
 	postInterval                time.Duration
-	submittedAssertions         *threadsafe.Set[common.Hash]
-	assertionsWithHonestChild   *threadsafe.Set[protocol.AssertionHash]
+	submittedAssertions         *threadsafe.LruSet[common.Hash]
+	assertionsWithHonestChild   *threadsafe.LruSet[protocol.AssertionHash]
 	apiDB                       db.Database
 }
 
@@ -83,6 +84,7 @@ func NewManager(
 	backend bind.ContractBackend,
 	challengeManager types.ChallengeManager,
 	rollupAddr common.Address,
+	challengeManagerAddr common.Address,
 	validatorName string,
 	pollInterval,
 	assertionConfirmationAttemptInterval time.Duration,
@@ -105,6 +107,7 @@ func NewManager(
 		challengeCreator:            challengeManager,
 		challengeReader:             challengeManager,
 		rollupAddr:                  rollupAddr,
+		challengeManagerAddr:        challengeManagerAddr,
 		validatorName:               validatorName,
 		pollInterval:                pollInterval,
 		confirmationAttemptInterval: assertionConfirmationAttemptInterval,
@@ -113,8 +116,8 @@ func NewManager(
 		assertionsProcessedCount:    0,
 		stateManager:                stateManager,
 		postInterval:                postInterval,
-		submittedAssertions:         threadsafe.NewSet[common.Hash](threadsafe.SetWithMetric[common.Hash]("submittedAssertions")),
-		assertionsWithHonestChild:   threadsafe.NewSet[protocol.AssertionHash](threadsafe.SetWithMetric[protocol.AssertionHash]("assertionsWithHonestChild")),
+		submittedAssertions:         threadsafe.NewLruSet[common.Hash](1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		assertionsWithHonestChild:   threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("assertionsWithHonestChild")),
 		averageTimeForBlockCreation: averageTimeForBlockCreation,
 	}, nil
 }
@@ -215,6 +218,9 @@ func (m *Manager) ChallengesSubmitted() uint64 {
 	return m.challengesSubmittedCount
 }
 
+func (m *Manager) SubmittedAssertions() *threadsafe.LruSet[common.Hash] {
+	return m.submittedAssertions
+}
 func (m *Manager) AssertionsProcessed() uint64 {
 	return m.assertionsProcessedCount
 }
@@ -395,6 +401,23 @@ func (m *Manager) postRivalAssertionAndChallenge(
 	}
 	if !m.canPostChallenge() {
 		srvlog.Warn("Attempted to post rival assertion and stake, but not configured to initiate a challenge", logFields)
+		return nil
+	}
+
+	if creationInfo.ChallengeManager != m.challengeManagerAddr {
+		var correctRivalAssertionCreatedInfo *protocol.AssertionCreatedInfo
+		correctRivalAssertionCreatedInfo, err = m.chain.ReadAssertionCreationInfo(ctx, correctRivalAssertion.Unwrap().Id())
+		if err != nil {
+			return errors.Wrapf(err, "could not read assertion creation info for %#x", correctRivalAssertion.Unwrap().Id())
+		}
+		srvlog.Warn("Posted rival assertion, but could not challenge as challenge manager address did not match, "+
+			"start a new server with the right challenge manager address", log.Ctx{
+			"correctAssertion":                 correctRivalAssertionCreatedInfo.AssertionHash,
+			"correctAssertionChallengeManager": correctRivalAssertionCreatedInfo.ChallengeManager,
+			"evilAssertion":                    creationInfo.AssertionHash,
+			"evilAssertionChallengeManager":    creationInfo.ChallengeManager,
+			"expectedChallengeManager":         m.challengeManagerAddr,
+		})
 		return nil
 	}
 
