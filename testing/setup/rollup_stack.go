@@ -260,6 +260,9 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		o(cfgOpts)
 	}
 	numLevels := cfgOpts.NumBigStepLevel + 2
+	if numLevels == 2 {
+		numLevels = 3
+	}
 	miniStakeValues := make([]*big.Int, numLevels)
 	for i := 1; i <= int(numLevels); i++ {
 		miniStakeValues[i-1] = big.NewInt(int64(i))
