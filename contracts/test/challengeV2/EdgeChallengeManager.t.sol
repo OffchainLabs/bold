@@ -141,8 +141,6 @@ contract EdgeChallengeManagerTest is Test {
                 1000000 ether
             );
 
-        // todo test new initialize errors
-
         vm.expectRevert(abi.encodeWithSelector(StakeAmountsMismatch.selector, NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL + 2));
         ecm.initialize(
             assertionChain,
