@@ -30,6 +30,7 @@ export const getConfig = async (
   configLocation: string,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
+  console.log(configLocation)
   const config = getJsonFile(configLocation) as RawConfig
   return await validateConfig(config, l1Rpc)
 }
@@ -56,7 +57,7 @@ export interface Config {
     challengePeriodBlocks: number
     stakeToken: string
     stakeAmt: BigNumber
-    miniStakeAmt: BigNumber
+    miniStakeAmounts: BigNumber[]
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
@@ -70,9 +71,9 @@ export interface Config {
 }
 
 export type RawConfig = Omit<Config, 'settings'> & {
-  settings: Omit<Config['settings'], 'stakeAmt' | 'miniStakeAmt'> & {
+  settings: Omit<Config['settings'], 'stakeAmt' | 'miniStakeAmounts'> & {
     stakeAmt: string
-    miniStakeAmt: string
+    miniStakeAmounts: string[]
   }
 }
 
@@ -80,6 +81,7 @@ export const validateConfig = async (
   config: RawConfig,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
+  console.log(config)
   // check all the config.contracts exist
   if ((await l1Rpc.getCode(config.contracts.l1Timelock)).length <= 2) {
     throw new Error('l1Timelock address is not a contract')
@@ -145,8 +147,12 @@ export const validateConfig = async (
   if (stakeAmount.lt(parseEther('1'))) {
     throw new Error('stakeAmt is less than 1 eth')
   }
-  const miniStakeAmount = BigNumber.from(config.settings.miniStakeAmt)
-  if (miniStakeAmount.lt(parseEther('0.1'))) {
+  const miniStakeAmounts = config.settings.miniStakeAmounts.map(BigNumber.from)
+
+  if (miniStakeAmounts.length !== config.settings.numBigStepLevel + 2) {
+    throw new Error('miniStakeAmts length is not numBigStepLevel + 2')
+  }
+  if (miniStakeAmounts.some((amt) => amt.lt(parseEther('0.1')))) {
     throw new Error('miniStakeAmt is less than 0.1 eth')
   }
 
@@ -159,7 +165,7 @@ export const validateConfig = async (
     settings: {
       ...config.settings,
       stakeAmt: stakeAmount,
-      miniStakeAmt: miniStakeAmount,
+      miniStakeAmounts,
     },
   }
 }
