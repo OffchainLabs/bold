@@ -244,6 +244,9 @@ type SpecChallengeManager interface {
 	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.
 	GetEdge(ctx context.Context, edgeId EdgeId) (option.Option[SpecEdge], error)
+	// The inherited timer from the edge's children. Needs to be refreshed
+	// onchain over time.
+	InheritedTimer(ctx context.Context, edgeId EdgeId) (uint64, error)
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(
 		ctx context.Context,
@@ -381,9 +384,8 @@ type SpecEdge interface {
 		prefixHistoryRoot common.Hash,
 		prefixProof []byte,
 	) (VerifiedRoyalEdge, VerifiedRoyalEdge, error)
-	// Confirms an edge for having a presumptive timer >= one challenge period.
-	ConfirmByTimer(ctx context.Context, ancestorIds []EdgeId) error
+	// Confirms an edge for having a total timer >= one challenge period.
+	ConfirmByTimer(ctx context.Context) error
 	// Confirms an edge with the specified claim id.
 	ConfirmByClaim(ctx context.Context, claimId ClaimId) error
-	ConfirmByChildren(ctx context.Context) error
 }

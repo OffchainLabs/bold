@@ -198,19 +198,19 @@ func (b *Backend) GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.J
 			e.TimeUnrivaled = timeUnrivaled
 			isRoyal := b.chainWatcher.IsRoyal(assertionHash, edge.Id())
 			if isRoyal {
-				pathTimer, ancestors, _, err := b.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
-				if err != nil {
-					return nil, err
-				}
-				rawAncestors := ""
-				for i, an := range ancestors {
-					rawAncestors += an.Hex()
-					if i != len(ancestors)-1 {
-						rawAncestors += ","
-					}
-				}
-				e.RawAncestors = rawAncestors
-				e.CumulativePathTimer = uint64(pathTimer)
+				// pathTimer, ancestors, _, err := b.chainWatcher.ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+				// if err != nil {
+				// 	return nil, err
+				// }
+				// rawAncestors := ""
+				// for i, an := range ancestors {
+				// 	rawAncestors += an.Hex()
+				// 	if i != len(ancestors)-1 {
+				// 		rawAncestors += ","
+				// 	}
+				// }
+				// e.RawAncestors = rawAncestors
+				// e.CumulativePathTimer = uint64(pathTimer)
 			}
 			e.IsRoyal = isRoyal
 			trackerOpt := b.trackerFetcher.GetEdgeTracker(edge.Id())

@@ -9,6 +9,7 @@ package challengetree
 import (
 	"context"
 	"fmt"
+	"math"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
@@ -46,6 +47,7 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
 	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	edgeInheritedTimers   *threadsafe.Map[protocol.EdgeId, uint64]
 	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionHash protocol.AssertionHash
 	metadataReader        MetadataReader
@@ -112,4 +114,102 @@ func (ht *RoyalChallengeTree) IsUnrivaledAtBlockNum(edge protocol.ReadOnlyEdge, 
 
 func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
 	return ht.LocalTimer(edge, blockNum)
+}
+
+func (ht *RoyalChallengeTree) UpdateInheritedTimer(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+	blockNum uint64,
+) (uint64, error) {
+	edge, ok := ht.edges.TryGet(edgeId)
+	if !ok {
+		return 0, fmt.Errorf("edge with id %#x not found", edgeId.Hash)
+	}
+	timeUnrivaled, err := ht.TimeUnrivaled(edge, blockNum)
+	if err != nil {
+		return 0, err
+	}
+	inheritedTimer := timeUnrivaled
+
+	// If an edge has children, we use the min of its children if it
+	// is not a root edge. Otherwise, use the max.
+	hasChildren, err := edge.HasChildren(ctx)
+	if err != nil {
+		return 0, err
+	}
+	chalManager, err := ht.metadataReader.SpecChallengeManager(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if hasChildren {
+		lowerChildOpt, err := edge.LowerChild(ctx)
+		if err != nil {
+			return 0, err
+		}
+		upperChildOpt, err := edge.UpperChild(ctx)
+		if err != nil {
+			return 0, err
+		}
+		lowerChildId := lowerChildOpt.Unwrap()
+		upperChildId := upperChildOpt.Unwrap()
+
+		// We get the inherited timers of the children. If we don't have
+		// them locally, we fetch them from onchain.
+		lowerTimer, ok := ht.edgeInheritedTimers.TryGet(lowerChildId)
+		if !ok {
+			lowerInheritedTimer, err := chalManager.InheritedTimer(ctx, lowerChildId)
+			if err != nil {
+				return 0, err
+			}
+			lowerTimer = lowerInheritedTimer
+			ht.edgeInheritedTimers.Put(lowerChildId, lowerInheritedTimer)
+		}
+		upperTimer, ok := ht.edgeInheritedTimers.TryGet(upperChildId)
+		if !ok {
+			upperInheritedTimer, err := chalManager.InheritedTimer(ctx, upperChildId)
+			if err != nil {
+				return 0, err
+			}
+			upperTimer = upperInheritedTimer
+			ht.edgeInheritedTimers.Put(upperChildId, upperInheritedTimer)
+		}
+
+		if edge.ClaimId().IsSome() {
+			val := lowerTimer
+			if upperTimer > lowerTimer {
+				val = upperTimer
+			}
+			inheritedTimer += val
+		} else {
+			val := lowerTimer
+			if upperTimer < lowerTimer {
+				val = upperTimer
+			}
+			inheritedTimer += val
+		}
+		ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
+		return inheritedTimer, nil
+	}
+
+	// If edge is a subchallenged edge, use the max of the edges that claim it.
+	// TODO: Need a list of all the edges that claim a subchallenged edge.
+
+	// If the edge has been confirmed, is one-step, and is small step,
+	// then its timer will be set to max uint64.
+	status, err := edge.Status(ctx)
+	if err != nil {
+		return 0, err
+	}
+	startHeight, _ := edge.StartCommitment()
+	endHeight, _ := edge.StartCommitment()
+	diff := endHeight - startHeight
+	if edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1) && status == protocol.EdgeConfirmed && diff == 1 {
+		inheritedTimer = math.MaxUint64
+		ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
+		return inheritedTimer, nil
+	}
+
+	// Otherwise, the edge does not yet have children.
+	ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
+	return inheritedTimer, nil
 }
