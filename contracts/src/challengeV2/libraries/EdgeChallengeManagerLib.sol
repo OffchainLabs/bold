@@ -472,7 +472,7 @@ library EdgeChallengeManagerLib {
     function updateAccuTimerCache(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel) internal returns (uint64) {
         // calculate the time unrivaled without inheritance
         // we don't use timeAccumulated here, since it would read the cache and double-count
-        uint64 accuTimer = timeUnrivaled(store, edgeId, numBigStepLevel);
+        uint64 accuTimer = timeUnrivaled(store, edgeId);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
             uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
             uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
@@ -494,7 +494,12 @@ library EdgeChallengeManagerLib {
         if (accuTimerCache > 0){
             return accuTimerCache;
         }
-        uint64 accuTimer = timeUnrivaled(store, edgeId, numBigStepLevel);
+        if (store.edges[edgeId].status == EdgeStatus.Confirmed 
+                && store.edges[edgeId].length() == 1
+                && ChallengeEdgeLib.levelToType(store.edges[edgeId].level, numBigStepLevel) == EdgeType.SmallStep) {
+            return type(uint64).max;
+        }
+        uint64 accuTimer = timeUnrivaled(store, edgeId);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
             uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
             uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
@@ -507,7 +512,7 @@ library EdgeChallengeManagerLib {
     ///         This value is increasing whilst an edge is unrivaled, once a rival is created
     ///         it is fixed. If an edge has rivals from the moment it is created then it will have
     ///         a zero time unrivaled
-    function timeUnrivaled(EdgeStore storage store, bytes32 edgeId, uint8 numBigStepLevel) internal view returns (uint64) {
+    function timeUnrivaled(EdgeStore storage store, bytes32 edgeId) internal view returns (uint64) {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
         }
@@ -517,12 +522,6 @@ library EdgeChallengeManagerLib {
         // Sanity check: it's not possible to have a 0 first rival for an edge that exists
         if (firstRival == 0) {
             revert EmptyFirstRival();
-        }
-
-        if (store.edges[edgeId].status == EdgeStatus.Confirmed 
-                && store.edges[edgeId].length() == 1
-                && ChallengeEdgeLib.levelToType(store.edges[edgeId].level, numBigStepLevel) == EdgeType.SmallStep) {
-            return type(uint64).max;
         }
 
         // this edge has no rivals, the time is still going up

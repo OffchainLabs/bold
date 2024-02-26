@@ -646,7 +646,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function timeUnrivaled(bytes32 edgeId) public view returns (uint64) {
-        return store.timeUnrivaled(edgeId, NUM_BIGSTEP_LEVEL);
+        return store.timeUnrivaled(edgeId);
     }
 
     /// @inheritdoc IEdgeChallengeManager
