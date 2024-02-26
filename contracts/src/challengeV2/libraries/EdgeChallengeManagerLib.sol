@@ -81,6 +81,9 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
+    /// @notice Inherited Time
+    /// @dev    TODO Stored here instead of with the edge due to stack size limit
+    mapping(bytes32 => uint64) inheritedTime;
 }
 
 /// @notice Input data to a one step proof
@@ -469,6 +472,24 @@ library EdgeChallengeManagerLib {
         return (hasRival(store, edgeId) && store.edges[edgeId].length() == 1);
     }
 
+    function updateTimeInherited(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel) internal returns (uint64) {
+        uint64 timeInherited;
+        if (store.edges[edgeId].lowerChildId != bytes32(0)) {
+            uint64 lowerTimer = timeUnrivaled(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
+            uint64 upperTimer = timeUnrivaled(store, store.edges[edgeId].upperChildId, numBigStepLevel);
+            timeInherited = lowerTimer < upperTimer ? lowerTimer : upperTimer;
+        } else {
+            checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
+            timeInherited += timeUnrivaled(store, claimingEdgeId, numBigStepLevel);
+        }
+        uint64 currentInheritedTime = store.inheritedTime[edgeId];
+        if (timeInherited > currentInheritedTime) { // only update when increased
+            store.inheritedTime[edgeId] = timeInherited;
+            return timeInherited;
+        }
+        return currentInheritedTime;
+    }
+
     /// @notice The amount of time (in blocks) this edge has spent without rivals
     ///         This value is increasing whilst an edge is unrivaled, once a rival is created
     ///         it is fixed. If an edge has rivals from the moment it is created then it will have
@@ -522,6 +543,8 @@ library EdgeChallengeManagerLib {
             uint64 lowerTimer = timeUnrivaled(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
             uint64 upperTimer = timeUnrivaled(store, store.edges[edgeId].upperChildId, numBigStepLevel);
             unrivaledTime += lowerTimer < upperTimer ? lowerTimer : upperTimer;
+        } else {
+            unrivaledTime += store.inheritedTime[edgeId];
         }
 
         return unrivaledTime;
@@ -738,7 +761,6 @@ library EdgeChallengeManagerLib {
     ///         of the same level, and claimId-edgeId links for zero layer edges that claim an edge in the level below.
     /// @param store                            The edge store containing all edges and rival data
     /// @param edgeId                           The id of the edge to confirm
-    /// @param nextLevelEdgeIds                 The ordered ids of layer zero edges in the levels below
     /// @param claimedAssertionUnrivaledBlocks  The number of blocks that the assertion ultimately being claimed by this edge spent unrivaled
     /// @param confirmationThresholdBlock       The number of blocks that the total unrivaled time of an ancestor chain needs to exceed in
     ///                                         order to be confirmed
@@ -746,7 +768,7 @@ library EdgeChallengeManagerLib {
     function confirmEdgeByTime(
         EdgeStore storage store,
         bytes32 edgeId,
-        bytes32[] memory nextLevelEdgeIds,
+        bytes32[] memory,
         uint64 claimedAssertionUnrivaledBlocks,
         uint64 confirmationThresholdBlock,
         uint8 numBigStepLevel
@@ -757,25 +779,6 @@ library EdgeChallengeManagerLib {
 
         bytes32 currentEdgeId = edgeId;
         uint64 totalTimeUnrivaled = timeUnrivaled(store, edgeId, numBigStepLevel);
-
-        // caller can supply any list of nextLevelEdgeIds, so we need to check that they are all valid
-        for (uint256 i = 0; i < nextLevelEdgeIds.length; i++) {
-             ChallengeEdge storage nextEdge = store.edges[nextLevelEdgeIds[i]];
-            if (!nextEdge.exists()) {
-                revert EdgeNotExists(nextLevelEdgeIds[i]);
-            }
-            bytes32 nextClaimId = nextEdge.claimId;
-            if (nextClaimId == bytes32(0)) {
-                revert EdgeNotLayerZero(nextLevelEdgeIds[i], nextEdge.staker, nextClaimId);
-            }
-            // This check the edge is in the immediate next level of the same tree
-            if (store.edges[nextClaimId].originId != store.edges[currentEdgeId].originId) {
-                revert EdgeOriginDiffer(nextClaimId, store.edges[currentEdgeId].originId);
-            }
-            currentEdgeId = nextLevelEdgeIds[i];
-            // this add the timer of the next level, we simply add and expect the caller to supply the max amount
-            totalTimeUnrivaled += timeUnrivaled(store, nextLevelEdgeIds[i], numBigStepLevel);
-        }
 
         // since sibling assertions have the same predecessor, they can be viewed as
         // rival edges. Adding the assertion unrivaled time allows us to start the confirmation

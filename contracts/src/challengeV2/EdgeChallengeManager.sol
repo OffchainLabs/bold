@@ -80,10 +80,10 @@ interface IEdgeChallengeManager {
     ///         of the same level, and claimId-edgeId links for zero layer edges that claim an edge in the level below.
     ///         This method also includes the amount of time the assertion being claimed spent without a sibling
     /// @param edgeId                   The id of the edge to confirm
-    /// @param nextLevelEdgeIds         The ordered ids of layer zero edges in the levels below
+    /// @param _unused         The ordered ids of layer zero edges in the levels below
     function confirmEdgeByTime(
         bytes32 edgeId,
-        bytes32[] calldata nextLevelEdgeIds,
+        bytes32[] calldata _unused,
         ExecutionStateData calldata claimStateData
     ) external;
 
@@ -480,10 +480,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
+    function updateInheritedTimer(bytes32 edgeId, bytes32 claimingEdgeId) public {
+        store.updateTimeInherited(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
+    }
+
     /// @inheritdoc IEdgeChallengeManager
     function confirmEdgeByTime(
         bytes32 edgeId,
-        bytes32[] memory nextLevelEdgeIds,
+        bytes32[] memory _unused,
         ExecutionStateData calldata claimStateData
     ) public {
         ChallengeEdge storage edge = store.get(edgeId);
@@ -516,7 +520,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         }
 
         uint64 totalTimeUnrivaled =
-            store.confirmEdgeByTime(edgeId, nextLevelEdgeIds, assertionBlocks, challengePeriodBlocks, NUM_BIGSTEP_LEVEL);
+            store.confirmEdgeByTime(edgeId, _unused, assertionBlocks, challengePeriodBlocks, NUM_BIGSTEP_LEVEL);
 
         emit EdgeConfirmedByTime(edgeId, store.edges[edgeId].mutualId(), totalTimeUnrivaled);
     }
