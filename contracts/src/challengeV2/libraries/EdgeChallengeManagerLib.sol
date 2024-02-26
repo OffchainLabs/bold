@@ -480,7 +480,7 @@ library EdgeChallengeManagerLib {
             timeInherited = lowerTimer < upperTimer ? lowerTimer : upperTimer;
         } else {
             checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-            timeInherited += timeUnrivaled(store, claimingEdgeId, numBigStepLevel);
+            timeInherited = timeUnrivaled(store, claimingEdgeId, numBigStepLevel);
         }
         uint64 currentInheritedTime = store.inheritedTime[edgeId];
         if (timeInherited > currentInheritedTime) { // only update when increased
@@ -538,13 +538,13 @@ library EdgeChallengeManagerLib {
             }
         }
 
-        // inherit timer here
-        if (store.edges[edgeId].lowerChildId != bytes32(0)) {
+        uint64 cachedInheritedTime = store.inheritedTime[edgeId];
+        if (cachedInheritedTime > 0){
+            unrivaledTime += cachedInheritedTime;
+        } else if (store.edges[edgeId].lowerChildId != bytes32(0)) {
             uint64 lowerTimer = timeUnrivaled(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
             uint64 upperTimer = timeUnrivaled(store, store.edges[edgeId].upperChildId, numBigStepLevel);
             unrivaledTime += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-        } else {
-            unrivaledTime += store.inheritedTime[edgeId];
         }
 
         return unrivaledTime;
