@@ -760,15 +760,17 @@ library EdgeChallengeManagerLib {
 
         // caller can supply any list of nextLevelEdgeIds, so we need to check that they are all valid
         for (uint256 i = 0; i < nextLevelEdgeIds.length; i++) {
-            if (!store.edges[nextLevelEdgeIds[i]].exists()) {
+             ChallengeEdge storage nextEdge = store.edges[nextLevelEdgeIds[i]];
+            if (!nextEdge.exists()) {
                 revert EdgeNotExists(nextLevelEdgeIds[i]);
             }
-            bytes32 claimId = store.edges[nextLevelEdgeIds[i]].claimId;
-            if (claimId == bytes32(0)) {
-                revert("NOCLAIM"); // next level edge must be layer 0 with a claim id
+            bytes32 nextClaimId = nextEdge.claimId;
+            if (nextClaimId == bytes32(0)) {
+                revert EdgeNotLayerZero(nextLevelEdgeIds[i], nextEdge.staker, nextClaimId);
             }
-            if (store.edges[claimId].originId != store.edges[currentEdgeId].originId) {
-                revert("DIFFORIGIN"); // this check so that we are on the same tree
+            // This check the edge is in the immediate next level of the same tree
+            if (store.edges[nextClaimId].originId != store.edges[currentEdgeId].originId) {
+                revert EdgeOriginDiffer(nextClaimId, store.edges[currentEdgeId].originId);
             }
             currentEdgeId = nextLevelEdgeIds[i];
             // this add the timer of the next level, we simply add and expect the caller to supply the max amount

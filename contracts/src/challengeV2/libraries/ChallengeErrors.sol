@@ -100,3 +100,5 @@ error BigStepLevelsTooMany(uint8 levels);
 error LevelTooHigh(uint8 level, uint8 numBigStepLevels);
 /// @dev Thrown for unrecognised edge types
 error InvalidEdgeType(EdgeType edgeType);
+/// @dev Thrown when the edge origin differs from the expected value
+error EdgeOriginDiffer(bytes32 actual, bytes32 expected);
