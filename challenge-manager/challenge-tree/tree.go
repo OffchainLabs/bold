@@ -131,6 +131,9 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	}
 	inheritedTimer := timeUnrivaled
 
+	// Subchallenged edges always have their inherited timer fetched from onchain.
+	// TODO: When to perform the tx?
+
 	// If an edge has children, we use the min of its children if it
 	// is not a root edge. Otherwise, use the max.
 	hasChildren, err := edge.HasChildren(ctx)
