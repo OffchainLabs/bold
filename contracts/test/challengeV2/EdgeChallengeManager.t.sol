@@ -1632,26 +1632,16 @@ contract EdgeChallengeManagerTest is Test {
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(genesisStates()), 0),
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(firstStates), 1)
         );
-        bytes32[] memory above = getAncestorsAbove(allWinners, 0);
-        ei.challengeManager.confirmEdgeByTime(allWinners[0].upperChildId, above, ei.a1Data);
 
-        for (uint256 i = 1; i < allWinners.length; i++) {
-            if ((i + 1) % 6 != 0) {
-                if (i % 6 != 0) {
-                    ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
-                } else {
-                    ei.challengeManager.confirmEdgeByClaim(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
-                }
-                ei.challengeManager.confirmEdgeByTime(
-                    allWinners[i].upperChildId, getAncestorsAbove(allWinners, i), ei.a1Data
-                );
-            } else {
-                ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
-            }
+        bytes32[] memory subchallengeIds = new bytes32[](NUM_BIGSTEP_LEVEL+1);
+        for (uint256 i = 1; i < allWinners.length / 6; i+=1) {
+            subchallengeIds[NUM_BIGSTEP_LEVEL+1-i] = allWinners[i*6-1].lowerChildId;
         }
+        bytes32 topEdgeId = allWinners[allWinners.length - 1].lowerChildId;
+        ei.challengeManager.confirmEdgeByTime(topEdgeId, subchallengeIds, ei.a1Data);
 
         assertTrue(
-            ei.challengeManager.getEdge(allWinners[allWinners.length - 1].lowerChildId).status == EdgeStatus.Confirmed,
+            ei.challengeManager.getEdge(topEdgeId).status == EdgeStatus.Confirmed,
             "Edge confirmed"
         );
 

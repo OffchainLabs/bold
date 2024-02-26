@@ -85,8 +85,8 @@ contract EdgeChallengeManagerLibAccess {
         return store.hasLengthOneRival(edgeId);
     }
 
-    function timeUnrivaled(bytes32 edgeId) public view returns (uint64) {
-        return store.timeUnrivaled(edgeId);
+    function timeUnrivaled(bytes32 edgeId, uint8 numBigStepLevel) public view returns (uint64) {
+        return store.timeUnrivaled(edgeId, numBigStepLevel);
     }
 
     function mandatoryBisectionHeight(uint256 start, uint256 end) public pure returns (uint256) {
@@ -428,7 +428,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.add(edge1);
         vm.roll(block.number + 3);
 
-        assertEq(store.timeUnrivaled(edge1.idMem()), 3, "Time unrivaled");
+        assertEq(store.timeUnrivaled(edge1.idMem(), NUM_BIGSTEP_LEVEL), 3, "Time unrivaled");
     }
 
     function testTimeUnrivaledFirstRivalEdgeNotExist() public {
@@ -441,7 +441,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.remove(edge2.idMem());
 
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, edge2.idMem()));
-        store.timeUnrivaled(edge1.idMem());
+        store.timeUnrivaled(edge1.idMem(), NUM_BIGSTEP_LEVEL);
     }
 
     function testTimeUnrivaledFirstRivalNotExist() public {
@@ -452,7 +452,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         store.setFirstRival(edge1.mutualIdMem(), 0);
         vm.expectRevert(abi.encodeWithSelector(EmptyFirstRival.selector));
-        store.timeUnrivaled(edge1.idMem());
+        store.timeUnrivaled(edge1.idMem(), NUM_BIGSTEP_LEVEL);
     }
 
     function testTimeUnrivaledNotExist() public {
@@ -462,7 +462,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         bytes32 id1 = edge1.idMem();
         vm.expectRevert(abi.encodeWithSelector(EdgeNotExists.selector, id1));
-        store.timeUnrivaled(id1);
+        store.timeUnrivaled(id1, NUM_BIGSTEP_LEVEL);
     }
 
     function testTimeUnrivaledAfterRival() public {
@@ -488,10 +488,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
         vm.roll(block.number + 7);
 
-        assertEq(store.timeUnrivaled(edge1.idMem()), 4, "Time unrivaled 1");
-        assertEq(store.timeUnrivaled(edge2.idMem()), 0, "Time unrivaled 2");
-        assertEq(store.timeUnrivaled(edge3.idMem()), 0, "Time unrivaled 3");
-        assertEq(store.timeUnrivaled(edge4.idMem()), 7, "Time unrivaled 4");
+        assertEq(store.timeUnrivaled(edge1.idMem(), NUM_BIGSTEP_LEVEL), 4, "Time unrivaled 1");
+        assertEq(store.timeUnrivaled(edge2.idMem(), NUM_BIGSTEP_LEVEL), 0, "Time unrivaled 2");
+        assertEq(store.timeUnrivaled(edge3.idMem(), NUM_BIGSTEP_LEVEL), 0, "Time unrivaled 3");
+        assertEq(store.timeUnrivaled(edge4.idMem(), NUM_BIGSTEP_LEVEL), 7, "Time unrivaled 4");
     }
 
     function testMandatoryBisectHeightSizeOne() public {
@@ -2224,7 +2224,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
             vm.roll(block.number + 1);
 
-            assertEq(store.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+            assertEq(store.timeUnrivaled(edge1Id, NUM_BIGSTEP_LEVEL), 1, "Edge1 timer");
         }
 
         bytes32[] memory states2;
@@ -2239,8 +2239,8 @@ contract EdgeChallengeManagerLibTest is Test {
 
             vm.roll(block.number + 2);
 
-            assertEq(store.timeUnrivaled(edge1Id), 1, "Edge1 timer 2");
-            assertEq(store.timeUnrivaled(edge2Id), 0, "Edge2 timer 2");
+            assertEq(store.timeUnrivaled(edge1Id, NUM_BIGSTEP_LEVEL), 1, "Edge1 timer 2");
+            assertEq(store.timeUnrivaled(edge2Id, NUM_BIGSTEP_LEVEL), 0, "Edge2 timer 2");
         }
 
         (BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) =
@@ -2315,7 +2315,7 @@ contract EdgeChallengeManagerLibTest is Test {
 
         vm.roll(block.number + 1);
 
-        assertEq(store.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+        assertEq(store.timeUnrivaled(edge1Id, NUM_BIGSTEP_LEVEL), 1, "Edge1 timer");
 
         (bytes32[] memory states2, bytes32[] memory exp2) =
             appendRandomStatesBetween(genesisStates(), args.endState2, height1);
