@@ -81,9 +81,6 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
-    /// @notice Inherited Time
-    /// @dev    TODO Stored here instead of with the edge due to stack size limit
-    mapping(bytes32 => uint64) inheritedTime;
 }
 
 /// @notice Input data to a one step proof
@@ -472,22 +469,38 @@ library EdgeChallengeManagerLib {
         return (hasRival(store, edgeId) && store.edges[edgeId].length() == 1);
     }
 
-    function updateTimeInherited(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel) internal returns (uint64) {
-        uint64 timeInherited;
+    function updateAccuTimerCache(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel) internal returns (uint64) {
+        // calculate the time unrivaled without inheritance
+        // we don't use timeAccumulated here, since it would read the cache and double-count
+        uint64 accuTimer = timeUnrivaled(store, edgeId, numBigStepLevel);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint64 lowerTimer = timeUnrivaled(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
-            uint64 upperTimer = timeUnrivaled(store, store.edges[edgeId].upperChildId, numBigStepLevel);
-            timeInherited = lowerTimer < upperTimer ? lowerTimer : upperTimer;
+            uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
+            uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
+            accuTimer += lowerTimer < upperTimer ? lowerTimer : upperTimer;
         } else {
             checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-            timeInherited = timeUnrivaled(store, claimingEdgeId, numBigStepLevel);
+            accuTimer += timeAccumulated(store, claimingEdgeId, numBigStepLevel);
         }
-        uint64 currentInheritedTime = store.inheritedTime[edgeId];
-        if (timeInherited > currentInheritedTime) { // only update when increased
-            store.inheritedTime[edgeId] = timeInherited;
-            return timeInherited;
+        uint64 currentAccuTimer = store.edges[edgeId].accuTimerCache;
+        if (accuTimer > currentAccuTimer) { // only update when increased
+            store.edges[edgeId].accuTimerCache = accuTimer;
+            return accuTimer;
         }
-        return currentInheritedTime;
+        return currentAccuTimer;
+    }
+
+    function timeAccumulated(EdgeStore storage store, bytes32 edgeId, uint8 numBigStepLevel) internal view returns (uint64) {
+        uint64 accuTimerCache = store.edges[edgeId].accuTimerCache;
+        if (accuTimerCache > 0){
+            return accuTimerCache;
+        }
+        uint64 accuTimer = timeUnrivaled(store, edgeId, numBigStepLevel);
+        if (store.edges[edgeId].lowerChildId != bytes32(0)) {
+            uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
+            uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
+            accuTimer += lowerTimer < upperTimer ? lowerTimer : upperTimer;
+        }
+        return accuTimer;
     }
 
     /// @notice The amount of time (in blocks) this edge has spent without rivals
@@ -506,8 +519,6 @@ library EdgeChallengeManagerLib {
             revert EmptyFirstRival();
         }
 
-        uint64 unrivaledTime;
-
         if (store.edges[edgeId].status == EdgeStatus.Confirmed 
                 && store.edges[edgeId].length() == 1
                 && ChallengeEdgeLib.levelToType(store.edges[edgeId].level, numBigStepLevel) == EdgeType.SmallStep) {
@@ -517,7 +528,7 @@ library EdgeChallengeManagerLib {
         // this edge has no rivals, the time is still going up
         // we give the current amount of time unrivaled
         if (firstRival == UNRIVALED) {
-            unrivaledTime = uint64(block.number) - store.edges[edgeId].createdAtBlock;
+            return uint64(block.number) - store.edges[edgeId].createdAtBlock;
         } else {
             // Sanity check: it's not possible an edge does not exist for a first rival record
             if (!store.edges[firstRival].exists()) {
@@ -530,24 +541,13 @@ library EdgeChallengeManagerLib {
             if (firstRivalCreatedAtBlock > edgeCreatedAtBlock) {
                 // if this edge was created before the first rival then we return the difference
                 // in createdAtBlock number
-                unrivaledTime = firstRivalCreatedAtBlock - edgeCreatedAtBlock;
+                return firstRivalCreatedAtBlock - edgeCreatedAtBlock;
             } else {
                 // if this was created at the same time as, or after the the first rival
                 // then we return 0
-                unrivaledTime = 0;
+                return 0;
             }
         }
-
-        uint64 cachedInheritedTime = store.inheritedTime[edgeId];
-        if (cachedInheritedTime > 0){
-            unrivaledTime += cachedInheritedTime;
-        } else if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint64 lowerTimer = timeUnrivaled(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
-            uint64 upperTimer = timeUnrivaled(store, store.edges[edgeId].upperChildId, numBigStepLevel);
-            unrivaledTime += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-        }
-
-        return unrivaledTime;
     }
 
     /// @notice Given a start and an endpoint determine the bisection height
@@ -778,7 +778,7 @@ library EdgeChallengeManagerLib {
         }
 
         bytes32 currentEdgeId = edgeId;
-        uint64 totalTimeUnrivaled = timeUnrivaled(store, edgeId, numBigStepLevel);
+        uint64 totalTimeUnrivaled = timeAccumulated(store, edgeId, numBigStepLevel);
 
         // since sibling assertions have the same predecessor, they can be viewed as
         // rival edges. Adding the assertion unrivaled time allows us to start the confirmation

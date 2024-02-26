@@ -480,8 +480,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
-    function updateInheritedTimer(bytes32 edgeId, bytes32 claimingEdgeId) public {
-        store.updateTimeInherited(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
+    function updateAccuTimerCache(bytes32 edgeId, bytes32 claimingEdgeId) public {
+        store.updateAccuTimerCache(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
     }
 
     /// @inheritdoc IEdgeChallengeManager

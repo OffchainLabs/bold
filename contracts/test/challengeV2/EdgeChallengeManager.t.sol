@@ -1640,7 +1640,7 @@ contract EdgeChallengeManagerTest is Test {
                 if (i % 6 != 0) {
                     // ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
                 } else {
-                    ei.challengeManager.updateInheritedTimer(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
+                    ei.challengeManager.updateAccuTimerCache(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
                 }
                 // ei.challengeManager.confirmEdgeByTime(
                 //     allWinners[i].upperChildId, getAncestorsAbove(allWinners, i), ei.a1Data
