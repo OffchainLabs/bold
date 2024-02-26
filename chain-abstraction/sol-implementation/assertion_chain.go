@@ -357,7 +357,8 @@ func TryConfirmingAssertion(
 		return true, nil
 	}
 	for {
-		latestHeader, err := chain.Backend().HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
+		var latestHeader *types.Header
+		latestHeader, err = chain.Backend().HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
 		if err != nil {
 			return false, err
 		}
