@@ -475,11 +475,21 @@ library EdgeChallengeManagerLib {
         uint64 accuTimer = timeUnrivaled(store, edgeId);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
             uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
+            if (lowerTimer == type(uint64).max) {
+                return type(uint64).max;
+            }
             uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
+            if (upperTimer == type(uint64).max) {
+                return type(uint64).max;
+            }
             accuTimer += lowerTimer < upperTimer ? lowerTimer : upperTimer;
         } else {
             checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-            accuTimer += timeAccumulated(store, claimingEdgeId, numBigStepLevel);
+            uint64 claimTimer = timeAccumulated(store, claimingEdgeId, numBigStepLevel);
+            if (claimTimer == type(uint64).max) {
+                return type(uint64).max;
+            }
+            accuTimer += claimTimer;
         }
         uint64 currentAccuTimer = store.edges[edgeId].accuTimerCache;
         if (accuTimer > currentAccuTimer) { // only update when increased
