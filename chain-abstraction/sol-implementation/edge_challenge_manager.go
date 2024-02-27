@@ -57,12 +57,8 @@ func (e *specEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.endHeight), e.inner.EndHistoryRoot
 }
 
-func (e *specEdge) AssertionHash(ctx context.Context) (protocol.AssertionHash, error) {
-	h, err := e.manager.caller.GetPrevAssertionHash(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
-	if err != nil {
-		return protocol.AssertionHash{}, err
-	}
-	return protocol.AssertionHash{Hash: common.Hash(h)}, nil
+func (e *specEdge) AssertionHash(_ context.Context) (protocol.AssertionHash, error) {
+	return e.assertionHash, nil
 }
 
 func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
@@ -558,6 +554,10 @@ func (cm *specChallengeManager) GetEdge(
 	if err != nil {
 		return option.Option[protocol.SpecEdge]{}, err
 	}
+	assertionHash, err := cm.caller.GetPrevAssertionHash(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
+	if err != nil {
+		return option.Option[protocol.SpecEdge]{}, err
+	}
 	return option.Some(protocol.SpecEdge(&specEdge{
 		id:                   edgeId.Hash,
 		mutualId:             mutual,
@@ -567,6 +567,7 @@ func (cm *specChallengeManager) GetEdge(
 		endHeight:            edge.EndHeight.Uint64(),
 		miniStaker:           miniStaker,
 		totalChallengeLevels: numbigsteplevel + 2,
+		assertionHash:        protocol.AssertionHash{Hash: common.Hash(assertionHash)},
 	})), nil
 }
 
