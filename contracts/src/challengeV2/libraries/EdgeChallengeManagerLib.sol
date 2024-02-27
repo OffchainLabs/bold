@@ -496,8 +496,8 @@ library EdgeChallengeManagerLib {
         // calculate the time unrivaled without inheritance
         uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
         checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-        uint256 claimTimer = store.edges[claimingEdgeId].accuTimerCache;
-        updateTimerCache(store, edgeId, totalTimeUnrivaled + claimTimer);
+        totalTimeUnrivaled += store.edges[claimingEdgeId].accuTimerCache;
+        updateTimerCache(store, edgeId, totalTimeUnrivaled);
     }
 
     /// @notice The amount of time (in blocks) this edge has spent without rivals
