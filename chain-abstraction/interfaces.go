@@ -247,10 +247,14 @@ type SpecChallengeManager interface {
 	// The inherited timer from the edge's children. Needs to be refreshed
 	// onchain over time.
 	InheritedTimer(ctx context.Context, edgeId EdgeId) (uint64, error)
-	UpdateInheritedTimer(
+	UpdateInheritedTimerByClaim(
 		ctx context.Context,
 		edgeId EdgeId,
-		claimingEdgeId option.Option[ClaimId],
+		claimingEdgeId ClaimId,
+	) error
+	UpdateInheritedTimerByChildren(
+		ctx context.Context,
+		edgeId EdgeId,
 	) error
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(

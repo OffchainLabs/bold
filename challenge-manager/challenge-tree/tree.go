@@ -46,15 +46,15 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 // RoyalChallengeTree keeps track of royal edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
-	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	edgeInheritedTimers   *threadsafe.Map[protocol.EdgeId, uint64]
-	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash protocol.AssertionHash
-	metadataReader        MetadataReader
-	histChecker           l2stateprovider.HistoryChecker
-	validatorName         string
-	totalChallengeLevels  uint8
-	royalRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	edges                        *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	recalculatedRootEdgeIdTimers *threadsafe.Set[protocol.ClaimId]
+	edgeCreationTimes            *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash        protocol.AssertionHash
+	metadataReader               MetadataReader
+	histChecker                  l2stateprovider.HistoryChecker
+	validatorName                string
+	totalChallengeLevels         uint8
+	royalRootEdgesByLevel        *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
 }
 
 func New(
@@ -65,13 +65,13 @@ func New(
 	validatorName string,
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
-		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
-		edgeInheritedTimers:   threadsafe.NewMap[protocol.EdgeId, uint64](),
-		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
-		topLevelAssertionHash: assertionHash,
-		metadataReader:        metadataReader,
-		histChecker:           histChecker,
-		validatorName:         validatorName,
+		edges:                        threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
+		recalculatedRootEdgeIdTimers: threadsafe.NewSet[protocol.ClaimId](),
+		edgeCreationTimes:            threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
+		topLevelAssertionHash:        assertionHash,
+		metadataReader:               metadataReader,
+		histChecker:                  histChecker,
+		validatorName:                validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
 		totalChallengeLevels:  numBigStepLevels + 2,
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]("royalRootEdgesByLevel")),
@@ -126,6 +126,13 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if !ok {
 		return 0, fmt.Errorf("edge with id %#x not found", edgeId.Hash)
 	}
+	status, err := edge.Status(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if ht.isOneStepProven(ctx, edge, status) {
+		return math.MaxUint64, nil
+	}
 	timeUnrivaled, err := ht.TimeUnrivaled(edge, blockNum)
 	if err != nil {
 		return 0, err
@@ -136,16 +143,6 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if err != nil {
 		return 0, err
 	}
-
-	// Edges that claim another edge in the level above update the inherited timer onchain
-	// if they are able to.
-	// TODO: When to perform the tx? As long as we have called it once, we don't need to do it again.
-	if edge.ClaimId().IsSome() {
-		// Locally check edges added to see if the inherited timer has increased
-		// in memory.
-		chalManager.UpdateInheritedTimer(ctx, edgeId, edge.ClaimId())
-	}
-
 	// If an edge has children, we use the min of its children if it
 	// is not a root edge. Otherwise, use the max.
 	hasChildren, err := edge.HasChildren(ctx)
@@ -153,71 +150,73 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		return 0, err
 	}
 	if hasChildren {
-		lowerChildOpt, err := edge.LowerChild(ctx)
+		childrenInherited, err := ht.inheritedTimerFromChildren(ctx, chalManager, edge)
 		if err != nil {
 			return 0, err
 		}
-		upperChildOpt, err := edge.UpperChild(ctx)
-		if err != nil {
-			return 0, err
-		}
-		lowerChildId := lowerChildOpt.Unwrap()
-		upperChildId := upperChildOpt.Unwrap()
-
-		// We get the inherited timers of the children. If we don't have
-		// them locally, we fetch them from onchain.
-		lowerTimer, ok := ht.edgeInheritedTimers.TryGet(lowerChildId)
-		if !ok {
-			lowerInheritedTimer, err := chalManager.InheritedTimer(ctx, lowerChildId)
-			if err != nil {
-				return 0, err
-			}
-			lowerTimer = lowerInheritedTimer
-			ht.edgeInheritedTimers.Put(lowerChildId, lowerInheritedTimer)
-		}
-		upperTimer, ok := ht.edgeInheritedTimers.TryGet(upperChildId)
-		if !ok {
-			upperInheritedTimer, err := chalManager.InheritedTimer(ctx, upperChildId)
-			if err != nil {
-				return 0, err
-			}
-			upperTimer = upperInheritedTimer
-			ht.edgeInheritedTimers.Put(upperChildId, upperInheritedTimer)
-		}
-
-		if edge.ClaimId().IsSome() {
-			val := lowerTimer
-			if upperTimer > lowerTimer {
-				val = upperTimer
-			}
-			inheritedTimer += val
+		// TODO: Handle overflow.
+		if childrenInherited == math.MaxUint64 {
+			inheritedTimer = math.MaxUint64
 		} else {
-			val := lowerTimer
-			if upperTimer < lowerTimer {
-				val = upperTimer
-			}
-			inheritedTimer += val
+			inheritedTimer += childrenInherited
 		}
-		ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
-		return inheritedTimer, nil
 	}
 
-	// If the edge has been confirmed, is one-step, and is small step,
-	// then its timer will be set to max uint64.
-	status, err := edge.Status(ctx)
-	if err != nil {
-		return 0, err
-	}
-	startHeight, _ := edge.StartCommitment()
-	endHeight, _ := edge.StartCommitment()
-	diff := endHeight - startHeight
-	if edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1) && status == protocol.EdgeConfirmed && diff == 1 {
-		inheritedTimer = math.MaxUint64
-		ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
-		return inheritedTimer, nil
+	// Edges that claim another edge in the level above update the inherited timer onchain
+	// if they are able to.
+	if edge.ClaimId().IsSome() {
+		// Only perform the following operation once.
+		claimedEdgeId := edge.ClaimId().Unwrap()
+		if !ht.recalculatedRootEdgeIdTimers.Has(claimedEdgeId) {
+			if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
+				return 0, err
+			}
+			ht.recalculatedRootEdgeIdTimers.Insert(claimedEdgeId)
+		}
 	}
 
 	// Otherwise, the edge does not yet have children.
-	ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
 	return inheritedTimer, nil
+}
+
+// Gets the inherited timer from the children of an edge. The edge
+// must have children for this function to be called.
+func (ht *RoyalChallengeTree) inheritedTimerFromChildren(
+	ctx context.Context,
+	chalManager protocol.SpecChallengeManager,
+	edge protocol.SpecEdge,
+) (uint64, error) {
+	lowerChildOpt, err := edge.LowerChild(ctx)
+	if err != nil {
+		return 0, err
+	}
+	upperChildOpt, err := edge.UpperChild(ctx)
+	if err != nil {
+		return 0, err
+	}
+	lowerChildId := lowerChildOpt.Unwrap()
+	upperChildId := upperChildOpt.Unwrap()
+
+	lowerTimer, err := chalManager.InheritedTimer(ctx, lowerChildId)
+	if err != nil {
+		return 0, err
+	}
+	upperTimer, err := chalManager.InheritedTimer(ctx, upperChildId)
+	if err != nil {
+		return 0, err
+	}
+	if upperTimer < lowerTimer {
+		return upperTimer, nil
+	}
+	return lowerTimer, nil
+}
+
+func (ht *RoyalChallengeTree) isOneStepProven(
+	ctx context.Context, edge protocol.SpecEdge, status protocol.EdgeStatus,
+) bool {
+	startHeight, _ := edge.StartCommitment()
+	endHeight, _ := edge.StartCommitment()
+	diff := endHeight - startHeight
+	isSmallStep := edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1)
+	return isSmallStep && status == protocol.EdgeConfirmed && diff == 1
 }

@@ -572,23 +572,41 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	return protocol.EdgeId{Hash: id}, err
 }
 
-func (cm *specChallengeManager) UpdateInheritedTimer(
+func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
-	claimingEdgeId option.Option[protocol.ClaimId],
 ) error {
-	var claiming common.Hash
-	if claimingEdgeId.IsSome() {
-		claiming = common.Hash(claimingEdgeId.Unwrap())
-	}
 	if _, err := cm.assertionChain.transact(
 		ctx,
 		cm.assertionChain.backend,
 		func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return cm.writer.UpdateAccuTimerCache(
+			return cm.writer.UpdateTimerCacheByChildren(
 				opts,
 				edgeId.Hash,
-				claiming,
+			)
+		}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not update inherited timer for edge %#x",
+			edgeId,
+		)
+	}
+	return nil
+}
+
+func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+	claimingEdgeId protocol.ClaimId,
+) error {
+	if _, err := cm.assertionChain.transact(
+		ctx,
+		cm.assertionChain.backend,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return cm.writer.UpdateTimerCacheByClaim(
+				opts,
+				edgeId.Hash,
+				common.Hash(claimingEdgeId),
 			)
 		}); err != nil {
 		return errors.Wrapf(

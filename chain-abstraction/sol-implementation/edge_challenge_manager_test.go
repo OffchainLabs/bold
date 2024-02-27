@@ -496,8 +496,8 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 		bisectionScenario.topLevelFork.Backend.Commit()
 	}
 
-	require.NoError(t, honestChildren1.ConfirmByTimer(ctx, []protocol.EdgeId{honestEdge.Id()}))
-	require.NoError(t, honestChildren2.ConfirmByTimer(ctx, []protocol.EdgeId{honestEdge.Id()}))
+	require.NoError(t, honestChildren1.ConfirmByTimer(ctx))
+	require.NoError(t, honestChildren2.ConfirmByTimer(ctx))
 	s1, err = honestChildren1.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s1)
@@ -513,7 +513,7 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, false, hasConfirmedRival)
 
-	require.NoError(t, honestEdge.ConfirmByChildren(ctx))
+	require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s0)
@@ -523,7 +523,7 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, hasConfirmedRival)
 
-	require.NoError(t, honestEdge.ConfirmByChildren(ctx)) // already confirmed should not error.
+	require.NoError(t, honestEdge.ConfirmByTimer(ctx)) // already confirmed should not error.
 }
 
 func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
@@ -578,10 +578,10 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 	}
 
 	t.Run("edge not found", func(t *testing.T) {
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{{Hash: common.Hash{1}}}), "execution reverted")
+		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx), "execution reverted")
 	})
 	t.Run("confirmed by timer", func(t *testing.T) {
-		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}))
+		require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
@@ -590,7 +590,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
-		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{})) // already confirmed should not error.
+		require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	})
 }
 
