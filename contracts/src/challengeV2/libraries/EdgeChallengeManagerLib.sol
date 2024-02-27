@@ -469,18 +469,18 @@ library EdgeChallengeManagerLib {
         return (hasRival(store, edgeId) && store.edges[edgeId].length() == 1);
     }
 
-    function timeUnrivaledTotal(EdgeStore storage store, bytes32 edgeId) internal returns (uint64) {
-        uint64 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
+    function timeUnrivaledTotal(EdgeStore storage store, bytes32 edgeId) internal view returns (uint64) {
+        uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint64 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].accuTimerCache;
-            uint64 upperTimer = store.edges[store.edges[edgeId].upperChildId].accuTimerCache;
-            if (upperTimer == type(uint64).max && lowerTimer == type(uint64).max) {
-                totalTimeUnrivaled = type(uint64).max;
-            } else {
-                totalTimeUnrivaled += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-            }
+            uint256 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].accuTimerCache;
+            uint256 upperTimer = store.edges[store.edges[edgeId].upperChildId].accuTimerCache;
+            totalTimeUnrivaled += lowerTimer < upperTimer ? lowerTimer : upperTimer;
         }
-        return totalTimeUnrivaled;
+        return clampUint64(totalTimeUnrivaled);
+    }
+
+    function clampUint64(uint256 value) internal pure returns (uint64) {
+        return value > type(uint64).max ? type(uint64).max : uint64(value);
     }
 
     function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint64 newValue) internal returns (bool) {
@@ -498,15 +498,10 @@ library EdgeChallengeManagerLib {
 
     function updateTimerCacheByClaim(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel) internal {
         // calculate the time unrivaled without inheritance
-        uint64 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
+        uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
         checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-        uint64 claimTimer = store.edges[claimingEdgeId].accuTimerCache;
-        if (claimTimer == type(uint64).max) {
-            totalTimeUnrivaled = type(uint64).max;
-        } else {
-            totalTimeUnrivaled += claimTimer;
-        }
-        updateTimerCache(store, edgeId, totalTimeUnrivaled);
+        uint256 claimTimer = store.edges[claimingEdgeId].accuTimerCache;
+        updateTimerCache(store, edgeId, clampUint64(totalTimeUnrivaled + claimTimer));
     }
 
     /// @notice The amount of time (in blocks) this edge has spent without rivals
@@ -779,15 +774,11 @@ library EdgeChallengeManagerLib {
 
         bytes32 currentEdgeId = edgeId;
 
-        uint64 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
+        uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint64 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].accuTimerCache;
-            uint64 upperTimer = store.edges[store.edges[edgeId].upperChildId].accuTimerCache;
-            if (upperTimer == type(uint64).max && lowerTimer == type(uint64).max) {
-                totalTimeUnrivaled = type(uint64).max;
-            } else {
-                totalTimeUnrivaled += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-            }
+            uint256 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].accuTimerCache;
+            uint256 upperTimer = store.edges[store.edges[edgeId].upperChildId].accuTimerCache;
+            totalTimeUnrivaled += lowerTimer < upperTimer ? lowerTimer : upperTimer;
         }
 
         // since sibling assertions have the same predecessor, they can be viewed as
@@ -806,7 +797,7 @@ library EdgeChallengeManagerLib {
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
 
-        return totalTimeUnrivaled;
+        return clampUint64(totalTimeUnrivaled);
     }
 
     /// @notice Confirm an edge by executing a one step proof
