@@ -774,12 +774,7 @@ library EdgeChallengeManagerLib {
 
         bytes32 currentEdgeId = edgeId;
 
-        uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
-        if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint256 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].accuTimerCache;
-            uint256 upperTimer = store.edges[store.edges[edgeId].upperChildId].accuTimerCache;
-            totalTimeUnrivaled += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-        }
+        uint64 totalTimeUnrivaled = timeUnrivaledTotal(store, edgeId);
 
         // since sibling assertions have the same predecessor, they can be viewed as
         // rival edges. Adding the assertion unrivaled time allows us to start the confirmation
