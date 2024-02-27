@@ -61,7 +61,7 @@ struct ChallengeEdge {
     ///         and the staker is non zero.
     bool refunded;
     /// @notice TODO
-    uint64 accuTimerCache;
+    uint64 totalTimeUnrivaledCache;
 }
 
 library ChallengeEdgeLib {
@@ -124,7 +124,7 @@ library ChallengeEdgeLib {
             level: level,
             refunded: false,
             confirmedAtBlock: 0,
-            accuTimerCache: 0
+            totalTimeUnrivaledCache: 0
         });
     }
 
@@ -155,7 +155,7 @@ library ChallengeEdgeLib {
             level: level,
             refunded: false,
             confirmedAtBlock: 0,
-            accuTimerCache: 0
+            totalTimeUnrivaledCache: 0
         });
     }
 
