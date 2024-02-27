@@ -484,9 +484,10 @@ library EdgeChallengeManagerLib {
             checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
             uint64 claimTimer = timeAccumulated(store, claimingEdgeId, numBigStepLevel);
             if (claimTimer == type(uint64).max) {
-                return type(uint64).max;
+                accuTimer = type(uint64).max;
+            } else {
+                accuTimer += claimTimer;
             }
-            accuTimer += claimTimer;
         }
         uint64 currentAccuTimer = store.edges[edgeId].accuTimerCache;
         if (accuTimer > currentAccuTimer) { // only update when increased
