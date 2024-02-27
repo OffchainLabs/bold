@@ -572,6 +572,34 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	return protocol.EdgeId{Hash: id}, err
 }
 
+func (cm *specChallengeManager) UpdateInheritedTimer(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+	claimingEdgeId option.Option[protocol.ClaimId],
+) error {
+	var claiming common.Hash
+	if claimingEdgeId.IsSome() {
+		claiming = common.Hash(claimingEdgeId.Unwrap())
+	}
+	if _, err := cm.assertionChain.transact(
+		ctx,
+		cm.assertionChain.backend,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return cm.writer.UpdateAccuTimerCache(
+				opts,
+				edgeId.Hash,
+				claiming,
+			)
+		}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not update inherited timer for edge %#x",
+			edgeId,
+		)
+	}
+	return nil
+}
+
 // ConfirmEdgeByOneStepProof checks a one step proof for a tentative winner edge id
 // which will mark it as the winning claim of its associated challenge if correct.
 // The edges along the winning branch and the corresponding assertion then need to be confirmed

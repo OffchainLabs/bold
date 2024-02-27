@@ -480,6 +480,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
+    function updateAccuTimerCache(bytes32 edgeId, bytes32 claimingEdgeId) public {
+        store.updateAccuTimerCache(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
+    }
+
     /// @inheritdoc IEdgeChallengeManager
     function confirmEdgeByTime(
         bytes32 edgeId,
@@ -573,13 +577,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///////////////////////
     // VIEW ONLY SECTION //
     ///////////////////////
-
-    function edgeInheritedTimer(bytes32 edgeId) public view returns (uint64) {
-        ChallengeEdge storage edge = store.get(edgeId);
-        return edge.inheritedTimer;
-    }
-
-
     /// @inheritdoc IEdgeChallengeManager
     function getLayerZeroEndHeight(EdgeType eType) public view returns (uint256) {
         if (eType == EdgeType.Block) {

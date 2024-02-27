@@ -483,7 +483,7 @@ library EdgeChallengeManagerLib {
                 return type(uint64).max;
             }
             accuTimer += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-        } else {
+        } else if (claimingEdgeId != bytes32(0)) {
             checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
             uint64 claimTimer = timeAccumulated(store, claimingEdgeId, numBigStepLevel);
             if (claimTimer == type(uint64).max) {
@@ -499,7 +499,7 @@ library EdgeChallengeManagerLib {
         return currentAccuTimer;
     }
 
-    function timeAccumulated(EdgeStore storage store, bytes32 edgeId, uint8 numBigStepLevel) internal view returns (uint64) {
+    function timeAccumulated(EdgeStore storage store, bytes32 edgeId, uint8 numBigStepLevel) internal returns (uint64) {
         uint64 accuTimerCache = store.edges[edgeId].accuTimerCache;
         if (accuTimerCache > 0){
             return accuTimerCache;
@@ -510,11 +510,11 @@ library EdgeChallengeManagerLib {
             return type(uint64).max;
         }
         uint64 accuTimer = timeUnrivaled(store, edgeId);
-        if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
-            uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
-            accuTimer += lowerTimer < upperTimer ? lowerTimer : upperTimer;
-        }
+        // if (store.edges[edgeId].lowerChildId != bytes32(0)) {
+        //     uint64 lowerTimer = timeAccumulated(store, store.edges[edgeId].lowerChildId, numBigStepLevel);
+        //     uint64 upperTimer = timeAccumulated(store, store.edges[edgeId].upperChildId, numBigStepLevel);
+        //     accuTimer += lowerTimer < upperTimer ? lowerTimer : upperTimer;
+        // }
         return accuTimer;
     }
 
