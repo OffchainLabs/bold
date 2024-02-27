@@ -87,6 +87,22 @@ interface IEdgeChallengeManager {
         ExecutionStateData calldata claimStateData
     ) external;
 
+    /// @notice Update an edge's timer cache by its children. 
+    ///         Sets the edge's timer cache to its timeUnrivaled + (minimum timer cache of its children).
+    ///         This function should not be used for edges without children.
+    /// @param edgeId The id of the edge to update
+    function updateTimerCacheByChildren(bytes32 edgeId) external;
+
+    /// @notice Update multiple edges' timer cache by their children. Equivalent to calling updateTimerCacheByChildren for each edge.
+    /// @param edgeIds The ids of the edges to update
+    function multiUpdateTimeCacheByChildren(bytes32[] calldata edgeIds) external;
+
+    /// @notice Given a one step fork edge and an edge with matching claim id,
+    ///         set the one step fork edge's timer cache to its timeUnrivaled + claiming edge's timer cache.
+    /// @param edgeId           The id of the edge to update
+    /// @param claimingEdgeId   The id of the edge which has a claimId equal to edgeId
+    function updateTimerCacheByClaim(bytes32 edgeId, bytes32 claimingEdgeId) external;
+
     /// @notice If a confirmed edge exists whose claim id is equal to this edge, then this edge can be confirmed
     /// @dev    When zero layer edges are created they reference an edge, or assertion, in the level below. If a zero layer
     ///         edge is confirmed, it becomes possible to also confirm the edge that it claims
@@ -480,16 +496,19 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
+    /// @inheritdoc IEdgeChallengeManager
     function multiUpdateTimeCacheByChildren(bytes32[] calldata edgeIds) public {
         for (uint256 i = 0; i < edgeIds.length; i++) {
             store.updateTimerCacheByChildren(edgeIds[i]);
         }
     }
 
+    /// @inheritdoc IEdgeChallengeManager
     function updateTimerCacheByChildren(bytes32 edgeId) public {
         store.updateTimerCacheByChildren(edgeId);
     }
 
+    /// @inheritdoc IEdgeChallengeManager
     function updateTimerCacheByClaim(bytes32 edgeId, bytes32 claimingEdgeId) public {
         store.updateTimerCacheByClaim(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
     }
