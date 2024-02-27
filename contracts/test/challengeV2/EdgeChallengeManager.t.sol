@@ -1633,20 +1633,18 @@ contract EdgeChallengeManagerTest is Test {
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(firstStates), 1)
         );
         // bytes32[] memory above = getAncestorsAbove(allWinners, 0);
-        // ei.challengeManager.confirmEdgeByTime(allWinners[0].upperChildId, above, ei.a1Data);
+        ei.challengeManager.updateTimerCacheByChildren(allWinners[0].upperChildId);
 
         for (uint256 i = 1; i < allWinners.length; i++) {
             if ((i + 1) % 6 != 0) {
                 if (i % 6 != 0) {
-                    // ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
+                    ei.challengeManager.updateTimerCacheByChildren(allWinners[i].lowerChildId);
                 } else {
-                    ei.challengeManager.updateAccuTimerCache(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
+                    ei.challengeManager.updateTimerCacheByClaim(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
                 }
-                // ei.challengeManager.confirmEdgeByTime(
-                //     allWinners[i].upperChildId, getAncestorsAbove(allWinners, i), ei.a1Data
-                // );
+                ei.challengeManager.updateTimerCacheByChildren(allWinners[i].upperChildId);
             } else {
-                // ei.challengeManager.confirmEdgeByChildren(allWinners[i].lowerChildId);
+                ei.challengeManager.updateTimerCacheByChildren(allWinners[i].lowerChildId);
             }
         }
 
