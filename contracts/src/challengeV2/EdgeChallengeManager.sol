@@ -480,8 +480,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
-    function updateAccuTimerCache(bytes32 edgeId, bytes32 claimingEdgeId) public {
-        store.updateAccuTimerCache(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
+    function updateTimerCacheByChildren(bytes32 edgeId) public {
+        store.updateTimerCacheByChildren(edgeId);
+    }
+
+    function updateTimerCacheByClaim(bytes32 edgeId, bytes32 claimingEdgeId) public {
+        store.updateTimerCacheByClaim(edgeId, claimingEdgeId, NUM_BIGSTEP_LEVEL);
     }
 
     /// @inheritdoc IEdgeChallengeManager
@@ -490,23 +494,23 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32[] memory _unused,
         ExecutionStateData calldata claimStateData
     ) public {
-        ChallengeEdge storage edge = store.get(edgeId);
-        EdgeType edgeType = ChallengeEdgeLib.levelToType(edge.level, NUM_BIGSTEP_LEVEL);
-        if (edgeType != EdgeType.Block) {
-            revert EdgeTypeNotBlock(edge.level);
+        ChallengeEdge storage topEdge = store.get(edgeId);
+        EdgeType topEdgeType = ChallengeEdgeLib.levelToType(topEdge.level, NUM_BIGSTEP_LEVEL);
+        if (topEdgeType != EdgeType.Block) {
+            revert EdgeTypeNotBlock(topEdge.level);
         }
-        if (!edge.isLayerZero()) {
-            revert EdgeNotLayerZero(edge.id(), edge.staker, edge.claimId);
+        if (!topEdge.isLayerZero()) {
+            revert EdgeNotLayerZero(topEdge.id(), topEdge.staker, topEdge.claimId);
         }
 
         uint64 assertionBlocks;
         // if the assertion being claiming against was the first child of its predecessor
         // then we are able to count the time between the first and second child as time towards
         // the this edge
-        bool isFirstChild = assertionChain.isFirstChild(edge.claimId);
+        bool isFirstChild = assertionChain.isFirstChild(topEdge.claimId);
         if (isFirstChild) {
             assertionChain.validateAssertionHash(
-                edge.claimId,
+                topEdge.claimId,
                 claimStateData.executionState,
                 claimStateData.prevAssertionHash,
                 claimStateData.inboxAcc
