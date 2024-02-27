@@ -46,15 +46,16 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 // RoyalChallengeTree keeps track of royal edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
-	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	edgeInheritedTimers   *threadsafe.Map[protocol.EdgeId, uint64]
-	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash protocol.AssertionHash
-	metadataReader        MetadataReader
-	histChecker           l2stateprovider.HistoryChecker
-	validatorName         string
-	totalChallengeLevels  uint8
-	royalRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	edges                         *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	edgeInheritedTimers           *threadsafe.Map[protocol.EdgeId, uint64]
+	claimedEdgesWithUpdatedTimers *threadsafe.Set[protocol.EdgeId]
+	edgeCreationTimes             *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash         protocol.AssertionHash
+	metadataReader                MetadataReader
+	histChecker                   l2stateprovider.HistoryChecker
+	validatorName                 string
+	totalChallengeLevels          uint8
+	royalRootEdgesByLevel         *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
 }
 
 func New(
@@ -65,12 +66,14 @@ func New(
 	validatorName string,
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
-		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
-		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
-		topLevelAssertionHash: assertionHash,
-		metadataReader:        metadataReader,
-		histChecker:           histChecker,
-		validatorName:         validatorName,
+		edges:                         threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
+		edgeInheritedTimers:           threadsafe.NewMap[protocol.EdgeId, uint64](),
+		claimedEdgesWithUpdatedTimers: threadsafe.NewSet[protocol.EdgeId](),
+		edgeCreationTimes:             threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
+		topLevelAssertionHash:         assertionHash,
+		metadataReader:                metadataReader,
+		histChecker:                   histChecker,
+		validatorName:                 validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
 		totalChallengeLevels:  numBigStepLevels + 2,
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]("royalRootEdgesByLevel")),
@@ -132,7 +135,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	inheritedTimer := timeUnrivaled
 
 	// Subchallenged edges always have their inherited timer fetched from onchain.
-	// TODO: When to perform the tx?
+	// TODO: When to perform the tx? As long as we have called it once, we don't need to do it again.
 
 	// If an edge has children, we use the min of its children if it
 	// is not a root edge. Otherwise, use the max.
@@ -193,9 +196,6 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		ht.edgeInheritedTimers.Put(edgeId, inheritedTimer)
 		return inheritedTimer, nil
 	}
-
-	// If edge is a subchallenged edge, use the max of the edges that claim it.
-	// TODO: Need a list of all the edges that claim a subchallenged edge.
 
 	// If the edge has been confirmed, is one-step, and is small step,
 	// then its timer will be set to max uint64.
