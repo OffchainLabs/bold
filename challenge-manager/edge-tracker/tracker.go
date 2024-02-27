@@ -494,11 +494,14 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
 	if updatedTimer >= chalPeriod {
-		if err := et.edge.ConfirmByTimer(ctx); err != nil {
-			return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", updatedTimer, chalPeriod)
+		if et.edge.ClaimId().IsSome() && et.edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel() {
+			if err := et.edge.ConfirmByTimer(ctx); err != nil {
+				return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", updatedTimer, chalPeriod)
+			}
+			srvlog.Info("Confirmed by time", et.uniqueTrackerLogFields())
+			confirmedCounter.Inc(1)
 		}
-		srvlog.Info("Confirmed by time", et.uniqueTrackerLogFields())
-		confirmedCounter.Inc(1)
+		srvlog.Info("Edge has a timer >= CHAL_PERIOD, can despawn tracker", et.uniqueTrackerLogFields())
 		return true, nil
 	}
 	return false, errNotYetConfirmable
