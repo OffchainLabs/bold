@@ -472,17 +472,17 @@ library EdgeChallengeManagerLib {
     function timeUnrivaledTotal(EdgeStore storage store, bytes32 edgeId) internal view returns (uint256) {
         uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
         if (store.edges[edgeId].lowerChildId != bytes32(0)) {
-            uint256 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].accuTimerCache;
-            uint256 upperTimer = store.edges[store.edges[edgeId].upperChildId].accuTimerCache;
+            uint256 lowerTimer = store.edges[store.edges[edgeId].lowerChildId].totalTimeUnrivaledCache;
+            uint256 upperTimer = store.edges[store.edges[edgeId].upperChildId].totalTimeUnrivaledCache;
             totalTimeUnrivaled += lowerTimer < upperTimer ? lowerTimer : upperTimer;
         }
         return totalTimeUnrivaled;
     }
 
     function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint256 newValue) internal returns (bool) {
-        uint256 currentAccuTimer = store.edges[edgeId].accuTimerCache;
+        uint256 currentAccuTimer = store.edges[edgeId].totalTimeUnrivaledCache;
         if (newValue > currentAccuTimer) { // only update when increased
-            store.edges[edgeId].accuTimerCache = newValue > type(uint64).max ? type(uint64).max : uint64(newValue);
+            store.edges[edgeId].totalTimeUnrivaledCache = newValue > type(uint64).max ? type(uint64).max : uint64(newValue);
             return true;
         }
         return false;
@@ -496,8 +496,8 @@ library EdgeChallengeManagerLib {
         // calculate the time unrivaled without inheritance
         uint256 totalTimeUnrivaled = timeUnrivaled(store, edgeId);
         checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-        uint256 claimTimer = store.edges[claimingEdgeId].accuTimerCache;
-        updateTimerCache(store, edgeId, totalTimeUnrivaled + claimTimer);
+        totalTimeUnrivaled += store.edges[claimingEdgeId].totalTimeUnrivaledCache;
+        updateTimerCache(store, edgeId, totalTimeUnrivaled);
     }
 
     /// @notice The amount of time (in blocks) this edge has spent without rivals
@@ -864,6 +864,6 @@ library EdgeChallengeManagerLib {
 
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
-        store.edges[edgeId].accuTimerCache = type(uint64).max;
+        store.edges[edgeId].totalTimeUnrivaledCache = type(uint64).max;
     }
 }
