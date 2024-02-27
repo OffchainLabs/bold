@@ -479,14 +479,10 @@ library EdgeChallengeManagerLib {
         return totalTimeUnrivaled;
     }
 
-    function clampUint64(uint256 value) internal pure returns (uint64) {
-        return value > type(uint64).max ? type(uint64).max : uint64(value);
-    }
-
     function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint256 newValue) internal returns (bool) {
-        uint64 currentAccuTimer = store.edges[edgeId].accuTimerCache;
+        uint256 currentAccuTimer = store.edges[edgeId].accuTimerCache;
         if (newValue > currentAccuTimer) { // only update when increased
-            store.edges[edgeId].accuTimerCache = clampUint64(newValue);
+            store.edges[edgeId].accuTimerCache = newValue > type(uint64).max ? type(uint64).max : uint64(newValue);
             return true;
         }
         return false;
@@ -508,7 +504,7 @@ library EdgeChallengeManagerLib {
     ///         This value is increasing whilst an edge is unrivaled, once a rival is created
     ///         it is fixed. If an edge has rivals from the moment it is created then it will have
     ///         a zero time unrivaled
-    function timeUnrivaled(EdgeStore storage store, bytes32 edgeId) internal view returns (uint64) {
+    function timeUnrivaled(EdgeStore storage store, bytes32 edgeId) internal view returns (uint256) {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
         }
@@ -523,7 +519,7 @@ library EdgeChallengeManagerLib {
         // this edge has no rivals, the time is still going up
         // we give the current amount of time unrivaled
         if (firstRival == UNRIVALED) {
-            return uint64(block.number) - store.edges[edgeId].createdAtBlock;
+            return block.number - store.edges[edgeId].createdAtBlock;
         } else {
             // Sanity check: it's not possible an edge does not exist for a first rival record
             if (!store.edges[firstRival].exists()) {
@@ -531,8 +527,8 @@ library EdgeChallengeManagerLib {
             }
 
             // rivals exist for this edge
-            uint64 firstRivalCreatedAtBlock = store.edges[firstRival].createdAtBlock;
-            uint64 edgeCreatedAtBlock = store.edges[edgeId].createdAtBlock;
+            uint256 firstRivalCreatedAtBlock = store.edges[firstRival].createdAtBlock;
+            uint256 edgeCreatedAtBlock = store.edges[edgeId].createdAtBlock;
             if (firstRivalCreatedAtBlock > edgeCreatedAtBlock) {
                 // if this edge was created before the first rival then we return the difference
                 // in createdAtBlock number
@@ -759,20 +755,17 @@ library EdgeChallengeManagerLib {
     /// @param claimedAssertionUnrivaledBlocks  The number of blocks that the assertion ultimately being claimed by this edge spent unrivaled
     /// @param confirmationThresholdBlock       The number of blocks that the total unrivaled time of an ancestor chain needs to exceed in
     ///                                         order to be confirmed
-    /// @param numBigStepLevel                  The number of big step levels in this challenge
     function confirmEdgeByTime(
         EdgeStore storage store,
         bytes32 edgeId,
         bytes32[] memory,
         uint64 claimedAssertionUnrivaledBlocks,
         uint64 confirmationThresholdBlock,
-        uint8 numBigStepLevel
-    ) internal returns (uint64) {
+        uint8 // unused
+    ) internal returns (uint256) {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
         }
-
-        bytes32 currentEdgeId = edgeId;
 
         uint256 totalTimeUnrivaled = timeUnrivaledTotal(store, edgeId);
 
@@ -792,7 +785,7 @@ library EdgeChallengeManagerLib {
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
 
-        return clampUint64(totalTimeUnrivaled);
+        return totalTimeUnrivaled;
     }
 
     /// @notice Confirm an edge by executing a one step proof
