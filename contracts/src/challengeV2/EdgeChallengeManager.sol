@@ -480,6 +480,12 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         emit EdgeConfirmedByClaim(edgeId, store.edges[edgeId].mutualId(), claimingEdgeId);
     }
 
+    function multiUpdateTimeCacheByChildren(bytes32[] calldata edgeIds) public {
+        for (uint256 i = 0; i < edgeIds.length; i++) {
+            store.updateTimerCacheByChildren(edgeIds[i]);
+        }
+    }
+
     function updateTimerCacheByChildren(bytes32 edgeId) public {
         store.updateTimerCacheByChildren(edgeId);
     }
