@@ -157,15 +157,7 @@ func (*Edge) Bisect(
 	return nil, nil, errors.New("unimplemented")
 }
 
-func (*Edge) ConfirmByTimer(_ context.Context, _ []protocol.EdgeId) error {
-	return errors.New("unimplemented")
-}
-
-func (*Edge) ConfirmByClaim(_ context.Context, _ protocol.ClaimId) error {
-	return errors.New("unimplemented")
-}
-
-func (*Edge) ConfirmByChildren(_ context.Context) error {
+func (*Edge) ConfirmByTimer(_ context.Context) error {
 	return errors.New("unimplemented")
 }
 

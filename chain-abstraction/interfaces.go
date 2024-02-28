@@ -395,6 +395,4 @@ type SpecEdge interface {
 	) (VerifiedRoyalEdge, VerifiedRoyalEdge, error)
 	// Confirms an edge for having a total timer >= one challenge period.
 	ConfirmByTimer(ctx context.Context) error
-	// Confirms an edge with the specified claim id.
-	ConfirmByClaim(ctx context.Context, claimId ClaimId) error
 }
