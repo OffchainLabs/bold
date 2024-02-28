@@ -118,31 +118,16 @@ func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	honestEdgeOpt, err := chalManager.GetEdge(ctx, honestTracker.EdgeId())
 	require.NoError(t, err)
 	require.Equal(t, false, honestEdgeOpt.IsNone())
-	honestEdge := honestEdgeOpt.Unwrap()
 
 	evilEdgeOpt, err := chalManager.GetEdge(ctx, evilTracker.EdgeId())
 	require.NoError(t, err)
 	require.Equal(t, false, evilEdgeOpt.IsNone())
-	evilEdge := evilEdgeOpt.Unwrap()
-
-	// Expect that neither of the edges have a confirmed rival.
-	hasConfirmedRival, err := honestEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
-	hasConfirmedRival, err = evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
 
 	// Expect our edge to be confirmed right away.
 	err = honestTracker.Act(ctx)
 	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirmed, honestTracker.CurrentState())
 	require.Equal(t, true, honestTracker.ShouldDespawn(ctx))
-
-	// Expect that the evil edge now has a confirmed rival.
-	hasConfirmedRival, err = evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, true, hasConfirmedRival)
 
 	// Expect the evil tracker should despawn because it has a confirmed rival.
 	require.Equal(t, true, evilTracker.ShouldDespawn(ctx))

@@ -384,51 +384,6 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 		return false
 	}
 	return status == protocol.AssertionConfirmed
-	// hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not check if edge has a confirmed rival", fields)
-	// 	return false
-	// }
-	// if hasConfirmedRival {
-	// 	// Cannot be confirmed if it has a confirmed rival edge. We should despawn the edge.
-	// 	srvlog.Info("Edge has a confirmed rival, edge tracker will now despawn")
-	// 	return true
-	// }
-	// assertionHash, err := et.edge.AssertionHash(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not get assertion hash", fields)
-	// 	return false
-	// }
-	// chalManager, err := et.chain.SpecChallengeManager(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not get challenge manager", fields)
-	// 	return false
-	// }
-	// challengePeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not get challenge period blocks", fields)
-	// 	return false
-	// }
-	// hasConfirmableAncestor, err := et.chainWatcher.HasConfirmableAncestor(
-	// 	ctx,
-	// 	assertionHash,
-	// 	challengePeriodBlocks,
-	// 	et.edge.Id(),
-	// )
-	// if err != nil {
-	// 	fields["err"] = err
-	// 	srvlog.Error("Could not check if has confirmable ancestor", fields)
-	// 	return false
-	// }
-	// if hasConfirmableAncestor {
-	// 	srvlog.Info("Edge has confirmable ancestor - challenge manager will stop tracking it", fields)
-	// 	return true
-	// }
-	return false
 }
 
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
@@ -461,15 +416,6 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	}
 	if status == protocol.EdgeConfirmed {
 		return true, nil
-	}
-
-	hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "could not check if edge has confirmed rival")
-	}
-	if hasConfirmedRival {
-		// Cannot be confirmed if it has a confirmed rival edge.
-		return false, nil
 	}
 
 	assertionHash, err := et.edge.AssertionHash(ctx)

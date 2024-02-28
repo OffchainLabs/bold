@@ -460,12 +460,11 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	})
 }
 
-func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
+func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 	ctx := context.Background()
 	bisectionScenario := setupBisectionScenario(t)
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
-	evilEdge := bisectionScenario.evilLevelZeroEdge
 
 	bisectTo := l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight / 2)
 	req := &l2stateprovider.HistoryCommitmentRequest{
@@ -505,24 +504,10 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s2)
 
-	// Neither edge should have a confirmed rival.
-	hasConfirmedRival, err := evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
-	hasConfirmedRival, err = honestEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
-
 	require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s0)
-
-	// The evil edge should have a confirmed rival.
-	hasConfirmedRival, err = evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, true, hasConfirmedRival)
-
 	require.NoError(t, honestEdge.ConfirmByTimer(ctx)) // already confirmed should not error.
 }
 

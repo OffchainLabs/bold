@@ -71,26 +71,6 @@ func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	}
 	return timer, nil
 }
-
-func (e *specEdge) HasConfirmedRival(ctx context.Context) (bool, error) {
-	mutualId, err := e.manager.caller.CalculateMutualId(
-		util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
-		e.inner.Level,
-		e.inner.OriginId,
-		e.inner.StartHeight,
-		e.inner.StartHistoryRoot,
-		e.inner.EndHeight,
-	)
-	if err != nil {
-		return false, err
-	}
-	confirmedRival, err := e.manager.caller.ConfirmedRival(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), mutualId)
-	if err != nil {
-		return false, err
-	}
-	return confirmedRival != ([32]byte{}), nil
-}
-
 func (e *specEdge) HasRival(ctx context.Context) (bool, error) {
 	return e.manager.caller.HasRival(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
 }
@@ -298,36 +278,6 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
 		"could not confirm edge %s by time with tx",
 		containers.Trunc(e.id[:]),
 	)
-}
-
-func (e *specEdge) ConfirmByChildren(ctx context.Context) error {
-	s, err := e.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if s == protocol.EdgeConfirmed {
-		return nil
-	}
-
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByChildren(opts, e.id)
-	})
-	return err
-}
-
-func (e *specEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId) error {
-	s, err := e.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if s == protocol.EdgeConfirmed {
-		return nil
-	}
-
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByClaim(opts, e.id, claimId)
-	})
-	return err
 }
 
 // TopLevelClaimHeight gets the height at the BlockChallenge level that originated a subchallenge.
