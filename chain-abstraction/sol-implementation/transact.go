@@ -6,6 +6,7 @@ package solimpl
 import (
 	"context"
 	"math/big"
+	"sync"
 
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/ethereum/go-ethereum"
@@ -15,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// var lock sync.Mutex
+var lock sync.Mutex
 
 // ChainCommitter defines a type of chain backend that supports
 // committing changes via a direct method, such as a simulated backend
@@ -35,8 +36,8 @@ func (a *AssertionChain) transact(
 	backend ChainBackend,
 	fn func(opts *bind.TransactOpts) (*types.Transaction, error),
 ) (*types.Receipt, error) {
-	// lock.Lock()
-	// defer lock.Unlock()
+	lock.Lock()
+	defer lock.Unlock()
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
 
