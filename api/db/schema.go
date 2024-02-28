@@ -46,7 +46,7 @@ CREATE TABLE Edges (
     Status TEXT NOT NULL,
     HasLengthOneRival BOOLEAN NOT NULL,
     IsRoyal BOOLEAN NOT NULL,
-    CumulativePathTimer INTEGER NOT NULL,
+    InheritedTimer INTEGER NOT NULL,
     RawAncestors TEXT NOT NULL,
     LastUpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(LowerChildID) REFERENCES Edges(Id),
