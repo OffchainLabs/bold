@@ -45,12 +45,6 @@ func init() {
 // or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
 // This information is used in order to confirm edges onchain.
 type ConfirmationMetadataChecker interface {
-	HasConfirmableAncestor(
-		ctx context.Context,
-		topLevelAssertionHash protocol.AssertionHash,
-		challengePeriodBlocks uint64,
-		edgeId protocol.EdgeId,
-	) (bool, error)
 	AddVerifiedHonestEdge(
 		ctx context.Context, verifiedHonest protocol.VerifiedRoyalEdge,
 	) error

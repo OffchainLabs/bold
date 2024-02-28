@@ -66,7 +66,10 @@ func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return timer, nil
+	if !timer.IsUint64() {
+		return 0, fmt.Errorf("received time unrivaled > max uint64 for edge %#x", e.id)
+	}
+	return timer.Uint64(), nil
 }
 
 func (e *specEdge) HasRival(ctx context.Context) (bool, error) {
@@ -505,7 +508,7 @@ func (cm *specChallengeManager) InheritedTimer(ctx context.Context, edgeId proto
 	if err != nil {
 		return 0, err
 	}
-	return edge.AccuTimerCache, nil
+	return edge.TotalTimeUnrivaledCache, nil
 }
 
 // CalculateEdgeId calculates an edge hash given its challenge id, start history, and end history.
