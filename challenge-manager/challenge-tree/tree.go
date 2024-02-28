@@ -148,9 +148,9 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		return 0, err
 	}
 	if hasChildren {
-		childrenInherited, err := ht.inheritedTimerFromChildren(ctx, chalManager, edge)
-		if err != nil {
-			return 0, err
+		childrenInherited, err2 := ht.inheritedTimerFromChildren(ctx, chalManager, edge)
+		if err2 != nil {
+			return 0, err2
 		}
 		inheritedTimer = saturatingSum(inheritedTimer, childrenInherited)
 	}
