@@ -71,10 +71,10 @@ func defaultTimeParams() timeParams {
 		// Fast block time.
 		blockTime: time.Second * 2,
 		// Go very fast.
-		challengeMoveInterval:                time.Second,
-		assertionPostingInterval:             time.Second,
+		challengeMoveInterval:                4 * time.Second,
+		assertionPostingInterval:             time.Hour,
 		assertionScanningInterval:            time.Second,
-		assertionConfirmationAttemptInterval: time.Second,
+		assertionConfirmationAttemptInterval: time.Hour,
 	}
 }
 

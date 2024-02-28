@@ -199,6 +199,17 @@ func (w *Watcher) HasConfirmableAncestor(
 	return chal.honestEdgeTree.HasConfirmableAncestor(ctx, topLevelAssertionHash, challengePeriodBlocks, edgeId)
 }
 
+func (w *Watcher) InheritedTimer(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+) (uint64, error) {
+	chalManager, err := w.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return chalManager.InheritedTimer(ctx, edgeId)
+}
+
 func (w *Watcher) UpdateInheritedTimer(
 	ctx context.Context,
 	topLevelAssertionHash protocol.AssertionHash,

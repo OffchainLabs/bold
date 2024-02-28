@@ -587,7 +587,7 @@ func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
 		}); err != nil {
 		return errors.Wrapf(
 			err,
-			"could not update inherited timer for edge %#x",
+			"could not update inherited timer for edge by children %#x",
 			edgeId,
 		)
 	}
@@ -611,8 +611,9 @@ func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
 		}); err != nil {
 		return errors.Wrapf(
 			err,
-			"could not update inherited timer for edge %#x",
+			"could not update inherited timer for edge by claim %#x, claiming %#x",
 			edgeId,
+			common.Hash(claimingEdgeId),
 		)
 	}
 	return nil

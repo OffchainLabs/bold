@@ -164,7 +164,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 
 	// Edges that claim another edge in the level above update the inherited timer onchain
 	// if they are able to.
-	if edge.ClaimId().IsSome() {
+	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
 		// Only perform the following operation once.
 		claimedEdgeId := edge.ClaimId().Unwrap()
 		if !ht.recalculatedRootEdgeIdTimers.Has(claimedEdgeId) {
@@ -175,6 +175,9 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		}
 	}
 
+	if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
+		return 0, err
+	}
 	// Otherwise, the edge does not yet have children.
 	return inheritedTimer, nil
 }
