@@ -8,10 +8,7 @@ import (
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
-	"github.com/OffchainLabs/bold/testing/mocks"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -176,13 +173,4 @@ func TestComputeAncestors(t *testing.T) {
 		}
 		require.Equal(t, wanted, resp)
 	})
-}
-
-func addMockBlockRootEdge(hct *RoyalChallengeTree) *mocks.MockSpecEdge {
-	honestRootEdges := threadsafe.NewSlice[protocol.ReadOnlyEdge]()
-	edge := &mocks.MockSpecEdge{}
-	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(common.Hash{})))
-	honestRootEdges.Push(edge)
-	hct.royalRootEdgesByLevel.Put(2, honestRootEdges)
-	return edge
 }
