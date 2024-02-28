@@ -68,39 +68,39 @@ const transferToUpgradeExec = async (
 }
 
 async function main() {
-  const l1RpcVal = process.env.L1_RPC_URL
-  if (!l1RpcVal) {
-    throw new Error('L1_RPC_URL env variable not set')
-  }
-  const l1Rpc = new ethers.providers.JsonRpcProvider(l1RpcVal)
+  // const l1RpcVal = process.env.L1_RPC_URL
+  // if (!l1RpcVal) {
+  //   throw new Error('L1_RPC_URL env variable not set')
+  // }
+  // const l1Rpc = new ethers.providers.JsonRpcProvider(l1RpcVal)
 
-  const l1PrivKey = process.env.L1_PRIV_KEY
-  if (!l1PrivKey) {
-    throw new Error('L1_PRIV_KEY env variable not set')
-  }
-  const wallet = new Wallet(l1PrivKey, l1Rpc)
+  // const l1PrivKey = process.env.L1_PRIV_KEY
+  // if (!l1PrivKey) {
+  //   throw new Error('L1_PRIV_KEY env variable not set')
+  // }
+  // const wallet = new Wallet(l1PrivKey, l1Rpc)
 
-  const localNetworksPath = path.join(__dirname, './files/localNetwork.json')
-  const localNetworks = await getJsonFile(localNetworksPath)
-  const rollupAddr = localNetworks['l2Network']['ethBridge']['rollup']
-  const upExec = await transferToUpgradeExec(wallet, rollupAddr)
+  // const localNetworksPath = path.join(__dirname, './files/localNetwork.json')
+  // const localNetworks = await getJsonFile(localNetworksPath)
+  // const rollupAddr = localNetworks['l2Network']['ethBridge']['rollup']
+  // const upExec = await transferToUpgradeExec(wallet, rollupAddr)
 
-  const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
-  if (!deployedContractsLocation) {
-    throw new Error('DEPLOYED_CONTRACTS_LOCATION env variable not set')
-  }
+  // const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
+  // if (!deployedContractsLocation) {
+  //   throw new Error('DEPLOYED_CONTRACTS_LOCATION env variable not set')
+  // }
 
-  const deployedContracts = getJsonFile(
-    deployedContractsLocation
-  ) as DeployedContracts
-  deployedContracts.upgradeExecutor = upExec.address
+  // const deployedContracts = getJsonFile(
+  //   deployedContractsLocation
+  // ) as DeployedContracts
+  // deployedContracts.upgradeExecutor = upExec.address
 
-  console.log(`Deployed contracts written to: ${deployedContractsLocation}`)
-  console.log(JSON.stringify(deployedContracts, null, 2))
-  fs.writeFileSync(
-    deployedContractsLocation,
-    JSON.stringify(deployedContracts, null, 2)
-  )
+  // console.log(`Deployed contracts written to: ${deployedContractsLocation}`)
+  // console.log(JSON.stringify(deployedContracts, null, 2))
+  // fs.writeFileSync(
+  //   deployedContractsLocation,
+  //   JSON.stringify(deployedContracts, null, 2)
+  // )
 }
 
 main().then(() => console.log('Done.'))

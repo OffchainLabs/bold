@@ -18,7 +18,6 @@ export interface DeployedContracts {
   proverMath: string
   proverHostIo: string
   osp: string
-  upgradeExecutor?: string
   newEdgeChallengeManager?: string
 }
 
@@ -44,6 +43,7 @@ export interface Config {
     rollupEventInbox: string
     outbox: string
     inbox: string
+    upgradeExecutor: string
   }
   proxyAdmins: {
     outbox: string
@@ -103,6 +103,9 @@ export const validateConfig = async (
   }
   if ((await l1Rpc.getCode(config.contracts.inbox)).length <= 2) {
     throw new Error('inbox address is not a contract')
+  }
+  if ((await l1Rpc.getCode(config.contracts.upgradeExecutor)).length <= 2) {
+    throw new Error('upgradeExecutor address is not a contract')
   }
 
   // check all the config.proxyAdmins exist

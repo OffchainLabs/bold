@@ -37,12 +37,9 @@ async function main() {
   if (!deployedContracts.boldAction) {
     throw new Error('No boldAction contract deployed')
   }
-  if (!deployedContracts.upgradeExecutor) {
-    throw new Error('No upgradeExecutor contract deployed')
-  }
 
   const upExec = new Contract(
-    deployedContracts.upgradeExecutor,
+    config.contracts.upgradeExecutor,
     UpgradeExecutorAbi,
     wallet
   )
