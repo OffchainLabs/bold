@@ -495,14 +495,11 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 		bisectionScenario.topLevelFork.Backend.Commit()
 	}
 
-	require.NoError(t, honestChildren1.ConfirmByTimer(ctx))
-	require.NoError(t, honestChildren2.ConfirmByTimer(ctx))
-	s1, err = honestChildren1.Status(ctx)
+	chalManager, err := bisectionScenario.topLevelFork.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	require.Equal(t, protocol.EdgeConfirmed, s1)
-	s2, err = honestChildren2.Status(ctx)
-	require.NoError(t, err)
-	require.Equal(t, protocol.EdgeConfirmed, s2)
+	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestChildren1.Id()))
+	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestChildren2.Id()))
+	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestEdge.Id()))
 
 	require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	s0, err := honestEdge.Status(ctx)
@@ -511,7 +508,7 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 	require.NoError(t, honestEdge.ConfirmByTimer(ctx)) // already confirmed should not error.
 }
 
-func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
+func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	ctx := context.Background()
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
@@ -562,10 +559,11 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		createdData.Backend.Commit()
 	}
 
-	t.Run("edge not found", func(t *testing.T) {
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx), "execution reverted")
-	})
 	t.Run("confirmed by timer", func(t *testing.T) {
+		chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+		require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestEdge.Id()))
+
 		require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)

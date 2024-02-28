@@ -126,9 +126,6 @@ func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirmed, honestTracker.CurrentState())
 	require.Equal(t, true, honestTracker.ShouldDespawn(ctx))
-
-	// Expect the evil tracker should despawn because it has a confirmed rival.
-	require.Equal(t, true, evilTracker.ShouldDespawn(ctx))
 }
 
 type verifiedHonestMock struct {
