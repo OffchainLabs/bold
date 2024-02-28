@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
@@ -268,59 +269,35 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
 	if s == protocol.EdgeConfirmed {
 		return nil
 	}
-	return nil
-	// var assertionHash protocol.AssertionHash
-	// if len(ancestorIds) != 0 {
-	// 	topLevelAncestorId := ancestorIds[len(ancestorIds)-1]
-	// 	topLevelAncestor, topLevelErr := e.manager.GetEdge(ctx, topLevelAncestorId)
-	// 	if topLevelErr != nil {
-	// 		return topLevelErr
-	// 	}
-	// 	if topLevelAncestor.IsNone() {
-	// 		return fmt.Errorf("did not find edge with id %#x for specified top level ancestor", topLevelAncestorId)
-	// 	}
-	// 	topEdge := topLevelAncestor.Unwrap()
-	// 	challengeLevel := topEdge.GetChallengeLevel()
-	// 	if !challengeLevel.IsBlockChallengeLevel() {
-	// 		return errors.New("top level ancestor must be a block challenge edge")
-	// 	}
-	// 	assertionHash = protocol.AssertionHash{
-	// 		Hash: common.Hash(topEdge.ClaimId().Unwrap()),
-	// 	}
-	// } else {
-	// 	assertionHash = protocol.AssertionHash{
-	// 		Hash: e.inner.ClaimId,
-	// 	}
-	// }
-	// assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
-	// if err != nil {
-	// 	return err
-	// }
-	// ancestors := make([][32]byte, len(ancestorIds))
-	// for i, r := range ancestorIds {
-	// 	ancestors[i] = r.Hash
-	// }
-	// _, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-	// 	return e.manager.writer.ConfirmEdgeByTime(opts, e.id, ancestors, challengeV2gen.ExecutionStateData{
-	// 		ExecutionState: challengeV2gen.ExecutionState{
-	// 			GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
-	// 			MachineStatus: assertionCreation.AfterState.MachineStatus,
-	// 		},
-	// 		PrevAssertionHash: assertionCreation.ParentAssertionHash,
-	// 		InboxAcc:          assertionCreation.AfterInboxBatchAcc,
-	// 	})
-	// })
-	// ancestorStrings := make([]string, len(ancestorIds))
-	// for i, r := range ancestorIds {
-	// 	ancestorStrings[i] = containers.Trunc(r.Hash[:])
-	// }
-	// return errors.Wrapf(
-	// 	err,
-	// 	"could not confirm edge %s with tx and %d ancestors %v",
-	// 	containers.Trunc(e.id[:]),
-	// 	len(ancestorIds),
-	// 	strings.Join(ancestorStrings, ", "),
-	// )
+	if e.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
+		return errors.New("only block challenge edges can be confirmed by time")
+	}
+	if e.ClaimId().IsNone() {
+		return errors.New("only root edges can be confirmed by time")
+	}
+	assertionHash := protocol.AssertionHash{
+		Hash: e.inner.ClaimId,
+	}
+	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	ancestors := make([][32]byte, 0)
+	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, ancestors, challengeV2gen.ExecutionStateData{
+			ExecutionState: challengeV2gen.ExecutionState{
+				GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
+				MachineStatus: assertionCreation.AfterState.MachineStatus,
+			},
+			PrevAssertionHash: assertionCreation.ParentAssertionHash,
+			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
+		})
+	})
+	return errors.Wrapf(
+		err,
+		"could not confirm edge %s by time with tx",
+		containers.Trunc(e.id[:]),
+	)
 }
 
 func (e *specEdge) ConfirmByChildren(ctx context.Context) error {
