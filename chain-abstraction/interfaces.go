@@ -249,8 +249,8 @@ type SpecChallengeManager interface {
 	InheritedTimer(ctx context.Context, edgeId EdgeId) (uint64, error)
 	UpdateInheritedTimerByClaim(
 		ctx context.Context,
-		edgeId EdgeId,
-		claimingEdgeId ClaimId,
+		claimingEdgeId EdgeId,
+		claimId ClaimId,
 	) error
 	UpdateInheritedTimerByChildren(
 		ctx context.Context,

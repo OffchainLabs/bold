@@ -573,8 +573,8 @@ func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
 
 func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
 	ctx context.Context,
-	edgeId protocol.EdgeId,
-	claimingEdgeId protocol.ClaimId,
+	claimingEdgeId protocol.EdgeId,
+	claimId protocol.ClaimId,
 ) error {
 	if _, err := cm.assertionChain.transact(
 		ctx,
@@ -582,15 +582,15 @@ func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
 		func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return cm.writer.UpdateTimerCacheByClaim(
 				opts,
-				edgeId.Hash,
-				common.Hash(claimingEdgeId),
+				common.Hash(claimId),
+				claimingEdgeId.Hash,
 			)
 		}); err != nil {
 		return errors.Wrapf(
 			err,
-			"could not update inherited timer for edge by claim %#x, claiming %#x",
-			edgeId,
-			common.Hash(claimingEdgeId),
+			"could not update inherited timer for edge by claim: claim id %#x, claiming edge id %#x",
+			common.Hash(claimId),
+			claimingEdgeId.Hash,
 		)
 	}
 	return nil

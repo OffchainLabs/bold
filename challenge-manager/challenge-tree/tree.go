@@ -167,12 +167,12 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
 		// Only perform the following operation once.
 		claimedEdgeId := edge.ClaimId().Unwrap()
-		if !ht.recalculatedRootEdgeIdTimers.Has(claimedEdgeId) {
-			if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
-				return 0, err
-			}
-			ht.recalculatedRootEdgeIdTimers.Insert(claimedEdgeId)
+		// if !ht.recalculatedRootEdgeIdTimers.Has(claimedEdgeId) {
+		if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
+			return 0, err
 		}
+		// 	ht.recalculatedRootEdgeIdTimers.Insert(claimedEdgeId)
+		// }
 	}
 
 	if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {

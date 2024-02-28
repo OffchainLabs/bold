@@ -45,10 +45,6 @@ func init() {
 // or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
 // This information is used in order to confirm edges onchain.
 type ConfirmationMetadataChecker interface {
-	ConfirmedEdgeWithClaimExists(
-		topLevelAssertionHash protocol.AssertionHash,
-		claimId protocol.ClaimId,
-	) (protocol.EdgeId, bool)
 	HasConfirmableAncestor(
 		ctx context.Context,
 		topLevelAssertionHash protocol.AssertionHash,
@@ -61,6 +57,10 @@ type ConfirmationMetadataChecker interface {
 	UpdateInheritedTimer(
 		ctx context.Context,
 		topLevelAssertionHash protocol.AssertionHash,
+		edgeId protocol.EdgeId,
+	) (uint64, error)
+	InheritedTimer(
+		ctx context.Context,
 		edgeId protocol.EdgeId,
 	) (uint64, error)
 }
@@ -377,50 +377,57 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 		return true
 	}
 	fields := et.uniqueTrackerLogFields()
-	hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
+	status, err := et.chain.AssertionStatus(ctx, protocol.AssertionHash{Hash: et.associatedAssertionMetadata.ClaimedAssertionHash})
 	if err != nil {
 		fields["err"] = err
-		srvlog.Error("Could not check if edge has a confirmed rival", fields)
+		srvlog.Error("Could not check assertion status", status)
 		return false
 	}
-	if hasConfirmedRival {
-		// Cannot be confirmed if it has a confirmed rival edge. We should despawn the edge.
-		srvlog.Info("Edge has a confirmed rival, edge tracker will now despawn")
-		return true
-	}
-	assertionHash, err := et.edge.AssertionHash(ctx)
-	if err != nil {
-		fields["err"] = err
-		srvlog.Error("Could not get assertion hash", fields)
-		return false
-	}
-	chalManager, err := et.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		fields["err"] = err
-		srvlog.Error("Could not get challenge manager", fields)
-		return false
-	}
-	challengePeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
-	if err != nil {
-		fields["err"] = err
-		srvlog.Error("Could not get challenge period blocks", fields)
-		return false
-	}
-	hasConfirmableAncestor, err := et.chainWatcher.HasConfirmableAncestor(
-		ctx,
-		assertionHash,
-		challengePeriodBlocks,
-		et.edge.Id(),
-	)
-	if err != nil {
-		fields["err"] = err
-		srvlog.Error("Could not check if has confirmable ancestor", fields)
-		return false
-	}
-	if hasConfirmableAncestor {
-		srvlog.Info("Edge has confirmable ancestor - challenge manager will stop tracking it", fields)
-		return true
-	}
+	return status == protocol.AssertionConfirmed
+	// hasConfirmedRival, err := et.edge.HasConfirmedRival(ctx)
+	// if err != nil {
+	// 	fields["err"] = err
+	// 	srvlog.Error("Could not check if edge has a confirmed rival", fields)
+	// 	return false
+	// }
+	// if hasConfirmedRival {
+	// 	// Cannot be confirmed if it has a confirmed rival edge. We should despawn the edge.
+	// 	srvlog.Info("Edge has a confirmed rival, edge tracker will now despawn")
+	// 	return true
+	// }
+	// assertionHash, err := et.edge.AssertionHash(ctx)
+	// if err != nil {
+	// 	fields["err"] = err
+	// 	srvlog.Error("Could not get assertion hash", fields)
+	// 	return false
+	// }
+	// chalManager, err := et.chain.SpecChallengeManager(ctx)
+	// if err != nil {
+	// 	fields["err"] = err
+	// 	srvlog.Error("Could not get challenge manager", fields)
+	// 	return false
+	// }
+	// challengePeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
+	// if err != nil {
+	// 	fields["err"] = err
+	// 	srvlog.Error("Could not get challenge period blocks", fields)
+	// 	return false
+	// }
+	// hasConfirmableAncestor, err := et.chainWatcher.HasConfirmableAncestor(
+	// 	ctx,
+	// 	assertionHash,
+	// 	challengePeriodBlocks,
+	// 	et.edge.Id(),
+	// )
+	// if err != nil {
+	// 	fields["err"] = err
+	// 	srvlog.Error("Could not check if has confirmable ancestor", fields)
+	// 	return false
+	// }
+	// if hasConfirmableAncestor {
+	// 	srvlog.Info("Edge has confirmable ancestor - challenge manager will stop tracking it", fields)
+	// 	return true
+	// }
 	return false
 }
 
@@ -428,19 +435,22 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	startHeight, startCommit := et.edge.StartCommitment()
 	endHeight, endCommit := et.edge.EndCommitment()
 	chalLevel := et.edge.GetChallengeLevel()
+	inheritedTimer, _ := et.chainWatcher.InheritedTimer(context.Background(), et.edge.Id())
+	_, _ = startCommit, endCommit
 	return log.Ctx{
-		"id":                   et.edge.Id().Hash,
-		"fromBatch":            et.associatedAssertionMetadata.FromBatch,
-		"toBatch":              et.associatedAssertionMetadata.ToBatch,
-		"claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
-		"startHeight":          startHeight,
-		"startCommit":          startCommit,
-		"endHeight":            endHeight,
-		"endCommit":            endCommit,
-		"validatorName":        et.validatorName,
-		"challengeType":        chalLevel.String(),
-		"originId":             common.Hash(et.edge.OriginId()),
-		"mutualId":             common.Hash(et.edge.MutualId()),
+		// "id":        et.edge.Id().Hash,
+		// "fromBatch": et.associatedAssertionMetadata.FromBatch,
+		// "toBatch":   et.associatedAssertionMetadata.ToBatch,
+		// "claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
+		"startHeight": startHeight,
+		// "startCommit":          startCommit,
+		"endHeight": endHeight,
+		// "endCommit":            endCommit,
+		"validatorName": et.validatorName,
+		"challengeType": chalLevel.String(),
+		// "originId":             common.Hash(et.edge.OriginId()),
+		// "mutualId":             common.Hash(et.edge.MutualId()),
+		"inheritedTimer": inheritedTimer,
 	}
 }
 
@@ -470,19 +480,6 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not get challenge manager")
 	}
-	// Check if we can confirm by claim.
-	claimingEdge, ok := et.chainWatcher.ConfirmedEdgeWithClaimExists(
-		assertionHash,
-		protocol.ClaimId(et.edge.Id().Hash),
-	)
-	if ok {
-		if confirmClaimErr := et.edge.ConfirmByClaim(ctx, protocol.ClaimId(claimingEdge.Hash)); confirmClaimErr != nil {
-			return false, errors.Wrap(confirmClaimErr, "could not confirm by claim")
-		}
-		srvlog.Info("Confirmed by claim", et.uniqueTrackerLogFields())
-		confirmedCounter.Inc(1)
-		return true, nil
-	}
 
 	// Update the inherited timer of the edge, if possible.
 	updatedTimer, err := et.chainWatcher.UpdateInheritedTimer(ctx, assertionHash, et.edge.Id())
@@ -500,9 +497,8 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 			}
 			srvlog.Info("Confirmed by time", et.uniqueTrackerLogFields())
 			confirmedCounter.Inc(1)
+			return true, nil
 		}
-		srvlog.Info("Edge has a timer >= CHAL_PERIOD, can despawn tracker", et.uniqueTrackerLogFields())
-		return true, nil
 	}
 	return false, errNotYetConfirmable
 }
