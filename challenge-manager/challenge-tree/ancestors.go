@@ -31,40 +31,6 @@ type HonestAncestors []protocol.EdgeId
 // EdgeLocalTimer is the local, unrivaled timer of a specific edge.
 type EdgeLocalTimer uint64
 
-// HasConfirmableAncestor checks if any of an edge's honest ancestors have a timer
-// that is greater than or equal to a challenge period worth of blocks.
-func (ht *RoyalChallengeTree) HasConfirmableAncestor(
-	ctx context.Context,
-	topLevelAssertionHash protocol.AssertionHash,
-	challengePeriodBlocks uint64,
-	edgeId protocol.EdgeId,
-) (bool, error) {
-	// blockRootEdge, err := ht.RoyalBlockChallengeRootEdge()
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if blockRootEdge.ClaimId().IsNone() {
-	// 	return false, fmt.Errorf("expected claimId to be found on block level root edge %#x", blockRootEdge.Id())
-	// }
-
-	// assertionHash := protocol.AssertionHash{Hash: common.Hash(blockRootEdge.ClaimId().Unwrap())}
-
-	// assertionUnrivaledNumBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(
-	// 	ctx, assertionHash,
-	// )
-	// if err != nil {
-	// 	return false, err
-	// }
-	// total := assertionUnrivaledNumBlocks
-	// for _, timer := range honestAncestorLocalTimers {
-	// 	total += uint64(timer)
-	// 	if total >= challengePeriodBlocks {
-	// 		return true, nil
-	// 	}
-	// }
-	return false, nil
-}
-
 // ComputeAncestors gathers all royal ancestors of a given edge across challenge levels.
 // Ancestor lists are linked through challenge levels via claimed edges. It is generalized
 // to any number of challenge levels in the protocol.

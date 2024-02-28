@@ -183,22 +183,6 @@ func (w *Watcher) IsRoyal(assertionHash protocol.AssertionHash, edgeId protocol.
 	return chal.honestEdgeTree.HasRoyalEdge(edgeId)
 }
 
-func (w *Watcher) HasConfirmableAncestor(
-	ctx context.Context,
-	topLevelAssertionHash protocol.AssertionHash,
-	challengePeriodBlocks uint64,
-	edgeId protocol.EdgeId,
-) (bool, error) {
-	chal, ok := w.challenges.TryGet(topLevelAssertionHash)
-	if !ok {
-		return false, fmt.Errorf(
-			"could not get challenge for top level assertion %#x",
-			topLevelAssertionHash,
-		)
-	}
-	return chal.honestEdgeTree.HasConfirmableAncestor(ctx, topLevelAssertionHash, challengePeriodBlocks, edgeId)
-}
-
 func (w *Watcher) InheritedTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
