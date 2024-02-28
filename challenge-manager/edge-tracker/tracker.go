@@ -393,19 +393,19 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	inheritedTimer, _ := et.chainWatcher.InheritedTimer(context.Background(), et.edge.Id())
 	_, _ = startCommit, endCommit
 	return log.Ctx{
-		// "id":        et.edge.Id().Hash,
-		// "fromBatch": et.associatedAssertionMetadata.FromBatch,
-		// "toBatch":   et.associatedAssertionMetadata.ToBatch,
-		// "claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
-		"startHeight": startHeight,
-		// "startCommit":          startCommit,
-		"endHeight": endHeight,
-		// "endCommit":            endCommit,
-		"validatorName": et.validatorName,
-		"challengeType": chalLevel.String(),
-		// "originId":             common.Hash(et.edge.OriginId()),
-		// "mutualId":             common.Hash(et.edge.MutualId()),
-		"inheritedTimer": inheritedTimer,
+		"id":                   et.edge.Id().Hash,
+		"fromBatch":            et.associatedAssertionMetadata.FromBatch,
+		"toBatch":              et.associatedAssertionMetadata.ToBatch,
+		"claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
+		"startHeight":          startHeight,
+		"startCommit":          startCommit,
+		"endHeight":            endHeight,
+		"endCommit":            endCommit,
+		"validatorName":        et.validatorName,
+		"challengeType":        chalLevel.String(),
+		"originId":             common.Hash(et.edge.OriginId()),
+		"mutualId":             common.Hash(et.edge.MutualId()),
+		"inheritedTimer":       inheritedTimer,
 	}
 }
 

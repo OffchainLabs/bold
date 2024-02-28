@@ -69,10 +69,10 @@ type timeParams struct {
 func defaultTimeParams() timeParams {
 	return timeParams{
 		// Fast block time.
-		blockTime: time.Second,
+		blockTime: time.Millisecond * 100,
 		// Go very fast.
-		challengeMoveInterval:                time.Second,
-		assertionPostingInterval:             time.Hour,
+		challengeMoveInterval:                time.Millisecond * 250,
+		assertionPostingInterval:             time.Second,
 		assertionScanningInterval:            time.Second,
 		assertionConfirmationAttemptInterval: time.Second,
 	}

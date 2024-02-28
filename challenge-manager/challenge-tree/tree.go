@@ -46,15 +46,14 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 // RoyalChallengeTree keeps track of royal edges the honest node agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
-	edges                        *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	recalculatedRootEdgeIdTimers *threadsafe.Set[protocol.ClaimId]
-	edgeCreationTimes            *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
-	topLevelAssertionHash        protocol.AssertionHash
-	metadataReader               MetadataReader
-	histChecker                  l2stateprovider.HistoryChecker
-	validatorName                string
-	totalChallengeLevels         uint8
-	royalRootEdgesByLevel        *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	topLevelAssertionHash protocol.AssertionHash
+	metadataReader        MetadataReader
+	histChecker           l2stateprovider.HistoryChecker
+	validatorName         string
+	totalChallengeLevels  uint8
+	royalRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
 }
 
 func New(
@@ -65,13 +64,12 @@ func New(
 	validatorName string,
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
-		edges:                        threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
-		recalculatedRootEdgeIdTimers: threadsafe.NewSet[protocol.ClaimId](),
-		edgeCreationTimes:            threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
-		topLevelAssertionHash:        assertionHash,
-		metadataReader:               metadataReader,
-		histChecker:                  histChecker,
-		validatorName:                validatorName,
+		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
+		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
+		topLevelAssertionHash: assertionHash,
+		metadataReader:        metadataReader,
+		histChecker:           histChecker,
+		validatorName:         validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
 		totalChallengeLevels:  numBigStepLevels + 2,
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]("royalRootEdgesByLevel")),
@@ -154,25 +152,16 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		if err != nil {
 			return 0, err
 		}
-		// TODO: Handle overflow.
-		if childrenInherited == math.MaxUint64 {
-			inheritedTimer = math.MaxUint64
-		} else {
-			inheritedTimer += childrenInherited
-		}
+		inheritedTimer = saturatingSum(inheritedTimer, childrenInherited)
 	}
 
 	// Edges that claim another edge in the level above update the inherited timer onchain
 	// if they are able to.
 	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-		// Only perform the following operation once.
 		claimedEdgeId := edge.ClaimId().Unwrap()
-		// if !ht.recalculatedRootEdgeIdTimers.Has(claimedEdgeId) {
 		if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
 			return 0, err
 		}
-		// 	ht.recalculatedRootEdgeIdTimers.Insert(claimedEdgeId)
-		// }
 	}
 
 	if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
@@ -222,4 +211,11 @@ func (ht *RoyalChallengeTree) isOneStepProven(
 	diff := endHeight - startHeight
 	isSmallStep := edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1)
 	return isSmallStep && status == protocol.EdgeConfirmed && diff == 1
+}
+
+func saturatingSum(a, b uint64) uint64 {
+	if math.MaxUint64-a < b {
+		return math.MaxUint64
+	}
+	return a + b
 }
