@@ -85,7 +85,7 @@ contract EdgeChallengeManagerLibAccess {
         return store.hasLengthOneRival(edgeId);
     }
 
-    function timeUnrivaled(bytes32 edgeId) public view returns (uint64) {
+    function timeUnrivaled(bytes32 edgeId) public view returns (uint256) {
         return store.timeUnrivaled(edgeId);
     }
 
@@ -150,7 +150,7 @@ contract EdgeChallengeManagerLibAccess {
         uint64 claimedAssertionUnrivaledBlocks,
         uint64 confirmationThresholdBlock,
         uint8 numBigStepLevel
-    ) public returns (uint64) {
+    ) public returns (uint256) {
         return store.confirmEdgeByTime(
             edgeId, ancestorEdgeIds, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock, numBigStepLevel
         );

@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -56,12 +57,8 @@ func (e *specEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.endHeight), e.inner.EndHistoryRoot
 }
 
-func (e *specEdge) AssertionHash(ctx context.Context) (protocol.AssertionHash, error) {
-	h, err := e.manager.caller.GetPrevAssertionHash(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
-	if err != nil {
-		return protocol.AssertionHash{}, err
-	}
-	return protocol.AssertionHash{Hash: common.Hash(h)}, nil
+func (e *specEdge) AssertionHash(_ context.Context) (protocol.AssertionHash, error) {
+	return e.assertionHash, nil
 }
 
 func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
@@ -71,6 +68,7 @@ func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	}
 	return timer, nil
 }
+
 func (e *specEdge) HasRival(ctx context.Context) (bool, error) {
 	return e.manager.caller.HasRival(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
 }
@@ -327,19 +325,21 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 
 // Wrapper around the challenge manager contract with developer-friendly methods.
 type specChallengeManager struct {
-	addr           common.Address
-	backend        protocol.ChainBackend
-	assertionChain *AssertionChain
-	txOpts         *bind.TransactOpts
-	caller         *challengeV2gen.EdgeChallengeManagerCaller
-	writer         *challengeV2gen.EdgeChallengeManagerTransactor
-	filterer       *challengeV2gen.EdgeChallengeManagerFilterer
+	addr                  common.Address
+	backend               protocol.ChainBackend
+	assertionChain        *AssertionChain
+	txOpts                *bind.TransactOpts
+	caller                *challengeV2gen.EdgeChallengeManagerCaller
+	writer                *challengeV2gen.EdgeChallengeManagerTransactor
+	filterer              *challengeV2gen.EdgeChallengeManagerFilterer
+	challengePeriodBlocks uint64
+	numBigStepLevel       uint8
 }
 
 // NewSpecChallengeManager returns an instance of the spec challenge manager
 // used by the assertion chain.
 func NewSpecChallengeManager(
-	_ context.Context,
+	ctx context.Context,
 	addr common.Address,
 	assertionChain *AssertionChain,
 	backend protocol.ChainBackend,
@@ -349,14 +349,24 @@ func NewSpecChallengeManager(
 	if err != nil {
 		return nil, err
 	}
+	numBigStepLevel, err := managerBinding.EdgeChallengeManagerCaller.NUMBIGSTEPLEVEL(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return nil, err
+	}
+	challengePeriodBlocks, err := managerBinding.EdgeChallengeManagerCaller.ChallengePeriodBlocks(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
 	return &specChallengeManager{
-		addr:           addr,
-		assertionChain: assertionChain,
-		backend:        backend,
-		txOpts:         txOpts,
-		caller:         &managerBinding.EdgeChallengeManagerCaller,
-		writer:         &managerBinding.EdgeChallengeManagerTransactor,
-		filterer:       &managerBinding.EdgeChallengeManagerFilterer,
+		addr:                  addr,
+		assertionChain:        assertionChain,
+		backend:               backend,
+		txOpts:                txOpts,
+		caller:                &managerBinding.EdgeChallengeManagerCaller,
+		writer:                &managerBinding.EdgeChallengeManagerTransactor,
+		filterer:              &managerBinding.EdgeChallengeManagerFilterer,
+		numBigStepLevel:       numBigStepLevel,
+		challengePeriodBlocks: challengePeriodBlocks,
 	}, nil
 }
 
@@ -394,11 +404,7 @@ func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol
 }
 
 func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) {
-	n, err := cm.caller.NUMBIGSTEPLEVEL(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
-	if err != nil {
-		return 0, err
-	}
-	return uint8(n), nil
+	return cm.numBigStepLevel, nil
 }
 
 func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
@@ -416,11 +422,32 @@ func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (u
 func (cm *specChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
 ) (uint64, error) {
-	res, err := cm.caller.ChallengePeriodBlocks(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
+	return cm.challengePeriodBlocks, nil
+}
+
+var uint8Type = newStaticType("uint8", "", nil)
+var uint256Type = newStaticType("uint256", "", nil)
+var mutualIdAbi = abi.Arguments{
+	{Type: uint8Type, Name: "level"},
+	{Type: bytes32Type, Name: "originId"},
+	{Type: uint256Type, Name: "startHeight"},
+	{Type: bytes32Type, Name: "startHistoryRoot"},
+	{Type: uint256Type, Name: "endHeight"},
+}
+
+func calculateMutualId(level uint8, originId [32]byte, startHeight *big.Int, startHistoryRoot [32]byte, endHeight *big.Int) (common.Hash, error) {
+	mutualIdByte, err := mutualIdAbi.Pack(
+		level,
+		originId,
+		startHeight,
+		startHistoryRoot,
+		endHeight,
+	)
 	if err != nil {
-		return 0, err
+		return common.Hash{}, err
 	}
-	return res, nil
+	// Pack stores level(uint8) as 32 bytes, so we need to slice off the first 31 bytes
+	return crypto.Keccak256Hash(mutualIdByte[31:]), nil
 }
 
 // GetEdge gets an edge by its hash.
@@ -436,8 +463,7 @@ func (cm *specChallengeManager) GetEdge(
 	if edge.Staker != (common.Address{}) {
 		miniStaker = option.Some(edge.Staker)
 	}
-	mutual, err := cm.caller.CalculateMutualId(
-		util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
+	mutual, err := calculateMutualId(
 		edge.Level,
 		edge.OriginId,
 		edge.StartHeight,
@@ -453,7 +479,11 @@ func (cm *specChallengeManager) GetEdge(
 	if !edge.EndHeight.IsUint64() {
 		return option.None[protocol.SpecEdge](), errors.New("end height not a uint64")
 	}
-	numbigsteplevel, err := cm.caller.NUMBIGSTEPLEVEL(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}))
+	numbigsteplevel, err := cm.NumBigSteps(ctx)
+	if err != nil {
+		return option.Option[protocol.SpecEdge]{}, err
+	}
+	assertionHash, err := cm.caller.GetPrevAssertionHash(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
 	if err != nil {
 		return option.Option[protocol.SpecEdge]{}, err
 	}
@@ -466,6 +496,7 @@ func (cm *specChallengeManager) GetEdge(
 		endHeight:            edge.EndHeight.Uint64(),
 		miniStaker:           miniStaker,
 		totalChallengeLevels: numbigsteplevel + 2,
+		assertionHash:        protocol.AssertionHash{Hash: common.Hash(assertionHash)},
 	})), nil
 }
 
