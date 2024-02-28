@@ -403,14 +403,6 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 			if err2 != nil {
 				return err2
 			}
-			ancestorDetails, err2 := t.honestEdgeTree.ComputeAncestors(ctx, edgeId, blockNum)
-			if err2 != nil {
-				return err2
-			}
-			ancestors := make([]common.Hash, len(ancestorDetails))
-			for i := range ancestorDetails {
-				ancestors[i] = ancestorDetails[i].Hash
-			}
 			var miniStaker common.Address
 			if edge.MiniStaker().IsSome() {
 				miniStaker = edge.MiniStaker().Unwrap()
@@ -434,7 +426,6 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 					ClaimId:          claimId,
 					HasRival:         hasRival,
 					TimeUnrivaled:    timeUnrivaled,
-					Ancestors:        ancestors,
 					MiniStaker:       miniStaker,
 				},
 			)
@@ -910,33 +901,13 @@ func (w *Watcher) saveEdgeToDB(
 	if err != nil {
 		return err
 	}
-	chal, ok := w.challenges.TryGet(assertionHash)
-	if !ok {
-		fmt.Println("Not found")
-		return nil
-	}
 	var claimId common.Hash
 	if edge.ClaimId().IsSome() {
 		claimId = common.Hash(edge.ClaimId().Unwrap())
 	}
-	// TODO: Retry, check uint64
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, nil)
+	inheritedTimer, err := w.InheritedTimer(ctx, edge.Id())
 	if err != nil {
 		return err
-	}
-	var pathTimer uint64
-	var rawAncestors string
-	if isRoyal {
-		ancestors, err2 := chal.honestEdgeTree.ComputeAncestors(ctx, edge.Id(), blockHeader.Number.Uint64())
-		if err2 != nil {
-			return err2
-		}
-		for i, an := range ancestors {
-			rawAncestors += an.Hex()
-			if i != len(ancestors)-1 {
-				rawAncestors += ","
-			}
-		}
 	}
 	lowerChild, err := edge.LowerChild(ctx)
 	if err != nil {
@@ -973,27 +944,26 @@ func (w *Watcher) saveEdgeToDB(
 		return err
 	}
 	return w.apiDB.InsertEdge(&api.JsonEdge{
-		Id:                  edge.Id().Hash,
-		ChallengeLevel:      uint8(edge.GetChallengeLevel()),
-		StartHistoryRoot:    startCommit,
-		StartHeight:         uint64(start),
-		EndHistoryRoot:      endCommit,
-		EndHeight:           uint64(end),
-		CreatedAtBlock:      creation,
-		MutualId:            common.Hash(edge.MutualId()),
-		OriginId:            common.Hash(edge.OriginId()),
-		ClaimId:             claimId,
-		MiniStaker:          miniStaker,
-		AssertionHash:       assertionHash.Hash,
-		Status:              status.String(),
-		LowerChildId:        lowerChildId,
-		UpperChildId:        upperChildId,
-		HasChildren:         hasChildren,
-		IsRoyal:             isRoyal,
-		CumulativePathTimer: pathTimer,
-		TimeUnrivaled:       timeUnrivaled,
-		HasRival:            hasRival,
-		HasLengthOneRival:   hasLengthOneRival,
-		RawAncestors:        rawAncestors,
+		Id:                edge.Id().Hash,
+		ChallengeLevel:    uint8(edge.GetChallengeLevel()),
+		StartHistoryRoot:  startCommit,
+		StartHeight:       uint64(start),
+		EndHistoryRoot:    endCommit,
+		EndHeight:         uint64(end),
+		CreatedAtBlock:    creation,
+		MutualId:          common.Hash(edge.MutualId()),
+		OriginId:          common.Hash(edge.OriginId()),
+		ClaimId:           claimId,
+		MiniStaker:        miniStaker,
+		AssertionHash:     assertionHash.Hash,
+		Status:            status.String(),
+		LowerChildId:      lowerChildId,
+		UpperChildId:      upperChildId,
+		HasChildren:       hasChildren,
+		IsRoyal:           isRoyal,
+		InheritedTimer:    inheritedTimer,
+		TimeUnrivaled:     timeUnrivaled,
+		HasRival:          hasRival,
+		HasLengthOneRival: hasLengthOneRival,
 	})
 }
