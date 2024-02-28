@@ -128,7 +128,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if err != nil {
 		return 0, err
 	}
-	if ht.isOneStepProven(ctx, edge, status) {
+	if isOneStepProven(ctx, edge, status) {
 		return math.MaxUint64, nil
 	}
 	timeUnrivaled, err := ht.TimeUnrivaled(edge, blockNum)
@@ -203,11 +203,11 @@ func (ht *RoyalChallengeTree) inheritedTimerFromChildren(
 	return lowerTimer, nil
 }
 
-func (ht *RoyalChallengeTree) isOneStepProven(
+func isOneStepProven(
 	ctx context.Context, edge protocol.SpecEdge, status protocol.EdgeStatus,
 ) bool {
 	startHeight, _ := edge.StartCommitment()
-	endHeight, _ := edge.StartCommitment()
+	endHeight, _ := edge.EndCommitment()
 	diff := endHeight - startHeight
 	isSmallStep := edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1)
 	return isSmallStep && status == protocol.EdgeConfirmed && diff == 1

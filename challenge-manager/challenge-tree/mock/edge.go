@@ -21,6 +21,7 @@ type OriginId string
 type Edge struct {
 	ID                   EdgeId
 	EdgeType             protocol.ChallengeLevel
+	InnerStatus          protocol.EdgeStatus
 	StartHeight          uint64
 	StartCommit          Commit
 	EndHeight            uint64
@@ -125,8 +126,8 @@ func (*Edge) TimeUnrivaled(_ context.Context) (uint64, error) {
 }
 
 // Status of an edge.
-func (*Edge) Status(_ context.Context) (protocol.EdgeStatus, error) {
-	return 0, nil
+func (e *Edge) Status(_ context.Context) (protocol.EdgeStatus, error) {
+	return e.InnerStatus, nil
 }
 
 // HasRival if an edge has rivals.

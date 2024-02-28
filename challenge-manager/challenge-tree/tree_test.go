@@ -294,6 +294,26 @@ func TestAddHonestEdge(t *testing.T) {
 	require.Equal(t, 1, ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
 }
 
+func TestUpdateInheritedTimer(t *testing.T) {
+
+}
+
+func Test_inheritedTimerFromChildren(t *testing.T) {
+
+}
+
+func TestIsOneStepProven(t *testing.T) {
+	ctx := context.Background()
+	edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: 0})
+	require.Equal(t, false, isOneStepProven(ctx, edge, protocol.EdgePending))
+	require.Equal(t, false, isOneStepProven(ctx, edge, protocol.EdgeConfirmed))
+	edge = newEdge(&newCfg{t: t, edgeId: "big-0.a-1.a", createdAt: 0})
+	require.Equal(t, false, isOneStepProven(ctx, edge, protocol.EdgeConfirmed))
+	edge = newEdge(&newCfg{t: t, edgeId: "smol-0.a-1.a", createdAt: 0})
+	edge.TotalChallengeLevels = 3
+	require.Equal(t, true, isOneStepProven(ctx, edge, protocol.EdgeConfirmed))
+}
+
 type mockMetadataReader struct {
 	assertionHash            protocol.AssertionHash
 	assertionErr             error
