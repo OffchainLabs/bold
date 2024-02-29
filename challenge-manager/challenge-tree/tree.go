@@ -164,8 +164,14 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		}
 	}
 
-	if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
+	onchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
+	if err != nil {
 		return 0, err
+	}
+	if inheritedTimer > onchainTimer {
+		if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
+			return 0, err
+		}
 	}
 	// Otherwise, the edge does not yet have children.
 	return inheritedTimer, nil
