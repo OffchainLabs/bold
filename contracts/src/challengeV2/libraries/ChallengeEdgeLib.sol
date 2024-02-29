@@ -57,9 +57,6 @@ struct ChallengeEdge {
     ///         Last level (defined by NUM_BIGSTEP_LEVEL + 1) is type SmallStep
     ///         All levels in between are of type BigStep
     uint8 level;
-    /// @notice Set to true when the staker has been refunded. Can only be set to true if the status is Confirmed
-    ///         and the staker is non zero.
-    bool refunded;
     /// @notice TODO
     uint64 totalTimeUnrivaledCache;
 }
@@ -122,7 +119,6 @@ library ChallengeEdgeLib {
             staker: staker,
             status: EdgeStatus.Pending,
             level: level,
-            refunded: false,
             confirmedAtBlock: 0,
             totalTimeUnrivaledCache: 0
         });
@@ -153,7 +149,6 @@ library ChallengeEdgeLib {
             staker: address(0),
             status: EdgeStatus.Pending,
             level: level,
-            refunded: false,
             confirmedAtBlock: 0,
             totalTimeUnrivaledCache: 0
         });
@@ -257,22 +252,6 @@ library ChallengeEdgeLib {
     /// @notice Is the edge a layer zero edge.
     function isLayerZero(ChallengeEdge storage edge) internal view returns (bool) {
         return edge.claimId != 0 && edge.staker != address(0);
-    }
-
-    /// @notice Set the refunded flag of an edge
-    /// @dev    Checks internally that edge is confirmed, layer zero edge and hasnt been refunded already
-    function setRefunded(ChallengeEdge storage edge) internal {
-        if (edge.status != EdgeStatus.Confirmed) {
-            revert EdgeNotConfirmed(ChallengeEdgeLib.id(edge), edge.status);
-        }
-        if (!isLayerZero(edge)) {
-            revert EdgeNotLayerZero(ChallengeEdgeLib.id(edge), edge.staker, edge.claimId);
-        }
-        if (edge.refunded == true) {
-            revert EdgeAlreadyRefunded(ChallengeEdgeLib.id(edge));
-        }
-
-        edge.refunded = true;
     }
 
     /// @notice Returns the edge type for a given level, given the total number of big step levels

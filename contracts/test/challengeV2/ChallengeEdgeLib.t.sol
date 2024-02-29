@@ -122,10 +122,6 @@ contract ChallengeEdgeLibAccess {
         return ChallengeEdgeLib.isLayerZero(storageEdge);
     }
 
-    function setRefunded() public {
-        return ChallengeEdgeLib.setRefunded(storageEdge);
-    }
-
     function levelToType(uint8 level, uint8 numBigStepLevels) public pure returns (EdgeType eType) {
         return ChallengeEdgeLib.levelToType(level, numBigStepLevels);
     }
