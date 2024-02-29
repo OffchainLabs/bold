@@ -29,7 +29,6 @@ export const getConfig = async (
   configLocation: string,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
-  console.log(configLocation)
   const config = getJsonFile(configLocation) as RawConfig
   return await validateConfig(config, l1Rpc)
 }
@@ -81,7 +80,6 @@ export const validateConfig = async (
   config: RawConfig,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
-  console.log(config)
   // check all the config.contracts exist
   if ((await l1Rpc.getCode(config.contracts.l1Timelock)).length <= 2) {
     throw new Error('l1Timelock address is not a contract')
