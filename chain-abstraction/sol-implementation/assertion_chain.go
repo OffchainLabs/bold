@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -64,6 +65,7 @@ type ReceiptFetcher interface {
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
+	transactionLock                          sync.Mutex
 	backend                                  protocol.ChainBackend
 	rollup                                   *rollupgen.RollupCore
 	userLogic                                *rollupgen.RollupUserLogic
@@ -71,6 +73,7 @@ type AssertionChain struct {
 	rollupAddr                               common.Address
 	chalManagerAddr                          common.Address
 	confirmedChallengesByParentAssertionHash *threadsafe.LruSet[protocol.AssertionHash]
+	specChallengeManager                     protocol.SpecChallengeManager
 }
 
 type Opt func(*AssertionChain)
@@ -84,7 +87,7 @@ func WithTrackedContractBackend() Opt {
 // NewAssertionChain instantiates an assertion chain
 // instance from a chain backend and provided options.
 func NewAssertionChain(
-	_ context.Context,
+	ctx context.Context,
 	rollupAddr common.Address,
 	chalManagerAddr common.Address,
 	txOpts *bind.TransactOpts,
@@ -118,6 +121,17 @@ func NewAssertionChain(
 	}
 	chain.rollup = coreBinding
 	chain.userLogic = assertionChainBinding
+	specChallengeManager, err := NewSpecChallengeManager(
+		ctx,
+		chain.chalManagerAddr,
+		chain,
+		chain.backend,
+		chain.txOpts,
+	)
+	if err != nil {
+		return nil, err
+	}
+	chain.specChallengeManager = specChallengeManager
 	return chain, nil
 }
 
@@ -356,28 +370,33 @@ func TryConfirmingAssertion(
 	if status == protocol.AssertionConfirmed {
 		return true, nil
 	}
-	latestHeader, err := chain.Backend().HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
-	if err != nil {
-		return false, err
-	}
-	if !latestHeader.Number.IsUint64() {
-		return false, errors.New("latest block number is not a uint64")
-	}
-	confirmable := latestHeader.Number.Uint64() >= confirmableAfterBlock
+	for {
+		var latestHeader *types.Header
+		latestHeader, err = chain.Backend().HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
+		if err != nil {
+			return false, err
+		}
+		if !latestHeader.Number.IsUint64() {
+			return false, errors.New("latest block number is not a uint64")
+		}
+		confirmable := latestHeader.Number.Uint64() >= confirmableAfterBlock
 
-	// If the assertion is not yet confirmable, we can simply wait.
-	if !confirmable {
-		blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
-		timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
-		log.Info(
-			fmt.Sprintf(
-				"Assertion with has %s needs at least %d blocks before being confirmable, waiting for %s",
-				containers.Trunc(assertionHash.Bytes()),
-				blocksLeftForConfirmation,
-				timeToWait,
-			),
-		)
-		<-time.After(timeToWait)
+		// If the assertion is not yet confirmable, we can simply wait.
+		if !confirmable {
+			blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
+			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+			log.Info(
+				fmt.Sprintf(
+					"Assertion with has %s needs at least %d blocks before being confirmable, waiting for %s",
+					containers.Trunc(assertionHash.Bytes()),
+					blocksLeftForConfirmation,
+					timeToWait,
+				),
+			)
+			<-time.After(timeToWait)
+		} else {
+			break
+		}
 	}
 
 	if winningEdgeId.IsSome() {
@@ -475,13 +494,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 
 // SpecChallengeManager creates a new spec challenge manager
 func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
-	return NewSpecChallengeManager(
-		ctx,
-		a.chalManagerAddr,
-		a,
-		a.backend,
-		a.txOpts,
-	)
+	return a.specChallengeManager, nil
 }
 
 // AssertionUnrivaledBlocks gets the number of blocks an assertion was unrivaled. That is, it looks up the
