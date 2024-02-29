@@ -28,6 +28,9 @@ type MetadataReader interface {
 	) (*protocol.AssertionCreatedInfo, error)
 }
 
+// InheritedTimer of an edge from its children or from a claiming edge if it is subchallenged.
+type InheritedTimer uint64
+
 type creationTime uint64
 
 // OriginPlusMutualId combines a mutual id and origin id as a key for a mapping.
@@ -48,6 +51,7 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 type RoyalChallengeTree struct {
 	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
 	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
+	edgeInheritedTimers   *threadsafe.Map[protocol.EdgeId, InheritedTimer]
 	topLevelAssertionHash protocol.AssertionHash
 	metadataReader        MetadataReader
 	histChecker           l2stateprovider.HistoryChecker
