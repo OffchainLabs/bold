@@ -31,8 +31,8 @@ type Assertion struct {
 	prevId           option.Option[protocol.AssertionHash] // This is set the first time prevId is called
 	firstChildBlock  option.Option[uint64]                 // Once the assertion has a first child, this is set
 	secondChildBlock option.Option[uint64]                 // Once the assertion has a second child, this is set
-	isFirstChild     option.Option[bool]                   // Once the assertion is determined to be a first child, this is set
-	isConfirmed      option.Option[bool]                   // Once the assertion is confirmed, this is set
+	isFirstChild     bool                                  // Once the assertion is determined to be a first child, this is set
+	isConfirmed      bool                                  // Once the assertion is confirmed, this is set
 }
 
 func (a *Assertion) Id() protocol.AssertionHash {
@@ -84,11 +84,11 @@ func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
 		a.secondChildBlock = option.Some(assertionNode.SecondChildBlock)
 	}
 	if assertionNode.IsFirstChild {
-		a.isFirstChild = option.Some(true)
+		a.isFirstChild = true
 	}
 	assertionStatus := protocol.AssertionStatus(assertionNode.Status)
 	if assertionStatus == protocol.AssertionConfirmed {
-		a.isConfirmed = option.Some(true)
+		a.isConfirmed = true
 	}
 	return &assertionNode, nil
 }
@@ -113,8 +113,8 @@ func (a *Assertion) SecondChildCreationBlock() (uint64, error) {
 	return inner.SecondChildBlock, nil
 }
 func (a *Assertion) IsFirstChild() (bool, error) {
-	if a.isFirstChild.IsSome() {
-		return a.isFirstChild.Unwrap(), nil
+	if a.isFirstChild {
+		return a.isFirstChild, nil
 	}
 	inner, err := a.inner()
 	if err != nil {
@@ -126,7 +126,7 @@ func (a *Assertion) CreatedAtBlock() uint64 {
 	return a.createdAt
 }
 func (a *Assertion) Status(ctx context.Context) (protocol.AssertionStatus, error) {
-	if a.isConfirmed.IsSome() {
+	if a.isConfirmed {
 		return protocol.AssertionConfirmed, nil
 	}
 	inner, err := a.inner()
@@ -157,11 +157,11 @@ type specEdge struct {
 	// These are set to option.None until they are in the final state, after which they are set
 	// to the final value and never changed again (this saves us the on-chain call)
 	timeUnrivaled     option.Option[uint64]          // Once edge has a rival, this is set
-	hasRival          option.Option[bool]            // Once edge has a rival, this is set
-	hasConfirmedRival option.Option[bool]            // Once edge has a confirmed rival, this is set
-	isConfirmed       option.Option[bool]            // Once the edge is confirmed, this is set
+	hasRival          bool                           // Once edge has a rival, this is set
+	hasConfirmedRival bool                           // Once edge has a confirmed rival, this is set
+	isConfirmed       bool                           // Once the edge is confirmed, this is set
 	confirmedAtBlock  option.Option[uint64]          // Once the edge is confirmed, this is set
 	lowerChild        option.Option[protocol.EdgeId] // Once the edge has a lower child, this is set
 	upperChild        option.Option[protocol.EdgeId] // Once the edge has an upper child, this is set
-	hasLengthOneRival option.Option[bool]            // Once the edge has a rival of length 1, this is set
+	hasLengthOneRival bool                           // Once the edge has a rival of length 1, this is set
 }
