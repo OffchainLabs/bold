@@ -74,6 +74,7 @@ type AssertionChain struct {
 	chalManagerAddr                          common.Address
 	confirmedChallengesByParentAssertionHash *threadsafe.LruSet[protocol.AssertionHash]
 	specChallengeManager                     protocol.SpecChallengeManager
+	averageTimeForBlockCreation              time.Duration
 }
 
 type Opt func(*AssertionChain)
@@ -103,6 +104,7 @@ func NewAssertionChain(
 		rollupAddr:                               rollupAddr,
 		chalManagerAddr:                          chalManagerAddr,
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
+		averageTimeForBlockCreation:              time.Second * 12,
 	}
 	for _, opt := range opts {
 		opt(chain)
