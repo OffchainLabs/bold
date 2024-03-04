@@ -28,11 +28,11 @@ type Assertion struct {
 	// Fields that are eventually constant like status, firstChildBlock etc.
 	// These are set to option.None until they are in the final state, after which they are set
 	// to the final value and never changed again (this saves us the on-chain call)
-	prevId           option.Option[protocol.AssertionHash]   // This is set the first time prevId is called
-	firstChildBlock  option.Option[uint64]                   // Once the assertion has a first child, this is set
-	secondChildBlock option.Option[uint64]                   // Once the assertion has a second child, this is set
-	isFirstChild     option.Option[bool]                     // Once the assertion is determined to be a first child, this is set
-	status           option.Option[protocol.AssertionStatus] // Once the assertion is confirmed, this is set
+	prevId           option.Option[protocol.AssertionHash] // This is set the first time prevId is called
+	firstChildBlock  option.Option[uint64]                 // Once the assertion has a first child, this is set
+	secondChildBlock option.Option[uint64]                 // Once the assertion has a second child, this is set
+	isFirstChild     option.Option[bool]                   // Once the assertion is determined to be a first child, this is set
+	isConfirmed      option.Option[bool]                   // Once the assertion is confirmed, this is set
 }
 
 func (a *Assertion) Id() protocol.AssertionHash {
@@ -87,8 +87,8 @@ func (a *Assertion) inner() (*rollupgen.AssertionNode, error) {
 		a.isFirstChild = option.Some(true)
 	}
 	assertionStatus := protocol.AssertionStatus(assertionNode.Status)
-	if assertionStatus != protocol.AssertionConfirmed {
-		a.status = option.Some(assertionStatus)
+	if assertionStatus == protocol.AssertionConfirmed {
+		a.isConfirmed = option.Some(true)
 	}
 	return &assertionNode, nil
 }
@@ -126,8 +126,8 @@ func (a *Assertion) CreatedAtBlock() uint64 {
 	return a.createdAt
 }
 func (a *Assertion) Status(ctx context.Context) (protocol.AssertionStatus, error) {
-	if a.status.IsSome() {
-		return a.status.Unwrap(), nil
+	if a.isConfirmed.IsSome() {
+		return protocol.AssertionConfirmed, nil
 	}
 	inner, err := a.inner()
 	if err != nil {
@@ -156,12 +156,12 @@ type specEdge struct {
 	// Fields that are eventually constant like status, hasRival etc.
 	// These are set to option.None until they are in the final state, after which they are set
 	// to the final value and never changed again (this saves us the on-chain call)
-	timeUnrivaled     option.Option[uint64]              // Once edge has a rival, this is set
-	hasRival          option.Option[bool]                // Once edge has a rival, this is set
-	hasConfirmedRival option.Option[bool]                // Once edge has a confirmed rival, this is set
-	status            option.Option[protocol.EdgeStatus] // Once the edge is confirmed, this is set
-	confirmedAtBlock  option.Option[uint64]              // Once the edge is confirmed, this is set
-	lowerChild        option.Option[protocol.EdgeId]     // Once the edge has a lower child, this is set
-	upperChild        option.Option[protocol.EdgeId]     // Once the edge has an upper child, this is set
-	hasLengthOneRival option.Option[bool]                // Once the edge has a rival of length 1, this is set
+	timeUnrivaled     option.Option[uint64]          // Once edge has a rival, this is set
+	hasRival          option.Option[bool]            // Once edge has a rival, this is set
+	hasConfirmedRival option.Option[bool]            // Once edge has a confirmed rival, this is set
+	isConfirmed       option.Option[bool]            // Once the edge is confirmed, this is set
+	confirmedAtBlock  option.Option[uint64]          // Once the edge is confirmed, this is set
+	lowerChild        option.Option[protocol.EdgeId] // Once the edge has a lower child, this is set
+	upperChild        option.Option[protocol.EdgeId] // Once the edge has an upper child, this is set
+	hasLengthOneRival option.Option[bool]            // Once the edge has a rival of length 1, this is set
 }

@@ -62,7 +62,7 @@ func (e *specEdge) AssertionHash(_ context.Context) (protocol.AssertionHash, err
 }
 
 func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
-	if e.timeUnrivaled.IsSome() {
+	if e.hasRival.IsSome() && e.timeUnrivaled.IsSome() {
 		return e.timeUnrivaled.Unwrap(), nil
 	}
 	timer, err := e.manager.caller.TimeUnrivaled(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
@@ -114,8 +114,8 @@ func (e *specEdge) HasRival(ctx context.Context) (bool, error) {
 }
 
 func (e *specEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
-	if e.status.IsSome() {
-		return e.status.Unwrap(), nil
+	if e.isConfirmed.IsSome() {
+		return protocol.EdgeConfirmed, nil
 	}
 	edge, err := e.fetchEdge(ctx)
 	if err != nil {
@@ -624,7 +624,7 @@ func (e *specEdge) fetchEdge(
 
 	// Update the edge with the latest data, if they are in now in constant state.
 	if protocol.EdgeStatus(edge.Status) == protocol.EdgeConfirmed {
-		e.status = option.Some(protocol.EdgeStatus(edge.Status))
+		e.isConfirmed = option.Some(true)
 	}
 	if edge.ConfirmedAtBlock != 0 {
 		e.confirmedAtBlock = option.Some(edge.ConfirmedAtBlock)
