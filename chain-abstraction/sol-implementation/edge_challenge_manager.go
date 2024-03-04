@@ -117,7 +117,7 @@ func (e *specEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
 	if e.status.IsSome() {
 		return e.status.Unwrap(), nil
 	}
-	edge, err := e.manager.caller.GetEdge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -128,7 +128,7 @@ func (e *specEdge) ConfirmedAtBlock(ctx context.Context) (uint64, error) {
 	if e.confirmedAtBlock.IsSome() {
 		return e.confirmedAtBlock.Unwrap(), nil
 	}
-	edge, err := e.manager.caller.GetEdge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -145,7 +145,7 @@ func (e *specEdge) HasChildren(ctx context.Context) (bool, error) {
 	if e.lowerChild.IsSome() && e.upperChild.IsSome() {
 		return true, nil
 	}
-	edge, err := e.manager.caller.GetEdge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -157,7 +157,7 @@ func (e *specEdge) LowerChild(ctx context.Context) (option.Option[protocol.EdgeI
 	if e.lowerChild.IsSome() {
 		return e.lowerChild, nil
 	}
-	edge, err := e.manager.caller.GetEdge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return option.None[protocol.EdgeId](), err
 	}
@@ -174,7 +174,7 @@ func (e *specEdge) UpperChild(ctx context.Context) (option.Option[protocol.EdgeI
 	if e.upperChild.IsSome() {
 		return e.upperChild, nil
 	}
-	edge, err := e.manager.caller.GetEdge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return option.None[protocol.EdgeId](), err
 	}
@@ -614,7 +614,7 @@ func (cm *specChallengeManager) GetEdge(
 	})), nil
 }
 
-func (e *specEdge) fetchEdgeFromChain(
+func (e *specEdge) fetchEdge(
 	ctx context.Context,
 ) (challengeV2gen.ChallengeEdge, error) {
 	edge, err := e.manager.caller.GetEdge(util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}), e.id)
