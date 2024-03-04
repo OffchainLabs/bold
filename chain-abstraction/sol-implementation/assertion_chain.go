@@ -83,11 +83,10 @@ func (d *ChainBackendTransactor) SendTransaction(ctx context.Context, tx *types.
 	return tx, d.ChainBackend.SendTransaction(ctx, tx)
 }
 
-// DataPoster is an interface that allows posting simple transactions and getting the next nonce.
+// DataPoster is an interface that allows posting simple transactions without providing a nonce.
 // This is implemented in nitro repository.
 type DataPoster interface {
-	PostSimpleTransaction(ctx context.Context, nonce uint64, to common.Address, calldata []byte, gasLimit uint64, value *big.Int) (*types.Transaction, error)
-	GetNextNonce(ctx context.Context) (uint64, error)
+	PostSimpleTransactionAutoNonce(ctx context.Context, to common.Address, calldata []byte, gasLimit uint64, value *big.Int) (*types.Transaction, error)
 }
 
 // DataPosterTransactor is a wrapper around a DataPoster that implements the Transactor interface.
@@ -102,11 +101,7 @@ func NewDataPosterTransactor(dataPoster DataPoster) *DataPosterTransactor {
 }
 
 func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
-	nonce, err := d.GetNextNonce(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get next nonce")
-	}
-	return d.PostSimpleTransaction(ctx, nonce, *tx.To(), tx.Data(), gas, tx.Value())
+	return d.PostSimpleTransactionAutoNonce(ctx, *tx.To(), tx.Data(), gas, tx.Value())
 }
 
 // AssertionChain is a wrapper around solgen bindings
