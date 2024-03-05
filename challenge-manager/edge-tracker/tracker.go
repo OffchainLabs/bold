@@ -364,8 +364,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 }
 
 // ShouldDespawn checks if an edge tracker should despawn and no longer act.
-// This is true if the edge's FSM state is the confirmed state or if
-// the edge has a confirmable ancestor by time.
+// This is true an edge's claimed assertion is confirmed.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if et.fsm.Current().State == EdgeConfirmed {
 		return true

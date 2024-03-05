@@ -141,8 +141,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if err != nil {
 		return 0, err
 	}
-	// If an edge has children, we use the min of its children if it
-	// is not a root edge. Otherwise, use the max.
+	// If an edge has children, we use the min of its children.
 	hasChildren, err := edge.HasChildren(ctx)
 	if err != nil {
 		return 0, err
