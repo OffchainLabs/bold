@@ -7,8 +7,10 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -69,7 +71,7 @@ func (a *AssertionChain) transact(
 	opts.GasLimit = gas
 	opts.NoSend = false
 	a.transactionLock.Lock()
-	tx, err = fn(opts)
+	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
 	a.transactionLock.Unlock()
 	if err != nil {
 		return nil, err
@@ -79,6 +81,10 @@ func (a *AssertionChain) transact(
 		commiter.Commit()
 	}
 	receipt, err := bind.WaitMined(ctx, backend, tx)
+	if err != nil {
+		return nil, err
+	}
+	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +101,47 @@ func (a *AssertionChain) transact(
 		if _, err := backend.CallContract(ctx, callMsg, nil); err != nil {
 			return nil, errors.Wrap(err, "transaction errored")
 		}
+	}
+	return receipt, nil
+}
+
+// waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
+func (a *AssertionChain) waitForTxToBeSafe(
+	ctx context.Context,
+	backend ChainBackend,
+	tx *types.Transaction,
+	receipt *types.Receipt,
+) (*types.Receipt, error) {
+	for {
+		latestSafeHeader, err := backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
+		if err != nil {
+			return nil, err
+		}
+		if !latestSafeHeader.Number.IsUint64() {
+			return nil, errors.New("latest block number is not a uint64")
+		}
+		txSafe := latestSafeHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
+
+		// If the tx is not yet safe, we can simply wait.
+		if !txSafe {
+			blocksLeftForTxToBeSafe := receipt.BlockNumber.Uint64() - latestSafeHeader.Number.Uint64()
+			timeToWait := a.averageTimeForBlockCreation * time.Duration(blocksLeftForTxToBeSafe)
+			<-time.After(timeToWait)
+		} else {
+			break
+		}
+	}
+
+	// This is to handle the case where the transaction is mined in a block, but then the block is reorged.
+	// In this case, we want to wait for the transaction to be mined again.
+	receiptLatest, err := bind.WaitMined(ctx, backend, tx)
+	if err != nil {
+		return nil, err
+	}
+	// If the receipt block number is different from the latest receipt block number, we wait for the transaction
+	// to be in the safe block again.
+	if receiptLatest.BlockNumber.Cmp(receipt.BlockNumber) != 0 {
+		return a.waitForTxToBeSafe(ctx, backend, tx, receiptLatest)
 	}
 	return receipt, nil
 }
