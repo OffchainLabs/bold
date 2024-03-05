@@ -374,6 +374,13 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			assertionItem, err2 := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+			if err2 != nil {
+				return nil, err2
+			}
+			return assertionItem, nil
+		}
 		return nil, fmt.Errorf("could not create assertion: %w", createErr)
 	}
 	if len(receipt.Logs) == 0 {
@@ -452,6 +459,9 @@ func TryConfirmingAssertion(
 			if strings.Contains(err.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
 				return false, nil
 			}
+			if strings.Contains(err.Error(), "is not the latest confirmed assertion") {
+				return false, nil
+			}
 			return false, err
 
 		}
@@ -459,6 +469,9 @@ func TryConfirmingAssertion(
 		err = chain.ConfirmAssertionByTime(ctx, protocol.AssertionHash{Hash: assertionHash})
 		if err != nil {
 			if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
+				return false, nil
+			}
+			if strings.Contains(err.Error(), "is not the latest confirmed assertion") {
 				return false, nil
 			}
 			return false, err
