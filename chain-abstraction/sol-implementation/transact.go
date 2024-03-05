@@ -79,7 +79,7 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, err
 	}
-	receipt, err = a.waitForTxToBeFinalized(ctx, backend, tx, receipt)
+	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	if err != nil {
 		return nil, err
 	}
@@ -100,27 +100,27 @@ func (a *AssertionChain) transact(
 	return receipt, nil
 }
 
-// waitForTxToBeFinalized waits for the transaction to be mined in a block that is finalized.
-func (a *AssertionChain) waitForTxToBeFinalized(
+// waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
+func (a *AssertionChain) waitForTxToBeSafe(
 	ctx context.Context,
 	backend ChainBackend,
 	tx *types.Transaction,
 	receipt *types.Receipt,
 ) (*types.Receipt, error) {
 	for {
-		latestFinalizedHeader, err := backend.HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
+		latestSafeHeader, err := backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
 		if err != nil {
 			return nil, err
 		}
-		if !latestFinalizedHeader.Number.IsUint64() {
+		if !latestSafeHeader.Number.IsUint64() {
 			return nil, errors.New("latest block number is not a uint64")
 		}
-		txFinalized := latestFinalizedHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
+		txSafe := latestSafeHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
 
-		// If the tx is not yet finalized, we can simply wait.
-		if !txFinalized {
-			blocksLeftForTxToFinalize := receipt.BlockNumber.Uint64() - latestFinalizedHeader.Number.Uint64()
-			timeToWait := a.averageTimeForBlockCreation * time.Duration(blocksLeftForTxToFinalize)
+		// If the tx is not yet safe, we can simply wait.
+		if !txSafe {
+			blocksLeftForTxToBeSafe := receipt.BlockNumber.Uint64() - latestSafeHeader.Number.Uint64()
+			timeToWait := a.averageTimeForBlockCreation * time.Duration(blocksLeftForTxToBeSafe)
 			<-time.After(timeToWait)
 		} else {
 			break
@@ -134,9 +134,9 @@ func (a *AssertionChain) waitForTxToBeFinalized(
 		return nil, err
 	}
 	// If the receipt block number is different from the latest receipt block number, we wait for the transaction
-	// to be in the finalized block again.
+	// to be in the safe block again.
 	if receiptLatest.BlockNumber.Cmp(receipt.BlockNumber) != 0 {
-		return a.waitForTxToBeFinalized(ctx, backend, tx, receiptLatest)
+		return a.waitForTxToBeSafe(ctx, backend, tx, receiptLatest)
 	}
 	return receipt, nil
 }
