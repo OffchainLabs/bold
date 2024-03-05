@@ -6,6 +6,8 @@ package solimpl
 import (
 	"context"
 	"math/big"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/OffchainLabs/bold/containers"
@@ -80,6 +82,7 @@ func (a *AssertionChain) transact(
 		return nil, err
 	}
 	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
+	go a.checkForReorgAndRestart(ctx, backend, tx, receipt)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +101,69 @@ func (a *AssertionChain) transact(
 		}
 	}
 	return receipt, nil
+}
+
+func (a *AssertionChain) checkForReorgAndRestart(
+	ctx context.Context,
+	backend ChainBackend,
+	tx *types.Transaction,
+	receipt *types.Receipt,
+) {
+	for {
+		latestFinalizedHeader, err := backend.HeaderByNumber(ctx, util.GetFinalizedBlockNumber())
+		if err != nil {
+			return
+		}
+		if !latestFinalizedHeader.Number.IsUint64() {
+			return
+		}
+		txFinalized := latestFinalizedHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
+
+		// If the tx is not yet safe, we can simply wait.
+		if !txFinalized {
+			blocksLeftForTxToBeSafe := receipt.BlockNumber.Uint64() - latestFinalizedHeader.Number.Uint64()
+			timeToWait := a.averageTimeForBlockCreation * time.Duration(blocksLeftForTxToBeSafe)
+			<-time.After(timeToWait)
+		} else {
+			break
+		}
+	}
+
+	// This is to handle the case where the transaction is mined in a block, but then the block is reorged.
+	// In this case, we want to wait for the transaction to be mined again.
+	receiptLatest, err := bind.WaitMined(ctx, backend, tx)
+	if err != nil {
+		return
+	}
+	// If the receipt block number is different from the latest receipt block number, that means the block was reorged.
+	// In this case, restart the server
+	if receiptLatest.BlockNumber.Cmp(receipt.BlockNumber) != 0 {
+		restartProgram()
+	}
+	return
+}
+
+func restartProgram() {
+	// Get the path to the currently running executable
+	exe, err := os.Executable()
+	if err != nil {
+		panic("failed to get executable path: " + err.Error())
+	}
+
+	// Prepare the command to run the executable
+	cmd := exec.Command(exe)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Start the new instance
+	err = cmd.Start()
+	if err != nil {
+		panic("failed to start new instance of the program: " + err.Error())
+	}
+
+	// Exit the current program
+	os.Exit(0)
 }
 
 // waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
