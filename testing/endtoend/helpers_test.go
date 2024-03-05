@@ -36,7 +36,7 @@ func setupChallengeManager(
 	)
 	require.NoError(t, err)
 	challengeManagerAddr, err := assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
-		util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
+		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
 	)
 	require.NoError(t, err)
 	chain, err := solimpl.NewAssertionChain(
@@ -45,6 +45,7 @@ func setupChallengeManager(
 		challengeManagerAddr,
 		txOpts,
 		backend,
+		solimpl.NewChainBackendTransactor(backend),
 	)
 	require.NoError(t, err)
 
