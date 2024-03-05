@@ -255,10 +255,17 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	miniStakeValues := []*big.Int{
-		big.NewInt(1),
-		big.NewInt(2),
-		big.NewInt(3),
+	cfgOpts := &rollupgen.Config{}
+	for _, o := range setp.challengeTestingOpts {
+		o(cfgOpts)
+	}
+	numLevels := cfgOpts.NumBigStepLevel + 2
+	if numLevels == 2 {
+		numLevels = 3
+	}
+	miniStakeValues := make([]*big.Int, numLevels)
+	for i := 1; i <= int(numLevels); i++ {
+		miniStakeValues[i-1] = big.NewInt(int64(i))
 	}
 	genesisExecutionState := rollupgen.ExecutionState{
 		GlobalState:   rollupgen.GlobalState{},
@@ -303,7 +310,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		}
 		var challengeManagerAddr common.Address
 		challengeManagerAddr, err = assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
-			util.GetFinalizedCallOpts(&bind.CallOpts{Context: ctx}),
+			util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
 		)
 		if err != nil {
 			return nil, err
@@ -314,6 +321,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 			challengeManagerAddr,
 			acc.TxOpts,
 			backend,
+			solimpl.NewChainBackendTransactor(backend),
 		)
 		if chainErr != nil {
 			return nil, chainErr
