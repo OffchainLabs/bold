@@ -325,6 +325,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 			mockManager:   &mocks.MockSpecChallengeManager{},
 		}
 		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
+		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		ht.metadataReader = m
 		ht.edges.Put(edge.Id(), edge)
 		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
@@ -345,6 +346,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		ht.edges.Put(edge.Id(), edge)
 		ht.edges.Put(lowerChild.Id(), lowerChild)
 		ht.edges.Put(upperChild.Id(), upperChild)
+		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		m.mockManager.On("InheritedTimer", ctx, lowerChild.Id()).Return(uint64(5), nil)
 		m.mockManager.On("InheritedTimer", ctx, upperChild.Id()).Return(uint64(2), nil)
 		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
@@ -367,6 +369,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		ht.edges.Put(edge.Id(), edge)
 		ht.edges.Put(lowerChild.Id(), lowerChild)
 		ht.edges.Put(upperChild.Id(), upperChild)
+		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		m.mockManager.On("InheritedTimer", ctx, lowerChild.Id()).Return(uint64(math.MaxUint64), nil)
 		m.mockManager.On("InheritedTimer", ctx, upperChild.Id()).Return(uint64(math.MaxUint64), nil)
 		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
@@ -387,6 +390,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		ht.edges.Put(edge.Id(), edge)
 		ht.edges.Put(claimedEdge.Id(), claimedEdge)
 		// Expect this function is called.
+		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		m.mockManager.On("UpdateInheritedTimerByClaim", ctx, edge.Id(), edge.ClaimId().Unwrap()).Return(nil)
 		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
 		ht.metadataReader = m
