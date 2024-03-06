@@ -481,10 +481,10 @@ library EdgeChallengeManagerLib {
 
     function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint256 newValue) internal returns (bool) {
         uint256 currentAccuTimer = store.edges[edgeId].totalTimeUnrivaledCache;
-        uint64 clampedNewValue = newValue > type(uint64).max ? type(uint64).max : uint64(newValue);
+        uint256 clampedNewValue = newValue > type(uint64).max ? type(uint64).max : newValue;
         // only update when increased
         if (clampedNewValue > currentAccuTimer) {
-            store.edges[edgeId].totalTimeUnrivaledCache = clampedNewValue;
+            store.edges[edgeId].totalTimeUnrivaledCache = uint64(clampedNewValue);
             return true;
         }
         return false;
