@@ -457,8 +457,8 @@ func WithRootEdges() EdgeOption {
 }
 func WithInheritedTimerGreaterOrEq(n uint64) EdgeOption {
 	return func(q *EdgeQuery) {
-		q.filters = append(q.filters, "InheritedTimer >= ?")
-		q.args = append(q.args, n)
+		// q.filters = append(q.filters, "InheritedTimer >= ?")
+		// q.args = append(q.args, n)
 	}
 }
 func FromEdgeCreationBlock(n uint64) EdgeOption {
@@ -707,12 +707,12 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
 	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
 	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
-	   HasRival, Status, HasLengthOneRival, RawAncestors, IsRoyal, InheritedTimer
+	   HasRival, Status, HasLengthOneRival, RawAncestors, IsRoyal
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
 	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
 	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
-	   :HasRival, :Status, :HasLengthOneRival, :RawAncestors, :IsRoyal, :InheritedTimer
+	   :HasRival, :Status, :HasLengthOneRival, :RawAncestors, :IsRoyal
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
@@ -775,7 +775,6 @@ func (d *SqliteDatabase) UpdateEdges(edges []*api.JsonEdge) error {
 	 HasLengthOneRival = :HasLengthOneRival,
 	 IsRoyal = :IsRoyal,
 	 RawAncestors = :RawAncestors,
-	 InheritedTimer = :InheritedTimer
 	 WHERE Id = :Id`
 	tx, err := d.sqlDB.Beginx()
 	if err != nil {

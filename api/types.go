@@ -60,7 +60,7 @@ type JsonEdge struct {
 	// Honest validator's point of view
 	IsRoyal        bool   `json:"isRoyal" db:"IsRoyal"`
 	RawAncestors   string `json:"-" db:"RawAncestors"`
-	InheritedTimer uint64 `json:"inheritedTimer" db:"InheritedTimer"`
+	InheritedTimer uint64 `json:"inheritedTimer"`
 	RefersTo       string `json:"refersTo" db:"RefersTo"`
 	FSMState       string `json:"fsmState"`
 	FSMError       string `json:"fsmError"`
