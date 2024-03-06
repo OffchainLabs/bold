@@ -39,6 +39,8 @@ func (a *AssertionChain) transact(
 	backend ChainBackend,
 	fn func(opts *bind.TransactOpts) (*types.Transaction, error),
 ) (*types.Receipt, error) {
+	a.transactionLock.Lock()
+	defer a.transactionLock.Unlock()
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
 
@@ -75,9 +77,7 @@ func (a *AssertionChain) transact(
 	srvlog.Info(fmt.Sprintf("Gas limit set to %d, and estimated tx gas price %d, bumping to %d", gas, estimate, opts.GasPrice))
 	opts.GasLimit = gas
 	opts.NoSend = false
-	a.transactionLock.Lock()
 	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
-	a.transactionLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (a *AssertionChain) transact(
 }
 
 func bump(suggested *big.Int) *big.Int {
-	return new(big.Int).Mul(suggested, big.NewInt(5))
+	return new(big.Int).Mul(suggested, big.NewInt(2))
 }
 
 // waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
