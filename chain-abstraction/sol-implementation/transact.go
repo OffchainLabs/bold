@@ -61,8 +61,13 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
+	estimate, err := backend.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not suggest gas price")
+	}
 
 	// Now, we send the tx with the estimated gas.
+	opts.GasPrice = doubleGasPrice(estimate)
 	opts.GasLimit = gas
 	opts.NoSend = false
 	a.transactionLock.Lock()
@@ -98,6 +103,13 @@ func (a *AssertionChain) transact(
 		}
 	}
 	return receipt, nil
+}
+
+func doubleGasPrice(suggested *big.Int) *big.Int {
+	bumpMultiplier := new(big.Int).SetInt64(100)
+	increase := new(big.Int).Mul(suggested, bumpMultiplier)
+	increasedGasPrice := new(big.Int).Div(increase, big.NewInt(100))
+	return new(big.Int).Add(suggested, increasedGasPrice)
 }
 
 // waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
