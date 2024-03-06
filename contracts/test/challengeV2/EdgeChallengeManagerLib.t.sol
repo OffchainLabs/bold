@@ -140,11 +140,10 @@ contract EdgeChallengeManagerLibAccess {
         bytes32 edgeId,
         bytes32[] memory ancestorEdgeIds,
         uint64 claimedAssertionUnrivaledBlocks,
-        uint64 confirmationThresholdBlock,
-        uint8 numBigStepLevel
+        uint64 confirmationThresholdBlock
     ) public returns (uint256) {
         return store.confirmEdgeByTime(
-            edgeId, ancestorEdgeIds, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock, numBigStepLevel
+            edgeId, ancestorEdgeIds, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock
         );
     }
 
@@ -1159,7 +1158,7 @@ contract EdgeChallengeManagerLibTest is Test {
             vm.expectRevert(revertArg);
         }
         uint256 totalTime =
-            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock, NUM_BIGSTEP_LEVEL);
+            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock);
 
         if (revertArg.length == 0) {
             assertTrue(store.get(bsId).status == EdgeStatus.Confirmed, "Edge confirmed");
