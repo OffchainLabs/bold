@@ -89,6 +89,14 @@ contract EdgeChallengeManagerLibAccess {
         return store.timeUnrivaled(edgeId);
     }
 
+    function timeUnrivaledTotal(bytes32 edgeId) public view returns (uint256) {
+        return store.timeUnrivaledTotal(edgeId);
+    }
+
+    function updateTimerCacheByChildren(bytes32 edgeId) public {
+        store.updateTimerCacheByChildren(edgeId);
+    }
+
     function mandatoryBisectionHeight(uint256 start, uint256 end) public pure returns (uint256) {
         return EdgeChallengeManagerLib.mandatoryBisectionHeight(start, end);
     }
@@ -1037,186 +1045,80 @@ contract EdgeChallengeManagerLibTest is Test {
         );
     }
 
-    function claimWithMixedAncestors(
-        uint64 challengePeriodBlock,
-        uint256 timeAfterParent1,
-        uint256 timeAfterParent2,
-        uint256 timeAfterZeroLayer,
-        uint64 claimedAssertionBlocks
-    ) internal {
-        bytes32[] memory ancestorIds = new bytes32[](3);
-        BArgs memory pc = addParentsAndChildren(2, 5, 8);
-        bytes memory revertArg;
-        {
-            (, bytes32 bisectionRoot, bytes memory bisectionProof) = bisectArgs(pc.states1, 4, 8);
-            (bytes32 lowerChildId148,,) = store.bisectEdge(pc.upperChildId1, bisectionRoot, bisectionProof);
-            ancestorIds[1] = lowerChildId148;
-        }
-        vm.roll(block.number + timeAfterParent1);
+    // todo:
+    // updateTimerCacheByClaim
 
-        bytes32 upperChildId146;
-        {
-            bytes32 lowerChildId248;
-            {
-                (, bytes32 bisectionRoot2, bytes memory bisectionProof2) = bisectArgs(pc.states2, 4, 8);
-                (bytes32 lowerChildId248X,,) = store.bisectEdge(pc.upperChildId2, bisectionRoot2, bisectionProof2);
-                lowerChildId248 = lowerChildId248X;
-            }
+    function testTimeUnrivaledTotalAndUpdateTimerCacheByChildren() public {
+        (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
+            twoRivalsFromLeaves(2, 5, 8);
+        
+        // create 2 two parent edges
+        store.add(edge1);
+        vm.roll(block.number + 2);
+        edge2.createdAtBlock = uint64(block.number);
+        store.add(edge2);
 
-            (, bytes32 bisectionRoot3, bytes memory bisectionProof3) = bisectArgs(pc.states1, 4, 6);
-            (,, EdgeAddedData memory upperChildId146Data) =
-                store.bisectEdge(ancestorIds[1], bisectionRoot3, bisectionProof3);
-            upperChildId146 = upperChildId146Data.edgeId;
-            vm.roll(block.number + timeAfterParent2);
+        // bisect first parent
+        (, bytes32 bisectionRoot1, bytes memory bisectionProof1) = bisectArgs(states1, 2, 8);
+        (bytes32 lowerChildId1,, EdgeAddedData memory upperChildAdded1) =
+            store.bisectEdge(edge1.idMem(), bisectionRoot1, bisectionProof1);
 
-            (, bytes32 bisectionRoot4, bytes memory bisectionProof4) = bisectArgs(pc.states2, 4, 6);
-            store.bisectEdge(lowerChildId248, bisectionRoot4, bisectionProof4);
-        }
+        // roll forward a bit
+        vm.roll(block.number + 20);
 
-        bytes32 bsId;
-        {
-            ChallengeEdge memory bigStepZero = ChallengeEdgeLib.newLayerZeroEdge(
-                store.get(upperChildId146).mutualIdMem(),
-                store.get(upperChildId146).startHistoryRoot,
-                store.get(upperChildId146).startHeight,
-                rand.hash(),
-                100,
-                upperChildId146,
-                rand.addr(),
-                1
-            );
-            if (timeAfterParent1 != 139) {
-                store.add(bigStepZero);
-            } else {
-                revertArg = abi.encodeWithSelector(EdgeNotExists.selector, bigStepZero.idMem());
-            }
-            bsId = bigStepZero.idMem();
-        }
+        // bisect second parent
+        (, bytes32 bisectionRoot2, bytes memory bisectionProof2) = bisectArgs(states2, 2, 8);
+        (bytes32 lowerChildId2,, EdgeAddedData memory upperChildAdded2) =
+            store.bisectEdge(edge2.idMem(), bisectionRoot2, bisectionProof2);
 
-        vm.roll(block.number + timeAfterZeroLayer);
+        // roll forward a bit
+        vm.roll(block.number + 200);
 
-        ancestorIds[0] = upperChildId146;
-        ancestorIds[2] = pc.upperChildId1;
+        // make sure we have expected time unrivaled
+        assertEq(store.timeUnrivaled(edge1.idMem()), 2);
+        assertEq(store.timeUnrivaled(edge2.idMem()), 0);
+        assertEq(store.timeUnrivaled(lowerChildId1), 220);
+        assertEq(store.timeUnrivaled(upperChildAdded1.edgeId), 20);
+        assertEq(store.timeUnrivaled(lowerChildId2), 220);
+        assertEq(store.timeUnrivaled(upperChildAdded2.edgeId), 0);
 
-        if (timeAfterParent1 == 137) {
-            ChallengeEdge memory childE1 =
-                ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), 10, rand.hash(), 100, 0);
+        // make sure caches are 0
+        assertEq(store.get(edge1.idMem()).totalTimeUnrivaledCache, 0);
+        assertEq(store.get(edge2.idMem()).totalTimeUnrivaledCache, 0);
+        assertEq(store.get(lowerChildId1).totalTimeUnrivaledCache, 0);
+        assertEq(store.get(upperChildAdded1.edgeId).totalTimeUnrivaledCache, 0);
+        assertEq(store.get(lowerChildId2).totalTimeUnrivaledCache, 0);
+        assertEq(store.get(upperChildAdded2.edgeId).totalTimeUnrivaledCache, 0);
 
-            store.add(childE1);
+        // make sure leaves just return their time unrivaled for total time unrivaled
+        assertEq(store.timeUnrivaledTotal(lowerChildId1), 220);
+        assertEq(store.timeUnrivaledTotal(upperChildAdded1.edgeId), 20);
+        assertEq(store.timeUnrivaledTotal(lowerChildId2), 220);
+        assertEq(store.timeUnrivaledTotal(upperChildAdded2.edgeId), 0);
 
-            ancestorIds[1] = childE1.idMem();
+        // make sure parents return their time unrivaled for total time unrivaled (since we haven't updated caches yet)
+        assertEq(store.timeUnrivaledTotal(edge1.idMem()), 2);
+        assertEq(store.timeUnrivaledTotal(edge2.idMem()), 0);
 
-            revertArg = abi.encodeWithSelector(
-                EdgeNotAncestor.selector,
-                ancestorIds[0],
-                store.get(bsId).lowerChildId,
-                store.get(bsId).upperChildId,
-                ancestorIds[1],
-                store.get(ancestorIds[0]).claimId
-            );
-        }
+        // update the child caches, since they are leaves, this should just set the cache to the time unrivaled
+        store.updateTimerCacheByChildren(lowerChildId1);
+        store.updateTimerCacheByChildren(upperChildAdded1.edgeId);
+        store.updateTimerCacheByChildren(lowerChildId2);
+        store.updateTimerCacheByChildren(upperChildAdded2.edgeId);
+        assertEq(store.get(lowerChildId1).totalTimeUnrivaledCache, 220);
+        assertEq(store.get(upperChildAdded1.edgeId).totalTimeUnrivaledCache, 20);
+        assertEq(store.get(lowerChildId2).totalTimeUnrivaledCache, 220);
+        assertEq(store.get(upperChildAdded2.edgeId).totalTimeUnrivaledCache, 0);
 
-        if (timeAfterParent1 == 138) {
-            store.setClaimId(bsId, rand.hash());
-            revertArg = abi.encodeWithSelector(
-                EdgeNotAncestor.selector,
-                bsId,
-                store.get(bsId).lowerChildId,
-                store.get(bsId).upperChildId,
-                ancestorIds[0],
-                store.get(bsId).claimId
-            );
-        }
+        // time unrivaled total should now return the parent's time unrivaled plus the lower child's time unrivaled cache
+        assertEq(store.timeUnrivaledTotal(edge1.idMem()), 22);
+        assertEq(store.timeUnrivaledTotal(edge2.idMem()), 0);
 
-        if (timeAfterParent1 == 140) {
-            store.setConfirmed(bsId);
-            revertArg = abi.encodeWithSelector(EdgeNotPending.selector, bsId, EdgeStatus.Confirmed);
-        }
-
-        if (timeAfterParent1 == 141) {
-            ChallengeEdge memory bigStepZero2 = ChallengeEdgeLib.newLayerZeroEdge(
-                store.get(upperChildId146).mutualIdMem(),
-                store.get(upperChildId146).startHistoryRoot,
-                store.get(upperChildId146).startHeight,
-                rand.hash(),
-                100,
-                upperChildId146,
-                rand.addr(),
-                1
-            );
-            store.add(bigStepZero2);
-            store.setConfirmed(bigStepZero2.idMem());
-            store.setConfirmedRival(bigStepZero2.idMem());
-            revertArg = abi.encodeWithSelector(RivalEdgeConfirmed.selector, bsId, bigStepZero2.idMem());
-        }
-
-        if (timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks == 4) {
-            revertArg = abi.encodeWithSelector(InsufficientConfirmationBlocks.selector, 4, challengePeriodBlock);
-        }
-
-        if (revertArg.length != 0) {
-            vm.expectRevert(revertArg);
-        }
-        uint256 totalTime =
-            store.confirmEdgeByTime(bsId, ancestorIds, claimedAssertionBlocks, challengePeriodBlock);
-
-        if (revertArg.length == 0) {
-            assertTrue(store.get(bsId).status == EdgeStatus.Confirmed, "Edge confirmed");
-            assertEq(store.confirmedRivals(store.get(bsId).mutualIdMem()), bsId, "Confirmed rival");
-            assertEq(
-                totalTime,
-                timeAfterParent1 + timeAfterParent2 + timeAfterZeroLayer + claimedAssertionBlocks,
-                "Invalid total time"
-            );
-        }
-    }
-
-    function testConfirmByTimeGrandParent() public {
-        claimWithMixedAncestors(10, 11, 0, 0, 0);
-    }
-
-    function testConfirmByTimeParent() public {
-        claimWithMixedAncestors(10, 0, 11, 0, 0);
-    }
-
-    function testConfirmByTimeSelf() public {
-        claimWithMixedAncestors(10, 0, 0, 11, 0);
-    }
-
-    function testConfirmByTimeAssertion() public {
-        claimWithMixedAncestors(10, 0, 0, 0, 11);
-    }
-
-    function testConfirmByTimeCombined() public {
-        claimWithMixedAncestors(10, 5, 6, 0, 0);
-    }
-
-    function testConfirmByTimeCombinedClaimAll() public {
-        claimWithMixedAncestors(10, 3, 3, 3, 3);
-    }
-
-    function testConfirmByTimeNoTime() public {
-        claimWithMixedAncestors(10, 1, 1, 1, 1);
-    }
-
-    function testConfirmByTimeBrokenAncestor() public {
-        claimWithMixedAncestors(10, 137, 1, 1, 1);
-    }
-
-    function testConfirmByTimeBrokenClaim() public {
-        claimWithMixedAncestors(10, 138, 1, 1, 1);
-    }
-
-    function testConfirmByTimeEdgeNotExist() public {
-        claimWithMixedAncestors(10, 139, 1, 1, 1);
-    }
-
-    function testConfirmByTimeEdgeNotPending() public {
-        claimWithMixedAncestors(10, 140, 1, 1, 1);
-    }
-
-    function testConfirmByTimeRivalConfirmed() public {
-        claimWithMixedAncestors(10, 141, 1, 1, 1);
+        // updating the cache should set the cache to the time unrivaled total
+        store.updateTimerCacheByChildren(edge1.idMem());
+        store.updateTimerCacheByChildren(edge2.idMem());
+        assertEq(store.get(edge1.idMem()).totalTimeUnrivaledCache, 22);
+        assertEq(store.get(edge2.idMem()).totalTimeUnrivaledCache, 0);
     }
 
     struct ConfirmByOneStepData {
