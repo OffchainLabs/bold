@@ -115,6 +115,10 @@ interface IEdgeChallengeManager {
         bytes32[] calldata afterHistoryInclusionProof
     ) external;
 
+    /// @notice When zero layer block edges are created a stake is also provided
+    ///         The stake on this edge can be refunded if the edge is confirme
+    function refundStake(bytes32 edgeId) external;
+
     /// @notice Zero layer edges have to be a fixed height.
     ///         This function returns the end height for a given edge type
     function getLayerZeroEndHeight(EdgeType eType) external view returns (uint256);
@@ -415,7 +419,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             // since only one edge in a group of rivals can ever be confirmed, we know that we
             // will never need to refund more than one edge. Therefore we can immediately send
             // all stakes provided after the first one to an excess stake receiver.
-            st.safeTransferFrom(msg.sender, excessStakeReceiver, sa);
+            address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
+            st.safeTransferFrom(msg.sender, receiver, sa);
         }
 
         emit EdgeAdded(
@@ -560,6 +565,22 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         );
 
         emit EdgeConfirmedByOneStepProof(edgeId, store.edges[edgeId].mutualId());
+    }
+
+    /// @inheritdoc IEdgeChallengeManager
+    function refundStake(bytes32 edgeId) public {
+        ChallengeEdge storage edge = store.get(edgeId);
+        // setting refunded also do checks that the edge cannot be refunded twice
+        edge.setRefunded();
+
+        IERC20 st = stakeToken;
+        uint256 sa = stakeAmounts[edge.level];
+        // no need to refund with the token or amount where zero'd out
+        if (address(st) != address(0) && sa != 0) {
+            st.safeTransfer(edge.staker, sa);
+        }
+
+        emit EdgeRefunded(edgeId, store.edges[edgeId].mutualId(), address(st), sa);
     }
 
     ///////////////////////

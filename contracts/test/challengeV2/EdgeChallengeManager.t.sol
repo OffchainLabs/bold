@@ -1687,6 +1687,70 @@ contract EdgeChallengeManagerTest is Test {
         );
     }
 
+    function testCanRefundStake() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+
+        IERC20 stakeToken = ei.challengeManager.stakeToken();
+        uint256 beforeBalance = stakeToken.balanceOf(address(this));
+        vm.prank(nobody); // call refund as nobody
+        bytes32 edgeId = allWinners[allWinners.length - 1].lowerChildId;
+        ei.challengeManager.refundStake(edgeId);
+        uint256 level = ei.challengeManager.getEdge(edgeId).level;
+        uint256 afterBalance = stakeToken.balanceOf(address(this));
+        // block level
+        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmounts(level), "Stake refunded");
+    }
+
+    function testRevertRefundStakeTwice() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
+        vm.expectRevert(
+            abi.encodeWithSelector(EdgeAlreadyRefunded.selector, allWinners[allWinners.length - 1].lowerChildId)
+        );
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
+    }
+
+    function testRevertRefundStakeNotLayerZero() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        vm.expectRevert(
+            abi.encodeWithSelector(EdgeNotLayerZero.selector, allWinners[allWinners.length - 2].lowerChildId, 0, 0)
+        );
+        ei.challengeManager.refundStake(allWinners[allWinners.length - 2].lowerChildId);
+    }
+
+    function testRefundStakeBigStep() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+
+        IERC20 stakeToken = ei.challengeManager.stakeToken();
+        uint256 beforeBalance = stakeToken.balanceOf(address(this));
+        vm.prank(nobody); // call refund as nobody
+        bytes32 edgeId = allWinners[11].lowerChildId;
+        ei.challengeManager.refundStake(edgeId);
+        uint256 afterBalance = stakeToken.balanceOf(address(this));
+        uint256 level = ei.challengeManager.getEdge(edgeId).level;
+        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmounts(level), "Stake refunded");
+    }
+
+    function testRefundStakeSmallStep() external {
+        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+
+        IERC20 stakeToken = ei.challengeManager.stakeToken();
+        uint256 beforeBalance = stakeToken.balanceOf(address(this));
+        vm.prank(nobody); // call refund as nobody
+        bytes32 edgeId = allWinners[5].lowerChildId;
+        ei.challengeManager.refundStake(edgeId);
+        uint256 afterBalance = stakeToken.balanceOf(address(this));
+        uint256 level = ei.challengeManager.getEdge(edgeId).level;
+        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmounts(level), "Stake refunded");
+    }
+
+    function testRevertRefundStakeNotConfirmed() external {
+        (EdgeInitData memory ei,,, bytes32 edgeId) = testCanCreateEdgeWithStake();
+
+        vm.expectRevert(abi.encodeWithSelector(EdgeNotConfirmed.selector, edgeId, EdgeStatus.Pending));
+        ei.challengeManager.refundStake(edgeId);
+    }
+
     function testGetPrevAssertionHash() public {
         EdgeInitData memory ei = deployAndInit();
 
