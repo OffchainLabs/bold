@@ -500,20 +500,17 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         ExecutionStateData calldata claimStateData
     ) public {
         ChallengeEdge storage topEdge = store.get(edgeId);
-        EdgeType topEdgeType = ChallengeEdgeLib.levelToType(topEdge.level, NUM_BIGSTEP_LEVEL);
-        if (topEdgeType != EdgeType.Block) {
-            revert EdgeTypeNotBlock(topEdge.level);
-        }
         if (!topEdge.isLayerZero()) {
             revert EdgeNotLayerZero(topEdge.id(), topEdge.staker, topEdge.claimId);
         }
 
         uint64 assertionBlocks;
-        // if the assertion being claiming against was the first child of its predecessor
+        // if the edge is block level and the assertion being claimed against was the first child of its predecessor
         // then we are able to count the time between the first and second child as time towards
         // the this edge
+        bool isBlockLevel = ChallengeEdgeLib.levelToType(topEdge.level, NUM_BIGSTEP_LEVEL) == EdgeType.Block;
         bool isFirstChild = assertionChain.isFirstChild(topEdge.claimId);
-        if (isFirstChild) {
+        if (isFirstChild && isBlockLevel) {
             assertionChain.validateAssertionHash(
                 topEdge.claimId,
                 claimStateData.executionState,
@@ -523,13 +520,13 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             assertionBlocks = assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash)
                 - assertionChain.getFirstChildCreationBlock(claimStateData.prevAssertionHash);
         } else {
-            // if the assertion being claimed is not the first child, then it had siblings from the moment
+            // if the edge is not block level and the assertion being claimed is not the first child, then it had siblings from the moment
             // it was created, so it has no time unrivaled
             assertionBlocks = 0;
         }
 
         uint256 totalTimeUnrivaled =
-            store.confirmEdgeByTime(edgeId, _unused, assertionBlocks, challengePeriodBlocks, NUM_BIGSTEP_LEVEL);
+            store.confirmEdgeByTime(edgeId, _unused, assertionBlocks, challengePeriodBlocks);
 
         emit EdgeConfirmedByTime(edgeId, store.edges[edgeId].mutualId(), totalTimeUnrivaled);
     }

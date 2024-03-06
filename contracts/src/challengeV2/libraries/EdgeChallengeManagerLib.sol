@@ -695,8 +695,7 @@ library EdgeChallengeManagerLib {
         bytes32 edgeId,
         bytes32[] memory,
         uint64 claimedAssertionUnrivaledBlocks,
-        uint64 confirmationThresholdBlock,
-        uint8 // unused
+        uint64 confirmationThresholdBlock
     ) internal returns (uint256) {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
