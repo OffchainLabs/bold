@@ -5,6 +5,7 @@ package solimpl
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -14,8 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
+
+var srvlog = log.New("service", "chain-abstraction")
 
 // ChainCommitter defines a type of chain backend that supports
 // committing changes via a direct method, such as a simulated backend
@@ -67,7 +71,8 @@ func (a *AssertionChain) transact(
 	}
 
 	// Now, we send the tx with the estimated gas.
-	opts.GasPrice = doubleGasPrice(estimate)
+	opts.GasPrice = bump(estimate)
+	srvlog.Info(fmt.Sprintf("Gas limit set to %d, and estimated tx gas price %d, bumping to %d", gas, estimate, opts.GasPrice))
 	opts.GasLimit = gas
 	opts.NoSend = false
 	a.transactionLock.Lock()
@@ -105,11 +110,8 @@ func (a *AssertionChain) transact(
 	return receipt, nil
 }
 
-func doubleGasPrice(suggested *big.Int) *big.Int {
-	bumpMultiplier := new(big.Int).SetInt64(100)
-	increase := new(big.Int).Mul(suggested, bumpMultiplier)
-	increasedGasPrice := new(big.Int).Div(increase, big.NewInt(100))
-	return new(big.Int).Add(suggested, increasedGasPrice)
+func bump(suggested *big.Int) *big.Int {
+	return new(big.Int).Mul(suggested, big.NewInt(5))
 }
 
 // waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
