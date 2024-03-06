@@ -775,7 +775,7 @@ func (d *SqliteDatabase) UpdateEdges(edges []*api.JsonEdge) error {
 	 HasLengthOneRival = :HasLengthOneRival,
 	 IsRoyal = :IsRoyal,
 	 CumulativePathTimer = :CumulativePathTimer,
-	 RawAncestors = :RawAncestors,
+	 RawAncestors = :RawAncestors
 	 WHERE Id = :Id`
 	tx, err := d.sqlDB.Beginx()
 	if err != nil {
