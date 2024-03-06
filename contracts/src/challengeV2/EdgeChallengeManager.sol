@@ -509,8 +509,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // then we are able to count the time between the first and second child as time towards
         // the this edge
         bool isBlockLevel = ChallengeEdgeLib.levelToType(topEdge.level, NUM_BIGSTEP_LEVEL) == EdgeType.Block;
-        bool isFirstChild = assertionChain.isFirstChild(topEdge.claimId);
-        if (isFirstChild && isBlockLevel) {
+        if (isBlockLevel && assertionChain.isFirstChild(topEdge.claimId)) {
             assertionChain.validateAssertionHash(
                 topEdge.claimId,
                 claimStateData.executionState,
