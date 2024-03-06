@@ -707,12 +707,12 @@ func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
 	   Id, ChallengeLevel, OriginId, StartHistoryRoot, StartHeight,
 	   EndHistoryRoot, EndHeight, CreatedAtBlock, MutualId, ClaimId,
 	   HasChildren, LowerChildId, UpperChildId, MiniStaker, AssertionHash,
-	   HasRival, Status, HasLengthOneRival, RawAncestors, IsRoyal
+	   HasRival, Status, HasLengthOneRival, RawAncestors, IsRoyal, CumulativePathTimer
    ) VALUES (
 	   :Id, :ChallengeLevel, :OriginId, :StartHistoryRoot, :StartHeight,
 	   :EndHistoryRoot, :EndHeight, :CreatedAtBlock, :MutualId, :ClaimId,
 	   :HasChildren, :LowerChildId, :UpperChildId, :MiniStaker, :AssertionHash,
-	   :HasRival, :Status, :HasLengthOneRival, :RawAncestors, :IsRoyal
+	   :HasRival, :Status, :HasLengthOneRival, :RawAncestors, :IsRoyal, :CumulativePathTimer
    )`
 
 	if _, err = tx.NamedExec(insertEdgeQuery, edge); err != nil {
@@ -774,6 +774,7 @@ func (d *SqliteDatabase) UpdateEdges(edges []*api.JsonEdge) error {
 	 Status = :Status,
 	 HasLengthOneRival = :HasLengthOneRival,
 	 IsRoyal = :IsRoyal,
+	 CumulativePathTimer = :CumulativePathTimer,
 	 RawAncestors = :RawAncestors,
 	 WHERE Id = :Id`
 	tx, err := d.sqlDB.Beginx()

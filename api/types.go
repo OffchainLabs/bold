@@ -58,12 +58,13 @@ type JsonEdge struct {
 	HasLengthOneRival bool           `json:"hasLengthOneRival" db:"HasLengthOneRival"`
 	LastUpdatedAt     time.Time      `json:"lastUpdatedAt" db:"LastUpdatedAt"`
 	// Honest validator's point of view
-	IsRoyal        bool   `json:"isRoyal" db:"IsRoyal"`
-	RawAncestors   string `json:"-" db:"RawAncestors"`
-	InheritedTimer uint64 `json:"inheritedTimer"`
-	RefersTo       string `json:"refersTo" db:"RefersTo"`
-	FSMState       string `json:"fsmState"`
-	FSMError       string `json:"fsmError"`
+	IsRoyal             bool   `json:"isRoyal" db:"IsRoyal"`
+	RawAncestors        string `json:"-" db:"RawAncestors"`
+	CumulativePathTimer uint64 `json:"cumulativePathTimer" db:"CumulativePathTimer"`
+	InheritedTimer      uint64 `json:"inheritedTimer"`
+	RefersTo            string `json:"refersTo" db:"RefersTo"`
+	FSMState            string `json:"fsmState"`
+	FSMError            string `json:"fsmError"`
 }
 
 type JsonTrackedRoyalEdge struct {
