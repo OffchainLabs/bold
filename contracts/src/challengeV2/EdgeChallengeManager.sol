@@ -504,7 +504,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             revert EdgeNotLayerZero(topEdge.id(), topEdge.staker, topEdge.claimId);
         }
 
-        uint64 assertionBlocks;
+        uint64 assertionBlocks = 0;
         // if the edge is block level and the assertion being claimed against was the first child of its predecessor
         // then we are able to count the time between the first and second child as time towards
         // the this edge
@@ -519,10 +519,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
             );
             assertionBlocks = assertionChain.getSecondChildCreationBlock(claimStateData.prevAssertionHash)
                 - assertionChain.getFirstChildCreationBlock(claimStateData.prevAssertionHash);
-        } else {
-            // if the edge is not block level and the assertion being claimed is not the first child, then it had siblings from the moment
-            // it was created, so it has no time unrivaled
-            assertionBlocks = 0;
         }
 
         uint256 totalTimeUnrivaled =
