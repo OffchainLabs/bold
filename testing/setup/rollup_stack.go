@@ -21,6 +21,7 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -254,7 +255,18 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	miniStake := big.NewInt(1)
+	cfgOpts := &rollupgen.Config{}
+	for _, o := range setp.challengeTestingOpts {
+		o(cfgOpts)
+	}
+	numLevels := cfgOpts.NumBigStepLevel + 2
+	if numLevels == 2 {
+		numLevels = 3
+	}
+	miniStakeValues := make([]*big.Int, numLevels)
+	for i := 1; i <= int(numLevels); i++ {
+		miniStakeValues[i-1] = big.NewInt(int64(i))
+	}
 	genesisExecutionState := rollupgen.ExecutionState{
 		GlobalState:   rollupgen.GlobalState{},
 		MachineStatus: 1,
@@ -267,7 +279,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		rollupOwner,
 		chainId,
 		loserStakeEscrow,
-		miniStake,
+		miniStakeValues,
 		stakeToken,
 		genesisExecutionState,
 		genesisInboxCount,
@@ -289,11 +301,27 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 
 	chains := make([]*solimpl.AssertionChain, 0)
 	for _, acc := range accs[1:] {
+		var assertionChainBinding *rollupgen.RollupUserLogic
+		assertionChainBinding, err = rollupgen.NewRollupUserLogic(
+			addresses.Rollup, backend,
+		)
+		if err != nil {
+			return nil, err
+		}
+		var challengeManagerAddr common.Address
+		challengeManagerAddr, err = assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
+			util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
+		)
+		if err != nil {
+			return nil, err
+		}
 		chain, chainErr := solimpl.NewAssertionChain(
 			ctx,
 			addresses.Rollup,
+			challengeManagerAddr,
 			acc.TxOpts,
 			backend,
+			solimpl.NewChainBackendTransactor(backend),
 		)
 		if chainErr != nil {
 			return nil, chainErr
