@@ -96,12 +96,23 @@ func dbInit(db *sqlx.DB) error {
 	for index, schema := range schemaList {
 		// If the current version is less than the version of the schema, update the database
 		if index+1 > version {
-			_, err = db.Exec(schema)
+			// Begin a transaction, so that we update the version and execute the schema atomically
+			tx, err := db.Beginx()
+			if err != nil {
+				return err
+			}
+
+			// Execute the schema
+			_, err = tx.Exec(schema)
 			if err != nil {
 				return err
 			}
 			// Update the version of the database
-			_, err = db.Exec(fmt.Sprintf("UPDATE Flags SET FlagValue = %d WHERE FlagName = 'CurrentVersion'", index+1))
+			_, err = tx.Exec(fmt.Sprintf("UPDATE Flags SET FlagValue = %d WHERE FlagName = 'CurrentVersion'", index+1))
+			if err != nil {
+				return err
+			}
+			err = tx.Commit()
 			if err != nil {
 				return err
 			}
