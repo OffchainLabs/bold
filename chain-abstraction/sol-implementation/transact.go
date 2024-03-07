@@ -5,7 +5,6 @@ package solimpl
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -67,15 +66,15 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
-	estimate, err := backend.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not suggest gas price")
-	}
+	// estimate, err := backend.SuggestGasPrice(ctx)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "could not suggest gas price")
+	// }
 
-	// Now, we send the tx with the estimated gas.
-	opts.GasPrice = bump(estimate)
-	srvlog.Info(fmt.Sprintf("Gas limit set to %d, and estimated tx gas price %d, bumping to %d", gas, estimate, opts.GasPrice))
-	opts.GasLimit = gas
+	// // Now, we send the tx with the estimated gas.
+	// opts.GasPrice = bump(estimate)
+	// srvlog.Info(fmt.Sprintf("Gas limit set to %d, and estimated tx gas price %d, bumping to %d", gas, estimate, opts.GasPrice))
+	// opts.GasLimit = gas
 	opts.NoSend = false
 	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
 	if err != nil {
