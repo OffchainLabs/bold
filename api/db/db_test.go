@@ -474,7 +474,7 @@ func TestEdgeClaims(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	_, err = sqlDB.Exec(version1)
+	err = dbInit(sqlDB)
 	require.NoError(t, err)
 	db := &SqliteDatabase{sqlDB: sqlDB}
 
