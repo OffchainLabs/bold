@@ -19,7 +19,7 @@ func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	_, err = sqlDB.Exec(schema)
+	err = dbInit(sqlDB)
 	require.NoError(t, err)
 
 	db := &SqliteDatabase{sqlDB: sqlDB}
@@ -63,7 +63,7 @@ func TestSqliteDatabase_Updates(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	_, err = sqlDB.Exec(schema)
+	err = dbInit(sqlDB)
 	require.NoError(t, err)
 
 	db := &SqliteDatabase{sqlDB: sqlDB}
@@ -124,7 +124,7 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	_, err = sqlDB.Exec(schema)
+	err = dbInit(sqlDB)
 	require.NoError(t, err)
 
 	// Inserting edges that don't have an associated assertion should fail.
@@ -290,7 +290,7 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	_, err = sqlDB.Exec(schema)
+	err = dbInit(sqlDB)
 	require.NoError(t, err)
 
 	// Inserting edges that don't have an associated assertion should fail.
@@ -474,7 +474,7 @@ func TestEdgeClaims(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	_, err = sqlDB.Exec(schema)
+	_, err = sqlDB.Exec(version1)
 	require.NoError(t, err)
 	db := &SqliteDatabase{sqlDB: sqlDB}
 

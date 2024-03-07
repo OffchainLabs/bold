@@ -3,6 +3,7 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -57,13 +58,56 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	//nolint:errcheck
-	//#nosec G104
-	db.Exec(schema)
+	err = dbInit(db)
+	if err != nil {
+		return nil, err
+	}
 	return &SqliteDatabase{
 		sqlDB:               db,
 		currentTableVersion: -1,
 	}, nil
+}
+
+func dbInit(db *sqlx.DB) error {
+	flagValue := make([]int, 0)
+	// Fetch the current version of the database
+	err := db.Select(&flagValue, "SELECT FlagValue FROM Flags WHERE FlagName = 'CurrentVersion'")
+	if err != nil {
+		if !strings.Contains(err.Error(), "no such table") {
+			return err
+		}
+		// If the table doesn't exist, create it
+		_, err = db.Exec(flagSetup)
+		if err != nil {
+			return err
+		}
+		// Fetch the current version of the database
+		err = db.Select(&flagValue, "SELECT FlagValue FROM Flags WHERE FlagName = 'CurrentVersion'")
+		if err != nil {
+			return err
+		}
+	}
+	version := 0
+	if len(flagValue) > 0 {
+		version = flagValue[0]
+	} else {
+		return fmt.Errorf("no version found")
+	}
+	for index, schema := range schemaList {
+		// If the current version is less than the version of the schema, update the database
+		if index+1 > version {
+			_, err = db.Exec(schema)
+			if err != nil {
+				return err
+			}
+			// Update the version of the database
+			_, err = db.Exec(fmt.Sprintf("UPDATE Flags SET FlagValue = %d WHERE FlagName = 'CurrentVersion'", index+1))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 type AssertionQuery struct {
