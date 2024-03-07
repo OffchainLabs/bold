@@ -2,11 +2,13 @@ package db
 
 var (
 	schema = `
+DROP TABLE IF EXISTS Challenges;
 CREATE TABLE Challenges (
     Hash TEXT NOT NULL PRIMARY KEY,
     UNIQUE(Hash)
 );
 
+DROP TABLE IF EXISTS CollectMachineHashes;
 CREATE TABLE CollectMachineHashes (
     WasmModuleRoot TEXT NOT NULL,
     FromBatch INTEGER NOT NULL,
@@ -19,6 +21,7 @@ CREATE TABLE CollectMachineHashes (
     FinishTime DATETIME
 );
 
+DROP TABLE IF EXISTS EdgeClaims;
 CREATE TABLE EdgeClaims (
     ClaimId TEXT NOT NULL PRIMARY KEY,
     RefersTo TEXT NOT NULL, -- 'edge' or 'assertion'
@@ -26,6 +29,7 @@ CREATE TABLE EdgeClaims (
     FOREIGN KEY(ClaimId) REFERENCES Assertions(Hash)
 );
 
+DROP TABLE IF EXISTS Edges;
 CREATE TABLE Edges (
     Id TEXT NOT NULL PRIMARY KEY,
     ChallengeLevel INTEGER NOT NULL,
@@ -55,6 +59,7 @@ CREATE TABLE Edges (
     FOREIGN KEY(AssertionHash) REFERENCES Challenges(Hash)
 );
 
+DROP TABLE IF EXISTS Assertions;
 CREATE TABLE Assertions (
     Hash TEXT NOT NULL PRIMARY KEY,
     ConfirmPeriodBlocks INTEGER NOT NULL,
@@ -85,12 +90,18 @@ CREATE TABLE Assertions (
     FOREIGN KEY(ParentAssertionHash) REFERENCES Assertions(Hash)
 );
 
+DROP INDEX IF EXISTS idx_edge_assertion;
 CREATE INDEX idx_edge_assertion ON Edges(AssertionHash);
+DROP INDEX IF EXISTS idx_edge_claim_id;
 CREATE INDEX idx_assertions_assertion ON Assertions(Hash);
+DROP INDEX IF EXISTS idx_edge_end_height;
 CREATE INDEX idx_edge_claim_id ON Edges(ClaimId);
+DROP INDEX IF EXISTS idx_edge_end_history_root;
 CREATE INDEX idx_edge_end_height ON Edges(EndHeight);
+DROP INDEX IF EXISTS idx_edge_end_history_root;
 CREATE INDEX idx_edge_end_history_root ON Edges(EndHistoryRoot);
 
+DROP TRIGGER IF EXISTS UpdateEdgeTimestamp;
 CREATE TRIGGER UpdateEdgeTimestamp
 AFTER UPDATE ON Edges
 FOR EACH ROW
@@ -98,6 +109,7 @@ BEGIN
    UPDATE Edges SET LastUpdatedAt = CURRENT_TIMESTAMP WHERE Id = NEW.Id;
 END;
 
+DROP TRIGGER IF EXISTS UpdateAssertionTimestamp;
 CREATE TRIGGER UpdateAssertionTimestamp
 AFTER UPDATE ON Assertions
 FOR EACH ROW
