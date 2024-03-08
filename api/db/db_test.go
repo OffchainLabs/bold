@@ -79,7 +79,8 @@ func TestSqliteDatabase_UpdateEdgeSchema(t *testing.T) {
 	edgesFromDB[0].LastUpdatedAt = time.Time{}
 	require.Equal(t, edge, edgesFromDB[0])
 
-	// Make sure that the DB schema initialization is idempotent.
+	// Make sure that the DB schema initialization is idempotent for version 1
+	// and adds fields to the edge table from version 2.
 	err = dbInit(sqlDB, []string{version1, version2})
 	require.NoError(t, err)
 
