@@ -58,7 +58,7 @@ func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
 	require.Equal(t, len(ongoingMachineHashesFromDb), 0)
 }
 
-func TestSqliteDatabase_TestUpdatingEdgeSchema(t *testing.T) {
+func TestSqliteDatabase_UpdateEdgeSchema(t *testing.T) {
 	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer sqlDB.Close()
