@@ -19,18 +19,6 @@ CREATE TABLE Challenges (
     UNIQUE(Hash)
 );
 
-CREATE TABLE CollectMachineHashes (
-    WasmModuleRoot TEXT NOT NULL,
-    FromBatch INTEGER NOT NULL,
-    BlockChallengeHeight INTEGER NOT NULL,
-    RawStepHeights TEXT NOT NULL,
-    NumDesiredHashes INTEGER NOT NULL,
-    MachineStartIndex INTEGER NOT NULL,
-    StepSize INTEGER NOT NULL,
-    StartTime DATETIME NOT NULL,
-    FinishTime DATETIME
-);
-
 CREATE TABLE EdgeClaims (
     ClaimId TEXT NOT NULL PRIMARY KEY,
     RefersTo TEXT NOT NULL, -- 'edge' or 'assertion'
@@ -119,6 +107,18 @@ END;
 `
 	version2 = `
 ALTER TABLE Edges ADD COLUMN InheritedTimer INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS CollectMachineHashes (
+    WasmModuleRoot TEXT NOT NULL,
+    FromBatch INTEGER NOT NULL,
+    BlockChallengeHeight INTEGER NOT NULL,
+    RawStepHeights TEXT NOT NULL,
+    NumDesiredHashes INTEGER NOT NULL,
+    MachineStartIndex INTEGER NOT NULL,
+    StepSize INTEGER NOT NULL,
+    StartTime DATETIME NOT NULL,
+    FinishTime DATETIME
+);
 `
 	// schemaList is a list of schema versions.
 	schemaList = []string{version1, version2}

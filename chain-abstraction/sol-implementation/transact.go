@@ -38,8 +38,6 @@ func (a *AssertionChain) transact(
 	backend ChainBackend,
 	fn func(opts *bind.TransactOpts) (*types.Transaction, error),
 ) (*types.Receipt, error) {
-	a.transactionLock.Lock()
-	defer a.transactionLock.Unlock()
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
 
