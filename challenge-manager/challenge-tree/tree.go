@@ -14,8 +14,11 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
+
+var srvlog = log.New("service", "royal-challenge-tree")
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
@@ -161,6 +164,10 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
 			return 0, err
 		}
+		srvlog.Info("Updated inherited timer by claim", log.Ctx{
+			"claimedEdgeId": claimedEdgeId,
+			"edgeId":        edgeId,
+		})
 	}
 
 	onchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
@@ -171,6 +178,11 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
 			return 0, err
 		}
+		srvlog.Info("Updated inherited timer by children", log.Ctx{
+			"inheritedTimer": inheritedTimer,
+			"onchainTimer":   onchainTimer,
+			"edgeId":         edgeId,
+		})
 	}
 	// Otherwise, the edge does not yet have children.
 	return inheritedTimer, nil
