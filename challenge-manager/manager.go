@@ -179,6 +179,7 @@ func New(
 		}
 		m.edgeTrackerWakeInterval = time.Second * time.Duration(n.Uint64())
 	}
+	m.edgeTrackerWakeInterval = time.Second * 30
 
 	chalManager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
