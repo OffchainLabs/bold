@@ -14,6 +14,7 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -165,7 +166,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 			return 0, err
 		}
 		srvlog.Info("Updated inherited timer by claim", log.Ctx{
-			"claimedEdgeId": claimedEdgeId,
+			"claimedEdgeId": common.Hash(claimedEdgeId),
 			"edgeId":        edgeId,
 		})
 	}
@@ -183,6 +184,17 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 			"onchainTimer":   onchainTimer,
 			"edgeId":         edgeId,
 		})
+		newOnchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
+		if err != nil {
+			return 0, err
+		}
+		if newOnchainTimer != inheritedTimer {
+			srvlog.Warn("Updated onchain timer for edge does not match what was expected", log.Ctx{
+				"inheritedTimer": inheritedTimer,
+				"onchainTimer":   onchainTimer,
+				"edgeId":         edgeId,
+			})
+		}
 	}
 	// Otherwise, the edge does not yet have children.
 	return inheritedTimer, nil
