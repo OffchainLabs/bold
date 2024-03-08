@@ -460,7 +460,7 @@ func setupChallengeManager(t *testing.T) (*challengemanager.Manager, *mocks.Mock
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
-	p.On("Backend", ctx).Return(cfg.Backend, nil)
+	p.On("Backend").Return(cfg.Backend, nil)
 	v, err := challengemanager.New(context.Background(), p, s, cfg.Addrs.Rollup, challengemanager.WithMode(types.MakeMode), challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 	require.NoError(t, err)
 	return v, p, s, cfg

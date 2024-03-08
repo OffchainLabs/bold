@@ -128,6 +128,12 @@ func WithTrackedContractBackend() Opt {
 	}
 }
 
+func WithMetricsContractBackend() Opt {
+	return func(a *AssertionChain) {
+		a.backend = NewMetricsContractBackend(a.backend)
+	}
+}
+
 // NewAssertionChain instantiates an assertion chain
 // instance from a chain backend and provided options.
 func NewAssertionChain(
@@ -142,7 +148,6 @@ func NewAssertionChain(
 	// We disable sending txs by default, as we will first estimate their gas before
 	// we commit them onchain through the transact method in this package.
 	copiedOpts := copyTxOpts(txOpts)
-	backend = NewMetricsContractBackend(backend)
 	chain := &AssertionChain{
 		backend:                                  backend,
 		txOpts:                                   copiedOpts,
