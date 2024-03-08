@@ -58,7 +58,7 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = dbInit(db)
+	err = dbInit(db, schemaList)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func NewDatabase(path string) (*SqliteDatabase, error) {
 	}, nil
 }
 
-func dbInit(db *sqlx.DB) error {
+func dbInit(db *sqlx.DB, schemaList []string) error {
 	version, err := fetchVersion(db)
 	if err != nil {
 		return err

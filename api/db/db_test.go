@@ -19,7 +19,7 @@ func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	err = dbInit(sqlDB)
+	err = dbInit(sqlDB, schemaList)
 	require.NoError(t, err)
 
 	db := &SqliteDatabase{sqlDB: sqlDB}
@@ -58,12 +58,45 @@ func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
 	require.Equal(t, len(ongoingMachineHashesFromDb), 0)
 }
 
+func TestSqliteDatabase_TestUpdatingEdgeSchema(t *testing.T) {
+	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer sqlDB.Close()
+
+	err = dbInit(sqlDB, []string{version1})
+	require.NoError(t, err)
+
+	db := &SqliteDatabase{sqlDB: sqlDB}
+
+	edge := baseEdge()
+
+	require.NoError(t, db.InsertEdge(edge))
+
+	edgesFromDB, err := db.GetEdges()
+	require.NoError(t, err)
+
+	require.Equal(t, len(edgesFromDB), 1)
+	edgesFromDB[0].LastUpdatedAt = time.Time{}
+	require.Equal(t, edge, edgesFromDB[0])
+
+	// Make sure that the DB schema initialization is idempotent.
+	err = dbInit(sqlDB, []string{version1, version2})
+	require.NoError(t, err)
+
+	edgesFromDB, err = db.GetEdges()
+	require.NoError(t, err)
+	require.Equal(t, len(edgesFromDB), 1)
+	edgesFromDB[0].LastUpdatedAt = time.Time{}
+	require.Equal(t, edge, edgesFromDB[0])
+
+}
+
 func TestSqliteDatabase_Updates(t *testing.T) {
 	sqlDB, err := sqlx.Connect("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	err = dbInit(sqlDB)
+	err = dbInit(sqlDB, schemaList)
 	require.NoError(t, err)
 
 	db := &SqliteDatabase{sqlDB: sqlDB}
@@ -124,7 +157,7 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	err = dbInit(sqlDB)
+	err = dbInit(sqlDB, schemaList)
 	require.NoError(t, err)
 
 	// Inserting edges that don't have an associated assertion should fail.
@@ -290,7 +323,7 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	err = dbInit(sqlDB)
+	err = dbInit(sqlDB, schemaList)
 	require.NoError(t, err)
 
 	// Inserting edges that don't have an associated assertion should fail.
@@ -474,7 +507,7 @@ func TestEdgeClaims(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	err = dbInit(sqlDB)
+	err = dbInit(sqlDB, schemaList)
 	require.NoError(t, err)
 	db := &SqliteDatabase{sqlDB: sqlDB}
 
