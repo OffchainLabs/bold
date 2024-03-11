@@ -78,13 +78,10 @@ interface IEdgeChallengeManager {
     ///         This method also includes the amount of time the assertion being claimed spent without a sibling
     /// @param edgeId                   The id of the edge to confirm
     /// @param _unused         The ordered ids of layer zero edges in the levels below
-    function confirmEdgeByTime(
-        bytes32 edgeId,
-        bytes32[] calldata _unused,
-        ExecutionStateData calldata claimStateData
-    ) external;
+    function confirmEdgeByTime(bytes32 edgeId, bytes32[] calldata _unused, ExecutionStateData calldata claimStateData)
+        external;
 
-    /// @notice Update an edge's timer cache by its children. 
+    /// @notice Update an edge's timer cache by its children.
     ///         Sets the edge's timer cache to its timeUnrivaled + (minimum timer cache of its children).
     ///         This function should not be used for edges without children.
     /// @param edgeId The id of the edge to update
@@ -494,11 +491,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function confirmEdgeByTime(
-        bytes32 edgeId,
-        bytes32[] memory _unused,
-        ExecutionStateData calldata claimStateData
-    ) public {
+    function confirmEdgeByTime(bytes32 edgeId, bytes32[] memory _unused, ExecutionStateData calldata claimStateData)
+        public
+    {
         ChallengeEdge storage topEdge = store.get(edgeId);
         if (!topEdge.isLayerZero()) {
             revert EdgeNotLayerZero(topEdge.id(), topEdge.staker, topEdge.claimId);
@@ -520,8 +515,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 - assertionChain.getFirstChildCreationBlock(claimStateData.prevAssertionHash);
         }
 
-        uint256 totalTimeUnrivaled =
-            store.confirmEdgeByTime(edgeId, _unused, assertionBlocks, challengePeriodBlocks);
+        uint256 totalTimeUnrivaled = store.confirmEdgeByTime(edgeId, _unused, assertionBlocks, challengePeriodBlocks);
 
         emit EdgeConfirmedByTime(edgeId, store.edges[edgeId].mutualId(), totalTimeUnrivaled);
     }

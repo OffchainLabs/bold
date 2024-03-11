@@ -77,12 +77,8 @@ contract RollupTest is Test {
         OneStepProverMemory oneStepProverMemory = new OneStepProverMemory();
         OneStepProverMath oneStepProverMath = new OneStepProverMath();
         OneStepProverHostIo oneStepProverHostIo = new OneStepProverHostIo();
-        OneStepProofEntry oneStepProofEntry = new OneStepProofEntry(
-            oneStepProver,
-            oneStepProverMemory,
-            oneStepProverMath,
-            oneStepProverHostIo
-        );
+        OneStepProofEntry oneStepProofEntry =
+            new OneStepProofEntry(oneStepProver, oneStepProverMemory, oneStepProverMath, oneStepProverHostIo);
         EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator(MAX_DATA_SIZE);
         RollupCreator rollupCreator = new RollupCreator();

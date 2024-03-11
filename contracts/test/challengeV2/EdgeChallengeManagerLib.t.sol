@@ -23,7 +23,7 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
         view
         returns (bytes32 afterHash)
     {
-        if(testMachineStep != 0) require(testMachineStep == machineStep, "Invalid machine step");
+        if (testMachineStep != 0) require(testMachineStep == machineStep, "Invalid machine step");
         return bytes32(proof);
     }
 
@@ -1051,7 +1051,7 @@ contract EdgeChallengeManagerLibTest is Test {
     function testTimeUnrivaledTotalAndUpdateTimerCacheByChildren() public {
         (ChallengeEdge memory edge1, ChallengeEdge memory edge2, bytes32[] memory states1, bytes32[] memory states2) =
             twoRivalsFromLeaves(2, 5, 8);
-        
+
         // create 2 two parent edges
         store.add(edge1);
         vm.roll(block.number + 2);
@@ -1132,28 +1132,18 @@ contract EdgeChallengeManagerLibTest is Test {
     uint256 BIGSTEPHEIGHT = 1 << 4;
     uint256 SMALLSTEPHEIGHT = 1 << 6;
 
-    function addUpLastLevel() internal returns(bytes32 originId, uint256[] memory startHeights) {
+    function addUpLastLevel() internal returns (bytes32 originId, uint256[] memory startHeights) {
         originId = rand.hash();
 
         startHeights = new uint256[](NUM_BIGSTEP_LEVEL + 1);
-        for (uint i = 0; i < NUM_BIGSTEP_LEVEL + 1; i++) {
+        for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL + 1; i++) {
             uint256 startHeight = rand.unsignedInt(BIGSTEPHEIGHT);
             ChallengeEdge memory e1 = ChallengeEdgeLib.newChildEdge(
-                originId,
-                rand.hash(),
-                startHeight,
-                rand.hash(),
-                startHeight + 1,
-                uint8(i)
+                originId, rand.hash(), startHeight, rand.hash(), startHeight + 1, uint8(i)
             );
             store.add(e1);
             ChallengeEdge memory e2 = ChallengeEdgeLib.newChildEdge(
-                originId,
-                e1.startHistoryRoot,
-                startHeight,
-                rand.hash(),
-                startHeight + 1,
-                uint8(i)
+                originId, e1.startHistoryRoot, startHeight, rand.hash(), startHeight + 1, uint8(i)
             );
             store.add(e2);
 
@@ -1165,15 +1155,13 @@ contract EdgeChallengeManagerLibTest is Test {
     function getLayerZeroStepSize(
         uint256 numBigStepLevel,
         uint256 bigStepHeight,
-        uint256 smallStepHeight, 
-        uint256 level)
-        internal
-        returns (uint256)
-    {
-        uint stepSize = 1;
-        uint maxLevelIndex = numBigStepLevel + 1;
-        for(uint256 i = level; i < maxLevelIndex; i++) {
-            if(i == maxLevelIndex - 1) {
+        uint256 smallStepHeight,
+        uint256 level
+    ) internal returns (uint256) {
+        uint256 stepSize = 1;
+        uint256 maxLevelIndex = numBigStepLevel + 1;
+        for (uint256 i = level; i < maxLevelIndex; i++) {
+            if (i == maxLevelIndex - 1) {
                 stepSize *= smallStepHeight;
             } else {
                 stepSize *= bigStepHeight;
@@ -1181,7 +1169,6 @@ contract EdgeChallengeManagerLibTest is Test {
         }
         return stepSize;
     }
-
 
     function confirmByOneStep(uint256 flag) internal {
         uint256 startHeight = rand.unsignedInt(SMALLSTEPHEIGHT);
@@ -1197,7 +1184,7 @@ contract EdgeChallengeManagerLibTest is Test {
             startHeight + 1,
             NUM_BIGSTEP_LEVEL + 1
         );
-        
+
         data.e2 = ChallengeEdgeLib.newChildEdge(
             originId,
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states2, 0, startHeight + 1)),
@@ -1222,13 +1209,9 @@ contract EdgeChallengeManagerLibTest is Test {
 
         uint256 expectedStartMachineStep = startHeight;
         {
-            for (uint i = 1; i < startHeights.length; i++) {
-                expectedStartMachineStep += getLayerZeroStepSize(
-                    NUM_BIGSTEP_LEVEL,
-                    BIGSTEPHEIGHT,
-                    SMALLSTEPHEIGHT, 
-                    i
-                ) * startHeights[i];
+            for (uint256 i = 1; i < startHeights.length; i++) {
+                expectedStartMachineStep +=
+                    getLayerZeroStepSize(NUM_BIGSTEP_LEVEL, BIGSTEPHEIGHT, SMALLSTEPHEIGHT, i) * startHeights[i];
             }
         }
         MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
@@ -1270,7 +1253,9 @@ contract EdgeChallengeManagerLibTest is Test {
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
-        store.confirmEdgeByOneStepProof(eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6);
+        store.confirmEdgeByOneStepProof(
+            eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6
+        );
 
         if (bytes(data.revertArg).length != 0) {
             // for flag one the edge does not exist

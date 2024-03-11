@@ -57,7 +57,7 @@ contract EdgeChallengeManagerTest is Test {
     bytes32 h1 = rand.hash();
     bytes32 h2 = rand.hash();
     uint256 height1 = 32;
-    
+
     address excessStakeReceiver = address(77);
     address nobody = address(78);
 
@@ -88,13 +88,7 @@ contract EdgeChallengeManagerTest is Test {
         MockAssertionChain assertionChain = new MockAssertionChain();
         EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager();
         EdgeChallengeManager challengeManager = EdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(challengeManagerTemplate),
-                    address(new ProxyAdmin()),
-                    ""
-                )
-            )
+            address(new TransparentUpgradeableProxy(address(challengeManagerTemplate), address(new ProxyAdmin()), ""))
         );
         challengeManager.initialize(
             assertionChain,
@@ -103,12 +97,7 @@ contract EdgeChallengeManagerTest is Test {
             2 ** 5,
             2 ** 5,
             2 ** 5,
-            new ERC20Mock(
-                "StakeToken",
-                "ST",
-                address(this),
-                1000000 ether
-            ),
+            new ERC20Mock("StakeToken", "ST", address(this), 1000000 ether),
             excessStakeReceiver,
             NUM_BIGSTEP_LEVEL,
             miniStakeAmounts()
@@ -124,22 +113,10 @@ contract EdgeChallengeManagerTest is Test {
     function testDeployInit() public {
         MockAssertionChain assertionChain = new MockAssertionChain();
         EdgeChallengeManager emt = new EdgeChallengeManager();
-        EdgeChallengeManager ecm = EdgeChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emt),
-                    address(new ProxyAdmin()),
-                    ""
-                )
-            )
-        );
+        EdgeChallengeManager ecm =
+            EdgeChallengeManager(address(new TransparentUpgradeableProxy(address(emt), address(new ProxyAdmin()), "")));
         MockOneStepProofEntry osp = new MockOneStepProofEntry();
-        ERC20Mock erc20 = new ERC20Mock(
-                "StakeToken",
-                "ST",
-                address(this),
-                1000000 ether
-            );
+        ERC20Mock erc20 = new ERC20Mock("StakeToken", "ST", address(this), 1000000 ether);
 
         vm.expectRevert(abi.encodeWithSelector(StakeAmountsMismatch.selector, NUM_BIGSTEP_LEVEL, NUM_BIGSTEP_LEVEL + 2));
         ecm.initialize(
@@ -185,7 +162,16 @@ contract EdgeChallengeManagerTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(EmptyChallengePeriod.selector));
         ecm.initialize(
-            assertionChain, 0, osp, 2 ** 5, 2 ** 5, 2 ** 5, erc20, excessStakeReceiver, NUM_BIGSTEP_LEVEL, miniStakeAmounts()
+            assertionChain,
+            0,
+            osp,
+            2 ** 5,
+            2 ** 5,
+            2 ** 5,
+            erc20,
+            excessStakeReceiver,
+            NUM_BIGSTEP_LEVEL,
+            miniStakeAmounts()
         );
 
         vm.expectRevert(abi.encodeWithSelector(EmptyStakeReceiver.selector));
@@ -1654,7 +1640,9 @@ contract EdgeChallengeManagerTest is Test {
                 if (i % 6 != 0) {
                     ei.challengeManager.updateTimerCacheByChildren(allWinners[i].lowerChildId);
                 } else {
-                    ei.challengeManager.updateTimerCacheByClaim(allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId);
+                    ei.challengeManager.updateTimerCacheByClaim(
+                        allWinners[i].lowerChildId, allWinners[i - 1].lowerChildId
+                    );
                 }
                 ei.challengeManager.updateTimerCacheByChildren(allWinners[i].upperChildId);
             } else {
@@ -1665,10 +1653,7 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 topEdgeId = allWinners[allWinners.length - 1].lowerChildId;
         ei.challengeManager.confirmEdgeByTime(topEdgeId, new bytes32[](0), ei.a1Data);
 
-        assertTrue(
-            ei.challengeManager.getEdge(topEdgeId).status == EdgeStatus.Confirmed,
-            "Edge confirmed"
-        );
+        assertTrue(ei.challengeManager.getEdge(topEdgeId).status == EdgeStatus.Confirmed, "Edge confirmed");
 
         return (ei, allWinners);
     }
@@ -1680,11 +1665,7 @@ contract EdgeChallengeManagerTest is Test {
         for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL + 2; i++) {
             totalAmount += ei.challengeManager.stakeAmounts(i);
         }
-        assertEq(
-            stakeToken.balanceOf(excessStakeReceiver),
-            totalAmount,
-            "Excess stake received"
-        );
+        assertEq(stakeToken.balanceOf(excessStakeReceiver), totalAmount, "Excess stake received");
     }
 
     function testCanRefundStake() external {
