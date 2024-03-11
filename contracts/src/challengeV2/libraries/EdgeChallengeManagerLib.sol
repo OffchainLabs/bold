@@ -481,8 +481,10 @@ library EdgeChallengeManagerLib {
 
     function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint256 newValue) internal returns (bool) {
         uint256 currentAccuTimer = store.edges[edgeId].totalTimeUnrivaledCache;
-        if (newValue > currentAccuTimer) { // only update when increased
-            store.edges[edgeId].totalTimeUnrivaledCache = newValue > type(uint64).max ? type(uint64).max : uint64(newValue);
+        newValue = newValue > type(uint64).max ? type(uint64).max : newValue;
+        // only update when increased
+        if (newValue > currentAccuTimer) {
+            store.edges[edgeId].totalTimeUnrivaledCache = uint64(newValue);
             return true;
         }
         return false;
@@ -638,37 +640,6 @@ library EdgeChallengeManagerLib {
         store.confirmedRivals[mutualId] = edgeId;
     }
 
-    /// @notice Confirm an edge if both its children are already confirmed
-    function confirmEdgeByChildren(EdgeStore storage store, bytes32 edgeId) internal {
-        if (!store.edges[edgeId].exists()) {
-            revert EdgeNotExists(edgeId);
-        }
-
-        bytes32 lowerChildId = store.edges[edgeId].lowerChildId;
-        // Sanity check: it bisect should already enforce that this child exists
-        if (!store.edges[lowerChildId].exists()) {
-            revert EdgeNotExists(lowerChildId);
-        }
-        if (store.edges[lowerChildId].status != EdgeStatus.Confirmed) {
-            revert EdgeNotConfirmed(lowerChildId, store.edges[lowerChildId].status);
-        }
-
-        bytes32 upperChildId = store.edges[edgeId].upperChildId;
-        // Sanity check: it bisect should already enforce that this child exists
-        if (!store.edges[upperChildId].exists()) {
-            revert EdgeNotExists(upperChildId);
-        }
-        if (store.edges[upperChildId].status != EdgeStatus.Confirmed) {
-            revert EdgeNotConfirmed(upperChildId, store.edges[upperChildId].status);
-        }
-
-        // also checks that no other rival has been confirmed
-        setConfirmedRival(store, edgeId);
-
-        // we also check the edge is pending in setConfirmed()
-        store.edges[edgeId].setConfirmed();
-    }
-
     /// @notice Returns the sub edge level of the provided edge level
     /// @param level            The edge level to fetch the next of
     /// @param numBigStepLevel  The number of big step levels in this challenge
@@ -710,40 +681,6 @@ library EdgeChallengeManagerLib {
         }
     }
 
-    /// @notice If a confirmed edge exists whose claim id is equal to this edge, then this edge can be confirmed
-    /// @dev    When zero layer edges are created they reference an edge, or assertion, in the level below. If a zero layer
-    ///         edge is confirmed, it becomes possible to also confirm the edge that it claims
-    /// @param store            The store containing all edges and rivals data
-    /// @param edgeId           The id of the edge to confirm
-    /// @param claimingEdgeId   The id of the edge which has a claimId equal to edgeId
-    /// @param numBigStepLevel  The number of big step levels in this challenge
-    function confirmEdgeByClaim(EdgeStore storage store, bytes32 edgeId, bytes32 claimingEdgeId, uint8 numBigStepLevel)
-        internal
-    {
-        if (!store.edges[edgeId].exists()) {
-            revert EdgeNotExists(edgeId);
-        }
-
-        // the claiming edge is confirmed
-        if (!store.edges[claimingEdgeId].exists()) {
-            revert EdgeNotExists(edgeId);
-        }
-        if (store.edges[claimingEdgeId].status != EdgeStatus.Confirmed) {
-            revert EdgeNotConfirmed(claimingEdgeId, store.edges[claimingEdgeId].status);
-        }
-
-        checkClaimIdLink(store, edgeId, claimingEdgeId, numBigStepLevel);
-        if (edgeId != store.edges[claimingEdgeId].claimId) {
-            revert EdgeClaimMismatch(edgeId, store.edges[claimingEdgeId].claimId);
-        }
-
-        // also checks that no other rival has been confirmed
-        setConfirmedRival(store, edgeId);
-
-        // we also check the edge is pending in setConfirmed()
-        store.edges[edgeId].setConfirmed();
-    }
-
     /// @notice An edge can be confirmed if the total amount of time (in blocks) it and a single chain of its direct ancestors
     ///         has spent unrivaled is greater than the challenge period.
     /// @dev    Edges inherit time from their parents, so the sum of unrivaled timer is compared against the threshold.
@@ -760,8 +697,7 @@ library EdgeChallengeManagerLib {
         bytes32 edgeId,
         bytes32[] memory,
         uint64 claimedAssertionUnrivaledBlocks,
-        uint64 confirmationThresholdBlock,
-        uint8 // unused
+        uint64 confirmationThresholdBlock
     ) internal returns (uint256) {
         if (!store.edges[edgeId].exists()) {
             revert EdgeNotExists(edgeId);
