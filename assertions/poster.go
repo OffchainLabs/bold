@@ -41,6 +41,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
+			srvlog.Info("Attempting to post assertion")
 			if _, err := m.PostAssertion(ctx); err != nil {
 				if !errors.Is(err, solimpl.ErrAlreadyExists) {
 					srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
