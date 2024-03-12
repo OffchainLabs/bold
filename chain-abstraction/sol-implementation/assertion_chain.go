@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -64,7 +63,14 @@ type ReceiptFetcher interface {
 
 // Transactor defines the ability to send transactions to the chain.
 type Transactor interface {
-	SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error)
+	PostSimpleTransaction(
+		ctx context.Context,
+		nonce uint64,
+		to common.Address,
+		calldata []byte,
+		gasLimit uint64,
+		value *big.Int,
+	) (*types.Transaction, error)
 }
 
 // ChainBackendTransactor is a wrapper around a ChainBackend that implements the Transactor interface.
@@ -79,35 +85,27 @@ func NewChainBackendTransactor(backend protocol.ChainBackend) *ChainBackendTrans
 	}
 }
 
-func (d *ChainBackendTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+func (d *ChainBackendTransactor) PostSimpleTransaction(
+	ctx context.Context,
+	nonce uint64,
+	to common.Address,
+	calldata []byte,
+	gasLimit uint64,
+	value *big.Int,
+) (*types.Transaction, error) {
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce: nonce,
+		To:    &to,
+		Value: value,
+		Gas:   gasLimit,
+		Data:  calldata,
+	})
 	return tx, d.ChainBackend.SendTransaction(ctx, tx)
-}
-
-// DataPoster is an interface that allows posting simple transactions without providing a nonce.
-// This is implemented in nitro repository.
-type DataPoster interface {
-	PostSimpleTransactionAutoNonce(ctx context.Context, to common.Address, calldata []byte, gasLimit uint64, value *big.Int) (*types.Transaction, error)
-}
-
-// DataPosterTransactor is a wrapper around a DataPoster that implements the Transactor interface.
-type DataPosterTransactor struct {
-	DataPoster
-}
-
-func NewDataPosterTransactor(dataPoster DataPoster) *DataPosterTransactor {
-	return &DataPosterTransactor{
-		DataPoster: dataPoster,
-	}
-}
-
-func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
-	return d.PostSimpleTransactionAutoNonce(ctx, *tx.To(), tx.Data(), gas, tx.Value())
 }
 
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	transactionLock                          sync.Mutex
 	backend                                  protocol.ChainBackend
 	rollup                                   *rollupgen.RollupCore
 	userLogic                                *rollupgen.RollupUserLogic
@@ -118,6 +116,7 @@ type AssertionChain struct {
 	specChallengeManager                     protocol.SpecChallengeManager
 	averageTimeForBlockCreation              time.Duration
 	transactor                               Transactor
+	nonceManager                             *nonceManager
 }
 
 type Opt func(*AssertionChain)
@@ -156,6 +155,7 @@ func NewAssertionChain(
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
+		nonceManager:                             newNonceManager(copiedOpts.From, time.Millisecond*500, transactor),
 	}
 	for _, opt := range opts {
 		opt(chain)
@@ -185,6 +185,7 @@ func NewAssertionChain(
 		return nil, err
 	}
 	chain.specChallengeManager = specChallengeManager
+	go chain.nonceManager.start(ctx)
 	return chain, nil
 }
 

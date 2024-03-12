@@ -27,6 +27,11 @@ type ChainCommitter interface {
 	Commit() common.Hash
 }
 
+type txRequest struct {
+	tx  *types.Transaction
+	gas uint64
+}
+
 // Runs a callback function meant to write to a chain backend, and if the
 // chain backend supports committing directly, we call the commit function before
 // returning. This function additionally waits for the transaction to complete and returns
@@ -38,8 +43,6 @@ func (a *AssertionChain) transact(
 	backend ChainBackend,
 	fn func(opts *bind.TransactOpts) (*types.Transaction, error),
 ) (*types.Receipt, error) {
-	// a.transactionLock.Lock()
-	// defer a.transactionLock.Unlock()
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
 
@@ -66,20 +69,11 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
-	// estimate, err := backend.SuggestGasPrice(ctx)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "could not suggest gas price")
-	// }
-
-	// // Now, we send the tx with the estimated gas.
-	// opts.GasPrice = bump(estimate)
-	// srvlog.Info(fmt.Sprintf("Gas limit set to %d, and estimated tx gas price %d, bumping to %d", gas, estimate, opts.GasPrice))
-	// opts.GasLimit = gas
 	opts.NoSend = false
-	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
-	if err != nil {
-		return nil, err
-	}
+	a.nonceManager.push(txRequest{
+		tx:  tx,
+		gas: gas,
+	})
 
 	if commiter, ok := backend.(ChainCommitter); ok {
 		commiter.Commit()

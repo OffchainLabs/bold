@@ -5,8 +5,5 @@ go_library(
     srcs = ["safe.go"],
     importpath = "github.com/OffchainLabs/bold/util",
     visibility = ["//visibility:public"],
-    deps = [
-        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
-        "@com_github_ethereum_go_ethereum//rpc",
-    ],
+    deps = ["@com_github_ethereum_go_ethereum//accounts/abi/bind"],
 )
