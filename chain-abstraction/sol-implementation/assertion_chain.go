@@ -75,17 +75,19 @@ type Transactor interface {
 
 // ChainBackendTransactor is a wrapper around a ChainBackend that implements the Transactor interface.
 // It is useful for testing purposes in bold repository.
+type SimpleTransactor interface {
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+}
+
 type ChainBackendTransactor struct {
 	ChainBackend
 }
 
-func NewChainBackendTransactor(backend protocol.ChainBackend) *ChainBackendTransactor {
-	return &ChainBackendTransactor{
-		ChainBackend: backend,
-	}
+func NewChainBackendTransactor(backend ChainBackend) Transactor {
+	return &ChainBackendTransactor{ChainBackend: backend}
 }
 
-func (d *ChainBackendTransactor) PostSimpleTransaction(
+func (cb *ChainBackendTransactor) PostSimpleTransaction(
 	ctx context.Context,
 	nonce uint64,
 	to common.Address,
@@ -93,14 +95,7 @@ func (d *ChainBackendTransactor) PostSimpleTransaction(
 	gasLimit uint64,
 	value *big.Int,
 ) (*types.Transaction, error) {
-	tx := types.NewTx(&types.DynamicFeeTx{
-		Nonce: nonce,
-		To:    &to,
-		Value: value,
-		Gas:   gasLimit,
-		Data:  calldata,
-	})
-	return tx, d.ChainBackend.SendTransaction(ctx, tx)
+	return nil, errors.New("unimplemented")
 }
 
 // AssertionChain is a wrapper around solgen bindings
@@ -155,7 +150,7 @@ func NewAssertionChain(
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
-		nonceManager:                             newNonceManager(copiedOpts.From, time.Millisecond*500, transactor),
+		nonceManager:                             newNonceManager(copiedOpts, time.Second*5, backend, transactor),
 	}
 	for _, opt := range opts {
 		opt(chain)

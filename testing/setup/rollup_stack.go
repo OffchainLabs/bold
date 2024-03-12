@@ -298,7 +298,6 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	chains := make([]*solimpl.AssertionChain, 0)
 	for _, acc := range accs[1:] {
 		var assertionChainBinding *rollupgen.RollupUserLogic

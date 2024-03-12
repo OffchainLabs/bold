@@ -69,15 +69,11 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
-	opts.NoSend = false
 	a.nonceManager.push(txRequest{
 		tx:  tx,
 		gas: gas,
 	})
 
-	if commiter, ok := backend.(ChainCommitter); ok {
-		commiter.Commit()
-	}
 	receipt, err := bind.WaitMined(ctx, backend, tx)
 	if err != nil {
 		return nil, err

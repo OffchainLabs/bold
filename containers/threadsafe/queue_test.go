@@ -38,8 +38,10 @@ func TestQueuePop(t *testing.T) {
 
 	// Test pop on empty queue
 	_ = q.Pop() // Pop remaining element
+	require.Equal(t, 0, q.Len())
 	opt := q.Pop()
-	require.False(t, opt.IsNone())
+	require.True(t, opt.IsNone())
+	require.Equal(t, 0, q.Len())
 }
 
 func TestQueueConcurrency(t *testing.T) {

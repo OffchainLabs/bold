@@ -26,10 +26,7 @@ func (q *Queue[T]) Pop() option.Option[T] {
 	if q.Len() == 0 {
 		return option.None[T]()
 	}
-	var zeroVal T
 	item := q.data[0]
-	copy(q.data[0:], q.data[1:])
-	q.data[len(q.data)-1] = zeroVal // Clear the reference
-	q.data = q.data[:len(q.data)-1]
+	q.data = q.data[1:]
 	return option.Some(item)
 }
