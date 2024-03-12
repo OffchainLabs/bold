@@ -299,9 +299,8 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
 	}
 	// The confirm by timer used to require a list of ancestors, but it has since
 	// been refactored to use them. However, the function signature still needs this empty list.
-	ancestors := make([][32]byte, 0)
 	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, ancestors, challengeV2gen.ExecutionStateData{
+		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, challengeV2gen.ExecutionStateData{
 			ExecutionState: challengeV2gen.ExecutionState{
 				GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
 				MachineStatus: assertionCreation.AfterState.MachineStatus,
