@@ -69,10 +69,13 @@ func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if e.hasRival {
-		e.timeUnrivaled = option.Some(timer)
+	if !timer.IsUint64() {
+		return 0, errors.New("unrivaled timer for edge was a not a uint64")
 	}
-	return timer, nil
+	if e.hasRival {
+		e.timeUnrivaled = option.Some(timer.Uint64())
+	}
+	return timer.Uint64(), nil
 }
 
 func (e *specEdge) HasConfirmedRival(ctx context.Context) (bool, error) {
