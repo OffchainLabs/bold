@@ -1270,9 +1270,11 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.updateTimerCacheByChildren(edges1[3].lowerChildId);
         ei.challengeManager.updateTimerCacheByChildren(edges1[3].upperChildId);
 
-        ei.challengeManager.confirmEdgeByTime(edges1[4].lowerChildId, new bytes32[](0), ei.a1Data);
+        ei.challengeManager.updateTimerCacheByChildren(edges1[4].lowerChildId);
+        ei.challengeManager.updateTimerCacheByChildren(edges1[4].upperChildId);
 
-        assertTrue(ei.challengeManager.getEdge(edges1[4].lowerChildId).status == EdgeStatus.Confirmed, "Edge confirmed");
+        ei.challengeManager.confirmEdgeByTime(edges1[5].lowerChildId, new bytes32[](0), ei.a1Data);
+        assertTrue(ei.challengeManager.getEdge(edges1[5].lowerChildId).status == EdgeStatus.Confirmed, "Edge confirmed");
     }
 
     struct CreateBlockEdgesBisectArgs {
