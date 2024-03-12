@@ -518,7 +518,6 @@ contract EdgeChallengeManagerTest is Test {
 
         vm.roll(challengePeriodBlock + 2);
 
-        bytes32[] memory ancestorEdges = new bytes32[](0);
         ei.challengeManager.confirmEdgeByTime(edgeId, new bytes32[](0), ei.a1Data);
 
         assertTrue(ei.challengeManager.getEdge(edgeId).status == EdgeStatus.Confirmed, "Edge confirmed");
@@ -551,7 +550,6 @@ contract EdgeChallengeManagerTest is Test {
 
         vm.roll(challengePeriodBlock + 2);
 
-        bytes32[] memory ancestorEdges = new bytes32[](0);
         vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, 1));
         ei.challengeManager.updateTimerCacheByChildren(bsbd.edges1[5].lowerChildId);
     }
@@ -564,7 +562,6 @@ contract EdgeChallengeManagerTest is Test {
 
         vm.roll(challengePeriodBlock + 2);
 
-        bytes32[] memory ancestorEdges = new bytes32[](0);
         ChallengeEdge memory ce = ei.challengeManager.getEdge(blockEdges1[0].lowerChildId);
 
         vm.expectRevert(
@@ -1274,6 +1271,7 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.updateTimerCacheByChildren(edges1[4].upperChildId);
 
         ei.challengeManager.confirmEdgeByTime(edges1[5].lowerChildId, new bytes32[](0), ei.a1Data);
+
         assertTrue(ei.challengeManager.getEdge(edges1[5].lowerChildId).status == EdgeStatus.Confirmed, "Edge confirmed");
     }
 
