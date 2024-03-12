@@ -14,8 +14,11 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
+
+var srvlog = log.New("service", "royal-challenge-tree")
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
@@ -158,9 +161,11 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	// if they are able to.
 	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
 		claimedEdgeId := edge.ClaimId().Unwrap()
-		if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
-			return 0, err
-		}
+		go func() {
+			if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
+				srvlog.Info("Could not update inherited timer by claim", log.Ctx{"error": err})
+			}
+		}()
 	}
 
 	onchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
@@ -168,9 +173,11 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		return 0, err
 	}
 	if inheritedTimer > onchainTimer {
-		if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
-			return 0, err
-		}
+		go func() {
+			if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
+				srvlog.Info("Could not update inherited timer by children", log.Ctx{"error": err})
+			}
+		}()
 	}
 	// Otherwise, the edge does not yet have children.
 	return inheritedTimer, nil

@@ -18,6 +18,7 @@ go_library(
         "//layer2-state-provider",
         "//math",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//log",
         "@com_github_pkg_errors//:errors",
     ],
 )

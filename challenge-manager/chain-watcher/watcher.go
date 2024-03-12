@@ -270,20 +270,6 @@ func (w *Watcher) Start(ctx context.Context) {
 		return
 	}
 	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts)
-	})
-	if err != nil {
-		srvlog.Error("Could not check for edge confirmed by children", log.Ctx{"err": err})
-		return
-	}
-	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts)
-	})
-	if err != nil {
-		srvlog.Error("Could not check for edge confirmed by claim", log.Ctx{"err": err})
-		return
-	}
-	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
 	})
 	if err != nil {
@@ -340,16 +326,8 @@ func (w *Watcher) Start(ctx context.Context) {
 				srvlog.Error("Could not check for edge confirmed by osp", log.Ctx{"err": err})
 				continue
 			}
-			if err = w.checkForEdgeConfirmedByChildren(ctx, filterer, filterOpts); err != nil {
-				srvlog.Error("Could not check for edge confirmed by children", log.Ctx{"err": err})
-				continue
-			}
 			if err = w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts); err != nil {
 				srvlog.Error("Could not check for edge confirmed by time", log.Ctx{"err": err})
-				continue
-			}
-			if err = w.checkForEdgeConfirmedByClaim(ctx, filterer, filterOpts); err != nil {
-				srvlog.Error("Could not check for edge confirmed by claim", log.Ctx{"err": err})
 				continue
 			}
 			fromBlock = toBlock
@@ -659,82 +637,6 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 			return processErr
 		}
 		edgeConfirmedByTimeCounter.Inc(1)
-	}
-	return nil
-}
-
-// Filters for edge confirmed by children within a range.
-// and processes any events found.
-func (w *Watcher) checkForEdgeConfirmedByChildren(
-	ctx context.Context,
-	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
-	filterOpts *bind.FilterOpts,
-) error {
-	it, err := filterer.FilterEdgeConfirmedByChildren(filterOpts, nil, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err = it.Close(); err != nil {
-			srvlog.Error("Could not close filter iterator", log.Ctx{"err": err})
-		}
-	}()
-	for it.Next() {
-		if it.Error() != nil {
-			return errors.Wrapf(
-				err,
-				"got iterator error when scanning edge creations from block %d to %d",
-				filterOpts.Start,
-				*filterOpts.End,
-			)
-		}
-		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
-				Hash: it.Event.EdgeId,
-			})
-		})
-		if processErr != nil {
-			return processErr
-		}
-		edgeConfirmedByChildrenCounter.Inc(1)
-	}
-	return nil
-}
-
-// Filters for edge confirmed by claim within a range.
-// and processes any events found.
-func (w *Watcher) checkForEdgeConfirmedByClaim(
-	ctx context.Context,
-	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
-	filterOpts *bind.FilterOpts,
-) error {
-	it, err := filterer.FilterEdgeConfirmedByClaim(filterOpts, nil, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err = it.Close(); err != nil {
-			srvlog.Error("Could not close filter iterator", log.Ctx{"err": err})
-		}
-	}()
-	for it.Next() {
-		if it.Error() != nil {
-			return errors.Wrapf(
-				err,
-				"got iterator error when scanning edge creations from block %d to %d",
-				filterOpts.Start,
-				*filterOpts.End,
-			)
-		}
-		_, processErr := retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, w.processEdgeConfirmation(ctx, protocol.EdgeId{
-				Hash: it.Event.EdgeId,
-			})
-		})
-		if processErr != nil {
-			return processErr
-		}
-		edgeConfirmedByClaimCounter.Inc(1)
 	}
 	return nil
 }
