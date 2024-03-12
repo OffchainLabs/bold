@@ -1614,7 +1614,7 @@ contract EdgeChallengeManagerTest is Test {
 
         return (ei, allWinners);
     }
-    
+
     function _updateTimers(EdgeInitData memory ei, BisectionChildren[] memory allWinners) internal {
         ei.challengeManager.updateTimerCacheByChildren(allWinners[0].upperChildId);
         for (uint256 i = 1; i < allWinners.length; i++) {
@@ -1669,7 +1669,9 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertRefundStakeNotLayerZero() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
         vm.expectRevert(
-            abi.encodeWithSelector(EdgeNotConfirmed.selector, allWinners[allWinners.length - 2].lowerChildId, EdgeStatus.Pending)
+            abi.encodeWithSelector(
+                EdgeNotConfirmed.selector, allWinners[allWinners.length - 2].lowerChildId, EdgeStatus.Pending
+            )
         );
         ei.challengeManager.refundStake(allWinners[allWinners.length - 2].lowerChildId);
     }
