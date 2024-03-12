@@ -76,9 +76,7 @@ func (a *AssertionChain) transact(
 	// srvlog.Info(fmt.Sprintf("Gas limit set to %d, and estimated tx gas price %d, bumping to %d", gas, estimate, opts.GasPrice))
 	// opts.GasLimit = gas
 	opts.NoSend = false
-	a.transactionLock.Lock()
 	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
-	a.transactionLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
