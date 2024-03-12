@@ -39,6 +39,9 @@ contract EdgeChallengeManagerTest is Test {
     ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
 
     uint8 public NUM_BIGSTEP_LEVEL = 3;
+    uint256 public START_BLOCK = block.number;
+    uint256 public NUM_BLOCK_UNRIVALED = 2;
+    uint256 public NUM_BLOCK_WAIT = 3;
 
     bytes32 genesisAssertionHash;
 
@@ -516,7 +519,7 @@ contract EdgeChallengeManagerTest is Test {
     function testCanConfirmByTime() public {
         (EdgeInitData memory ei,,, bytes32 edgeId) = testCanCreateEdgeWithStake();
 
-        vm.roll(challengePeriodBlock + 2);
+        _safeVmRoll(START_BLOCK + challengePeriodBlock);
 
         ei.challengeManager.confirmEdgeByTime(edgeId, new bytes32[](0), ei.a1Data);
 
@@ -529,7 +532,7 @@ contract EdgeChallengeManagerTest is Test {
             CreateBlockEdgesBisectArgs(ei.challengeManager, ei.a1, ei.a2, ei.a1State, ei.a2State, false)
         );
 
-        vm.roll(challengePeriodBlock + 2);
+        _safeVmRoll(START_BLOCK + challengePeriodBlock);
 
         ChallengeEdge memory ce = ei.challengeManager.getEdge(blockEdges1[0].lowerChildId);
 
@@ -542,9 +545,9 @@ contract EdgeChallengeManagerTest is Test {
     function testCanConfirmByChildren() public returns (EdgeInitData memory, bytes32) {
         (EdgeInitData memory ei, bytes32[] memory states1,, bytes32 edge1Id) = testCanCreateEdgeWithStake();
 
-        vm.roll(block.number + 1);
+        _safeVmRoll(block.number + NUM_BLOCK_UNRIVALED);
 
-        assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+        assertEq(ei.challengeManager.timeUnrivaled(edge1Id), NUM_BLOCK_UNRIVALED, "Edge1 timer");
         {
             (bytes32[] memory states2, bytes32[] memory exp2) =
                 appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(ei.a2State), height1);
@@ -566,14 +569,14 @@ contract EdgeChallengeManagerTest is Test {
                 })
             );
 
-            vm.roll(block.number + 2);
-            assertEq(ei.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+            _safeVmRoll(block.number + NUM_BLOCK_WAIT);
+            assertEq(ei.challengeManager.timeUnrivaled(edge1Id), NUM_BLOCK_UNRIVALED, "Edge1 timer");
             assertEq(ei.challengeManager.timeUnrivaled(edge2Id), 0, "Edge2 timer");
         }
 
         BisectionChildren memory children = bisect(ei.challengeManager, edge1Id, states1, 16, states1.length - 1);
 
-        vm.roll(challengePeriodBlock + 5);
+        _safeVmRoll(block.number + challengePeriodBlock);
 
         bytes32[] memory ancestors = new bytes32[](1);
         ancestors[0] = edge1Id;
@@ -611,7 +614,7 @@ contract EdgeChallengeManagerTest is Test {
 
         BisectionChildren memory children = bisect(ei.challengeManager, edge2Id, states2, 16, states2.length - 1);
         BisectionChildren memory children2 = bisect(ei.challengeManager, children.lowerChildId, states2, 8, 16);
-        vm.roll(block.number + challengePeriodBlock + 5);
+        _safeVmRoll(block.number + challengePeriodBlock + 5);
         bytes32[] memory ancestors = new bytes32[](2);
         ancestors[0] = children.lowerChildId;
         ancestors[1] = edge2Id;
@@ -1218,7 +1221,7 @@ contract EdgeChallengeManagerTest is Test {
             })
         );
 
-        vm.roll(challengePeriodBlock + 5);
+        _safeVmRoll(block.number + challengePeriodBlock);
         bytes32[] memory ancestors = new bytes32[](edges1.length);
         for (uint256 i = 0; i < edges1.length; i++) {
             ancestors[i] = edges1[i].lowerChildId;
@@ -1303,15 +1306,14 @@ contract EdgeChallengeManagerTest is Test {
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(args.endState1), height1);
         bytes32 edge1Id = createLayerZeroEdge(args.challengeManager, args.claim1Id, args.endState1, states1, exp1);
 
-        vm.roll(block.number + 1);
-
-        assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+        _safeVmRoll(block.number + NUM_BLOCK_UNRIVALED);
+        assertEq(args.challengeManager.timeUnrivaled(edge1Id), NUM_BLOCK_UNRIVALED, "Edge1 timer");
 
         (bytes32[] memory states2, bytes32[] memory exp2) =
             appendRandomStatesBetween(genesisStates(), StateToolsLib.mockMachineHash(args.endState2), height1);
         bytes32 edge2Id = createLayerZeroEdge(args.challengeManager, args.claim2Id, args.endState2, states2, exp2);
 
-        vm.roll(block.number + 2);
+        _safeVmRoll(block.number + NUM_BLOCK_WAIT);
 
         (BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = bisectToForkOnly(
             BisectToForkOnlyArgs(args.challengeManager, edge1Id, edge2Id, states1, states2, args.skipLast)
@@ -1360,9 +1362,8 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        vm.roll(block.number + 1);
-
-        assertEq(args.challengeManager.timeUnrivaled(edge1Id), 1, "Edge1 timer");
+        _safeVmRoll(block.number + NUM_BLOCK_UNRIVALED);
+        assertEq(args.challengeManager.timeUnrivaled(edge1Id), NUM_BLOCK_UNRIVALED, "Edge1 timer");
 
         (bytes32[] memory states2, bytes32[] memory exp2) =
             appendRandomStatesBetween(genesisStates(), args.endState2, height1);
@@ -1400,7 +1401,7 @@ contract EdgeChallengeManagerTest is Test {
             );
         }
 
-        vm.roll(block.number + 2);
+        _safeVmRoll(block.number + NUM_BLOCK_WAIT);
 
         (BisectionChildren[6] memory edges1, BisectionChildren[6] memory edges2) = bisectToForkOnly(
             BisectToForkOnlyArgs(args.challengeManager, edge1Id, edge2Id, states1, states2, args.skipLast)
@@ -1448,7 +1449,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        vm.roll(challengePeriodBlock + 11);
+        _safeVmRoll(block.number + challengePeriodBlock);
 
         BisectionChildren[] memory allWinners =
             concat(concat(toDynamic(ssbd.edges1), toDynamic(bsbd.edges1)), toDynamic(blockEdges1));
@@ -1577,8 +1578,7 @@ contract EdgeChallengeManagerTest is Test {
             )
         );
 
-        uint256 delta = 5 + NUM_BIGSTEP_LEVEL * 2; // compensate for time before each layerzero edge is created
-        vm.roll(challengePeriodBlock + delta);
+        _safeVmRoll(START_BLOCK + (NUM_BIGSTEP_LEVEL + 2) * (NUM_BLOCK_WAIT) + challengePeriodBlock);
 
         BisectionChildren[] memory allWinners = toDynamic(local.smallStepBisection.edges1);
         for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL; ++i) {
@@ -1680,8 +1680,7 @@ contract EdgeChallengeManagerTest is Test {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
 
         // advance just enough to allow confirmEdgeByTime
-        // we waited 2 block per bigstep level and inherited 1 block from smallstep
-        vm.roll(block.number + NUM_BIGSTEP_LEVEL * 2 - 1);
+        _safeVmRoll(block.number + (NUM_BIGSTEP_LEVEL) * NUM_BLOCK_UNRIVALED);
         _updateTimers(ei, allWinners);
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
@@ -1699,8 +1698,7 @@ contract EdgeChallengeManagerTest is Test {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
 
         // advance just enough to allow confirmEdgeByTime
-        // we waited 2 block per bigstep level
-        vm.roll(block.number + NUM_BIGSTEP_LEVEL * 2); // advance just enough to allow confirmEdgeByTime
+        _safeVmRoll(block.number + (NUM_BIGSTEP_LEVEL + 1) * NUM_BLOCK_UNRIVALED);
         _updateTimers(ei, allWinners);
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
@@ -1790,6 +1788,11 @@ contract EdgeChallengeManagerTest is Test {
             bytes32 childId = blockEdges2[i].lowerChildId;
             assertEq(ei.challengeManager.getPrevAssertionHash(childId), ei.genesis);
         }
+    }
+
+    function _safeVmRoll(uint256 target) internal {
+        require(target >= block.number, "BACKWARD_VMROLL");
+        vm.roll(target);
     }
 }
 
