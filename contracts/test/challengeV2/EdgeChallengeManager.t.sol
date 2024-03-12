@@ -617,13 +617,15 @@ contract EdgeChallengeManagerTest is Test {
         ancestors[1] = edge2Id;
         ei.challengeManager.updateTimerCacheByChildren(children2.lowerChildId);
         ei.challengeManager.updateTimerCacheByChildren(children2.upperChildId);
-        vm.expectRevert(); // should not be able to confirm when a rival is already confirmed
         ei.challengeManager.updateTimerCacheByChildren(children.lowerChildId);
         ancestors = new bytes32[](1);
         ancestors[0] = edge2Id;
         ei.challengeManager.updateTimerCacheByChildren(children.upperChildId);
-        vm.expectRevert(); // should not be able to confirm when a rival is already confirmed
         ei.challengeManager.updateTimerCacheByChildren(edge2Id);
+
+        vm.expectRevert(abi.encodeWithSelector(RivalEdgeConfirmed.selector, edge2Id, edge1Id));
+        ei.challengeManager.confirmEdgeByTime(edge2Id, ancestors, ei.a2Data);
+
         assertFalse(ei.challengeManager.getEdge(edge1Id).status == ei.challengeManager.getEdge(edge2Id).status);
         assertTrue(edge1Id != edge2Id, "Same edge");
         assertEq(
