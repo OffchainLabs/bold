@@ -358,36 +358,6 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	)
 }
 
-func (e *specEdge) ConfirmByChildren(ctx context.Context) error {
-	s, err := e.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if s == protocol.EdgeConfirmed {
-		return nil
-	}
-
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByChildren(opts, e.id)
-	})
-	return err
-}
-
-func (e *specEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId) error {
-	s, err := e.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if s == protocol.EdgeConfirmed {
-		return nil
-	}
-
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByClaim(opts, e.id, claimId)
-	})
-	return err
-}
-
 // TopLevelClaimHeight gets the height at the BlockChallenge level that originated a subchallenge.
 // For example, if two validators open a subchallenge S at edge A in a BlockChallenge, the TopLevelClaimHeight of S is the height of A.
 // If two validators open a subchallenge S' at edge B in BigStepChallenge, the TopLevelClaimHeight
