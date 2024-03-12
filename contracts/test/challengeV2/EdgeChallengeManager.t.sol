@@ -1679,7 +1679,9 @@ contract EdgeChallengeManagerTest is Test {
     function testRefundStakeBigStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
 
-        vm.roll(block.number + 3); // advance just enough to allow confirmEdgeByTime
+        // advance just enough to allow confirmEdgeByTime
+        // we waited 2 block per bigstep level and inherited 1 block from smallstep
+        vm.roll(block.number + NUM_BIGSTEP_LEVEL * 2 - 1);
         _updateTimers(ei, allWinners);
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
@@ -1696,7 +1698,9 @@ contract EdgeChallengeManagerTest is Test {
     function testRefundStakeSmallStep() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
 
-        vm.roll(block.number + 4); // advance just enough to allow confirmEdgeByTime
+        // advance just enough to allow confirmEdgeByTime
+        // we waited 2 block per bigstep level
+        vm.roll(block.number + NUM_BIGSTEP_LEVEL * 2); // advance just enough to allow confirmEdgeByTime
         _updateTimers(ei, allWinners);
 
         IERC20 stakeToken = ei.challengeManager.stakeToken();
