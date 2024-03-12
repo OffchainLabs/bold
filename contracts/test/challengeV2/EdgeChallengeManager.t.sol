@@ -554,7 +554,7 @@ contract EdgeChallengeManagerTest is Test {
         ei.challengeManager.updateTimerCacheByChildren(bsbd.edges1[5].lowerChildId);
     }
 
-    function testCanConfirmByTimeLayerZero() public {
+    function testCanConfirmByTimeNotLayerZero() public {
         EdgeInitData memory ei = deployAndInit();
         (,, BisectionChildren[6] memory blockEdges1,) = createBlockEdgesAndBisectToFork(
             CreateBlockEdgesBisectArgs(ei.challengeManager, ei.a1, ei.a2, ei.a1State, ei.a2State, false)
@@ -567,7 +567,7 @@ contract EdgeChallengeManagerTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(EdgeNotLayerZero.selector, blockEdges1[0].lowerChildId, ce.staker, ce.claimId)
         );
-        ei.challengeManager.updateTimerCacheByChildren(blockEdges1[0].lowerChildId);
+        ei.challengeManager.confirmEdgeByTime(blockEdges1[0].lowerChildId, new bytes32[](0), ei.a1Data);
     }
 
     function testCanConfirmByChildren() public returns (EdgeInitData memory, bytes32) {
