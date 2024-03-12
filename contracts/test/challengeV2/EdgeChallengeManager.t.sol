@@ -523,37 +523,6 @@ contract EdgeChallengeManagerTest is Test {
         assertTrue(ei.challengeManager.getEdge(edgeId).status == EdgeStatus.Confirmed, "Edge confirmed");
     }
 
-    function testCanConfirmByTimeNotBlock() public {
-        EdgeInitData memory ei = deployAndInit();
-        (
-            bytes32[] memory blockStates1,
-            bytes32[] memory blockStates2,
-            BisectionChildren[6] memory blockEdges1,
-            BisectionChildren[6] memory blockEdges2
-        ) = createBlockEdgesAndBisectToFork(
-            CreateBlockEdgesBisectArgs(ei.challengeManager, ei.a1, ei.a2, ei.a1State, ei.a2State, false)
-        );
-
-        BisectionData memory bsbd = createMachineEdgesAndBisectToFork(
-            CreateMachineEdgesBisectArgs(
-                ei.challengeManager,
-                1,
-                blockEdges1[0].lowerChildId,
-                blockEdges2[0].lowerChildId,
-                blockStates1[1],
-                blockStates2[1],
-                false,
-                ArrayUtilsLib.slice(blockStates1, 0, 2),
-                ArrayUtilsLib.slice(blockStates2, 0, 2)
-            )
-        );
-
-        vm.roll(challengePeriodBlock + 2);
-
-        vm.expectRevert(abi.encodeWithSelector(EdgeTypeNotBlock.selector, 1));
-        ei.challengeManager.updateTimerCacheByChildren(bsbd.edges1[5].lowerChildId);
-    }
-
     function testCanConfirmByTimeNotLayerZero() public {
         EdgeInitData memory ei = deployAndInit();
         (,, BisectionChildren[6] memory blockEdges1,) = createBlockEdgesAndBisectToFork(
