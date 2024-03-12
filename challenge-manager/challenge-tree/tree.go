@@ -14,7 +14,6 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -161,17 +160,17 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	// Edges that claim another edge in the level above update the inherited timer onchain
 	// if they are able to.
 	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-		claimedEdgeId := edge.ClaimId().Unwrap()
-		go func() {
-			if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
-				srvlog.Error("Could not update inherited timer by claim", log.Ctx{"error": err})
-				return
-			}
-			srvlog.Info("Updated inherited timer by claim", log.Ctx{
-				"claimedEdgeId": common.Hash(claimedEdgeId),
-				"edgeId":        edgeId,
-			})
-		}()
+		// claimedEdgeId := edge.ClaimId().Unwrap()
+		// go func() {
+		// 	if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
+		// 		srvlog.Error("Could not update inherited timer by claim", log.Ctx{"error": err})
+		// 		return
+		// 	}
+		// 	srvlog.Info("Updated inherited timer by claim", log.Ctx{
+		// 		"claimedEdgeId": common.Hash(claimedEdgeId),
+		// 		"edgeId":        edgeId,
+		// 	})
+		// }()
 	}
 
 	onchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
@@ -179,29 +178,29 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		return 0, err
 	}
 	if inheritedTimer > onchainTimer {
-		go func() {
-			if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
-				srvlog.Error("Could not update inherited timer by children", log.Ctx{"error": err})
-				return
-			}
-			srvlog.Info("Updated inherited timer by children", log.Ctx{
-				"inheritedTimer": inheritedTimer,
-				"onchainTimer":   onchainTimer,
-				"edgeId":         edgeId,
-			})
-			newOnchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
-			if err != nil {
-				srvlog.Error("Could not get new onchain timer", log.Ctx{"error": err})
-				return
-			}
-			if newOnchainTimer != inheritedTimer {
-				srvlog.Warn("Updated onchain timer for edge does not match what was expected", log.Ctx{
-					"inheritedTimer": inheritedTimer,
-					"onchainTimer":   onchainTimer,
-					"edgeId":         edgeId,
-				})
-			}
-		}()
+		// go func() {
+		// 	if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
+		// 		srvlog.Error("Could not update inherited timer by children", log.Ctx{"error": err})
+		// 		return
+		// 	}
+		// 	srvlog.Info("Updated inherited timer by children", log.Ctx{
+		// 		"inheritedTimer": inheritedTimer,
+		// 		"onchainTimer":   onchainTimer,
+		// 		"edgeId":         edgeId,
+		// 	})
+		// 	newOnchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
+		// 	if err != nil {
+		// 		srvlog.Error("Could not get new onchain timer", log.Ctx{"error": err})
+		// 		return
+		// 	}
+		// 	if newOnchainTimer != inheritedTimer {
+		// 		srvlog.Warn("Updated onchain timer for edge does not match what was expected", log.Ctx{
+		// 			"inheritedTimer": inheritedTimer,
+		// 			"onchainTimer":   onchainTimer,
+		// 			"edgeId":         edgeId,
+		// 		})
+		// 	}
+		// }()
 	}
 	// Otherwise, the edge does not yet have children.
 	return inheritedTimer, nil
