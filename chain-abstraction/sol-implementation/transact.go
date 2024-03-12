@@ -69,21 +69,22 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
-	opts.GasLimit = gas
-	opts.NoSend = false
-	txer, _ := a.transactor.(SimpleTransactor)
-	if err = txer.SendTransaction(ctx, tx); err != nil {
-		return nil, err
-	}
-	// a.nonceManager.push(txRequest{
-	// 	tx:  tx,
-	// 	gas: gas,
-	// })
+	// opts.GasLimit = gas
+	// opts.NoSend = false
+	// txer, _ := a.transactor.(SimpleTransactor)
+	// if err = txer.SendTransaction(ctx, tx); err != nil {
+	// 	return nil, err
+	// }
+	a.nonceManager.push(txRequest{
+		tx:  tx,
+		gas: gas,
+	})
 
 	receipt, err := bind.WaitMined(ctx, backend, tx)
 	if err != nil {
 		return nil, err
 	}
+	srvlog.Info("Mined")
 	// receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	// if err != nil {
 	// 	return nil, err
