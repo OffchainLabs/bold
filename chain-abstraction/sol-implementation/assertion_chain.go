@@ -150,7 +150,7 @@ func NewAssertionChain(
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
-		nonceManager:                             newNonceManager(copiedOpts, time.Second*5, backend, transactor),
+		nonceManager:                             newNonceManager(copiedOpts, time.Millisecond*100, backend, transactor),
 	}
 	for _, opt := range opts {
 		opt(chain)
