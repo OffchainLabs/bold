@@ -103,10 +103,6 @@ func (a *AssertionChain) transact(
 	return receipt, nil
 }
 
-func bump(suggested *big.Int) *big.Int {
-	return new(big.Int).Mul(suggested, big.NewInt(2))
-}
-
 // waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
 func (a *AssertionChain) waitForTxToBeSafe(
 	ctx context.Context,
