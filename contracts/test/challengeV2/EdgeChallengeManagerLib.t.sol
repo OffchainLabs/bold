@@ -147,25 +147,9 @@ contract EdgeChallengeManagerLibAccess {
     function confirmEdgeByTime(
         bytes32 edgeId,
         uint64 claimedAssertionUnrivaledBlocks,
-<<<<<<< HEAD
-        uint64 confirmationThresholdBlock,
-        uint8 numBigStepLevel
-    ) public returns (uint256) {
-        return store.confirmEdgeByTime(
-            edgeId, ancestorEdgeIds, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock, numBigStepLevel
-        );
-||||||| 6afb5c1f
-        uint64 confirmationThresholdBlock,
-        uint8 numBigStepLevel
-    ) public returns (uint64) {
-        return store.confirmEdgeByTime(
-            edgeId, ancestorEdgeIds, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock, numBigStepLevel
-        );
-=======
         uint64 confirmationThresholdBlock
     ) public returns (uint256) {
         return store.confirmEdgeByTime(edgeId, claimedAssertionUnrivaledBlocks, confirmationThresholdBlock);
->>>>>>> main
     }
 
     function confirmEdgeByOneStepProof(
