@@ -768,9 +768,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(
-            data.e1Id,
-            new bytes32[](0),
-            ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+            data.e1Id, ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + userRollup.challengeGracePeriodBlocks());
@@ -798,9 +796,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(
-            data.e1Id,
-            new bytes32[](0),
-            ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+            data.e1Id, ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + userRollup.challengeGracePeriodBlocks() - 1);

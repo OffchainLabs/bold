@@ -335,12 +335,8 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	if err != nil {
 		return err
 	}
-	ancestors := make([][32]byte, len(ancestorIds))
-	for i, r := range ancestorIds {
-		ancestors[i] = r.Hash
-	}
 	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, ancestors, challengeV2gen.ExecutionStateData{
+		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, challengeV2gen.ExecutionStateData{
 			ExecutionState: challengeV2gen.ExecutionState{
 				GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
 				MachineStatus: assertionCreation.AfterState.MachineStatus,

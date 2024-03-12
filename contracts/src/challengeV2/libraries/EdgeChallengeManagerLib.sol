@@ -700,7 +700,6 @@ library EdgeChallengeManagerLib {
     function confirmEdgeByTime(
         EdgeStore storage store,
         bytes32 edgeId,
-        bytes32[] memory,
         uint64 claimedAssertionUnrivaledBlocks,
         uint64 confirmationThresholdBlock
     ) internal returns (uint256) {
