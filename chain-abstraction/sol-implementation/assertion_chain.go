@@ -102,7 +102,9 @@ func NewDataPosterTransactor(dataPoster DataPoster) *DataPosterTransactor {
 }
 
 func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
-	d.fifo.Lock()
+	for !d.fifo.Lock() {
+		<-time.After(100 * time.Millisecond)
+	}
 	defer d.fifo.Unlock()
 	return d.PostSimpleTransactionAutoNonce(ctx, *tx.To(), tx.Data(), gas, tx.Value())
 }

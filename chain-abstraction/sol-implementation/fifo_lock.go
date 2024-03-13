@@ -17,7 +17,7 @@ func NewFIFO(capacity int) *FIFO {
 	}
 }
 
-func (f *FIFO) Lock() {
+func (f *FIFO) Lock() bool {
 	waitCh := make(chan struct{})
 	f.lock.Lock()
 	select {
@@ -27,11 +27,16 @@ func (f *FIFO) Lock() {
 	// If the queue is not empty, we need to wait our turn
 	default:
 		// We add our wait channel to the wait queue
+		if len(f.waitQueue) == cap(f.waitQueue) {
+			f.lock.Unlock()
+			return false
+		}
 		f.waitQueue <- waitCh
 		f.lock.Unlock()
 		// We wait for our turn
 		<-waitCh
 	}
+	return true
 }
 
 func (f *FIFO) Unlock() {
