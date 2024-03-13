@@ -407,7 +407,7 @@ func NewSpecChallengeManager(
 		filterer:                        &managerBinding.EdgeChallengeManagerFilterer,
 		numBigStepLevel:                 numBigStepLevel,
 		challengePeriodBlocks:           challengePeriodBlocks,
-		totalTimeUnrivaledCacheByEdgeId: threadsafe.NewMap[protocol.EdgeId, uint64](),
+		totalTimeUnrivaledCacheByEdgeId: threadsafe.NewMap[protocol.EdgeId, uint64](threadsafe.MapWithMetric[protocol.EdgeId, uint64]("totalTimeUnrivaledCacheByEdgeId")),
 	}, nil
 }
 
