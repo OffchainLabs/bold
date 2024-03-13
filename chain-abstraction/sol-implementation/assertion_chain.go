@@ -63,7 +63,7 @@ type ReceiptFetcher interface {
 
 // Transactor defines the ability to send transactions to the chain.
 type Transactor interface {
-	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) error
 }
 
 type ChainBackendTransactor struct {

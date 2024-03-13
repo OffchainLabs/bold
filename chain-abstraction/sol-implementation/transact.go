@@ -65,14 +65,14 @@ func (a *AssertionChain) transact(
 
 	// Estimate the gas required for the transaction. This will catch errors early
 	// without needing to pay for the transaction and waste funds.
-	_, err = backend.EstimateGas(ctx, msg)
+	gas, err := backend.EstimateGas(ctx, msg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
 	// opts.GasLimit = gas
 	// opts.NoSend = false
 	// txer, _ := a.transactor.(SimpleTransactor)
-	if err = a.transactor.SendTransaction(ctx, tx); err != nil {
+	if err = a.transactor.SendTransaction(ctx, tx, gas); err != nil {
 		return nil, err
 	}
 	// a.nonceManager.push(txRequest{
