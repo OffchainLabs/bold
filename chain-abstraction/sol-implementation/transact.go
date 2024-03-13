@@ -80,6 +80,9 @@ func (a *AssertionChain) transact(
 	// 	gas: gas,
 	// })
 
+	if commiter, ok := backend.(ChainCommitter); ok {
+		commiter.Commit()
+	}
 	receipt, err := bind.WaitMined(ctx, backend, tx)
 	if err != nil {
 		return nil, err
