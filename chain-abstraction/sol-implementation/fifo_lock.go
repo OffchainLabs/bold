@@ -29,6 +29,7 @@ func (f *FIFO) Lock() bool {
 		// We add our wait channel to the wait queue
 		if len(f.waitQueue) == cap(f.waitQueue) {
 			f.lock.Unlock()
+			// If the wait queue is full, lock acquisition fails
 			return false
 		}
 		f.waitQueue <- waitCh
@@ -36,6 +37,7 @@ func (f *FIFO) Lock() bool {
 		// We wait for our turn
 		<-waitCh
 	}
+	// Lock acquisition succeeded
 	return true
 }
 

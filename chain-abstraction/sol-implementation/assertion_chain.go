@@ -102,6 +102,7 @@ func NewDataPosterTransactor(dataPoster DataPoster) *DataPosterTransactor {
 }
 
 func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+	// Try to acquire lock and if it fails, wait for a bit and try again.
 	for !d.fifo.Lock() {
 		<-time.After(100 * time.Millisecond)
 	}
