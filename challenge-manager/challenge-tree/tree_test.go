@@ -324,7 +324,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 			assertionHash: protocol.AssertionHash{},
 			mockManager:   &mocks.MockSpecChallengeManager{},
 		}
-		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
+		m.mockManager.On("UpdateInheritedTimerByChildrenOffChain", ctx, edge.Id(), uint64(9)).Return(nil)
 		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		ht.metadataReader = m
 		ht.edges.Put(edge.Id(), edge)
@@ -349,7 +349,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		m.mockManager.On("InheritedTimer", ctx, lowerChild.Id()).Return(uint64(5), nil)
 		m.mockManager.On("InheritedTimer", ctx, upperChild.Id()).Return(uint64(2), nil)
-		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
+		m.mockManager.On("UpdateInheritedTimerByChildrenOffChain", ctx, edge.Id(), uint64(11)).Return(nil)
 		ht.metadataReader = m
 		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
 		require.NoError(t, err)
@@ -372,7 +372,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
 		m.mockManager.On("InheritedTimer", ctx, lowerChild.Id()).Return(uint64(math.MaxUint64), nil)
 		m.mockManager.On("InheritedTimer", ctx, upperChild.Id()).Return(uint64(math.MaxUint64), nil)
-		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
+		m.mockManager.On("UpdateInheritedTimerByChildrenOffChain", ctx, edge.Id(), uint64(math.MaxUint64)).Return(nil)
 		ht.metadataReader = m
 		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
 		require.NoError(t, err)
@@ -391,8 +391,8 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		ht.edges.Put(claimedEdge.Id(), claimedEdge)
 		// Expect this function is called.
 		m.mockManager.On("InheritedTimer", ctx, edge.Id()).Return(uint64(0), nil)
-		m.mockManager.On("UpdateInheritedTimerByClaim", ctx, edge.Id(), edge.ClaimId().Unwrap()).Return(nil)
-		m.mockManager.On("UpdateInheritedTimerByChildren", ctx, edge.Id()).Return(nil)
+		m.mockManager.On("UpdateInheritedTimerByClaimOffChain", ctx, edge.Id(), uint64(8), edge.ClaimId().Unwrap()).Return(nil)
+		m.mockManager.On("UpdateInheritedTimerByChildrenOffChain", ctx, edge.Id(), uint64(8)).Return(nil)
 		ht.metadataReader = m
 		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
 		require.NoError(t, err)

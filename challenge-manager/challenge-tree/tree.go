@@ -161,7 +161,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	// if they are able to.
 	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
 		claimedEdgeId := edge.ClaimId().Unwrap()
-		if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, timeUnrivaled, claimedEdgeId); err != nil {
+		if err = chalManager.UpdateInheritedTimerByClaimOffChain(ctx, edgeId, timeUnrivaled, claimedEdgeId); err != nil {
 			srvlog.Info("Could not update inherited timer by claim", log.Ctx{"error": err})
 		}
 	}
@@ -171,7 +171,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		return 0, err
 	}
 	if inheritedTimer > onchainTimer {
-		if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId, inheritedTimer); err != nil {
+		if err = chalManager.UpdateInheritedTimerByChildrenOffChain(ctx, edgeId, inheritedTimer); err != nil {
 			srvlog.Info("Could not update inherited timer by children", log.Ctx{"error": err})
 		}
 	}

@@ -595,7 +595,7 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	return protocol.EdgeId{Hash: id}, err
 }
 
-func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
+func (cm *specChallengeManager) UpdateInheritedTimerByChildrenOffChain(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 	timeUnrivaledTotal uint64,
@@ -611,7 +611,54 @@ func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
 	return nil
 }
 
+func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+) error {
+	if _, err := cm.assertionChain.transact(
+		ctx,
+		cm.assertionChain.backend,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return cm.writer.UpdateTimerCacheByChildren(
+				opts,
+				edgeId.Hash,
+			)
+		}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not update inherited timer for edge by children %#x",
+			edgeId,
+		)
+	}
+	return nil
+}
+
 func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
+	ctx context.Context,
+	claimingEdgeId protocol.EdgeId,
+	claimId protocol.ClaimId,
+) error {
+	if _, err := cm.assertionChain.transact(
+		ctx,
+		cm.assertionChain.backend,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return cm.writer.UpdateTimerCacheByClaim(
+				opts,
+				common.Hash(claimId),
+				claimingEdgeId.Hash,
+			)
+		}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not update inherited timer for edge by claim: claim id %#x, claiming edge id %#x",
+			common.Hash(claimId),
+			claimingEdgeId.Hash,
+		)
+	}
+	return nil
+}
+
+func (cm *specChallengeManager) UpdateInheritedTimerByClaimOffChain(
 	ctx context.Context,
 	claimingEdgeId protocol.EdgeId,
 	timeUnrivaled uint64,

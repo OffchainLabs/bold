@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -107,7 +106,6 @@ func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Tr
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	transactionLock                          sync.Mutex
 	backend                                  protocol.ChainBackend
 	rollup                                   *rollupgen.RollupCore
 	userLogic                                *rollupgen.RollupUserLogic
