@@ -63,39 +63,56 @@ type ReceiptFetcher interface {
 
 // Transactor defines the ability to send transactions to the chain.
 type Transactor interface {
-	PostSimpleTransaction(
-		ctx context.Context,
-		nonce uint64,
-		to common.Address,
-		calldata []byte,
-		gasLimit uint64,
-		value *big.Int,
-	) (*types.Transaction, error)
-}
-
-// ChainBackendTransactor is a wrapper around a ChainBackend that implements the Transactor interface.
-// It is useful for testing purposes in bold repository.
-type SimpleTransactor interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 }
 
 type ChainBackendTransactor struct {
 	ChainBackend
+	fifo *FIFO
 }
 
-func NewChainBackendTransactor(backend ChainBackend) Transactor {
-	return &ChainBackendTransactor{ChainBackend: backend}
+func NewChainBackendTransactor(backend protocol.ChainBackend) *ChainBackendTransactor {
+	return &ChainBackendTransactor{
+		ChainBackend: backend,
+		fifo:         NewFIFO(1000),
+	}
 }
 
-func (cb *ChainBackendTransactor) PostSimpleTransaction(
-	ctx context.Context,
-	nonce uint64,
-	to common.Address,
-	calldata []byte,
-	gasLimit uint64,
-	value *big.Int,
-) (*types.Transaction, error) {
-	return nil, errors.New("unimplemented")
+func (d *ChainBackendTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+	// Try to acquire lock and if it fails, wait for a bit and try again.
+	for !d.fifo.Lock() {
+		<-time.After(100 * time.Millisecond)
+	}
+	defer d.fifo.Unlock()
+	return tx, d.ChainBackend.SendTransaction(ctx, tx)
+}
+
+// DataPoster is an interface that allows posting simple transactions without providing a nonce.
+// This is implemented in nitro repository.
+type DataPoster interface {
+	PostSimpleTransactionAutoNonce(ctx context.Context, to common.Address, calldata []byte, gasLimit uint64, value *big.Int) (*types.Transaction, error)
+}
+
+// DataPosterTransactor is a wrapper around a DataPoster that implements the Transactor interface.
+type DataPosterTransactor struct {
+	fifo *FIFO
+	DataPoster
+}
+
+func NewDataPosterTransactor(dataPoster DataPoster) *DataPosterTransactor {
+	return &DataPosterTransactor{
+		fifo:       NewFIFO(1000),
+		DataPoster: dataPoster,
+	}
+}
+
+func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+	// Try to acquire lock and if it fails, wait for a bit and try again.
+	for !d.fifo.Lock() {
+		<-time.After(100 * time.Millisecond)
+	}
+	defer d.fifo.Unlock()
+	return d.PostSimpleTransactionAutoNonce(ctx, *tx.To(), tx.Data(), gas, tx.Value())
 }
 
 // AssertionChain is a wrapper around solgen bindings
