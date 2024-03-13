@@ -460,12 +460,11 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	})
 }
 
-func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
+func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 	ctx := context.Background()
 	bisectionScenario := setupBisectionScenario(t)
 	honestStateManager := bisectionScenario.honestStateManager
 	honestEdge := bisectionScenario.honestLevelZeroEdge
-	evilEdge := bisectionScenario.evilLevelZeroEdge
 
 	bisectTo := l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight / 2)
 	req := &l2stateprovider.HistoryCommitmentRequest{
@@ -496,37 +495,20 @@ func TestEdgeChallengeManager_ConfirmByTimerAndChildren(t *testing.T) {
 		bisectionScenario.topLevelFork.Backend.Commit()
 	}
 
-	require.NoError(t, honestChildren1.ConfirmByTimer(ctx, []protocol.EdgeId{honestEdge.Id()}))
-	require.NoError(t, honestChildren2.ConfirmByTimer(ctx, []protocol.EdgeId{honestEdge.Id()}))
-	s1, err = honestChildren1.Status(ctx)
+	chalManager, err := bisectionScenario.topLevelFork.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	require.Equal(t, protocol.EdgeConfirmed, s1)
-	s2, err = honestChildren2.Status(ctx)
-	require.NoError(t, err)
-	require.Equal(t, protocol.EdgeConfirmed, s2)
+	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestChildren1.Id()))
+	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestChildren2.Id()))
+	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestEdge.Id()))
 
-	// Neither edge should have a confirmed rival.
-	hasConfirmedRival, err := evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
-	hasConfirmedRival, err = honestEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
-
-	require.NoError(t, honestEdge.ConfirmByChildren(ctx))
+	require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s0)
-
-	// The evil edge should have a confirmed rival.
-	hasConfirmedRival, err = evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, true, hasConfirmedRival)
-
-	require.NoError(t, honestEdge.ConfirmByChildren(ctx)) // already confirmed should not error.
+	require.NoError(t, honestEdge.ConfirmByTimer(ctx)) // already confirmed should not error.
 }
 
-func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
+func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	ctx := context.Background()
 
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
@@ -577,11 +559,12 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		createdData.Backend.Commit()
 	}
 
-	t.Run("edge not found", func(t *testing.T) {
-		require.ErrorContains(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{{Hash: common.Hash{1}}}), "execution reverted")
-	})
 	t.Run("confirmed by timer", func(t *testing.T) {
-		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{}))
+		chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
+		require.NoError(t, err)
+		require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestEdge.Id()))
+
+		require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
@@ -590,7 +573,7 @@ func TestEdgeChallengeManager_ConfirmByTimer(t *testing.T) {
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
-		require.NoError(t, honestEdge.ConfirmByTimer(ctx, []protocol.EdgeId{})) // already confirmed should not error.
+		require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	})
 }
 
