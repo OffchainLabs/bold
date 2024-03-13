@@ -72,7 +72,8 @@ func (a *AssertionChain) transact(
 	// opts.GasLimit = gas
 	// opts.NoSend = false
 	// txer, _ := a.transactor.(SimpleTransactor)
-	if err = a.transactor.SendTransaction(ctx, tx, gas); err != nil {
+	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
+	if err != nil {
 		return nil, err
 	}
 	// a.nonceManager.push(txRequest{
