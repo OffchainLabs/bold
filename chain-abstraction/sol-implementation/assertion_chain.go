@@ -70,15 +70,22 @@ type Transactor interface {
 // It is useful for testing purposes in bold repository.
 type ChainBackendTransactor struct {
 	ChainBackend
+	fifo *FIFO
 }
 
 func NewChainBackendTransactor(backend protocol.ChainBackend) *ChainBackendTransactor {
 	return &ChainBackendTransactor{
 		ChainBackend: backend,
+		fifo:         NewFIFO(1000),
 	}
 }
 
 func (d *ChainBackendTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+	// Try to acquire lock and if it fails, wait for a bit and try again.
+	for !d.fifo.Lock() {
+		<-time.After(100 * time.Millisecond)
+	}
+	defer d.fifo.Unlock()
 	return tx, d.ChainBackend.SendTransaction(ctx, tx)
 }
 
