@@ -128,7 +128,6 @@ type AssertionChain struct {
 	specChallengeManager                     protocol.SpecChallengeManager
 	averageTimeForBlockCreation              time.Duration
 	transactor                               Transactor
-	nonceManager                             *nonceManager
 }
 
 type Opt func(*AssertionChain)
@@ -167,7 +166,6 @@ func NewAssertionChain(
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
-		nonceManager:                             newNonceManager(copiedOpts, time.Millisecond*100, backend, transactor),
 	}
 	for _, opt := range opts {
 		opt(chain)
@@ -197,7 +195,6 @@ func NewAssertionChain(
 		return nil, err
 	}
 	chain.specChallengeManager = specChallengeManager
-	go chain.nonceManager.start(ctx)
 	return chain, nil
 }
 
