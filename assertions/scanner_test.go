@@ -20,19 +20,13 @@ import (
 	"github.com/OffchainLabs/bold/testing/mocks"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/testing/setup"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
-func TestComplexAssertionForkScenario(t *testing.T) {
-	// Chain state looks like this:
-	// 1 ->2->3->4
-	//  \->2'
-	//
-	// and then we have another validator that disagrees with 4, so Charlie
-	// should open a 4' that branches off 3.
-	ctx := context.Background()
+func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	setup, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
@@ -55,13 +49,151 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	require.NoError(t, err)
 	setup.Backend.Commit()
 
-	msgCount, err := bridgeBindings.SequencerMessageCount(&bind.CallOpts{})
+	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), msgCount.Uint64())
 
 	aliceChain := setup.Chains[0]
 	bobChain := setup.Chains[1]
 
+	ctx := context.Background()
+	genesisHash, err := setup.Chains[1].GenesisAssertionHash(ctx)
+	require.NoError(t, err)
+	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
+	require.NoError(t, err)
+
+	stateManagerOpts := setup.StateManagerOpts
+	stateManagerOpts = append(
+		stateManagerOpts,
+		statemanager.WithNumBatchesRead(5),
+	)
+	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	require.NoError(t, err)
+
+	// Bob diverges from Alice at batch 1.
+	stateManagerOpts = setup.StateManagerOpts
+	stateManagerOpts = append(
+		stateManagerOpts,
+		statemanager.WithNumBatchesRead(5),
+		statemanager.WithBlockDivergenceHeight(1),
+		statemanager.WithMachineDivergenceStep(1),
+	)
+	bobStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	require.NoError(t, err)
+
+	// We have bob post an assertion at batch 1.
+	bobPostState, err := bobStateManager.ExecutionStateAfterBatchCount(ctx, 1)
+	require.NoError(t, err)
+	bobAssertion, err := bobChain.NewStakeOnNewAssertion(
+		ctx,
+		genesisCreationInfo,
+		bobPostState,
+	)
+	require.NoError(t, err)
+
+	// We have Alice process the assertion and post a rival, honest assertion to the one
+	// at batch 1.
+	aliceChalManager, err := challengemanager.New(
+		ctx,
+		aliceChain,
+		aliceStateManager,
+		setup.Addrs.Rollup,
+		challengemanager.WithMode(types.DefensiveMode),
+		challengemanager.WithEdgeTrackerWakeInterval(time.Hour),
+	)
+	require.NoError(t, err)
+
+	// Setup an assertion manager for Charlie, and have it process Alice's
+	// assertion creation event at batch 4.
+	aliceAssertionManager, err := assertions.NewManager(
+		aliceChain,
+		aliceStateManager,
+		setup.Backend,
+		aliceChalManager,
+		aliceChain.RollupAddress(),
+		aliceChalManager.ChallengeManagerAddress(),
+		"alice",
+		time.Hour, // poll interval
+		time.Hour, // confirmation attempt interval
+		aliceStateManager,
+		time.Hour, // poll interval
+		time.Second*1,
+		nil,
+	)
+	require.NoError(t, err)
+	require.NoError(t, aliceAssertionManager.ProcessAssertionCreationEvent(ctx, bobAssertion.Id()))
+
+	// Get the parent assertion of what bob posted.
+	creationInfo, err := bobChain.ReadAssertionCreationInfo(ctx, bobAssertion.Id())
+	require.NoError(t, err)
+
+	// Check that it has an honest children now as a result of Alice processing Bob's assertion
+	// and posting her own rival, and we check she did indeed submit this rival.
+	require.True(t, aliceAssertionManager.AssertionHasHonestChild(protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash}))
+	require.Equal(t, uint64(1), aliceAssertionManager.SubmittedRivals())
+
+	// We have bob post an assertion at batch 2.
+	dataHash := [32]byte{1}
+	_, err = bridgeBindings.EnqueueSequencerMessage(setup.Accounts[0].TxOpts, dataHash, big.NewInt(1), big.NewInt(1), big.NewInt(2))
+	require.NoError(t, err)
+	setup.Backend.Commit()
+
+	bobPostState, err = bobStateManager.ExecutionStateAfterBatchCount(ctx, uint64(2))
+	require.NoError(t, err)
+	bobAssertion, err = bobChain.StakeOnNewAssertion(
+		ctx,
+		creationInfo,
+		bobPostState,
+	)
+	require.NoError(t, err)
+
+	// Once Alice sees this, she should do nothing
+	// as it is from a bad fork and she already posted the correct child to their earliest
+	// valid ancestor here.
+	for i := 0; i < 10; i++ {
+		require.NoError(t, aliceAssertionManager.ProcessAssertionCreationEvent(ctx, bobAssertion.Id()))
+	}
+	// We should only have attempted to submit 1 honest rival.
+	require.Equal(t, uint64(1), aliceAssertionManager.SubmittedRivals())
+}
+
+func TestComplexAssertionForkScenario(t *testing.T) {
+	// Chain state looks like this:
+	// 1 ->2->3->4
+	//  \->2'
+	//
+	// and then we have another validator that disagrees with 4, so Charlie
+	// should open a 4' that branches off 3.
+	setup, err := setup.ChainsWithEdgeChallengeManager(
+		setup.WithMockBridge(),
+		setup.WithMockOneStepProver(),
+		setup.WithChallengeTestingOpts(
+			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
+				BlockChallengeHeight:     64,
+				BigStepChallengeHeight:   32,
+				SmallStepChallengeHeight: 32,
+			}),
+		),
+	)
+	require.NoError(t, err)
+
+	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
+	require.NoError(t, err)
+
+	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(setup.Addrs.Rollup, setup.Backend)
+	require.NoError(t, err)
+	_, err = rollupAdminBindings.SetMinimumAssertionPeriod(setup.Accounts[0].TxOpts, big.NewInt(1))
+	require.NoError(t, err)
+	setup.Backend.Commit()
+
+	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), msgCount.Uint64())
+
+	aliceChain := setup.Chains[0]
+	bobChain := setup.Chains[1]
+
+	ctx := context.Background()
 	genesisHash, err := setup.Chains[1].GenesisAssertionHash(ctx)
 	require.NoError(t, err)
 	genesisCreationInfo, err := setup.Chains[1].ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: genesisHash})
@@ -145,7 +277,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	chalManager, err := challengemanager.New(
 		ctx,
 		charlieChain,
-		setup.Backend,
 		charlieStateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.DefensiveMode),
@@ -161,12 +292,14 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		setup.Backend,
 		chalManager,
 		charlieChain.RollupAddress(),
+		chalManager.ChallengeManagerAddress(),
 		"charlie",
 		time.Hour, // poll interval
 		time.Hour, // confirmation attempt interval
 		charlieStateManager,
 		time.Hour, // poll interval
 		time.Second*1,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -218,7 +351,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		p.On("GetAssertion", ctx, mockId(2)).Return(ev, nil)
 		p.On("GetAssertion", ctx, mockId(1)).Return(prev, nil)
 		mockStateProvider.On("AgreesWithExecutionState", ctx, &protocol.ExecutionState{}).Return(nil)
-		scanner, err := assertions.NewManager(p, mockStateProvider, cfg.Backend, manager, cfg.Addrs.Rollup, "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second, time.Second)
+		scanner, err := assertions.NewManager(p, mockStateProvider, cfg.Backend, manager, cfg.Addrs.Rollup, manager.ChallengeManagerAddress(), "", time.Second, time.Second, &mocks.MockStateManager{}, time.Second, time.Second, nil)
 		require.NoError(t, err)
 
 		err = scanner.ProcessAssertionCreationEvent(ctx, ev.Id())
@@ -237,7 +370,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		manager, err := challengemanager.New(
 			ctx,
 			createdData.Chains[1],
-			createdData.Backend,
 			createdData.HonestStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.MakeMode),
@@ -245,7 +377,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		scanner, err := assertions.NewManager(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, "", time.Second, time.Second, createdData.HonestStateManager, time.Second, time.Second)
+		scanner, err := assertions.NewManager(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, manager.ChallengeManagerAddress(), "", time.Second, time.Second, createdData.HonestStateManager, time.Second, time.Second, nil)
 		require.NoError(t, err)
 
 		err = scanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf2.Id())
@@ -254,7 +386,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		otherManager, err := challengemanager.New(
 			ctx,
 			createdData.Chains[0],
-			createdData.Backend,
 			createdData.EvilStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.MakeMode),
@@ -262,7 +393,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		otherScanner, err := assertions.NewManager(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, "", time.Second, time.Second, createdData.EvilStateManager, time.Second, time.Second)
+		otherScanner, err := assertions.NewManager(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, otherManager.ChallengeManagerAddress(), "", time.Second, time.Second, createdData.EvilStateManager, time.Second, time.Second, nil)
 		require.NoError(t, err)
 
 		err = otherScanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf1.Id())
@@ -283,14 +414,13 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		manager, err := challengemanager.New(
 			ctx,
 			createdData.Chains[1],
-			createdData.Backend,
 			createdData.HonestStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.DefensiveMode),
 			challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond),
 		)
 		require.NoError(t, err)
-		scanner, err := assertions.NewManager(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, "", time.Second, time.Second, createdData.HonestStateManager, time.Second, time.Second)
+		scanner, err := assertions.NewManager(createdData.Chains[1], createdData.HonestStateManager, createdData.Backend, manager, createdData.Addrs.Rollup, manager.ChallengeManagerAddress(), "", time.Second, time.Second, createdData.HonestStateManager, time.Second, time.Second, nil)
 		require.NoError(t, err)
 
 		err = scanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf2.Id())
@@ -299,7 +429,6 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		otherManager, err := challengemanager.New(
 			ctx,
 			createdData.Chains[0],
-			createdData.Backend,
 			createdData.EvilStateManager,
 			createdData.Addrs.Rollup,
 			challengemanager.WithMode(types.DefensiveMode),
@@ -307,7 +436,7 @@ func TestScanner_ProcessAssertionCreation(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		otherScanner, err := assertions.NewManager(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, "", time.Second, time.Second, createdData.EvilStateManager, time.Second, time.Second)
+		otherScanner, err := assertions.NewManager(createdData.Chains[0], createdData.EvilStateManager, createdData.Backend, otherManager, createdData.Addrs.Rollup, otherManager.ChallengeManagerAddress(), "", time.Second, time.Second, createdData.EvilStateManager, time.Second, time.Second, nil)
 		require.NoError(t, err)
 
 		err = otherScanner.ProcessAssertionCreationEvent(ctx, createdData.Leaf1.Id())
@@ -331,7 +460,8 @@ func setupChallengeManager(t *testing.T) (*challengemanager.Manager, *mocks.Mock
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
-	v, err := challengemanager.New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup, challengemanager.WithMode(types.MakeMode), challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond))
+	p.On("Backend").Return(cfg.Backend, nil)
+	v, err := challengemanager.New(context.Background(), p, s, cfg.Addrs.Rollup, challengemanager.WithMode(types.MakeMode), challengemanager.WithEdgeTrackerWakeInterval(100*time.Millisecond))
 	require.NoError(t, err)
 	return v, p, s, cfg
 }

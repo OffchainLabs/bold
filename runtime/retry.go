@@ -1,5 +1,5 @@
 // Package runtime defines utilities that deal with managing lifecycles of functions
-// and important behaviors at the application runtime, such as retrying failed
+// and important behaviors at the application runtime, such as retrying errored
 // functions until they succeed.
 //
 // Copyright 2023, Offchain Labs, Inc.
@@ -27,7 +27,7 @@ type RetryConfig struct {
 
 type Opt func(*RetryConfig)
 
-// WithInterval specifies how often to retry a failing function.
+// WithInterval specifies how often to retry an errored function.
 func WithInterval(d time.Duration) Opt {
 	return func(rc *RetryConfig) {
 		rc.sleepTime = d
@@ -49,7 +49,7 @@ func UntilSucceedsMultipleReturnValue[T, U any](ctx context.Context, fn func() (
 		got, got2, err := fn()
 		if err != nil {
 			count++
-			pkglog.Error("Failed to call function after retries", log.Ctx{
+			pkglog.Error("Could not succeed function after retries", log.Ctx{
 				"retryCount": count,
 				"err":        err,
 			})
@@ -66,7 +66,7 @@ func UntilSucceeds[T any](ctx context.Context, fn func() (T, error), opts ...Opt
 	result, _, err := UntilSucceedsMultipleReturnValue(ctx, func() (T, struct{}, error) {
 		got, err := fn()
 		return got, struct{}{}, err
-	})
+	}, opts...)
 	return result, err
 }
 

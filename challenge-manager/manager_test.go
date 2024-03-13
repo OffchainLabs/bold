@@ -19,9 +19,9 @@ import (
 	"github.com/OffchainLabs/bold/testing/mocks"
 	"github.com/OffchainLabs/bold/testing/setup"
 	customTime "github.com/OffchainLabs/bold/time"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,10 +78,8 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, false, someEdge.IsNone())
 	edge := someEdge.Unwrap()
-	assertionHash, err := edge.AssertionHash(ctx)
-	require.NoError(t, err)
 
-	pathTimerBefore, _, _, err := tkr.Watcher().ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+	timerBefore, err := tkr.Watcher().InheritedTimer(ctx, edge.Id())
 	require.NoError(t, err)
 
 	// Advance our backend way beyond the challenge period.
@@ -89,9 +87,9 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 		createdData.Backend.Commit()
 	}
 
-	pathTimerAfter, _, _, err := tkr.Watcher().ComputeHonestPathTimer(ctx, assertionHash, edge.Id())
+	timerAfter, err := tkr.Watcher().InheritedTimer(ctx, edge.Id())
 	require.NoError(t, err)
-	require.Equal(t, pathTimerBefore, pathTimerAfter)
+	require.Equal(t, timerBefore, timerAfter)
 
 	// Despite a lot of time having passed since the edge was created, its timer stopped halfway
 	// through the challenge period as it gained a rival. That is, no matter how much time passes,
@@ -118,101 +116,16 @@ func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	honestEdgeOpt, err := chalManager.GetEdge(ctx, honestTracker.EdgeId())
 	require.NoError(t, err)
 	require.Equal(t, false, honestEdgeOpt.IsNone())
-	honestEdge := honestEdgeOpt.Unwrap()
 
 	evilEdgeOpt, err := chalManager.GetEdge(ctx, evilTracker.EdgeId())
 	require.NoError(t, err)
 	require.Equal(t, false, evilEdgeOpt.IsNone())
-	evilEdge := evilEdgeOpt.Unwrap()
-
-	// Expect that neither of the edges have a confirmed rival.
-	hasConfirmedRival, err := honestEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
-	hasConfirmedRival, err = evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, false, hasConfirmedRival)
 
 	// Expect our edge to be confirmed right away.
 	err = honestTracker.Act(ctx)
 	require.NoError(t, err)
 	require.Equal(t, edgetracker.EdgeConfirmed, honestTracker.CurrentState())
 	require.Equal(t, true, honestTracker.ShouldDespawn(ctx))
-
-	// Expect that the evil edge now has a confirmed rival.
-	hasConfirmedRival, err = evilEdge.HasConfirmedRival(ctx)
-	require.NoError(t, err)
-	require.Equal(t, true, hasConfirmedRival)
-
-	// Expect the evil tracker should despawn because it has a confirmed rival.
-	require.Equal(t, true, evilTracker.ShouldDespawn(ctx))
-}
-
-func TestEdgeTracker_Act_ShouldDespawn_HasConfirmableAncestor(t *testing.T) {
-	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
-	require.NoError(t, err)
-
-	chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
-	chalPeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
-	require.NoError(t, err)
-
-	// Delay the evil root edge creation by a challenge period.
-	delayEvilRootEdgeCreation := option.Some(chalPeriodBlocks)
-	honestParent, _ := setupEdgeTrackersForBisection(t, ctx, createdData, delayEvilRootEdgeCreation)
-
-	// We manually bisect the honest, root level edge and initialize
-	// edge trackers for its children.
-	history, proof, err := honestParent.DetermineBisectionHistoryWithProof(ctx)
-	require.NoError(t, err)
-	edge, err := chalManager.GetEdge(ctx, honestParent.EdgeId())
-	require.NoError(t, err)
-	require.Equal(t, false, edge.IsNone())
-
-	child1, child2, err := edge.Unwrap().Bisect(ctx, history.Merkle, proof)
-	require.NoError(t, err)
-	require.NoError(t, honestParent.Watcher().AddVerifiedHonestEdge(ctx, child1))
-	require.NoError(t, honestParent.Watcher().AddVerifiedHonestEdge(ctx, child2))
-
-	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
-		FromBatch:      0,
-		ToBatch:        1,
-		WasmModuleRoot: common.Hash{},
-	}
-	childTracker1, err := edgetracker.New(
-		ctx,
-		child1,
-		createdData.Chains[1],
-		createdData.HonestStateManager,
-		honestParent.Watcher(),
-		honestParent.ChallengeManager(),
-		assertionInfo,
-		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
-	)
-	require.NoError(t, err)
-	childTracker2, err := edgetracker.New(
-		ctx,
-		child2,
-		createdData.Chains[1],
-		createdData.HonestStateManager,
-		honestParent.Watcher(),
-		honestParent.ChallengeManager(),
-		assertionInfo,
-		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
-	)
-	require.NoError(t, err)
-
-	// However, the ancestor of both child edges is confirmable by time, so both of them
-	// should not be allowed to act and should despawn.
-	require.Equal(t, true, childTracker1.ShouldDespawn(ctx))
-	require.Equal(t, true, childTracker2.ShouldDespawn(ctx))
-
-	// We check we can also confirm the ancestor edge.
-	err = honestParent.Act(ctx)
-	require.NoError(t, err)
-	require.Equal(t, edgetracker.EdgeConfirmed, honestParent.CurrentState())
-	require.Equal(t, true, honestParent.ShouldDespawn(ctx))
 }
 
 type verifiedHonestMock struct {
@@ -229,10 +142,14 @@ func Test_getEdgeTrackers(t *testing.T) {
 	edge.On("Id").Return(protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))})
 	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2))
 	edge.On("MutualId").Return(protocol.MutualId{})
+	edge.On("OriginId").Return(protocol.OriginId{})
 	edge.On("CreatedAtBlock").Return(uint64(1), nil)
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))}
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("AssertionHash", ctx).Return(assertionHash, nil)
+	edge.On("StartCommitment").Return(protocol.Height(0), common.Hash{})
+	edge.On("EndCommitment").Return(protocol.Height(0), common.Hash{})
+	edge.On("GetChallengeLevel").Return(protocol.ChallengeLevel(0))
 	m.On("ReadAssertionCreationInfo", ctx, assertionHash).Return(&protocol.AssertionCreatedInfo{
 		BeforeState: rollupgen.ExecutionState{
 			GlobalState: rollupgen.GlobalState{
@@ -266,7 +183,6 @@ func setupEdgeTrackersForBisection(
 	honestValidator, err := New(
 		ctx,
 		createdData.Chains[0],
-		createdData.Backend,
 		createdData.HonestStateManager,
 		createdData.Addrs.Rollup,
 		WithName("alice"),
@@ -278,7 +194,6 @@ func setupEdgeTrackersForBisection(
 	evilValidator, err := New(
 		ctx,
 		createdData.Chains[1],
-		createdData.Backend,
 		createdData.EvilStateManager,
 		createdData.Addrs.Rollup,
 		WithName("bob"),
@@ -311,11 +226,11 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 	managerBindings, err := challengeV2gen.NewEdgeChallengeManagerCaller(chalManager.Address(), createdData.Backend)
 	require.NoError(t, err)
-	numBigStepLevelsRaw, err := managerBindings.NUMBIGSTEPLEVEL(&bind.CallOpts{Context: ctx})
+	numBigStepLevelsRaw, err := managerBindings.NUMBIGSTEPLEVEL(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	require.NoError(t, err)
 	numBigStepLevels := numBigStepLevelsRaw
 
-	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice")
+	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil, honestValidator.assertionConfirmingInterval, honestValidator.averageTimeForBlockCreation)
 	require.NoError(t, err)
 	honestValidator.watcher = honestWatcher
 	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
@@ -336,7 +251,7 @@ func setupEdgeTrackersForBisection(
 	)
 	require.NoError(t, err)
 
-	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice")
+	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil, evilValidator.assertionConfirmingInterval, evilValidator.averageTimeForBlockCreation)
 	require.NoError(t, err)
 	evilValidator.watcher = evilWatcher
 	tracker2, err := edgetracker.New(
@@ -353,9 +268,11 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 
 	require.NoError(t, honestWatcher.AddVerifiedHonestEdge(ctx, honestEdge))
-	require.NoError(t, honestWatcher.AddEdge(ctx, evilEdge))
+	_, err = honestWatcher.AddEdge(ctx, evilEdge)
+	require.NoError(t, err)
 	require.NoError(t, evilWatcher.AddVerifiedHonestEdge(ctx, evilEdge))
-	require.NoError(t, evilWatcher.AddEdge(ctx, honestEdge))
+	_, err = evilWatcher.AddEdge(ctx, honestEdge)
+	require.NoError(t, err)
 
 	return tracker1, tracker2
 }
@@ -371,7 +288,8 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
-	v, err := New(context.Background(), p, cfg.Backend, s, cfg.Addrs.Rollup, WithMode(types.MakeMode), WithEdgeTrackerWakeInterval(100*time.Millisecond))
+	p.On("Backend").Return(cfg.Backend, nil)
+	v, err := New(context.Background(), p, s, cfg.Addrs.Rollup, WithMode(types.MakeMode), WithEdgeTrackerWakeInterval(100*time.Millisecond))
 	require.NoError(t, err)
 	return v, p, s
 }
@@ -386,30 +304,8 @@ func TestNewRandomWakeupInterval(t *testing.T) {
 	cm.On("NumBigSteps", ctx).Return(uint8(1), nil)
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
-	v, err := New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup, WithMode(types.MakeMode))
+	p.On("Backend").Return(cfg.Backend, nil)
+	v, err := New(context.Background(), p, &mocks.MockStateManager{}, cfg.Addrs.Rollup, WithMode(types.MakeMode))
 	require.NoError(t, err)
 	require.NotEqual(t, 0, v.edgeTrackerWakeInterval.Milliseconds())
-}
-
-func TestCanSetAPIEndpoint(t *testing.T) {
-	t.Helper()
-	p := &mocks.MockProtocol{}
-	ctx := context.Background()
-	cm := &mocks.MockSpecChallengeManager{}
-	p.On("CurrentChallengeManager", ctx).Return(cm, nil)
-	p.On("SpecChallengeManager", ctx).Return(cm, nil)
-	cm.On("NumBigSteps", ctx).Return(uint8(1), nil)
-	cfg, err := setup.ChainsWithEdgeChallengeManager()
-	require.NoError(t, err)
-
-	// Test we need the RPC client to enable the API service.
-	_, err = New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
-		WithMode(types.MakeMode), WithAPIEnabled("localhost:1234"))
-	require.ErrorContains(t, err, "go-ethereum RPC client required to enable API service")
-
-	// Test we can set the API endpoint.
-	v, err := New(context.Background(), p, cfg.Backend, &mocks.MockStateManager{}, cfg.Addrs.Rollup,
-		WithMode(types.MakeMode), WithAPIEnabled("localhost:1234"), WithRPCClient(&rpc.Client{}))
-	require.NoError(t, err)
-	require.Equal(t, "localhost:1234", v.apiAddr)
 }

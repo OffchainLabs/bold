@@ -56,7 +56,21 @@ const (
 	AssertionConfirmed
 )
 
+func (a AssertionStatus) String() string {
+	switch a {
+	case NoAssertion:
+		return "no_assertion"
+	case AssertionPending:
+		return "pending"
+	case AssertionConfirmed:
+		return "confirmed"
+	default:
+		return "unknown_status"
+	}
+}
+
 const BeforeDeadlineAssertionConfirmationError = "BEFORE_DEADLINE"
+const ChallengeGracePeriodNotPassedAssertionConfirmationError = "CHALLENGE_GRACE_PERIOD_NOT_PASSED"
 
 // Assertion represents a top-level claim in the protocol about the
 // chain state created by a validator that stakes on their claim.
@@ -65,7 +79,11 @@ type Assertion interface {
 	Id() AssertionHash
 	PrevId(ctx context.Context) (AssertionHash, error)
 	HasSecondChild() (bool, error)
-	CreatedAtBlock() (uint64, error)
+	FirstChildCreationBlock() (uint64, error)
+	SecondChildCreationBlock() (uint64, error)
+	IsFirstChild() (bool, error)
+	CreatedAtBlock() uint64
+	Status(ctx context.Context) (AssertionStatus, error)
 }
 
 // AssertionCreatedInfo from an event creation.
@@ -95,6 +113,7 @@ func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
 type AssertionChain interface {
 	// Read-only methods.
 	IsStaked(ctx context.Context) (bool, error)
+	RollupUserLogic() *rollupgen.RollupUserLogic
 	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
 	IsChallengeComplete(ctx context.Context, challengeParentAssertionHash AssertionHash) (bool, error)
 	Backend() ChainBackend
@@ -179,11 +198,6 @@ func ChallengeLevelFromString(s string) (ChallengeLevel, error) {
 	}
 }
 
-type Agreement struct {
-	AgreesWithStartCommit bool
-	IsHonestEdge          bool
-}
-
 // OriginId is the id of the item that originated a challenge an edge
 // is a part of. In a block challenge, the origin id is the id of the assertion
 // being challenged. In a big step challenge, it is the mutual id of the edge at the block challenge
@@ -230,6 +244,18 @@ type SpecChallengeManager interface {
 	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.
 	GetEdge(ctx context.Context, edgeId EdgeId) (option.Option[SpecEdge], error)
+	// The inherited timer from the edge's children. Needs to be refreshed
+	// onchain over time.
+	InheritedTimer(ctx context.Context, edgeId EdgeId) (uint64, error)
+	UpdateInheritedTimerByClaim(
+		ctx context.Context,
+		claimingEdgeId EdgeId,
+		claimId ClaimId,
+	) error
+	UpdateInheritedTimerByChildren(
+		ctx context.Context,
+		edgeId EdgeId,
+	) error
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(
 		ctx context.Context,
@@ -247,7 +273,7 @@ type SpecChallengeManager interface {
 		startCommit,
 		endCommit commitments.History,
 		startEndPrefixProof []byte,
-	) (VerifiedHonestEdge, error)
+	) (VerifiedRoyalEdge, error)
 	// Adds a level-zero edge to subchallenge given a source edge and history commitments.
 	AddSubChallengeLevelZeroEdge(
 		ctx context.Context,
@@ -257,7 +283,7 @@ type SpecChallengeManager interface {
 		startParentInclusionProof []common.Hash,
 		endParentInclusionProof []common.Hash,
 		startEndPrefixProof []byte,
-	) (VerifiedHonestEdge, error)
+	) (VerifiedRoyalEdge, error)
 	ConfirmEdgeByOneStepProof(
 		ctx context.Context,
 		tentativeWinnerId EdgeId,
@@ -320,8 +346,6 @@ type ReadOnlyEdge interface {
 	OriginId() OriginId
 	// The claim id of the edge, if any
 	ClaimId() option.Option[ClaimId]
-	// Checks if the edge has a confirmed rival.
-	HasConfirmedRival(ctx context.Context) (bool, error)
 	// Checks if the edge has children.
 	HasChildren(ctx context.Context) (bool, error)
 	// The lower child of the edge, if any.
@@ -339,6 +363,8 @@ type ReadOnlyEdge interface {
 	HasRival(ctx context.Context) (bool, error)
 	// The status of an edge.
 	Status(ctx context.Context) (EdgeStatus, error)
+	// The block at which the edge was confirmed.
+	ConfirmedAtBlock(ctx context.Context) (uint64, error)
 	// Checks if an edge has a length one rival.
 	HasLengthOneRival(ctx context.Context) (bool, error)
 	// The history commitment for the top-level edge the current edge's challenge is made upon.
@@ -346,11 +372,11 @@ type ReadOnlyEdge interface {
 	TopLevelClaimHeight(ctx context.Context) (OriginHeights, error)
 }
 
-// VerifiedHonestEdge marks edges that are known to be honest. For example,
-// when a local validator creates an edge, it is known to be honest and several types
+// VerifiedRoyalEdge marks edges that are known to be royal. For example,
+// when a local validator creates an edge, it is known to be royal and several types
 // expensive or duplicate computation can be avoided in methods that take in this type.
 // A sentinel method `Honest()` is used to mark an edge as satisfying this interface.
-type VerifiedHonestEdge interface {
+type VerifiedRoyalEdge interface {
 	SpecEdge
 	Honest()
 }
@@ -364,10 +390,7 @@ type SpecEdge interface {
 		ctx context.Context,
 		prefixHistoryRoot common.Hash,
 		prefixProof []byte,
-	) (VerifiedHonestEdge, VerifiedHonestEdge, error)
-	// Confirms an edge for having a presumptive timer >= one challenge period.
-	ConfirmByTimer(ctx context.Context, ancestorIds []EdgeId) error
-	// Confirms an edge with the specified claim id.
-	ConfirmByClaim(ctx context.Context, claimId ClaimId) error
-	ConfirmByChildren(ctx context.Context) error
+	) (VerifiedRoyalEdge, VerifiedRoyalEdge, error)
+	// Confirms an edge for having a total timer >= one challenge period.
+	ConfirmByTimer(ctx context.Context) error
 }

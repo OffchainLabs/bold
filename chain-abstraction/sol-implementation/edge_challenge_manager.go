@@ -16,10 +16,12 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -55,51 +57,58 @@ func (e *specEdge) EndCommitment() (protocol.Height, common.Hash) {
 	return protocol.Height(e.endHeight), e.inner.EndHistoryRoot
 }
 
-func (e *specEdge) AssertionHash(ctx context.Context) (protocol.AssertionHash, error) {
-	h, err := e.manager.caller.GetPrevAssertionHash(&bind.CallOpts{Context: ctx}, e.id)
-	if err != nil {
-		return protocol.AssertionHash{}, err
-	}
-	return protocol.AssertionHash{Hash: common.Hash(h)}, nil
+func (e *specEdge) AssertionHash(_ context.Context) (protocol.AssertionHash, error) {
+	return e.assertionHash, nil
 }
 
 func (e *specEdge) TimeUnrivaled(ctx context.Context) (uint64, error) {
-	timer, err := e.manager.caller.TimeUnrivaled(&bind.CallOpts{Context: ctx}, e.id)
+	if e.hasRival && e.timeUnrivaled.IsSome() {
+		return e.timeUnrivaled.Unwrap(), nil
+	}
+	timer, err := e.manager.caller.TimeUnrivaled(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), e.id)
 	if err != nil {
 		return 0, err
 	}
-	return timer, nil
-}
-
-func (e *specEdge) HasConfirmedRival(ctx context.Context) (bool, error) {
-	mutualId, err := e.manager.caller.CalculateMutualId(
-		&bind.CallOpts{Context: ctx},
-		e.inner.Level,
-		e.inner.OriginId,
-		e.inner.StartHeight,
-		e.inner.StartHistoryRoot,
-		e.inner.EndHeight,
-	)
-	if err != nil {
-		return false, err
+	if !timer.IsUint64() {
+		return 0, fmt.Errorf("received time unrivaled > max uint64 for edge %#x", e.id)
 	}
-	confirmedRival, err := e.manager.caller.ConfirmedRival(&bind.CallOpts{Context: ctx}, mutualId)
-	if err != nil {
-		return false, err
-	}
-	return confirmedRival != ([32]byte{}), nil
+	return timer.Uint64(), nil
 }
 
 func (e *specEdge) HasRival(ctx context.Context) (bool, error) {
-	return e.manager.caller.HasRival(&bind.CallOpts{Context: ctx}, e.id)
+	if e.hasRival {
+		return e.hasRival, nil
+	}
+	hasRival, err := e.manager.caller.HasRival(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	if err != nil {
+		return false, err
+	}
+	if hasRival {
+		e.hasRival = true
+	}
+	return hasRival, nil
 }
 
 func (e *specEdge) Status(ctx context.Context) (protocol.EdgeStatus, error) {
-	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if e.isConfirmed {
+		return protocol.EdgeConfirmed, nil
+	}
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return 0, err
 	}
 	return protocol.EdgeStatus(edge.Status), nil
+}
+
+func (e *specEdge) ConfirmedAtBlock(ctx context.Context) (uint64, error) {
+	if e.confirmedAtBlock.IsSome() {
+		return e.confirmedAtBlock.Unwrap(), nil
+	}
+	edge, err := e.fetchEdge(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return edge.ConfirmedAtBlock, nil
 }
 
 // CreatedAtBlock the  block number the edge was created at.
@@ -109,7 +118,10 @@ func (e *specEdge) CreatedAtBlock() (uint64, error) {
 
 // HasChildren checks if the edge has children.
 func (e *specEdge) HasChildren(ctx context.Context) (bool, error) {
-	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if e.lowerChild.IsSome() && e.upperChild.IsSome() {
+		return true, nil
+	}
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -118,7 +130,10 @@ func (e *specEdge) HasChildren(ctx context.Context) (bool, error) {
 
 // LowerChild of the edge, if any.
 func (e *specEdge) LowerChild(ctx context.Context) (option.Option[protocol.EdgeId], error) {
-	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if e.lowerChild.IsSome() {
+		return e.lowerChild, nil
+	}
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return option.None[protocol.EdgeId](), err
 	}
@@ -132,7 +147,10 @@ func (e *specEdge) LowerChild(ctx context.Context) (option.Option[protocol.EdgeI
 
 // UpperChild of the edge, if any.
 func (e *specEdge) UpperChild(ctx context.Context) (option.Option[protocol.EdgeId], error) {
-	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if e.upperChild.IsSome() {
+		return e.upperChild, nil
+	}
+	edge, err := e.fetchEdge(ctx)
 	if err != nil {
 		return option.None[protocol.EdgeId](), err
 	}
@@ -163,7 +181,10 @@ func (e *specEdge) ClaimId() option.Option[protocol.ClaimId] {
 
 // HasLengthOneRival returns true if there's a length one rival.
 func (e *specEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
-	ok, err := e.manager.caller.HasLengthOneRival(&bind.CallOpts{Context: ctx}, e.id)
+	if e.hasLengthOneRival {
+		return e.hasLengthOneRival, nil
+	}
+	ok, err := e.manager.caller.HasLengthOneRival(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), e.id)
 	if err != nil {
 		errS := err.Error()
 		switch {
@@ -175,6 +196,9 @@ func (e *specEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 			return false, err
 		}
 	}
+	if ok {
+		e.hasLengthOneRival = true
+	}
 	return ok, nil
 }
 
@@ -185,7 +209,7 @@ func (e *specEdge) Bisect(
 	ctx context.Context,
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
-) (protocol.VerifiedHonestEdge, protocol.VerifiedHonestEdge, error) {
+) (protocol.VerifiedRoyalEdge, protocol.VerifiedRoyalEdge, error) {
 	upperId, err := e.UpperChild(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -252,7 +276,7 @@ func (e *specEdge) Bisect(
 	return lower, upper, nil
 }
 
-func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.EdgeId) error {
+func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
 	s, err := e.Status(ctx)
 	if err != nil {
 		return err
@@ -260,39 +284,23 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 	if s == protocol.EdgeConfirmed {
 		return nil
 	}
-	var assertionHash protocol.AssertionHash
-	if len(ancestorIds) != 0 {
-		topLevelAncestorId := ancestorIds[len(ancestorIds)-1]
-		topLevelAncestor, topLevelErr := e.manager.GetEdge(ctx, topLevelAncestorId)
-		if topLevelErr != nil {
-			return topLevelErr
-		}
-		if topLevelAncestor.IsNone() {
-			return fmt.Errorf("did not find edge with id %#x for specified top level ancestor", topLevelAncestorId)
-		}
-		topEdge := topLevelAncestor.Unwrap()
-		challengeLevel := topEdge.GetChallengeLevel()
-		if !challengeLevel.IsBlockChallengeLevel() {
-			return errors.New("top level ancestor must be a block challenge edge")
-		}
-		assertionHash = protocol.AssertionHash{
-			Hash: common.Hash(topEdge.ClaimId().Unwrap()),
-		}
-	} else {
-		assertionHash = protocol.AssertionHash{
-			Hash: e.inner.ClaimId,
-		}
+	if e.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
+		return errors.New("only block challenge edges can be confirmed by time")
+	}
+	if e.ClaimId().IsNone() {
+		return errors.New("only root edges can be confirmed by time")
+	}
+	assertionHash := protocol.AssertionHash{
+		Hash: e.inner.ClaimId,
 	}
 	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return err
 	}
-	ancestors := make([][32]byte, len(ancestorIds))
-	for i, r := range ancestorIds {
-		ancestors[i] = r.Hash
-	}
+	// The confirm by timer used to require a list of ancestors, but it has since
+	// been refactored to use them. However, the function signature still needs this empty list.
 	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, ancestors, challengeV2gen.ExecutionStateData{
+		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, challengeV2gen.ExecutionStateData{
 			ExecutionState: challengeV2gen.ExecutionState{
 				GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
 				MachineStatus: assertionCreation.AfterState.MachineStatus,
@@ -301,47 +309,11 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context, ancestorIds []protocol.Ed
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		})
 	})
-	ancestorStrings := make([]string, len(ancestorIds))
-	for i, r := range ancestorIds {
-		ancestorStrings[i] = containers.Trunc(r.Hash[:])
-	}
 	return errors.Wrapf(
 		err,
-		"could not confirm edge %s with tx and %d ancestors %v",
+		"could not confirm edge %s by time with tx",
 		containers.Trunc(e.id[:]),
-		len(ancestorIds),
-		strings.Join(ancestorStrings, ", "),
 	)
-}
-
-func (e *specEdge) ConfirmByChildren(ctx context.Context) error {
-	s, err := e.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if s == protocol.EdgeConfirmed {
-		return nil
-	}
-
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByChildren(opts, e.id)
-	})
-	return err
-}
-
-func (e *specEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId) error {
-	s, err := e.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if s == protocol.EdgeConfirmed {
-		return nil
-	}
-
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return e.manager.writer.ConfirmEdgeByClaim(opts, e.id, claimId)
-	})
-	return err
 }
 
 // TopLevelClaimHeight gets the height at the BlockChallenge level that originated a subchallenge.
@@ -362,7 +334,7 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 		if ctx.Err() != nil {
 			return protocol.OriginHeights{}, ctx.Err()
 		}
-		rivalId, err := e.manager.caller.FirstRival(&bind.CallOpts{Context: ctx}, originId)
+		rivalId, err := e.manager.caller.FirstRival(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), originId)
 		if err != nil {
 			return protocol.OriginHeights{}, err
 		}
@@ -391,19 +363,21 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 
 // Wrapper around the challenge manager contract with developer-friendly methods.
 type specChallengeManager struct {
-	addr           common.Address
-	backend        protocol.ChainBackend
-	assertionChain *AssertionChain
-	txOpts         *bind.TransactOpts
-	caller         *challengeV2gen.EdgeChallengeManagerCaller
-	writer         *challengeV2gen.EdgeChallengeManagerTransactor
-	filterer       *challengeV2gen.EdgeChallengeManagerFilterer
+	addr                  common.Address
+	backend               protocol.ChainBackend
+	assertionChain        *AssertionChain
+	txOpts                *bind.TransactOpts
+	caller                *challengeV2gen.EdgeChallengeManagerCaller
+	writer                *challengeV2gen.EdgeChallengeManagerTransactor
+	filterer              *challengeV2gen.EdgeChallengeManagerFilterer
+	challengePeriodBlocks uint64
+	numBigStepLevel       uint8
 }
 
 // NewSpecChallengeManager returns an instance of the spec challenge manager
 // used by the assertion chain.
 func NewSpecChallengeManager(
-	_ context.Context,
+	ctx context.Context,
 	addr common.Address,
 	assertionChain *AssertionChain,
 	backend protocol.ChainBackend,
@@ -413,14 +387,24 @@ func NewSpecChallengeManager(
 	if err != nil {
 		return nil, err
 	}
+	numBigStepLevel, err := managerBinding.EdgeChallengeManagerCaller.NUMBIGSTEPLEVEL(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return nil, err
+	}
+	challengePeriodBlocks, err := managerBinding.EdgeChallengeManagerCaller.ChallengePeriodBlocks(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
 	return &specChallengeManager{
-		addr:           addr,
-		assertionChain: assertionChain,
-		backend:        backend,
-		txOpts:         txOpts,
-		caller:         &managerBinding.EdgeChallengeManagerCaller,
-		writer:         &managerBinding.EdgeChallengeManagerTransactor,
-		filterer:       &managerBinding.EdgeChallengeManagerFilterer,
+		addr:                  addr,
+		assertionChain:        assertionChain,
+		backend:               backend,
+		txOpts:                txOpts,
+		caller:                &managerBinding.EdgeChallengeManagerCaller,
+		writer:                &managerBinding.EdgeChallengeManagerTransactor,
+		filterer:              &managerBinding.EdgeChallengeManagerFilterer,
+		numBigStepLevel:       numBigStepLevel,
+		challengePeriodBlocks: challengePeriodBlocks,
 	}, nil
 }
 
@@ -429,21 +413,21 @@ func (cm *specChallengeManager) Address() common.Address {
 }
 
 func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
-	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
 	if !h.IsUint64() {
 		return nil, errors.New("layer zero block edge height was not a uint64")
 	}
-	bs, err := cm.caller.LAYERZEROBIGSTEPEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	bs, err := cm.caller.LAYERZEROBIGSTEPEDGEHEIGHT(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
 	if !bs.IsUint64() {
 		return nil, errors.New("layer zero big step edge height was not a uint64")
 	}
-	ss, err := cm.caller.LAYERZEROSMALLSTEPEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	ss, err := cm.caller.LAYERZEROSMALLSTEPEDGEHEIGHT(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
@@ -458,15 +442,11 @@ func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol
 }
 
 func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) {
-	n, err := cm.caller.NUMBIGSTEPLEVEL(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return 0, err
-	}
-	return uint8(n), nil
+	return cm.numBigStepLevel, nil
 }
 
 func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
-	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return 0, err
 	}
@@ -480,11 +460,32 @@ func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (u
 func (cm *specChallengeManager) ChallengePeriodBlocks(
 	ctx context.Context,
 ) (uint64, error) {
-	res, err := cm.caller.ChallengePeriodBlocks(&bind.CallOpts{Context: ctx})
+	return cm.challengePeriodBlocks, nil
+}
+
+var uint8Type = newStaticType("uint8", "", nil)
+var uint256Type = newStaticType("uint256", "", nil)
+var mutualIdAbi = abi.Arguments{
+	{Type: uint8Type, Name: "level"},
+	{Type: bytes32Type, Name: "originId"},
+	{Type: uint256Type, Name: "startHeight"},
+	{Type: bytes32Type, Name: "startHistoryRoot"},
+	{Type: uint256Type, Name: "endHeight"},
+}
+
+func calculateMutualId(level uint8, originId [32]byte, startHeight *big.Int, startHistoryRoot [32]byte, endHeight *big.Int) (common.Hash, error) {
+	mutualIdByte, err := mutualIdAbi.Pack(
+		level,
+		originId,
+		startHeight,
+		startHistoryRoot,
+		endHeight,
+	)
 	if err != nil {
-		return 0, err
+		return common.Hash{}, err
 	}
-	return res, nil
+	// Pack stores level(uint8) as 32 bytes, so we need to slice off the first 31 bytes
+	return crypto.Keccak256Hash(mutualIdByte[31:]), nil
 }
 
 // GetEdge gets an edge by its hash.
@@ -492,7 +493,7 @@ func (cm *specChallengeManager) GetEdge(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) (option.Option[protocol.SpecEdge], error) {
-	edge, err := cm.caller.GetEdge(&bind.CallOpts{Context: ctx}, edgeId.Hash)
+	edge, err := cm.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
 	if err != nil {
 		return option.None[protocol.SpecEdge](), err
 	}
@@ -500,8 +501,7 @@ func (cm *specChallengeManager) GetEdge(
 	if edge.Staker != (common.Address{}) {
 		miniStaker = option.Some(edge.Staker)
 	}
-	mutual, err := cm.caller.CalculateMutualId(
-		&bind.CallOpts{Context: ctx},
+	mutual, err := calculateMutualId(
 		edge.Level,
 		edge.OriginId,
 		edge.StartHeight,
@@ -517,7 +517,11 @@ func (cm *specChallengeManager) GetEdge(
 	if !edge.EndHeight.IsUint64() {
 		return option.None[protocol.SpecEdge](), errors.New("end height not a uint64")
 	}
-	numbigsteplevel, err := cm.caller.NUMBIGSTEPLEVEL(&bind.CallOpts{Context: ctx})
+	numbigsteplevel, err := cm.NumBigSteps(ctx)
+	if err != nil {
+		return option.Option[protocol.SpecEdge]{}, err
+	}
+	assertionHash, err := cm.caller.GetPrevAssertionHash(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
 	if err != nil {
 		return option.Option[protocol.SpecEdge]{}, err
 	}
@@ -530,7 +534,40 @@ func (cm *specChallengeManager) GetEdge(
 		endHeight:            edge.EndHeight.Uint64(),
 		miniStaker:           miniStaker,
 		totalChallengeLevels: numbigsteplevel + 2,
+		assertionHash:        protocol.AssertionHash{Hash: common.Hash(assertionHash)},
 	})), nil
+}
+
+func (cm *specChallengeManager) InheritedTimer(ctx context.Context, edgeId protocol.EdgeId) (uint64, error) {
+	edge, err := cm.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
+	if err != nil {
+		return 0, err
+	}
+	return edge.TotalTimeUnrivaledCache, nil
+}
+
+func (e *specEdge) fetchEdge(
+	ctx context.Context,
+) (challengeV2gen.ChallengeEdge, error) {
+	edge, err := e.manager.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), e.id)
+	if err != nil {
+		return challengeV2gen.ChallengeEdge{}, err
+	}
+
+	// Update the edge with the latest data, if they are in now in constant state.
+	if protocol.EdgeStatus(edge.Status) == protocol.EdgeConfirmed {
+		e.isConfirmed = true
+	}
+	if edge.ConfirmedAtBlock != 0 {
+		e.confirmedAtBlock = option.Some(edge.ConfirmedAtBlock)
+	}
+	if edge.LowerChildId != ([32]byte{}) {
+		e.lowerChild = option.Some(protocol.EdgeId{Hash: edge.LowerChildId})
+	}
+	if edge.UpperChildId != ([32]byte{}) {
+		e.upperChild = option.Some(protocol.EdgeId{Hash: edge.UpperChildId})
+	}
+	return edge, nil
 }
 
 // CalculateEdgeId calculates an edge hash given its challenge id, start history, and end history.
@@ -544,7 +581,7 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	endHistoryRoot common.Hash,
 ) (protocol.EdgeId, error) {
 	id, err := cm.caller.CalculateEdgeId(
-		&bind.CallOpts{Context: ctx},
+		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
 		challengeLevel.Uint8(),
 		originId,
 		big.NewInt(int64(startHeight)),
@@ -553,6 +590,53 @@ func (cm *specChallengeManager) CalculateEdgeId(
 		endHistoryRoot,
 	)
 	return protocol.EdgeId{Hash: id}, err
+}
+
+func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+) error {
+	if _, err := cm.assertionChain.transact(
+		ctx,
+		cm.assertionChain.backend,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return cm.writer.UpdateTimerCacheByChildren(
+				opts,
+				edgeId.Hash,
+			)
+		}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not update inherited timer for edge by children %#x",
+			edgeId,
+		)
+	}
+	return nil
+}
+
+func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
+	ctx context.Context,
+	claimingEdgeId protocol.EdgeId,
+	claimId protocol.ClaimId,
+) error {
+	if _, err := cm.assertionChain.transact(
+		ctx,
+		cm.assertionChain.backend,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return cm.writer.UpdateTimerCacheByClaim(
+				opts,
+				common.Hash(claimId),
+				claimingEdgeId.Hash,
+			)
+		}); err != nil {
+		return errors.Wrapf(
+			err,
+			"could not update inherited timer for edge by claim: claim id %#x, claiming edge id %#x",
+			common.Hash(claimId),
+			claimingEdgeId.Hash,
+		)
+	}
+	return nil
 }
 
 // ConfirmEdgeByOneStepProof checks a one step proof for a tentative winner edge id
@@ -600,7 +684,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 	}
 
 	machineStep, _ := edge.Unwrap().StartCommitment()
-	ospEntryAddr, err := cm.caller.OneStepProofEntry(&bind.CallOpts{Context: ctx})
+	ospEntryAddr, err := cm.caller.OneStepProofEntry(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return err
 	}
@@ -608,7 +692,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 	if err != nil {
 		return err
 	}
-	bridgeAddr, err := cm.assertionChain.rollup.Bridge(&bind.CallOpts{Context: ctx})
+	bridgeAddr, err := cm.assertionChain.rollup.Bridge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return err
 	}
@@ -618,7 +702,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 		InitialWasmModuleRoot: creationInfo.WasmModuleRoot,
 	}
 	result, err := ospBindings.ProveOneStep(
-		&bind.CallOpts{Context: ctx},
+		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
 		execCtx,
 		big.NewInt(int64(machineStep)),
 		oneStepData.BeforeHash,
@@ -627,7 +711,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"failed to pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
+			"could not pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
 			machineStep,
 			oneStepData.BeforeHash,
 			oneStepData.AfterHash,
@@ -658,7 +742,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 		}); err != nil {
 		return errors.Wrapf(
 			err,
-			"failed to confirm one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
+			"could not confirm one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
 			machineStep,
 			oneStepData.BeforeHash,
 			oneStepData.AfterHash,
@@ -669,7 +753,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 	return err
 }
 
-// Like abi.NewType but panics if it fails for use in constants
+// Like abi.NewType but panics if it errors for use in constants
 func newStaticType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
 	ty, err := abi.NewType(t, internalType, components)
 	if err != nil {
@@ -751,10 +835,10 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	startCommit,
 	endCommit commitments.History,
 	startEndPrefixProof []byte,
-) (protocol.VerifiedHonestEdge, error) {
+) (protocol.VerifiedRoyalEdge, error) {
 	assertionCreation, err := cm.assertionChain.ReadAssertionCreationInfo(ctx, assertion.Id())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read assertion %#x creation info: %w", assertion.Id(), err)
+		return nil, fmt.Errorf("could not read assertion %#x creation info: %w", assertion.Id(), err)
 	}
 	prevId, err := assertion.PrevId(ctx)
 	if err != nil {
@@ -764,7 +848,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read parent assertion %#x creation info", prevId)
 	}
-	levelZeroBlockHeight, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(&bind.CallOpts{Context: ctx})
+	levelZeroBlockHeight, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get level zero block edge height")
 	}
@@ -885,7 +969,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	startParentInclusionProof,
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
-) (protocol.VerifiedHonestEdge, error) {
+) (protocol.VerifiedRoyalEdge, error) {
 	chalLevel := challengedEdge.GetChallengeLevel()
 	subChalTyp := chalLevel.Next()
 

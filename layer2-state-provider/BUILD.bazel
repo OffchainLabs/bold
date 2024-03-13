@@ -9,12 +9,16 @@ go_library(
     importpath = "github.com/OffchainLabs/bold/layer2-state-provider",
     visibility = ["//visibility:public"],
     deps = [
+        "//api",
+        "//api/db",
         "//chain-abstraction:protocol",
+        "//containers/in-progress-cache",
         "//containers/option",
         "//state-commitments/history",
         "//state-commitments/prefix-proofs",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//metrics",
     ],
 )
 

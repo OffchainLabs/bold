@@ -6,8 +6,10 @@ package solimpl
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/OffchainLabs/bold/containers"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,8 +28,8 @@ type ChainCommitter interface {
 // chain backend supports committing directly, we call the commit function before
 // returning. This function additionally waits for the transaction to complete and returns
 // an optional transaction receipt. It returns an error if the
-// transaction had a failed status on-chain, or if the execution of the callback
-// failed directly.
+// transaction had a non-successful status on-chain, or if the execution of the callback
+// errored directly.
 func (a *AssertionChain) transact(
 	ctx context.Context,
 	backend ChainBackend,
@@ -41,7 +43,7 @@ func (a *AssertionChain) transact(
 	opts.NoSend = true
 	tx, err := fn(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "test execution of tx failed before sending payable tx")
+		return nil, errors.Wrap(err, "test execution of tx errored before sending payable tx")
 	}
 	// Convert the transaction into a CallMsg.
 	msg := ethereum.CallMsg{
@@ -53,17 +55,17 @@ func (a *AssertionChain) transact(
 		Data:     tx.Data(),
 	}
 
-	// Estimate the gas required for the transaction. This will catch failures early
+	// Estimate the gas required for the transaction. This will catch errors early
 	// without needing to pay for the transaction and waste funds.
 	gas, err := backend.EstimateGas(ctx, msg)
 	if err != nil {
-		return nil, errors.Wrapf(err, "gas estimation failed for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
+		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
 
 	// Now, we send the tx with the estimated gas.
 	opts.GasLimit = gas
 	opts.NoSend = false
-	tx, err = fn(opts)
+	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +74,10 @@ func (a *AssertionChain) transact(
 		commiter.Commit()
 	}
 	receipt, err := bind.WaitMined(ctx, backend, tx)
+	if err != nil {
+		return nil, err
+	}
+	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +92,49 @@ func (a *AssertionChain) transact(
 			AccessList: tx.AccessList(),
 		}
 		if _, err := backend.CallContract(ctx, callMsg, nil); err != nil {
-			return nil, errors.Wrap(err, "failed transaction")
+			return nil, errors.Wrap(err, "transaction errored")
 		}
+	}
+	return receipt, nil
+}
+
+// waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
+func (a *AssertionChain) waitForTxToBeSafe(
+	ctx context.Context,
+	backend ChainBackend,
+	tx *types.Transaction,
+	receipt *types.Receipt,
+) (*types.Receipt, error) {
+	for {
+		latestSafeHeader, err := backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
+		if err != nil {
+			return nil, err
+		}
+		if !latestSafeHeader.Number.IsUint64() {
+			return nil, errors.New("latest block number is not a uint64")
+		}
+		txSafe := latestSafeHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
+
+		// If the tx is not yet safe, we can simply wait.
+		if !txSafe {
+			blocksLeftForTxToBeSafe := receipt.BlockNumber.Uint64() - latestSafeHeader.Number.Uint64()
+			timeToWait := a.averageTimeForBlockCreation * time.Duration(blocksLeftForTxToBeSafe)
+			<-time.After(timeToWait)
+		} else {
+			break
+		}
+	}
+
+	// This is to handle the case where the transaction is mined in a block, but then the block is reorged.
+	// In this case, we want to wait for the transaction to be mined again.
+	receiptLatest, err := bind.WaitMined(ctx, backend, tx)
+	if err != nil {
+		return nil, err
+	}
+	// If the receipt block number is different from the latest receipt block number, we wait for the transaction
+	// to be in the safe block again.
+	if receiptLatest.BlockNumber.Cmp(receipt.BlockNumber) != 0 {
+		return a.waitForTxToBeSafe(ctx, backend, tx, receiptLatest)
 	}
 	return receipt, nil
 }

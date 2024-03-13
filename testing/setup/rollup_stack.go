@@ -21,6 +21,7 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -71,7 +72,7 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	// Advance the backend by some blocks to get over time delta failures when
+	// Advance the backend by some blocks to get over time delta errors when
 	// using the assertion chain.
 	for i := 0; i < 100; i++ {
 		setup.Backend.Commit()
@@ -156,6 +157,7 @@ type ChainSetup struct {
 	RollupConfig         rollupgen.Config
 	useMockBridge        bool
 	useMockOneStepProver bool
+	numAccountsToGen     uint64
 	challengeTestingOpts []challenge_testing.Opt
 	StateManagerOpts     []statemanager.Opt
 }
@@ -186,13 +188,24 @@ func WithStateManagerOpts(opts ...statemanager.Opt) Opt {
 	}
 }
 
+func WithNumAccounts(n uint64) Opt {
+	return func(setup *ChainSetup) {
+		setup.numAccountsToGen = n
+	}
+}
+
 func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	ctx := context.Background()
-	setp := &ChainSetup{}
+	setp := &ChainSetup{
+		numAccountsToGen: 4,
+	}
 	for _, o := range opts {
 		o(setp)
 	}
-	accs, backend, err := Accounts(4)
+	if setp.numAccountsToGen < 3 {
+		setp.numAccountsToGen = 3
+	}
+	accs, backend, err := Accounts(setp.numAccountsToGen)
 	if err != nil {
 		return nil, err
 	}
@@ -207,14 +220,14 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		return nil, err
 	}
 	if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
-		return nil, errors.Wrap(waitErr, "failed waiting for transaction")
+		return nil, errors.Wrap(waitErr, "errored waiting for transaction")
 	}
 	receipt, err := backend.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, err
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return nil, errors.New("receipt failed")
+		return nil, errors.New("receipt not successful")
 	}
 	value, ok := new(big.Int).SetString("10000000000000000000000", 10)
 	if !ok {
@@ -226,14 +239,14 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		return nil, err
 	}
 	if waitErr := challenge_testing.WaitForTx(ctx, backend, mintTx); waitErr != nil {
-		return nil, errors.Wrap(waitErr, "failed waiting for transaction")
+		return nil, errors.Wrap(waitErr, "errored waiting for transaction")
 	}
 	receipt, err = backend.TransactionReceipt(ctx, mintTx.Hash())
 	if err != nil {
 		return nil, err
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return nil, errors.New("receipt failed")
+		return nil, errors.New("receipt not successful")
 	}
 	accs[0].TxOpts.Value = big.NewInt(0)
 
@@ -242,7 +255,18 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := common.Address{}
-	miniStake := big.NewInt(1)
+	cfgOpts := &rollupgen.Config{}
+	for _, o := range setp.challengeTestingOpts {
+		o(cfgOpts)
+	}
+	numLevels := cfgOpts.NumBigStepLevel + 2
+	if numLevels == 2 {
+		numLevels = 3
+	}
+	miniStakeValues := make([]*big.Int, numLevels)
+	for i := 1; i <= int(numLevels); i++ {
+		miniStakeValues[i-1] = big.NewInt(int64(i))
+	}
 	genesisExecutionState := rollupgen.ExecutionState{
 		GlobalState:   rollupgen.GlobalState{},
 		MachineStatus: 1,
@@ -255,7 +279,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		rollupOwner,
 		chainId,
 		loserStakeEscrow,
-		miniStake,
+		miniStakeValues,
 		stakeToken,
 		genesisExecutionState,
 		genesisInboxCount,
@@ -275,38 +299,35 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		return nil, err
 	}
 
-	chains := make([]*solimpl.AssertionChain, 3)
-	chain1, err := solimpl.NewAssertionChain(
-		ctx,
-		addresses.Rollup,
-		accs[1].TxOpts,
-		backend,
-	)
-	if err != nil {
-		return nil, err
+	chains := make([]*solimpl.AssertionChain, 0)
+	for _, acc := range accs[1:] {
+		var assertionChainBinding *rollupgen.RollupUserLogic
+		assertionChainBinding, err = rollupgen.NewRollupUserLogic(
+			addresses.Rollup, backend,
+		)
+		if err != nil {
+			return nil, err
+		}
+		var challengeManagerAddr common.Address
+		challengeManagerAddr, err = assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
+			util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
+		)
+		if err != nil {
+			return nil, err
+		}
+		chain, chainErr := solimpl.NewAssertionChain(
+			ctx,
+			addresses.Rollup,
+			challengeManagerAddr,
+			acc.TxOpts,
+			backend,
+			solimpl.NewChainBackendTransactor(backend),
+		)
+		if chainErr != nil {
+			return nil, chainErr
+		}
+		chains = append(chains, chain)
 	}
-	chains[0] = chain1
-	chain2, err := solimpl.NewAssertionChain(
-		ctx,
-		addresses.Rollup,
-		accs[2].TxOpts,
-		backend,
-	)
-	if err != nil {
-		return nil, err
-	}
-	chains[1] = chain2
-	chain3, err := solimpl.NewAssertionChain(
-		ctx,
-		addresses.Rollup,
-		accs[3].TxOpts,
-		backend,
-	)
-	if err != nil {
-		return nil, err
-	}
-	chains[2] = chain3
-
 	chalManager, err := chains[1].SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err
@@ -322,42 +343,42 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 			return nil, errors.Wrap(err, "could not approve account")
 		}
 		if waitErr := challenge_testing.WaitForTx(ctx, backend, transferTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "failed waiting for transfer transaction")
+			return nil, errors.Wrap(waitErr, "errored waiting for transfer transaction")
 		}
 		receipt, err := backend.TransactionReceipt(ctx, transferTx.Hash())
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get tx receipt")
 		}
 		if receipt.Status != types.ReceiptStatusSuccessful {
-			return nil, errors.New("receipt failed")
+			return nil, errors.New("receipt not successful")
 		}
 		approveTx, err := tokenBindings.TestWETH9Transactor.Approve(acc.TxOpts, addresses.Rollup, value)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not approve account")
 		}
 		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "failed waiting for approval transaction")
+			return nil, errors.Wrap(waitErr, "errored waiting for approval transaction")
 		}
 		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get tx receipt")
 		}
 		if receipt.Status != types.ReceiptStatusSuccessful {
-			return nil, errors.New("receipt failed")
+			return nil, errors.New("receipt not successful")
 		}
 		approveTx, err = tokenBindings.TestWETH9Transactor.Approve(acc.TxOpts, chalManagerAddr, value)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not approve account")
 		}
 		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "failed waiting for approval transaction")
+			return nil, errors.Wrap(waitErr, "errored waiting for approval transaction")
 		}
 		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get tx receipt")
 		}
 		if receipt.Status != types.ReceiptStatusSuccessful {
-			return nil, errors.New("receipt failed")
+			return nil, errors.New("receipt not successful")
 		}
 	}
 
@@ -441,7 +462,7 @@ func DeployFullRollupStack(
 				return nil, err2
 			}
 			if waitErr := challenge_testing.WaitForTx(ctx, backend, batchTx); waitErr != nil {
-				return nil, errors.Wrap(waitErr, "failed waiting for sequencerInbox.SetIsBatchPoster transaction")
+				return nil, errors.Wrap(waitErr, "errored waiting for sequencerInbox.SetIsBatchPoster transaction")
 			}
 			return batchTx, nil
 		})
@@ -462,7 +483,7 @@ func DeployFullRollupStack(
 			return nil, err2
 		}
 		if waitErr := challenge_testing.WaitForTx(ctx, backend, setTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "failed waiting for rollup.SetValidatorWhitelistDisabled transaction")
+			return nil, errors.Wrap(waitErr, "errored waiting for rollup.SetValidatorWhitelistDisabled transaction")
 		}
 		return setTx, nil
 	})
@@ -473,6 +494,7 @@ func DeployFullRollupStack(
 	if !creationReceipt.BlockNumber.IsUint64() {
 		return nil, errors.New("block number was not a uint64")
 	}
+	srvlog.Info("Done deploying")
 
 	return &RollupAddresses{
 		Bridge:                 info.Bridge,

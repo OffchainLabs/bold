@@ -4,11 +4,17 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
+	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	inprogresscache "github.com/OffchainLabs/bold/containers/in-progress-cache"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/metrics"
 
+	"github.com/OffchainLabs/bold/api"
+	"github.com/OffchainLabs/bold/api/db"
 	"github.com/OffchainLabs/bold/containers/option"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
@@ -57,6 +63,26 @@ type HashCollectorConfig struct {
 	StepSize StepSize
 }
 
+func (h *HashCollectorConfig) String() string {
+	str := ""
+	str += h.WasmModuleRoot.String()
+	str += "/"
+	str += fmt.Sprintf("%d", h.FromBatch)
+	str += "/"
+	str += fmt.Sprintf("%d", h.BlockChallengeHeight)
+	str += "/"
+	for _, height := range h.StepHeights {
+		str += fmt.Sprintf("%d", height)
+		str += "/"
+	}
+	str += fmt.Sprintf("%d", h.NumDesiredHashes)
+	str += "/"
+	str += fmt.Sprintf("%d", h.MachineStartIndex)
+	str += "/"
+	str += fmt.Sprintf("%d", h.StepSize)
+	return str
+}
+
 // L2MessageStateCollector defines an interface which can obtain the machine hashes at each L2 message
 // in a specified message range for a given batch index on Arbitrum.
 type L2MessageStateCollector interface {
@@ -77,6 +103,8 @@ type HistoryCommitmentProvider struct {
 	machineHashCollector    MachineHashCollector
 	proofCollector          ProofCollector
 	challengeLeafHeights    []Height
+	inFlightRequestCache    *inprogresscache.Cache[string, []common.Hash]
+	apiDB                   db.Database
 	ExecutionProvider
 }
 
@@ -88,6 +116,7 @@ func NewHistoryCommitmentProvider(
 	proofCollector ProofCollector,
 	challengeLeafHeights []Height,
 	executionProvider ExecutionProvider,
+	apiDB db.Database,
 ) *HistoryCommitmentProvider {
 	return &HistoryCommitmentProvider{
 		l2MessageStateCollector: l2MessageStateCollector,
@@ -95,12 +124,18 @@ func NewHistoryCommitmentProvider(
 		proofCollector:          proofCollector,
 		challengeLeafHeights:    challengeLeafHeights,
 		ExecutionProvider:       executionProvider,
+		inFlightRequestCache:    inprogresscache.New[string, []common.Hash](),
+		apiDB:                   apiDB,
 	}
 }
 
 // A list of heights that have been validated to be non-empty
 // and to be less than the total number of challenge levels in the protocol.
 type validatedStartHeights []Height
+
+func (p *HistoryCommitmentProvider) UpdateAPIDatabase(apiDB db.Database) {
+	p.apiDB = apiDB
+}
 
 // HistoryCommitment computes a Merklelized commitment over a set of hashes
 // at specified challenge levels. For block challenges, for example, this is a set
@@ -167,21 +202,61 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
-	return p.machineHashCollector.CollectMachineHashes(
-		ctx,
-		&HashCollectorConfig{
-			WasmModuleRoot:       req.WasmModuleRoot,
-			FromBatch:            req.FromBatch,
-			BlockChallengeHeight: fromBlockChallengeHeight,
-			// We drop the first index of the validated heights, because the first index is for the block challenge level,
-			// which is over blocks and not over individual machine WASM opcodes. Starting from the second index, we are now
-			// dealing with challenges over ranges of opcodes which are what we care about for our implementation of machine hash collection.
-			StepHeights:       validatedHeights[1:],
-			NumDesiredHashes:  numHashes,
-			MachineStartIndex: machineStartIndex,
-			StepSize:          stepSize,
-		},
-	)
+	cfg := &HashCollectorConfig{
+		WasmModuleRoot:       req.WasmModuleRoot,
+		FromBatch:            req.FromBatch,
+		BlockChallengeHeight: fromBlockChallengeHeight,
+		// We drop the first index of the validated heights, because the first index is for the block challenge level,
+		// which is over blocks and not over individual machine WASM opcodes. Starting from the second index, we are now
+		// dealing with challenges over ranges of opcodes which are what we care about for our implementation of machine hash collection.
+		StepHeights:       validatedHeights[1:],
+		NumDesiredHashes:  numHashes,
+		MachineStartIndex: machineStartIndex,
+		StepSize:          stepSize,
+	}
+	// Requests collecting machine hashes for the specified config, and uses an in-flight
+	// request cache to make sure the same request is not spawned twice, but rather
+	// the second request would wait for the in-flight request to complete and use its result.
+	return p.inFlightRequestCache.Compute(cfg.String(), func() ([]common.Hash, error) {
+		if !api.IsNil(p.apiDB) {
+			var rawStepHeights string
+			for i, stepHeight := range cfg.StepHeights {
+				rawStepHeights += strconv.Itoa(int(stepHeight))
+				if i != len(rawStepHeights)-1 {
+					rawStepHeights += ","
+				}
+			}
+			collectMachineHashes := api.JsonCollectMachineHashes{
+				WasmModuleRoot:       cfg.WasmModuleRoot,
+				FromBatch:            uint64(cfg.FromBatch),
+				BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
+				RawStepHeights:       rawStepHeights,
+				NumDesiredHashes:     cfg.NumDesiredHashes,
+				MachineStartIndex:    uint64(cfg.MachineStartIndex),
+				StepSize:             uint64(cfg.StepSize),
+				StartTime:            time.Now().UTC(),
+			}
+			err := p.apiDB.InsertCollectMachineHash(&collectMachineHashes)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				finishTime := time.Now().UTC()
+				collectMachineHashes.FinishTime = &finishTime
+				err := p.apiDB.UpdateCollectMachineHash(&collectMachineHashes)
+				if err != nil {
+					return
+				}
+			}()
+		}
+		startTime := time.Now()
+		defer func() {
+			// TODO: Replace NewUniformSample(100) with NewBoundedHistogramSample(), once offchainlabs geth is merged in bold.
+			// Eg https://github.com/OffchainLabs/nitro/blob/ab6790a9e33884c3b4e81de2a97dae5bf904266e/das/restful_server.go#L30
+			metrics.GetOrRegisterHistogram("arb/state_provider/collect_machine_hashes/step_size_"+strconv.Itoa(int(stepSize))+"/duration", nil, metrics.NewUniformSample(100)).Update(time.Since(startTime).Nanoseconds())
+		}()
+		return p.machineHashCollector.CollectMachineHashes(ctx, cfg)
+	})
 }
 
 // AgreesWithHistoryCommitment checks if the l2 state provider agrees with a specified start and end

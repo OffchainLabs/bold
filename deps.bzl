@@ -335,12 +335,7 @@ def go_dependencies():
         sum = "h1:uDmaGzcdjhF4i/plgjmEsriH11Y0o7RKapEf/LDaM3w=",
         version = "v1.1.9",
     )
-    go_repository(
-        name = "com_github_d4l3k_messagediff",
-        importpath = "github.com/d4l3k/messagediff",
-        sum = "h1:ZcAIMYsUg0EAp9X+tt8/enBE/Q8Yd5kzPynLyKptt9U=",
-        version = "v1.2.1",
-    )
+
     go_repository(
         name = "com_github_datadog_zstd",
         build_file_generation = "off",
@@ -620,6 +615,13 @@ def go_dependencies():
         sum = "h1:W1iEw64niKVGogNgBN3ePyLFfuisuzeidWPMPWmECqU=",
         version = "v2.1.3+incompatible",
     )
+    go_repository(
+        name = "com_github_go_sql_driver_mysql",
+        importpath = "github.com/go-sql-driver/mysql",
+        sum = "h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=",
+        version = "v1.6.0",
+    )
+
     go_repository(
         name = "com_github_go_stack_stack",
         importpath = "github.com/go-stack/stack",
@@ -912,6 +914,13 @@ def go_dependencies():
         version = "v0.0.0-20190909160543-45766022959e",
     )
     go_repository(
+        name = "com_github_jmoiron_sqlx",
+        importpath = "github.com/jmoiron/sqlx",
+        sum = "h1:vFFPA71p1o5gAeqtEAwLU4dnX2napprKtHr7PYIcN3g=",
+        version = "v1.3.5",
+    )
+
+    go_repository(
         name = "com_github_joker_hpp",
         importpath = "github.com/Joker/hpp",
         sum = "h1:65+iuJYdRXv/XyN62C1uEmmOx3432rNG/rKlX6V7Kkc=",
@@ -1077,6 +1086,13 @@ def go_dependencies():
         version = "v1.2.1",
     )
     go_repository(
+        name = "com_github_lib_pq",
+        importpath = "github.com/lib/pq",
+        sum = "h1:LXpIM/LZ5xGFhOpXAQUIMM1HdyqzVYM13zNdjCEEcA0=",
+        version = "v1.2.0",
+    )
+
+    go_repository(
         name = "com_github_magiconair_properties",
         importpath = "github.com/magiconair/properties",
         sum = "h1:LLgXmsheXeRoUOBOjtwPQCWIYqM/LU1ayDtDePerRcY=",
@@ -1114,6 +1130,13 @@ def go_dependencies():
         sum = "h1:+xnbZSEeDbOIg5/mE6JF0w6n9duR1l3/WmbinWVwUuU=",
         version = "v0.0.14",
     )
+    go_repository(
+        name = "com_github_mattn_go_sqlite3",
+        importpath = "github.com/mattn/go-sqlite3",
+        sum = "h1:dNPt6NO46WmLVt2DLNpwczCmdV5boIZ6g/tlDrlRUbg=",
+        version = "v1.14.6",
+    )
+
     go_repository(
         name = "com_github_mattn_goveralls",
         importpath = "github.com/mattn/goveralls",
@@ -1693,12 +1716,7 @@ def go_dependencies():
         sum = "h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=",
         version = "v1.0.0-20201130134442-10cb98267c6c",
     )
-    go_repository(
-        name = "in_gopkg_d4l3k_messagediff_v1",
-        importpath = "gopkg.in/d4l3k/messagediff.v1",
-        sum = "h1:70AthpjunwzUiarMHyED52mj9UwtAnE89l1Gmrt3EU0=",
-        version = "v1.2.1",
-    )
+
     go_repository(
         name = "in_gopkg_errgo_v2",
         importpath = "gopkg.in/errgo.v2",

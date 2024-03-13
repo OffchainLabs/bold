@@ -8,18 +8,20 @@ package challengemanager
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
 	"time"
 
-	"github.com/OffchainLabs/bold/api"
+	apibackend "github.com/OffchainLabs/bold/api/backend"
+	"github.com/OffchainLabs/bold/api/db"
+	"github.com/OffchainLabs/bold/api/server"
 	"github.com/OffchainLabs/bold/assertions"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
@@ -60,8 +62,8 @@ type Manager struct {
 	edgeTrackerWakeInterval     time.Duration
 	chainWatcherInterval        time.Duration
 	watcher                     *watcher.Watcher
-	trackedEdgeIds              *threadsafe.Set[protocol.EdgeId]
-	batchIndexForAssertionCache *threadsafe.Map[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
+	trackedEdgeIds              *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
+	batchIndexForAssertionCache *threadsafe.LruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
 	assertionManager            *assertions.Manager
 	assertionPostingInterval    time.Duration
 	assertionScanningInterval   time.Duration
@@ -70,10 +72,12 @@ type Manager struct {
 	mode                        types.Mode
 	maxDelaySeconds             int
 
-	challengedAssertions *threadsafe.Set[protocol.AssertionHash]
+	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
 	// API
-	apiAddr string
-	api     *api.Server
+	apiAddr   string
+	apiDBPath string
+	api       *server.Server
+	apiDB     db.Database
 }
 
 // WithName is a human-readable identifier for this challenge manager for logging purposes.
@@ -124,9 +128,10 @@ func WithMode(m types.Mode) Opt {
 }
 
 // WithAPIEnabled specifies whether or not to enable the API and the address to listen on.
-func WithAPIEnabled(addr string) Opt {
+func WithAPIEnabled(addr string, dbPath string) Opt {
 	return func(val *Manager) {
 		val.apiAddr = addr
+		val.apiDBPath = dbPath
 	}
 }
 
@@ -140,27 +145,26 @@ func WithRPCClient(client *rpc.Client) Opt {
 func New(
 	ctx context.Context,
 	chain protocol.Protocol,
-	backend bind.ContractBackend,
 	stateManager l2stateprovider.Provider,
 	rollupAddr common.Address,
 	opts ...Opt,
 ) (*Manager, error) {
 
 	m := &Manager{
-		backend:                     backend,
-		chain:                       chain,
-		stateManager:                stateManager,
-		address:                     common.Address{},
-		timeRef:                     utilTime.NewRealTimeReference(),
-		rollupAddr:                  rollupAddr,
-		chainWatcherInterval:        time.Millisecond * 500,
-		trackedEdgeIds:              threadsafe.NewSet[protocol.EdgeId](),
-		batchIndexForAssertionCache: threadsafe.NewMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](),
-		assertionPostingInterval:    time.Hour,
-		assertionScanningInterval:   time.Minute,
-		assertionConfirmingInterval: time.Second * 10,
-		averageTimeForBlockCreation: time.Millisecond * 500,
-		challengedAssertions:        threadsafe.NewSet[protocol.AssertionHash](),
+		backend:                      chain.Backend(),
+		chain:                        chain,
+		stateManager:                 stateManager,
+		address:                      common.Address{},
+		timeRef:                      utilTime.NewRealTimeReference(),
+		rollupAddr:                   rollupAddr,
+		chainWatcherInterval:         time.Millisecond * 500,
+		trackedEdgeIds:               threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
+		batchIndexForAssertionCache:  threadsafe.NewLruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
+		assertionPostingInterval:     time.Hour,
+		assertionScanningInterval:    time.Minute,
+		assertionConfirmingInterval:  time.Second * 10,
+		averageTimeForBlockCreation:  time.Second * 12,
+		claimedAssertionsInChallenge: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
 	}
 	for _, o := range opts {
 		o(m)
@@ -182,15 +186,15 @@ func New(
 	}
 	chalManagerAddr := chalManager.Address()
 
-	rollup, err := rollupgen.NewRollupCore(rollupAddr, backend)
+	rollup, err := rollupgen.NewRollupCore(rollupAddr, m.backend)
 	if err != nil {
 		return nil, err
 	}
-	rollupFilterer, err := rollupgen.NewRollupCoreFilterer(rollupAddr, backend)
+	rollupFilterer, err := rollupgen.NewRollupCoreFilterer(rollupAddr, m.backend)
 	if err != nil {
 		return nil, err
 	}
-	chalManagerFilterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(chalManagerAddr, backend)
+	chalManagerFilterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(chalManagerAddr, m.backend)
 	if err != nil {
 		return nil, err
 	}
@@ -202,46 +206,57 @@ func New(
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-	watcher, err := watcher.New(m.chain, m, m.stateManager, backend, m.chainWatcherInterval, numBigStepLevels, m.name)
+
+	if m.apiDBPath != "" {
+		apiDB, err2 := db.NewDatabase(m.apiDBPath)
+		if err2 != nil {
+			return nil, err2
+		}
+		m.apiDB = apiDB
+	}
+
+	watcher, err := watcher.New(m.chain, m, m.stateManager, m.backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB, m.assertionConfirmingInterval, m.averageTimeForBlockCreation)
 	if err != nil {
 		return nil, err
 	}
 	m.watcher = watcher
+
+	if m.apiAddr != "" {
+		bknd := apibackend.NewBackend(m.apiDB, m.chain, m.watcher, m)
+		srv, err2 := server.New(m.apiAddr, bknd)
+		if err2 != nil {
+			return nil, err2
+		}
+		m.api = srv
+	}
+
 	assertionManager, err := assertions.NewManager(
 		m.chain,
 		m.stateManager,
 		m.backend,
 		m,
 		m.rollupAddr,
+		m.chalManagerAddr,
 		m.name,
 		m.assertionScanningInterval,
 		m.assertionConfirmingInterval,
 		m.stateManager,
 		m.assertionPostingInterval,
 		m.averageTimeForBlockCreation,
+		m.apiDB,
 	)
 	if err != nil {
 		return nil, err
 	}
 	m.assertionManager = assertionManager
-
-	if m.apiAddr != "" && m.client == nil {
-		return nil, errors.New("go-ethereum RPC client required to enable API service")
-	}
-
-	if m.apiAddr != "" {
-		a, err := api.NewServer(&api.Config{
-			Address:            m.apiAddr,
-			EdgesProvider:      m.watcher,
-			AssertionsProvider: m.chain,
-		})
-		if err != nil {
-			return nil, err
-		}
-		m.api = a
-	}
-
 	return m, nil
+}
+
+func (m *Manager) GetEdgeTracker(edgeId protocol.EdgeId) option.Option[*edgetracker.Tracker] {
+	if m.IsTrackingEdge(edgeId) {
+		return option.Some(m.trackedEdgeIds.Get(edgeId))
+	}
+	return option.None[*edgetracker.Tracker]()
 }
 
 // IsTrackingEdge returns true if we are currently tracking a specified edge id as an edge tracker goroutine.
@@ -249,14 +264,31 @@ func (m *Manager) IsTrackingEdge(edgeId protocol.EdgeId) bool {
 	return m.trackedEdgeIds.Has(edgeId)
 }
 
+func (m *Manager) Database() db.Database {
+	return m.apiDB
+}
+
+func (m *Manager) ChallengeManagerAddress() common.Address {
+	return m.chalManagerAddr
+}
+
 // MarkTrackedEdge marks an edge id as being tracked by our challenge manager.
-func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId) {
-	m.trackedEdgeIds.Insert(edgeId)
+func (m *Manager) MarkTrackedEdge(edgeId protocol.EdgeId, tracker *edgetracker.Tracker) {
+	m.trackedEdgeIds.Put(edgeId, tracker)
+}
+
+func (m *Manager) RemovedTrackedEdge(edgeId protocol.EdgeId) {
+	m.trackedEdgeIds.Delete(edgeId)
 }
 
 // Mode returns the mode of the challenge manager.
 func (m *Manager) Mode() types.Mode {
 	return m.mode
+}
+
+// IsChallengedAssertion checks if an assertion with a given hash has a challenge.
+func (m *Manager) IsClaimedByChallenge(assertionHash protocol.AssertionHash) bool {
+	return m.claimedAssertionsInChallenge.Has(assertionHash)
 }
 
 // MaxDelaySeconds returns the maximum number of seconds that the challenge manager will wait open a challenge.
@@ -319,9 +351,10 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		fromBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState).Batch
 		toBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
 		edgeTrackerAssertionInfo = edgetracker.AssociatedAssertionMetadata{
-			FromBatch:      l2stateprovider.Batch(fromBatch),
-			ToBatch:        l2stateprovider.Batch(toBatch),
-			WasmModuleRoot: prevCreationInfo.WasmModuleRoot,
+			FromBatch:            l2stateprovider.Batch(fromBatch),
+			ToBatch:              l2stateprovider.Batch(toBatch),
+			WasmModuleRoot:       prevCreationInfo.WasmModuleRoot,
+			ClaimedAssertionHash: common.Hash(claimedAssertionId),
 		}
 		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgeTrackerAssertionInfo)
 	} else {
@@ -368,8 +401,8 @@ func (m *Manager) Start(ctx context.Context) {
 
 	if m.api != nil {
 		go func() {
-			if err := m.api.Start(); err != nil {
-				srvlog.Error("Failed to start API server", log.Ctx{
+			if err := m.api.Start(ctx); err != nil {
+				srvlog.Error("Could not start API server", log.Ctx{
 					"address": m.apiAddr,
 					"err":     err,
 				})

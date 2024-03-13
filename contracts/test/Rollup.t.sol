@@ -77,12 +77,8 @@ contract RollupTest is Test {
         OneStepProverMemory oneStepProverMemory = new OneStepProverMemory();
         OneStepProverMath oneStepProverMath = new OneStepProverMath();
         OneStepProverHostIo oneStepProverHostIo = new OneStepProverHostIo();
-        OneStepProofEntry oneStepProofEntry = new OneStepProofEntry(
-            oneStepProver,
-            oneStepProverMemory,
-            oneStepProverMath,
-            oneStepProverHostIo
-        );
+        OneStepProofEntry oneStepProofEntry =
+            new OneStepProofEntry(oneStepProver, oneStepProverMemory, oneStepProverMath, oneStepProverHostIo);
         EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
         BridgeCreator bridgeCreator = new BridgeCreator(MAX_DATA_SIZE);
         RollupCreator rollupCreator = new RollupCreator();
@@ -103,6 +99,13 @@ contract RollupTest is Test {
         token = new TestWETH9("Test", "TEST");
         IWETH9(address(token)).deposit{value: 10 ether}();
 
+        uint256[] memory miniStakeValues = new uint256[](5);
+        miniStakeValues[0] = 1 ether;
+        miniStakeValues[1] = 2 ether;
+        miniStakeValues[2] = 3 ether;
+        miniStakeValues[3] = 4 ether;
+        miniStakeValues[4] = 5 ether;
+
         Config memory config = Config({
             baseStake: BASE_STAKE,
             chainId: 0,
@@ -120,7 +123,7 @@ contract RollupTest is Test {
             loserStakeEscrow: loserStakeEscrow,
             genesisExecutionState: emptyState,
             genesisInboxCount: 0,
-            miniStakeValue: MINI_STAKE_VALUE,
+            miniStakeValues: miniStakeValues,
             layerZeroBlockEdgeHeight: 2 ** 5,
             layerZeroBigStepEdgeHeight: 2 ** 5,
             layerZeroSmallStepEdgeHeight: 2 ** 5,
@@ -765,9 +768,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(
-            data.e1Id,
-            new bytes32[](0),
-            ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+            data.e1Id, ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + userRollup.challengeGracePeriodBlocks());
@@ -795,9 +796,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(
-            data.e1Id,
-            new bytes32[](0),
-            ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+            data.e1Id, ExecutionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + userRollup.challengeGracePeriodBlocks() - 1);
