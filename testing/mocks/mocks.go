@@ -175,16 +175,18 @@ func (m *MockSpecChallengeManager) InheritedTimer(ctx context.Context, edgeId pr
 	args := m.Called(ctx, edgeId)
 	return args.Get(0).(uint64), args.Error(1)
 }
-func (m *MockSpecChallengeManager) UpdateInheritedTimerByChildren(ctx context.Context, edgeId protocol.EdgeId) error {
-	args := m.Called(ctx, edgeId)
+func (m *MockSpecChallengeManager) UpdateInheritedTimerByChildren(ctx context.Context, edgeId protocol.EdgeId, timeUnrivaledTotal uint64, ) error {
+	args := m.Called(ctx, edgeId, timeUnrivaledTotal)
 	return args.Error(0)
 }
 func (m *MockSpecChallengeManager) UpdateInheritedTimerByClaim(
 	ctx context.Context,
 	claimingEdgeId protocol.EdgeId,
+	timeUnrivaled uint64,
 	claimId protocol.ClaimId,
+
 ) error {
-	args := m.Called(ctx, claimingEdgeId, claimId)
+	args := m.Called(ctx, claimingEdgeId, timeUnrivaled, claimId)
 	return args.Error(0)
 }
 

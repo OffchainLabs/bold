@@ -250,11 +250,13 @@ type SpecChallengeManager interface {
 	UpdateInheritedTimerByClaim(
 		ctx context.Context,
 		claimingEdgeId EdgeId,
+		timeUnrivaled uint64,
 		claimId ClaimId,
 	) error
 	UpdateInheritedTimerByChildren(
 		ctx context.Context,
 		edgeId EdgeId,
+		timeUnrivaledTotal uint64,
 	) error
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(

@@ -12,6 +12,7 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/containers/threadsafe"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -363,15 +364,16 @@ func (e *specEdge) TopLevelClaimHeight(ctx context.Context) (protocol.OriginHeig
 
 // Wrapper around the challenge manager contract with developer-friendly methods.
 type specChallengeManager struct {
-	addr                  common.Address
-	backend               protocol.ChainBackend
-	assertionChain        *AssertionChain
-	txOpts                *bind.TransactOpts
-	caller                *challengeV2gen.EdgeChallengeManagerCaller
-	writer                *challengeV2gen.EdgeChallengeManagerTransactor
-	filterer              *challengeV2gen.EdgeChallengeManagerFilterer
-	challengePeriodBlocks uint64
-	numBigStepLevel       uint8
+	addr                            common.Address
+	backend                         protocol.ChainBackend
+	assertionChain                  *AssertionChain
+	txOpts                          *bind.TransactOpts
+	caller                          *challengeV2gen.EdgeChallengeManagerCaller
+	writer                          *challengeV2gen.EdgeChallengeManagerTransactor
+	filterer                        *challengeV2gen.EdgeChallengeManagerFilterer
+	challengePeriodBlocks           uint64
+	numBigStepLevel                 uint8
+	totalTimeUnrivaledCacheByEdgeId *threadsafe.Map[protocol.EdgeId, uint64]
 }
 
 // NewSpecChallengeManager returns an instance of the spec challenge manager
@@ -396,15 +398,16 @@ func NewSpecChallengeManager(
 		return nil, err
 	}
 	return &specChallengeManager{
-		addr:                  addr,
-		assertionChain:        assertionChain,
-		backend:               backend,
-		txOpts:                txOpts,
-		caller:                &managerBinding.EdgeChallengeManagerCaller,
-		writer:                &managerBinding.EdgeChallengeManagerTransactor,
-		filterer:              &managerBinding.EdgeChallengeManagerFilterer,
-		numBigStepLevel:       numBigStepLevel,
-		challengePeriodBlocks: challengePeriodBlocks,
+		addr:                            addr,
+		assertionChain:                  assertionChain,
+		backend:                         backend,
+		txOpts:                          txOpts,
+		caller:                          &managerBinding.EdgeChallengeManagerCaller,
+		writer:                          &managerBinding.EdgeChallengeManagerTransactor,
+		filterer:                        &managerBinding.EdgeChallengeManagerFilterer,
+		numBigStepLevel:                 numBigStepLevel,
+		challengePeriodBlocks:           challengePeriodBlocks,
+		totalTimeUnrivaledCacheByEdgeId: threadsafe.NewMap[protocol.EdgeId, uint64](),
 	}, nil
 }
 
@@ -539,11 +542,11 @@ func (cm *specChallengeManager) GetEdge(
 }
 
 func (cm *specChallengeManager) InheritedTimer(ctx context.Context, edgeId protocol.EdgeId) (uint64, error) {
-	edge, err := cm.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
-	if err != nil {
-		return 0, err
+	if timer, ok := cm.totalTimeUnrivaledCacheByEdgeId.TryGet(edgeId); ok {
+		return timer, nil
 	}
-	return edge.TotalTimeUnrivaledCache, nil
+	cm.totalTimeUnrivaledCacheByEdgeId.Put(edgeId, 0)
+	return 0, nil
 }
 
 func (e *specEdge) fetchEdge(
@@ -595,21 +598,15 @@ func (cm *specChallengeManager) CalculateEdgeId(
 func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
+	timeUnrivaledTotal uint64,
 ) error {
-	if _, err := cm.assertionChain.transact(
-		ctx,
-		cm.assertionChain.backend,
-		func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return cm.writer.UpdateTimerCacheByChildren(
-				opts,
-				edgeId.Hash,
-			)
-		}); err != nil {
-		return errors.Wrapf(
-			err,
-			"could not update inherited timer for edge by children %#x",
-			edgeId,
-		)
+	edgeIdTotalTimeUnrivaledCache, ok := cm.totalTimeUnrivaledCacheByEdgeId.TryGet(edgeId)
+	if !ok {
+		cm.totalTimeUnrivaledCacheByEdgeId.Put(edgeId, 0)
+		edgeIdTotalTimeUnrivaledCache = 0
+	}
+	if timeUnrivaledTotal > edgeIdTotalTimeUnrivaledCache {
+		cm.totalTimeUnrivaledCacheByEdgeId.Put(edgeId, timeUnrivaledTotal)
 	}
 	return nil
 }
@@ -617,24 +614,26 @@ func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
 func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
 	ctx context.Context,
 	claimingEdgeId protocol.EdgeId,
+	timeUnrivaled uint64,
 	claimId protocol.ClaimId,
 ) error {
-	if _, err := cm.assertionChain.transact(
-		ctx,
-		cm.assertionChain.backend,
-		func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return cm.writer.UpdateTimerCacheByClaim(
-				opts,
-				common.Hash(claimId),
-				claimingEdgeId.Hash,
-			)
-		}); err != nil {
-		return errors.Wrapf(
-			err,
-			"could not update inherited timer for edge by claim: claim id %#x, claiming edge id %#x",
-			common.Hash(claimId),
-			claimingEdgeId.Hash,
-		)
+	claimIdTotalTimeUnrivaledCache, ok := cm.totalTimeUnrivaledCacheByEdgeId.TryGet(protocol.EdgeId{
+		Hash: common.Hash(claimId),
+	})
+	if !ok {
+		cm.totalTimeUnrivaledCacheByEdgeId.Put(protocol.EdgeId{
+			Hash: common.Hash(claimId),
+		}, 0)
+		claimIdTotalTimeUnrivaledCache = 0
+	}
+	claimingEdgeIdTotalTimeUnrivaledCache, ok := cm.totalTimeUnrivaledCacheByEdgeId.TryGet(claimingEdgeId)
+	if !ok {
+		cm.totalTimeUnrivaledCacheByEdgeId.Put(claimingEdgeId, 0)
+		claimingEdgeIdTotalTimeUnrivaledCache = 0
+	}
+	timeUnrivaledTotal := claimIdTotalTimeUnrivaledCache + timeUnrivaled
+	if timeUnrivaledTotal > claimingEdgeIdTotalTimeUnrivaledCache {
+		cm.totalTimeUnrivaledCacheByEdgeId.Put(claimingEdgeId, timeUnrivaledTotal)
 	}
 	return nil
 }
