@@ -70,6 +70,7 @@ type Transactor interface {
 // ChainBackendTransactor is a wrapper around a ChainBackend that implements the Transactor interface.
 // It is useful for testing purposes in bold repository.
 type ChainBackendTransactor struct {
+	lock sync.Mutex
 	ChainBackend
 }
 
@@ -80,6 +81,8 @@ func NewChainBackendTransactor(backend protocol.ChainBackend) *ChainBackendTrans
 }
 
 func (d *ChainBackendTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	return tx, d.ChainBackend.SendTransaction(ctx, tx)
 }
 
@@ -91,16 +94,20 @@ type DataPoster interface {
 
 // DataPosterTransactor is a wrapper around a DataPoster that implements the Transactor interface.
 type DataPosterTransactor struct {
+	fifo *FIFO
 	DataPoster
 }
 
 func NewDataPosterTransactor(dataPoster DataPoster) *DataPosterTransactor {
 	return &DataPosterTransactor{
+		fifo:       NewFIFO(1000),
 		DataPoster: dataPoster,
 	}
 }
 
 func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
+	d.fifo.Lock()
+	defer d.fifo.Unlock()
 	return d.PostSimpleTransactionAutoNonce(ctx, *tx.To(), tx.Data(), gas, tx.Value())
 }
 
