@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -70,7 +69,6 @@ type Transactor interface {
 // ChainBackendTransactor is a wrapper around a ChainBackend that implements the Transactor interface.
 // It is useful for testing purposes in bold repository.
 type ChainBackendTransactor struct {
-	lock sync.Mutex
 	ChainBackend
 }
 
@@ -81,8 +79,6 @@ func NewChainBackendTransactor(backend protocol.ChainBackend) *ChainBackendTrans
 }
 
 func (d *ChainBackendTransactor) SendTransaction(ctx context.Context, tx *types.Transaction, gas uint64) (*types.Transaction, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
 	return tx, d.ChainBackend.SendTransaction(ctx, tx)
 }
 
@@ -114,7 +110,6 @@ func (d *DataPosterTransactor) SendTransaction(ctx context.Context, tx *types.Tr
 // AssertionChain is a wrapper around solgen bindings
 // that implements the protocol interface.
 type AssertionChain struct {
-	transactionLock                          sync.Mutex
 	backend                                  protocol.ChainBackend
 	rollup                                   *rollupgen.RollupCore
 	userLogic                                *rollupgen.RollupUserLogic
