@@ -77,10 +77,6 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, err
 	}
-	// a.nonceManager.push(txRequest{
-	// 	tx:  tx,
-	// 	gas: gas,
-	// })
 
 	if commiter, ok := backend.(ChainCommitter); ok {
 		commiter.Commit()
@@ -93,10 +89,12 @@ func (a *AssertionChain) transact(
 		return nil, err
 	}
 	srvlog.Info(fmt.Sprintf("Tx was mined with hash %#x and receipt success=%v", tx.Hash(), receipt.Status == types.ReceiptStatusSuccessful))
+
 	// receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	// if err != nil {
 	// 	return nil, err
 	// }
+
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		callMsg := ethereum.CallMsg{
 			From:       opts.From,
