@@ -14,8 +14,10 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/util"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -51,11 +53,11 @@ func TestGeneratePrefixProof(t *testing.T) {
 	defaultLeaves := []common.Hash{{1}, {2}}
 
 	// Test case: Zero PrefixHeight
-	_, err := prefixproofs.GeneratePrefixProof(0, nil, defaultLeaves, nil)
+	_, err := prefixproofs.GeneratePrefixProof(0, nil, state_hashes.NewStateHashes(defaultLeaves, uint64(len(defaultLeaves))), nil)
 	require.ErrorContains(t, err, "prefixHeight was 0")
 
 	// Test case: Zero Length of Leaves
-	_, err = prefixproofs.GeneratePrefixProof(1, nil, []common.Hash{}, nil)
+	_, err = prefixproofs.GeneratePrefixProof(1, nil, state_hashes.NewStateHashes([]common.Hash{}, 0), nil)
 	require.ErrorContains(t, err, "length of leaves was 0")
 }
 

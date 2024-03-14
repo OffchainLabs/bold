@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "state-hashes",
+    srcs = ["state_hashes.go"],
+    importpath = "github.com/OffchainLabs/bold/state-commitments/state-hashes",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_ethereum_go_ethereum//common"],
+)

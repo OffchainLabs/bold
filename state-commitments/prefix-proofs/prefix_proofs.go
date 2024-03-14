@@ -109,6 +109,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	state_hashes "github.com/OffchainLabs/bold/state-commitments/state-hashes"
 )
 
 const (
@@ -342,17 +344,17 @@ func MaximumAppendBetween(startSize, endSize uint64) (uint64, error) {
 func GeneratePrefixProof(
 	prefixHeight uint64,
 	prefixExpansion MerkleExpansion,
-	leaves []common.Hash,
+	leaves *state_hashes.StateHashes,
 	rootFetcher MerkleExpansionRootFetcherFunc,
 ) ([]common.Hash, error) {
 	if prefixHeight == 0 {
 		return nil, errors.Wrap(ErrCannotBeZero, "prefixHeight was 0")
 	}
-	if len(leaves) == 0 {
+	if leaves.Length() == 0 {
 		return nil, errors.Wrap(ErrCannotBeZero, "length of leaves was 0")
 	}
 	height := prefixHeight
-	postHeight := height + uint64(len(leaves))
+	postHeight := height + leaves.Length()
 
 	// Impossible to generate a prefix proof if the prefix height is greater than the post height given conditions above
 	if prefixHeight >= postHeight {
@@ -386,7 +388,7 @@ func GeneratePrefixProof(
 				return nil, err
 			}
 			proof = append(proof, root)
-			leaves = leaves[numLeaves:]
+			leaves = leaves.SubSlice(numLeaves, leaves.Length())
 			height += numLeaves
 		} else if zzz != 0 {
 			highBit, err := MostSignificantBit(zzz)
@@ -399,7 +401,7 @@ func GeneratePrefixProof(
 				return nil, err
 			}
 			proof = append(proof, root)
-			leaves = leaves[numLeaves:]
+			leaves = leaves.SubSlice(numLeaves, leaves.Length())
 			height += numLeaves
 		}
 	}
