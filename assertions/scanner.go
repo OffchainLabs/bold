@@ -30,7 +30,6 @@ import (
 	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -340,15 +339,15 @@ func (m *Manager) ProcessAssertionCreationEvent(
 	case err != nil:
 		return err
 	}
-	// If no error, this means we agree with the claimed assertion state
-	// so there is no action to take.
-	machineFinishedHash := crypto.Keccak256Hash([]byte("Machine finished:"), claimedState.GlobalState.Hash().Bytes())
-	srvlog.Info("Agreed with incoming assertion", log.Ctx{
-		"validatorName":       m.validatorName,
-		"claimedState":        fmt.Sprintf("%+v", claimedState),
-		"machineFinishedHash": machineFinishedHash,
-		"assertionHash":       assertionHash,
-	})
+	// // If no error, this means we agree with the claimed assertion state
+	// // so there is no action to take.
+	// machineFinishedHash := crypto.Keccak256Hash([]byte("Machine finished:"), claimedState.GlobalState.Hash().Bytes())
+	// srvlog.Info("Agreed with incoming assertion", log.Ctx{
+	// 	"validatorName":       m.validatorName,
+	// 	"claimedState":        fmt.Sprintf("%+v", claimedState),
+	// 	"machineFinishedHash": machineFinishedHash,
+	// 	"assertionHash":       assertionHash,
+	// })
 	m.assertionsProcessedCount++
 	return nil
 }

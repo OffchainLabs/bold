@@ -5,6 +5,7 @@ package solimpl
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -84,10 +85,12 @@ func (a *AssertionChain) transact(
 	if commiter, ok := backend.(ChainCommitter); ok {
 		commiter.Commit()
 	}
+	srvlog.Info(fmt.Sprintf("Awaiting tx mined with hash %#x", tx.Hash()))
 	receipt, err := bind.WaitMined(ctx, backend, tx)
 	if err != nil {
 		return nil, err
 	}
+	srvlog.Info(fmt.Sprintf("Tx was mined with hash %#x and receipt success=%v", tx.Hash(), receipt.Status == types.ReceiptStatusSuccessful))
 	// receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	// if err != nil {
 	// 	return nil, err
