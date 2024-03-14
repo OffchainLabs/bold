@@ -88,7 +88,6 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, err
 	}
-	srvlog.Info("Mined")
 	// receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	// if err != nil {
 	// 	return nil, err
