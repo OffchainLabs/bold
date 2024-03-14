@@ -69,12 +69,12 @@ type timeParams struct {
 func defaultTimeParams() timeParams {
 	return timeParams{
 		// Fast block time.
-		blockTime: time.Millisecond * 100,
+		blockTime: time.Second,
 		// Go very fast.
-		challengeMoveInterval:                time.Millisecond * 250,
-		assertionPostingInterval:             time.Second,
+		challengeMoveInterval:                time.Second,
+		assertionPostingInterval:             time.Hour,
 		assertionScanningInterval:            time.Second,
-		assertionConfirmationAttemptInterval: time.Second,
+		assertionConfirmationAttemptInterval: time.Hour,
 	}
 }
 
@@ -188,7 +188,7 @@ func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 		actors: actorParams{
 			numEvilValidators: 5,
 		},
-		timings: defaultTimeParams(),
+		timings: timeCfg,
 		expectations: []expect{
 			// Expect one assertion is confirmed by challenge win.
 			expectAssertionConfirmedByChallengeWin,
