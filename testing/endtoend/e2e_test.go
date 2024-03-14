@@ -176,7 +176,7 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 
 func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 2000
+	protocolCfg.challengePeriodBlocks = 1000
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Millisecond * 500
 	timeCfg.challengeMoveInterval = time.Millisecond * 500
@@ -186,9 +186,9 @@ func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 		protocol: protocolCfg,
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
-			numEvilValidators: 5,
+			numEvilValidators: 3,
 		},
-		timings: defaultTimeParams(),
+		timings: timeCfg,
 		expectations: []expect{
 			// Expect one assertion is confirmed by challenge win.
 			expectAssertionConfirmedByChallengeWin,

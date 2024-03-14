@@ -70,10 +70,10 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
 	}
-	// opts.GasLimit = gas
-	// opts.NoSend = false
-	// txer, _ := a.transactor.(SimpleTransactor)
-	tx, err = a.transactor.SendTransaction(ctx, tx, gas)
+
+	// Now, we send the tx with the estimated gas.
+	opts.GasLimit = gas + 500000
+	tx, err = a.transactor.SendTransaction(ctx, fn, opts, gas)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,9 @@ func (a *AssertionChain) transact(
 		commiter.Commit()
 	}
 	srvlog.Info(fmt.Sprintf("Awaiting tx mined with hash %#x", tx.Hash()))
-	receipt, err := bind.WaitMined(ctx, backend, tx)
+	ctxMineTimeout, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	receipt, err := bind.WaitMined(ctxMineTimeout, backend, tx)
 	if err != nil {
 		return nil, err
 	}
