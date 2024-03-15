@@ -9,12 +9,10 @@ package challengetree
 import (
 	"context"
 	"fmt"
-	"math"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
@@ -51,6 +49,7 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
 	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
+	inheritedTimers       *threadsafe.Map[protocol.EdgeId, protocol.InheritedTimer]
 	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionHash protocol.AssertionHash
 	metadataReader        MetadataReader
@@ -69,6 +68,7 @@ func New(
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
+		inheritedTimers:       threadsafe.NewMap[protocol.EdgeId, protocol.InheritedTimer](),
 		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
 		topLevelAssertionHash: assertionHash,
 		metadataReader:        metadataReader,
@@ -117,141 +117,4 @@ func (ht *RoyalChallengeTree) IsUnrivaledAtBlockNum(edge protocol.ReadOnlyEdge, 
 
 func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
 	return ht.LocalTimer(edge, blockNum)
-}
-
-func (ht *RoyalChallengeTree) UpdateInheritedTimer(
-	ctx context.Context,
-	edgeId protocol.EdgeId,
-	blockNum uint64,
-) (uint64, error) {
-	edge, ok := ht.edges.TryGet(edgeId)
-	if !ok {
-		return 0, fmt.Errorf("edge with id %#x not found", edgeId.Hash)
-	}
-	status, err := edge.Status(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if isOneStepProven(ctx, edge, status) {
-		return math.MaxUint64, nil
-	}
-	timeUnrivaled, err := ht.TimeUnrivaled(edge, blockNum)
-	if err != nil {
-		return 0, err
-	}
-	inheritedTimer := timeUnrivaled
-
-	chalManager, err := ht.metadataReader.SpecChallengeManager(ctx)
-	if err != nil {
-		return 0, err
-	}
-	// If an edge has children, we use the min of its children.
-	hasChildren, err := edge.HasChildren(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if hasChildren {
-		childrenInherited, err2 := ht.inheritedTimerFromChildren(ctx, chalManager, edge)
-		if err2 != nil {
-			return 0, err2
-		}
-		inheritedTimer = saturatingSum(inheritedTimer, childrenInherited)
-	}
-
-	// Edges that claim another edge in the level above update the inherited timer onchain
-	// if they are able to.
-	if edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-		claimedEdgeId := edge.ClaimId().Unwrap()
-		go func() {
-			if err = chalManager.UpdateInheritedTimerByClaim(ctx, edgeId, claimedEdgeId); err != nil {
-				srvlog.Error("Could not update inherited timer by claim", log.Ctx{"error": err})
-				return
-			}
-			srvlog.Info("Updated inherited timer by claim", log.Ctx{
-				"claimedEdgeId": common.Hash(claimedEdgeId),
-				"edgeId":        edgeId,
-			})
-		}()
-	}
-
-	onchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
-	if err != nil {
-		return 0, err
-	}
-	if inheritedTimer > onchainTimer {
-		go func() {
-			if err = chalManager.UpdateInheritedTimerByChildren(ctx, edgeId); err != nil {
-				srvlog.Error("Could not update inherited timer by children", log.Ctx{"error": err})
-				return
-			}
-			srvlog.Info("Updated inherited timer by children", log.Ctx{
-				"inheritedTimer": inheritedTimer,
-				"onchainTimer":   onchainTimer,
-				"edgeId":         edgeId,
-			})
-			newOnchainTimer, err := chalManager.InheritedTimer(ctx, edgeId)
-			if err != nil {
-				srvlog.Error("Could not get new onchain timer", log.Ctx{"error": err})
-				return
-			}
-			if newOnchainTimer != inheritedTimer {
-				srvlog.Warn("Updated onchain timer for edge does not match what was expected", log.Ctx{
-					"inheritedTimer": inheritedTimer,
-					"onchainTimer":   onchainTimer,
-					"edgeId":         edgeId,
-				})
-			}
-		}()
-	}
-	// Otherwise, the edge does not yet have children.
-	return inheritedTimer, nil
-}
-
-// Gets the inherited timer from the children of an edge. The edge
-// must have children for this function to be called.
-func (ht *RoyalChallengeTree) inheritedTimerFromChildren(
-	ctx context.Context,
-	chalManager protocol.SpecChallengeManager,
-	edge protocol.SpecEdge,
-) (uint64, error) {
-	lowerChildOpt, err := edge.LowerChild(ctx)
-	if err != nil {
-		return 0, err
-	}
-	upperChildOpt, err := edge.UpperChild(ctx)
-	if err != nil {
-		return 0, err
-	}
-	lowerChildId := lowerChildOpt.Unwrap()
-	upperChildId := upperChildOpt.Unwrap()
-
-	lowerTimer, err := chalManager.InheritedTimer(ctx, lowerChildId)
-	if err != nil {
-		return 0, err
-	}
-	upperTimer, err := chalManager.InheritedTimer(ctx, upperChildId)
-	if err != nil {
-		return 0, err
-	}
-	if upperTimer < lowerTimer {
-		return upperTimer, nil
-	}
-	return lowerTimer, nil
-}
-
-func isOneStepProven(
-	ctx context.Context, edge protocol.SpecEdge, status protocol.EdgeStatus,
-) bool {
-	startHeight, _ := edge.StartCommitment()
-	endHeight, _ := edge.EndCommitment()
-	diff := endHeight - startHeight
-	isSmallStep := edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1)
-	return isSmallStep && status == protocol.EdgeConfirmed && diff == 1
-}
-
-func saturatingSum(a, b uint64) uint64 {
-	if math.MaxUint64-a < b {
-		return math.MaxUint64
-	}
-	return a + b
 }
