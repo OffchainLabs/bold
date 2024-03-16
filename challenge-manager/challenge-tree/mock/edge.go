@@ -125,6 +125,11 @@ func (*Edge) TimeUnrivaled(_ context.Context) (uint64, error) {
 	return 0, nil
 }
 
+// TimeUnrivaled in seconds an edge has been unrivaled.
+func (*Edge) InheritedTimer(_ context.Context) (protocol.InheritedTimer, error) {
+	return 0, nil
+}
+
 // Status of an edge.
 func (e *Edge) Status(_ context.Context) (protocol.EdgeStatus, error) {
 	return e.InnerStatus, nil
