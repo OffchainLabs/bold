@@ -202,7 +202,9 @@ library ChallengeEdgeLib {
     ) internal pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
-                mutualIdComponent(level, originId, startHeight, startHistoryRoot, endHeight), endHistoryRoot, parentEdgeId
+                mutualIdComponent(level, originId, startHeight, startHistoryRoot, endHeight),
+                endHistoryRoot,
+                parentEdgeId
             )
         );
     }
@@ -213,14 +215,26 @@ library ChallengeEdgeLib {
     ///         the whole struct into memory, so we're explicit here that this should be used for edges already in memory.
     function idMem(ChallengeEdge memory edge) internal pure returns (bytes32) {
         return idComponent(
-            edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot, edge.parentEdgeId
+            edge.level,
+            edge.originId,
+            edge.startHeight,
+            edge.startHistoryRoot,
+            edge.endHeight,
+            edge.endHistoryRoot,
+            edge.parentEdgeId
         );
     }
 
     /// @notice The id of an edge. Edges are uniquely identified by their id, and commit to the same information
     function id(ChallengeEdge storage edge) internal view returns (bytes32) {
         return idComponent(
-            edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot, edge.parentEdgeId
+            edge.level,
+            edge.originId,
+            edge.startHeight,
+            edge.startHistoryRoot,
+            edge.endHeight,
+            edge.endHistoryRoot,
+            edge.parentEdgeId
         );
     }
 

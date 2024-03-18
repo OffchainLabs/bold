@@ -182,7 +182,7 @@ library EdgeChallengeManagerLib {
             store.firstEdges[mutualId] = eId;
         } else if (firstRival == UNRIVALED) {
             bytes32 firstEdge = store.firstEdges[mutualId];
-            if(store.edges[firstEdge].endHistoryRoot != store.edges[eId].endHistoryRoot){
+            if (store.edges[firstEdge].endHistoryRoot != store.edges[eId].endHistoryRoot) {
                 store.firstRivals[mutualId] = eId;
             }
         } else {

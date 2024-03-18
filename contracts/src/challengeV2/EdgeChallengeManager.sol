@@ -79,7 +79,6 @@ interface IEdgeChallengeManager {
     /// @param edgeId                   The id of the edge to confirm
     function confirmEdgeByTime(bytes32 edgeId, ExecutionStateData calldata claimStateData) external;
 
-
     /// @notice Update multiple edges' timer cache by their children. Equivalent to calling updateTimerCacheByChildren for each edge.
     /// @param edgeIds The ids of the edges to update
     function multiUpdateTimeCacheByChildren(bytes32[] calldata edgeIds) external;
@@ -599,7 +598,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bytes32 endHistoryRoot,
         bytes32 parentEdgeId
     ) public pure returns (bytes32) {
-        return ChallengeEdgeLib.idComponent(level, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot, parentEdgeId);
+        return ChallengeEdgeLib.idComponent(
+            level, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot, parentEdgeId
+        );
     }
 
     /// @inheritdoc IEdgeChallengeManager

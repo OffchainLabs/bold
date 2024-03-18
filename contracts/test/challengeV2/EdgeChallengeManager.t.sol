@@ -502,7 +502,13 @@ contract EdgeChallengeManagerTest is Test {
         );
         assertEq(
             ei.challengeManager.calculateEdgeId(
-                edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot, edge.parentEdgeId
+                edge.level,
+                edge.originId,
+                edge.startHeight,
+                edge.startHistoryRoot,
+                edge.endHeight,
+                edge.endHistoryRoot,
+                edge.parentEdgeId
             ),
             edge.idMem(),
             "Mutual id"

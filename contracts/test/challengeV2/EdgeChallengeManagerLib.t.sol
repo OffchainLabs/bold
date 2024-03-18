@@ -193,8 +193,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function twoNonRivals() internal returns (ChallengeEdge memory, ChallengeEdge memory) {
         bytes32 originId = rand.hash();
 
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 3, rand.hash(), 9, 0);
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 3, rand.hash(), 9, 0);
 
         return (edge1, edge2);
     }
@@ -203,8 +205,10 @@ contract EdgeChallengeManagerLibTest is Test {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
 
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
 
         return (edge1, edge2);
     }
@@ -302,7 +306,8 @@ contract EdgeChallengeManagerLibTest is Test {
     }
 
     function testCannotAddSameEdgeTwice() public {
-        ChallengeEdge memory edge = ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), rand.hash(), 0, rand.hash(), 10, 0);
+        ChallengeEdge memory edge =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), rand.hash(), rand.hash(), 0, rand.hash(), 10, 0);
 
         store.add(edge);
 
@@ -369,8 +374,10 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function testSingleStepRivalNotRival() public {
         bytes32 originId = rand.hash();
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 9, rand.hash(), 10, 0);
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 9, rand.hash(), 10, 0);
 
         store.add(edge1);
         store.add(edge2);
@@ -382,8 +389,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testSingleStepRivalNotHeight() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 8, rand.hash(), 10, 0);
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 8, rand.hash(), 10, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 8, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 8, rand.hash(), 10, 0);
 
         store.add(edge1);
         store.add(edge2);
@@ -395,8 +404,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testSingleStepRival() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
 
         store.add(edge1);
         store.add(edge2);
@@ -408,8 +419,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testSingleStepRivalNotExist() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 9, rand.hash(), 10, 0);
 
         store.add(edge1);
 
@@ -464,22 +477,26 @@ contract EdgeChallengeManagerLibTest is Test {
     function testTimeUnrivaledAfterRival() public {
         bytes32 originId = rand.hash();
         bytes32 startRoot = rand.hash();
-        ChallengeEdge memory edge1 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge1 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
 
         store.add(edge1);
         vm.roll(block.number + 4);
 
-        ChallengeEdge memory edge2 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge2 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
 
         store.add(edge2);
         vm.roll(block.number + 5);
 
-        ChallengeEdge memory edge3 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge3 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, startRoot, 3, rand.hash(), 9, 0);
         store.add(edge3);
 
         vm.roll(block.number + 6);
 
-        ChallengeEdge memory edge4 = ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 3, rand.hash(), 9, 0);
+        ChallengeEdge memory edge4 =
+            ChallengeEdgeLib.newChildEdge(rand.hash(), originId, rand.hash(), 3, rand.hash(), 9, 0);
         store.add(edge4);
 
         vm.roll(block.number + 7);
@@ -720,7 +737,13 @@ contract EdgeChallengeManagerLibTest is Test {
             store.get(edge1.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
-                    edge1.idMem(), edge1.originId, bisectionRoot1, bisectionPoint, edge1.endHistoryRoot, edge1.endHeight, edge1.level
+                    edge1.idMem(),
+                    edge1.originId,
+                    bisectionRoot1,
+                    bisectionPoint,
+                    edge1.endHistoryRoot,
+                    edge1.endHeight,
+                    edge1.level
                 )
             ).idMem(),
             "Lower child id"
@@ -736,7 +759,7 @@ contract EdgeChallengeManagerLibTest is Test {
             store.get(edge2.idMem()).lowerChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
-                    edge2.idMem(), 
+                    edge2.idMem(),
                     edge2.originId,
                     edge2.startHistoryRoot,
                     edge2.startHeight,
@@ -752,7 +775,13 @@ contract EdgeChallengeManagerLibTest is Test {
             store.get(edge2.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
-                    edge2.idMem(), edge2.originId, bisectionRoot2, bisectionPoint, edge2.endHistoryRoot, edge2.endHeight, edge2.level
+                    edge2.idMem(),
+                    edge2.originId,
+                    bisectionRoot2,
+                    bisectionPoint,
+                    edge2.endHistoryRoot,
+                    edge2.endHeight,
+                    edge2.level
                 )
             ).idMem(),
             "Lower child id"
@@ -796,7 +825,13 @@ contract EdgeChallengeManagerLibTest is Test {
             store.get(edge1.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
-                    edge1.idMem(), edge1.originId, bisectionRoot1, bisectionPoint, edge1.endHistoryRoot, edge1.endHeight, edge1.level
+                    edge1.idMem(),
+                    edge1.originId,
+                    bisectionRoot1,
+                    bisectionPoint,
+                    edge1.endHistoryRoot,
+                    edge1.endHeight,
+                    edge1.level
                 )
             ).idMem(),
             "Lower child id"
@@ -812,7 +847,7 @@ contract EdgeChallengeManagerLibTest is Test {
             store.get(edge2.idMem()).lowerChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
-                    edge2.idMem(), 
+                    edge2.idMem(),
                     edge2.originId,
                     edge2.startHistoryRoot,
                     edge2.startHeight,
@@ -828,7 +863,13 @@ contract EdgeChallengeManagerLibTest is Test {
             store.get(edge2.idMem()).upperChildId,
             (
                 ChallengeEdgeLib.newChildEdge(
-                    edge2.idMem(), edge2.originId, bisectionRoot2, bisectionPoint, edge2.endHistoryRoot, edge2.endHeight, edge2.level
+                    edge2.idMem(),
+                    edge2.originId,
+                    bisectionRoot2,
+                    bisectionPoint,
+                    edge2.endHistoryRoot,
+                    edge2.endHeight,
+                    edge2.level
                 )
             ).idMem(),
             "Lower child id"
