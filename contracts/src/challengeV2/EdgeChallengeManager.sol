@@ -448,18 +448,20 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         bool lowerChildAlreadyExists = lowerChildAdded.edgeId == 0;
         // the lower child might already exist, if it didnt then a new
         // edge was added
-        if (!lowerChildAlreadyExists) {
-            emit EdgeAdded(
-                lowerChildAdded.edgeId,
-                lowerChildAdded.mutualId,
-                lowerChildAdded.originId,
-                lowerChildAdded.claimId,
-                lowerChildAdded.length,
-                lowerChildAdded.level,
-                lowerChildAdded.hasRival,
-                lowerChildAdded.isLayerZero
-            );
+        if (lowerChildAlreadyExists) {
+            // TODO
+            revert("UNREACHABLE");
         }
+        emit EdgeAdded(
+            lowerChildAdded.edgeId,
+            lowerChildAdded.mutualId,
+            lowerChildAdded.originId,
+            lowerChildAdded.claimId,
+            lowerChildAdded.length,
+            lowerChildAdded.level,
+            lowerChildAdded.hasRival,
+            lowerChildAdded.isLayerZero
+        );
         // upper child is always added
         emit EdgeAdded(
             upperChildAdded.edgeId,

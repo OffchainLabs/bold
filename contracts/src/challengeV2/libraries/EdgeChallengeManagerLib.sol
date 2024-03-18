@@ -81,6 +81,8 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
+    /// TODO
+    mapping(bytes32 => bytes32) firstEdges;
 }
 
 /// @notice Input data to a one step proof
@@ -177,8 +179,12 @@ library EdgeChallengeManagerLib {
         // of the first rival, and use it for calculating time unrivaled
         if (firstRival == 0) {
             store.firstRivals[mutualId] = UNRIVALED;
+            store.firstEdges[mutualId] = eId;
         } else if (firstRival == UNRIVALED) {
-            store.firstRivals[mutualId] = eId;
+            bytes32 firstEdge = store.firstEdges[mutualId];
+            if(store.edges[firstEdge].endHistoryRoot != store.edges[eId].endHistoryRoot){
+                store.firstRivals[mutualId] = eId;
+            }
         } else {
             // after we've stored the first rival we dont need to keep a record of any
             // other rival edges - they will all have a zero time unrivaled
