@@ -608,7 +608,7 @@ library EdgeChallengeManagerLib {
         {
             // midpoint proof it valid, create and store the children
             ChallengeEdge memory lowerChild = ChallengeEdgeLib.newChildEdge(
-                ce.originId, ce.startHistoryRoot, ce.startHeight, bisectionHistoryRoot, middleHeight, ce.level
+                edgeId, ce.originId, ce.startHistoryRoot, ce.startHeight, bisectionHistoryRoot, middleHeight, ce.level
             );
             lowerChildId = lowerChild.idMem();
             // it's possible that the store already has the lower child if it was created by a rival
@@ -621,7 +621,7 @@ library EdgeChallengeManagerLib {
         EdgeAddedData memory upperChildAdded;
         {
             ChallengeEdge memory upperChild = ChallengeEdgeLib.newChildEdge(
-                ce.originId, bisectionHistoryRoot, middleHeight, ce.endHistoryRoot, ce.endHeight, ce.level
+                edgeId, ce.originId, bisectionHistoryRoot, middleHeight, ce.endHistoryRoot, ce.endHeight, ce.level
             );
 
             // add checks existence and throws if the id already exists

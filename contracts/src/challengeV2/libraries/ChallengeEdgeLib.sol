@@ -62,6 +62,8 @@ struct ChallengeEdge {
     bool refunded;
     /// @notice TODO
     uint64 totalTimeUnrivaledCache;
+    /// @notice TODO
+    bytes32 parentEdgeId;
 }
 
 library ChallengeEdgeLib {
@@ -124,13 +126,15 @@ library ChallengeEdgeLib {
             level: level,
             refunded: false,
             confirmedAtBlock: 0,
-            totalTimeUnrivaledCache: 0
+            totalTimeUnrivaledCache: 0,
+            parentEdgeId: bytes32(0)
         });
     }
 
     /// @notice Creates a new child edge. All edges except layer zero edges are child edges.
     ///         These are edges that are created by bisection, and have parents rather than claims.
     function newChildEdge(
+        bytes32 parentEdgeId,
         bytes32 originId,
         bytes32 startHistoryRoot,
         uint256 startHeight,
@@ -155,7 +159,8 @@ library ChallengeEdgeLib {
             level: level,
             refunded: false,
             confirmedAtBlock: 0,
-            totalTimeUnrivaledCache: 0
+            totalTimeUnrivaledCache: 0,
+            parentEdgeId: parentEdgeId
         });
     }
 
@@ -192,11 +197,12 @@ library ChallengeEdgeLib {
         uint256 startHeight,
         bytes32 startHistoryRoot,
         uint256 endHeight,
-        bytes32 endHistoryRoot
+        bytes32 endHistoryRoot,
+        bytes32 parentEdgeId
     ) internal pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
-                mutualIdComponent(level, originId, startHeight, startHistoryRoot, endHeight), endHistoryRoot
+                mutualIdComponent(level, originId, startHeight, startHistoryRoot, endHeight), endHistoryRoot, parentEdgeId
             )
         );
     }
@@ -207,14 +213,14 @@ library ChallengeEdgeLib {
     ///         the whole struct into memory, so we're explicit here that this should be used for edges already in memory.
     function idMem(ChallengeEdge memory edge) internal pure returns (bytes32) {
         return idComponent(
-            edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot
+            edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot, edge.parentEdgeId
         );
     }
 
     /// @notice The id of an edge. Edges are uniquely identified by their id, and commit to the same information
     function id(ChallengeEdge storage edge) internal view returns (bytes32) {
         return idComponent(
-            edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot
+            edge.level, edge.originId, edge.startHeight, edge.startHistoryRoot, edge.endHeight, edge.endHistoryRoot, edge.parentEdgeId
         );
     }
 

@@ -136,7 +136,8 @@ interface IEdgeChallengeManager {
         uint256 startHeight,
         bytes32 startHistoryRoot,
         uint256 endHeight,
-        bytes32 endHistoryRoot
+        bytes32 endHistoryRoot,
+        bytes32 parentEdgeId
     ) external pure returns (bytes32);
 
     /// @notice Calculate the mutual id of the edge
@@ -593,9 +594,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         uint256 startHeight,
         bytes32 startHistoryRoot,
         uint256 endHeight,
-        bytes32 endHistoryRoot
+        bytes32 endHistoryRoot,
+        bytes32 parentEdgeId
     ) public pure returns (bytes32) {
-        return ChallengeEdgeLib.idComponent(level, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot);
+        return ChallengeEdgeLib.idComponent(level, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot, parentEdgeId);
     }
 
     /// @inheritdoc IEdgeChallengeManager
