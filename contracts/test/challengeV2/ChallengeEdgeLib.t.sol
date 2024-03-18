@@ -55,6 +55,7 @@ contract ChallengeEdgeLibAccess {
     }
 
     function newChildEdge(
+        bytes32 parentEdgeId,
         bytes32 originId,
         bytes32 startHistoryRoot,
         uint256 startHeight,
@@ -62,7 +63,7 @@ contract ChallengeEdgeLibAccess {
         uint256 endHeight,
         uint8 level
     ) public view returns (ChallengeEdge memory) {
-        return ChallengeEdgeLib.newChildEdge(originId, startHistoryRoot, startHeight, endHistoryRoot, endHeight, level);
+        return ChallengeEdgeLib.newChildEdge(parentEdgeId, originId, startHistoryRoot, startHeight, endHistoryRoot, endHeight, level);
     }
 
     function mutualIdComponent(
@@ -89,9 +90,10 @@ contract ChallengeEdgeLibAccess {
         uint256 startHeight,
         bytes32 startHistoryRoot,
         uint256 endHeight,
-        bytes32 endHistoryRoot
+        bytes32 endHistoryRoot,
+        bytes32 parentEdgeId
     ) public pure returns (bytes32) {
-        return ChallengeEdgeLib.idComponent(level, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot);
+        return ChallengeEdgeLib.idComponent(level, originId, startHeight, startHistoryRoot, endHeight, endHistoryRoot, parentEdgeId);
     }
 
     function idMem(ChallengeEdge memory edge) public pure returns (bytes32) {
@@ -135,52 +137,52 @@ contract ChallengeEdgeLibTest is Test {
     Random rand = new Random();
     uint8 constant NUM_BIGSTEP_LEVEL = 3;
 
-    function randCheckArgs() internal returns (bytes32, bytes32, bytes32) {
-        return (rand.hash(), rand.hash(), rand.hash());
+    function randCheckArgs() internal returns (bytes32, bytes32, bytes32, bytes32) {
+        return (rand.hash(), rand.hash(), rand.hash(), rand.hash());
     }
 
     function testEdgeChecks() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLib.newEdgeChecks(originId, startRoot, 10, endRoot, 15);
     }
 
     function testEdgeChecksZeroOrigin() public {
-        (, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (, bytes32 startRoot, bytes32 endRoot, ) = randCheckArgs();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(EmptyOriginId.selector));
         access.newEdgeChecks(0, startRoot, 10, endRoot, 15);
     }
 
     function testEdgeChecksStartRoot() public {
-        (bytes32 originId,, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId,, bytes32 endRoot, ) = randCheckArgs();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(EmptyStartRoot.selector));
         access.newEdgeChecks(originId, 0, 10, endRoot, 15);
     }
 
     function testEdgeChecksEndRoot() public {
-        (bytes32 originId, bytes32 startRoot,) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot,,) = randCheckArgs();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(EmptyEndRoot.selector));
         access.newEdgeChecks(originId, startRoot, 10, 0, 15);
     }
 
     function testEdgeChecksHeightLessThan() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(InvalidHeights.selector, 10, 5));
         access.newEdgeChecks(originId, startRoot, 10, endRoot, 5);
     }
 
     function testEdgeChecksHeightEqual() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(InvalidHeights.selector, 10, 10));
         access.newEdgeChecks(originId, startRoot, 10, endRoot, 10);
     }
 
     function testNewLayerZeroEdge() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         bytes32 claimId = rand.hash();
         address staker = rand.addr();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
@@ -207,7 +209,7 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testNewLayerZeroEdgeZeroStaker() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         bytes32 claimId = rand.hash();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(EmptyStaker.selector));
@@ -215,7 +217,7 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testNewLayerZeroEdgeZeroClaimId() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         address staker = rand.addr();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
         vm.expectRevert(abi.encodeWithSelector(EmptyClaimId.selector));
@@ -223,9 +225,10 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testNewChildEdge() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess access = new ChallengeEdgeLibAccess();
-        ChallengeEdge memory e = access.newChildEdge(originId, startRoot, 10, endRoot, 15, NUM_BIGSTEP_LEVEL + 1);
+        ChallengeEdge memory e = access.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 15, NUM_BIGSTEP_LEVEL + 1);
+        assertEq(e.parentEdgeId, parentEdgeId, "Parent id");
         assertEq(e.originId, originId, "Origin id");
         assertEq(e.startHeight, 10, "Start height");
         assertEq(e.startHistoryRoot, startRoot, "Start root");
@@ -242,7 +245,7 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testEdgeExists() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         bytes32 claimId = rand.hash();
         address staker = rand.addr();
 
@@ -255,7 +258,7 @@ contract ChallengeEdgeLibTest is Test {
         ChallengeEdge memory layerZeroEdge =
             layerZero.newLayerZeroEdge(originId, startRoot, 10, endRoot, 15, claimId, staker, NUM_BIGSTEP_LEVEL + 1);
         layerZero.setChallengeEdge(layerZeroEdge);
-        ChallengeEdge memory childEdge = child.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
+        ChallengeEdge memory childEdge = child.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
         child.setChallengeEdge(childEdge);
 
         assertTrue(layerZero.exists(), "Layer zero exists");
@@ -269,7 +272,7 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testLength() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         bytes32 claimId = rand.hash();
         address staker = rand.addr();
 
@@ -281,7 +284,7 @@ contract ChallengeEdgeLibTest is Test {
         );
         layerZero.setChallengeEdge(layerZeroEdge);
         ChallengeEdge memory childEdge =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
+            ChallengeEdgeLib.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
         child.setChallengeEdge(childEdge);
 
         assertEq(layerZero.length(), 5, "L-zero len");
@@ -298,10 +301,10 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testSetChildren() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess child = new ChallengeEdgeLibAccess();
         ChallengeEdge memory childEdge =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
+            ChallengeEdgeLib.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
         child.setChallengeEdge(childEdge);
 
         bytes32 lowerChildId = rand.hash();
@@ -315,10 +318,10 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testSetChildrenTwice() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess child = new ChallengeEdgeLibAccess();
         ChallengeEdge memory childEdge =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
+            ChallengeEdgeLib.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
         child.setChallengeEdge(childEdge);
 
         bytes32 lowerChildId = rand.hash();
@@ -329,10 +332,10 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testSetConfirmed() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess child = new ChallengeEdgeLibAccess();
         ChallengeEdge memory childEdge =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
+            ChallengeEdgeLib.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
         child.setChallengeEdge(childEdge);
 
         vm.roll(137);
@@ -343,10 +346,10 @@ contract ChallengeEdgeLibTest is Test {
     }
 
     function testSetConfirmedTwice() public {
-        (bytes32 originId, bytes32 startRoot, bytes32 endRoot) = randCheckArgs();
+        (bytes32 originId, bytes32 startRoot, bytes32 endRoot, bytes32 parentEdgeId) = randCheckArgs();
         ChallengeEdgeLibAccess child = new ChallengeEdgeLibAccess();
         ChallengeEdge memory childEdge =
-            ChallengeEdgeLib.newChildEdge(originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
+            ChallengeEdgeLib.newChildEdge(parentEdgeId, originId, startRoot, 10, endRoot, 17, NUM_BIGSTEP_LEVEL + 1);
         child.setChallengeEdge(childEdge);
 
         child.setConfirmed();
