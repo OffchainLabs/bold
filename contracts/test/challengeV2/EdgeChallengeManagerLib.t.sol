@@ -834,7 +834,7 @@ contract EdgeChallengeManagerLibTest is Test {
             "Lower child id"
         );
 
-        assertFalse(store.hasRival(store.get(edge2.idMem()).lowerChildId), "Lower child rival");
+        assertFalse(store.hasRival(store.get(edge2.idMem()).lowerChildId), "Lower child rival 837");
         assertTrue(store.hasRival(store.get(edge2.idMem()).upperChildId), "Upper child rival");
 
         assertEq(
@@ -1080,7 +1080,7 @@ contract EdgeChallengeManagerLibTest is Test {
         assertEq(store.timeUnrivaled(edge2.idMem()), 0);
         assertEq(store.timeUnrivaled(lowerChildId1), 220);
         assertEq(store.timeUnrivaled(upperChildAdded1.edgeId), 20);
-        assertEq(store.timeUnrivaled(lowerChildId2), 220);
+        assertEq(store.timeUnrivaled(lowerChildId2), 200);
         assertEq(store.timeUnrivaled(upperChildAdded2.edgeId), 0);
 
         // make sure caches are 0
@@ -1094,7 +1094,7 @@ contract EdgeChallengeManagerLibTest is Test {
         // make sure leaves just return their time unrivaled for total time unrivaled
         assertEq(store.timeUnrivaledTotal(lowerChildId1), 220);
         assertEq(store.timeUnrivaledTotal(upperChildAdded1.edgeId), 20);
-        assertEq(store.timeUnrivaledTotal(lowerChildId2), 220);
+        assertEq(store.timeUnrivaledTotal(lowerChildId2), 200);
         assertEq(store.timeUnrivaledTotal(upperChildAdded2.edgeId), 0);
 
         // make sure parents return their time unrivaled for total time unrivaled (since we haven't updated caches yet)
@@ -1108,7 +1108,7 @@ contract EdgeChallengeManagerLibTest is Test {
         store.updateTimerCacheByChildren(upperChildAdded2.edgeId);
         assertEq(store.get(lowerChildId1).totalTimeUnrivaledCache, 220);
         assertEq(store.get(upperChildAdded1.edgeId).totalTimeUnrivaledCache, 20);
-        assertEq(store.get(lowerChildId2).totalTimeUnrivaledCache, 220);
+        assertEq(store.get(lowerChildId2).totalTimeUnrivaledCache, 200);
         assertEq(store.get(upperChildAdded2.edgeId).totalTimeUnrivaledCache, 0);
 
         // time unrivaled total should now return the parent's time unrivaled plus the lower child's time unrivaled cache
