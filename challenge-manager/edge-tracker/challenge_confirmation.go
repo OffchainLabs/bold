@@ -2,8 +2,10 @@ package edgetracker
 
 import (
 	"context"
+	"fmt"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	retry "github.com/OffchainLabs/bold/runtime"
 )
 
 type challengeConfirmer struct {
@@ -11,9 +13,9 @@ type challengeConfirmer struct {
 	writer chainWriter
 }
 type chainWriter interface {
-	UpdateInheritedTimers(
+	MultiUpdateInheritedTimers(
 		ctx context.Context,
-		royalBranch []protocol.EdgeId,
+		challengeBranch []protocol.EdgeId,
 	) error
 }
 
@@ -36,43 +38,40 @@ type challengeReader interface {
 // A challenge confirmation job will attempt to confirm a challenge all the way up to the top,
 // block challenge root edge by updating all the inherited timers of royal edges along the way,
 // across all open subchallenges, until the onchain timer of the block challenge root edge
-// is >= a challenge period.
+// is greater than or equal to a challenge period.
 //
-// It operates in branches of logic, starting from the bottom-most, deepest level royal edges
-// and for each branch, update the onchain inherited timers of the ancestors along the way.
+// It works by updating royal branches of the challenge tree, starting from the bottom-most,
+// deepest level royal edges. For each branch, update the onchain inherited timers
+// of the ancestors along the way.
+//
+// This function must only be called once the locally computed value of the block challenge, royal root
+// edge has an inherited timer that is confirmable. This function MUST complete, and it will retry
+// any external call if it errors during its execution.
 func (cc *challengeConfirmer) beginConfirmationJob(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
+	royalRootEdge protocol.SpecEdge,
 	challengePeriodBlocks uint64,
 ) error {
-	// Check if the edge is already confirmable onchain and
-	// whether or not we can exit this computation early.
-	royalRootEdge, err := cc.reader.BlockChallengeRootEdge(ctx, challengedAssertionHash)
-	if err != nil {
-		return err
-	}
-	rootTimer, err := royalRootEdge.InheritedTimer(ctx)
-	if err != nil {
-		return err
-	}
-	// Short circuit early and confirm right away.
-	if uint64(rootTimer) >= challengePeriodBlocks {
-		return royalRootEdge.ConfirmByTimer(ctx)
-	}
-
 	// Find the bottom-most royal edges that exist in our local challenge tree, each one
 	// will be the base of a branch we will update.
-	bases, err := cc.reader.LowerMostRoyalEdges(ctx, challengedAssertionHash)
+	royalTreeLeaves, err := retry.UntilSucceeds(ctx, func() ([]protocol.SpecEdge, error) {
+		return cc.reader.LowerMostRoyalEdges(ctx, challengedAssertionHash)
+	})
 	if err != nil {
 		return err
 	}
-	// For each branch, compute the royal ancestor branch up to the root of the tree
+	// For each branch, compute the royal ancestor branch up to the root of the tree.
+	// The branch should contain royal ancestors ordered from a bottom-most leaf edge to the root edge
+	// of the block level challenge, meaning it should also include claim id links.
 	royalBranches := make([][]protocol.EdgeId, 0)
-	for _, edge := range bases {
+	for _, edge := range royalTreeLeaves {
 		branch := []protocol.EdgeId{edge.Id()}
-		ancestors, err := cc.reader.ComputeAncestors(
-			ctx, challengedAssertionHash, edge.Id(),
-		)
+		ancestors, err := retry.UntilSucceeds(ctx, func() ([]protocol.EdgeId, error) {
+			return cc.reader.ComputeAncestors(
+				ctx, challengedAssertionHash, edge.Id(),
+			)
+		})
 		if err != nil {
 			return err
 		}
@@ -81,7 +80,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	}
 	// For each branch, update the inherited timers onchain in a single transaction.
 	for _, branch := range royalBranches {
-		if err := cc.writer.UpdateInheritedTimers(ctx, branch); err != nil {
+		if err := cc.writer.MultiUpdateInheritedTimers(ctx, branch); err != nil {
 			return err
 		}
 		// In each iteration, check if the root edge has a timer >= a challenge period
@@ -94,9 +93,22 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 			return royalRootEdge.ConfirmByTimer(ctx)
 		}
 	}
-	// If the royal timer is not >= a challenge period by the end of this job,
+	onchainInheritedTimer, err := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {
+		return royalRootEdge.InheritedTimer(ctx)
+	})
+	if err != nil {
+		return err
+	}
+	// If the onchain timer is not >= a challenge period by the end of this job,
 	// it means the challenge has yet to complete and our local computation was incorrect.
 	// In this scenario, we can dump the confirmation job of royal edges for manual
 	// inspection and debugging
+	if onchainInheritedTimer < protocol.InheritedTimer(challengePeriodBlocks) {
+		return fmt.Errorf(
+			"onchain timer %d after confirmation job was executed < challenge period %d",
+			onchainInheritedTimer,
+			challengePeriodBlocks,
+		)
+	}
 	return nil
 }

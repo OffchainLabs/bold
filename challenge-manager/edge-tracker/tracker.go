@@ -28,7 +28,6 @@ import (
 var (
 	srvlog               = log.New("service", "edge-tracker")
 	errBadOneStepProof   = errors.New("bad one step proof data")
-	errNotYetConfirmable = errors.New("edge is not yet confirmable")
 	spawnedCounter       = metrics.NewRegisteredCounter("arb/validator/tracker/spawned", nil)
 	bisectedCounter      = metrics.NewRegisteredCounter("arb/validator/tracker/bisected", nil)
 	confirmedCounter     = metrics.NewRegisteredCounter("arb/validator/tracker/confirmed", nil)
@@ -119,6 +118,7 @@ type Tracker struct {
 	chainWatcher                ConfirmationMetadataChecker
 	challengeManager            ChallengeTracker
 	associatedAssertionMetadata *AssociatedAssertionMetadata
+	challengeConfirmer          *challengeConfirmer
 }
 
 func New(
@@ -230,7 +230,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	// Start state.
 	case EdgeStarted:
 		srvlog.Info("Edge started", fields)
-		canOsp, err := CanOneStepProve(ctx, et.edge)
+		canOsp, err := canOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not check if edge can be one step proven", fields)
@@ -240,12 +240,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if canOsp {
 			return et.fsm.Do(edgeHandleOneStepProof{})
 		}
-		wasConfirmed, err := et.tryToConfirm(ctx)
+		wasConfirmed, err := et.checkEdgeConfirmable(ctx)
 		if err != nil {
-			if !errors.Is(err, errNotYetConfirmable) {
-				fields["err"] = err
-				srvlog.Error("Could not check if edge can be confirmed", fields)
-			}
+			fields["err"] = err
+			srvlog.Error("Could not check if edge can be confirmed", fields)
 			et.fsm.MarkError(err)
 		}
 		if wasConfirmed {
@@ -352,12 +350,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	case EdgeConfirming:
 		srvlog.Info("Edge awaiting confirmation", fields)
-		wasConfirmed, err := et.tryToConfirm(ctx)
+		wasConfirmed, err := et.checkEdgeConfirmable(ctx)
 		if err != nil {
-			if !errors.Is(err, errNotYetConfirmable) {
-				fields["err"] = err
-				srvlog.Error("Could not check if edge can be confirmed", fields)
-			}
+			fields["err"] = err
+			srvlog.Error("Could not check if edge can be confirmed", fields)
 			et.fsm.MarkError(err)
 		}
 		if !wasConfirmed {
@@ -408,7 +404,8 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	}
 }
 
-func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
+func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
+	// Short circuit early if the edge is confirmable.
 	status, err := et.edge.Status(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge status")
@@ -416,36 +413,70 @@ func (et *Tracker) tryToConfirm(ctx context.Context) (bool, error) {
 	if status == protocol.EdgeConfirmed {
 		return true, nil
 	}
-
-	assertionHash, err := et.edge.AssertionHash(ctx)
+	assertionHash := protocol.AssertionHash{
+		Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
+	}
+	// We update the local value of the edge's inherited timer.
+	localTimer, err := et.chainWatcher.UpdateInheritedTimer(ctx, assertionHash, et.edge.Id())
 	if err != nil {
-		return false, errors.Wrap(err, "could not get prev assertion hash")
+		return false, errors.Wrap(err, "could not update edge inherited timer")
+	}
+	// If the edge is not a root, block challenge edge, we have nothing else to do here.
+	if !isRootBlockChallengeEdge(et.edge) {
+		return false, nil
 	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get challenge manager")
 	}
-
-	// Update the inherited timer of the edge, if possible.
-	updatedTimer, err := et.chainWatcher.UpdateInheritedTimer(ctx, assertionHash, et.edge.Id())
+	onchainTimer, err := et.edge.InheritedTimer(ctx)
 	if err != nil {
-		return false, errors.Wrap(err, "could not update edge inherited timer")
+		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
 	}
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	if updatedTimer >= chalPeriod {
-		if et.edge.ClaimId().IsSome() && et.edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel() {
-			if err := et.edge.ConfirmByTimer(ctx); err != nil {
-				return false, errors.Wrapf(err, "could not confirm by timer: got timer %d, chal period %d", updatedTimer, chalPeriod)
-			}
-			srvlog.Info("Confirmed by time", et.uniqueTrackerLogFields())
-			confirmedCounter.Inc(1)
-			return true, nil
+	// We have a few things to check here:
+	// First, if the edge's onchain timer is greater than a challenge period, then we can
+	// immediately confirm by time by sending a transaction.
+	if onchainTimer >= protocol.InheritedTimer(chalPeriod) {
+		if err := et.edge.ConfirmByTimer(ctx); err != nil {
+			return false, errors.Wrapf(
+				err,
+				"could not confirm by timer: got timer %d, chal period %d",
+				onchainTimer,
+				chalPeriod,
+			)
 		}
+		srvlog.Info("Confirmed by time", et.uniqueTrackerLogFields())
+		confirmedCounter.Inc(1)
+		return true, nil
 	}
-	return false, errNotYetConfirmable
+	// Otherwise, if the locally cached timer is greater than a challenge period, it means
+	// we need to trigger a confirmation job that will propagate updates to the whole royal
+	// challenge tree onchain until the edge has an onchain timer >= a challenge period.
+	// We let our confirmer dependency take care of this confirmatin job.
+	if localTimer >= chalPeriod {
+		if err := et.challengeConfirmer.beginConfirmationJob(
+			ctx,
+			assertionHash,
+			et.edge,
+			chalPeriod,
+		); err != nil {
+			return false, errors.Wrap(
+				err,
+				"could not complete confirmation job for royal, block challenge edge",
+			)
+		}
+		// The edge is now confirmed.
+		return true, nil
+	}
+	return false, nil
+}
+
+func isRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
+	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel()
 }
 
 // Determines the bisection point from parentHeight to toHeight and returns a history
@@ -850,7 +881,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	return nil
 }
 
-func CanOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
+func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) {
 	start, _ := edge.StartCommitment()
 	end, _ := edge.EndCommitment()
 	// Can never happen in the protocol, but added as an additional defensive check.

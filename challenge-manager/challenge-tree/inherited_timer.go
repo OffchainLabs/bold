@@ -13,12 +13,16 @@ func (ht *RoyalChallengeTree) inheritedTimerForEdge(
 	edge protocol.ReadOnlyEdge,
 	blockNum uint64,
 ) (protocol.InheritedTimer, error) {
+	localTimer, err := ht.LocalTimer(edge, blockNum)
+	if err != nil {
+		return 0, err
+	}
 	inherited, ok := ht.inheritedTimers.TryGet(edge.Id())
 	if !ok {
-		localTimer, err := ht.LocalTimer(edge, blockNum)
-		if err != nil {
-			return 0, err
-		}
+		inherited = protocol.InheritedTimer(localTimer)
+		ht.inheritedTimers.Put(edge.Id(), inherited)
+	}
+	if localTimer > uint64(inherited) {
 		inherited = protocol.InheritedTimer(localTimer)
 		ht.inheritedTimers.Put(edge.Id(), inherited)
 	}

@@ -177,19 +177,27 @@ func (w *Watcher) IsRoyal(assertionHash protocol.AssertionHash, edgeId protocol.
 func (w *Watcher) InheritedTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
-) (uint64, error) {
+) (protocol.InheritedTimer, error) {
 	chalManager, err := w.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return chalManager.InheritedTimer(ctx, edgeId)
+	edgeOpt, err := chalManager.GetEdge(ctx, edgeId)
+	if err != nil {
+		return 0, err
+	}
+	if edgeOpt.IsNone() {
+		return 0, fmt.Errorf("no edge found with id %#x", edgeId.Hash)
+
+	}
+	return edgeOpt.Unwrap().InheritedTimer(ctx)
 }
 
 func (w *Watcher) UpdateInheritedTimer(
 	ctx context.Context,
 	topLevelAssertionHash protocol.AssertionHash,
 	edgeId protocol.EdgeId,
-) (uint64, error) {
+) (protocol.InheritedTimer, error) {
 	chal, ok := w.challenges.TryGet(topLevelAssertionHash)
 	if !ok {
 		return 0, fmt.Errorf(

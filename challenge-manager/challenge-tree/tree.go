@@ -13,11 +13,8 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
-
-var srvlog = log.New("service", "royal-challenge-tree")
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {

@@ -538,12 +538,12 @@ func (cm *specChallengeManager) GetEdge(
 	})), nil
 }
 
-func (cm *specChallengeManager) InheritedTimer(ctx context.Context, edgeId protocol.EdgeId) (uint64, error) {
-	edge, err := cm.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), edgeId.Hash)
+func (e *specEdge) InheritedTimer(ctx context.Context) (protocol.InheritedTimer, error) {
+	edge, err := e.manager.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), e.id)
 	if err != nil {
 		return 0, err
 	}
-	return edge.TotalTimeUnrivaledCache, nil
+	return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache), nil
 }
 
 func (e *specEdge) fetchEdge(
@@ -592,48 +592,26 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	return protocol.EdgeId{Hash: id}, err
 }
 
-func (cm *specChallengeManager) UpdateInheritedTimerByChildren(
+func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 	ctx context.Context,
-	edgeId protocol.EdgeId,
+	challengeBranch []protocol.EdgeId,
 ) error {
-	if _, err := cm.assertionChain.transact(
-		ctx,
-		cm.assertionChain.backend,
-		func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return cm.writer.UpdateTimerCacheByChildren(
-				opts,
-				edgeId.Hash,
-			)
-		}); err != nil {
-		return errors.Wrapf(
-			err,
-			"could not update inherited timer for edge by children %#x",
-			edgeId,
-		)
+	edgeIds := make([][32]byte, 0, len(challengeBranch))
+	for _, edgeId := range challengeBranch {
+		edgeIds = append(edgeIds, edgeId.Hash)
 	}
-	return nil
-}
-
-func (cm *specChallengeManager) UpdateInheritedTimerByClaim(
-	ctx context.Context,
-	claimingEdgeId protocol.EdgeId,
-	claimId protocol.ClaimId,
-) error {
 	if _, err := cm.assertionChain.transact(
 		ctx,
 		cm.assertionChain.backend,
 		func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return cm.writer.UpdateTimerCacheByClaim(
+			return cm.writer.MultiUpdateTimeCacheByChildren(
 				opts,
-				common.Hash(claimId),
-				claimingEdgeId.Hash,
+				edgeIds,
 			)
 		}); err != nil {
-		return errors.Wrapf(
+		return errors.Wrap(
 			err,
-			"could not update inherited timer for edge by claim: claim id %#x, claiming edge id %#x",
-			common.Hash(claimId),
-			claimingEdgeId.Hash,
+			"could not update inherited timer for multiple edge ids",
 		)
 	}
 	return nil
