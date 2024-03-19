@@ -77,9 +77,20 @@ contract AssertinPoolTest is Test {
     bytes32 assertionHash;
     ExecutionState afterState;
     uint64 inboxcount;
+    address upgradeExecutorAddr;
 
     event RollupCreated(
-        address indexed rollupAddress, address inboxAddress, address adminProxy, address sequencerInbox, address bridge
+        address indexed rollupAddress,
+        address indexed nativeToken,
+        address inboxAddress,
+        address outbox,
+        address rollupEventInbox,
+        address challengeManager,
+        address adminProxy,
+        address sequencerInbox,
+        address bridge,
+        address upgradeExecutor,
+        address validatorWalletCreator
     );
 
     IReader4844 dummyReader4844 = IReader4844(address(137));
@@ -166,7 +177,8 @@ contract AssertinPoolTest is Test {
         });
 
         vm.expectEmit(false, false, false, false);
-        emit RollupCreated(address(0), address(0), address(0), address(0), address(0));
+        emit RollupCreated(address(0), address(0), address(0), address(0), address(0), 
+                            address(0), address(0), address(0), address(0), address(0), address(0));
         RollupCreator.RollupDeploymentParams memory param = RollupCreator.RollupDeploymentParams({
             config: config,
             validators: new address[](0),
@@ -182,8 +194,9 @@ contract AssertinPoolTest is Test {
         userRollup = RollupUserLogic(address(rollupAddr));
         adminRollup = RollupAdminLogic(address(rollupAddr));
         challengeManager = EdgeChallengeManager(address(userRollup.challengeManager()));
+        upgradeExecutorAddr = userRollup.owner();
 
-        vm.startPrank(owner);
+        vm.startPrank(upgradeExecutorAddr);
         adminRollup.sequencerInbox().setIsBatchPoster(sequencer, true);
         vm.stopPrank();
 
@@ -247,7 +260,7 @@ contract AssertinPoolTest is Test {
         vm.prank(excessStaker);
         token.approve(address(pool), type(uint256).max);
 
-        vm.prank(owner);
+        vm.prank(upgradeExecutorAddr);
         adminRollup.setValidatorWhitelistDisabled(true);
     }
 
