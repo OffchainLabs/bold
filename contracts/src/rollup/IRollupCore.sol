@@ -7,7 +7,7 @@ pragma solidity ^0.8.0;
 import "./Assertion.sol";
 import "../bridge/IBridge.sol";
 import "../bridge/IOutbox.sol";
-import "../bridge/IInbox.sol";
+import "../bridge/IInboxBase.sol";
 import "./IRollupEventInbox.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
 
@@ -45,6 +45,8 @@ interface IRollupCore is IAssertionChain {
 
     function confirmPeriodBlocks() external view returns (uint64);
 
+    function extraChallengeTimeBlocks() external view returns (uint64);
+
     function chainId() external view returns (uint256);
 
     function baseStake() external view returns (uint256);
@@ -58,6 +60,8 @@ interface IRollupCore is IAssertionChain {
     function outbox() external view returns (IOutbox);
 
     function rollupEventInbox() external view returns (IRollupEventInbox);
+
+    function challengeManager() external view returns (IChallengeManager);
 
     function loserStakeEscrow() external view returns (address);
 

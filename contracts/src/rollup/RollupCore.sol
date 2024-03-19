@@ -81,7 +81,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     // so that the result of a challenge is observable widely before it causes an assertion to be confirmed
     uint64 public challengeGracePeriodBlocks;
 
-    IInbox public inbox;
+    IInboxBase public inbox;
     IBridge public bridge;
     IOutbox public outbox;
     IRollupEventInbox public rollupEventInbox;
