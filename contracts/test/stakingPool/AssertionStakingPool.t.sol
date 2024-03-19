@@ -21,6 +21,8 @@ import "../challengeV2/Utils.sol";
 import "../../src/libraries/Error.sol";
 
 import "../../src/mocks/TestWETH9.sol";
+import "../../src/mocks/UpgradeExecutorMock.sol";
+
 
 import "../../src/assertionStakingPool/AssertionStakingPool.sol";
 import "../../src/assertionStakingPool/AssertionStakingPoolCreator.sol";
@@ -80,6 +82,24 @@ contract AssertinPoolTest is Test {
         address indexed rollupAddress, address inboxAddress, address adminProxy, address sequencerInbox, address bridge
     );
 
+    IReader4844 dummyReader4844 = IReader4844(address(137));
+    BridgeCreator.BridgeContracts ethBasedTemplates =
+        BridgeCreator.BridgeContracts({
+            bridge: new Bridge(),
+            sequencerInbox: new SequencerInbox(MAX_DATA_SIZE, dummyReader4844, false),
+            inbox: new Inbox(MAX_DATA_SIZE),
+            rollupEventInbox: new RollupEventInbox(),
+            outbox: new Outbox()
+        });
+    BridgeCreator.BridgeContracts erc20BasedTemplates =
+        BridgeCreator.BridgeContracts({
+            bridge: new ERC20Bridge(),
+            sequencerInbox: new SequencerInbox(MAX_DATA_SIZE, dummyReader4844, true),
+            inbox: new ERC20Inbox(MAX_DATA_SIZE),
+            rollupEventInbox: new ERC20RollupEventInbox(),
+            outbox: new ERC20Outbox()
+        });
+
     function setUp() public {
         OneStepProver0 oneStepProver = new OneStepProver0();
         OneStepProverMemory oneStepProverMemory = new OneStepProverMemory();
@@ -92,10 +112,12 @@ contract AssertinPoolTest is Test {
             oneStepProverHostIo
         );
         EdgeChallengeManager edgeChallengeManager = new EdgeChallengeManager();
-        BridgeCreator bridgeCreator = new BridgeCreator(MAX_DATA_SIZE);
+        BridgeCreator bridgeCreator = new BridgeCreator(ethBasedTemplates, erc20BasedTemplates);
         RollupCreator rollupCreator = new RollupCreator();
         RollupAdminLogic rollupAdminLogicImpl = new RollupAdminLogic();
         RollupUserLogic rollupUserLogicImpl = new RollupUserLogic();
+        DeployHelper deployHelper = new DeployHelper();
+        IUpgradeExecutor upgradeExecutorLogic = new UpgradeExecutorMock();
 
         rollupCreator.setTemplates(
             bridgeCreator,
@@ -103,7 +125,9 @@ contract AssertinPoolTest is Test {
             edgeChallengeManager,
             rollupAdminLogicImpl,
             rollupUserLogicImpl,
-            address(0)
+            upgradeExecutorLogic,
+            address(0),
+            deployHelper
         );
         ExecutionState memory emptyState =
             ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
@@ -143,8 +167,18 @@ contract AssertinPoolTest is Test {
 
         vm.expectEmit(false, false, false, false);
         emit RollupCreated(address(0), address(0), address(0), address(0), address(0));
-        rollupAddr = rollupCreator.createRollup(config, address(0), new address[](0), false, MAX_DATA_SIZE);
+        RollupCreator.RollupDeploymentParams memory param = RollupCreator.RollupDeploymentParams({
+            config: config,
+            validators: new address[](0),
+            maxDataSize: MAX_DATA_SIZE,
+            nativeToken: address(0),
+            deployFactoriesToL2: false,
+            maxFeePerGasForRetryables: 0,
+            batchPosters: new address[](0),
+            batchPosterManager: address(0)
+        });
 
+        rollupAddr = rollupCreator.createRollup(param);
         userRollup = RollupUserLogic(address(rollupAddr));
         adminRollup = RollupAdminLogic(address(rollupAddr));
         challengeManager = EdgeChallengeManager(address(userRollup.challengeManager()));

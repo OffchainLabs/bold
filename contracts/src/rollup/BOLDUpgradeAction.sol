@@ -429,7 +429,7 @@ contract BOLDUpgradeAction {
         ContractDependencies memory connectedContracts = ContractDependencies({
             bridge: IBridge(BRIDGE),
             sequencerInbox: ISequencerInbox(SEQ_INBOX),
-            inbox: IInbox(INBOX),
+            inbox: IInboxBase(INBOX),
             outbox: IOutbox(OUTBOX),
             rollupEventInbox: IRollupEventInbox(REI),
             challengeManager: challengeManager,

@@ -45,8 +45,6 @@ interface IRollupCore is IAssertionChain {
 
     function confirmPeriodBlocks() external view returns (uint64);
 
-    function extraChallengeTimeBlocks() external view returns (uint64);
-
     function chainId() external view returns (uint256);
 
     function baseStake() external view returns (uint256);
@@ -61,7 +59,7 @@ interface IRollupCore is IAssertionChain {
 
     function rollupEventInbox() external view returns (IRollupEventInbox);
 
-    function challengeManager() external view returns (IChallengeManager);
+    function challengeManager() external view returns (IEdgeChallengeManager);
 
     function loserStakeEscrow() external view returns (address);
 

@@ -174,21 +174,7 @@ contract RollupCreator is Ownable {
             deployParams.config.sequencerInboxMaxTimeVariation
         );
 
-        IChallengeManager challengeManager = IChallengeManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(challengeManagerTemplate),
-                    address(proxyAdmin),
-                    ""
-                )
-            )
-        );
-        challengeManager.initialize(
-            IChallengeResultReceiver(address(rollup)),
-            bridgeContracts.sequencerInbox,
-            bridgeContracts.bridge,
-            osp
-        );
+        IEdgeChallengeManager challengeManager = createChallengeManager(address(rollup), address(proxyAdmin), deployParams.config);
 
         // deploy and init upgrade executor
         address upgradeExecutor = _deployUpgradeExecutor(deployParams.config.owner, proxyAdmin);
