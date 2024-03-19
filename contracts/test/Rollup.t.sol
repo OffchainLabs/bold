@@ -85,22 +85,20 @@ contract RollupTest is Test {
     );
 
     IReader4844 dummyReader4844 = IReader4844(address(137));
-    BridgeCreator.BridgeContracts ethBasedTemplates =
-        BridgeCreator.BridgeContracts({
-            bridge: new Bridge(),
-            sequencerInbox: new SequencerInbox(MAX_DATA_SIZE, dummyReader4844, false),
-            inbox: new Inbox(MAX_DATA_SIZE),
-            rollupEventInbox: new RollupEventInbox(),
-            outbox: new Outbox()
-        });
-    BridgeCreator.BridgeContracts erc20BasedTemplates =
-        BridgeCreator.BridgeContracts({
-            bridge: new ERC20Bridge(),
-            sequencerInbox: new SequencerInbox(MAX_DATA_SIZE, dummyReader4844, true),
-            inbox: new ERC20Inbox(MAX_DATA_SIZE),
-            rollupEventInbox: new ERC20RollupEventInbox(),
-            outbox: new ERC20Outbox()
-        });
+    BridgeCreator.BridgeContracts ethBasedTemplates = BridgeCreator.BridgeContracts({
+        bridge: new Bridge(),
+        sequencerInbox: new SequencerInbox(MAX_DATA_SIZE, dummyReader4844, false),
+        inbox: new Inbox(MAX_DATA_SIZE),
+        rollupEventInbox: new RollupEventInbox(),
+        outbox: new Outbox()
+    });
+    BridgeCreator.BridgeContracts erc20BasedTemplates = BridgeCreator.BridgeContracts({
+        bridge: new ERC20Bridge(),
+        sequencerInbox: new SequencerInbox(MAX_DATA_SIZE, dummyReader4844, true),
+        inbox: new ERC20Inbox(MAX_DATA_SIZE),
+        rollupEventInbox: new ERC20RollupEventInbox(),
+        outbox: new ERC20Outbox()
+    });
 
     function setUp() public {
         OneStepProver0 oneStepProver = new OneStepProver0();
@@ -168,8 +166,19 @@ contract RollupTest is Test {
         });
 
         vm.expectEmit(false, false, false, false);
-        emit RollupCreated(address(0), address(0), address(0), address(0), address(0), 
-                            address(0), address(0), address(0), address(0), address(0), address(0));
+        emit RollupCreated(
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0)
+        );
 
         RollupCreator.RollupDeploymentParams memory param = RollupCreator.RollupDeploymentParams({
             config: config,
@@ -200,11 +209,7 @@ contract RollupTest is Test {
         // check upgrade executor owns proxyAdmin
         address upgradeExecutorExpectedAddress = computeCreateAddress(address(rollupCreator), 4);
         upgradeExecutorAddr = userRollup.owner();
-        assertEq(
-            upgradeExecutorAddr,
-            upgradeExecutorExpectedAddress,
-            "Invalid proxyAdmin's owner"
-        );
+        assertEq(upgradeExecutorAddr, upgradeExecutorExpectedAddress, "Invalid proxyAdmin's owner");
 
         vm.startPrank(upgradeExecutorAddr);
         validators.push(validator1);
