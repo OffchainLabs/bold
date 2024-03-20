@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"sync"
 	"time"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -75,6 +76,8 @@ type Manager struct {
 	submittedAssertions         *threadsafe.LruSet[common.Hash]
 	assertionsWithHonestChild   *threadsafe.LruSet[protocol.AssertionHash]
 	apiDB                       db.Database
+	layerZeroHeightsCache       *protocol.LayerZeroHeights
+	layerZeroHeightsCacheLock   sync.RWMutex
 }
 
 // NewManager creates a manager from the required dependencies.
@@ -451,6 +454,40 @@ func (m *Manager) postRivalAssertionAndChallenge(
 	return nil
 }
 
+func (m *Manager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
+	m.layerZeroHeightsCacheLock.RLock()
+	cachedValue := m.layerZeroHeightsCache
+	m.layerZeroHeightsCacheLock.RUnlock()
+	if cachedValue != nil {
+		return cachedValue, nil
+	}
+
+	m.layerZeroHeightsCacheLock.Lock()
+	defer m.layerZeroHeightsCacheLock.Unlock()
+	cm, err := m.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	layerZeroHeights, err := cm.LayerZeroHeights(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m.layerZeroHeightsCache = layerZeroHeights
+	return layerZeroHeights, nil
+}
+
+func (m *Manager) ExecutionStateAfterParent(ctx context.Context, parentInfo *protocol.AssertionCreatedInfo) (*protocol.ExecutionState, error) {
+	layerZeroHeights, err := m.LayerZeroHeights(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if layerZeroHeights.BlockChallengeHeight == 0 {
+		return nil, errors.New("block challenge height is zero")
+	}
+	goGlobalState := protocol.GoGlobalStateFromSolidity(parentInfo.AfterState.GlobalState)
+	return m.stateManager.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), goGlobalState.BlockHash, layerZeroHeights.BlockChallengeHeight-1)
+}
+
 func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	cm, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
@@ -464,7 +501,7 @@ func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	layerZeroHeights, err := cm.LayerZeroHeights(ctx)
+	layerZeroHeights, err := m.LayerZeroHeights()
 	if err != nil {
 		return err
 	}

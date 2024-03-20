@@ -108,23 +108,26 @@ func (m *Manager) PostAssertionBasedOnParent(
 	// The parent assertion tells us what the next posted assertion's batch should be.
 	// We read this value and use it to compute the required execution state we must post.
 	batchCount := parentCreationInfo.InboxMaxCount.Uint64()
-	newState, err := m.stateManager.ExecutionStateAfterBatchCount(ctx, batchCount)
+	parentBlockHash := protocol.GoGlobalStateFromSolidity(parentCreationInfo.AfterState.GlobalState).BlockHash
+	newState, err := m.ExecutionStateAfterParent(ctx, parentCreationInfo)
 	if err != nil {
 		if errors.Is(err, l2stateprovider.ErrChainCatchingUp) {
 			chainCatchingUpCounter.Inc(1)
 			srvlog.Info(
 				"No available batch to post as assertion, waiting for more batches", log.Ctx{
-					"batchCount": batchCount,
+					"batchCount":      batchCount,
+					"parentBlockHash": containers.Trunc(parentBlockHash[:]),
 				},
 			)
 			return option.None[protocol.Assertion](), nil
 		}
-		return option.None[protocol.Assertion](), errors.Wrapf(err, "could not get execution state at batch count %d", batchCount)
+		return option.None[protocol.Assertion](), errors.Wrapf(err, "could not get execution state at batch count %d with parent block hash %v", batchCount, parentBlockHash)
 	}
 	srvlog.Info(
 		"Posting assertion with retrieved state", log.Ctx{
-			"batchCount": batchCount,
-			"newState":   fmt.Sprintf("%+v", newState),
+			"batchCount":      batchCount,
+			"parentBlockHash": containers.Trunc(parentBlockHash[:]),
+			"newState":        fmt.Sprintf("%+v", newState),
 		},
 	)
 	assertion, err := submitFn(
