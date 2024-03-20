@@ -26,7 +26,7 @@ type challengeConfirmer struct {
 type ChainWriter interface {
 	MultiUpdateInheritedTimers(
 		ctx context.Context,
-		challengeBranch []protocol.EdgeId,
+		challengeBranch []protocol.ReadOnlyEdge,
 	) error
 }
 
@@ -43,7 +43,7 @@ type RoyalChallengeReader interface {
 		ctx context.Context,
 		challengedAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
-	) ([]protocol.EdgeId, error)
+	) ([]protocol.ReadOnlyEdge, error)
 }
 
 func newChallengeConfirmer(
@@ -95,10 +95,10 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	// For each branch, compute the royal ancestor branch up to the root of the tree.
 	// The branch should contain royal ancestors ordered from a bottom-most leaf edge to the root edge
 	// of the block level challenge, meaning it should also include claim id links.
-	royalBranches := make([][]protocol.EdgeId, 0)
+	royalBranches := make([][]protocol.ReadOnlyEdge, 0)
 	for _, edge := range royalTreeLeaves {
-		branch := []protocol.EdgeId{edge.Id()}
-		ancestors, err2 := retry.UntilSucceeds(ctx, func() ([]protocol.EdgeId, error) {
+		branch := []protocol.ReadOnlyEdge{edge}
+		ancestors, err2 := retry.UntilSucceeds(ctx, func() ([]protocol.ReadOnlyEdge, error) {
 			return cc.reader.ComputeAncestors(
 				ctx, challengedAssertionHash, edge.Id(),
 			)
@@ -132,14 +132,14 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		srvlog.Info("Updated the inherited timer for branch with base", log.Ctx{
 			"validatorName": cc.validatorName,
 			"rootTimer":     rootTimer,
-			"baseEdge":      branch[0].Hash,
+			"baseEdge":      branch[0].Id().Hash,
 		})
 		// If yes, we confirm the root edge and finish early.
 		if uint64(rootTimer) >= challengePeriodBlocks {
 			srvlog.Info("Branch was confirmable by time", log.Ctx{
 				"validatorName": cc.validatorName,
 				"rootTimer":     rootTimer,
-				"baseEdge":      branch[0].Hash,
+				"baseEdge":      branch[0].Id().Hash,
 			})
 			_, err2 = retry.UntilSucceeds(ctx, func() (bool, error) {
 				innerErr := royalRootEdge.ConfirmByTimer(ctx)

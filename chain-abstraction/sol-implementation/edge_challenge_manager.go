@@ -591,28 +591,66 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	)
 	return protocol.EdgeId{Hash: id}, err
 }
+func isClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
+	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel()
+}
 
 func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 	ctx context.Context,
-	challengeBranch []protocol.EdgeId,
+	challengeBranch []protocol.ReadOnlyEdge,
 ) error {
-	edgeIds := make([][32]byte, 0, len(challengeBranch))
-	for _, edgeId := range challengeBranch {
-		edgeIds = append(edgeIds, edgeId.Hash)
+	edgeIds := make([][32]byte, 0)
+	for index, edgeId := range challengeBranch {
+		_ = index
+		edgeIds = append(edgeIds, edgeId.Id().Hash)
+		if isClaimingAnEdge(edgeId) {
+			if _, err := cm.assertionChain.transact(
+				ctx,
+				cm.assertionChain.backend,
+				func(opts *bind.TransactOpts) (*types.Transaction, error) {
+					return cm.writer.MultiUpdateTimeCacheByChildren(
+						opts,
+						edgeIds,
+					)
+				}); err != nil {
+				return errors.Wrap(
+					err,
+					"could not update inherited timer for multiple edge ids",
+				)
+			}
+			if _, err := cm.assertionChain.transact(
+				ctx,
+				cm.assertionChain.backend,
+				func(opts *bind.TransactOpts) (*types.Transaction, error) {
+					return cm.writer.UpdateTimerCacheByClaim(
+						opts,
+						edgeId.ClaimId().Unwrap(),
+						edgeId.Id().Hash,
+					)
+				}); err != nil {
+				return errors.Wrap(
+					err,
+					"could not update inherited timer for multiple edge ids",
+				)
+			}
+			edgeIds = make([][32]byte, 0)
+		}
 	}
-	if _, err := cm.assertionChain.transact(
-		ctx,
-		cm.assertionChain.backend,
-		func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return cm.writer.MultiUpdateTimeCacheByChildren(
-				opts,
-				edgeIds,
+	if len(edgeIds) > 0 {
+		if _, err := cm.assertionChain.transact(
+			ctx,
+			cm.assertionChain.backend,
+			func(opts *bind.TransactOpts) (*types.Transaction, error) {
+				return cm.writer.MultiUpdateTimeCacheByChildren(
+					opts,
+					edgeIds,
+				)
+			}); err != nil {
+			return errors.Wrap(
+				err,
+				"could not update inherited timer for multiple edge ids",
 			)
-		}); err != nil {
-		return errors.Wrap(
-			err,
-			"could not update inherited timer for multiple edge ids",
-		)
+		}
 	}
 	return nil
 }
