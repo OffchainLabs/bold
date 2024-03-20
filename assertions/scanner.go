@@ -68,6 +68,8 @@ type Manager struct {
 	apiDB                       db.Database
 	assertionChainData          *assertionChainData
 	observedCanonicalAssertions chan protocol.AssertionHash
+	isReadyToPost               bool
+	startPostingSignal          chan struct{}
 }
 
 type assertionChainData struct {
@@ -122,6 +124,8 @@ func NewManager(
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
 		},
 		observedCanonicalAssertions: make(chan protocol.AssertionHash, 1000),
+		isReadyToPost:               false,
+		startPostingSignal:          make(chan struct{}),
 	}, nil
 }
 

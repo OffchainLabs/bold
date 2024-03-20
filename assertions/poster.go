@@ -11,7 +11,6 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/log"
@@ -30,6 +29,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 		srvlog.Warn("Staker strategy not configured to stake on latest assertions")
 		return
 	}
+	srvlog.Info("Ready to post")
 	if _, err := m.PostAssertion(ctx); err != nil {
 		if !errors.Is(err, solimpl.ErrAlreadyExists) {
 			srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
@@ -53,8 +53,22 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	}
 }
 
+func (m *Manager) awaitPostingSignal(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-m.startPostingSignal:
+			return
+		}
+	}
+}
+
 // PostAssertion differs depending on whether or not the validator is currently staked.
 func (m *Manager) PostAssertion(ctx context.Context) (option.Option[*protocol.AssertionCreatedInfo], error) {
+	if !m.isReadyToPost {
+		m.awaitPostingSignal(ctx)
+	}
 	// Ensure that we only build on a valid parent from this validator's perspective.
 	// the validator should also have ready access to historical commitments to make sure it can select
 	// the valid parent based on its commitment state root.
@@ -127,7 +141,8 @@ func (m *Manager) PostAssertionBasedOnParent(
 	srvlog.Info(
 		"Posting assertion with retrieved state", log.Ctx{
 			"batchCount": batchCount,
-			"newState":   fmt.Sprintf("%+v", newState),
+			// "newState":   fmt.Sprintf("%+v", newState),
+			"validatorName": m.validatorName,
 		},
 	)
 	assertion, err := submitFn(
@@ -139,8 +154,8 @@ func (m *Manager) PostAssertionBasedOnParent(
 		return none, err
 	}
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
-		"validatorName":         m.validatorName,
-		"layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
+		"validatorName": m.validatorName,
+		// "layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
 		"requiredInboxMaxCount": batchCount,
 		"postedExecutionState":  fmt.Sprintf("%+v", newState),
 	})

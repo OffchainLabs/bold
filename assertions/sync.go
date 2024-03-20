@@ -27,8 +27,19 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 		srvlog.Error("Could not get latest confirmed assertion", log.Ctx{"err": err})
 		return
 	}
+	latestConfirmedInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return m.chain.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+	})
+	if err != nil {
+		srvlog.Error("Could not get latest confirmed assertion", log.Ctx{"err": err})
+		return
+	}
+
 	m.assertionChainData.Lock()
 	m.assertionChainData.latestAgreedAssertion = latestConfirmed.Id()
+	m.assertionChainData.canonicalAssertions[latestConfirmed.Id()] = latestConfirmedInfo
+	m.startPostingSignal <- struct{}{}
+	close(m.startPostingSignal)
 	m.assertionChainData.Unlock()
 
 	fromBlock := latestConfirmed.CreatedAtBlock()
@@ -59,7 +70,12 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 			Context: ctx,
 		}
 		_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-			return true, m.processAllAssertionsInRange(ctx, filterer, filterOpts)
+			innerErr := m.processAllAssertionsInRange(ctx, filterer, filterOpts)
+			if innerErr != nil {
+				srvlog.Error("Could not process assertions in range", log.Ctx{"err": innerErr})
+				return false, innerErr
+			}
+			return true, nil
 		})
 		if err != nil {
 			srvlog.Error("Could not check for assertion added event")
@@ -92,7 +108,12 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 				Context: ctx,
 			}
 			_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-				return true, m.processAllAssertionsInRange(ctx, filterer, filterOpts)
+				innerErr := m.processAllAssertionsInRange(ctx, filterer, filterOpts)
+				if innerErr != nil {
+					srvlog.Error("Could not process assertions in range", log.Ctx{"err": innerErr})
+					return false, innerErr
+				}
+				return true, nil
 			})
 			if err != nil {
 				srvlog.Error("Could not check for assertion added", log.Ctx{"err": err})
@@ -230,10 +251,15 @@ func (m *Manager) processAllAssertionsInRange(
 		// or raise an alarm if we are only a watchtower validator.
 		if hasCanonicalParent && !isCanonical {
 			postedRival, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-				return m.maybePostRivalAssertionAndChallenge(ctx, canonicalParent, assertion)
+				posted, innerErr := m.maybePostRivalAssertionAndChallenge(ctx, canonicalParent, assertion)
+				if innerErr != nil {
+					srvlog.Error("Could not post rival assertion and/or challenge", log.Ctx{"err": innerErr})
+					return nil, innerErr
+				}
+				return posted, nil
 			})
 			if err != nil {
-				return errors.Wrap(err, "could not post rival assertion and/or challenge")
+				return err
 			}
 			// TODO: Should we update the latest agreed assertion here?
 			if postedRival != nil {
@@ -258,13 +284,13 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		return nil, errors.New("invalid assertion does not have correct canonical parent")
 	}
 	batchCount := invalidAssertion.InboxMaxCount.Uint64()
-	claimedState := protocol.GoExecutionStateFromSolidity(invalidAssertion.AfterState)
+	// claimedState := protocol.GoExecutionStateFromSolidity(invalidAssertion.AfterState)
 	logFields := log.Ctx{
-		"validatorName":         m.validatorName,
-		"canonicalParentHash":   invalidAssertion.ParentAssertionHash,
-		"detectedAssertionHash": invalidAssertion.AssertionHash,
-		"batchCount":            batchCount,
-		"claimedExecutionState": fmt.Sprintf("%+v", claimedState),
+		"validatorName": m.validatorName,
+		// "canonicalParentHash":   invalidAssertion.ParentAssertionHash,
+		// "detectedAssertionHash": invalidAssertion.AssertionHash,
+		"batchCount": batchCount,
+		// "claimedExecutionState": fmt.Sprintf("%+v", claimedState),
 	}
 	if !m.canPostRivalAssertion() {
 		srvlog.Warn("Detected invalid assertion, but not configured to post a rival stake", logFields)

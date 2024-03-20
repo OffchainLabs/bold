@@ -3,6 +3,17 @@
 
 package assertions
 
+import (
+	"math/big"
+	"testing"
+
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
+	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+)
+
 // import (
 // 	"context"
 // 	"fmt"
@@ -19,6 +30,18 @@ package assertions
 // 	"github.com/pkg/errors"
 // 	"github.com/stretchr/testify/require"
 // )
+
+func TestDoSomething(t *testing.T) {
+	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(common.Address{}, nil)
+	require.NoError(t, err)
+	bridgeAddr, err := rollupAdminBindings.Bridge(&bind.CallOpts{})
+	require.NoError(t, err)
+	bridgeBindings, err := mocksgen.NewBridgeStub(bridgeAddr, nil)
+	require.NoError(t, err)
+	dataHash := [32]byte{1}
+	_, err = bridgeBindings.EnqueueSequencerMessage(nil, dataHash, big.NewInt(1), big.NewInt(1), big.NewInt(2))
+	require.NoError(t, err)
+}
 
 // func TestPostAssertion(t *testing.T) {
 // 	t.Run("new stake", func(t *testing.T) {
