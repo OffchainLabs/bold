@@ -8,18 +8,27 @@ import (
 	retry "github.com/OffchainLabs/bold/runtime"
 )
 
+// Defines a struct which can handle confirming of an entire challenge tree
+// in the BOLD protocol. It does so by updating the inherited timers of royal edges
+// onchain until the root of the tree has a timer >= a challenge period. At that point,
+// it ensures to confirm that edge. If this is not the case, it will return an error
+// and write data to disk to help with debugging the issue.
 type challengeConfirmer struct {
-	reader challengeReader
-	writer chainWriter
+	reader RoyalChallengeReader
+	writer ChainWriter
 }
-type chainWriter interface {
+
+// Defines a chain writer interface that is
+// used to update the cached inherited timers of edges
+// onchain.
+type ChainWriter interface {
 	MultiUpdateInheritedTimers(
 		ctx context.Context,
 		challengeBranch []protocol.EdgeId,
 	) error
 }
 
-type challengeReader interface {
+type RoyalChallengeReader interface {
 	BlockChallengeRootEdge(
 		ctx context.Context,
 		challengedAssertionHash protocol.AssertionHash,
@@ -33,6 +42,16 @@ type challengeReader interface {
 		challengedAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
 	) ([]protocol.EdgeId, error)
+}
+
+func newChallengeConfirmer(
+	challengeReader RoyalChallengeReader,
+	chainWriter ChainWriter,
+) *challengeConfirmer {
+	return &challengeConfirmer{
+		reader: challengeReader,
+		writer: chainWriter,
+	}
 }
 
 // A challenge confirmation job will attempt to confirm a challenge all the way up to the top,
@@ -67,30 +86,39 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	royalBranches := make([][]protocol.EdgeId, 0)
 	for _, edge := range royalTreeLeaves {
 		branch := []protocol.EdgeId{edge.Id()}
-		ancestors, err := retry.UntilSucceeds(ctx, func() ([]protocol.EdgeId, error) {
+		ancestors, err2 := retry.UntilSucceeds(ctx, func() ([]protocol.EdgeId, error) {
 			return cc.reader.ComputeAncestors(
 				ctx, challengedAssertionHash, edge.Id(),
 			)
 		})
-		if err != nil {
-			return err
+		if err2 != nil {
+			return err2
 		}
 		branch = append(branch, ancestors...)
 		royalBranches = append(royalBranches, branch)
 	}
 	// For each branch, update the inherited timers onchain in a single transaction.
 	for _, branch := range royalBranches {
-		if err := cc.writer.MultiUpdateInheritedTimers(ctx, branch); err != nil {
-			return err
+		if _, err2 := retry.UntilSucceeds(ctx, func() (bool, error) {
+			innerErr := cc.writer.MultiUpdateInheritedTimers(ctx, branch)
+			return false, innerErr
+		}); err2 != nil {
+			return err2
 		}
 		// In each iteration, check if the root edge has a timer >= a challenge period
-		rootTimer, err := royalRootEdge.InheritedTimer(ctx)
-		if err != nil {
-			return err
+		rootTimer, err2 := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {
+			return royalRootEdge.InheritedTimer(ctx)
+		})
+		if err2 != nil {
+			return err2
 		}
 		// If yes, we confirm the root edge and finish early.
 		if uint64(rootTimer) >= challengePeriodBlocks {
-			return royalRootEdge.ConfirmByTimer(ctx)
+			_, err2 = retry.UntilSucceeds(ctx, func() (bool, error) {
+				innerErr := royalRootEdge.ConfirmByTimer(ctx)
+				return false, innerErr
+			})
+			return err2
 		}
 	}
 	onchainInheritedTimer, err := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {

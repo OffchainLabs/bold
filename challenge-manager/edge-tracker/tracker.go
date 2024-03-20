@@ -17,6 +17,7 @@ import (
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/math"
+	retry "github.com/OffchainLabs/bold/runtime"
 	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	utilTime "github.com/OffchainLabs/bold/time"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,17 +44,14 @@ func init() {
 // checking if a confirmed edge exists that claims a specified edge id as its claim id,
 // or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
 // This information is used in order to confirm edges onchain.
-type ConfirmationMetadataChecker interface {
+type RoyalChallengeWriter interface {
+	RoyalChallengeReader
 	AddVerifiedHonestEdge(
 		ctx context.Context, verifiedHonest protocol.VerifiedRoyalEdge,
 	) error
-	UpdateInheritedTimer(
+	UpdateLocallyCachedTimer(
 		ctx context.Context,
 		topLevelAssertionHash protocol.AssertionHash,
-		edgeId protocol.EdgeId,
-	) (uint64, error)
-	InheritedTimer(
-		ctx context.Context,
 		edgeId protocol.EdgeId,
 	) (uint64, error)
 }
@@ -115,7 +113,7 @@ type Tracker struct {
 	validatorName               string
 	chain                       protocol.Protocol
 	stateProvider               l2stateprovider.Provider
-	chainWatcher                ConfirmationMetadataChecker
+	chainWatcher                RoyalChallengeWriter
 	challengeManager            ChallengeTracker
 	associatedAssertionMetadata *AssociatedAssertionMetadata
 	challengeConfirmer          *challengeConfirmer
@@ -126,7 +124,7 @@ func New(
 	edge protocol.SpecEdge,
 	chain protocol.Protocol,
 	stateProvider l2stateprovider.Provider,
-	chainWatcher ConfirmationMetadataChecker,
+	chainWatcher RoyalChallengeWriter,
 	challengeManager ChallengeTracker,
 	assertionCreationInfo *AssociatedAssertionMetadata,
 	opts ...Opt,
@@ -147,6 +145,13 @@ func New(
 	if tr.actInterval == 0 {
 		return nil, errors.New("edge tracker act interval must be greater than 0")
 	}
+	chalManager, err := retry.UntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
+		return chain.SpecChallengeManager(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	tr.challengeConfirmer = newChallengeConfirmer(chainWatcher, chalManager)
 	fsm, err := newEdgeTrackerFsm(
 		EdgeStarted,
 		tr.fsmOpts...,
@@ -166,7 +171,7 @@ func (et *Tracker) EdgeId() protocol.EdgeId {
 	return et.edge.Id()
 }
 
-func (et *Tracker) Watcher() ConfirmationMetadataChecker {
+func (et *Tracker) Watcher() RoyalChallengeWriter {
 	return et.chainWatcher
 }
 
@@ -416,8 +421,8 @@ func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
 	assertionHash := protocol.AssertionHash{
 		Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
 	}
-	// We update the local value of the edge's inherited timer.
-	localTimer, err := et.chainWatcher.UpdateInheritedTimer(ctx, assertionHash, et.edge.Id())
+	// We update the value of the edge's locally-cached inherited timer.
+	localTimer, err := et.chainWatcher.UpdateLocallyCachedTimer(ctx, assertionHash, et.edge.Id())
 	if err != nil {
 		return false, errors.Wrap(err, "could not update edge inherited timer")
 	}
@@ -473,10 +478,6 @@ func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	return false, nil
-}
-
-func isRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
-	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel()
 }
 
 // Determines the bisection point from parentHeight to toHeight and returns a history
@@ -891,4 +892,8 @@ func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) 
 	challengeLevel := edge.GetChallengeLevel()
 	totalChallengeLevels := edge.GetTotalChallengeLevels(ctx)
 	return end-start == 1 && challengeLevel.Uint8() == totalChallengeLevels-1, nil
+}
+
+func isRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
+	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel()
 }
