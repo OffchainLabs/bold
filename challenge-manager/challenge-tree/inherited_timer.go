@@ -19,14 +19,13 @@ func (ht *RoyalChallengeTree) inheritedTimerForEdge(
 	}
 	inherited, ok := ht.inheritedTimers.TryGet(edge.Id())
 	if !ok {
-		inherited = protocol.InheritedTimer(localTimer)
-		ht.inheritedTimers.Put(edge.Id(), inherited)
+		ht.inheritedTimers.Put(edge.Id(), 0)
 	}
-	if localTimer > uint64(inherited) {
-		inherited = protocol.InheritedTimer(localTimer)
-		ht.inheritedTimers.Put(edge.Id(), inherited)
-	}
-	return inherited, nil
+	// if localTimer > uint64(inherited) {
+	// 	inherited = protocol.InheritedTimer(localTimer)
+	// 	ht.inheritedTimers.Put(edge.Id(), inherited)
+	// }
+	return protocol.InheritedTimer(localTimer) + inherited, nil
 }
 
 func (ht *RoyalChallengeTree) UpdateInheritedTimer(
@@ -61,7 +60,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		if err2 != nil {
 			return 0, err2
 		}
-		inheritedTimer = saturatingSum(inheritedTimer, timerFromChildren)
+		inheritedTimer = timerFromChildren
 	}
 
 	// Edges that claim another edge in the level above update the inherited timer onchain
