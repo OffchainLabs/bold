@@ -87,6 +87,12 @@ func WithPostingDisabled() Opt {
 	}
 }
 
+func WithDangerousReadyToPost() Opt {
+	return func(m *Manager) {
+		m.isReadyToPost = true
+	}
+}
+
 // NewManager creates a manager from the required dependencies.
 func NewManager(
 	chain protocol.AssertionChain,
