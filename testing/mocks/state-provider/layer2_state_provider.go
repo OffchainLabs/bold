@@ -225,6 +225,9 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 			blocksSincePrevious = 0
 		}
 		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious) >= maxNumberOfBlocks) {
+			if blocksSincePrevious < 0 && previousBlockHash != (common.Hash{}) {
+				return nil, fmt.Errorf("missing previous block hash %#x", previousBlockHash)
+			}
 			return st, nil
 		}
 		if blocksSincePrevious >= 0 {

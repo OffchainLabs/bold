@@ -54,7 +54,7 @@ type Provider interface {
 type ExecutionProvider interface {
 	// Produces the L2 execution state to assert to after the previous assertion state.
 	// Returns either the state at the batch count maxInboxCount or the state maxNumberOfBlocks after previousBlockHash,
-	// whichever is an earlier state.
+	// whichever is an earlier state. If previousBlockHash is zero, this function simply returns the state at maxInboxCount.
 	ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousBlockHash common.Hash, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error)
 }
 
