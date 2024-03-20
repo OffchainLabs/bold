@@ -17,10 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var (
-	ErrNoExecutionState = errors.New("chain does not have execution state")
-	ErrChainCatchingUp  = errors.New("chain is catching up to the execution state")
-)
+var ErrChainCatchingUp = errors.New("chain is catching up to the execution state")
 
 // Batch index for an Arbitrum L2 state.
 type Batch uint64

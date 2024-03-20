@@ -55,7 +55,7 @@ type Manager struct {
 	backend                     bind.ContractBackend
 	challengeCreator            types.ChallengeCreator
 	challengeReader             types.ChallengeReader
-	stateProvider               l2stateprovider.ExecutionStateAgreementChecker
+	stateProvider               l2stateprovider.ExecutionProvider
 	pollInterval                time.Duration
 	confirmationAttemptInterval time.Duration
 	averageTimeForBlockCreation time.Duration
@@ -66,7 +66,6 @@ type Manager struct {
 	challengesSubmittedCount    uint64
 	assertionsProcessedCount    uint64
 	submittedRivalsCount        uint64
-	stateManager                l2stateprovider.ExecutionProvider
 	postInterval                time.Duration
 	submittedAssertions         *threadsafe.LruSet[common.Hash]
 	apiDB                       db.Database
@@ -92,7 +91,6 @@ func NewManager(
 	validatorName string,
 	pollInterval,
 	assertionConfirmationAttemptInterval time.Duration,
-	stateManager l2stateprovider.ExecutionProvider,
 	postInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	apiDB db.Database,
@@ -118,7 +116,6 @@ func NewManager(
 		forksDetectedCount:          0,
 		challengesSubmittedCount:    0,
 		assertionsProcessedCount:    0,
-		stateManager:                stateManager,
 		postInterval:                postInterval,
 		submittedAssertions:         threadsafe.NewLruSet[common.Hash](1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
 		averageTimeForBlockCreation: averageTimeForBlockCreation,
@@ -196,7 +193,7 @@ func (m *Manager) ExecutionStateAfterParent(ctx context.Context, parentInfo *pro
 		return nil, errors.New("block challenge height is zero")
 	}
 	goGlobalState := protocol.GoGlobalStateFromSolidity(parentInfo.AfterState.GlobalState)
-	return m.stateManager.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), goGlobalState.BlockHash, layerZeroHeights.BlockChallengeHeight-1)
+	return m.stateProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), goGlobalState.BlockHash, layerZeroHeights.BlockChallengeHeight-1)
 }
 
 func (m *Manager) logChallengeConfigs(ctx context.Context) error {
@@ -212,7 +209,7 @@ func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	layerZeroHeights, err := m.LayerZeroHeights()
+	layerZeroHeights, err := m.LayerZeroHeights(ctx)
 	if err != nil {
 		return err
 	}

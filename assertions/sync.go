@@ -103,6 +103,11 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	}
 }
 
+type assertionAndParentCreationInfo struct {
+	assertion *protocol.AssertionCreatedInfo
+	parent    *protocol.AssertionCreatedInfo
+}
+
 // This function will gather all assertions up to head
 // determine the canonical branch from there. At that point, we will proceed
 // with scanning for assertions again as normal and simply check if any incoming
@@ -126,7 +131,8 @@ func (m *Manager) processAllAssertionsInRange(
 		}
 	}()
 
-	assertionsUpToHead := make([]*protocol.AssertionCreatedInfo, 0)
+	assertionsUpToHead := make([]assertionAndParentCreationInfo, 0)
+	assertionsByHash := make(map[common.Hash]*protocol.AssertionCreatedInfo)
 	for it.Next() {
 		if it.Error() != nil {
 			return errors.Wrapf(
@@ -149,12 +155,27 @@ func (m *Manager) processAllAssertionsInRange(
 		if err != nil {
 			return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 		}
+		assertionsByHash[assertionHash.Hash] = creationInfo
 		if creationInfo.ParentAssertionHash == (common.Hash{}) {
 			// Skip processing genesis, as it has a parent assertion hash of 0x0.
 			// TODO: Or should we keep it in our list?
 			continue
 		}
-		assertionsUpToHead = append(assertionsUpToHead, creationInfo)
+		fullInfo := assertionAndParentCreationInfo{
+			assertion: creationInfo,
+			parent:    assertionsByHash[creationInfo.ParentAssertionHash],
+		}
+		if fullInfo.parent == nil {
+			parentInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+				return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+			})
+			if err != nil {
+				return errors.Wrapf(err, "could not read assertion creation info for %#x (parent of %#x)", creationInfo.ParentAssertionHash, assertionHash.Hash)
+			}
+			assertionsByHash[creationInfo.ParentAssertionHash] = parentInfo
+			fullInfo.parent = parentInfo
+		}
+		assertionsUpToHead = append(assertionsUpToHead, fullInfo)
 	}
 
 	// Save all observed assertions to the database.
@@ -175,14 +196,12 @@ func (m *Manager) processAllAssertionsInRange(
 	latestAgreedWithAssertion := m.assertionChainData.latestAgreedAssertion
 	cursor := latestAgreedWithAssertion
 
-	for _, assertion := range assertionsUpToHead {
+	for _, fullInfo := range assertionsUpToHead {
+		assertion := fullInfo.assertion
 		if assertion.ParentAssertionHash == cursor.Hash {
 			agreedWithAssertion, err := retry.UntilSucceeds(ctx, func() (bool, error) {
-				state := protocol.GoExecutionStateFromSolidity(assertion.AfterState)
-				err := m.stateProvider.AgreesWithExecutionState(ctx, state)
+				expectedState, err := m.ExecutionStateAfterParent(ctx, fullInfo.parent)
 				switch {
-				case errors.Is(err, l2stateprovider.ErrNoExecutionState):
-					return false, nil
 				case errors.Is(err, l2stateprovider.ErrChainCatchingUp):
 					// Otherwise, we return the error that we are still catching up to the
 					// execution state claimed by the assertion, and this function will be retried
@@ -196,7 +215,7 @@ func (m *Manager) processAllAssertionsInRange(
 				case err != nil:
 					return false, err
 				}
-				return true, nil
+				return expectedState.Equals(protocol.GoExecutionStateFromSolidity(assertion.AfterState)), nil
 			})
 			if err != nil {
 				return errors.New("could not check for assertion agreements")
@@ -211,7 +230,8 @@ func (m *Manager) processAllAssertionsInRange(
 
 	// Now that we derived the canonical chain, we perform a pass over all assertions
 	// to figure out which ones are invalid and therefore should be challenged.
-	for _, assertion := range assertionsUpToHead {
+	for _, fullInfo := range assertionsUpToHead {
+		assertion := fullInfo.assertion
 		canonicalParent, hasCanonicalParent := m.assertionChainData.canonicalAssertions[protocol.AssertionHash{
 			Hash: assertion.ParentAssertionHash,
 		}]
