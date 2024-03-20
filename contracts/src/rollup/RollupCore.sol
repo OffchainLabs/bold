@@ -416,8 +416,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             //    In this case the inbox position must equal prev.nextInboxPosition and position in message must be 0
             // 3. FINISHED assertion that did overflow
             //    The machine finished as normal, but didn't process all messages in the inbox.
-            //    The inbox position can be anything (within valid range) except the prev.nextInboxPosition,
-            //    the position in message can be anything except 0 if the inboxPosition == prev.inboxPosition.
+            //    The inbox can be anywhere between the previous assertion's position and the nextInboxPosition, exclusive.
 
             //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterGS.comparePositions(beforeGS) >= 0, "INBOX_BACKWARDS");
@@ -427,6 +426,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             if (assertion.afterState.machineStatus != MachineStatus.ERRORED && afterStateCmpMaxInbox < 0) {
                 // If we didn't reach the target next inbox position, this is an overflow assertion.
                 overflowAssertion = true;
+                // This shouldn't be necessary, but might as well constrain the assertion to be non-empty
+                require(afterGS.comparePositions(beforeGS) > 0, "OVERFLOW_STANDSTILL");
             }
             // Inbox position at the time of this assertion being created
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
