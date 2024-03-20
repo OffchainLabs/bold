@@ -331,7 +331,6 @@ func (m *Manager) respondToAnyInvalidAssertions(
 			if err != nil {
 				return err
 			}
-			// TODO: Should we update the latest agreed assertion here?
 			if postedRival != nil {
 				postedAssertionHash := protocol.AssertionHash{Hash: postedRival.AssertionHash}
 				if _, ok := m.assertionChainData.canonicalAssertions[postedAssertionHash]; !ok {
