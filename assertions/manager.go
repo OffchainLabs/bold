@@ -69,6 +69,7 @@ type Manager struct {
 	assertionChainData          *assertionChainData
 	observedCanonicalAssertions chan protocol.AssertionHash
 	isReadyToPost               bool
+	disablePosting              bool
 	startPostingSignal          chan struct{}
 }
 
@@ -76,6 +77,14 @@ type assertionChainData struct {
 	sync.RWMutex
 	latestAgreedAssertion protocol.AssertionHash
 	canonicalAssertions   map[protocol.AssertionHash]*protocol.AssertionCreatedInfo
+}
+
+type Opt func(*Manager)
+
+func WithPostingDisabled() Opt {
+	return func(m *Manager) {
+		m.disablePosting = true
+	}
 }
 
 // NewManager creates a manager from the required dependencies.
@@ -93,6 +102,7 @@ func NewManager(
 	postInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	apiDB db.Database,
+	opts ...Opt,
 ) (*Manager, error) {
 	if pollInterval == 0 {
 		return nil, errors.New("assertion scanning interval must be greater than 0")
@@ -100,7 +110,7 @@ func NewManager(
 	if assertionConfirmationAttemptInterval == 0 {
 		return nil, errors.New("assertion confirmation attempt interval must be greater than 0")
 	}
-	return &Manager{
+	m := &Manager{
 		chain:                       chain,
 		apiDB:                       apiDB,
 		backend:                     backend,
@@ -126,11 +136,17 @@ func NewManager(
 		observedCanonicalAssertions: make(chan protocol.AssertionHash, 1000),
 		isReadyToPost:               false,
 		startPostingSignal:          make(chan struct{}),
-	}, nil
+	}
+	for _, o := range opts {
+		o(m)
+	}
+	return m, nil
 }
 
 func (m *Manager) Start(ctx context.Context) {
-	go m.postAssertionRoutine(ctx)
+	if !m.disablePosting {
+		go m.postAssertionRoutine(ctx)
+	}
 	go m.updateLatestConfirmedMetrics(ctx)
 	go m.syncAssertions(ctx)
 	go m.queueCanonicalAssertionsForConfirmation(ctx)

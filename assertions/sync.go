@@ -38,8 +38,10 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	m.assertionChainData.Lock()
 	m.assertionChainData.latestAgreedAssertion = latestConfirmed.Id()
 	m.assertionChainData.canonicalAssertions[latestConfirmed.Id()] = latestConfirmedInfo
-	m.startPostingSignal <- struct{}{}
-	close(m.startPostingSignal)
+	if !m.disablePosting {
+		m.startPostingSignal <- struct{}{}
+		close(m.startPostingSignal)
+	}
 	m.assertionChainData.Unlock()
 
 	fromBlock := latestConfirmed.CreatedAtBlock()
@@ -263,7 +265,12 @@ func (m *Manager) processAllAssertionsInRange(
 			}
 			// TODO: Should we update the latest agreed assertion here?
 			if postedRival != nil {
-				m.assertionChainData.canonicalAssertions[protocol.AssertionHash{Hash: postedRival.AssertionHash}] = postedRival
+				postedAssertionHash := protocol.AssertionHash{Hash: postedRival.AssertionHash}
+				if _, ok := m.assertionChainData.canonicalAssertions[postedAssertionHash]; !ok {
+					m.assertionChainData.canonicalAssertions[postedAssertionHash] = postedRival
+					m.submittedAssertions.Insert(postedAssertionHash.Hash)
+					m.submittedRivalsCount++
+				}
 			}
 		}
 	}
@@ -393,8 +400,6 @@ func (m *Manager) maybePostRivalAssertion(
 		return none, postErr
 	}
 	if assertionOpt.IsSome() {
-		m.submittedAssertions.Insert(assertionOpt.Unwrap().AssertionHash)
-		m.submittedRivalsCount++
 		if err2 := m.saveAssertionToDB(ctx, assertionOpt.Unwrap()); err2 != nil {
 			return none, err2
 		}
