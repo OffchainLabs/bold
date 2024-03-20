@@ -26,7 +26,7 @@ func TestAddEdge(t *testing.T) {
 	ht := &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]](),
 		totalChallengeLevels:  3,
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
@@ -54,7 +54,7 @@ func TestAddEdge(t *testing.T) {
 			assertionHash:   ht.topLevelAssertionHash,
 			claimHeightsErr: errors.New("bad request"),
 		}
-		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.SpecEdge]())
 		honestBlockEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
 		honestBlockEdges.Push(edge)
 		_, err := ht.AddEdge(ctx, edge)
@@ -149,7 +149,7 @@ func TestAddEdge(t *testing.T) {
 			assertionHash: ht.topLevelAssertionHash,
 		}
 		rootEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a", createdAt: 1, claimId: "foo"})
-		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.ReadOnlyEdge]())
+		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.SpecEdge]())
 		honestBlockEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
 		honestBlockEdges.Push(rootEdge)
 
@@ -206,7 +206,7 @@ func TestAddEdge(t *testing.T) {
 
 		// However, we should not have a level zero edge being tracked yet.
 		blockChallengeEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
-		found := blockChallengeEdges.Find(func(_ int, e protocol.ReadOnlyEdge) bool {
+		found := blockChallengeEdges.Find(func(_ int, e protocol.SpecEdge) bool {
 			return e.Id() == edge.Id()
 		})
 		require.Equal(t, false, found)
@@ -267,7 +267,7 @@ func TestAddHonestEdge(t *testing.T) {
 	ht := &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]](),
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
 	honest := &mockHonestEdge{edge}
@@ -303,7 +303,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 	ht := &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
 		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](),
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]](),
 		totalChallengeLevels:  3,
 		metadataReader: &mockMetadataReader{
 			assertionErr:  nil,
