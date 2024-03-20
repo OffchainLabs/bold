@@ -53,7 +53,7 @@ type RoyalChallengeWriter interface {
 		ctx context.Context,
 		topLevelAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
-	) (uint64, error)
+	) (protocol.InheritedTimer, error)
 }
 
 type ChallengeTracker interface {
@@ -462,7 +462,7 @@ func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
 	// we need to trigger a confirmation job that will propagate updates to the whole royal
 	// challenge tree onchain until the edge has an onchain timer >= a challenge period.
 	// We let our confirmer dependency take care of this confirmatin job.
-	if localTimer >= chalPeriod {
+	if uint64(localTimer) >= chalPeriod {
 		if err := et.challengeConfirmer.beginConfirmationJob(
 			ctx,
 			assertionHash,

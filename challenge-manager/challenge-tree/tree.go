@@ -115,3 +115,11 @@ func (ht *RoyalChallengeTree) IsUnrivaledAtBlockNum(edge protocol.ReadOnlyEdge, 
 func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
 	return ht.LocalTimer(edge, blockNum)
 }
+
+func (ht *RoyalChallengeTree) BlockChallengeRootEdge(ctx context.Context) (protocol.SpecEdge, error) {
+	return nil, nil
+}
+
+func (ht *RoyalChallengeTree) GetAllRoyalLeaves(ctx context.Context) ([]protocol.SpecEdge, error) {
+	return nil, nil
+}

@@ -79,7 +79,7 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 	require.Equal(t, false, someEdge.IsNone())
 	edge := someEdge.Unwrap()
 
-	timerBefore, err := tkr.Watcher().InheritedTimer(ctx, edge.Id())
+	timerBefore, err := edge.InheritedTimer(ctx)
 	require.NoError(t, err)
 
 	// Advance our backend way beyond the challenge period.
@@ -87,7 +87,7 @@ func TestEdgeTracker_Act_ChallengedEdgeCannotConfirmByTime(t *testing.T) {
 		createdData.Backend.Commit()
 	}
 
-	timerAfter, err := tkr.Watcher().InheritedTimer(ctx, edge.Id())
+	timerAfter, err := edge.InheritedTimer(ctx)
 	require.NoError(t, err)
 	require.Equal(t, timerBefore, timerAfter)
 
