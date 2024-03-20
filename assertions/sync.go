@@ -128,14 +128,8 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	}
 }
 
-// This function will gather all assertions up to head
-// determine the canonical branch from there. At that point, we will proceed
-// with scanning for assertions again as normal and simply check if any incoming
-// assertions have a parent we are staked on. If so, then we will process the assertion
-// creation event. If we agree, we will add it to the canonical branch of assertions
-// and set a "latest agreed assertion" field in our manager struct. If we disagree, we will
-// attempt to open a rival assertion if configured and attempt a challenge.
-// TODO: Consider any race conditions.
+// This function will scan for all assertion creation events to determine which
+// ones are canonical and which ones must be challenged.
 func (m *Manager) processAllAssertionsInRange(
 	ctx context.Context,
 	filterer *rollupgen.RollupUserLogicFilterer,
@@ -151,7 +145,8 @@ func (m *Manager) processAllAssertionsInRange(
 		}
 	}()
 
-	assertionsUpToHead := make([]*protocol.AssertionCreatedInfo, 0)
+	// Extract all assertion creation events from the log filter iterator.
+	assertions := make([]*protocol.AssertionCreatedInfo, 0)
 	for it.Next() {
 		if it.Error() != nil {
 			return errors.Wrapf(
@@ -161,29 +156,24 @@ func (m *Manager) processAllAssertionsInRange(
 				*filterOpts.End,
 			)
 		}
-		if it.Event.AssertionHash == (common.Hash{}) {
-			srvlog.Warn("Encountered an assertion with a zero hash", log.Ctx{
-				"creationEvent": fmt.Sprintf("%+v", it.Event),
-			})
-			continue // Assertions cannot have a zero hash, not even genesis.
-		}
-		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
-		creationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-			return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+		assertionOpt, err := retry.UntilSucceeds(ctx, func() (option.Option[*protocol.AssertionCreatedInfo], error) {
+			item, innerErr := m.extractAssertionFromEvent(ctx, it.Event)
+			if innerErr != nil {
+				srvlog.Error("Could not extract assertion from event", log.Ctx{"err": innerErr})
+				return option.None[*protocol.AssertionCreatedInfo](), innerErr
+			}
+			return item, nil
 		})
 		if err != nil {
-			return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
+			return err
 		}
-		if creationInfo.ParentAssertionHash == (common.Hash{}) {
-			// Skip processing genesis, as it has a parent assertion hash of 0x0.
-			// TODO: Or should we keep it in our list?
-			continue
+		if assertionOpt.IsSome() {
+			assertions = append(assertions, assertionOpt.Unwrap())
 		}
-		assertionsUpToHead = append(assertionsUpToHead, creationInfo)
 	}
 
 	// Save all observed assertions to the database.
-	for _, assertion := range assertionsUpToHead {
+	for _, assertion := range assertions {
 		if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
 			if err := m.saveAssertionToDB(ctx, assertion); err != nil {
 				srvlog.Error("Could not save assertion to DB", log.Ctx{"err": err})
@@ -195,16 +185,71 @@ func (m *Manager) processAllAssertionsInRange(
 		}
 	}
 
-	// Determine the canonical branch of all assertions.
-	// Find all assertions that have parent == latest confirmed. Check which one we fully agree with.
-	// Then, check all assertions that have that assertion as parent.
 	m.assertionChainData.Lock()
 	defer m.assertionChainData.Unlock()
 
+	// Determine the canonical branch of all assertions.
+	if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+		if innerErr := m.findCanonicalAssertionBranch(ctx, assertions); innerErr != nil {
+			srvlog.Error("Could not find canonical assertion branch", log.Ctx{"err": innerErr})
+			return false, innerErr
+		}
+		return true, nil
+	}); err != nil {
+		return err
+	}
+
+	// Now that we derived the canonical chain, we perform a pass over all assertions
+	// to figure out which ones are invalid and therefore should be challenged.
+	if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+		if innerErr := m.respondToAnyInvalidAssertions(ctx, assertions); innerErr != nil {
+			srvlog.Error("Could not find canonical assertion branch", log.Ctx{"err": innerErr})
+			return false, innerErr
+		}
+		return true, nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Extracts a valid assertion creation from an event log. Returns none
+// if the assertion is genesis or if the hash is the zero hash.
+func (m *Manager) extractAssertionFromEvent(
+	ctx context.Context,
+	event *rollupgen.RollupUserLogicAssertionCreated,
+) (option.Option[*protocol.AssertionCreatedInfo], error) {
+	none := option.None[*protocol.AssertionCreatedInfo]()
+	if event.AssertionHash == (common.Hash{}) {
+		srvlog.Warn("Encountered an assertion with a zero hash", log.Ctx{
+			"creationEvent": fmt.Sprintf("%+v", event),
+		})
+		return none, nil
+	}
+	assertionHash := protocol.AssertionHash{Hash: event.AssertionHash}
+	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	if err != nil {
+		return none, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
+	}
+	if creationInfo.ParentAssertionHash == (common.Hash{}) {
+		return none, nil
+	}
+	return option.Some(creationInfo), nil
+}
+
+// Finds all canonical assertions from a list. Starts by setting a cursor to the
+// latest confirmed assertion, then finds all assertions parent == cursor.
+// We then check which one we agree with.
+// From there, checks all assertions that have that assertion as parent, etc.
+// This function must hold the lock on m.assertionChainData.
+func (m *Manager) findCanonicalAssertionBranch(
+	ctx context.Context,
+	assertions []*protocol.AssertionCreatedInfo,
+) error {
 	latestAgreedWithAssertion := m.assertionChainData.latestAgreedAssertion
 	cursor := latestAgreedWithAssertion
 
-	for _, assertion := range assertionsUpToHead {
+	for _, assertion := range assertions {
 		if assertion.ParentAssertionHash == cursor.Hash {
 			agreedWithAssertion, err := retry.UntilSucceeds(ctx, func() (bool, error) {
 				state := protocol.GoExecutionStateFromSolidity(assertion.AfterState)
@@ -217,11 +262,9 @@ func (m *Manager) processAllAssertionsInRange(
 					// execution state claimed by the assertion, and this function will be retried
 					// by the caller if wrapped in a retryable call.
 					chainCatchingUpCounter.Inc(1)
-					return false, fmt.Errorf(
-						"chain still catching up to processed execution state - "+
-							"will reattempt assertion processing when caught up: %w",
-						l2stateprovider.ErrChainCatchingUp,
-					)
+					srvlog.Info("Chain still catching up to processed execution state "+
+						"will reattempt processing when caught up", log.Ctx{"err": err})
+					return false, l2stateprovider.ErrChainCatchingUp
 				case err != nil:
 					return false, err
 				}
@@ -238,10 +281,19 @@ func (m *Manager) processAllAssertionsInRange(
 			}
 		}
 	}
+	return nil
+}
 
-	// Now that we derived the canonical chain, we perform a pass over all assertions
-	// to figure out which ones are invalid and therefore should be challenged.
-	for _, assertion := range assertionsUpToHead {
+// Finds all canonical assertions from a list. Starts by setting a cursor to the
+// latest confirmed assertion, then finds all assertions parent == cursor.
+// We then check which one we agree with.
+// From there, checks all assertions that have that assertion as parent, etc.
+// This function must hold the lock on m.assertionChainData.
+func (m *Manager) respondToAnyInvalidAssertions(
+	ctx context.Context,
+	assertions []*protocol.AssertionCreatedInfo,
+) error {
+	for _, assertion := range assertions {
 		canonicalParent, hasCanonicalParent := m.assertionChainData.canonicalAssertions[protocol.AssertionHash{
 			Hash: assertion.ParentAssertionHash,
 		}]

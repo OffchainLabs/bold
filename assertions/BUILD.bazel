@@ -36,9 +36,10 @@ go_test(
     srcs = [
         "manager_test.go",
         "poster_test.go",
+        "sync_test.go",
     ],
+    embed = [":assertions"],
     deps = [
-        ":assertions",
         "//chain-abstraction:protocol",
         "//challenge-manager",
         "//challenge-manager/types",
