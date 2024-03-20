@@ -6,6 +6,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Defines a struct which can handle confirming of an entire challenge tree
@@ -14,8 +15,9 @@ import (
 // it ensures to confirm that edge. If this is not the case, it will return an error
 // and write data to disk to help with debugging the issue.
 type challengeConfirmer struct {
-	reader RoyalChallengeReader
-	writer ChainWriter
+	reader        RoyalChallengeReader
+	writer        ChainWriter
+	validatorName string
 }
 
 // Defines a chain writer interface that is
@@ -47,10 +49,12 @@ type RoyalChallengeReader interface {
 func newChallengeConfirmer(
 	challengeReader RoyalChallengeReader,
 	chainWriter ChainWriter,
+	validatorName string,
 ) *challengeConfirmer {
 	return &challengeConfirmer{
-		reader: challengeReader,
-		writer: chainWriter,
+		reader:        challengeReader,
+		writer:        chainWriter,
+		validatorName: validatorName,
 	}
 }
 
@@ -72,6 +76,10 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	royalRootEdge protocol.SpecEdge,
 	challengePeriodBlocks uint64,
 ) error {
+	fields := log.Ctx{
+		"validatorName": cc.validatorName,
+	}
+	srvlog.Info("Starting challenge confirmation job", fields)
 	// Find the bottom-most royal edges that exist in our local challenge tree, each one
 	// will be the base of a branch we will update.
 	royalTreeLeaves, err := retry.UntilSucceeds(ctx, func() ([]protocol.SpecEdge, error) {
@@ -80,6 +88,10 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	if err != nil {
 		return err
 	}
+	srvlog.Info("Got all the royal tree leaves", log.Ctx{
+		"validatorName": cc.validatorName,
+		"numLeaves":     len(royalTreeLeaves),
+	})
 	// For each branch, compute the royal ancestor branch up to the root of the tree.
 	// The branch should contain royal ancestors ordered from a bottom-most leaf edge to the root edge
 	// of the block level challenge, meaning it should also include claim id links.
@@ -94,6 +106,11 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		if err2 != nil {
 			return err2
 		}
+		srvlog.Info("Got ancestors for branch with base", log.Ctx{
+			"validatorName": cc.validatorName,
+			"numAncestors":  len(ancestors),
+			"baseEdge":      edge.Id(),
+		})
 		branch = append(branch, ancestors...)
 		royalBranches = append(royalBranches, branch)
 	}
@@ -112,8 +129,18 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		if err2 != nil {
 			return err2
 		}
+		srvlog.Info("Updated the inherited timer for branch with base", log.Ctx{
+			"validatorName": cc.validatorName,
+			"rootTimer":     rootTimer,
+			"baseEdge":      branch[0].Hash,
+		})
 		// If yes, we confirm the root edge and finish early.
 		if uint64(rootTimer) >= challengePeriodBlocks {
+			srvlog.Info("Branch was confirmable by time", log.Ctx{
+				"validatorName": cc.validatorName,
+				"rootTimer":     rootTimer,
+				"baseEdge":      branch[0].Hash,
+			})
 			_, err2 = retry.UntilSucceeds(ctx, func() (bool, error) {
 				innerErr := royalRootEdge.ConfirmByTimer(ctx)
 				return false, innerErr
@@ -132,11 +159,32 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	// In this scenario, we can dump the confirmation job of royal edges for manual
 	// inspection and debugging
 	if onchainInheritedTimer < protocol.InheritedTimer(challengePeriodBlocks) {
+		srvlog.Error("Onchain timer differed after confirmation job", log.Ctx{
+			"validatorName":   cc.validatorName,
+			"onchainTimer":    onchainInheritedTimer,
+			"challengePeriod": challengePeriodBlocks,
+		})
 		return fmt.Errorf(
 			"onchain timer %d after confirmation job was executed < challenge period %d",
 			onchainInheritedTimer,
 			challengePeriodBlocks,
 		)
 	}
+	srvlog.Error("Confirming edge by time", log.Ctx{
+		"validatorName":   cc.validatorName,
+		"onchainTimer":    onchainInheritedTimer,
+		"challengePeriod": challengePeriodBlocks,
+	})
+	if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+		innerErr := royalRootEdge.ConfirmByTimer(ctx)
+		return false, innerErr
+	}); err != nil {
+		return err
+	}
+	srvlog.Error("Challenge completed", log.Ctx{
+		"validatorName":   cc.validatorName,
+		"onchainTimer":    onchainInheritedTimer,
+		"challengePeriod": challengePeriodBlocks,
+	})
 	return nil
 }
