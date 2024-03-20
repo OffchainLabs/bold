@@ -53,7 +53,7 @@ type RoyalChallengeTree struct {
 	histChecker           l2stateprovider.HistoryChecker
 	validatorName         string
 	totalChallengeLevels  uint8
-	royalRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]
+	royalRootEdgesByLevel *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]]
 }
 
 func New(
@@ -73,7 +73,7 @@ func New(
 		validatorName:         validatorName,
 		// The total number of challenge levels include block challenges, small step challenges, and N big step challenges.
 		totalChallengeLevels:  numBigStepLevels + 2,
-		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Slice[protocol.ReadOnlyEdge]]("royalRootEdgesByLevel")),
+		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]]("royalRootEdgesByLevel")),
 	}
 }
 
@@ -116,10 +116,32 @@ func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum
 	return ht.LocalTimer(edge, blockNum)
 }
 
-func (ht *RoyalChallengeTree) BlockChallengeRootEdge(ctx context.Context) (protocol.SpecEdge, error) {
-	return nil, nil
+// Obtains the lowermost edges across all subchallenges that are royal.
+// To do this, we fetch all royal, tracked edges that do not have children.
+func (ht *RoyalChallengeTree) GetAllRoyalLeaves(ctx context.Context) ([]protocol.SpecEdge, error) {
+	royalLeaves := make([]protocol.SpecEdge, 0)
+	if err := ht.edges.ForEach(func(_ protocol.EdgeId, edge protocol.SpecEdge) error {
+		hasChildren, err := edge.HasChildren(ctx)
+		if err != nil {
+			return err
+		}
+		if !hasChildren {
+			royalLeaves = append(royalLeaves, edge)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return royalLeaves, nil
 }
 
-func (ht *RoyalChallengeTree) GetAllRoyalLeaves(ctx context.Context) ([]protocol.SpecEdge, error) {
-	return nil, nil
+func (ht *RoyalChallengeTree) BlockChallengeRootEdge(ctx context.Context) (protocol.SpecEdge, error) {
+	blockChalEdges, ok := ht.royalRootEdgesByLevel.TryGet(protocol.ChallengeLevel(ht.totalChallengeLevels) - 1)
+	if !ok {
+		return nil, errors.New("no block challenge root edge found")
+	}
+	if blockChalEdges.Len() != 1 {
+		return nil, errors.New("expected exactly one block challenge root edge")
+	}
+	return blockChalEdges.Get(0).Unwrap(), nil
 }

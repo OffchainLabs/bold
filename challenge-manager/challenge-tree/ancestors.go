@@ -229,9 +229,9 @@ func (ht *RoyalChallengeTree) getClaimedEdge(edge protocol.ReadOnlyEdge) (protoc
 }
 
 // Finds an edge in a list with a specified origin id.
-func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.ReadOnlyEdge]) (protocol.ReadOnlyEdge, bool) {
-	var originEdge protocol.ReadOnlyEdge
-	found := edges.Find(func(_ int, e protocol.ReadOnlyEdge) bool {
+func findOriginEdge(originId protocol.OriginId, edges *threadsafe.Slice[protocol.SpecEdge]) (protocol.SpecEdge, bool) {
+	var originEdge protocol.SpecEdge
+	found := edges.Find(func(_ int, e protocol.SpecEdge) bool {
 		if e.OriginId() == originId {
 			originEdge = e
 			return true
