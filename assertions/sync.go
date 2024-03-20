@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -159,11 +161,15 @@ func (m *Manager) processAllAssertionsInRange(
 
 	// Save all observed assertions to the database.
 	for _, assertion := range assertionsUpToHead {
-		// if err := m.saveAssertionToDB(ctx, assertion); err != nil {
-		// 	srvlog.Error("Could not save assertion to DB", log.Ctx{"err": err})
-		// 	return
-		// }
-		_ = assertion
+		if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+			if err := m.saveAssertionToDB(ctx, assertion); err != nil {
+				srvlog.Error("Could not save assertion to DB", log.Ctx{"err": err})
+				return false, err
+			}
+			return true, nil
+		}); err != nil {
+			return err
+		}
 	}
 
 	// Determine the canonical branch of all assertions.
@@ -281,9 +287,10 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		srvlog.Warn("Attempted to post rival assertion and stake, but not configured to initiate a challenge", logFields)
 		return nil, nil
 	}
-	postedRival, err := m.chain.ReadAssertionCreationInfo(ctx, correctRivalAssertion.Unwrap().Id())
+	assertionHash := protocol.AssertionHash{Hash: correctRivalAssertion.Unwrap().AssertionHash}
+	postedRival, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read assertion creation info for %#x", correctRivalAssertion.Unwrap().Id())
+		return nil, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
 
 	if canonicalParent.ChallengeManager != m.challengeManagerAddr {
@@ -309,7 +316,9 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 	}
 	srvlog.Info("Waiting before submitting challenge on assertion", log.Ctx{"delay": randSecs})
 	time.Sleep(time.Duration(randSecs) * time.Second)
-	correctClaimedAssertionHash := correctRivalAssertion.Unwrap().Id()
+	correctClaimedAssertionHash := protocol.AssertionHash{
+		Hash: correctRivalAssertion.Unwrap().AssertionHash,
+	}
 	challengeSubmitted, err := m.challengeCreator.ChallengeAssertion(ctx, correctClaimedAssertionHash)
 	if err != nil {
 		return nil, err
@@ -323,4 +332,101 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		srvlog.Error("Could not log challenge configs", log.Ctx{"err": err})
 	}
 	return postedRival, nil
+}
+
+// Attempt to post a rival assertion based on the last agreed with ancestor
+// of a given assertion.
+//
+// If this parent assertion already has a rival we agree with that arleady exists
+// then this function will return that assertion.
+func (m *Manager) maybePostRivalAssertion(
+	ctx context.Context,
+	canonicalParent,
+	invalidAssertion *protocol.AssertionCreatedInfo,
+) (option.Option[*protocol.AssertionCreatedInfo], error) {
+	none := option.None[*protocol.AssertionCreatedInfo]()
+	// Post what we believe is the correct assertion that follows the ancestor we agree with.
+	staked, err := m.chain.IsStaked(ctx)
+	if err != nil {
+		return none, err
+	}
+	// If the validator is already staked, we post an assertion and move existing stake to it.
+	var assertionOpt option.Option[*protocol.AssertionCreatedInfo]
+	var postErr error
+	if staked {
+		assertionOpt, postErr = m.PostAssertionBasedOnParent(
+			ctx, canonicalParent, m.chain.StakeOnNewAssertion,
+		)
+	} else {
+		// Otherwise, we post a new assertion and place a new stake on it.
+		assertionOpt, postErr = m.PostAssertionBasedOnParent(
+			ctx, canonicalParent, m.chain.NewStakeOnNewAssertion,
+		)
+	}
+	if postErr != nil {
+		return none, postErr
+	}
+	if assertionOpt.IsSome() {
+		m.submittedAssertions.Insert(assertionOpt.Unwrap().AssertionHash)
+		m.submittedRivalsCount++
+		if err2 := m.saveAssertionToDB(ctx, assertionOpt.Unwrap()); err2 != nil {
+			return none, err2
+		}
+	}
+	return assertionOpt, nil
+}
+
+func (m *Manager) saveAssertionToDB(ctx context.Context, creationInfo *protocol.AssertionCreatedInfo) error {
+	if api.IsNil(m.apiDB) {
+		return nil
+	}
+	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
+	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
+	assertionHash := protocol.AssertionHash{Hash: creationInfo.AssertionHash}
+	status, err := m.chain.AssertionStatus(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	assertion, err := m.chain.GetAssertion(ctx, assertionHash)
+	if err != nil {
+		return err
+	}
+	isFirstChild, err := assertion.IsFirstChild()
+	if err != nil {
+		return err
+	}
+	firstChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	secondChildBlock, err := assertion.SecondChildCreationBlock()
+	if err != nil {
+		return err
+	}
+	return m.apiDB.InsertAssertion(&api.JsonAssertion{
+		Hash:                     assertionHash.Hash,
+		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
+		RequiredStake:            creationInfo.RequiredStake.String(),
+		ParentAssertionHash:      creationInfo.ParentAssertionHash,
+		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
+		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
+		WasmModuleRoot:           creationInfo.WasmModuleRoot,
+		ChallengeManager:         creationInfo.ChallengeManager,
+		CreationBlock:            creationInfo.CreationBlock,
+		TransactionHash:          creationInfo.TransactionHash,
+		BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
+		BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
+		BeforeStateBatch:         beforeState.GlobalState.Batch,
+		BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
+		BeforeStateMachineStatus: beforeState.MachineStatus,
+		AfterStateBlockHash:      afterState.GlobalState.BlockHash,
+		AfterStateSendRoot:       afterState.GlobalState.SendRoot,
+		AfterStateBatch:          afterState.GlobalState.Batch,
+		AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
+		AfterStateMachineStatus:  afterState.MachineStatus,
+		FirstChildBlock:          &firstChildBlock,
+		SecondChildBlock:         &secondChildBlock,
+		IsFirstChild:             isFirstChild,
+		Status:                   status.String(),
+	})
 }

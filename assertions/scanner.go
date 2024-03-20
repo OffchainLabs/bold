@@ -16,15 +16,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/metrics"
 
-	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -127,9 +123,6 @@ func NewManager(
 	}, nil
 }
 
-// The Start function begins two main tasks:
-// 1. It initiates scanning of the assertion chain for newly created assertions, starting from the latest confirmed assertion. This scanning is done via polling.
-// 2. Concurrently, it also starts a routine that is responsible for posting new assertions to the assertion chain.
 func (m *Manager) Start(ctx context.Context) {
 	go m.postAssertionRoutine(ctx)
 	go m.updateLatestConfirmedMetrics(ctx)
@@ -189,160 +182,6 @@ func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	return nil
 }
 
-// Attempt to post a rival assertion based on the last agreed with ancestor
-// of a given assertion.
-//
-// If this parent assertion already has a rival we agree with that arleady exists
-// then this function will return that assertion.
-func (m *Manager) maybePostRivalAssertion(
-	ctx context.Context,
-	canonicalParent,
-	invalidAssertion *protocol.AssertionCreatedInfo,
-) (option.Option[protocol.Assertion], error) {
-	// Post what we believe is the correct assertion that follows the ancestor we agree with.
-	staked, err := m.chain.IsStaked(ctx)
-	if err != nil {
-		return option.None[protocol.Assertion](), err
-	}
-	// If the validator is already staked, we post an assertion and move existing stake to it.
-	var assertionOpt option.Option[protocol.Assertion]
-	var postErr error
-	if staked {
-		assertionOpt, postErr = m.PostAssertionBasedOnParent(
-			ctx, canonicalParent, m.chain.StakeOnNewAssertion,
-		)
-	} else {
-		// Otherwise, we post a new assertion and place a new stake on it.
-		assertionOpt, postErr = m.PostAssertionBasedOnParent(
-			ctx, canonicalParent, m.chain.NewStakeOnNewAssertion,
-		)
-	}
-	if postErr != nil {
-		return option.None[protocol.Assertion](), postErr
-	}
-	if assertionOpt.IsSome() {
-		m.submittedAssertions.Insert(assertionOpt.Unwrap().Id().Hash)
-		m.submittedRivalsCount++
-		if err2 := m.saveAssertionToDB(ctx, assertionOpt.Unwrap().Id()); err2 != nil {
-			return option.None[protocol.Assertion](), err2
-		}
-	}
-	return assertionOpt, nil
-}
-
-func (m *Manager) saveAssertionToDB(ctx context.Context, assertionHash protocol.AssertionHash) error {
-	if api.IsNil(m.apiDB) {
-		return nil
-	}
-	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-	if err != nil {
-		return err
-	}
-	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
-	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
-	status, err := m.chain.AssertionStatus(ctx, assertionHash)
-	if err != nil {
-		return err
-	}
-	assertion, err := m.chain.GetAssertion(ctx, assertionHash)
-	if err != nil {
-		return err
-	}
-	isFirstChild, err := assertion.IsFirstChild()
-	if err != nil {
-		return err
-	}
-	firstChildBlock, err := assertion.SecondChildCreationBlock()
-	if err != nil {
-		return err
-	}
-	secondChildBlock, err := assertion.SecondChildCreationBlock()
-	if err != nil {
-		return err
-	}
-	return m.apiDB.InsertAssertion(&api.JsonAssertion{
-		Hash:                     assertionHash.Hash,
-		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
-		RequiredStake:            creationInfo.RequiredStake.String(),
-		ParentAssertionHash:      creationInfo.ParentAssertionHash,
-		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
-		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
-		WasmModuleRoot:           creationInfo.WasmModuleRoot,
-		ChallengeManager:         creationInfo.ChallengeManager,
-		CreationBlock:            creationInfo.CreationBlock,
-		TransactionHash:          creationInfo.TransactionHash,
-		BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
-		BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,
-		BeforeStateBatch:         beforeState.GlobalState.Batch,
-		BeforeStatePosInBatch:    beforeState.GlobalState.PosInBatch,
-		BeforeStateMachineStatus: beforeState.MachineStatus,
-		AfterStateBlockHash:      afterState.GlobalState.BlockHash,
-		AfterStateSendRoot:       afterState.GlobalState.SendRoot,
-		AfterStateBatch:          afterState.GlobalState.Batch,
-		AfterStatePosInBatch:     afterState.GlobalState.PosInBatch,
-		AfterStateMachineStatus:  afterState.MachineStatus,
-		FirstChildBlock:          &firstChildBlock,
-		SecondChildBlock:         &secondChildBlock,
-		IsFirstChild:             isFirstChild,
-		Status:                   status.String(),
-	})
-}
-
-func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
-	// Only resolve mode strategies or higher should be confirming assertions.
-	if m.challengeReader.Mode() < types.ResolveMode {
-		return
-	}
-	creationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-		return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-	})
-	if err != nil {
-		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
-		return
-	}
-	prevCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-		return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-	})
-	if err != nil {
-		log.Error("Could not get prev assertion creation info", log.Ctx{"error": err})
-		return
-	}
-	ticker := time.NewTicker(m.confirmationAttemptInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			parentAssertion, err := m.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-			if err != nil {
-				log.Error("Could not get parent assertion", log.Ctx{"error": err})
-				continue
-			}
-			parentAssertionHasSecondChild, err := parentAssertion.HasSecondChild()
-			if err != nil {
-				log.Error("Could not confirm if parent assertion has second child", log.Ctx{"error": err})
-				continue
-			}
-			// Assertions that have a rival assertion cannot be confirmed by time.
-			if parentAssertionHasSecondChild {
-				return
-			}
-			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.averageTimeForBlockCreation, option.None[protocol.EdgeId]())
-			if err != nil {
-				srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
-				errorConfirmingAssertionByTimeCounter.Inc(1)
-				continue
-			}
-			if confirmed {
-				assertionConfirmedCounter.Inc(1)
-				srvlog.Info("Confirmed assertion by time", log.Ctx{"assertionHash": creationInfo.AssertionHash})
-				return
-			}
-		}
-	}
-}
-
 // Returns true if the manager can respond to an assertion with a challenge.
 func (m *Manager) canPostRivalAssertion() bool {
 	return m.challengeReader.Mode() >= types.DefensiveMode
@@ -351,25 +190,6 @@ func (m *Manager) canPostRivalAssertion() bool {
 func (m *Manager) canPostChallenge() bool {
 	return m.challengeReader.Mode() >= types.DefensiveMode
 }
-
-func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
-	ticker := time.NewTicker(m.confirmationAttemptInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			latestConfirmed, err := m.chain.LatestConfirmed(ctx)
-			if err != nil {
-				srvlog.Debug("Could not fetch latest confirmed assertion", log.Ctx{"error": err})
-				continue
-			}
-			latestConfirmedAssertionGauge.Update(int64(latestConfirmed.CreatedAtBlock()))
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
 func randUint64(max uint64) (uint64, error) {
 	n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(max))
 	if err != nil {
