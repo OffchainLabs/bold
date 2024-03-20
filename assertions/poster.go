@@ -59,6 +59,7 @@ func (m *Manager) awaitPostingSignal(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-m.startPostingSignal:
+			m.isReadyToPost = true
 			return
 		}
 	}
