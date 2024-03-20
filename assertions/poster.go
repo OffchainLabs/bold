@@ -164,5 +164,6 @@ func (m *Manager) PostAssertionBasedOnParent(
 	if err != nil {
 		return none, err
 	}
+	m.observedCanonicalAssertions <- assertion.Id()
 	return option.Some(creationInfo), nil
 }

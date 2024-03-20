@@ -76,7 +76,7 @@ func defaultTimeParams() timeParams {
 		challengeMoveInterval:                time.Second,
 		assertionPostingInterval:             time.Hour,
 		assertionScanningInterval:            time.Second,
-		assertionConfirmationAttemptInterval: time.Hour,
+		assertionConfirmationAttemptInterval: time.Second,
 	}
 }
 
@@ -252,16 +252,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	_, err = bridgeBindings.EnqueueSequencerMessage(accounts[0], dataHash, big.NewInt(1), big.NewInt(1), big.NewInt(2))
 	require.NoError(t, err)
 	bk.Commit()
-
-	t.Log("Queued the sequencer message")
-
-	// _, err = bridgeBindings.EnqueueSequencerMessage(accounts[0], dataHash, big.NewInt(1), big.NewInt(2), big.NewInt(3))
-	// require.NoError(t, err)
-	// bk.Commit()
-
-	// _, err = bridgeBindings.EnqueueSequencerMessage(accounts[0], dataHash, big.NewInt(1), big.NewInt(3), big.NewInt(4))
-	// require.NoError(t, err)
-	// bk.Commit()
 
 	baseStateManagerOpts := []statemanager.Opt{
 		statemanager.WithNumBatchesRead(cfg.inbox.numBatchesPosted),

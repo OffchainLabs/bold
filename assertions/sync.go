@@ -302,7 +302,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 	evilAssertionCounter.Inc(1)
 
 	// Post what we believe is the correct rival assertion that follows the ancestor we agree with.
-	correctRivalAssertion, err := m.maybePostRivalAssertion(ctx, invalidAssertion, canonicalParent)
+	correctRivalAssertion, err := m.maybePostRivalAssertion(ctx, canonicalParent)
 	if err != nil {
 		return nil, err
 	}
@@ -368,8 +368,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 // then this function will return that assertion.
 func (m *Manager) maybePostRivalAssertion(
 	ctx context.Context,
-	canonicalParent,
-	invalidAssertion *protocol.AssertionCreatedInfo,
+	canonicalParent *protocol.AssertionCreatedInfo,
 ) (option.Option[*protocol.AssertionCreatedInfo], error) {
 	none := option.None[*protocol.AssertionCreatedInfo]()
 	// Post what we believe is the correct assertion that follows the ancestor we agree with.
