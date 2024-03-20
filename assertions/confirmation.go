@@ -12,6 +12,17 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+func (m *Manager) queueCanonicalAssertionsForConfirmation(ctx context.Context) {
+	for {
+		select {
+		case canonical := <-m.observedCanonicalAssertions:
+			go m.keepTryingAssertionConfirmation(ctx, canonical)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
 	// Only resolve mode strategies or higher should be confirming assertions.
 	if m.challengeReader.Mode() < types.ResolveMode {

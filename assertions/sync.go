@@ -211,6 +211,7 @@ func (m *Manager) processAllAssertionsInRange(
 				cursor = protocol.AssertionHash{Hash: assertion.AssertionHash}
 				m.assertionChainData.latestAgreedAssertion = cursor
 				m.assertionChainData.canonicalAssertions[cursor] = assertion
+				m.observedCanonicalAssertions <- cursor
 			}
 		}
 	}

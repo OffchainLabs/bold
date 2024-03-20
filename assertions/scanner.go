@@ -67,6 +67,7 @@ type Manager struct {
 	submittedAssertions         *threadsafe.LruSet[common.Hash]
 	apiDB                       db.Database
 	assertionChainData          *assertionChainData
+	observedCanonicalAssertions chan protocol.AssertionHash
 }
 
 type assertionChainData struct {
@@ -120,6 +121,7 @@ func NewManager(
 			latestAgreedAssertion: protocol.AssertionHash{},
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
 		},
+		observedCanonicalAssertions: make(chan protocol.AssertionHash, 1000),
 	}, nil
 }
 
@@ -127,6 +129,7 @@ func (m *Manager) Start(ctx context.Context) {
 	go m.postAssertionRoutine(ctx)
 	go m.updateLatestConfirmedMetrics(ctx)
 	go m.syncAssertions(ctx)
+	go m.queueCanonicalAssertionsForConfirmation(ctx)
 }
 
 func (m *Manager) ForksDetected() uint64 {
