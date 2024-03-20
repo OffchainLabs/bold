@@ -29,7 +29,6 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 		srvlog.Warn("Staker strategy not configured to stake on latest assertions")
 		return
 	}
-	srvlog.Info("Ready to post")
 	if _, err := m.PostAssertion(ctx); err != nil {
 		if !errors.Is(err, solimpl.ErrAlreadyExists) {
 			srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})

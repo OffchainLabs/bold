@@ -99,43 +99,6 @@ func TestDoSomething(t *testing.T) {
 // 	})
 // }
 
-// func Test_findLatestValidAssertion(t *testing.T) {
-// 	ctx := context.Background()
-// 	numAssertions := 10
-// 	t.Run("only valid latest assertion is genesis", func(t *testing.T) {
-// 		poster, chain, stateManager := setupPoster(t)
-// 		setupAssertions(ctx, chain, stateManager, numAssertions, func(int) bool { return false })
-// 		latestValid, err := poster.findLatestValidAssertion(ctx)
-// 		require.NoError(t, err)
-// 		require.Equal(t, mockId(0), latestValid)
-// 	})
-// 	t.Run("all are valid, latest one is picked", func(t *testing.T) {
-// 		poster, chain, stateManager := setupPoster(t)
-// 		setupAssertions(ctx, chain, stateManager, numAssertions, func(int) bool { return true })
-
-// 		latestValid, err := poster.findLatestValidAssertion(ctx)
-// 		require.NoError(t, err)
-// 		require.Equal(t, mockId(10), latestValid)
-// 	})
-// 	t.Run("latest valid is behind", func(t *testing.T) {
-// 		poster, chain, stateManager := setupPoster(t)
-// 		setupAssertions(ctx, chain, stateManager, numAssertions, func(i int) bool { return i <= 5 })
-
-// 		latestValid, err := poster.findLatestValidAssertion(ctx)
-// 		require.NoError(t, err)
-// 		require.Equal(t, mockId(5), latestValid)
-// 	})
-// }
-
-// func Test_findLatestValidAssertionWithFork(t *testing.T) {
-// 	ctx := context.Background()
-// 	poster, chain, stateManager := setupPoster(t)
-// 	setupAssertionsWithFork(ctx, chain, stateManager)
-// 	latestValid, err := poster.findLatestValidAssertion(ctx)
-// 	require.NoError(t, err)
-// 	require.Equal(t, mockId(1), latestValid)
-// }
-
 // // Set-ups a chain with a fork at the 1st assertion
 // //
 // //	/-- 1 = Honest
