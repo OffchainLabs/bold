@@ -166,9 +166,6 @@ func (m *Manager) ChallengesSubmitted() uint64 {
 	return m.challengesSubmittedCount
 }
 
-func (m *Manager) SubmittedAssertions() *threadsafe.LruSet[common.Hash] {
-	return m.submittedAssertions
-}
 func (m *Manager) AssertionsProcessed() uint64 {
 	return m.assertionsProcessedCount
 }

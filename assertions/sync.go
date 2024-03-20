@@ -202,7 +202,7 @@ func (m *Manager) processAllAssertionsInRange(
 	// Now that we derived the canonical chain, we perform a pass over all assertions
 	// to figure out which ones are invalid and therefore should be challenged.
 	if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
-		if innerErr := m.respondToAnyInvalidAssertions(ctx, assertions); innerErr != nil {
+		if innerErr := m.respondToAnyInvalidAssertions(ctx, assertions, m); innerErr != nil {
 			srvlog.Error("Could not find canonical assertion branch", log.Ctx{"err": innerErr})
 			return false, innerErr
 		}
@@ -237,8 +237,8 @@ func (m *Manager) extractAssertionFromEvent(
 	return option.Some(creationInfo), nil
 }
 
-// Finds all canonical assertions from a list. Starts by setting a cursor to the
-// latest confirmed assertion, then finds all assertions parent == cursor.
+// Finds all canonical assertions from an ordered list by creation time.
+// Starts by setting a cursor to the latest confirmed assertion, then finds all assertions parent == cursor.
 // We then check which one we agree with.
 // From there, checks all assertions that have that assertion as parent, etc.
 // This function must hold the lock on m.assertionChainData.
@@ -284,6 +284,18 @@ func (m *Manager) findCanonicalAssertionBranch(
 	return nil
 }
 
+type rivalPosterArgs struct {
+	canonicalParent  *protocol.AssertionCreatedInfo
+	invalidAssertion *protocol.AssertionCreatedInfo
+}
+
+type rivalPoster interface {
+	maybePostRivalAssertionAndChallenge(
+		ctx context.Context,
+		args rivalPosterArgs,
+	) (*protocol.AssertionCreatedInfo, error)
+}
+
 // Finds all canonical assertions from a list. Starts by setting a cursor to the
 // latest confirmed assertion, then finds all assertions parent == cursor.
 // We then check which one we agree with.
@@ -292,6 +304,7 @@ func (m *Manager) findCanonicalAssertionBranch(
 func (m *Manager) respondToAnyInvalidAssertions(
 	ctx context.Context,
 	assertions []*protocol.AssertionCreatedInfo,
+	rivalPoster rivalPoster,
 ) error {
 	for _, assertion := range assertions {
 		canonicalParent, hasCanonicalParent := m.assertionChainData.canonicalAssertions[protocol.AssertionHash{
@@ -305,7 +318,10 @@ func (m *Manager) respondToAnyInvalidAssertions(
 		// or raise an alarm if we are only a watchtower validator.
 		if hasCanonicalParent && !isCanonical {
 			postedRival, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-				posted, innerErr := m.maybePostRivalAssertionAndChallenge(ctx, canonicalParent, assertion)
+				posted, innerErr := rivalPoster.maybePostRivalAssertionAndChallenge(ctx, rivalPosterArgs{
+					canonicalParent:  canonicalParent,
+					invalidAssertion: assertion,
+				})
 				if innerErr != nil {
 					srvlog.Error("Could not post rival assertion and/or challenge", log.Ctx{"err": innerErr})
 					return nil, innerErr
@@ -322,6 +338,7 @@ func (m *Manager) respondToAnyInvalidAssertions(
 					m.assertionChainData.canonicalAssertions[postedAssertionHash] = postedRival
 					m.submittedAssertions.Insert(postedAssertionHash.Hash)
 					m.submittedRivalsCount++
+					m.observedCanonicalAssertions <- postedAssertionHash
 				}
 			}
 		}
@@ -333,23 +350,20 @@ func (m *Manager) respondToAnyInvalidAssertions(
 // open a challenge on that fork in the chain if configured to do so.
 func (m *Manager) maybePostRivalAssertionAndChallenge(
 	ctx context.Context,
-	canonicalParent *protocol.AssertionCreatedInfo,
-	invalidAssertion *protocol.AssertionCreatedInfo,
+	args rivalPosterArgs,
 ) (*protocol.AssertionCreatedInfo, error) {
-	if !invalidAssertion.InboxMaxCount.IsUint64() {
+	if !args.invalidAssertion.InboxMaxCount.IsUint64() {
 		return nil, errors.New("inbox max count not a uint64")
 	}
-	if canonicalParent.AssertionHash != invalidAssertion.ParentAssertionHash {
+	if args.canonicalParent.AssertionHash != args.invalidAssertion.ParentAssertionHash {
 		return nil, errors.New("invalid assertion does not have correct canonical parent")
 	}
-	batchCount := invalidAssertion.InboxMaxCount.Uint64()
-	// claimedState := protocol.GoExecutionStateFromSolidity(invalidAssertion.AfterState)
+	batchCount := args.invalidAssertion.InboxMaxCount.Uint64()
 	logFields := log.Ctx{
-		"validatorName": m.validatorName,
-		// "canonicalParentHash":   invalidAssertion.ParentAssertionHash,
-		// "detectedAssertionHash": invalidAssertion.AssertionHash,
-		"batchCount": batchCount,
-		// "claimedExecutionState": fmt.Sprintf("%+v", claimedState),
+		"validatorName":         m.validatorName,
+		"canonicalParentHash":   args.invalidAssertion.ParentAssertionHash,
+		"detectedAssertionHash": args.invalidAssertion.AssertionHash,
+		"batchCount":            batchCount,
 	}
 	if !m.canPostRivalAssertion() {
 		srvlog.Warn("Detected invalid assertion, but not configured to post a rival stake", logFields)
@@ -361,12 +375,12 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 	evilAssertionCounter.Inc(1)
 
 	// Post what we believe is the correct rival assertion that follows the ancestor we agree with.
-	correctRivalAssertion, err := m.maybePostRivalAssertion(ctx, canonicalParent)
+	correctRivalAssertion, err := m.maybePostRivalAssertion(ctx, args.canonicalParent)
 	if err != nil {
 		return nil, err
 	}
 	if correctRivalAssertion.IsNone() {
-		srvlog.Warn(fmt.Sprintf("Expected to post a rival assertion to %#x, but did not post anything", invalidAssertion.AssertionHash))
+		srvlog.Warn(fmt.Sprintf("Expected to post a rival assertion to %#x, but did not post anything", args.invalidAssertion.AssertionHash))
 		return nil, nil
 	}
 	if !m.canPostChallenge() {
@@ -379,12 +393,12 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		return nil, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
 
-	if canonicalParent.ChallengeManager != m.challengeManagerAddr {
+	if args.canonicalParent.ChallengeManager != m.challengeManagerAddr {
 		srvlog.Warn("Posted rival assertion, but could not challenge as challenge manager address did not match, "+
 			"start a new server with the right challenge manager address", log.Ctx{
 			"correctAssertion":                  postedRival.AssertionHash,
-			"evilAssertion":                     invalidAssertion.AssertionHash,
-			"expectedChallengeManagerAddress":   canonicalParent.ChallengeManager,
+			"evilAssertion":                     args.invalidAssertion.AssertionHash,
+			"expectedChallengeManagerAddress":   args.canonicalParent.ChallengeManager,
 			"configuredChallengeManagerAddress": m.challengeManagerAddr,
 		})
 		return nil, nil
