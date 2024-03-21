@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 )
 
-const defaultSleepTime = time.Second * 30
+const defaultSleepTime = time.Second * 1
 
 var (
 	retryCounter = metrics.NewRegisteredCounter("arb/validator/runtime/retry", nil)

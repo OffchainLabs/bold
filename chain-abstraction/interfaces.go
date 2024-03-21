@@ -249,7 +249,7 @@ type SpecChallengeManager interface {
 	GetEdge(ctx context.Context, edgeId EdgeId) (option.Option[SpecEdge], error)
 	MultiUpdateInheritedTimers(
 		ctx context.Context,
-		challengeBranch []EdgeId,
+		challengeBranch []ReadOnlyEdge,
 	) error
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(

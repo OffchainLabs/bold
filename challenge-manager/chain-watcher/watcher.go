@@ -385,7 +385,7 @@ func (w *Watcher) ComputeAncestors(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
 	edgeId protocol.EdgeId,
-) ([]protocol.EdgeId, error) {
+) ([]protocol.ReadOnlyEdge, error) {
 	chal, ok := w.challenges.TryGet(challengedAssertionHash)
 	if !ok {
 		return nil, fmt.Errorf(
@@ -415,14 +415,14 @@ func (w *Watcher) UpdateLocallyCachedTimer(
 			challengedAssertionHash,
 		)
 	}
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, nil)
+	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
 	if err != nil {
 		return 0, err
 	}
 	if !blockHeader.Number.IsUint64() {
 		return 0, errors.New("block number is not uint64")
 	}
-	return chal.honestEdgeTree.UpdateInheritedTimer(ctx, edgeId, blockHeader.Number.Uint64())
+	return chal.honestEdgeTree.UpdateInheritedTimer(ctx, challengedAssertionHash, edgeId, blockHeader.Number.Uint64())
 }
 
 // AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally

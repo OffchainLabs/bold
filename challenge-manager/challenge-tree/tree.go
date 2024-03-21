@@ -65,7 +65,7 @@ func New(
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
-		inheritedTimers:       threadsafe.NewMap[protocol.EdgeId, protocol.InheritedTimer](),
+		inheritedTimers:       threadsafe.NewMap[protocol.EdgeId, protocol.InheritedTimer](threadsafe.MapWithMetric[protocol.EdgeId, protocol.InheritedTimer]("inheritedTimers")),
 		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
 		topLevelAssertionHash: assertionHash,
 		metadataReader:        metadataReader,

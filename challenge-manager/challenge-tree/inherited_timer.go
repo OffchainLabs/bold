@@ -6,6 +6,7 @@ import (
 	"math"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -30,6 +31,7 @@ func (ht *RoyalChallengeTree) inheritedTimerForEdge(
 
 func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
 	edgeId protocol.EdgeId,
 	blockNum uint64,
 ) (protocol.InheritedTimer, error) {
@@ -45,10 +47,11 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if isOneStepProven(ctx, edge, status) {
 		return math.MaxUint64, nil
 	}
-	inheritedTimer, err := ht.inheritedTimerForEdge(edge, blockNum)
+	localTimer, err := ht.LocalTimer(edge, blockNum)
 	if err != nil {
 		return 0, err
 	}
+	inheritedTimer := protocol.InheritedTimer(localTimer)
 
 	// If an edge has children, we inherit the minimum timer of its children.
 	hasChildren, err := edge.HasChildren(ctx)
@@ -65,26 +68,32 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 
 	// Edges that claim another edge in the level above update the inherited timer onchain
 	// if they are able to.
-	if isClaimingAnEdge(edge) {
+	if IsClaimingAnEdge(edge) {
 		claimedEdgeId := edge.ClaimId().Unwrap()
 		claimedEdge, ok := ht.edges.TryGet(protocol.EdgeId{Hash: common.Hash(claimedEdgeId)})
 		if !ok {
 			return 0, fmt.Errorf("claimed edge %#x not found in royal tree", claimedEdgeId)
 		}
-		claimedEdgeInheritedTimer, err := ht.inheritedTimerForEdge(claimedEdge, blockNum)
+		claimedEdgeLocalTimer, err := ht.LocalTimer(claimedEdge, blockNum)
 		if err != nil {
 			return 0, err
 		}
-		if inheritedTimer > claimedEdgeInheritedTimer {
+		claimedEdgeTimeUnrivaled := saturatingSum(protocol.InheritedTimer(claimedEdgeLocalTimer), inheritedTimer)
+		claimedEdgeInheritedTimer, ok := ht.inheritedTimers.TryGet(claimedEdge.Id())
+		if !ok {
+			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
 			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
 		}
-		onchainInheritedTimer, err := claimedEdge.InheritedTimer(ctx)
+		if claimedEdgeTimeUnrivaled > claimedEdgeInheritedTimer {
+			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
+			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
+		}
+	} else if edgetracker.IsRootBlockChallengeEdge(edge) {
+		assertionUnrivaledBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(ctx, protocol.AssertionHash{Hash: common.Hash(edge.ClaimId().Unwrap())})
 		if err != nil {
 			return 0, err
 		}
-		if onchainInheritedTimer > claimedEdgeInheritedTimer {
-			ht.inheritedTimers.Put(claimedEdge.Id(), onchainInheritedTimer)
-		}
+		inheritedTimer = saturatingSum(inheritedTimer, protocol.InheritedTimer(assertionUnrivaledBlocks))
 	}
 	// Otherwise, the edge does not yet have children, we simply update its timer.
 	ht.inheritedTimers.Put(edgeId, inheritedTimer)
@@ -131,7 +140,7 @@ func (ht *RoyalChallengeTree) inheritTimerFromChildren(
 	return lowerTimer, nil
 }
 
-func isClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
+func IsClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
 	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel()
 }
 

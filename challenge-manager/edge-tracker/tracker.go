@@ -234,7 +234,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case EdgeStarted:
-		// srvlog.Info("Edge started", fields)
+		srvlog.Info("Edge started", fields)
 		canOsp, err := canOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
@@ -262,7 +262,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if !hasRival {
-			// log.Info("Edge moving to start", fields)
+			srvlog.Info("Edge moving to start", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
@@ -273,13 +273,13 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if atOneStepFork {
-			// log.Info("Edge moving to subchallenge", fields)
+			srvlog.Info("Edge moving to subchallenge", fields)
 			return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 		}
 		return et.fsm.Do(edgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case EdgeAtOneStepProof:
-		// srvlog.Info("Edge at one step proof", fields)
+		srvlog.Info("Edge at one step proof", fields)
 		if err := et.submitOneStepProof(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Trace("Could not submit one step proof", fields)
@@ -289,7 +289,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case EdgeAddingSubchallengeLeaf:
-		// srvlog.Info("Edge adding subchallenge", fields)
+		srvlog.Info("Edge adding subchallenge", fields)
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
@@ -297,11 +297,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		layerZeroLeafCounter.Inc(1)
-		// log.Info("Edge moving to awaiting confirmation", fields)
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
 	case EdgeBisecting:
-		// srvlog.Info("Edge bisecting", fields)
+		srvlog.Info("Edge bisecting", fields)
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -351,10 +350,10 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		go firstTracker.Spawn(ctx)
 		go secondTracker.Spawn(ctx)
-		// srvlog.Info("Edge moving to await confirmation", fields)
+		srvlog.Info("Edge moving to await confirmation", fields)
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	case EdgeConfirming:
-		// srvlog.Info("Edge awaiting confirmation", fields)
+		srvlog.Info("Edge awaiting confirmation", fields)
 		wasConfirmed, err := et.checkEdgeConfirmable(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -366,7 +365,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		return et.fsm.Do(edgeConfirm{})
 	case EdgeConfirmed:
-		// srvlog.Info("Edge reached confirmed state", fields)
+		srvlog.Info("Edge reached confirmed state", fields)
 		return et.fsm.Do(edgeConfirm{})
 	default:
 		return fmt.Errorf("invalid state: %s", current.State)
@@ -428,7 +427,7 @@ func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not update edge inherited timer")
 	}
 	// If the edge is not a root, block challenge edge, we have nothing else to do here.
-	if !isRootBlockChallengeEdge(et.edge) {
+	if !IsRootBlockChallengeEdge(et.edge) {
 		return false, nil
 	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
@@ -898,6 +897,6 @@ func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) 
 	return end-start == 1 && challengeLevel.Uint8() == totalChallengeLevels-1, nil
 }
 
-func isRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
+func IsRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
 	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel()
 }
