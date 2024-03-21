@@ -66,17 +66,32 @@ type Manager struct {
 	submittedAssertions         *threadsafe.LruSet[common.Hash]
 	apiDB                       db.Database
 	assertionChainData          *assertionChainData
-	layerZeroHeightsCache       *protocol.LayerZeroHeights
-	layerZeroHeightsCacheLock   sync.RWMutex
 	observedCanonicalAssertions chan protocol.AssertionHash
 	isReadyToPost               bool
+	disablePosting              bool
 	startPostingSignal          chan struct{}
+	layerZeroHeightsCache       *protocol.LayerZeroHeights
+	layerZeroHeightsCacheLock   sync.RWMutex
 }
 
 type assertionChainData struct {
 	sync.RWMutex
 	latestAgreedAssertion protocol.AssertionHash
 	canonicalAssertions   map[protocol.AssertionHash]*protocol.AssertionCreatedInfo
+}
+
+type Opt func(*Manager)
+
+func WithPostingDisabled() Opt {
+	return func(m *Manager) {
+		m.disablePosting = true
+	}
+}
+
+func WithDangerousReadyToPost() Opt {
+	return func(m *Manager) {
+		m.isReadyToPost = true
+	}
 }
 
 // NewManager creates a manager from the required dependencies.
@@ -90,9 +105,11 @@ func NewManager(
 	validatorName string,
 	pollInterval,
 	assertionConfirmationAttemptInterval time.Duration,
+	stateManager l2stateprovider.ExecutionProvider,
 	postInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	apiDB db.Database,
+	opts ...Opt,
 ) (*Manager, error) {
 	if pollInterval == 0 {
 		return nil, errors.New("assertion scanning interval must be greater than 0")
@@ -100,7 +117,7 @@ func NewManager(
 	if assertionConfirmationAttemptInterval == 0 {
 		return nil, errors.New("assertion confirmation attempt interval must be greater than 0")
 	}
-	return &Manager{
+	m := &Manager{
 		chain:                       chain,
 		apiDB:                       apiDB,
 		backend:                     backend,
@@ -125,41 +142,20 @@ func NewManager(
 		observedCanonicalAssertions: make(chan protocol.AssertionHash, 1000),
 		isReadyToPost:               false,
 		startPostingSignal:          make(chan struct{}),
-	}, nil
+	}
+	for _, o := range opts {
+		o(m)
+	}
+	return m, nil
 }
 
 func (m *Manager) Start(ctx context.Context) {
-	go m.postAssertionRoutine(ctx)
+	if !m.disablePosting {
+		go m.postAssertionRoutine(ctx)
+	}
 	go m.updateLatestConfirmedMetrics(ctx)
 	go m.syncAssertions(ctx)
 	go m.queueCanonicalAssertionsForConfirmation(ctx)
-}
-
-func (m *Manager) ForksDetected() uint64 {
-	return m.forksDetectedCount
-}
-
-func (m *Manager) ChallengesSubmitted() uint64 {
-	return m.challengesSubmittedCount
-}
-
-func (m *Manager) SubmittedAssertions() *threadsafe.LruSet[common.Hash] {
-	return m.submittedAssertions
-}
-func (m *Manager) AssertionsProcessed() uint64 {
-	return m.assertionsProcessedCount
-}
-
-func (m *Manager) SubmittedRivals() uint64 {
-	return m.submittedRivalsCount
-}
-
-func (m *Manager) AssertionsSubmittedInProcess() []common.Hash {
-	hashes := make([]common.Hash, 0)
-	m.submittedAssertions.ForEach(func(elem common.Hash) {
-		hashes = append(hashes, elem)
-	})
-	return hashes
 }
 
 func (m *Manager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
@@ -194,6 +190,30 @@ func (m *Manager) ExecutionStateAfterParent(ctx context.Context, parentInfo *pro
 	}
 	goGlobalState := protocol.GoGlobalStateFromSolidity(parentInfo.AfterState.GlobalState)
 	return m.stateProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), goGlobalState.BlockHash, layerZeroHeights.BlockChallengeHeight-1)
+}
+
+func (m *Manager) ForksDetected() uint64 {
+	return m.forksDetectedCount
+}
+
+func (m *Manager) ChallengesSubmitted() uint64 {
+	return m.challengesSubmittedCount
+}
+
+func (m *Manager) AssertionsProcessed() uint64 {
+	return m.assertionsProcessedCount
+}
+
+func (m *Manager) SubmittedRivals() uint64 {
+	return m.submittedRivalsCount
+}
+
+func (m *Manager) AssertionsSubmittedInProcess() []common.Hash {
+	hashes := make([]common.Hash, 0)
+	m.submittedAssertions.ForEach(func(elem common.Hash) {
+		hashes = append(hashes, elem)
+	})
+	return hashes
 }
 
 func (m *Manager) logChallengeConfigs(ctx context.Context) error {

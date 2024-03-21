@@ -38,8 +38,10 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	m.assertionChainData.Lock()
 	m.assertionChainData.latestAgreedAssertion = latestConfirmed.Id()
 	m.assertionChainData.canonicalAssertions[latestConfirmed.Id()] = latestConfirmedInfo
-	m.startPostingSignal <- struct{}{}
-	close(m.startPostingSignal)
+	if !m.disablePosting {
+		m.startPostingSignal <- struct{}{}
+		close(m.startPostingSignal)
+	}
 	m.assertionChainData.Unlock()
 
 	fromBlock := latestConfirmed.CreatedAtBlock()
@@ -131,14 +133,8 @@ type assertionAndParentCreationInfo struct {
 	parent    *protocol.AssertionCreatedInfo
 }
 
-// This function will gather all assertions up to head
-// determine the canonical branch from there. At that point, we will proceed
-// with scanning for assertions again as normal and simply check if any incoming
-// assertions have a parent we are staked on. If so, then we will process the assertion
-// creation event. If we agree, we will add it to the canonical branch of assertions
-// and set a "latest agreed assertion" field in our manager struct. If we disagree, we will
-// attempt to open a rival assertion if configured and attempt a challenge.
-// TODO: Consider any race conditions.
+// This function will scan for all assertion creation events to determine which
+// ones are canonical and which ones must be challenged.
 func (m *Manager) processAllAssertionsInRange(
 	ctx context.Context,
 	filterer *rollupgen.RollupUserLogicFilterer,
@@ -154,7 +150,8 @@ func (m *Manager) processAllAssertionsInRange(
 		}
 	}()
 
-	assertionsUpToHead := make([]assertionAndParentCreationInfo, 0)
+	// Extract all assertion creation events from the log filter iterator.
+	assertions := make([]assertionAndParentCreationInfo, 0)
 	assertionsByHash := make(map[common.Hash]*protocol.AssertionCreatedInfo)
 	for it.Next() {
 		if it.Error() != nil {
@@ -165,44 +162,40 @@ func (m *Manager) processAllAssertionsInRange(
 				*filterOpts.End,
 			)
 		}
-		if it.Event.AssertionHash == (common.Hash{}) {
-			srvlog.Warn("Encountered an assertion with a zero hash", log.Ctx{
-				"creationEvent": fmt.Sprintf("%+v", it.Event),
-			})
-			continue // Assertions cannot have a zero hash, not even genesis.
-		}
-		assertionHash := protocol.AssertionHash{Hash: it.Event.AssertionHash}
-		creationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-			return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+		assertionOpt, err := retry.UntilSucceeds(ctx, func() (option.Option[*protocol.AssertionCreatedInfo], error) {
+			item, innerErr := m.extractAssertionFromEvent(ctx, it.Event)
+			if innerErr != nil {
+				srvlog.Error("Could not extract assertion from event", log.Ctx{"err": innerErr})
+				return option.None[*protocol.AssertionCreatedInfo](), innerErr
+			}
+			return item, nil
 		})
 		if err != nil {
-			return errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
+			return err
 		}
-		assertionsByHash[assertionHash.Hash] = creationInfo
-		if creationInfo.ParentAssertionHash == (common.Hash{}) {
-			// Skip processing genesis, as it has a parent assertion hash of 0x0.
-			// TODO: Or should we keep it in our list?
-			continue
-		}
-		fullInfo := assertionAndParentCreationInfo{
-			assertion: creationInfo,
-			parent:    assertionsByHash[creationInfo.ParentAssertionHash],
-		}
-		if fullInfo.parent == nil {
-			parentInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-				return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
-			})
-			if err != nil {
-				return errors.Wrapf(err, "could not read assertion creation info for %#x (parent of %#x)", creationInfo.ParentAssertionHash, assertionHash.Hash)
+		if assertionOpt.IsSome() {
+			creationInfo := assertionOpt.Unwrap()
+			assertionsByHash[creationInfo.AssertionHash] = creationInfo
+			fullInfo := assertionAndParentCreationInfo{
+				assertion: creationInfo,
+				parent:    assertionsByHash[creationInfo.ParentAssertionHash],
 			}
-			assertionsByHash[creationInfo.ParentAssertionHash] = parentInfo
-			fullInfo.parent = parentInfo
+			if fullInfo.parent == nil {
+				parentInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+					return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+				})
+				if err != nil {
+					return errors.Wrapf(err, "could not read assertion creation info for %#x (parent of %#x)", creationInfo.ParentAssertionHash, creationInfo.AssertionHash)
+				}
+				assertionsByHash[creationInfo.ParentAssertionHash] = parentInfo
+				fullInfo.parent = parentInfo
+			}
+			assertions = append(assertions, fullInfo)
 		}
-		assertionsUpToHead = append(assertionsUpToHead, fullInfo)
 	}
 
 	// Save all observed assertions to the database.
-	for _, fullInfo := range assertionsUpToHead {
+	for _, fullInfo := range assertions {
 		if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
 			if err := m.saveAssertionToDB(ctx, fullInfo.assertion); err != nil {
 				srvlog.Error("Could not save assertion to DB", log.Ctx{"err": err})
@@ -214,16 +207,71 @@ func (m *Manager) processAllAssertionsInRange(
 		}
 	}
 
-	// Determine the canonical branch of all assertions.
-	// Find all assertions that have parent == latest confirmed. Check which one we fully agree with.
-	// Then, check all assertions that have that assertion as parent.
 	m.assertionChainData.Lock()
 	defer m.assertionChainData.Unlock()
 
+	// Determine the canonical branch of all assertions.
+	if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+		if innerErr := m.findCanonicalAssertionBranch(ctx, assertions); innerErr != nil {
+			srvlog.Error("Could not find canonical assertion branch", log.Ctx{"err": innerErr})
+			return false, innerErr
+		}
+		return true, nil
+	}); err != nil {
+		return err
+	}
+
+	// Now that we derived the canonical chain, we perform a pass over all assertions
+	// to figure out which ones are invalid and therefore should be challenged.
+	if _, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+		if innerErr := m.respondToAnyInvalidAssertions(ctx, assertions, m); innerErr != nil {
+			srvlog.Error("Could not find canonical assertion branch", log.Ctx{"err": innerErr})
+			return false, innerErr
+		}
+		return true, nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Extracts a valid assertion creation from an event log. Returns none
+// if the assertion is genesis or if the hash is the zero hash.
+func (m *Manager) extractAssertionFromEvent(
+	ctx context.Context,
+	event *rollupgen.RollupUserLogicAssertionCreated,
+) (option.Option[*protocol.AssertionCreatedInfo], error) {
+	none := option.None[*protocol.AssertionCreatedInfo]()
+	if event.AssertionHash == (common.Hash{}) {
+		srvlog.Warn("Encountered an assertion with a zero hash", log.Ctx{
+			"creationEvent": fmt.Sprintf("%+v", event),
+		})
+		return none, nil
+	}
+	assertionHash := protocol.AssertionHash{Hash: event.AssertionHash}
+	creationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
+	if err != nil {
+		return none, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
+	}
+	if creationInfo.ParentAssertionHash == (common.Hash{}) {
+		return none, nil
+	}
+	return option.Some(creationInfo), nil
+}
+
+// Finds all canonical assertions from an ordered list by creation time.
+// Starts by setting a cursor to the latest confirmed assertion, then finds all assertions parent == cursor.
+// We then check which one we agree with.
+// From there, checks all assertions that have that assertion as parent, etc.
+// This function must hold the lock on m.assertionChainData.
+func (m *Manager) findCanonicalAssertionBranch(
+	ctx context.Context,
+	assertions []assertionAndParentCreationInfo,
+) error {
 	latestAgreedWithAssertion := m.assertionChainData.latestAgreedAssertion
 	cursor := latestAgreedWithAssertion
 
-	for _, fullInfo := range assertionsUpToHead {
+	for _, fullInfo := range assertions {
 		assertion := fullInfo.assertion
 		if assertion.ParentAssertionHash == cursor.Hash {
 			agreedWithAssertion, err := retry.UntilSucceeds(ctx, func() (bool, error) {
@@ -234,11 +282,9 @@ func (m *Manager) processAllAssertionsInRange(
 					// execution state claimed by the assertion, and this function will be retried
 					// by the caller if wrapped in a retryable call.
 					chainCatchingUpCounter.Inc(1)
-					return false, fmt.Errorf(
-						"chain still catching up to processed execution state - "+
-							"will reattempt assertion processing when caught up: %w",
-						l2stateprovider.ErrChainCatchingUp,
-					)
+					srvlog.Info("Chain still catching up to processed execution state "+
+						"will reattempt processing when caught up", log.Ctx{"err": err})
+					return false, l2stateprovider.ErrChainCatchingUp
 				case err != nil:
 					return false, err
 				}
@@ -255,10 +301,32 @@ func (m *Manager) processAllAssertionsInRange(
 			}
 		}
 	}
+	return nil
+}
 
-	// Now that we derived the canonical chain, we perform a pass over all assertions
-	// to figure out which ones are invalid and therefore should be challenged.
-	for _, fullInfo := range assertionsUpToHead {
+type rivalPosterArgs struct {
+	canonicalParent  *protocol.AssertionCreatedInfo
+	invalidAssertion *protocol.AssertionCreatedInfo
+}
+
+type rivalPoster interface {
+	maybePostRivalAssertionAndChallenge(
+		ctx context.Context,
+		args rivalPosterArgs,
+	) (*protocol.AssertionCreatedInfo, error)
+}
+
+// Finds all canonical assertions from a list. Starts by setting a cursor to the
+// latest confirmed assertion, then finds all assertions parent == cursor.
+// We then check which one we agree with.
+// From there, checks all assertions that have that assertion as parent, etc.
+// This function must hold the lock on m.assertionChainData.
+func (m *Manager) respondToAnyInvalidAssertions(
+	ctx context.Context,
+	assertions []assertionAndParentCreationInfo,
+	rivalPoster rivalPoster,
+) error {
+	for _, fullInfo := range assertions {
 		assertion := fullInfo.assertion
 		canonicalParent, hasCanonicalParent := m.assertionChainData.canonicalAssertions[protocol.AssertionHash{
 			Hash: assertion.ParentAssertionHash,
@@ -271,7 +339,10 @@ func (m *Manager) processAllAssertionsInRange(
 		// or raise an alarm if we are only a watchtower validator.
 		if hasCanonicalParent && !isCanonical {
 			postedRival, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-				posted, innerErr := m.maybePostRivalAssertionAndChallenge(ctx, canonicalParent, assertion)
+				posted, innerErr := rivalPoster.maybePostRivalAssertionAndChallenge(ctx, rivalPosterArgs{
+					canonicalParent:  canonicalParent,
+					invalidAssertion: assertion,
+				})
 				if innerErr != nil {
 					srvlog.Error("Could not post rival assertion and/or challenge", log.Ctx{"err": innerErr})
 					return nil, innerErr
@@ -281,9 +352,14 @@ func (m *Manager) processAllAssertionsInRange(
 			if err != nil {
 				return err
 			}
-			// TODO: Should we update the latest agreed assertion here?
 			if postedRival != nil {
-				m.assertionChainData.canonicalAssertions[protocol.AssertionHash{Hash: postedRival.AssertionHash}] = postedRival
+				postedAssertionHash := protocol.AssertionHash{Hash: postedRival.AssertionHash}
+				if _, ok := m.assertionChainData.canonicalAssertions[postedAssertionHash]; !ok {
+					m.assertionChainData.canonicalAssertions[postedAssertionHash] = postedRival
+					m.submittedAssertions.Insert(postedAssertionHash.Hash)
+					m.submittedRivalsCount++
+					m.observedCanonicalAssertions <- postedAssertionHash
+				}
 			}
 		}
 	}
@@ -294,23 +370,20 @@ func (m *Manager) processAllAssertionsInRange(
 // open a challenge on that fork in the chain if configured to do so.
 func (m *Manager) maybePostRivalAssertionAndChallenge(
 	ctx context.Context,
-	canonicalParent *protocol.AssertionCreatedInfo,
-	invalidAssertion *protocol.AssertionCreatedInfo,
+	args rivalPosterArgs,
 ) (*protocol.AssertionCreatedInfo, error) {
-	if !invalidAssertion.InboxMaxCount.IsUint64() {
+	if !args.invalidAssertion.InboxMaxCount.IsUint64() {
 		return nil, errors.New("inbox max count not a uint64")
 	}
-	if canonicalParent.AssertionHash != invalidAssertion.ParentAssertionHash {
+	if args.canonicalParent.AssertionHash != args.invalidAssertion.ParentAssertionHash {
 		return nil, errors.New("invalid assertion does not have correct canonical parent")
 	}
-	batchCount := invalidAssertion.InboxMaxCount.Uint64()
-	// claimedState := protocol.GoExecutionStateFromSolidity(invalidAssertion.AfterState)
+	batchCount := args.invalidAssertion.InboxMaxCount.Uint64()
 	logFields := log.Ctx{
-		"validatorName": m.validatorName,
-		// "canonicalParentHash":   invalidAssertion.ParentAssertionHash,
-		// "detectedAssertionHash": invalidAssertion.AssertionHash,
-		"batchCount": batchCount,
-		// "claimedExecutionState": fmt.Sprintf("%+v", claimedState),
+		"validatorName":         m.validatorName,
+		"canonicalParentHash":   args.invalidAssertion.ParentAssertionHash,
+		"detectedAssertionHash": args.invalidAssertion.AssertionHash,
+		"batchCount":            batchCount,
 	}
 	if !m.canPostRivalAssertion() {
 		srvlog.Warn("Detected invalid assertion, but not configured to post a rival stake", logFields)
@@ -322,12 +395,12 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 	evilAssertionCounter.Inc(1)
 
 	// Post what we believe is the correct rival assertion that follows the ancestor we agree with.
-	correctRivalAssertion, err := m.maybePostRivalAssertion(ctx, canonicalParent)
+	correctRivalAssertion, err := m.maybePostRivalAssertion(ctx, args.canonicalParent)
 	if err != nil {
 		return nil, err
 	}
 	if correctRivalAssertion.IsNone() {
-		srvlog.Warn(fmt.Sprintf("Expected to post a rival assertion to %#x, but did not post anything", invalidAssertion.AssertionHash))
+		srvlog.Warn(fmt.Sprintf("Expected to post a rival assertion to %#x, but did not post anything", args.invalidAssertion.AssertionHash))
 		return nil, nil
 	}
 	if !m.canPostChallenge() {
@@ -340,12 +413,12 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		return nil, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
 
-	if canonicalParent.ChallengeManager != m.challengeManagerAddr {
+	if args.canonicalParent.ChallengeManager != m.challengeManagerAddr {
 		srvlog.Warn("Posted rival assertion, but could not challenge as challenge manager address did not match, "+
 			"start a new server with the right challenge manager address", log.Ctx{
 			"correctAssertion":                  postedRival.AssertionHash,
-			"evilAssertion":                     invalidAssertion.AssertionHash,
-			"expectedChallengeManagerAddress":   canonicalParent.ChallengeManager,
+			"evilAssertion":                     args.invalidAssertion.AssertionHash,
+			"expectedChallengeManagerAddress":   args.canonicalParent.ChallengeManager,
 			"configuredChallengeManagerAddress": m.challengeManagerAddr,
 		})
 		return nil, nil
@@ -413,8 +486,6 @@ func (m *Manager) maybePostRivalAssertion(
 		return none, postErr
 	}
 	if assertionOpt.IsSome() {
-		m.submittedAssertions.Insert(assertionOpt.Unwrap().AssertionHash)
-		m.submittedRivalsCount++
 		if err2 := m.saveAssertionToDB(ctx, assertionOpt.Unwrap()); err2 != nil {
 			return none, err2
 		}

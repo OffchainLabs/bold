@@ -60,6 +60,7 @@ func (m *Manager) awaitPostingSignal(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-m.startPostingSignal:
+			m.isReadyToPost = true
 			return
 		}
 	}
@@ -140,12 +141,11 @@ func (m *Manager) PostAssertionBasedOnParent(
 			return none, nil
 		}
 		return none, errors.Wrapf(err, "could not get execution state at batch count %d with parent block hash %v", batchCount, parentBlockHash)
+
 	}
 	srvlog.Info(
 		"Posting assertion with retrieved state", log.Ctx{
-			"batchCount":      batchCount,
-			"parentBlockHash": containers.Trunc(parentBlockHash[:]),
-			// "newState":   fmt.Sprintf("%+v", newState),
+			"batchCount":    batchCount,
 			"validatorName": m.validatorName,
 		},
 	)
@@ -158,8 +158,7 @@ func (m *Manager) PostAssertionBasedOnParent(
 		return none, err
 	}
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
-		"validatorName": m.validatorName,
-		// "layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
+		"validatorName":         m.validatorName,
 		"requiredInboxMaxCount": batchCount,
 		"postedExecutionState":  fmt.Sprintf("%+v", newState),
 	})
