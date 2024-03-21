@@ -77,9 +77,9 @@ func (a *AssertionChain) transact(
 		commiter.Commit()
 	}
 	srvlog.Info(fmt.Sprintf("Awaiting tx mined with hash %#x", tx.Hash()))
-	ctxMineTimeout, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-	receipt, err := bind.WaitMined(ctxMineTimeout, backend, tx)
+	ctxWaitMined, cancelWaitMined := context.WithTimeout(ctx, time.Minute)
+	defer cancelWaitMined()
+	receipt, err := bind.WaitMined(ctxWaitMined, backend, tx)
 	if err != nil {
 		return nil, err
 	}
