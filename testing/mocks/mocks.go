@@ -405,8 +405,8 @@ func (m *MockProtocol) AssertionStatus(ctx context.Context, id protocol.Assertio
 	return args.Get(0).(protocol.AssertionStatus), args.Error(1)
 }
 
-func (m *MockProtocol) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
-	args := m.Called(ctx, assertionHash)
+func (m *MockProtocol) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash, blockNum uint64) (uint64, error) {
+	args := m.Called(ctx, assertionHash, blockNum)
 	return args.Get(0).(uint64), args.Error(1)
 }
 

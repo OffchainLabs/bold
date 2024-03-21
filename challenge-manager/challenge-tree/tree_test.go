@@ -314,14 +314,14 @@ func TestUpdateInheritedTimer(t *testing.T) {
 	ht.edges.Put(edge.Id(), edge)
 
 	t.Run("one step proven edge returns max uint64", func(t *testing.T) {
-		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 1)
+		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 1)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(math.MaxUint64), timer)
 	})
 	t.Run("edge without children and not subchallenged returns time unrivaled", func(t *testing.T) {
 		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-16.a", createdAt: 1})
 		ht.edges.Put(edge.Id(), edge)
-		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
+		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 10)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(9), timer)
 	})
@@ -334,7 +334,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		ht.edges.Put(edge.Id(), edge)
 		ht.edges.Put(lowerChild.Id(), lowerChild)
 		ht.edges.Put(upperChild.Id(), upperChild)
-		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
+		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 10)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(14), timer)
 	})
@@ -347,7 +347,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		ht.edges.Put(edge.Id(), edge)
 		ht.edges.Put(lowerChild.Id(), lowerChild)
 		ht.edges.Put(upperChild.Id(), upperChild)
-		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), math.MaxUint64)
+		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), math.MaxUint64)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(math.MaxUint64), timer)
 	})
@@ -357,7 +357,7 @@ func TestUpdateInheritedTimer(t *testing.T) {
 		edge.ClaimID = string(claimedEdge.ID)
 		ht.edges.Put(edge.Id(), edge)
 		ht.edges.Put(claimedEdge.Id(), claimedEdge)
-		timer, err := ht.UpdateInheritedTimer(ctx, edge.Id(), 10)
+		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 10)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(8), timer)
 	})
@@ -391,7 +391,7 @@ func (m *mockMetadataReader) TopLevelAssertion(
 }
 
 func (m *mockMetadataReader) AssertionUnrivaledBlocks(
-	_ context.Context, _ protocol.AssertionHash,
+	_ context.Context, _ protocol.AssertionHash, _ uint64,
 ) (uint64, error) {
 	return m.unrivaledAssertionBlocks, nil
 }

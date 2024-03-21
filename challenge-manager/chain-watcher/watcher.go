@@ -422,7 +422,7 @@ func (w *Watcher) UpdateLocallyCachedTimer(
 	if !blockHeader.Number.IsUint64() {
 		return 0, errors.New("block number is not uint64")
 	}
-	return chal.honestEdgeTree.UpdateInheritedTimer(ctx, edgeId, blockHeader.Number.Uint64())
+	return chal.honestEdgeTree.UpdateInheritedTimer(ctx, challengedAssertionHash, edgeId, blockHeader.Number.Uint64())
 }
 
 // AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally

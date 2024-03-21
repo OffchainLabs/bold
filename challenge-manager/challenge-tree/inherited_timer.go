@@ -31,6 +31,7 @@ func (ht *RoyalChallengeTree) inheritedTimerForEdge(
 
 func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
 	edgeId protocol.EdgeId,
 	blockNum uint64,
 ) (protocol.InheritedTimer, error) {
@@ -81,12 +82,18 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		claimedEdgeInheritedTimer, ok := ht.inheritedTimers.TryGet(claimedEdge.Id())
 		if !ok {
 			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
-			ht.inheritedTimers.Put(edge.Id(), claimedEdgeInheritedTimer)
+			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
 		}
 		if claimedEdgeTimeUnrivaled > claimedEdgeInheritedTimer {
 			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
-			ht.inheritedTimers.Put(edge.Id(), claimedEdgeInheritedTimer)
+			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
 		}
+	} else if edge.ClaimId().IsSome() && edge.GetChallengeLevel().IsBlockChallengeLevel() {
+		assertionUnrivaledBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(ctx, challengedAssertionHash, blockNum)
+		if err != nil {
+			return 0, err
+		}
+		inheritedTimer = saturatingSum(inheritedTimer, protocol.InheritedTimer(assertionUnrivaledBlocks))
 	}
 	// Otherwise, the edge does not yet have children, we simply update its timer.
 	ht.inheritedTimers.Put(edgeId, inheritedTimer)
