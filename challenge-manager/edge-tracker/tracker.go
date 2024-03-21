@@ -427,7 +427,7 @@ func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not update edge inherited timer")
 	}
 	// If the edge is not a root, block challenge edge, we have nothing else to do here.
-	if !isRootBlockChallengeEdge(et.edge) {
+	if !IsRootBlockChallengeEdge(et.edge) {
 		return false, nil
 	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
@@ -897,6 +897,6 @@ func canOneStepProve(ctx context.Context, edge protocol.SpecEdge) (bool, error) 
 	return end-start == 1 && challengeLevel.Uint8() == totalChallengeLevels-1, nil
 }
 
-func isRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
+func IsRootBlockChallengeEdge(edge protocol.ReadOnlyEdge) bool {
 	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() == protocol.NewBlockChallengeLevel()
 }

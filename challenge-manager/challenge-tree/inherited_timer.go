@@ -6,6 +6,7 @@ import (
 	"math"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -88,7 +89,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
 			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
 		}
-	} else if edge.ClaimId().IsSome() && edge.GetChallengeLevel().IsBlockChallengeLevel() {
+	} else if edgetracker.IsRootBlockChallengeEdge(edge) {
 		assertionUnrivaledBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(ctx, challengedAssertionHash, blockNum)
 		if err != nil {
 			return 0, err
