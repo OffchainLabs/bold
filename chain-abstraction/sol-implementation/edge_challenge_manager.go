@@ -11,6 +11,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
+	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
@@ -544,18 +545,14 @@ func (e *specEdge) InheritedTimer(ctx context.Context) (protocol.InheritedTimer,
 	if err != nil {
 		return 0, err
 	}
-	lastestBlockHeader, err := e.manager.assertionChain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
-	if err != nil {
-		return 0, err
+	if edgetracker.IsRootBlockChallengeEdge(e) {
+		assertionUnrivaledBlocks, err := e.manager.assertionChain.AssertionUnrivaledBlocks(ctx, protocol.AssertionHash{Hash: common.Hash(e.ClaimId().Unwrap())})
+		if err != nil {
+			return 0, err
+		}
+		return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache + assertionUnrivaledBlocks), nil
 	}
-	if !lastestBlockHeader.Number.IsUint64() {
-		return 0, errors.New("latest block number not a uint64")
-	}
-	assertionUnrivaledBlocks, err := e.manager.assertionChain.AssertionUnrivaledBlocks(ctx, e.assertionHash, lastestBlockHeader.Number.Uint64())
-	if err != nil {
-		return 0, err
-	}
-	return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache + assertionUnrivaledBlocks), nil
+	return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache), nil
 }
 
 func (e *specEdge) fetchEdge(

@@ -18,7 +18,7 @@ import (
 
 // MetadataReader can read certain information about edges from the backend.
 type MetadataReader interface {
-	AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash, blockNum uint64) (uint64, error)
+	AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error)
 	TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (protocol.OriginHeights, error)
 	SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error)

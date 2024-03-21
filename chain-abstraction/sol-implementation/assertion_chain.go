@@ -584,10 +584,7 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 // AssertionUnrivaledBlocks gets the number of blocks an assertion was unrivaled. That is, it looks up the
 // assertion's parent, and from that parent, computes second_child_creation_block - first_child_creation_block.
 // If an assertion is a second child, this function will return 0.
-func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash, blockNum uint64) (uint64, error) {
-	if assertionHash.Hash == (common.Hash{}) {
-		return 0, nil
-	}
+func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
 	wantNode, err := a.rollup.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
@@ -615,9 +612,6 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 		return 0, err
 	}
 	copy(b[:], prevId.Bytes())
-	if prevId.Hash == (common.Hash{}) {
-		return blockNum - wantNode.CreatedAtBlock, nil
-	}
 	prevNode, err := a.rollup.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return 0, err
@@ -632,16 +626,25 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
+		latestHeader, err := a.backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
+		if err != nil {
+			return 0, err
+		}
+		if !latestHeader.Number.IsUint64() {
+			return 0, errors.New("latest header number is not a uint64")
+		}
+		num := latestHeader.Number.Uint64()
+
 		// Should never happen.
-		if wantNode.CreatedAtBlock > blockNum {
+		if wantNode.CreatedAtBlock > num {
 			return 0, fmt.Errorf(
 				"assertion creation block %d > latest block number %d for assertion hash %#x",
 				wantNode.CreatedAtBlock,
-				blockNum,
+				num,
 				assertionHash,
 			)
 		}
-		return blockNum - wantNode.CreatedAtBlock, nil
+		return num - wantNode.CreatedAtBlock, nil
 	}
 	// Should never happen.
 	if prevNode.FirstChildBlock > prevNode.SecondChildBlock {

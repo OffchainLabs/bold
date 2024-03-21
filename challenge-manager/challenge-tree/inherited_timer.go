@@ -90,7 +90,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
 		}
 	} else if edgetracker.IsRootBlockChallengeEdge(edge) {
-		assertionUnrivaledBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(ctx, challengedAssertionHash, blockNum)
+		assertionUnrivaledBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(ctx, protocol.AssertionHash{Hash: common.Hash(edge.ClaimId().Unwrap())})
 		if err != nil {
 			return 0, err
 		}

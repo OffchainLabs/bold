@@ -16,6 +16,7 @@ go_library(
     deps = [
         "//chain-abstraction:protocol",
         "//challenge-manager/challenge-tree",
+        "//challenge-manager/edge-tracker",
         "//containers",
         "//containers/option",
         "//containers/threadsafe",

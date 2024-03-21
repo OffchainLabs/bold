@@ -391,7 +391,7 @@ func (m *mockMetadataReader) TopLevelAssertion(
 }
 
 func (m *mockMetadataReader) AssertionUnrivaledBlocks(
-	_ context.Context, _ protocol.AssertionHash, _ uint64,
+	_ context.Context, _ protocol.AssertionHash,
 ) (uint64, error) {
 	return m.unrivaledAssertionBlocks, nil
 }

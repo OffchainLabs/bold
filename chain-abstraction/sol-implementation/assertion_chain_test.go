@@ -177,10 +177,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	assertion, err := chain.NewStakeOnNewAssertion(ctx, genesisInfo, postState)
 	require.NoError(t, err)
 
-	header, err := backend.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-
-	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id(), header.Number.Uint64())
+	unrivaledBlocks, err := chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
 	require.NoError(t, err)
 
 	// Should have been zero blocks since creation.
@@ -190,9 +187,7 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	backend.Commit()
 	backend.Commit()
 
-	header, err = backend.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-	unrivaledBlocks, err = chain.AssertionUnrivaledBlocks(ctx, assertion.Id(), header.Number.Uint64())
+	unrivaledBlocks, err = chain.AssertionUnrivaledBlocks(ctx, assertion.Id())
 	require.NoError(t, err)
 
 	// Three blocks since creation.
@@ -219,11 +214,9 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 	backend.Commit()
 	backend.Commit()
 
-	header, err = backend.HeaderByNumber(ctx, nil)
+	unrivaledFirstChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id())
 	require.NoError(t, err)
-	unrivaledFirstChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id(), header.Number.Uint64())
-	require.NoError(t, err)
-	unrivaledSecondChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id(), header.Number.Uint64())
+	unrivaledSecondChild, err := assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id())
 	require.NoError(t, err)
 
 	// The amount of blocks unrivaled should not change for the first child (except for
@@ -237,11 +230,9 @@ func TestAssertionUnrivaledBlocks(t *testing.T) {
 		backend.Commit()
 	}
 
-	header, err = backend.HeaderByNumber(ctx, nil)
+	unrivaledFirstChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id())
 	require.NoError(t, err)
-	unrivaledFirstChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, assertion.Id(), header.Number.Uint64())
-	require.NoError(t, err)
-	unrivaledSecondChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id(), header.Number.Uint64())
+	unrivaledSecondChild, err = assertionChain.AssertionUnrivaledBlocks(ctx, forkedAssertion.Id())
 	require.NoError(t, err)
 
 	// The amount of blocks unrivaled should not change for the first child (except for
