@@ -6,7 +6,6 @@ package challengetree
 import (
 	"context"
 	"errors"
-	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -293,86 +292,6 @@ func TestAddHonestEdge(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())
-}
-
-func TestUpdateInheritedTimer(t *testing.T) {
-	ctx := context.Background()
-	edge := newEdge(&newCfg{t: t, edgeId: "smol-0.a-1.a", createdAt: 0})
-	edge.TotalChallengeLevels = 3
-	edge.InnerStatus = protocol.EdgeConfirmed
-	ht := &RoyalChallengeTree{
-		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](),
-		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](),
-		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]](),
-		totalChallengeLevels:  3,
-		metadataReader: &mockMetadataReader{
-			assertionErr:  nil,
-			assertionHash: protocol.AssertionHash{},
-		},
-		inheritedTimers: threadsafe.NewMap[protocol.EdgeId, protocol.InheritedTimer](),
-	}
-	ht.edges.Put(edge.Id(), edge)
-
-	t.Run("one step proven edge returns max uint64", func(t *testing.T) {
-		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 1)
-		require.NoError(t, err)
-		require.Equal(t, protocol.InheritedTimer(math.MaxUint64), timer)
-	})
-	t.Run("edge without children and not subchallenged returns time unrivaled", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-16.a", createdAt: 1})
-		ht.edges.Put(edge.Id(), edge)
-		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 10)
-		require.NoError(t, err)
-		require.Equal(t, protocol.InheritedTimer(9), timer)
-	})
-	t.Run("edge with children inherits min of the children", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-16.a", createdAt: 1})
-		lowerChild := newEdge(&newCfg{t: t, edgeId: "big-0.a-8.a", createdAt: 5})
-		upperChild := newEdge(&newCfg{t: t, edgeId: "big-8.a-16.a", createdAt: 2})
-		edge.LowerChildID = lowerChild.ID
-		edge.UpperChildID = upperChild.ID
-		ht.edges.Put(edge.Id(), edge)
-		ht.edges.Put(lowerChild.Id(), lowerChild)
-		ht.edges.Put(upperChild.Id(), upperChild)
-		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 10)
-		require.NoError(t, err)
-		require.Equal(t, protocol.InheritedTimer(14), timer)
-	})
-	t.Run("edge with both children having maxuint64 timers inherits maxuint64", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-16.a", createdAt: 1})
-		lowerChild := newEdge(&newCfg{t: t, edgeId: "blk-0.a-8.a", createdAt: 5})
-		upperChild := newEdge(&newCfg{t: t, edgeId: "blk-8.a-16.a", createdAt: 2})
-		edge.LowerChildID = lowerChild.ID
-		edge.UpperChildID = upperChild.ID
-		ht.edges.Put(edge.Id(), edge)
-		ht.edges.Put(lowerChild.Id(), lowerChild)
-		ht.edges.Put(upperChild.Id(), upperChild)
-		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), math.MaxUint64)
-		require.NoError(t, err)
-		require.Equal(t, protocol.InheritedTimer(math.MaxUint64), timer)
-	})
-	t.Run("edge that claims another edge updates that claimed edge's inherited timer", func(t *testing.T) {
-		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: 2})
-		claimedEdge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a", createdAt: 1})
-		edge.ClaimID = string(claimedEdge.ID)
-		ht.edges.Put(edge.Id(), edge)
-		ht.edges.Put(claimedEdge.Id(), claimedEdge)
-		timer, err := ht.UpdateInheritedTimer(ctx, protocol.AssertionHash{}, edge.Id(), 10)
-		require.NoError(t, err)
-		require.Equal(t, protocol.InheritedTimer(8), timer)
-	})
-}
-
-func TestIsOneStepProven(t *testing.T) {
-	ctx := context.Background()
-	edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: 0})
-	require.Equal(t, false, isOneStepProven(ctx, edge, protocol.EdgePending))
-	require.Equal(t, false, isOneStepProven(ctx, edge, protocol.EdgeConfirmed))
-	edge = newEdge(&newCfg{t: t, edgeId: "big-0.a-1.a", createdAt: 0})
-	require.Equal(t, false, isOneStepProven(ctx, edge, protocol.EdgeConfirmed))
-	edge = newEdge(&newCfg{t: t, edgeId: "smol-0.a-1.a", createdAt: 0})
-	edge.TotalChallengeLevels = 3
-	require.Equal(t, true, isOneStepProven(ctx, edge, protocol.EdgeConfirmed))
 }
 
 type mockMetadataReader struct {

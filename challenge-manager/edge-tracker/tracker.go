@@ -234,7 +234,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 	switch current.State {
 	// Start state.
 	case EdgeStarted:
-		srvlog.Info("Edge started", fields)
 		canOsp, err := canOneStepProve(ctx, et.edge)
 		if err != nil {
 			fields["err"] = err
@@ -262,7 +261,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if !hasRival {
-			srvlog.Info("Edge moving to start", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
@@ -273,13 +271,11 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if atOneStepFork {
-			srvlog.Info("Edge moving to subchallenge", fields)
 			return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 		}
 		return et.fsm.Do(edgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case EdgeAtOneStepProof:
-		srvlog.Info("Edge at one step proof", fields)
 		if err := et.submitOneStepProof(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Trace("Could not submit one step proof", fields)
@@ -289,7 +285,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeConfirm{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case EdgeAddingSubchallengeLeaf:
-		srvlog.Info("Edge adding subchallenge", fields)
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			fields["err"] = err
 			srvlog.Error("Could not open subchallenge leaf", fields)
@@ -300,7 +295,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	// Edge should bisect.
 	case EdgeBisecting:
-		srvlog.Info("Edge bisecting", fields)
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -350,10 +344,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		go firstTracker.Spawn(ctx)
 		go secondTracker.Spawn(ctx)
-		srvlog.Info("Edge moving to await confirmation", fields)
 		return et.fsm.Do(edgeAwaitConfirmation{})
 	case EdgeConfirming:
-		srvlog.Info("Edge awaiting confirmation", fields)
 		wasConfirmed, err := et.checkEdgeConfirmable(ctx)
 		if err != nil {
 			fields["err"] = err
@@ -442,6 +434,11 @@ func (et *Tracker) checkEdgeConfirmable(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
+	fields := et.uniqueTrackerLogFields()
+	fields["onchainTimer"] = onchainTimer
+	fields["localTimer"] = localTimer
+	fields["chalPeriod"] = chalPeriod
+	srvlog.Info("Checking if edge is confirmable", fields)
 	// We have a few things to check here:
 	// First, if the edge's onchain timer is greater than a challenge period, then we can
 	// immediately confirm by time by sending a transaction.
