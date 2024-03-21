@@ -46,10 +46,11 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	if isOneStepProven(ctx, edge, status) {
 		return math.MaxUint64, nil
 	}
-	inheritedTimer, err := ht.inheritedTimerForEdge(edge, blockNum)
+	localTimer, err := ht.LocalTimer(edge, blockNum)
 	if err != nil {
 		return 0, err
 	}
+	inheritedTimer := protocol.InheritedTimer(localTimer)
 
 	// If an edge has children, we inherit the minimum timer of its children.
 	hasChildren, err := edge.HasChildren(ctx)
@@ -72,19 +73,19 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 		if !ok {
 			return 0, fmt.Errorf("claimed edge %#x not found in royal tree", claimedEdgeId)
 		}
-		claimedEdgeInheritedTimer, err := ht.inheritedTimerForEdge(claimedEdge, blockNum)
+		claimedEdgeLocalTimer, err := ht.LocalTimer(claimedEdge, blockNum)
 		if err != nil {
 			return 0, err
 		}
-		if inheritedTimer > claimedEdgeInheritedTimer {
-			ht.inheritedTimers.Put(claimedEdge.Id(), claimedEdgeInheritedTimer)
+		claimedEdgeTimeUnrivaled := saturatingSum(protocol.InheritedTimer(claimedEdgeLocalTimer), inheritedTimer)
+		claimedEdgeInheritedTimer, ok := ht.inheritedTimers.TryGet(claimedEdge.Id())
+		if !ok {
+			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
+			ht.inheritedTimers.Put(edge.Id(), claimedEdgeInheritedTimer)
 		}
-		onchainInheritedTimer, err := claimedEdge.InheritedTimer(ctx)
-		if err != nil {
-			return 0, err
-		}
-		if onchainInheritedTimer > claimedEdgeInheritedTimer {
-			ht.inheritedTimers.Put(claimedEdge.Id(), onchainInheritedTimer)
+		if claimedEdgeTimeUnrivaled > claimedEdgeInheritedTimer {
+			claimedEdgeInheritedTimer = claimedEdgeTimeUnrivaled
+			ht.inheritedTimers.Put(edge.Id(), claimedEdgeInheritedTimer)
 		}
 	}
 	// Otherwise, the edge does not yet have children, we simply update its timer.
