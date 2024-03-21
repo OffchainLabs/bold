@@ -240,6 +240,7 @@ func New(
 		m.name,
 		m.assertionScanningInterval,
 		m.assertionConfirmingInterval,
+		m.stateManager,
 		m.assertionPostingInterval,
 		m.averageTimeForBlockCreation,
 		m.apiDB,
