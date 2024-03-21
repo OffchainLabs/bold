@@ -47,9 +47,6 @@ type SqliteDatabase struct {
 }
 
 func NewDatabase(path string) (*SqliteDatabase, error) {
-	if err := os.RemoveAll(path); err != nil {
-		return nil, err
-	}
 	//#nosec G304
 	if _, err := os.Stat(path); err != nil {
 		_, err = os.Create(path)
