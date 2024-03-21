@@ -262,7 +262,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if !hasRival {
-			// log.Info("Edge moving to start", fields)
+			srvlog.Info("Edge moving to start", fields)
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
@@ -273,7 +273,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		if atOneStepFork {
-			// log.Info("Edge moving to subchallenge", fields)
+			srvlog.Info("Edge moving to subchallenge", fields)
 			return et.fsm.Do(edgeOpenSubchallengeLeaf{})
 		}
 		return et.fsm.Do(edgeBisect{})
