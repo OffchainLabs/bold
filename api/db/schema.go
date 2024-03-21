@@ -119,6 +119,9 @@ CREATE TABLE IF NOT EXISTS CollectMachineHashes (
     FinishTime DATETIME
 );
 `
+	version3 = `
+	ALTER TABLE Edges ADD COLUMN CumulativePathTimer INTEGER NOT NULL DEFAULT 0;
+`
 	// schemaList is a list of schema versions.
-	schemaList = []string{version1, version2}
+	schemaList = []string{version1, version2, version3}
 )

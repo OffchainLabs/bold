@@ -28,11 +28,6 @@ type ChainCommitter interface {
 	Commit() common.Hash
 }
 
-type txRequest struct {
-	tx  *types.Transaction
-	gas uint64
-}
-
 // Runs a callback function meant to write to a chain backend, and if the
 // chain backend supports committing directly, we call the commit function before
 // returning. This function additionally waits for the transaction to complete and returns
@@ -90,10 +85,10 @@ func (a *AssertionChain) transact(
 	}
 	srvlog.Info(fmt.Sprintf("Tx was mined with hash %#x and receipt success=%v", tx.Hash(), receipt.Status == types.ReceiptStatusSuccessful))
 
-	// receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
+	if err != nil {
+		return nil, err
+	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		callMsg := ethereum.CallMsg{
