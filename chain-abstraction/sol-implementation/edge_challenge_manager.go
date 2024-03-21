@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
@@ -591,9 +592,6 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	)
 	return protocol.EdgeId{Hash: id}, err
 }
-func isClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
-	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel()
-}
 
 func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 	ctx context.Context,
@@ -603,7 +601,7 @@ func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 	for index, edgeId := range challengeBranch {
 		_ = index
 		edgeIds = append(edgeIds, edgeId.Id().Hash)
-		if isClaimingAnEdge(edgeId) {
+		if challengetree.IsClaimingAnEdge(edgeId) {
 			if _, err := cm.assertionChain.transact(
 				ctx,
 				cm.assertionChain.backend,

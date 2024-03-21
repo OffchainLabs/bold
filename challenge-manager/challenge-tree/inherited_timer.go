@@ -67,7 +67,7 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 
 	// Edges that claim another edge in the level above update the inherited timer onchain
 	// if they are able to.
-	if isClaimingAnEdge(edge) {
+	if IsClaimingAnEdge(edge) {
 		claimedEdgeId := edge.ClaimId().Unwrap()
 		claimedEdge, ok := ht.edges.TryGet(protocol.EdgeId{Hash: common.Hash(claimedEdgeId)})
 		if !ok {
@@ -133,7 +133,7 @@ func (ht *RoyalChallengeTree) inheritTimerFromChildren(
 	return lowerTimer, nil
 }
 
-func isClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
+func IsClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
 	return edge.ClaimId().IsSome() && edge.GetChallengeLevel() != protocol.NewBlockChallengeLevel()
 }
 
