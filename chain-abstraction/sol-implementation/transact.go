@@ -5,7 +5,6 @@ package solimpl
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -15,11 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
-
-var srvlog = log.New("service", "chain-abstraction")
 
 // ChainCommitter defines a type of chain backend that supports
 // committing changes via a direct method, such as a simulated backend
@@ -76,14 +72,12 @@ func (a *AssertionChain) transact(
 	if commiter, ok := backend.(ChainCommitter); ok {
 		commiter.Commit()
 	}
-	srvlog.Info(fmt.Sprintf("Awaiting tx mined with hash %#x", tx.Hash()))
 	ctxWaitMined, cancelWaitMined := context.WithTimeout(ctx, time.Minute)
 	defer cancelWaitMined()
 	receipt, err := bind.WaitMined(ctxWaitMined, backend, tx)
 	if err != nil {
 		return nil, err
 	}
-	srvlog.Info(fmt.Sprintf("Tx was mined with hash %#x and receipt success=%v", tx.Hash(), receipt.Status == types.ReceiptStatusSuccessful))
 
 	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
 	if err != nil {
