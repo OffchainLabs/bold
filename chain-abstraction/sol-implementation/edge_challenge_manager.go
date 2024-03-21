@@ -544,7 +544,18 @@ func (e *specEdge) InheritedTimer(ctx context.Context) (protocol.InheritedTimer,
 	if err != nil {
 		return 0, err
 	}
-	return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache), nil
+	lastestBlockHeader, err := e.manager.assertionChain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
+	if err != nil {
+		return 0, err
+	}
+	if !lastestBlockHeader.Number.IsUint64() {
+		return 0, errors.New("latest block number not a uint64")
+	}
+	assertionUnrivaledBlocks, err := e.manager.assertionChain.AssertionUnrivaledBlocks(ctx, e.assertionHash, lastestBlockHeader.Number.Uint64())
+	if err != nil {
+		return 0, err
+	}
+	return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache + assertionUnrivaledBlocks), nil
 }
 
 func (e *specEdge) fetchEdge(

@@ -79,6 +79,9 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	fields := log.Ctx{
 		"validatorName": cc.validatorName,
 	}
+	if cc.validatorName == "honest" {
+		print("checking if honest")
+	}
 	srvlog.Info("Starting challenge confirmation job", fields)
 	// Find the bottom-most royal edges that exist in our local challenge tree, each one
 	// will be the base of a branch we will update.
