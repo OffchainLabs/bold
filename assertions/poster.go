@@ -140,8 +140,7 @@ func (m *Manager) PostAssertionBasedOnParent(
 	}
 	srvlog.Info(
 		"Posting assertion with retrieved state", log.Ctx{
-			"batchCount": batchCount,
-			// "newState":   fmt.Sprintf("%+v", newState),
+			"batchCount":    batchCount,
 			"validatorName": m.validatorName,
 		},
 	)
@@ -154,8 +153,7 @@ func (m *Manager) PostAssertionBasedOnParent(
 		return none, err
 	}
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{
-		"validatorName": m.validatorName,
-		// "layer2BlockHash":       containers.Trunc(newState.GlobalState.BlockHash[:]),
+		"validatorName":         m.validatorName,
 		"requiredInboxMaxCount": batchCount,
 		"postedExecutionState":  fmt.Sprintf("%+v", newState),
 	})
