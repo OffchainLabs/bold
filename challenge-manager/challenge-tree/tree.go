@@ -46,7 +46,6 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
 	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]
-	inheritedTimers       *threadsafe.Map[protocol.EdgeId, protocol.InheritedTimer]
 	edgeCreationTimes     *threadsafe.Map[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]
 	topLevelAssertionHash protocol.AssertionHash
 	metadataReader        MetadataReader
@@ -65,7 +64,6 @@ func New(
 ) *RoyalChallengeTree {
 	return &RoyalChallengeTree{
 		edges:                 threadsafe.NewMap[protocol.EdgeId, protocol.SpecEdge](threadsafe.MapWithMetric[protocol.EdgeId, protocol.SpecEdge]("edges")),
-		inheritedTimers:       threadsafe.NewMap[protocol.EdgeId, protocol.InheritedTimer](threadsafe.MapWithMetric[protocol.EdgeId, protocol.InheritedTimer]("inheritedTimers")),
 		edgeCreationTimes:     threadsafe.NewMap[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]](threadsafe.MapWithMetric[OriginPlusMutualId, *threadsafe.Map[protocol.EdgeId, creationTime]]("edgeCreationTimes")),
 		topLevelAssertionHash: assertionHash,
 		metadataReader:        metadataReader,
