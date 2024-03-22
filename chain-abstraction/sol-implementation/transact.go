@@ -79,10 +79,10 @@ func (a *AssertionChain) transact(
 		return nil, err
 	}
 
-	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
-	if err != nil {
-		return nil, err
-	}
+	// receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		callMsg := ethereum.CallMsg{

@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func GetSafeCallOpts(opts *bind.CallOpts) *bind.CallOpts {
@@ -17,7 +16,7 @@ func GetSafeCallOpts(opts *bind.CallOpts) *bind.CallOpts {
 	if flag.Lookup("test.v") != nil {
 		return opts
 	}
-	opts.BlockNumber = big.NewInt(int64(rpc.SafeBlockNumber))
+	// opts.BlockNumber = big.NewInt(int64(rpc.SafeBlockNumber))
 	return opts
 }
 
@@ -27,5 +26,6 @@ func GetSafeBlockNumber() *big.Int {
 	if flag.Lookup("test.v") != nil {
 		return nil
 	}
-	return big.NewInt(int64(rpc.SafeBlockNumber))
+	return nil
+	// return big.NewInt(int64(rpc.SafeBlockNumber))
 }
