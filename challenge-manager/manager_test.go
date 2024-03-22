@@ -39,11 +39,11 @@ func TestEdgeTracker_Act(t *testing.T) {
 
 	err = tkr.Act(ctx)
 	require.NoError(t, err)
-	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
+	require.Equal(t, edgetracker.EdgeAwaitingChallengeCompletion, tkr.CurrentState())
 
 	err = tkr.Act(ctx)
 	require.NoError(t, err)
-	require.Equal(t, edgetracker.EdgeConfirming, tkr.CurrentState())
+	require.Equal(t, edgetracker.EdgeAwaitingChallengeCompletion, tkr.CurrentState())
 }
 
 func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
@@ -71,7 +71,7 @@ func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	// Expect our edge to be confirmed right away.
 	err = honestTracker.Act(ctx)
 	require.NoError(t, err)
-	require.Equal(t, edgetracker.EdgeConfirmed, honestTracker.CurrentState())
+	require.Equal(t, edgetracker.EdgeAwaitingChallengeCompletion, honestTracker.CurrentState())
 	require.Equal(t, true, honestTracker.ShouldDespawn(ctx))
 }
 
