@@ -12,6 +12,83 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
+func (ht *RoyalChallengeTree) TimeCacheUpdate(
+	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
+	blockNum uint64,
+) (protocol.InheritedTimer, error) {
+	royalRootEdge, err := ht.BlockChallengeRootEdge(ctx)
+	if err != nil {
+		return 0, err
+	}
+	assertionUnrivaledBlocks, err := ht.metadataReader.AssertionUnrivaledBlocks(
+		ctx,
+		protocol.AssertionHash{
+			Hash: common.Hash(royalRootEdge.ClaimId().Unwrap()),
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+	inheritedTimer, err := ht.recursiveCacheUpdate(ctx, royalRootEdge.Id(), blockNum)
+	if err != nil {
+		return 0, err
+	}
+	return saturatingSum(inheritedTimer, protocol.InheritedTimer(assertionUnrivaledBlocks)), nil
+}
+
+func (ht *RoyalChallengeTree) recursiveCacheUpdate(
+	ctx context.Context,
+	edgeId protocol.EdgeId,
+	blockNum uint64,
+) (protocol.InheritedTimer, error) {
+	edge, ok := ht.edges.TryGet(edgeId)
+	if !ok {
+		return 0, nil
+	}
+	status, err := edge.Status(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if isOneStepProven(ctx, edge, status) {
+		return math.MaxUint64, nil
+	}
+	localTimer, err := ht.LocalTimer(edge, blockNum)
+	if err != nil {
+		return 0, err
+	}
+	// TODO: If length one, find the edge that claims it,
+	// compute the recursive timer for it. If the onchain is bigger, return the onchain here.
+	hasChildren, err := edge.HasChildren(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if !hasChildren {
+		return protocol.InheritedTimer(localTimer), nil
+	}
+	lowerChildId, err := edge.LowerChild(ctx)
+	if err != nil {
+		return 0, err
+	}
+	upperChildId, err := edge.UpperChild(ctx)
+	if err != nil {
+		return 0, err
+	}
+	lowerChildTimer, err := ht.recursiveCacheUpdate(ctx, lowerChildId.Unwrap(), blockNum)
+	if err != nil {
+		return 0, err
+	}
+	upperChildTimer, err := ht.recursiveCacheUpdate(ctx, upperChildId.Unwrap(), blockNum)
+	if err != nil {
+		return 0, err
+	}
+	minTimer := lowerChildTimer
+	if upperChildTimer < lowerChildTimer {
+		minTimer = lowerChildTimer
+	}
+	return protocol.InheritedTimer(localTimer) + minTimer, nil
+}
+
 func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
