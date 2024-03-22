@@ -41,7 +41,8 @@ func (ht *RoyalChallengeTree) UpdateInheritedTimer(
 	// - the cached inherited timer from any lower-level edges that may claim it
 	// - or the actual onchain timer of the edge
 	if hasLengthOne(edge) {
-		onchainTimer, err := edge.InheritedTimer(ctx)
+		var onchainTimer protocol.InheritedTimer
+		onchainTimer, err = edge.InheritedTimer(ctx)
 		if err != nil {
 			return 0, err
 		}

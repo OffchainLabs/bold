@@ -21,6 +21,7 @@ go_library(
         "//math",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_pkg_errors//:errors",
+        "@org_golang_x_exp//constraints",
     ],
 )
 
@@ -29,6 +30,7 @@ go_test(
     srcs = [
         "ancestors_test.go",
         "compute_ancestors_test.go",
+        "inherited_timer_test.go",
         "local_timer_test.go",
         "tree_test.go",
     ],
