@@ -366,17 +366,48 @@ func (et *Tracker) Act(ctx context.Context) error {
 // ShouldDespawn checks if an edge tracker should despawn and no longer act.
 // This is true an edge's claimed assertion is confirmed.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
-	// if et.fsm.Current().State == EdgeConfirmed {
-	// 	return true
-	// }
-	fields := et.uniqueTrackerLogFields()
-	status, err := et.chain.AssertionStatus(ctx, protocol.AssertionHash{Hash: et.associatedAssertionMetadata.ClaimedAssertionHash})
-	if err != nil {
-		fields["err"] = err
-		srvlog.Error("Could not check assertion status", status)
+	if et.fsm.Current().State == EdgeConfirmed {
+		return true
+	}
+	if !IsRootBlockChallengeEdge(et.edge) {
 		return false
 	}
-	return status == protocol.AssertionConfirmed
+
+	fields := et.uniqueTrackerLogFields()
+	challengedAssertion, err := et.edge.AssertionHash(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get assertion hash", challengedAssertion)
+		return false
+	}
+	manager, err := et.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get assertion hash", challengedAssertion)
+		return false
+	}
+	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get challenge period", challengedAssertion)
+		return false
+	}
+	blockChallengeRootEdge, err := et.Watcher().BlockChallengeRootEdge(ctx, challengedAssertion)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get block challenge root edge", challengedAssertion)
+		return false
+	}
+	blockChallengeRootEdgeTimer, err := blockChallengeRootEdge.InheritedTimer(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get inherited timer", challengedAssertion)
+		return false
+	}
+	if uint64(blockChallengeRootEdgeTimer) >= chalPeriod {
+		return true
+	}
+	return false
 }
 
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
