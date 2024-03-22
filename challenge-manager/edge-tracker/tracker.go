@@ -49,7 +49,7 @@ type RoyalChallengeWriter interface {
 	AddVerifiedHonestEdge(
 		ctx context.Context, verifiedHonest protocol.VerifiedRoyalEdge,
 	) error
-	TimeCacheUpdate(
+	ComputeRootInheritedTimer(
 		ctx context.Context,
 		challengedAssertionHash protocol.AssertionHash,
 	) (protocol.InheritedTimer, error)
@@ -360,42 +360,47 @@ func (et *Tracker) Act(ctx context.Context) error {
 // ShouldDespawn checks if an edge tracker should despawn and no longer act.
 // This is true an edge's claimed assertion is confirmed.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
-	if et.fsm.Current().State == EdgeConfirmed {
+	fields := et.uniqueTrackerLogFields()
+	status, err := et.edge.Status(ctx)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get edge status", fields)
+		return false
+	}
+	if status == protocol.EdgeConfirmed {
 		return true
 	}
 	if !IsRootBlockChallengeEdge(et.edge) {
 		return false
 	}
-
-	fields := et.uniqueTrackerLogFields()
 	challengedAssertion, err := et.edge.AssertionHash(ctx)
 	if err != nil {
 		fields["err"] = err
-		srvlog.Error("Could not get assertion hash", challengedAssertion)
+		srvlog.Error("Could not get assertion hash", fields)
 		return false
 	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		fields["err"] = err
-		srvlog.Error("Could not get assertion hash", challengedAssertion)
+		srvlog.Error("Could not get assertion hash", fields)
 		return false
 	}
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	if err != nil {
 		fields["err"] = err
-		srvlog.Error("Could not get challenge period", challengedAssertion)
+		srvlog.Error("Could not get challenge period", fields)
 		return false
 	}
 	blockChallengeRootEdge, err := et.Watcher().BlockChallengeRootEdge(ctx, challengedAssertion)
 	if err != nil {
 		fields["err"] = err
-		srvlog.Error("Could not get block challenge root edge", challengedAssertion)
+		srvlog.Error("Could not get block challenge root edge", fields)
 		return false
 	}
 	blockChallengeRootEdgeTimer, err := blockChallengeRootEdge.InheritedTimer(ctx)
 	if err != nil {
 		fields["err"] = err
-		srvlog.Error("Could not get inherited timer", challengedAssertion)
+		srvlog.Error("Could not get inherited timer", fields)
 		return false
 	}
 	if uint64(blockChallengeRootEdgeTimer) >= chalPeriod {
@@ -444,15 +449,13 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	}
 	fields := et.uniqueTrackerLogFields()
 	start := time.Now()
-	srvlog.Info("Computing timer now...")
-	computedTimer, err := et.chainWatcher.TimeCacheUpdate(ctx, assertionHash)
+	computedTimer, err := et.chainWatcher.ComputeRootInheritedTimer(ctx, assertionHash)
 	if err != nil {
 		fields["error"] = err
 		srvlog.Error("Could not update time cache")
 		return false, errors.Wrap(err, "could not update edge inherited timer")
 	}
-	fields["took"] = time.Since(start)
-	srvlog.Info("Computed timer", fields)
+	end := time.Since(start)
 	onchainTimer, err := et.edge.InheritedTimer(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
@@ -467,14 +470,13 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	}
 	fields["computedTimer"] = computedTimer
 	fields["onchainTimer"] = onchainTimer
-	srvlog.Info("Updated time cache", fields)
+	fields["timeElapsed"] = end
+	srvlog.Info("Updated block challenge root edge inherited timer", fields)
 	// Short circuit early if the edge is confirmable.
 	// We have a few things to check here:
 	// First, if the edge's onchain timer is greater than a challenge period, then we can
 	// immediately confirm by time by sending a transaction.
 	if onchainTimer >= protocol.InheritedTimer(chalPeriod) {
-		fields["computedTimer"] = computedTimer
-		fields["onchainTimer"] = onchainTimer
 		log.Info("Onchain timer is greater than challenge period", fields)
 		if err := et.edge.ConfirmByTimer(ctx); err != nil {
 			return false, errors.Wrapf(
@@ -493,7 +495,6 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	// challenge tree onchain until the edge has an onchain timer >= a challenge period.
 	// We let our confirmer dependency take care of this confirmatin job.
 	if uint64(computedTimer) >= chalPeriod {
-		fields["computedTimer"] = computedTimer
 		log.Info("Local computed timer big enough to confirm", fields)
 		if err := et.challengeConfirmer.beginConfirmationJob(
 			ctx,
