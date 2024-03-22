@@ -111,11 +111,11 @@ func CreateTwoValidatorFork(
 	if err != nil {
 		return nil, err
 	}
-	genesis, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 1, common.Hash{}, 1<<26)
+	genesis, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 1, nil, 1<<26)
 	if err != nil {
 		return nil, err
 	}
-	honestPostState, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 1, genesis.GlobalState.BlockHash, 1<<26)
+	honestPostState, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesis.GlobalState, 1<<26)
 	if err != nil {
 		return nil, err
 	}
@@ -128,11 +128,11 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	genesis, err = evilStateManager.ExecutionStateAfterPreviousState(ctx, 1, common.Hash{}, 1<<26)
+	genesis, err = evilStateManager.ExecutionStateAfterPreviousState(ctx, 1, nil, 1<<26)
 	if err != nil {
 		return nil, err
 	}
-	evilPostState, err := evilStateManager.ExecutionStateAfterPreviousState(ctx, 1, genesis.GlobalState.BlockHash, 1<<26)
+	evilPostState, err := evilStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesis.GlobalState, 1<<26)
 	if err != nil {
 		return nil, err
 	}

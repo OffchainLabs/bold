@@ -104,8 +104,8 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	return args.Get(0).(bool), args.Error(1)
 }
 
-func (m *MockStateManager) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousBlockHash common.Hash, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error) {
-	args := m.Called(ctx, maxInboxCount, previousBlockHash, maxNumberOfBlocks)
+func (m *MockStateManager) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error) {
+	args := m.Called(ctx, maxInboxCount, previousGlobalState, maxNumberOfBlocks)
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
 
