@@ -380,7 +380,7 @@ func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	_ = endCommit
 	chalLevel := et.edge.GetChallengeLevel()
 	return log.Ctx{
-		// "id":                   et.edge.Id().Hash,
+		"id": fmt.Sprintf("%#x", et.edge.Id().Hash.Bytes()[:8]),
 		// "fromBatch":            et.associatedAssertionMetadata.FromBatch,
 		// "toBatch":              et.associatedAssertionMetadata.ToBatch,
 		// "claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
@@ -411,10 +411,17 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	fields := et.uniqueTrackerLogFields()
+	start := time.Now()
+	srvlog.Info("Computing timer now...")
 	computedTimer, err := et.chainWatcher.TimeCacheUpdate(ctx, assertionHash)
 	if err != nil {
+		fields["error"] = err
+		srvlog.Error("Could not update time cache")
 		return false, errors.Wrap(err, "could not update edge inherited timer")
 	}
+	fields["took"] = time.Since(start)
+	srvlog.Info("Computed timer", fields)
 	onchainTimer, err := et.edge.InheritedTimer(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
@@ -427,7 +434,9 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	fields := et.uniqueTrackerLogFields()
+	fields["computedTimer"] = computedTimer
+	fields["onchainTimer"] = onchainTimer
+	srvlog.Info("Updated time cache", fields)
 	// Short circuit early if the edge is confirmable.
 	// We have a few things to check here:
 	// First, if the edge's onchain timer is greater than a challenge period, then we can

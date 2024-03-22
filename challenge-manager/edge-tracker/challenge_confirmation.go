@@ -76,10 +76,11 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	royalRootEdge protocol.SpecEdge,
 	challengePeriodBlocks uint64,
 ) error {
-	fields := log.Ctx{
-		"validatorName": cc.validatorName,
-	}
-	srvlog.Info("Starting challenge confirmation job", fields)
+	srvlog.Info("Starting challenge confirmation job", log.Ctx{
+		"validatorName":               cc.validatorName,
+		"challengedAssertion":         challengedAssertionHash.Hash,
+		"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
+	})
 	// Find the bottom-most royal edges that exist in our local challenge tree, each one
 	// will be the base of a branch we will update.
 	royalTreeLeaves, err := retry.UntilSucceeds(ctx, func() ([]protocol.SpecEdge, error) {
@@ -88,9 +89,11 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	if err != nil {
 		return err
 	}
-	srvlog.Info("Got all the royal tree leaves", log.Ctx{
-		"validatorName": cc.validatorName,
-		"numLeaves":     len(royalTreeLeaves),
+	srvlog.Info("Obtained all the royal tree leaves for confirmation job", log.Ctx{
+		"validatorName":               cc.validatorName,
+		"numLeaves":                   len(royalTreeLeaves),
+		"challengedAssertion":         challengedAssertionHash.Hash,
+		"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
 	})
 	// For each branch, compute the royal ancestor branch up to the root of the tree.
 	// The branch should contain royal ancestors ordered from a bottom-most leaf edge to the root edge
@@ -106,14 +109,15 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		if err2 != nil {
 			return err2
 		}
-		srvlog.Info("Got ancestors for branch with base", log.Ctx{
-			"validatorName": cc.validatorName,
-			"numAncestors":  len(ancestors),
-			"baseEdge":      edge.Id(),
-		})
 		branch = append(branch, ancestors...)
 		royalBranches = append(royalBranches, branch)
 	}
+	srvlog.Info("Computed all the royal branches to update onchain", log.Ctx{
+		"validatorName":               cc.validatorName,
+		"numBranches":                 len(royalBranches),
+		"challengedAssertion":         challengedAssertionHash.Hash,
+		"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
+	})
 	// For each branch, update the inherited timers onchain in a single transaction.
 	for _, branch := range royalBranches {
 		if _, err2 := retry.UntilSucceeds(ctx, func() (bool, error) {
@@ -130,16 +134,20 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 			return err2
 		}
 		srvlog.Info("Updated the inherited timer for branch with base", log.Ctx{
-			"validatorName": cc.validatorName,
-			"rootTimer":     rootTimer,
-			"baseEdge":      branch[0].Id().Hash,
+			"validatorName":               cc.validatorName,
+			"rootTimer":                   rootTimer,
+			"baseEdge":                    branch[0].Id().Hash,
+			"challengedAssertion":         challengedAssertionHash.Hash,
+			"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
 		})
 		// If yes, we confirm the root edge and finish early.
 		if uint64(rootTimer) >= challengePeriodBlocks {
 			srvlog.Info("Branch was confirmable by time", log.Ctx{
-				"validatorName": cc.validatorName,
-				"rootTimer":     rootTimer,
-				"baseEdge":      branch[0].Id().Hash,
+				"validatorName":               cc.validatorName,
+				"rootTimer":                   rootTimer,
+				"baseEdge":                    branch[0].Id().Hash,
+				"challengedAssertion":         challengedAssertionHash.Hash,
+				"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
 			})
 			_, err2 = retry.UntilSucceeds(ctx, func() (bool, error) {
 				innerErr := royalRootEdge.ConfirmByTimer(ctx)
@@ -160,9 +168,11 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	// inspection and debugging
 	if onchainInheritedTimer < protocol.InheritedTimer(challengePeriodBlocks) {
 		srvlog.Error("Onchain timer differed after confirmation job", log.Ctx{
-			"validatorName":   cc.validatorName,
-			"onchainTimer":    onchainInheritedTimer,
-			"challengePeriod": challengePeriodBlocks,
+			"validatorName":               cc.validatorName,
+			"onchainTimer":                onchainInheritedTimer,
+			"challengePeriod":             challengePeriodBlocks,
+			"challengedAssertion":         challengedAssertionHash.Hash,
+			"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
 		})
 		return fmt.Errorf(
 			"onchain timer %d after confirmation job was executed < challenge period %d",
@@ -171,9 +181,11 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		)
 	}
 	srvlog.Info("Confirming edge by time", log.Ctx{
-		"validatorName":   cc.validatorName,
-		"onchainTimer":    onchainInheritedTimer,
-		"challengePeriod": challengePeriodBlocks,
+		"validatorName":               cc.validatorName,
+		"onchainTimer":                onchainInheritedTimer,
+		"challengePeriod":             challengePeriodBlocks,
+		"challengedAssertion":         challengedAssertionHash.Hash,
+		"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
 	})
 	if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		innerErr := royalRootEdge.ConfirmByTimer(ctx)
@@ -182,9 +194,11 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		return err
 	}
 	srvlog.Info("Challenge completed", log.Ctx{
-		"validatorName":   cc.validatorName,
-		"onchainTimer":    onchainInheritedTimer,
-		"challengePeriod": challengePeriodBlocks,
+		"validatorName":               cc.validatorName,
+		"onchainTimer":                onchainInheritedTimer,
+		"challengePeriod":             challengePeriodBlocks,
+		"challengedAssertion":         challengedAssertionHash.Hash,
+		"royalRootBlockChallengeEdge": royalRootEdge.Id().Hash,
 	})
 	return nil
 }

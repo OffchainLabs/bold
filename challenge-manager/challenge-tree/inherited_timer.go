@@ -60,21 +60,21 @@ func (ht *RoyalChallengeTree) recursiveCacheUpdate(
 	// If length one, find the edge that claims it,
 	// compute the recursive timer for it. If the onchain is bigger, return the onchain here.
 	if hasLengthOne(edge) {
-		claimingEdge, ok := ht.findClaimingEdge(ctx, edge.Id())
-		if !ok {
-			return 0, fmt.Errorf("could not find claiming edge for edge %#x", edge.Id().Hash)
-		}
 		onchainTimer, err := edge.InheritedTimer(ctx)
 		if err != nil {
 			return 0, err
 		}
-		claimingEdgeTimer, err := ht.recursiveCacheUpdate(
-			ctx,
-			claimingEdge.Id(),
-			blockNum,
-		)
-		if err != nil {
-			return 0, err
+		claimingEdgeTimer := protocol.InheritedTimer(0)
+		claimingEdge, ok := ht.findClaimingEdge(ctx, edge.Id())
+		if ok {
+			claimingEdgeTimer, err = ht.recursiveCacheUpdate(
+				ctx,
+				claimingEdge.Id(),
+				blockNum,
+			)
+			if err != nil {
+				return 0, err
+			}
 		}
 		claimedEdgeInheritedTimer := protocol.InheritedTimer(localTimer + uint64(claimingEdgeTimer))
 		if onchainTimer > claimedEdgeInheritedTimer {
