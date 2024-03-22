@@ -406,6 +406,27 @@ func (w *Watcher) ComputeAncestors(
 	return chal.honestEdgeTree.ComputeAncestors(ctx, edgeId, blockHeader.Number.Uint64())
 }
 
+func (w *Watcher) TimeCacheUpdate(
+	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
+) (protocol.InheritedTimer, error) {
+	chal, ok := w.challenges.TryGet(challengedAssertionHash)
+	if !ok {
+		return 0, fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			challengedAssertionHash,
+		)
+	}
+	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
+	if err != nil {
+		return 0, err
+	}
+	if !blockHeader.Number.IsUint64() {
+		return 0, errors.New("block number is not uint64")
+	}
+	return chal.honestEdgeTree.TimeCacheUpdate(ctx, challengedAssertionHash, blockHeader.Number.Uint64())
+}
+
 func (w *Watcher) UpdateLocallyCachedTimer(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
