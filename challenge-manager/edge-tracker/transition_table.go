@@ -46,7 +46,7 @@ func newEdgeTrackerFsm(
 		// Awaiting confirmation.
 		{
 			Typ:  edgeAwaitConfirmation{},
-			From: []State{EdgeStarted, EdgeBisecting, EdgeAddingSubchallengeLeaf, EdgeConfirming},
+			From: []State{EdgeStarted, EdgeBisecting, EdgeAddingSubchallengeLeaf, EdgeConfirming, EdgeAtOneStepProof},
 			To:   EdgeConfirming,
 		},
 		// Terminal state.

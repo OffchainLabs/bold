@@ -170,7 +170,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 			challengePeriodBlocks,
 		)
 	}
-	srvlog.Error("Confirming edge by time", log.Ctx{
+	srvlog.Info("Confirming edge by time", log.Ctx{
 		"validatorName":   cc.validatorName,
 		"onchainTimer":    onchainInheritedTimer,
 		"challengePeriod": challengePeriodBlocks,
@@ -181,7 +181,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	}); err != nil {
 		return err
 	}
-	srvlog.Error("Challenge completed", log.Ctx{
+	srvlog.Info("Challenge completed", log.Ctx{
 		"validatorName":   cc.validatorName,
 		"onchainTimer":    onchainInheritedTimer,
 		"challengePeriod": challengePeriodBlocks,
