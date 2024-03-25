@@ -60,7 +60,7 @@ contract RollupTest is Test {
     bool[] flags;
 
     GlobalState emptyGlobalState;
-    ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
+    ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
     bytes32 genesisHash = RollupLib.assertionHash({
         parentAssertionHash: bytes32(0),
         afterState: emptyExecutionState,
@@ -94,8 +94,9 @@ contract RollupTest is Test {
             address(0)
         );
 
-        ExecutionState memory emptyState =
-            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
+        ExecutionState memory emptyState = ExecutionState(
+            GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED, bytes32(0)
+        );
         token = new TestWETH9("Test", "TEST");
         IWETH9(address(token)).deposit{value: 10 ether}();
 
@@ -1195,7 +1196,8 @@ contract RollupTest is Test {
     function testExecutionStateHash() public {
         ExecutionState memory es = ExecutionState(
             GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
-            MachineStatus.FINISHED
+            MachineStatus.FINISHED,
+            bytes32(0)
         );
         bytes32 expectedHash = keccak256(abi.encodePacked(es.machineStatus, es.globalState.hash()));
         assertEq(RollupLib.executionStateHash(es), expectedHash, "Unexpected hash");
@@ -1205,7 +1207,8 @@ contract RollupTest is Test {
         bytes32 parentHash = rand.hash();
         ExecutionState memory es = ExecutionState(
             GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
-            MachineStatus.FINISHED
+            MachineStatus.FINISHED,
+            bytes32(0)
         );
         bytes32 inboxAcc = rand.hash();
         bytes32 expectedHash = keccak256(abi.encodePacked(parentHash, RollupLib.executionStateHash(es), inboxAcc));

@@ -1370,7 +1370,8 @@ contract EdgeChallengeManagerLibTest is Test {
     function randomExecutionState(IOneStepProofEntry os) private returns (ExecStateVars memory) {
         ExecutionState memory execState = ExecutionState(
             GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
-            MachineStatus.FINISHED
+            MachineStatus.FINISHED,
+            bytes32(0)
         );
 
         bytes32 machineHash = os.getMachineHash(execState);

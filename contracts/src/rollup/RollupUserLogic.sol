@@ -197,7 +197,8 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             "STAKED_ON_ANOTHER_BRANCH"
         );
 
-        (bytes32 newAssertionHash, bool overflowAssertion) = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+        (bytes32 newAssertionHash, bool overflowAssertion) =
+            createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
         _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
 
         if (!overflowAssertion) {

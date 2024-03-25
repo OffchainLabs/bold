@@ -47,7 +47,7 @@ contract AssertinPoolTest is Test {
     EdgeChallengeManager challengeManager;
 
     GlobalState emptyGlobalState;
-    ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
+    ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
     bytes32 genesisHash = RollupLib.assertionHash({
         parentAssertionHash: bytes32(0),
         afterState: emptyExecutionState,
@@ -106,7 +106,7 @@ contract AssertinPoolTest is Test {
             address(0)
         );
         ExecutionState memory emptyState =
-            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
+            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED, bytes32(0));
         token = new TestWETH9("Test", "TEST");
         IWETH9(address(token)).deposit{value: 21 ether}();
 

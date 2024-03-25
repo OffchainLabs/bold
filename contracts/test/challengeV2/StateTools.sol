@@ -21,7 +21,7 @@ library StateToolsLib {
         uint64[2] memory u64Vals = [uint64(inboxMsgCountProcessed), uint64(uint256(rand.hash()))];
 
         GlobalState memory gs = GlobalState({bytes32Vals: bytes32Vals, u64Vals: u64Vals});
-        return ExecutionState({globalState: gs, machineStatus: ms});
+        return ExecutionState({globalState: gs, machineStatus: ms, endHistoryRoot: bytes32(0)});
     }
 
     function hash(ExecutionState memory s) internal pure returns (bytes32) {

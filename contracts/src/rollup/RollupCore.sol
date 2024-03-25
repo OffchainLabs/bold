@@ -420,7 +420,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterGS.comparePositions(beforeGS) >= 0, "INBOX_BACKWARDS");
-            int256 afterStateCmpMaxInbox = afterGS.comparePositionsAgainstStartOfBatch(assertion.beforeStateData.configData.nextInboxPosition);
+            int256 afterStateCmpMaxInbox =
+                afterGS.comparePositionsAgainstStartOfBatch(assertion.beforeStateData.configData.nextInboxPosition);
             require(afterStateCmpMaxInbox <= 0, "INBOX_TOO_FAR");
 
             if (assertion.afterState.machineStatus != MachineStatus.ERRORED && afterStateCmpMaxInbox < 0) {
@@ -516,7 +517,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function genesisAssertionHash() external pure returns (bytes32) {
         GlobalState memory emptyGlobalState;
-        ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
+        ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
         return RollupLib.assertionHash({
