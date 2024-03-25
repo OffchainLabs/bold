@@ -370,13 +370,28 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if status == protocol.EdgeConfirmed {
 		return true
 	}
-	if !IsRootBlockChallengeEdge(et.edge) {
+	claimedAssertion, err := et.chain.AssertionStatus(
+		ctx,
+		protocol.AssertionHash{
+			Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
+		},
+	)
+	if err != nil {
+		fields["err"] = err
+		srvlog.Error("Could not get claimed assertion status", fields)
 		return false
+	}
+	if claimedAssertion == protocol.AssertionConfirmed {
+		srvlog.Info("Claimed assertion by edge confirmed, can now despawn edge", fields)
+		return true
 	}
 	challengedAssertion, err := et.edge.AssertionHash(ctx)
 	if err != nil {
 		fields["err"] = err
 		srvlog.Error("Could not get assertion hash", fields)
+		return false
+	}
+	if !IsRootBlockChallengeEdge(et.edge) {
 		return false
 	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
