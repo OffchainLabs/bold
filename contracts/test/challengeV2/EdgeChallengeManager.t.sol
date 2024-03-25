@@ -33,10 +33,10 @@ contract EdgeChallengeManagerTest is Test {
 
     Random rand = new Random();
     bytes32 genesisBlockHash = rand.hash();
-    ExecutionState genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
+    AssertionState genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.mockMachineHash(genesisState);
-    bytes32 genesisAfterStateHash = RollupLib.executionStateHash(genesisState);
-    ExecutionStateData genesisStateData = ExecutionStateData(genesisState, bytes32(0), bytes32(0));
+    bytes32 genesisAfterStateHash = RollupLib.assertionStateHash(genesisState);
+    AssertionStateData genesisStateData = AssertionStateData(genesisState, bytes32(0), bytes32(0));
 
     uint8 public NUM_BIGSTEP_LEVEL = 3;
     uint256 public START_BLOCK = block.number;
@@ -65,7 +65,7 @@ contract EdgeChallengeManagerTest is Test {
     address nobody = address(78);
 
     uint64 challengePeriodBlock = 1000;
-    ExecutionStateData empty;
+    AssertionStateData empty;
 
     function miniStakeAmounts() internal view returns (uint256[] memory) {
         uint256 numLevels = NUM_BIGSTEP_LEVEL + 2;
@@ -268,10 +268,10 @@ contract EdgeChallengeManagerTest is Test {
         bytes32 genesis;
         bytes32 a1;
         bytes32 a2;
-        ExecutionState a1State;
-        ExecutionState a2State;
-        ExecutionStateData a1Data;
-        ExecutionStateData a2Data;
+        AssertionState a1State;
+        AssertionState a2State;
+        AssertionStateData a1Data;
+        AssertionStateData a2Data;
     }
 
     // need to have these in storage due to stack limit
@@ -283,10 +283,10 @@ contract EdgeChallengeManagerTest is Test {
     function deployAndInit() internal returns (EdgeInitData memory) {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
-        ExecutionState memory a1State = StateToolsLib.randomState(
+        AssertionState memory a1State = StateToolsLib.randomState(
             rand, GlobalStateLib.getInboxPosition(genesisState.globalState), h1, MachineStatus.FINISHED
         );
-        ExecutionState memory a2State = StateToolsLib.randomState(
+        AssertionState memory a2State = StateToolsLib.randomState(
             rand, GlobalStateLib.getInboxPosition(genesisState.globalState), h2, MachineStatus.FINISHED
         );
 
@@ -313,15 +313,15 @@ contract EdgeChallengeManagerTest is Test {
             a2: a2,
             a1State: a1State,
             a2State: a2State,
-            a1Data: ExecutionStateData(a1State, genesis, bytes32(0)),
-            a2Data: ExecutionStateData(a2State, genesis, bytes32(0))
+            a1Data: AssertionStateData(a1State, genesis, bytes32(0)),
+            a2Data: AssertionStateData(a2State, genesis, bytes32(0))
         });
     }
 
     function testRevertBlockNoFork() public {
         (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
 
-        ExecutionState memory a1State = StateToolsLib.randomState(
+        AssertionState memory a1State = StateToolsLib.randomState(
             rand, GlobalStateLib.getInboxPosition(genesisState.globalState), h1, MachineStatus.FINISHED
         );
 
@@ -347,7 +347,7 @@ contract EdgeChallengeManagerTest is Test {
                 proof: abi.encode(
                     ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
                     genesisStateData,
-                    ExecutionStateData(a1State, genesisAssertionHash, bytes32(0))
+                    AssertionStateData(a1State, genesisAssertionHash, bytes32(0))
                     )
             })
         );
@@ -615,7 +615,7 @@ contract EdgeChallengeManagerTest is Test {
     function testRevertConfirmAnotherRival() public {
         (EdgeInitData memory ei, bytes32 edge1Id) = testCanConfirmByChildren();
 
-        ExecutionState memory a2State = StateToolsLib.randomState(
+        AssertionState memory a2State = StateToolsLib.randomState(
             rand, GlobalStateLib.getInboxPosition(genesisState.globalState), h2, MachineStatus.FINISHED
         );
         (bytes32[] memory states2, bytes32[] memory exp2) =
@@ -1372,8 +1372,8 @@ contract EdgeChallengeManagerTest is Test {
         EdgeChallengeManager challengeManager;
         bytes32 claim1Id;
         bytes32 claim2Id;
-        ExecutionState endState1;
-        ExecutionState endState2;
+        AssertionState endState1;
+        AssertionState endState2;
         bool skipLast;
         bytes32[] endStates1;
         bytes32[] endStates1exp;
@@ -1396,14 +1396,14 @@ contract EdgeChallengeManagerTest is Test {
     function createLayerZeroEdge(
         EdgeChallengeManager challengeManager,
         bytes32 claimId,
-        ExecutionState memory endState,
+        AssertionState memory endState,
         bytes32[] memory states,
         bytes32[] memory exp
     ) internal returns (bytes32) {
         bytes memory typeSpecificProof1 = abi.encode(
             ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
             genesisStateData,
-            ExecutionStateData(endState, genesisAssertionHash, bytes32(0))
+            AssertionStateData(endState, genesisAssertionHash, bytes32(0))
         );
 
         return challengeManager.createLayerZeroEdge(

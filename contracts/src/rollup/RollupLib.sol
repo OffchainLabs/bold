@@ -19,7 +19,7 @@ library RollupLib {
     using GlobalStateLib for GlobalState;
 
     // Not the same as a machine hash for a given execution state
-    function executionStateHash(ExecutionState memory state) internal pure returns (bytes32) {
+    function assertionStateHash(AssertionState memory state) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(state.machineStatus, state.globalState.hash()));
     }
 
@@ -27,13 +27,13 @@ library RollupLib {
     // This helps protect validators against reorgs by letting them bind their assertion to the current chain state.
     function assertionHash(
         bytes32 parentAssertionHash,
-        ExecutionState memory afterState,
+        AssertionState memory afterState,
         bytes32 inboxAcc
     ) internal pure returns (bytes32) {
         // we can no longer have `hasSibling` in the assertion hash as it would allow identical assertions
         return assertionHash(
             parentAssertionHash,
-            executionStateHash(afterState),
+            assertionStateHash(afterState),
             inboxAcc
         );
     }

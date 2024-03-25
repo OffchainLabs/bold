@@ -236,7 +236,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     function confirmAssertionInternal(
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
-        ExecutionState calldata confirmState,
+        AssertionState calldata confirmState,
         bytes32 inboxAcc
     ) internal {
         AssertionNode storage assertion = getAssertionStorage(assertionHash);
@@ -517,12 +517,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function genesisAssertionHash() external pure returns (bytes32) {
         GlobalState memory emptyGlobalState;
-        ExecutionState memory emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
+        AssertionState memory emptyAssertionState = AssertionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
         return RollupLib.assertionHash({
             parentAssertionHash: parentAssertionHash,
-            afterState: emptyExecutionState,
+            afterState: emptyAssertionState,
             inboxAcc: inboxAcc
         });
     }
@@ -537,7 +537,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function validateAssertionHash(
         bytes32 assertionHash,
-        ExecutionState calldata state,
+        AssertionState calldata state,
         bytes32 prevAssertionHash,
         bytes32 inboxAcc
     ) external pure {

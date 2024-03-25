@@ -48,8 +48,8 @@ struct OldStaker {
 
 interface IOldRollup {
     struct Assertion {
-        ExecutionState beforeState;
-        ExecutionState afterState;
+        AssertionState beforeState;
+        AssertionState afterState;
         uint64 numBlocks;
     }
 
@@ -90,22 +90,22 @@ interface IOldRollupAdmin {
 contract StateHashPreImageLookup {
     using GlobalStateLib for GlobalState;
 
-    event HashSet(bytes32 h, ExecutionState execState, uint256 inboxMaxCount);
+    event HashSet(bytes32 h, AssertionState assertionState, uint256 inboxMaxCount);
 
     mapping(bytes32 => bytes) internal preImages;
 
-    function stateHash(ExecutionState calldata execState, uint256 inboxMaxCount) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(execState.globalState.hash(), inboxMaxCount, execState.machineStatus));
+    function stateHash(AssertionState calldata assertionState, uint256 inboxMaxCount) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(assertionState.globalState.hash(), inboxMaxCount, assertionState.machineStatus));
     }
 
-    function set(bytes32 h, ExecutionState calldata execState, uint256 inboxMaxCount) public {
-        require(h == stateHash(execState, inboxMaxCount), "Invalid hash");
-        preImages[h] = abi.encode(execState, inboxMaxCount);
-        emit HashSet(h, execState, inboxMaxCount);
+    function set(bytes32 h, AssertionState calldata assertionState, uint256 inboxMaxCount) public {
+        require(h == stateHash(assertionState, inboxMaxCount), "Invalid hash");
+        preImages[h] = abi.encode(assertionState, inboxMaxCount);
+        emit HashSet(h, assertionState, inboxMaxCount);
     }
 
-    function get(bytes32 h) public view returns (ExecutionState memory execState, uint256 inboxMaxCount) {
-        (execState, inboxMaxCount) = abi.decode(preImages[h], (ExecutionState, uint256));
+    function get(bytes32 h) public view returns (AssertionState memory assertionState, uint256 inboxMaxCount) {
+        (assertionState, inboxMaxCount) = abi.decode(preImages[h], (AssertionState, uint256));
         require(inboxMaxCount != 0, "Hash not yet set");
     }
 }
@@ -341,7 +341,7 @@ contract BOLDUpgradeAction {
     function createConfig() private view returns (Config memory) {
         // fetch the assertion associated with the latest confirmed state
         bytes32 latestConfirmedStateHash = ROLLUP_READER.getNode(ROLLUP_READER.latestConfirmed()).stateHash;
-        (ExecutionState memory genesisExecState, uint256 inboxMaxCount) = PREIMAGE_LOOKUP.get(latestConfirmedStateHash);
+        (AssertionState memory genesisExecState, uint256 inboxMaxCount) = PREIMAGE_LOOKUP.get(latestConfirmedStateHash);
         // double check the hash
         require(
             PREIMAGE_LOOKUP.stateHash(genesisExecState, inboxMaxCount) == latestConfirmedStateHash,
@@ -365,7 +365,7 @@ contract BOLDUpgradeAction {
             layerZeroBlockEdgeHeight: BLOCK_LEAF_SIZE,
             layerZeroBigStepEdgeHeight: BIGSTEP_LEAF_SIZE,
             layerZeroSmallStepEdgeHeight: SMALLSTEP_LEAF_SIZE,
-            genesisExecutionState: genesisExecState,
+            genesisAssertionState: genesisExecState,
             genesisInboxCount: inboxMaxCount,
             anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER,
             numBigStepLevel: NUM_BIGSTEP_LEVEL,

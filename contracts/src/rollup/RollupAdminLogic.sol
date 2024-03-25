@@ -60,7 +60,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         stakeToken = config.stakeToken;
         anyTrustFastConfirmer = config.anyTrustFastConfirmer;
 
-        bytes32 genesisExecutionHash = RollupLib.executionStateHash(config.genesisExecutionState);
+        bytes32 genesisExecutionHash = RollupLib.assertionStateHash(config.genesisAssertionState);
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
         bytes32 genesisHash = RollupLib.assertionHash({
@@ -87,7 +87,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         initializeCore(initialAssertion, genesisHash);
 
         AssertionInputs memory assertionInputs;
-        assertionInputs.afterState = config.genesisExecutionState;
+        assertionInputs.afterState = config.genesisAssertionState;
         emit AssertionCreated(
             genesisHash,
             parentAssertionHash,
@@ -259,7 +259,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function forceConfirmAssertion(
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
-        ExecutionState calldata confirmState,
+        AssertionState calldata confirmState,
         bytes32 inboxAcc
     ) external override whenPaused {
         // this skip deadline, prev, challenge validations

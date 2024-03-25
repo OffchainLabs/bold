@@ -14,7 +14,6 @@ library OneStepProofEntryLib {
 struct ExecutionState {
     GlobalState globalState;
     MachineStatus machineStatus;
-    bytes32 endHistoryRoot;
 }
 
 interface IOneStepProofEntry {
