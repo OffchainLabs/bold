@@ -489,6 +489,10 @@ contract RollupTest is Test {
         });
     }
 
+    // need to have these in storage due to stack limit
+    bytes32[] randomStates1;
+    bytes32[] randomStates2;
+
     function testSuccessCreateSecondChild()
         public
         returns (
@@ -511,6 +515,15 @@ contract RollupTest is Test {
         afterState.globalState.bytes32Vals[1] = FIRST_ASSERTION_SENDROOT; // sendroot
         afterState.globalState.u64Vals[0] = 1; // inbox count
         afterState.globalState.u64Vals[1] = 0; // pos in msg
+
+        {
+            IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
+            bytes32 h0 = osp.getMachineHash(beforeState);
+            bytes32 h1 = osp.getMachineHash(afterState);
+            randomStates1 = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
+            afterState.endHistoryRoot =
+                MerkleTreeLib.root(ProofUtils.expansionFromLeaves(randomStates1, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
+        }
 
         bytes32 expectedAssertionHash = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
@@ -545,6 +558,15 @@ contract RollupTest is Test {
         afterState2.globalState.bytes32Vals[1] = keccak256(abi.encodePacked(FIRST_ASSERTION_SENDROOT)); // sendroot
         afterState2.globalState.u64Vals[0] = 1; // inbox count
         afterState2.globalState.u64Vals[1] = 0; // modify the state
+
+        {
+            IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
+            bytes32 h0 = osp.getMachineHash(beforeState);
+            bytes32 h1 = osp.getMachineHash(afterState2);
+            randomStates2 = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
+            afterState2.endHistoryRoot =
+                MerkleTreeLib.root(ProofUtils.expansionFromLeaves(randomStates2, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
+        }
 
         bytes32 expectedAssertionHash2 = RollupLib.assertionHash({
             parentAssertionHash: genesisHash,
@@ -685,15 +707,8 @@ contract RollupTest is Test {
             data.assertionHash2
         ) = testSuccessCreateSecondChild();
 
-        bytes32[] memory states;
-        {
-            IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
-            bytes32 h0 = osp.getMachineHash(data.beforeState);
-            bytes32 h1 = osp.getMachineHash(data.afterState1);
-            states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
-        }
-
-        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
+        bytes32 root =
+            MerkleTreeLib.root(ProofUtils.expansionFromLeaves(randomStates1, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
         data.e1Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -702,11 +717,11 @@ contract RollupTest is Test {
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
                 claimId: data.assertionHash,
                 prefixProof: abi.encode(
-                    ProofUtils.expansionFromLeaves(states, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ProofUtils.expansionFromLeaves(randomStates1, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(randomStates1, 1, randomStates1.length))
                     ),
                 proof: abi.encode(
-                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(randomStates1), randomStates1.length - 1),
                     ExecutionStateData(data.beforeState, bytes32(0), bytes32(0)),
                     ExecutionStateData(data.afterState1, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
                     )
@@ -719,15 +734,8 @@ contract RollupTest is Test {
         require(data.genesisInboxCount == 1, "A");
         require(data.newInboxCount == 2, "B");
 
-        bytes32[] memory states;
-        {
-            IOneStepProofEntry osp = userRollup.challengeManager().oneStepProofEntry();
-            bytes32 h0 = osp.getMachineHash(data.beforeState);
-            bytes32 h1 = osp.getMachineHash(data.afterState2);
-            states = fillStatesInBetween(h0, h1, LAYERZERO_BLOCKEDGE_HEIGHT + 1);
-        }
-
-        bytes32 root = MerkleTreeLib.root(ProofUtils.expansionFromLeaves(states, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
+        bytes32 root =
+            MerkleTreeLib.root(ProofUtils.expansionFromLeaves(randomStates2, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
         bytes32 e2Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
@@ -736,11 +744,11 @@ contract RollupTest is Test {
                 endHeight: LAYERZERO_BLOCKEDGE_HEIGHT,
                 claimId: data.assertionHash2,
                 prefixProof: abi.encode(
-                    ProofUtils.expansionFromLeaves(states, 0, 1),
-                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states, 1, states.length))
+                    ProofUtils.expansionFromLeaves(randomStates2, 0, 1),
+                    ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(randomStates2, 1, randomStates2.length))
                     ),
                 proof: abi.encode(
-                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(states), states.length - 1),
+                    ProofUtils.generateInclusionProof(ProofUtils.rehashed(randomStates2), randomStates2.length - 1),
                     ExecutionStateData(data.beforeState, bytes32(0), bytes32(0)),
                     ExecutionStateData(data.afterState2, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
                     )

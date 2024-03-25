@@ -395,6 +395,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 predecessorStateData.inboxAcc
             );
 
+            if (args.endHistoryRoot != claimStateData.executionState.endHistoryRoot) {
+                revert EndHistoryRootMismatch(args.endHistoryRoot, claimStateData.executionState.endHistoryRoot);
+            }
+
             ard = AssertionReferenceData(
                 args.claimId,
                 claimStateData.prevAssertionHash,

@@ -88,7 +88,7 @@ contract MockAssertionChain is IAssertionChain {
         ExecutionState memory afterState
     )
         public
-        view
+        pure
         returns (bytes32)
     {
         return RollupLib.assertionHash({
