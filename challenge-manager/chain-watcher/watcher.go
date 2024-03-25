@@ -396,7 +396,7 @@ func (w *Watcher) ComputeAncestors(
 			challengedAssertionHash,
 		)
 	}
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, nil)
+	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
 	if err != nil {
 		return nil, err
 	}

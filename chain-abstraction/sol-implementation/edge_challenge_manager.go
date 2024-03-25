@@ -393,7 +393,7 @@ func NewSpecChallengeManager(
 	if err != nil {
 		return nil, err
 	}
-	challengePeriodBlocks, err := managerBinding.EdgeChallengeManagerCaller.ChallengePeriodBlocks(&bind.CallOpts{Context: ctx})
+	challengePeriodBlocks, err := managerBinding.EdgeChallengeManagerCaller.ChallengePeriodBlocks(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
