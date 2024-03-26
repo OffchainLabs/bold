@@ -304,8 +304,9 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
 	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, challengeV2gen.AssertionStateData{
 			AssertionState: challengeV2gen.AssertionState{
-				GlobalState:   challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
-				MachineStatus: assertionCreation.AfterState.MachineStatus,
+				GlobalState:    challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
+				MachineStatus:  assertionCreation.AfterState.MachineStatus,
+				EndHistoryRoot: assertionCreation.AfterState.EndHistoryRoot,
 			},
 			PrevAssertionHash: assertionCreation.ParentAssertionHash,
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
