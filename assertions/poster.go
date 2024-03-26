@@ -158,6 +158,16 @@ func (m *Manager) PostAssertionBasedOnParent(
 		newState,
 	)
 	if err != nil {
+		if errors.Is(err, l2stateprovider.ErrChainCatchingUp) {
+			chainCatchingUpCounter.Inc(1)
+			srvlog.Info(
+				"Has not yet observed assertion with batch count on safe head, will try posting next time", log.Ctx{
+					"batchCount":    batchCount,
+					"validatorName": m.validatorName,
+				},
+			)
+			return none, nil
+		}
 		return none, err
 	}
 	srvlog.Info("Submitted latest L2 state claim as an assertion to L1", log.Ctx{

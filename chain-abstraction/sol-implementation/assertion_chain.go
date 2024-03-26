@@ -18,6 +18,7 @@ import (
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/OffchainLabs/bold/util"
@@ -350,6 +351,13 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	bridge, err := bridgegen.NewIBridgeCaller(bridgeAddr, a.backend)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
+	}
+	currentMessageCount, err := bridge.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get sequencer message count from bridge")
+	}
+	if postState.GlobalState.Batch-1 > currentMessageCount.Uint64() {
+		return nil, l2stateprovider.ErrChainCatchingUp
 	}
 	inboxBatchAcc, err := bridge.SequencerInboxAccs(
 		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
