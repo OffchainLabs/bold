@@ -62,12 +62,11 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         stakeToken = config.stakeToken;
         anyTrustFastConfirmer = config.anyTrustFastConfirmer;
 
-        bytes32 genesisExecutionHash = config.genesisAssertionState.hash();
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
         bytes32 genesisHash = RollupLib.assertionHash({
             parentAssertionHash: parentAssertionHash,
-            afterStateHash: genesisExecutionHash,
+            afterStateHash: config.genesisAssertionState.hash(),
             inboxAcc: inboxAcc
         });
 
