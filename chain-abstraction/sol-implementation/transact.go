@@ -63,7 +63,7 @@ func (a *AssertionChain) transact(
 	}
 
 	// Now, we send the tx with the estimated gas.
-	opts.GasLimit = gas
+	opts.GasLimit = gas + 500000
 	tx, err = a.transactor.SendTransaction(ctx, fn, opts, gas)
 	if err != nil {
 		return nil, err
@@ -78,10 +78,14 @@ func (a *AssertionChain) transact(
 	if err != nil {
 		return nil, err
 	}
-	receipt, err = a.waitForTxToBeSafe(ctx, backend, tx, receipt)
+
+	ctxWaitSafe, cancelWaitSafe := context.WithTimeout(ctx, time.Minute*20)
+	defer cancelWaitSafe()
+	receipt, err = a.waitForTxToBeSafe(ctxWaitSafe, backend, tx, receipt)
 	if err != nil {
 		return nil, err
 	}
+
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		callMsg := ethereum.CallMsg{
 			From:       opts.From,
@@ -107,6 +111,9 @@ func (a *AssertionChain) waitForTxToBeSafe(
 	receipt *types.Receipt,
 ) (*types.Receipt, error) {
 	for {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		latestSafeHeader, err := backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
 		if err != nil {
 			return nil, err

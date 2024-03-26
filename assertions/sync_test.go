@@ -67,9 +67,9 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
 
-	preState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1)
+	preState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1<<26)
 	require.NoError(t, err)
-	postState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1)
+	postState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1<<26)
 	require.NoError(t, err)
 	assertion, err := aliceChain.NewStakeOnNewAssertion(
 		ctx,
