@@ -275,7 +275,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	for i := 1; i <= int(numLevels); i++ {
 		miniStakeValues[i-1] = big.NewInt(int64(i))
 	}
-	genesisExecutionState := rollupgen.ExecutionState{
+	genesisExecutionState := rollupgen.AssertionState{
 		GlobalState:   rollupgen.GlobalState{},
 		MachineStatus: 1,
 	}

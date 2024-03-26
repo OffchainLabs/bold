@@ -74,15 +74,15 @@ type ExecutionState struct {
 	MachineStatus MachineStatus
 }
 
-func GoExecutionStateFromSolidity(executionState rollupgen.ExecutionState) *ExecutionState {
+func GoExecutionStateFromSolidity(executionState rollupgen.AssertionState) *ExecutionState {
 	return &ExecutionState{
 		GlobalState:   GoGlobalStateFromSolidity(executionState.GlobalState),
 		MachineStatus: MachineStatus(executionState.MachineStatus),
 	}
 }
 
-func (s *ExecutionState) AsSolidityStruct() rollupgen.ExecutionState {
-	return rollupgen.ExecutionState{
+func (s *ExecutionState) AsSolidityStruct() rollupgen.AssertionState {
+	return rollupgen.AssertionState{
 		GlobalState:   rollupgen.GlobalState(s.GlobalState.AsSolidityStruct()),
 		MachineStatus: uint8(s.MachineStatus),
 	}
