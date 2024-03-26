@@ -341,10 +341,10 @@ contract BOLDUpgradeAction {
     function createConfig() private view returns (Config memory) {
         // fetch the assertion associated with the latest confirmed state
         bytes32 latestConfirmedStateHash = ROLLUP_READER.getNode(ROLLUP_READER.latestConfirmed()).stateHash;
-        (AssertionState memory genesisExecState, uint256 inboxMaxCount) = PREIMAGE_LOOKUP.get(latestConfirmedStateHash);
+        (AssertionState memory genesisAssertionState, uint256 inboxMaxCount) = PREIMAGE_LOOKUP.get(latestConfirmedStateHash);
         // double check the hash
         require(
-            PREIMAGE_LOOKUP.stateHash(genesisExecState, inboxMaxCount) == latestConfirmedStateHash,
+            PREIMAGE_LOOKUP.stateHash(genesisAssertionState, inboxMaxCount) == latestConfirmedStateHash,
             "Invalid latest execution hash"
         );
 
@@ -365,7 +365,7 @@ contract BOLDUpgradeAction {
             layerZeroBlockEdgeHeight: BLOCK_LEAF_SIZE,
             layerZeroBigStepEdgeHeight: BIGSTEP_LEAF_SIZE,
             layerZeroSmallStepEdgeHeight: SMALLSTEP_LEAF_SIZE,
-            genesisAssertionState: genesisExecState,
+            genesisAssertionState: genesisAssertionState,
             genesisInboxCount: inboxMaxCount,
             anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER,
             numBigStepLevel: NUM_BIGSTEP_LEVEL,
