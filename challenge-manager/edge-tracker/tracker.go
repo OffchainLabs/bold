@@ -427,22 +427,20 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 func (et *Tracker) uniqueTrackerLogFields() log.Ctx {
 	startHeight, startCommit := et.edge.StartCommitment()
 	endHeight, endCommit := et.edge.EndCommitment()
-	_ = startCommit
-	_ = endCommit
 	chalLevel := et.edge.GetChallengeLevel()
 	return log.Ctx{
-		"id": fmt.Sprintf("%#x", et.edge.Id().Hash.Bytes()[:8]),
-		// "fromBatch":            et.associatedAssertionMetadata.FromBatch,
-		// "toBatch":              et.associatedAssertionMetadata.ToBatch,
-		// "claimedAssertionHash": et.associatedAssertionMetadata.ClaimedAssertionHash,
-		"startHeight": startHeight,
-		// "startCommit":          startCommit,
-		"endHeight": endHeight,
-		// "endCommit":            endCommit,
-		"validatorName": et.validatorName,
-		"challengeType": chalLevel.String(),
-		// "originId":             common.Hash(et.edge.OriginId()),
-		// "mutualId":             common.Hash(et.edge.MutualId()),
+		"id":                   fmt.Sprintf("%#x", et.edge.Id().Hash.Bytes()[:4]),
+		"fromBatch":            et.associatedAssertionMetadata.FromBatch,
+		"toBatch":              et.associatedAssertionMetadata.ToBatch,
+		"claimedAssertionHash": fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+		"startHeight":          startHeight,
+		"startCommit":          fmt.Sprintf("%#x", startCommit[:4]),
+		"endHeight":            endHeight,
+		"endCommit":            fmt.Sprintf("%#x", endCommit[:4]),
+		"validatorName":        et.validatorName,
+		"challengeType":        chalLevel.String(),
+		"originId":             fmt.Sprintf("%#x", common.Hash(et.edge.OriginId()).Bytes()[:4]),
+		"mutualId":             fmt.Sprintf("%#x", common.Hash(et.edge.MutualId()).Bytes()[:8]),
 	}
 }
 
