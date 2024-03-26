@@ -192,7 +192,7 @@ func (m *Manager) ExecutionStateAfterParent(ctx context.Context, parentInfo *pro
 		return nil, errors.New("block challenge height is zero")
 	}
 	goGlobalState := protocol.GoGlobalStateFromSolidity(parentInfo.AfterState.GlobalState)
-	return m.stateProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), goGlobalState.BlockHash, layerZeroHeights.BlockChallengeHeight-1)
+	return m.stateProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), &goGlobalState, layerZeroHeights.BlockChallengeHeight-1)
 }
 
 func (m *Manager) ForksDetected() uint64 {

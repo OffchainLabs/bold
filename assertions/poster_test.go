@@ -20,7 +20,6 @@ import (
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,9 +73,9 @@ func TestPostAssertion(t *testing.T) {
 	require.NoError(t, err)
 	chalManager.Start(ctx)
 
-	preState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 0, common.Hash{}, 0)
+	preState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 0)
 	require.NoError(t, err)
-	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, preState.GlobalState.BlockHash, 1)
+	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1)
 	require.NoError(t, err)
 
 	assertionManager, err := assertions.NewManager(

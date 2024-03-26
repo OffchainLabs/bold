@@ -212,7 +212,7 @@ func (s *L2StateBackend) UpdateAPIDatabase(database db.Database) {
 }
 
 // ExecutionStateAfterBatchCount produces the l2 state to assert at the message number specified.
-func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousBlockHash common.Hash, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error) {
+func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
@@ -221,12 +221,12 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 	}
 	blocksSincePrevious := -1
 	for _, st := range s.executionStates {
-		if st.GlobalState.BlockHash == previousBlockHash {
+		if previousGlobalState != nil && st.GlobalState.Equals(*previousGlobalState) {
 			blocksSincePrevious = 0
 		}
 		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious) >= maxNumberOfBlocks) {
-			if blocksSincePrevious < 0 && previousBlockHash != (common.Hash{}) {
-				return nil, fmt.Errorf("missing previous block hash %#x", previousBlockHash)
+			if blocksSincePrevious < 0 && previousGlobalState != nil {
+				return nil, fmt.Errorf("missing previous global state %+v", previousGlobalState)
 			}
 			return st, nil
 		}
