@@ -103,6 +103,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		challengemanager.WithEdgeTrackerWakeInterval(time.Hour),
 	)
 	require.NoError(t, err)
+	aliceChalManager.Start(ctx)
 
 	// Setup an assertion manager for Charlie, and have it process Alice's
 	// assertion creation event at batch 4.
@@ -287,6 +288,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		challengemanager.WithEdgeTrackerWakeInterval(time.Hour),
 	)
 	require.NoError(t, err)
+	chalManager.Start(ctx)
 
 	// Setup an assertion manager for Charlie, and have it process Alice's
 	// assertion creation event at batch 4.
