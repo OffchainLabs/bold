@@ -20,6 +20,7 @@ go_library(
         "//containers",
         "//containers/option",
         "//containers/threadsafe",
+        "//layer2-state-provider",
         "//solgen/go/bridgegen",
         "//solgen/go/challengeV2gen",
         "//solgen/go/ospgen",
