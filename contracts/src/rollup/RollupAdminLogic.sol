@@ -13,6 +13,8 @@ import "../libraries/DoubleLogicUUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeable {
+    using AssertionStateLib for AssertionState;
+
     function initialize(Config calldata config, ContractDependencies calldata connectedContracts)
         external
         override
@@ -60,7 +62,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         stakeToken = config.stakeToken;
         anyTrustFastConfirmer = config.anyTrustFastConfirmer;
 
-        bytes32 genesisExecutionHash = RollupLib.assertionStateHash(config.genesisAssertionState);
+        bytes32 genesisExecutionHash = config.genesisAssertionState.hash();
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
         bytes32 genesisHash = RollupLib.assertionHash({

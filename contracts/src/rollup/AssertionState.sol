@@ -18,4 +18,8 @@ library AssertionStateLib {
     function toExecutionState(AssertionState memory state) internal pure returns (ExecutionState memory) {
         return ExecutionState(state.globalState, state.machineStatus);
     }
+
+    function hash(AssertionState memory state) internal pure returns (bytes32) {
+        return keccak256(abi.encode(state));
+    }
 }

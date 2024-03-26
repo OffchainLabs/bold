@@ -30,12 +30,13 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 
 contract EdgeChallengeManagerTest is Test {
     using ChallengeEdgeLib for ChallengeEdge;
+    using AssertionStateLib for AssertionState;
 
     Random rand = new Random();
     bytes32 genesisBlockHash = rand.hash();
     AssertionState genesisState = StateToolsLib.randomState(rand, 4, genesisBlockHash, MachineStatus.FINISHED);
     bytes32 genesisStateHash = StateToolsLib.mockMachineHash(genesisState);
-    bytes32 genesisAfterStateHash = RollupLib.assertionStateHash(genesisState);
+    bytes32 genesisAfterStateHash = genesisState.hash();
     AssertionStateData genesisStateData = AssertionStateData(genesisState, bytes32(0), bytes32(0));
 
     uint8 public NUM_BIGSTEP_LEVEL = 3;

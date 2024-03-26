@@ -608,6 +608,46 @@ contract RollupTest is Test {
         );
     }
 
+    function testSuccessCreateSecondChildDifferentRoot() public returns (SuccessCreateChallengeData memory data) {
+        (
+            data.beforeState,
+            data.afterState1,
+            data.afterState2,
+            data.genesisInboxCount,
+            data.newInboxCount,
+            data.assertionHash,
+            data.assertionHash2
+        ) = testSuccessCreateSecondChild();
+        AssertionState memory afterState3 = data.afterState2;
+        afterState3.endHistoryRoot = keccak256(abi.encode(afterState3.endHistoryRoot));
+
+        bytes32 expectedAssertionHash3 = RollupLib.assertionHash({
+            parentAssertionHash: genesisHash,
+            afterState: afterState3,
+            inboxAcc: userRollup.bridge().sequencerInboxAccs(0)
+        });
+        vm.prank(validator3);
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
+            assertion: AssertionInputs({
+                beforeState: data.beforeState,
+                beforeStateData: BeforeStateData({
+                    sequencerBatchAcc: bytes32(0),
+                    prevPrevAssertionHash: bytes32(0),
+                    configData: ConfigData({
+                        wasmModuleRoot: WASM_MODULE_ROOT,
+                        requiredStake: BASE_STAKE,
+                        challengeManager: address(challengeManager),
+                        confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
+                        nextInboxPosition: afterState3.globalState.u64Vals[0]
+                    })
+                }),
+                afterState: afterState3
+            }),
+            expectedAssertionHash: expectedAssertionHash3
+        });
+    }
+
     function testRevertConfirmWrongInput() public {
         (bytes32 assertionHash1,,) = testSuccessCreateAssertion();
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
@@ -778,7 +818,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(
-            data.e1Id, AssertionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+            data.e1Id, AssertionStateData(data.afterState1, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + userRollup.challengeGracePeriodBlocks());
@@ -786,7 +826,7 @@ contract RollupTest is Test {
         userRollup.confirmAssertion(
             data.assertionHash,
             genesisHash,
-            firstState,
+            data.afterState1,
             data.e1Id,
             ConfigData({
                 wasmModuleRoot: WASM_MODULE_ROOT,
@@ -806,7 +846,7 @@ contract RollupTest is Test {
         vm.roll(userRollup.getAssertion(genesisHash).firstChildBlock + CONFIRM_PERIOD_BLOCKS + 1);
         vm.warp(block.timestamp + CONFIRM_PERIOD_BLOCKS * 15);
         userRollup.challengeManager().confirmEdgeByTime(
-            data.e1Id, AssertionStateData(firstState, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
+            data.e1Id, AssertionStateData(data.afterState1, genesisHash, userRollup.bridge().sequencerInboxAccs(0))
         );
         bytes32 inboxAcc = userRollup.bridge().sequencerInboxAccs(0);
         vm.roll(block.number + userRollup.challengeGracePeriodBlocks() - 1);
@@ -815,7 +855,7 @@ contract RollupTest is Test {
         userRollup.confirmAssertion(
             data.assertionHash,
             genesisHash,
-            firstState,
+            data.afterState1,
             data.e1Id,
             ConfigData({
                 wasmModuleRoot: WASM_MODULE_ROOT,
@@ -1203,24 +1243,24 @@ contract RollupTest is Test {
     }
 
     function testAssertionStateHash() public {
-        AssertionState memory es = AssertionState(
+        AssertionState memory astate = AssertionState(
             GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
             MachineStatus.FINISHED,
             bytes32(0)
         );
-        bytes32 expectedHash = keccak256(abi.encodePacked(es.machineStatus, es.globalState.hash()));
-        assertEq(RollupLib.assertionStateHash(es), expectedHash, "Unexpected hash");
+        bytes32 expectedHash = keccak256(abi.encode(astate));
+        assertEq(astate.hash(), expectedHash, "Unexpected hash");
     }
 
     function testAssertionHash() public {
         bytes32 parentHash = rand.hash();
-        AssertionState memory es = AssertionState(
+        AssertionState memory astate = AssertionState(
             GlobalState([rand.hash(), rand.hash()], [uint64(uint256(rand.hash())), uint64(uint256(rand.hash()))]),
             MachineStatus.FINISHED,
             bytes32(0)
         );
         bytes32 inboxAcc = rand.hash();
-        bytes32 expectedHash = keccak256(abi.encodePacked(parentHash, RollupLib.assertionStateHash(es), inboxAcc));
-        assertEq(RollupLib.assertionHash(parentHash, es, inboxAcc), expectedHash, "Unexpected hash");
+        bytes32 expectedHash = keccak256(abi.encodePacked(parentHash, astate.hash(), inboxAcc));
+        assertEq(RollupLib.assertionHash(parentHash, astate, inboxAcc), expectedHash, "Unexpected hash");
     }
 }
