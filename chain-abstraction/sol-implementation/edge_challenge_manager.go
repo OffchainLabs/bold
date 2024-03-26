@@ -786,11 +786,11 @@ func newStaticType(t string, internalType string, components []abi.ArgumentMarsh
 
 var bytes32Type = newStaticType("bytes32", "", nil)
 var bytes32ArrayType = newStaticType("bytes32[]", "", []abi.ArgumentMarshaling{{Type: "bytes32"}})
-var executionStateData = newStaticType("tuple", "ExecutionStateData", []abi.ArgumentMarshaling{
+var assertionStateData = newStaticType("tuple", "AssertionStateData", []abi.ArgumentMarshaling{
 	{
 		Type:         "tuple",
-		InternalType: "ExecutionState",
-		Name:         "executionState",
+		InternalType: "AssertionState",
+		Name:         "assertionState",
 		Components: []abi.ArgumentMarshaling{
 			{
 				Type:         "tuple",
@@ -818,6 +818,10 @@ var executionStateData = newStaticType("tuple", "ExecutionStateData", []abi.Argu
 				InternalType: "MachineStatus",
 				Name:         "machineStatus",
 			},
+			{
+				Type: "bytes32",
+				Name: "endHistoryRoot",
+			},
 		},
 	},
 	{
@@ -837,16 +841,16 @@ var blockEdgeCreateProofAbi = abi.Arguments{
 	},
 	{
 		Name: "startState",
-		Type: executionStateData,
+		Type: assertionStateData,
 	},
 	{
 		Name: "endState",
-		Type: executionStateData,
+		Type: assertionStateData,
 	},
 }
 
-type ExecutionStateData struct {
-	ExecutionState    rollupgen.AssertionState
+type AssertionStateData struct {
+	AssertionState    rollupgen.AssertionState
 	PrevAssertionHash [32]byte
 	InboxAcc          [32]byte
 }
@@ -886,13 +890,13 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	}
 	blockEdgeProof, err := blockEdgeCreateProofAbi.Pack(
 		endCommit.LastLeafProof,
-		ExecutionStateData{
-			ExecutionState:    parentAssertionCreation.AfterState,
+		AssertionStateData{
+			AssertionState:    parentAssertionCreation.AfterState,
 			PrevAssertionHash: parentAssertionCreation.ParentAssertionHash,
 			InboxAcc:          parentAssertionCreation.AfterInboxBatchAcc,
 		},
-		ExecutionStateData{
-			ExecutionState:    assertionCreation.AfterState,
+		AssertionStateData{
+			AssertionState:    assertionCreation.AfterState,
 			PrevAssertionHash: assertionCreation.ParentAssertionHash,
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		},
