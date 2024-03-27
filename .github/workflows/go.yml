@@ -165,6 +165,9 @@ jobs:
       - name: Install packages
         run: yarn
 
+      - name: Build
+        run: yarn build:all
+
       - name: Run foundry tests
         run: forge test
 
