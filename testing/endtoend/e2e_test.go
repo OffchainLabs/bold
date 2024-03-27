@@ -11,11 +11,13 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/endtoend/backend"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/testing/setup"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
@@ -74,7 +76,7 @@ func defaultTimeParams() timeParams {
 		challengeMoveInterval:                time.Second,
 		assertionPostingInterval:             time.Hour,
 		assertionScanningInterval:            time.Second,
-		assertionConfirmationAttemptInterval: time.Hour,
+		assertionConfirmationAttemptInterval: time.Second,
 	}
 }
 
@@ -101,7 +103,7 @@ type protocolParams struct {
 func defaultProtocolParams() protocolParams {
 	return protocolParams{
 		numBigStepLevels:      1,
-		challengePeriodBlocks: 150,
+		challengePeriodBlocks: 60,
 		layerZeroHeights: protocol.LayerZeroHeights{
 			BlockChallengeHeight:     1 << 5,
 			BigStepChallengeHeight:   1 << 5,
@@ -132,6 +134,7 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
 	protocolCfg.numBigStepLevels = 2
+	protocolCfg.challengePeriodBlocks = 50
 	// A block can take a max of 2^42 wavm opcodes to validate.
 	protocolCfg.layerZeroHeights = protocol.LayerZeroHeights{
 		BlockChallengeHeight:     1 << 6,
@@ -155,6 +158,7 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 
 func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
+	protocolCfg.challengePeriodBlocks = 50
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Millisecond * 500
 	timeCfg.challengeMoveInterval = time.Millisecond * 500
@@ -176,7 +180,7 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 
 func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 1000
+	protocolCfg.challengePeriodBlocks = 100
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Millisecond * 500
 	timeCfg.challengeMoveInterval = time.Millisecond * 500
@@ -240,6 +244,15 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	_, err = rollupAdminBindings.SetMinimumAssertionPeriod(accounts[0], big.NewInt(1))
 	require.NoError(t, err)
 
+	bk.Commit()
+
+	bridgeAddr, err := rollupAdminBindings.Bridge(&bind.CallOpts{})
+	require.NoError(t, err)
+	bridgeBindings, err := mocksgen.NewBridgeStub(bridgeAddr, bk.Client())
+	require.NoError(t, err)
+	dataHash := [32]byte{1}
+	_, err = bridgeBindings.EnqueueSequencerMessage(accounts[0], dataHash, big.NewInt(1), big.NewInt(1), big.NewInt(2))
+	require.NoError(t, err)
 	bk.Commit()
 
 	baseStateManagerOpts := []statemanager.Opt{

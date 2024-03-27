@@ -70,7 +70,7 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 	if err != nil {
 		return false, err
 	}
-	go tracker.Spawn(ctx)
+	m.LaunchThread(tracker.Spawn)
 
 	srvlog.Info("Successfully created level zero edge for block challenge", log.Ctx{
 		"name":          m.name,
@@ -105,6 +105,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
 			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
+			ClaimId:                     creationInfo.AssertionHash,
 		},
 	)
 	if err != nil {
@@ -125,6 +126,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
 		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(layerZeroHeights.BlockChallengeHeight)),
+		ClaimId:                     creationInfo.AssertionHash,
 	}
 	endCommit, err := m.stateManager.HistoryCommitment(
 		ctx,

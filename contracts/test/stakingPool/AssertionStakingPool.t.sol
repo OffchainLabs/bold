@@ -49,13 +49,13 @@ contract AssertinPoolTest is Test {
     EdgeChallengeManager challengeManager;
 
     GlobalState emptyGlobalState;
-    ExecutionState emptyExecutionState = ExecutionState(emptyGlobalState, MachineStatus.FINISHED);
+    AssertionState emptyAssertionState = AssertionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
     bytes32 genesisHash = RollupLib.assertionHash({
         parentAssertionHash: bytes32(0),
-        afterState: emptyExecutionState,
+        afterState: emptyAssertionState,
         inboxAcc: bytes32(0)
     });
-    ExecutionState firstState;
+    AssertionState firstState;
 
     AssertionStakingPool pool;
 
@@ -75,7 +75,7 @@ contract AssertinPoolTest is Test {
     address rollupAddr;
     AssertionInputs assertionInputs;
     bytes32 assertionHash;
-    ExecutionState afterState;
+    AssertionState afterState;
     uint64 inboxcount;
     address upgradeExecutorAddr;
 
@@ -140,8 +140,8 @@ contract AssertinPoolTest is Test {
             address(0),
             deployHelper
         );
-        ExecutionState memory emptyState =
-            ExecutionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED);
+        AssertionState memory emptyState =
+            AssertionState(GlobalState([bytes32(0), bytes32(0)], [uint64(0), uint64(0)]), MachineStatus.FINISHED, bytes32(0));
         token = new TestWETH9("Test", "TEST");
         IWETH9(address(token)).deposit{value: 21 ether}();
 
@@ -165,7 +165,7 @@ contract AssertinPoolTest is Test {
             stakeToken: address(token),
             wasmModuleRoot: WASM_MODULE_ROOT,
             loserStakeEscrow: address(200001),
-            genesisExecutionState: emptyState,
+            genesisAssertionState: emptyState,
             genesisInboxCount: 0,
             miniStakeValues: miniStakeValues,
             layerZeroBlockEdgeHeight: 2 ** 5,
@@ -209,7 +209,7 @@ contract AssertinPoolTest is Test {
         vm.roll(block.number + 75);
 
         inboxcount = uint64(_createNewBatch());
-        ExecutionState memory beforeState;
+        AssertionState memory beforeState;
         beforeState.machineStatus = MachineStatus.FINISHED;
         afterState.machineStatus = MachineStatus.FINISHED;
         afterState.globalState.bytes32Vals[0] = FIRST_ASSERTION_BLOCKHASH; // blockhash

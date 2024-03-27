@@ -82,7 +82,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     function confirmAssertion(
         bytes32 assertionHash,
         bytes32 prevAssertionHash,
-        ExecutionState calldata confirmState,
+        AssertionState calldata confirmState,
         bytes32 winningEdgeId,
         ConfigData calldata prevConfig,
         bytes32 inboxAcc
@@ -147,7 +147,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param prevAssertionHash The hash of the assertion's parent
      * @param inboxAcc The inbox batch accumulator
      */
-    function computeAssertionHash(bytes32 prevAssertionHash, ExecutionState calldata state, bytes32 inboxAcc)
+    function computeAssertionHash(bytes32 prevAssertionHash, AssertionState calldata state, bytes32 inboxAcc)
         external
         pure
         returns (bytes32)
@@ -197,12 +197,15 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
             "STAKED_ON_ANOTHER_BRANCH"
         );
 
-        uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
-        // Verify that assertion meets the minimum Delta time requirement
-        require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
-
-        bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+        (bytes32 newAssertionHash, bool overflowAssertion) =
+            createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
         _stakerMap[msg.sender].latestStakedAssertion = newAssertionHash;
+
+        if (!overflowAssertion) {
+            uint256 timeSincePrev = block.number - getAssertionStorage(prevAssertion).createdAtBlock;
+            // Verify that assertion meets the minimum Delta time requirement
+            require(timeSincePrev >= minimumAssertionPeriod, "TIME_DELTA");
+        }
 
         if (!getAssertionStorage(newAssertionHash).isFirstChild) {
             // We assume assertion.beforeStateData is valid here as it will be validated in createNewAssertion
@@ -249,7 +252,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     function fastConfirmAssertion(
         bytes32 assertionHash,
         bytes32 parentAssertionHash,
-        ExecutionState calldata confirmState,
+        AssertionState calldata confirmState,
         bytes32 inboxAcc
     ) public whenNotPaused {
         require(msg.sender == anyTrustFastConfirmer, "NOT_FAST_CONFIRMER");
@@ -284,7 +287,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
 
         if (status == AssertionStatus.NoAssertion) {
             // If not exists, we create the new assertion
-            bytes32 newAssertionHash = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
+            (bytes32 newAssertionHash,) = createNewAssertion(assertion, prevAssertion, expectedAssertionHash);
             if (!getAssertionStorage(newAssertionHash).isFirstChild) {
                 // only 1 of the children can be confirmed and get their stake refunded
                 // so we send the other children's stake to the loserStakeEscrow
