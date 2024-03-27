@@ -28,6 +28,7 @@ contracts/build
 contracts/test/storage/*-old.dot
 contracts/coverage
 contracts/lcov.info
+contracts/forge-cache/
 
 .DS_Store
 .env
