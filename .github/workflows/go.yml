@@ -220,6 +220,11 @@ jobs:
         with:
           no-simple: false
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
