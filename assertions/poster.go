@@ -156,8 +156,13 @@ func (m *Manager) PostAssertionBasedOnParent(
 		return none, errors.Wrapf(err, "could not get execution state at batch count %d with parent block hash %v", batchCount, parentBlockHash)
 	}
 
-	if err = m.waitToPostIfNeeded(ctx, parentCreationInfo); err != nil {
-		return none, err
+	// If the assertion is not an overflow assertion (has a 0 position in batch),
+	// then should check if we need to wait for the minimum number of blocks in between
+	// assertions. Overflow ones are not subject to this check onchain.
+	if newState.GlobalState.PosInBatch == 0 {
+		if err = m.waitToPostIfNeeded(ctx, parentCreationInfo); err != nil {
+			return none, err
+		}
 	}
 
 	srvlog.Info(
