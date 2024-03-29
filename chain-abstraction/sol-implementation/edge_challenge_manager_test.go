@@ -5,7 +5,6 @@ package solimpl_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -20,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -205,11 +203,6 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	chain1 := createdData.Chains[0]
 	challengeManager, err := chain1.SpecChallengeManager(ctx)
 	require.NoError(t, err)
-
-	leaves := make([]common.Hash, 4)
-	for i := range leaves {
-		leaves[i] = crypto.Keccak256Hash([]byte(fmt.Sprintf("%d", i)))
-	}
 
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		WasmModuleRoot:              common.Hash{},
@@ -497,9 +490,9 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 
 	chalManager, err := bisectionScenario.topLevelFork.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestChildren1.Id()))
-	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestChildren2.Id()))
-	require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestEdge.Id()))
+	require.NoError(t, chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren1}))
+	require.NoError(t, chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren2}))
+	require.NoError(t, chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge}))
 
 	require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 	s0, err := honestEdge.Status(ctx)
@@ -562,7 +555,7 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	t.Run("confirmed by timer", func(t *testing.T) {
 		chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
 		require.NoError(t, err)
-		require.NoError(t, chalManager.UpdateInheritedTimerByChildren(ctx, honestEdge.Id()))
+		require.NoError(t, chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge}))
 
 		require.NoError(t, honestEdge.ConfirmByTimer(ctx))
 		status, err := honestEdge.Status(ctx)

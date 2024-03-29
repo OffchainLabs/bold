@@ -31,6 +31,7 @@ import (
 
 var (
 	ErrNotFound         = errors.New("item not found on-chain")
+	ErrBatchNotYetFound = errors.New("batch not yet found")
 	ErrAlreadyExists    = errors.New("item already exists on-chain")
 	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
 	ErrTooLate          = errors.New("too late to create assertion sibling")
@@ -66,8 +67,6 @@ type Transactor interface {
 	SendTransaction(ctx context.Context, fn func(opts *bind.TransactOpts) (*types.Transaction, error), opts *bind.TransactOpts, gas uint64) (*types.Transaction, error)
 }
 
-// ChainBackendTransactor is a wrapper around a ChainBackend that implements the Transactor interface.
-// It is useful for testing purposes in bold repository.
 type ChainBackendTransactor struct {
 	ChainBackend
 	fifo *FIFO
@@ -358,7 +357,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get sequencer inbox accummulator at batch %d", postState.GlobalState.Batch-1)
+		return nil, ErrBatchNotYetFound
 	}
 	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
 		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
@@ -400,6 +399,13 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		)
 	})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			assertionItem, err2 := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+			if err2 != nil {
+				return nil, err2
+			}
+			return assertionItem, nil
+		}
 		return nil, fmt.Errorf("could not create assertion: %w", createErr)
 	}
 	if len(receipt.Logs) == 0 {
@@ -423,6 +429,17 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 
 func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
 	return a.userLogic.GenesisAssertionHash(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+}
+
+func (a *AssertionChain) MinAssertionPeriodBlocks(ctx context.Context) (uint64, error) {
+	minPeriod, err := a.rollup.MinimumAssertionPeriod(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return 0, err
+	}
+	if !minPeriod.IsUint64() {
+		return 0, errors.New("minimum assertion period was not a uint64")
+	}
+	return minPeriod.Uint64(), nil
 }
 
 func TryConfirmingAssertion(
@@ -478,6 +495,9 @@ func TryConfirmingAssertion(
 			if strings.Contains(err.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
 				return false, nil
 			}
+			if strings.Contains(err.Error(), "is not the latest confirmed assertion") {
+				return false, nil
+			}
 			return false, err
 
 		}
@@ -485,6 +505,9 @@ func TryConfirmingAssertion(
 		err = chain.ConfirmAssertionByTime(ctx, protocol.AssertionHash{Hash: assertionHash})
 		if err != nil {
 			if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
+				return false, nil
+			}
+			if strings.Contains(err.Error(), "is not the latest confirmed assertion") {
 				return false, nil
 			}
 			return false, err

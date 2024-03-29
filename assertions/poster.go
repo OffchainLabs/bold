@@ -11,8 +11,10 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
@@ -29,6 +31,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 		srvlog.Warn("Staker strategy not configured to stake on latest assertions")
 		return
 	}
+	srvlog.Info("Ready to post")
 	if _, err := m.PostAssertion(ctx); err != nil {
 		if !errors.Is(err, solimpl.ErrAlreadyExists) {
 			srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
@@ -40,11 +43,23 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if _, err := m.PostAssertion(ctx); err != nil {
-				if !errors.Is(err, solimpl.ErrAlreadyExists) {
-					srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err})
+			start := time.Now()
+			srvlog.Info("Attempting to post assertion")
+			opt, err := m.PostAssertion(ctx)
+			if err != nil {
+				switch {
+				case errors.Is(err, solimpl.ErrAlreadyExists):
+				case errors.Is(err, solimpl.ErrBatchNotYetFound):
+					srvlog.Info("Did not post assertion, waiting for more batches")
+				default:
+					srvlog.Error("Could not submit latest assertion to L1", log.Ctx{"err": err, "validatorName": m.validatorName})
 					errorPostingAssertionCounter.Inc(1)
 				}
+			}
+			if opt.IsSome() {
+				srvlog.Info("Posted assertion with hash", log.Ctx{"hash": opt.Unwrap().AssertionHash, "elapsed": time.Since(start)})
+			} else {
+				srvlog.Info("Did not post assertion")
 			}
 		case <-ctx.Done():
 			return
@@ -125,19 +140,31 @@ func (m *Manager) PostAssertionBasedOnParent(
 	// The parent assertion tells us what the next posted assertion's batch should be.
 	// We read this value and use it to compute the required execution state we must post.
 	batchCount := parentCreationInfo.InboxMaxCount.Uint64()
-	newState, err := m.stateManager.ExecutionStateAfterBatchCount(ctx, batchCount)
+	parentBlockHash := protocol.GoGlobalStateFromSolidity(parentCreationInfo.AfterState.GlobalState).BlockHash
+	newState, err := m.ExecutionStateAfterParent(ctx, parentCreationInfo)
 	if err != nil {
 		if errors.Is(err, l2stateprovider.ErrChainCatchingUp) {
 			chainCatchingUpCounter.Inc(1)
 			srvlog.Info(
 				"No available batch to post as assertion, waiting for more batches", log.Ctx{
-					"batchCount": batchCount,
+					"batchCount":      batchCount,
+					"parentBlockHash": containers.Trunc(parentBlockHash[:]),
 				},
 			)
 			return none, nil
 		}
-		return none, errors.Wrapf(err, "could not get execution state at batch count %d", batchCount)
+		return none, errors.Wrapf(err, "could not get execution state at batch count %d with parent block hash %v", batchCount, parentBlockHash)
 	}
+
+	// If the assertion is not an overflow assertion (has a 0 position in batch),
+	// then should check if we need to wait for the minimum number of blocks in between
+	// assertions. Overflow ones are not subject to this check onchain.
+	if newState.GlobalState.PosInBatch == 0 {
+		if err = m.waitToPostIfNeeded(ctx, parentCreationInfo); err != nil {
+			return none, err
+		}
+	}
+
 	srvlog.Info(
 		"Posting assertion with retrieved state", log.Ctx{
 			"batchCount":    batchCount,
@@ -164,4 +191,41 @@ func (m *Manager) PostAssertionBasedOnParent(
 	}
 	m.observedCanonicalAssertions <- assertion.Id()
 	return option.Some(creationInfo), nil
+}
+
+func (m *Manager) waitToPostIfNeeded(
+	ctx context.Context,
+	parentCreationInfo *protocol.AssertionCreatedInfo,
+) error {
+	latestBlock, err := m.backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
+	if err != nil {
+		return err
+	}
+	if !latestBlock.Number.IsUint64() {
+		return errors.New("latest block number not a uint64")
+	}
+	blocksSinceLast := uint64(0)
+	if parentCreationInfo.CreationBlock < latestBlock.Number.Uint64() {
+		blocksSinceLast = latestBlock.Number.Uint64() - parentCreationInfo.CreationBlock
+	}
+	minPeriodBlocks, err := m.chain.MinAssertionPeriodBlocks(ctx)
+	if err != nil {
+		return err
+	}
+	canPostNow := blocksSinceLast >= minPeriodBlocks
+
+	// If we cannot post just yet, we can wait.
+	if !canPostNow {
+		blocksLeftForConfirmation := minPeriodBlocks - blocksSinceLast
+		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+		log.Info(
+			fmt.Sprintf(
+				"Need to wait %d blocks before posting a next assertion, waiting for %v",
+				blocksLeftForConfirmation,
+				timeToWait,
+			),
+		)
+		<-time.After(timeToWait)
+	}
+	return nil
 }
