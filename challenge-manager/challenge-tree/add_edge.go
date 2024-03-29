@@ -193,7 +193,7 @@ func (ht *RoyalChallengeTree) keepTrackOfHonestEdge(eg protocol.SpecEdge) {
 		ht.royalRootEdgesByLevel.Put(reversedChallengeLevel, honestRootEdges)
 	} else {
 		// If the edge is already being tracked, we do not add it again.
-		if rootEdgesAtLevel.Find(func(_ int, e protocol.ReadOnlyEdge) bool {
+		if rootEdgesAtLevel.Find(func(_ int, e protocol.SpecEdge) bool {
 			return e.Id() == id
 		}) {
 			return
