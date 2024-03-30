@@ -470,7 +470,18 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 		log.Error("Could not add verified honest edge to local cache", log.Ctx{"error": err})
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
-	return w.saveEdgeToDB(ctx, edge, true /* is royal */)
+	go func() {
+		if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+			if innerErr := w.saveEdgeToDB(ctx, edge, true /* is royal */); innerErr != nil {
+				srvlog.Error("Could not save edge to db", log.Ctx{"err": innerErr})
+				return false, innerErr
+			}
+			return false, nil
+		}); err != nil {
+			srvlog.Error("Could not save edge to db", log.Ctx{"err": err})
+		}
+	}()
+	return nil
 }
 
 // Filters for all edge added events within a range and processes them.
