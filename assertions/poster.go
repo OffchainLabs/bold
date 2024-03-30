@@ -213,7 +213,7 @@ func (m *Manager) waitToPostIfNeeded(
 	if !canPostNow {
 		blocksLeftForConfirmation := minPeriodBlocks - blocksSinceLast
 		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
-		log.Info(
+		srvlog.Info(
 			fmt.Sprintf(
 				"Need to wait %d blocks before posting next assertion, waiting for %v",
 				blocksLeftForConfirmation,
