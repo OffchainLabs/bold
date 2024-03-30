@@ -455,7 +455,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		"toBatch":          et.associatedAssertionMetadata.ToBatch,
 		"claimedAssertion": fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
 	}
-	srvlog.Info("Updated local challenge timer for edge", localFields)
+	srvlog.Info("Updated edge timer", localFields)
 	// Short circuit early if the edge is confirmable.
 	// We have a few things to check here:
 	// First, if the edge's onchain timer is greater than a challenge period, then we can
