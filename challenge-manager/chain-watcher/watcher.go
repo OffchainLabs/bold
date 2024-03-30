@@ -466,7 +466,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 		"endRoot":        endRoot,
 	}
 	srvlog.Info("Observed an honest challenge edge created onchain, now tracking it locally", fields)
-	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
+	if err = chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
 		log.Error("Could not add verified honest edge to local cache", log.Ctx{"error": err})
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
