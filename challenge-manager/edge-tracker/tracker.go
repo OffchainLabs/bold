@@ -461,7 +461,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	// First, if the edge's onchain timer is greater than a challenge period, then we can
 	// immediately confirm by time by sending a transaction.
 	if onchainTimer >= protocol.InheritedTimer(chalPeriod) {
-		log.Info("Onchain timer is greater than challenge period, now confirming edge by time", localFields)
+		srvlog.Info("Onchain timer is greater than challenge period, now confirming edge by time", localFields)
 		if err := et.edge.ConfirmByTimer(ctx); err != nil {
 			return false, errors.Wrapf(
 				err,
@@ -479,7 +479,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	// challenge tree onchain until the edge has an onchain timer >= a challenge period.
 	// We let our confirmer dependency take care of this confirmatin job.
 	if uint64(computedTimer) >= chalPeriod {
-		log.Info("Local computed timer big enough to confirm edge", localFields)
+		srvlog.Info("Local computed timer big enough to confirm edge", localFields)
 		if err := et.challengeConfirmer.beginConfirmationJob(
 			ctx,
 			assertionHash,
