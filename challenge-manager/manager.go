@@ -257,6 +257,7 @@ func New(
 		return nil, err
 	}
 	m.assertionManager = assertionManager
+	m.edgeTrackerWakeInterval = time.Second * 60
 	return m, nil
 }
 
