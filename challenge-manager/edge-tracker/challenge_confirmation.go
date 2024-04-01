@@ -139,11 +139,13 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	// For each branch, update the inherited timers onchain via transactions and don't
 	// wait for them to reach safe head.
 	var lastPropagationTx *types.Transaction
-	for _, branch := range royalBranches {
+	for i, branch := range royalBranches {
 		tx, innerErr := cc.propageTimerUpdateToBranch(
 			ctx,
 			royalRootEdge,
 			challengedAssertionHash,
+			i,
+			len(royalBranches),
 			branch,
 			challengePeriodBlocks,
 		)
@@ -213,6 +215,8 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	ctx context.Context,
 	royalRootEdge protocol.SpecEdge,
 	claimedAssertionHash protocol.AssertionHash,
+	branchIdx,
+	totalBranches int,
 	branch []protocol.ReadOnlyEdge,
 	challengePeriodBlocks uint64,
 ) (*types.Transaction, error) {
@@ -223,6 +227,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 		"validatorName":               cc.validatorName,
 		"claimedAssertionHash":        fmt.Sprintf("%#x", claimedAssertionHash.Hash[:4]),
 		"royalRootBlockChallengeEdge": fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
+		"branch":                      fmt.Sprintf("%d/%d", branchIdx, totalBranches-1),
 	}
 	tx, err := retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		tx, innerErr := cc.writer.MultiUpdateInheritedTimers(ctx, branch)
@@ -237,8 +242,6 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 		return nil, err
 	}
 	delete(fields, "error")
-
-	srvlog.Info("Updated the onchain inherited timer for royal branch", fields)
 
 	// In each iteration, check if the root edge has a timer >= a challenge period
 	rootTimer, err := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {
@@ -255,10 +258,14 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	}
 	delete(fields, "error")
 
-	// If yes, we confirm the root edge and finish early.
+	fields["onchainTimer"] = rootTimer
+	srvlog.Info("Updated the onchain inherited timer for royal branch", fields)
+
 	if uint64(rootTimer) < challengePeriodBlocks {
 		return tx, nil
 	}
+
+	// If yes, we confirm the root edge and finish early, we do so.
 	srvlog.Info("Branch was confirmable by time", fields)
 	tx, err = retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		innerTx, innerErr := royalRootEdge.ConfirmByTimer(ctx)
