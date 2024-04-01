@@ -433,7 +433,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not update edge inherited timer")
 	}
 	end := time.Since(start)
-	onchainTimer, err := et.edge.InheritedTimer(ctx)
+	onchainTimer, err := et.edge.SafeHeadInheritedTimer(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
 	}
@@ -462,7 +462,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	// immediately confirm by time by sending a transaction.
 	if onchainTimer >= protocol.InheritedTimer(chalPeriod) {
 		srvlog.Info("Onchain timer is greater than challenge period, now confirming edge by time", localFields)
-		if err := et.edge.ConfirmByTimer(ctx); err != nil {
+		if _, err := et.edge.ConfirmByTimer(ctx); err != nil {
 			return false, errors.Wrapf(
 				err,
 				"could not confirm by timer: got timer %d, chal period %d",

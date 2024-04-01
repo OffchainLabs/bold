@@ -154,7 +154,7 @@ func (w *Watcher) IsRoyal(assertionHash protocol.AssertionHash, edgeId protocol.
 	return chal.honestEdgeTree.HasRoyalEdge(edgeId)
 }
 
-func (w *Watcher) InheritedTimer(
+func (w *Watcher) SafeHeadInheritedTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) (protocol.InheritedTimer, error) {
@@ -170,7 +170,7 @@ func (w *Watcher) InheritedTimer(
 		return 0, fmt.Errorf("no edge found with id %#x", edgeId.Hash)
 
 	}
-	return edgeOpt.Unwrap().InheritedTimer(ctx)
+	return edgeOpt.Unwrap().SafeHeadInheritedTimer(ctx)
 }
 
 func (w *Watcher) IsSynced() bool {
@@ -458,13 +458,14 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	start, startRoot := edge.StartCommitment()
 	end, endRoot := edge.EndCommitment()
 	fields := log.Ctx{
-		"edgeId":         edge.Id().Hash,
-		"challengeLevel": edge.GetChallengeLevel(),
-		"assertionHash":  assertionHash.Hash,
-		"startHeight":    start,
-		"endHeight":      end,
-		"startRoot":      startRoot,
-		"endRoot":        endRoot,
+		"edgeId":                  fmt.Sprintf("%#x", edge.Id().Hash.Bytes()[:4]),
+		"challengeLevel":          edge.GetChallengeLevel(),
+		"challengedAssertionHash": fmt.Sprintf("%#x", assertionHash.Hash.Bytes()[:4]),
+		"startHeight":             start,
+		"endHeight":               end,
+		"startCommit":             fmt.Sprintf("%#x", startRoot[:4]),
+		"endCommit":               fmt.Sprintf("%#x", endRoot[:4]),
+		"isHonestEdge":            true,
 	}
 	srvlog.Info("Observed an honest challenge edge created onchain, now tracking it locally", fields)
 	if err = chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
@@ -573,13 +574,13 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		}
 	}
 	fields := log.Ctx{
-		"edgeId":                  edge.Id().Hash,
+		"edgeId":                  fmt.Sprintf("%#x", edge.Id().Hash.Bytes()[:4]),
 		"challengeLevel":          edge.GetChallengeLevel(),
-		"challengedAssertionHash": challengeParentAssertionHash.Hash,
+		"challengedAssertionHash": fmt.Sprintf("%#x", challengeParentAssertionHash.Hash.Bytes()[:4]),
 		"startHeight":             start,
 		"endHeight":               end,
-		"startRoot":               startRoot,
-		"endRoot":                 endRoot,
+		"startCommit":             fmt.Sprintf("%#x", startRoot[:4]),
+		"endCommit":               fmt.Sprintf("%#x", endRoot[:4]),
 		"isHonestEdge":            isRoyalEdge,
 	}
 	if isRoyalEdge {
@@ -848,7 +849,7 @@ func (w *Watcher) saveEdgeToDB(
 	if edge.ClaimId().IsSome() {
 		claimId = common.Hash(edge.ClaimId().Unwrap())
 	}
-	inheritedTimer, err := w.InheritedTimer(ctx, edge.Id())
+	inheritedTimer, err := w.SafeHeadInheritedTimer(ctx, edge.Id())
 	if err != nil {
 		return err
 	}
