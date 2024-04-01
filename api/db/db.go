@@ -4,6 +4,7 @@ package db
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -718,6 +719,11 @@ func (d *SqliteDatabase) InsertEdges(edges []*api.JsonEdge) error {
 }
 
 func (d *SqliteDatabase) InsertEdge(edge *api.JsonEdge) error {
+	// If the inherited timer is the maximum value, set it to the maximum value that can be stored in the database
+	// This is because the sqlite3 does not support the maximum value of uint64
+	if edge.InheritedTimer == math.MaxUint64 {
+		edge.InheritedTimer = (1 << 63) - 1
+	}
 	tx, err := d.sqlDB.Beginx()
 	if err != nil {
 		return err
