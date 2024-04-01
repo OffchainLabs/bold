@@ -11,6 +11,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"sync/atomic"
 	"time"
@@ -885,11 +886,13 @@ func (w *Watcher) saveEdgeToDB(
 	if err != nil {
 		return err
 	}
-	maxSqliteVal := uint64((1 << 64) - 1)
+	inherited := inheritedTimer
+	if inherited == math.MaxUint64 {
+		inherited = (1 << 63) - 1
+	}
 	cumulative := inheritedTimer
-	if uint64(inheritedTimer) > maxSqliteVal {
-		inheritedTimer = protocol.InheritedTimer(maxSqliteVal)
-		cumulative = inheritedTimer
+	if cumulative == math.MaxUint64 {
+		cumulative = (1 << 63) - 1
 	}
 	return w.apiDB.InsertEdge(&api.JsonEdge{
 		Id:                  edge.Id().Hash,
@@ -909,7 +912,7 @@ func (w *Watcher) saveEdgeToDB(
 		UpperChildId:        upperChildId,
 		HasChildren:         hasChildren,
 		IsRoyal:             isRoyal,
-		InheritedTimer:      uint64(inheritedTimer),
+		InheritedTimer:      uint64(inherited),
 		CumulativePathTimer: uint64(cumulative),
 		TimeUnrivaled:       timeUnrivaled,
 		HasRival:            hasRival,
