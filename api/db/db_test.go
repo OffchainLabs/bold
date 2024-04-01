@@ -64,7 +64,7 @@ func TestSqliteDatabase_UpdateEdgeSchema(t *testing.T) {
 	require.NoError(t, err)
 	defer sqlDB.Close()
 
-	err = dbInit(sqlDB, []string{version1})
+	err = dbInit(sqlDB, []string{version1, version2, version3})
 	require.NoError(t, err)
 
 	db := &SqliteDatabase{sqlDB: sqlDB}
