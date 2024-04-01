@@ -59,6 +59,7 @@ type ChallengeTracker interface {
 	IsTrackingEdge(protocol.EdgeId) bool
 	MarkTrackedEdge(protocol.EdgeId, *Tracker)
 	RemovedTrackedEdge(protocol.EdgeId)
+	BlockTimes() time.Duration
 }
 
 // AssociatedAssertionMetadata for the tracked edge.
@@ -150,7 +151,7 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	tr.challengeConfirmer = newChallengeConfirmer(chainWatcher, chalManager, tr.validatorName)
+	tr.challengeConfirmer = newChallengeConfirmer(chainWatcher, chalManager, chain.Backend(), challengeManager.BlockTimes(), tr.validatorName)
 	fsm, err := newEdgeTrackerFsm(
 		EdgeStarted,
 		tr.fsmOpts...,

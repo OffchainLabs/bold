@@ -56,12 +56,16 @@ type RoyalChallengeReader interface {
 func newChallengeConfirmer(
 	challengeReader RoyalChallengeReader,
 	chainWriter ChainWriter,
+	backend protocol.ChainBackend,
+	averageTimeForBlockCreation time.Duration,
 	validatorName string,
 ) *challengeConfirmer {
 	return &challengeConfirmer{
-		reader:        challengeReader,
-		writer:        chainWriter,
-		validatorName: validatorName,
+		reader:                      challengeReader,
+		writer:                      chainWriter,
+		validatorName:               validatorName,
+		averageTimeForBlockCreation: averageTimeForBlockCreation,
+		backend:                     backend,
 	}
 }
 
