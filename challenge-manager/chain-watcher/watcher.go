@@ -852,10 +852,9 @@ func challengedAssertionConfirmableBlock(
 	challengeGracePeriodBlocks uint64,
 ) uint64 {
 	confirmableAtBlock := info.CreationBlock + parentInfo.ConfirmPeriodBlocks
-	if winningEdgeConfirmationBlock > confirmableAtBlock {
-		confirmableAtBlock = winningEdgeConfirmationBlock
+	if winningEdgeConfirmationBlock+challengeGracePeriodBlocks > confirmableAtBlock {
+		confirmableAtBlock = winningEdgeConfirmationBlock + challengeGracePeriodBlocks
 	}
-	confirmableAtBlock += challengeGracePeriodBlocks
 	return confirmableAtBlock
 }
 

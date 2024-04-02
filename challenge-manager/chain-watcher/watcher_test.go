@@ -41,7 +41,7 @@ func Test_challengedAssertionConfirmableBlock(t *testing.T) {
 		}
 		edgeConfirmationBlock := uint64(105)
 		gracePeriodBlocks := uint64(10)
-		want := parentInfo.ConfirmPeriodBlocks + info.CreationBlock + gracePeriodBlocks
+		want := parentInfo.ConfirmPeriodBlocks + info.CreationBlock
 		got := challengedAssertionConfirmableBlock(parentInfo, edgeConfirmationBlock, info, gracePeriodBlocks)
 		require.Equal(t, want, got)
 	})
