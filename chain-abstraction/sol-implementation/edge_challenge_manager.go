@@ -637,7 +637,7 @@ func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 	for _, edgeId := range challengeBranch {
 		edgeIds = append(edgeIds, edgeId.Id().Hash)
 		if challengetree.IsClaimingAnEdge(edgeId) {
-			receipt, err := cm.assertionChain.transact(
+			_, err := cm.assertionChain.transact(
 				ctx,
 				cm.assertionChain.backend,
 				func(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -654,7 +654,7 @@ func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 					"could not update inherited timer for multiple edge ids",
 				)
 			}
-			receipt, err = cm.assertionChain.transact(
+			receipt, err := cm.assertionChain.transact(
 				ctx,
 				cm.assertionChain.backend,
 				func(opts *bind.TransactOpts) (*types.Transaction, error) {
