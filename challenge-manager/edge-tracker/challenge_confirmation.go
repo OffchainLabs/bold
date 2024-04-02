@@ -11,8 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
 )
+
+var onchainTimerDifferAfterConfirmationJobCounter = metrics.NewRegisteredCounter("arb/validator/tracker/onchain_timer_differed_after_confirmation_job", nil)
 
 // Defines a struct which can handle confirming of an entire challenge tree
 // in the BOLD protocol. It does so by updating the inherited timers of royal edges
@@ -186,6 +189,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	// In this scenario, we can dump the confirmation job of royal edges for manual
 	// inspection and debugging
 	if onchainInheritedTimer < protocol.InheritedTimer(challengePeriodBlocks) {
+		onchainTimerDifferAfterConfirmationJobCounter.Inc(1)
 		srvlog.Error(
 			fmt.Sprintf("Onchain timer %d was not >= %d after confirmation job", onchainInheritedTimer, challengePeriodBlocks),
 			fields,
