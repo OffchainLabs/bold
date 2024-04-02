@@ -93,7 +93,7 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 				continue
 			}
 			if _, ok := m.assertionChainData.canonicalAssertions[latestConfirmed.Id()]; !ok {
-				srvlog.Debug("Latest confirmed assertion not in canonical mapping", log.Ctx{"assertionHash": latestConfirmed.Id().Hash})
+				srvlog.Warn("Evil assertion was possibly confirmed", log.Ctx{"assertionHash": latestConfirmed.Id().Hash})
 				evilAssertionConfirmedCounter.Inc(1)
 			}
 			latestConfirmedAssertionGauge.Update(int64(latestConfirmed.CreatedAtBlock()))
