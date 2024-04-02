@@ -772,6 +772,24 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		log.Error("Could not get challenge grace period blocks", log.Ctx{"err": err})
 		return
 	}
+	creationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return w.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimId)})
+	})
+	if err != nil {
+		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	prevCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return w.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	})
+	if err != nil {
+		log.Error("Could not get prev assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	confirmableAfterBlock := edgeConfirmedAtBlock + challengeGracePeriodBlocks
+	if prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock > edgeConfirmedAtBlock+challengeGracePeriodBlocks {
+		confirmableAfterBlock = prevCreationInfo.ConfirmPeriodBlocks + creationInfo.CreationBlock
+	}
 	ticker := time.NewTicker(w.assertionConfirmingInterval)
 	defer ticker.Stop()
 	for {
@@ -779,7 +797,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			confirmed, err := solimpl.TryConfirmingAssertion(ctx, common.Hash(claimId), edgeConfirmedAtBlock+challengeGracePeriodBlocks, w.chain, w.averageTimeForBlockCreation, option.Some(edge.Id()))
+			confirmed, err := solimpl.TryConfirmingAssertion(ctx, common.Hash(claimId), confirmableAfterBlock, w.chain, w.averageTimeForBlockCreation, option.Some(edge.Id()))
 			if err != nil {
 				srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": common.Hash(claimId)})
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
