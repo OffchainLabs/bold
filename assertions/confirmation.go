@@ -92,6 +92,10 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 				srvlog.Debug("Could not fetch latest confirmed assertion", log.Ctx{"error": err})
 				continue
 			}
+			if _, ok := m.assertionChainData.canonicalAssertions[latestConfirmed.Id()]; !ok {
+				srvlog.Debug("Latest confirmed assertion not in canonical mapping", log.Ctx{"assertionHash": latestConfirmed.Id().Hash})
+				evilAssertionConfirmedCounter.Inc(1)
+			}
 			latestConfirmedAssertionGauge.Update(int64(latestConfirmed.CreatedAtBlock()))
 		case <-ctx.Done():
 			return
