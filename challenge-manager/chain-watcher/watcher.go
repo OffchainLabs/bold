@@ -117,6 +117,7 @@ func New(
 		apiDB:                       apiDB,
 		assertionConfirmingInterval: assertionConfirmingInterval,
 		averageTimeForBlockCreation: averageTimeForBlockCreation,
+		evilEdgesByLevel:            threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
 	}, nil
 }
 
