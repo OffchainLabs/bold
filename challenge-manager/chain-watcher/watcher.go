@@ -185,7 +185,7 @@ func (w *Watcher) Start(ctx context.Context) {
 		return w.getStartEndBlockNum(ctx)
 	})
 	if err != nil {
-		srvlog.Error("Could not get start and end block num", log.Ctx{"err": err})
+		srvlog.Error("Could not get start and end block num", log.Ctx{"error": err})
 		return
 	}
 	fromBlock := scanRange.startBlockNum
@@ -196,14 +196,14 @@ func (w *Watcher) Start(ctx context.Context) {
 		return w.chain.SpecChallengeManager(ctx)
 	})
 	if err != nil {
-		srvlog.Error("Could not get spec challenge manager", log.Ctx{"err": err})
+		srvlog.Error("Could not get spec challenge manager", log.Ctx{"error": err})
 		return
 	}
 	filterer, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 	})
 	if err != nil {
-		srvlog.Error("Could not initialize edge challenge manager filterer", log.Ctx{"err": err})
+		srvlog.Error("Could not initialize edge challenge manager filterer", log.Ctx{"error": err})
 		return
 	}
 	filterOpts := &bind.FilterOpts{
@@ -468,7 +468,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	}
 	srvlog.Info("Observed an honest challenge edge created onchain, now tracking it locally", fields)
 	if err = chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
-		log.Error("Could not add verified honest edge to local cache", log.Ctx{"error": err})
+		srvlog.Error("Could not add verified honest edge to local cache", log.Ctx{"error": err})
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
 	go func() {
@@ -769,9 +769,35 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		return w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	})
 	if err != nil {
-		log.Error("Could not get challenge grace period blocks", log.Ctx{"err": err})
+		log.Error("Could not get challenge grace period blocks", log.Ctx{"error": err})
 		return
 	}
+	assertionCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return w.chain.ReadAssertionCreationInfo(
+			ctx, protocol.AssertionHash{Hash: common.Hash(claimId)},
+		)
+	})
+	if err != nil {
+		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	parentCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return w.chain.ReadAssertionCreationInfo(
+			ctx, protocol.AssertionHash{Hash: assertionCreationInfo.ParentAssertionHash},
+		)
+	})
+	if err != nil {
+		log.Error("Could not get parent assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	confirmableAtBlock := assertionCreationInfo.CreationBlock + parentCreationInfo.ConfirmPeriodBlocks
+	if edgeConfirmedAtBlock > confirmableAtBlock {
+		confirmableAtBlock = edgeConfirmedAtBlock
+	}
+	confirmableAtBlock += challengeGracePeriodBlocks
+
+	// Compute the number of blocks until we reach the assertion's
+	// deadline for confirmation.
 	ticker := time.NewTicker(w.assertionConfirmingInterval)
 	defer ticker.Stop()
 	for {
@@ -779,9 +805,16 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			confirmed, err := solimpl.TryConfirmingAssertion(ctx, common.Hash(claimId), edgeConfirmedAtBlock+challengeGracePeriodBlocks, w.chain, w.averageTimeForBlockCreation, option.Some(edge.Id()))
+			confirmed, err := solimpl.TryConfirmingAssertion(
+				ctx,
+				common.Hash(claimId),
+				confirmableAtBlock,
+				w.chain,
+				w.averageTimeForBlockCreation,
+				option.Some(edge.Id()),
+			)
 			if err != nil {
-				srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": common.Hash(claimId)})
+				srvlog.Error("Could not confirm assertion", log.Ctx{"error": err, "assertionHash": common.Hash(claimId)})
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue
 			}
