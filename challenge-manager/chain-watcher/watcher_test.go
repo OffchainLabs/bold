@@ -256,6 +256,9 @@ func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 		"AssertionHash",
 		ctx,
 	).Return(assertionHash, nil)
+	edge.On("Status", ctx).Return(protocol.EdgePending, nil)
+	edge.On("GetTotalChallengeLevels", ctx).Return(uint8(3), nil)
+	edge.On("HasChildren", ctx).Return(false, nil)
 	assertionUnrivaledBlocks := uint64(1)
 	mockChain.On("AssertionUnrivaledBlocks", ctx, assertionHash).Return(assertionUnrivaledBlocks, nil)
 
