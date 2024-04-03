@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ var (
 	ErrAlreadyExists    = errors.New("item already exists on-chain")
 	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
 	ErrTooLate          = errors.New("too late to create assertion sibling")
+	srvlog              = log.New("service", "contract-bindings")
 )
 
 var assertionCreatedId common.Hash
@@ -49,6 +51,7 @@ func init() {
 		panic("RollupCore ABI missing AssertionCreated event")
 	}
 	assertionCreatedId = assertionCreatedEvent.ID
+	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
 }
 
 // ChainBackend to interact with the underlying blockchain.
@@ -431,6 +434,17 @@ func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash,
 	return a.userLogic.GenesisAssertionHash(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 }
 
+func (a *AssertionChain) MinAssertionPeriodBlocks(ctx context.Context) (uint64, error) {
+	minPeriod, err := a.rollup.MinimumAssertionPeriod(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return 0, err
+	}
+	if !minPeriod.IsUint64() {
+		return 0, errors.New("minimum assertion period was not a uint64")
+	}
+	return minPeriod.Uint64(), nil
+}
+
 func TryConfirmingAssertion(
 	ctx context.Context,
 	assertionHash common.Hash,
@@ -464,7 +478,7 @@ func TryConfirmingAssertion(
 		if !confirmable {
 			blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
 			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
-			log.Info(
+			srvlog.Info(
 				fmt.Sprintf(
 					"Assertion with has %s needs at least %d blocks before being confirmable, waiting for %s",
 					containers.Trunc(assertionHash.Bytes()),

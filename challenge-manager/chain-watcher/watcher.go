@@ -11,6 +11,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"sync/atomic"
 	"time"
@@ -84,6 +85,7 @@ type Watcher struct {
 	apiDB                       db.Database
 	assertionConfirmingInterval time.Duration
 	averageTimeForBlockCreation time.Duration
+	evilEdgesByLevel            *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -115,6 +117,7 @@ func New(
 		apiDB:                       apiDB,
 		assertionConfirmingInterval: assertionConfirmingInterval,
 		averageTimeForBlockCreation: averageTimeForBlockCreation,
+		evilEdgesByLevel:            threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
 	}, nil
 }
 
@@ -153,7 +156,7 @@ func (w *Watcher) IsRoyal(assertionHash protocol.AssertionHash, edgeId protocol.
 	return chal.honestEdgeTree.HasRoyalEdge(edgeId)
 }
 
-func (w *Watcher) InheritedTimer(
+func (w *Watcher) SafeHeadInheritedTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) (protocol.InheritedTimer, error) {
@@ -169,7 +172,7 @@ func (w *Watcher) InheritedTimer(
 		return 0, fmt.Errorf("no edge found with id %#x", edgeId.Hash)
 
 	}
-	return edgeOpt.Unwrap().InheritedTimer(ctx)
+	return edgeOpt.Unwrap().SafeHeadInheritedTimer(ctx)
 }
 
 func (w *Watcher) IsSynced() bool {
@@ -184,7 +187,7 @@ func (w *Watcher) Start(ctx context.Context) {
 		return w.getStartEndBlockNum(ctx)
 	})
 	if err != nil {
-		srvlog.Error("Could not get start and end block num", log.Ctx{"err": err})
+		srvlog.Error("Could not get start and end block num", log.Ctx{"error": err})
 		return
 	}
 	fromBlock := scanRange.startBlockNum
@@ -195,14 +198,14 @@ func (w *Watcher) Start(ctx context.Context) {
 		return w.chain.SpecChallengeManager(ctx)
 	})
 	if err != nil {
-		srvlog.Error("Could not get spec challenge manager", log.Ctx{"err": err})
+		srvlog.Error("Could not get spec challenge manager", log.Ctx{"error": err})
 		return
 	}
 	filterer, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 	})
 	if err != nil {
-		srvlog.Error("Could not initialize edge challenge manager filterer", log.Ctx{"err": err})
+		srvlog.Error("Could not initialize edge challenge manager filterer", log.Ctx{"error": err})
 		return
 	}
 	filterOpts := &bind.FilterOpts{
@@ -457,20 +460,32 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 	start, startRoot := edge.StartCommitment()
 	end, endRoot := edge.EndCommitment()
 	fields := log.Ctx{
-		"edgeId":         edge.Id().Hash,
-		"challengeLevel": edge.GetChallengeLevel(),
-		"assertionHash":  assertionHash.Hash,
-		"startHeight":    start,
-		"endHeight":      end,
-		"startRoot":      startRoot,
-		"endRoot":        endRoot,
+		"edgeId":                  fmt.Sprintf("%#x", edge.Id().Hash.Bytes()[:4]),
+		"challengeLevel":          edge.GetChallengeLevel(),
+		"challengedAssertionHash": fmt.Sprintf("%#x", assertionHash.Hash.Bytes()[:4]),
+		"startHeight":             start,
+		"endHeight":               end,
+		"startCommit":             fmt.Sprintf("%#x", startRoot[:4]),
+		"endCommit":               fmt.Sprintf("%#x", endRoot[:4]),
+		"isHonestEdge":            true,
 	}
-	log.Info("Adding verified honest edge to honest edge tree", fields)
-	if err := chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
-		log.Error("Could not add verified royal edge to local tree", log.Ctx{"error": err})
+	srvlog.Info("Observed an honest challenge edge created onchain, now tracking it locally", fields)
+	if err = chal.honestEdgeTree.AddRoyalEdge(edge); err != nil {
+		srvlog.Error("Could not add verified honest edge to local cache", log.Ctx{"error": err})
 		return errors.Wrap(err, "could not add honest edge to challenge tree")
 	}
-	return w.saveEdgeToDB(ctx, edge, true /* is royal */)
+	go func() {
+		if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+			if innerErr := w.saveEdgeToDB(ctx, edge, true /* is royal */); innerErr != nil {
+				srvlog.Error("Could not save edge to db", log.Ctx{"err": innerErr})
+				return false, innerErr
+			}
+			return false, nil
+		}); err != nil {
+			srvlog.Error("Could not save edge to db", log.Ctx{"err": err})
+		}
+	}()
+	return nil
 }
 
 // Filters for all edge added events within a range and processes them.
@@ -561,17 +576,46 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		}
 	}
 	fields := log.Ctx{
-		"edgeId":         edge.Id().Hash,
-		"challengeLevel": edge.GetChallengeLevel(),
-		"assertionHash":  challengeParentAssertionHash.Hash,
-		"startHeight":    start,
-		"endHeight":      end,
-		"startRoot":      startRoot,
-		"endRoot":        endRoot,
-		"isRoyal":        isRoyalEdge,
+		"edgeId":                  fmt.Sprintf("%#x", edge.Id().Hash.Bytes()[:4]),
+		"challengeLevel":          edge.GetChallengeLevel(),
+		"challengedAssertionHash": fmt.Sprintf("%#x", challengeParentAssertionHash.Hash.Bytes()[:4]),
+		"startHeight":             start,
+		"endHeight":               end,
+		"startCommit":             fmt.Sprintf("%#x", startRoot[:4]),
+		"endCommit":               fmt.Sprintf("%#x", endRoot[:4]),
+		"isHonestEdge":            isRoyalEdge,
 	}
-	log.Info("Observed edge from onchain event", fields)
-	return true, w.saveEdgeToDB(ctx, edge, isRoyalEdge)
+	if isRoyalEdge {
+		srvlog.Info("Observed an honest challenge edge created onchain, now tracking it locally", fields)
+	} else {
+		if edge.ClaimId().IsSome() {
+			evilEdges, ok := w.evilEdgesByLevel.TryGet(edge.GetChallengeLevel())
+			if !ok {
+				evilEdges = threadsafe.NewSet[protocol.EdgeId](threadsafe.SetWithMetric[protocol.EdgeId]("evilEdges"))
+				w.evilEdgesByLevel.Put(edge.GetChallengeLevel(), evilEdges)
+			}
+			if evilEdges.NumItems() < 5 {
+				evilEdges.Insert(edge.Id())
+			}
+			if evilEdges.NumItems() >= 5 {
+				srvlog.Warn("High number of evil edges observed", log.Ctx{"numEvilEdges": evilEdges.NumItems(), "challengeLevel": edge.GetChallengeLevel()})
+				metrics.GetOrRegisterCounter("arb/validator/watcher/high_num_evil_edges_at_level_"+fmt.Sprint(edge.GetChallengeLevel()), nil).Inc(1)
+			}
+		}
+		srvlog.Info("Observed an evil edge created onchain from an adversary, will make necessary moves on it", fields)
+	}
+	go func() {
+		if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+			if innerErr := w.saveEdgeToDB(ctx, edge, isRoyalEdge); innerErr != nil {
+				srvlog.Error("Could not save edge to db", log.Ctx{"err": innerErr})
+				return false, innerErr
+			}
+			return false, nil
+		}); err != nil {
+			srvlog.Error("Could not save edge to db", log.Ctx{"err": err})
+		}
+	}()
+	return true, nil
 }
 
 // Processes an edge added event by adding it to the honest challenge tree if it is honest.
@@ -742,9 +786,36 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		return w.chain.RollupUserLogic().RollupUserLogicCaller.ChallengeGracePeriodBlocks(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
 	})
 	if err != nil {
-		log.Error("Could not get challenge grace period blocks", log.Ctx{"err": err})
+		log.Error("Could not get challenge grace period blocks", log.Ctx{"error": err})
 		return
 	}
+	assertionCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return w.chain.ReadAssertionCreationInfo(
+			ctx, protocol.AssertionHash{Hash: common.Hash(claimId)},
+		)
+	})
+	if err != nil {
+		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	parentCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
+		return w.chain.ReadAssertionCreationInfo(
+			ctx, protocol.AssertionHash{Hash: assertionCreationInfo.ParentAssertionHash},
+		)
+	})
+	if err != nil {
+		log.Error("Could not get parent assertion creation info", log.Ctx{"error": err})
+		return
+	}
+	confirmableAtBlock := challengedAssertionConfirmableBlock(
+		parentCreationInfo,
+		edgeConfirmedAtBlock,
+		assertionCreationInfo,
+		challengeGracePeriodBlocks,
+	)
+
+	// Compute the number of blocks until we reach the assertion's
+	// deadline for confirmation.
 	ticker := time.NewTicker(w.assertionConfirmingInterval)
 	defer ticker.Stop()
 	for {
@@ -752,9 +823,16 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			confirmed, err := solimpl.TryConfirmingAssertion(ctx, common.Hash(claimId), edgeConfirmedAtBlock+challengeGracePeriodBlocks, w.chain, w.averageTimeForBlockCreation, option.Some(edge.Id()))
+			confirmed, err := solimpl.TryConfirmingAssertion(
+				ctx,
+				common.Hash(claimId),
+				confirmableAtBlock,
+				w.chain,
+				w.averageTimeForBlockCreation,
+				option.Some(edge.Id()),
+			)
 			if err != nil {
-				srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": common.Hash(claimId)})
+				srvlog.Error("Could not confirm assertion", log.Ctx{"error": err, "assertionHash": common.Hash(claimId)})
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue
 			}
@@ -766,6 +844,19 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 			}
 		}
 	}
+}
+
+func challengedAssertionConfirmableBlock(
+	parentInfo *protocol.AssertionCreatedInfo,
+	winningEdgeConfirmationBlock uint64,
+	info *protocol.AssertionCreatedInfo,
+	challengeGracePeriodBlocks uint64,
+) uint64 {
+	confirmableAtBlock := info.CreationBlock + parentInfo.ConfirmPeriodBlocks
+	if winningEdgeConfirmationBlock+challengeGracePeriodBlocks > confirmableAtBlock {
+		confirmableAtBlock = winningEdgeConfirmationBlock + challengeGracePeriodBlocks
+	}
+	return confirmableAtBlock
 }
 
 type filterRange struct {
@@ -821,7 +912,7 @@ func (w *Watcher) saveEdgeToDB(
 	if edge.ClaimId().IsSome() {
 		claimId = common.Hash(edge.ClaimId().Unwrap())
 	}
-	inheritedTimer, err := w.InheritedTimer(ctx, edge.Id())
+	inheritedTimer, err := w.SafeHeadInheritedTimer(ctx, edge.Id())
 	if err != nil {
 		return err
 	}
@@ -859,27 +950,36 @@ func (w *Watcher) saveEdgeToDB(
 	if err != nil {
 		return err
 	}
+	inherited := inheritedTimer
+	if inherited == math.MaxUint64 {
+		inherited = (1 << 63) - 1
+	}
+	cumulative := inheritedTimer
+	if cumulative == math.MaxUint64 {
+		cumulative = (1 << 63) - 1
+	}
 	return w.apiDB.InsertEdge(&api.JsonEdge{
-		Id:                edge.Id().Hash,
-		ChallengeLevel:    uint8(edge.GetChallengeLevel()),
-		StartHistoryRoot:  startCommit,
-		StartHeight:       uint64(start),
-		EndHistoryRoot:    endCommit,
-		EndHeight:         uint64(end),
-		CreatedAtBlock:    creation,
-		MutualId:          common.Hash(edge.MutualId()),
-		OriginId:          common.Hash(edge.OriginId()),
-		ClaimId:           claimId,
-		MiniStaker:        miniStaker,
-		AssertionHash:     assertionHash.Hash,
-		Status:            status.String(),
-		LowerChildId:      lowerChildId,
-		UpperChildId:      upperChildId,
-		HasChildren:       hasChildren,
-		IsRoyal:           isRoyal,
-		InheritedTimer:    uint64(inheritedTimer),
-		TimeUnrivaled:     timeUnrivaled,
-		HasRival:          hasRival,
-		HasLengthOneRival: hasLengthOneRival,
+		Id:                  edge.Id().Hash,
+		ChallengeLevel:      uint8(edge.GetChallengeLevel()),
+		StartHistoryRoot:    startCommit,
+		StartHeight:         uint64(start),
+		EndHistoryRoot:      endCommit,
+		EndHeight:           uint64(end),
+		CreatedAtBlock:      creation,
+		MutualId:            common.Hash(edge.MutualId()),
+		OriginId:            common.Hash(edge.OriginId()),
+		ClaimId:             claimId,
+		MiniStaker:          miniStaker,
+		AssertionHash:       assertionHash.Hash,
+		Status:              status.String(),
+		LowerChildId:        lowerChildId,
+		UpperChildId:        upperChildId,
+		HasChildren:         hasChildren,
+		IsRoyal:             isRoyal,
+		InheritedTimer:      uint64(inherited),
+		CumulativePathTimer: uint64(cumulative),
+		TimeUnrivaled:       timeUnrivaled,
+		HasRival:            hasRival,
+		HasLengthOneRival:   hasLengthOneRival,
 	})
 }

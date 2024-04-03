@@ -24,8 +24,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
 )
+
+var (
+	errorConfirmingEdgeByOneStepProofCounter = metrics.GetOrRegisterCounter("arb/validator/tracker/error_confirming_edge_by_one_step_proof", nil)
+	invalidInclusionProofCounter             = metrics.GetOrRegisterCounter("arb/validator/tracker/invalid_inclusion_proof", nil)
+)
+
+const InvalidInclusionProofError = "invalid inclusion proof"
 
 func (e *specEdge) Id() protocol.EdgeId {
 	return protocol.EdgeId{Hash: e.id}
@@ -278,30 +286,30 @@ func (e *specEdge) Bisect(
 	return lower, upper, nil
 }
 
-func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
+func (e *specEdge) ConfirmByTimer(ctx context.Context) (*types.Transaction, error) {
 	s, err := e.Status(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if s == protocol.EdgeConfirmed {
-		return nil
+		return nil, nil
 	}
 	if e.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-		return errors.New("only block challenge edges can be confirmed by time")
+		return nil, errors.New("only block challenge edges can be confirmed by time")
 	}
 	if e.ClaimId().IsNone() {
-		return errors.New("only root edges can be confirmed by time")
+		return nil, errors.New("only root edges can be confirmed by time")
 	}
 	assertionHash := protocol.AssertionHash{
 		Hash: e.inner.ClaimId,
 	}
 	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// The confirm by timer used to require a list of ancestors, but it has since
 	// been refactored to use them. However, the function signature still needs this empty list.
-	_, err = e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+	receipt, err := e.manager.assertionChain.transact(ctx, e.manager.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return e.manager.writer.ConfirmEdgeByTime(opts, e.id, challengeV2gen.AssertionStateData{
 			AssertionState: challengeV2gen.AssertionState{
 				GlobalState:    challengeV2gen.GlobalState(assertionCreation.AfterState.GlobalState),
@@ -312,11 +320,18 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) error {
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		})
 	})
-	return errors.Wrapf(
-		err,
-		"could not confirm edge %s by time with tx",
-		containers.Trunc(e.id[:]),
-	)
+	if err != nil {
+		return nil, errors.Wrapf(
+			err,
+			"could not confirm edge %s by time with tx",
+			containers.Trunc(e.id[:]),
+		)
+	}
+	tx, _, err := e.manager.backend.TransactionByHash(ctx, receipt.TxHash)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get transaction by hash: %#x", receipt.TxHash)
+	}
+	return tx, nil
 }
 
 // TopLevelClaimHeight gets the height at the BlockChallenge level that originated a subchallenge.
@@ -541,13 +556,32 @@ func (cm *specChallengeManager) GetEdge(
 	})), nil
 }
 
-func (e *specEdge) InheritedTimer(ctx context.Context) (protocol.InheritedTimer, error) {
+func (e *specEdge) SafeHeadInheritedTimer(ctx context.Context) (protocol.InheritedTimer, error) {
 	edge, err := e.manager.caller.GetEdge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), e.id)
 	if err != nil {
 		return 0, err
 	}
 	if edgetracker.IsRootBlockChallengeEdge(e) {
 		assertionUnrivaledBlocks, err := e.manager.assertionChain.AssertionUnrivaledBlocks(ctx, protocol.AssertionHash{Hash: common.Hash(e.ClaimId().Unwrap())})
+		if err != nil {
+			return 0, err
+		}
+		return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache + assertionUnrivaledBlocks), nil
+	}
+	return protocol.InheritedTimer(edge.TotalTimeUnrivaledCache), nil
+}
+
+func (e *specEdge) LatestInheritedTimer(ctx context.Context) (protocol.InheritedTimer, error) {
+	edge, err := e.manager.caller.GetEdge(&bind.CallOpts{Context: ctx}, e.id)
+	if err != nil {
+		return 0, err
+	}
+	if edgetracker.IsRootBlockChallengeEdge(e) {
+		// TODO: Use latest here as well.
+		assertionUnrivaledBlocks, err := e.manager.assertionChain.AssertionUnrivaledBlocks(
+			ctx,
+			protocol.AssertionHash{Hash: common.Hash(e.ClaimId().Unwrap())},
+		)
 		if err != nil {
 			return 0, err
 		}
@@ -605,13 +639,13 @@ func (cm *specChallengeManager) CalculateEdgeId(
 func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 	ctx context.Context,
 	challengeBranch []protocol.ReadOnlyEdge,
-) error {
+) (*types.Transaction, error) {
 	edgeIds := make([][32]byte, 0)
-	for index, edgeId := range challengeBranch {
-		_ = index
+	var lastReceipt *types.Receipt
+	for _, edgeId := range challengeBranch {
 		edgeIds = append(edgeIds, edgeId.Id().Hash)
 		if challengetree.IsClaimingAnEdge(edgeId) {
-			if _, err := cm.assertionChain.transact(
+			_, err := cm.assertionChain.transact(
 				ctx,
 				cm.assertionChain.backend,
 				func(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -619,13 +653,16 @@ func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 						opts,
 						edgeIds,
 					)
-				}); err != nil {
-				return errors.Wrap(
+				},
+				withoutSafeWait(),
+			)
+			if err != nil {
+				return nil, errors.Wrap(
 					err,
 					"could not update inherited timer for multiple edge ids",
 				)
 			}
-			if _, err := cm.assertionChain.transact(
+			receipt, err := cm.assertionChain.transact(
 				ctx,
 				cm.assertionChain.backend,
 				func(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -634,17 +671,21 @@ func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 						edgeId.ClaimId().Unwrap(),
 						edgeId.Id().Hash,
 					)
-				}); err != nil {
-				return errors.Wrap(
+				},
+				withoutSafeWait(),
+			)
+			if err != nil {
+				return nil, errors.Wrap(
 					err,
 					"could not update inherited timer for multiple edge ids",
 				)
 			}
 			edgeIds = make([][32]byte, 0)
+			lastReceipt = receipt
 		}
 	}
 	if len(edgeIds) > 0 {
-		if _, err := cm.assertionChain.transact(
+		receipt, err := cm.assertionChain.transact(
 			ctx,
 			cm.assertionChain.backend,
 			func(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -652,14 +693,22 @@ func (cm *specChallengeManager) MultiUpdateInheritedTimers(
 					opts,
 					edgeIds,
 				)
-			}); err != nil {
-			return errors.Wrap(
+			},
+			withoutSafeWait(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(
 				err,
 				"could not update inherited timer for multiple edge ids",
 			)
 		}
+		lastReceipt = receipt
 	}
-	return nil
+	tx, _, err := cm.backend.TransactionByHash(ctx, lastReceipt.TxHash)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get transaction by hash: %#x", lastReceipt.TxHash)
+	}
+	return tx, nil
 }
 
 // ConfirmEdgeByOneStepProof checks a one step proof for a tentative winner edge id
@@ -763,6 +812,7 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 				post,
 			)
 		}); err != nil {
+		errorConfirmingEdgeByOneStepProofCounter.Inc(1)
 		return errors.Wrapf(
 			err,
 			"could not confirm one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
@@ -937,6 +987,9 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		)
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), InvalidInclusionProofError) {
+			invalidInclusionProofCounter.Inc(1)
+		}
 		return nil, fmt.Errorf("could not create root block challenge edge: %w", err)
 	}
 	if len(receipt.Logs) == 0 {
@@ -1046,6 +1099,9 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		)
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), InvalidInclusionProofError) {
+			invalidInclusionProofCounter.Inc(1)
+		}
 		return nil, err
 	}
 
