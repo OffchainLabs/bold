@@ -6,6 +6,7 @@ package assertions_test
 import (
 	"context"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,18 +14,23 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/OffchainLabs/bold/util"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	setup, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockOneStepProver(),
+		setup.WithMockBridge(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
 				BlockChallengeHeight:     64,
@@ -125,9 +131,19 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 
 	// We have bob post an assertion at batch 2.
 	dataHash := [32]byte{1}
-	_, err = bridgeBindings.EnqueueSequencerMessage(setup.Accounts[0].TxOpts, dataHash, big.NewInt(1), big.NewInt(1), big.NewInt(2))
-	require.NoError(t, err)
-	setup.Backend.Commit()
+	enqueueSequencerMessageAsExecutor(
+		t,
+		setup.Accounts[0].TxOpts,
+		setup.Addrs.UpgradeExecutor,
+		setup.Backend,
+		setup.Addrs.Bridge,
+		seqMessage{
+			dataHash:                 dataHash,
+			afterDelayedMessagesRead: big.NewInt(1),
+			prevMessageCount:         big.NewInt(1),
+			newMessageCount:          big.NewInt(2),
+		},
+	)
 
 	genesisState, err := bobStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1<<26)
 	require.NoError(t, err)
@@ -313,4 +329,33 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 
 	// But blockhash should not match.
 	require.NotEqual(t, charliePostState.GlobalState.BlockHash, alicePostState.GlobalState.BlockHash)
+}
+
+type seqMessage struct {
+	dataHash                 common.Hash
+	afterDelayedMessagesRead *big.Int
+	prevMessageCount         *big.Int
+	newMessageCount          *big.Int
+}
+
+func enqueueSequencerMessageAsExecutor(
+	t *testing.T,
+	opts *bind.TransactOpts,
+	executor common.Address,
+	backend *backends.SimulatedBackend,
+	bridge common.Address,
+	msg seqMessage,
+) {
+	execBindings, err := mocksgen.NewUpgradeExecutorMock(executor, backend)
+	require.NoError(t, err)
+	seqInboxABI, err := abi.JSON(strings.NewReader(bridgegen.AbsBridgeABI))
+	require.NoError(t, err)
+	seqQueueMsg, err := seqInboxABI.Pack(
+		"enqueueSequencerMessage",
+		msg.dataHash, msg.afterDelayedMessagesRead, msg.prevMessageCount, msg.newMessageCount,
+	)
+	require.NoError(t, err)
+	_, err = execBindings.ExecuteCall(opts, bridge, seqQueueMsg)
+	require.NoError(t, err)
+	backend.Commit()
 }

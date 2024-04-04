@@ -42,11 +42,11 @@ contract BridgeStub is IBridge, IEthBridge {
     }
 
     function allowedOutboxes(address) external pure override returns (bool) {
-        revert("NOT_IMPLEMENTED");
+        // revert("NOT_IMPLEMENTED");
     }
 
     function updateRollupAddress(IOwnable) external pure {
-        revert("NOT_IMPLEMENTED");
+        // revert("NOT_IMPLEMENTED");
     }
 
     function enqueueDelayedMessage(
@@ -133,11 +133,21 @@ contract BridgeStub is IBridge, IEthBridge {
     }
 
     function executeCall(
-        address,
-        uint256,
-        bytes calldata
-    ) external pure override returns (bool, bytes memory) {
-        revert("NOT_IMPLEMENTED");
+        address to,
+        uint256 value,
+        bytes calldata data
+    ) external override returns (bool success, bytes memory returnData) {
+        (success, returnData) = _executeLowLevelCall(to, value, data);
+        emit BridgeCallTriggered(msg.sender, to, value, data);
+    }
+
+     function _executeLowLevelCall(
+        address to,
+        uint256 value,
+        bytes memory data
+    ) internal returns (bool success, bytes memory returnData) {
+        // solhint-disable-next-line avoid-low-level-calls
+        (success, returnData) = to.call{value: value}(data);
     }
 
     function setDelayedInbox(address inbox, bool enabled) external override {
@@ -164,7 +174,7 @@ contract BridgeStub is IBridge, IEthBridge {
         address, /* outbox */
         bool /* enabled*/
     ) external pure override {
-        revert("NOT_IMPLEMENTED");
+        // revert("NOT_IMPLEMENTED");
     }
 
     function delayedMessageCount() external view override returns (uint256) {
@@ -176,12 +186,12 @@ contract BridgeStub is IBridge, IEthBridge {
     }
 
     function rollup() external pure override returns (IOwnable) {
-        revert("NOT_IMPLEMENTED");
+        // revert("NOT_IMPLEMENTED");
     }
 
     function acceptFundsFromOldBridge() external payable {}
 
     function initialize(IOwnable) external pure {
-        revert("NOT_IMPLEMENTED");
+        // revert("NOT_IMPLEMENTED");
     }
 }

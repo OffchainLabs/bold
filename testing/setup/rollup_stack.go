@@ -191,6 +191,12 @@ func WithMockOneStepProver() Opt {
 	}
 }
 
+func WithMockBridge() Opt {
+	return func(setup *ChainSetup) {
+		setup.useMockBridge = false
+	}
+}
+
 func WithChallengeTestingOpts(opts ...challenge_testing.Opt) Opt {
 	return func(setup *ChainSetup) {
 		setup.challengeTestingOpts = opts
@@ -413,6 +419,7 @@ type RollupAddresses struct {
 	RollupUserLogic        common.Address `json:"rollup-user-logic"`
 	ValidatorUtils         common.Address `json:"validator-utils"`
 	ValidatorWalletCreator common.Address `json:"validator-wallet-creator"`
+	UpgradeExecutor        common.Address `json:"upgrade-executor"`
 	DeployedAt             uint64         `json:"deployed-at"`
 }
 
@@ -526,20 +533,6 @@ func DeployFullRollupStack(
 	if committer, ok := backend.(Committer); ok {
 		committer.Commit()
 	}
-	userLogic, err := rollupgen.NewRollupUserLogic(info.RollupAddress, backend)
-	if err != nil {
-		return nil, err
-	}
-	disabled, err := userLogic.ValidatorWhitelistDisabled(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-	minPeriod, err := userLogic.MinimumAssertionPeriod(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println("Done", minPeriod, disabled)
-
 	if !creationReceipt.BlockNumber.IsUint64() {
 		return nil, errors.New("block number was not a uint64")
 	}
@@ -554,6 +547,7 @@ func DeployFullRollupStack(
 		RollupUserLogic:        rollupUserAddr,
 		ValidatorUtils:         validatorUtils,
 		ValidatorWalletCreator: validatorWalletCreator,
+		UpgradeExecutor:        info.UpgradeExecutor,
 	}, nil
 }
 

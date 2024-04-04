@@ -82,7 +82,7 @@ func TestNewStakeOnNewAssertion(t *testing.T) {
 
 func TestStakeOnNewAssertion(t *testing.T) {
 	ctx := context.Background()
-	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockBridge())
+	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
 	backend := cfg.Backend
