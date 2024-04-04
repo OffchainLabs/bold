@@ -247,9 +247,19 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	count := int64(1)
 	for batch := 2; batch <= 4; batch++ {
 		dataHash := [32]byte{1}
-		_, err = bridgeBindings.EnqueueSequencerMessage(setup.Accounts[0].TxOpts, dataHash, big.NewInt(1), big.NewInt(count), big.NewInt(count+1))
-		require.NoError(t, err)
-		setup.Backend.Commit()
+		enqueueSequencerMessageAsExecutor(
+			t,
+			setup.Accounts[0].TxOpts,
+			setup.Addrs.UpgradeExecutor,
+			setup.Backend,
+			setup.Addrs.Bridge,
+			seqMessage{
+				dataHash:                 dataHash,
+				afterDelayedMessagesRead: big.NewInt(1),
+				prevMessageCount:         big.NewInt(count),
+				newMessageCount:          big.NewInt(count + 1),
+			},
+		)
 		count += 1
 
 		prevInfo, err2 := aliceChain.ReadAssertionCreationInfo(ctx, aliceAssertion.Id())
