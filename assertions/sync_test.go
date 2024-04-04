@@ -32,7 +32,6 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 	})
 
 	setup, err := setup.ChainsWithEdgeChallengeManager(
-		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{

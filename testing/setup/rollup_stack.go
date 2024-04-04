@@ -185,12 +185,6 @@ type ChainSetup struct {
 
 type Opt func(setup *ChainSetup)
 
-func WithMockBridge() Opt {
-	return func(setup *ChainSetup) {
-		setup.useMockBridge = true
-	}
-}
-
 func WithMockOneStepProver() Opt {
 	return func(setup *ChainSetup) {
 		setup.useMockOneStepProver = true

@@ -24,7 +24,6 @@ import (
 
 func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	setup, err := setup.ChainsWithEdgeChallengeManager(
-		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
@@ -158,7 +157,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	// and then we have another validator that disagrees with 4, so Charlie
 	// should open a 4' that branches off 3.
 	setup, err := setup.ChainsWithEdgeChallengeManager(
-		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
