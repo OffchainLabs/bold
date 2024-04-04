@@ -14,7 +14,6 @@ import (
 	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
 	"github.com/OffchainLabs/bold/testing/setup"
@@ -39,12 +38,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
-
-	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(setup.Addrs.Rollup, setup.Backend)
-	require.NoError(t, err)
-	_, err = rollupAdminBindings.SetMinimumAssertionPeriod(setup.Accounts[0].TxOpts, big.NewInt(1))
-	require.NoError(t, err)
-	setup.Backend.Commit()
 
 	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
 	require.NoError(t, err)
@@ -179,12 +172,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
-
-	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(setup.Addrs.Rollup, setup.Backend)
-	require.NoError(t, err)
-	_, err = rollupAdminBindings.SetMinimumAssertionPeriod(setup.Accounts[0].TxOpts, big.NewInt(1))
-	require.NoError(t, err)
-	setup.Backend.Commit()
 
 	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
 	require.NoError(t, err)

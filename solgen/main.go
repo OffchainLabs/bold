@@ -91,14 +91,14 @@ func main() {
 		name := file[:len(file)-5]
 
 		//#nosec G304
-		data, err := os.ReadFile(path)
-		if err != nil {
-			log.Fatal("could not read", path, "for contract", name, err)
+		data, innerErr := os.ReadFile(path)
+		if innerErr != nil {
+			log.Fatal("could not read", path, "for contract", name, innerErr)
 		}
 
 		artifact := HardHatArtifact{}
-		if err := json.Unmarshal(data, &artifact); err != nil {
-			log.Fatal("errored when parsing contract", name, err)
+		if err2 := json.Unmarshal(data, &artifact); err2 != nil {
+			log.Fatal("errored when parsing contract", name, err2)
 		}
 		modInfo := modules[module]
 		if modInfo == nil {

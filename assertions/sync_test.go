@@ -47,12 +47,6 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
 
-	rollupAdminBindings, err := rollupgen.NewRollupAdminLogic(setup.Addrs.Rollup, setup.Backend)
-	require.NoError(t, err)
-	_, err = rollupAdminBindings.SetMinimumAssertionPeriod(setup.Accounts[0].TxOpts, big.NewInt(1))
-	require.NoError(t, err)
-	setup.Backend.Commit()
-
 	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), msgCount.Uint64())

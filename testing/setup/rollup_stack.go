@@ -506,9 +506,9 @@ func DeployFullRollupStack(
 	}
 	// if a zero sequencer address is specified, don't authorize any sequencers
 	if sequencer != (common.Address{}) {
-		setIsBatchPoster, err := seqInboxABI.Pack("setIsBatchPoster", deployAuth.From, true)
-		if err != nil {
-			return nil, err
+		setIsBatchPoster, err2 := seqInboxABI.Pack("setIsBatchPoster", deployAuth.From, true)
+		if err2 != nil {
+			return nil, err2
 		}
 		txs[info.SequencerInbox] = append(txs[info.SequencerInbox], setIsBatchPoster)
 	}
@@ -684,32 +684,32 @@ func deployBridgeCreator(
 
 	/// deploy ERC20 based templates
 	erc20BridgeTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
-		addr, _, _, err := bridgegen.DeployERC20Bridge(auth, backend)
-		return addr, err
+		addr, _, _, innerErr := bridgegen.DeployERC20Bridge(auth, backend)
+		return addr, innerErr
 	})
 	if err != nil {
 		return common.Address{}, err
 	}
 
 	erc20InboxTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
-		addr, _, _, err := bridgegen.DeployERC20Inbox(auth, backend, maxDataSize)
-		return addr, err
+		addr, _, _, innerErr := bridgegen.DeployERC20Inbox(auth, backend, maxDataSize)
+		return addr, innerErr
 	})
 	if err != nil {
 		return common.Address{}, err
 	}
 
 	erc20RollupEventBridgeTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
-		addr, _, _, err := rollupgen.DeployERC20RollupEventInbox(auth, backend)
-		return addr, err
+		addr, _, _, innerErr := rollupgen.DeployERC20RollupEventInbox(auth, backend)
+		return addr, innerErr
 	})
 	if err != nil {
 		return common.Address{}, err
 	}
 
 	erc20OutboxTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
-		addr, _, _, err := bridgegen.DeployERC20Outbox(auth, backend)
-		return addr, err
+		addr, _, _, innerErr := bridgegen.DeployERC20Outbox(auth, backend)
+		return addr, innerErr
 	})
 	if err != nil {
 		return common.Address{}, err
