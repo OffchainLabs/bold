@@ -360,6 +360,18 @@ func enqueueSequencerMessageAsExecutor(
 	require.NoError(t, err)
 	seqInboxABI, err := abi.JSON(strings.NewReader(bridgegen.AbsBridgeABI))
 	require.NoError(t, err)
+
+	data, err := seqInboxABI.Pack(
+		"setSequencerInbox",
+		executor,
+	)
+	require.NoError(t, err)
+	_, err = execBindings.ExecuteCall(opts, bridge, data)
+	require.NoError(t, err)
+	if comm, ok := backend.(committer); ok {
+		comm.Commit()
+	}
+
 	seqQueueMsg, err := seqInboxABI.Pack(
 		"enqueueSequencerMessage",
 		msg.dataHash, msg.afterDelayedMessagesRead, msg.prevMessageCount, msg.newMessageCount,
