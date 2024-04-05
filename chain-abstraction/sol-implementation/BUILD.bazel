@@ -53,6 +53,7 @@ go_test(
         "//chain-abstraction:protocol",
         "//containers/option",
         "//layer2-state-provider",
+        "//solgen/go/bridgegen",
         "//solgen/go/mocksgen",
         "//solgen/go/rollupgen",
         "//state-commitments/history",
