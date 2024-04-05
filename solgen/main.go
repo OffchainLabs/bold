@@ -121,6 +121,7 @@ func main() {
 		_, file := filepath.Split(path)
 		name := file[:len(file)-5]
 
+		//#nosec G304
 		data, err := os.ReadFile(path)
 		if err != nil {
 			log.Fatal("could not read", path, "for contract", name, err)
