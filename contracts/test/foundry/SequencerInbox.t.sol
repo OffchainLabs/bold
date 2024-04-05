@@ -184,7 +184,7 @@ contract SequencerInboxTest is Test {
             );
 
             // spending report
-            vm.expectEmit();
+            vm.expectEmit(true, false, false, false);
             emit MessageDelivered(
                 delayedMessagesRead,
                 delayedAcc,
@@ -197,12 +197,12 @@ contract SequencerInboxTest is Test {
             );
 
             // spending report event in seq inbox
-            vm.expectEmit();
+            vm.expectEmit(true, false, false, false);
             emit InboxMessageDelivered(delayedMessagesRead, spendingReportMsg);
         }
 
         // sequencer batch delivered
-        vm.expectEmit();
+        vm.expectEmit(true, false, false, false);
         emit SequencerBatchDelivered(
             sequenceNumber,
             beforeAcc,
