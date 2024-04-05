@@ -23,7 +23,7 @@ abstract contract AbsInboxTest is Test {
 
     /* solhint-disable func-name-mixedcase */
     function test_getProxyAdmin() public {
-        assertNotEq(inbox.getProxyAdmin(), address(0), "Invalid proxy admin");
+        assertFalse(inbox.getProxyAdmin() == address(0), "Invalid proxy admin");
     }
 
     function test_setAllowList() public {
