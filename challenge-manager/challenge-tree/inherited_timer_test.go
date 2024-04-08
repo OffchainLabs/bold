@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_recursiveInheritedTimerCompute(t *testing.T) {
+func Test_IterativeInheritedTimerCompute(t *testing.T) {
 	ctx := context.Background()
 	edge := newEdge(&newCfg{t: t, edgeId: "smol-0.a-1.a", createdAt: 0})
 	edge.TotalChallengeLevels = 3
@@ -30,17 +30,17 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 	ht.edges.Put(edge.Id(), edge)
 
 	t.Run("one step proven edge returns max uint64", func(t *testing.T) {
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, edge.Id(), 1)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, edge.Id(), 1)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(math.MaxUint64), timer)
 	})
 	t.Run("edge without children and not subchallenged returns time unrivaled", func(t *testing.T) {
 		edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-16.a", createdAt: 1})
 		ht.edges.Put(edge.Id(), edge)
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, edge.Id(), 10)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, edge.Id(), 10)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(9), timer)
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, edge.Id(), 20)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, edge.Id(), 20)
 		require.NoError(t, err)
 		require.Equal(t, protocol.InheritedTimer(19), timer)
 	})
@@ -51,7 +51,7 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		ht.edges.Put(edge.Id(), edge)
 
 		blockNum := uint64(10)
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		expectedEdgeLocalTimer := blockNum - edge.CreationBlock
 
@@ -65,18 +65,18 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		ht.edges.Put(upperChild.Id(), upperChild)
 
 		// Then, we update the children. We check the children's inherited timers.
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, lowerChild.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, lowerChild.Id(), blockNum)
 		require.NoError(t, err)
 		expectedLowerChild := blockNum - lowerChild.CreationBlock
 		require.Equal(t, expectedLowerChild, uint64(timer))
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, upperChild.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, upperChild.Id(), blockNum)
 		require.NoError(t, err)
 		expectedUpperChild := blockNum - upperChild.CreationBlock
 		require.Equal(t, expectedUpperChild, uint64(timer))
 
 		// Now, we update the parent again and should see it add to its local timer the minimum
 		// of its children's inherited timers.
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		expected := expectedEdgeLocalTimer + expectedLowerChild
 		require.Equal(t, expected, uint64(timer))
@@ -89,7 +89,7 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 
 		// Before updating children.
 		blockNum := uint64(10)
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		expected := blockNum - edge.CreationBlock
 		require.Equal(t, expected, uint64(timer))
@@ -102,15 +102,15 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		ht.edges.Put(upperChild.Id(), upperChild)
 		ht.edges.Put(edge.Id(), edge)
 
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, lowerChild.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, lowerChild.Id(), blockNum)
 		require.NoError(t, err)
 		require.Equal(t, uint64(math.MaxUint64), uint64(timer))
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, upperChild.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, upperChild.Id(), blockNum)
 		require.NoError(t, err)
 		require.Equal(t, uint64(math.MaxUint64), uint64(timer))
 
 		// After updating children.
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		require.Equal(t, uint64(math.MaxUint64), uint64(timer))
 	})
@@ -122,7 +122,7 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 
 		// Before updating children.
 		blockNum := uint64(10)
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		expected := blockNum - edge.CreationBlock
 		require.Equal(t, expected, uint64(timer))
@@ -134,16 +134,16 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		ht.edges.Put(upperChild.Id(), upperChild)
 		ht.edges.Put(edge.Id(), edge)
 
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, lowerChild.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, lowerChild.Id(), blockNum)
 		require.NoError(t, err)
 		require.Equal(t, uint64(math.MaxUint64), uint64(timer))
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, upperChild.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, upperChild.Id(), blockNum)
 		require.NoError(t, err)
 		expectedUpperChild := blockNum - upperChild.CreationBlock
 		require.Equal(t, expectedUpperChild, uint64(timer))
 
 		// After updating children.
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		require.Equal(t, expected+expectedUpperChild, uint64(timer))
 	})
@@ -153,7 +153,7 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		blockNum := uint64(10)
 
 		// Edge just returns its time unrivaled.
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		expected := blockNum - edge.CreationBlock
 		require.Equal(t, expected, uint64(timer))
@@ -162,7 +162,7 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		// and checks we updated our local cache after that.
 		edge.InnerInheritedTimer = 100
 		ht.edges.Put(edge.Id(), edge)
-		timer, err = ht.recursiveInheritedTimerCompute(ctx, edge.Id(), blockNum)
+		timer, err = ht.iterativeInheritedTimerCompute(ctx, edge.Id(), blockNum)
 		require.NoError(t, err)
 		require.Equal(t, uint64(100), uint64(timer))
 	})
@@ -174,7 +174,7 @@ func Test_recursiveInheritedTimerCompute(t *testing.T) {
 		ht.edges.Put(claimedEdge.Id(), claimedEdge)
 
 		blockNum := uint64(10)
-		timer, err := ht.recursiveInheritedTimerCompute(ctx, claimedEdge.Id(), blockNum)
+		timer, err := ht.iterativeInheritedTimerCompute(ctx, claimedEdge.Id(), blockNum)
 		require.NoError(t, err)
 		expectedClaimed := blockNum - claimedEdge.CreationBlock
 		expectedClaiming := blockNum - claimingEdge.CreationBlock

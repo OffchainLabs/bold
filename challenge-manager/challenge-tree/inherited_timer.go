@@ -26,86 +26,108 @@ func (ht *RoyalChallengeTree) ComputeRootInheritedTimer(
 	if err != nil {
 		return 0, err
 	}
-	inheritedTimer, err := ht.recursiveInheritedTimerCompute(ctx, royalRootEdge.Id(), blockNum)
+	inheritedTimer, err := ht.iterativeInheritedTimerCompute(ctx, royalRootEdge.Id(), blockNum)
 	if err != nil {
 		return 0, err
 	}
 	return saturatingSum(inheritedTimer, protocol.InheritedTimer(assertionUnrivaledBlocks)), nil
 }
 
-func (ht *RoyalChallengeTree) recursiveInheritedTimerCompute(
+func (ht *RoyalChallengeTree) iterativeInheritedTimerCompute(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 	blockNum uint64,
 ) (protocol.InheritedTimer, error) {
-	edge, ok := ht.edges.TryGet(edgeId)
-	if !ok {
-		return 0, nil
-	}
-	status, err := edge.Status(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if isOneStepProven(ctx, edge, status) {
-		return math.MaxUint64, nil
-	}
-	localTimer, err := ht.LocalTimer(edge, blockNum)
-	if err != nil {
-		return 0, err
-	}
-	// If length one, find the edge that claims it,
-	// compute the recursive timer for it. If the onchain is bigger, return the onchain here.
-	if hasLengthOne(edge) {
-		onchainTimer, innerErr := edge.SafeHeadInheritedTimer(ctx)
-		if innerErr != nil {
-			return 0, innerErr
+	// inheritedTimers maps edgeId to the inherited timer of that edge
+	// This is used to avoid recomputing the inherited timer of an edge
+	inheritedTimers := make(map[protocol.EdgeId]protocol.InheritedTimer)
+	// stack is used to keep track of the edges whose inherited timer needs to be computed
+	stack := []protocol.EdgeId{edgeId}
+
+	var result protocol.InheritedTimer
+	for len(stack) > 0 {
+		top := len(stack) - 1
+		item := stack[top]
+		stack = stack[:top]
+
+		edge, ok := ht.edges.TryGet(item)
+		if !ok {
+			continue
 		}
-		claimingEdgeTimer := protocol.InheritedTimer(0)
-		claimingEdge, ok := ht.findClaimingEdge(ctx, edge.Id())
-		if ok {
-			claimingEdgeTimer, innerErr = ht.recursiveInheritedTimerCompute(
-				ctx,
-				claimingEdge.Id(),
-				blockNum,
-			)
+		status, err := edge.Status(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if isOneStepProven(ctx, edge, status) {
+			result = math.MaxUint64
+			inheritedTimers[edge.Id()] = result
+			continue
+		}
+		localTimer, err := ht.LocalTimer(edge, blockNum)
+		if err != nil {
+			return 0, err
+		}
+		// If length one, find the edge that claims it,
+		// compute the recursive timer for it. If the onchain is bigger, return the onchain here.
+		if hasLengthOne(edge) {
+			onchainTimer, innerErr := edge.SafeHeadInheritedTimer(ctx)
 			if innerErr != nil {
 				return 0, innerErr
 			}
+			claimingEdgeTimer := protocol.InheritedTimer(0)
+			claimingEdge, ok := ht.findClaimingEdge(ctx, edge.Id())
+			if ok {
+				claimingEdgeTimerFound := false
+				claimingEdgeTimer, claimingEdgeTimerFound = inheritedTimers[claimingEdge.Id()]
+				if !claimingEdgeTimerFound {
+					stack = append(stack, item)
+					stack = append(stack, claimingEdge.Id())
+					continue
+				}
+			}
+			claimedEdgeInheritedTimer := saturatingSum(protocol.InheritedTimer(localTimer), claimingEdgeTimer)
+			if onchainTimer > claimedEdgeInheritedTimer {
+				result = onchainTimer
+				inheritedTimers[edge.Id()] = result
+			} else {
+				result = claimedEdgeInheritedTimer
+				inheritedTimers[edge.Id()] = result
+			}
+			continue
 		}
-		claimedEdgeInheritedTimer := saturatingSum(protocol.InheritedTimer(localTimer), claimingEdgeTimer)
-		if onchainTimer > claimedEdgeInheritedTimer {
-			return onchainTimer, nil
+		hasChildren, err := edge.HasChildren(ctx)
+		if err != nil {
+			return 0, err
 		}
-		return claimedEdgeInheritedTimer, nil
+		if !hasChildren {
+			result = protocol.InheritedTimer(localTimer)
+			inheritedTimers[edge.Id()] = result
+			continue
+		}
+		lowerChildId, err := edge.LowerChild(ctx)
+		if err != nil {
+			return 0, err
+		}
+		upperChildId, err := edge.UpperChild(ctx)
+		if err != nil {
+			return 0, err
+		}
+		upperChildTimer, upperChildTimerFound := inheritedTimers[upperChildId.Unwrap()]
+		lowerChildTimer, lowerChildTimerFound := inheritedTimers[lowerChildId.Unwrap()]
+		if !upperChildTimerFound || !lowerChildTimerFound {
+			stack = append(stack, item)
+			stack = append(stack, upperChildId.Unwrap())
+			stack = append(stack, lowerChildId.Unwrap())
+			continue
+		}
+		minTimer := lowerChildTimer
+		if upperChildTimer < lowerChildTimer {
+			minTimer = upperChildTimer
+		}
+		result = saturatingSum(protocol.InheritedTimer(localTimer), minTimer)
+		inheritedTimers[edge.Id()] = result
 	}
-	hasChildren, err := edge.HasChildren(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if !hasChildren {
-		return protocol.InheritedTimer(localTimer), nil
-	}
-	lowerChildId, err := edge.LowerChild(ctx)
-	if err != nil {
-		return 0, err
-	}
-	upperChildId, err := edge.UpperChild(ctx)
-	if err != nil {
-		return 0, err
-	}
-	lowerChildTimer, err := ht.recursiveInheritedTimerCompute(ctx, lowerChildId.Unwrap(), blockNum)
-	if err != nil {
-		return 0, err
-	}
-	upperChildTimer, err := ht.recursiveInheritedTimerCompute(ctx, upperChildId.Unwrap(), blockNum)
-	if err != nil {
-		return 0, err
-	}
-	minTimer := lowerChildTimer
-	if upperChildTimer < lowerChildTimer {
-		minTimer = upperChildTimer
-	}
-	return saturatingSum(protocol.InheritedTimer(localTimer), minTimer), nil
+	return result, nil
 }
 
 func IsClaimingAnEdge(edge protocol.ReadOnlyEdge) bool {
