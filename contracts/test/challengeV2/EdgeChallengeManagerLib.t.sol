@@ -663,16 +663,17 @@ contract EdgeChallengeManagerLibTest is Test {
         bool lowerHasRival,
         bool upperHasRival
     ) internal {
-        (bytes32 lowerChildId, EdgeAddedData memory lowerChildAdded, EdgeAddedData memory upperChildAdded) = store
-            .bisectEdge(
-            edge.idMem(),
-            bisectionRoot,
-            abi.encode(
+        bytes memory prefixProof = abi.encode(
                 ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1),
                 ProofUtils.generatePrefixProof(
                     bisectionPoint + 1, ArrayUtilsLib.slice(states, bisectionPoint + 1, states.length)
                 )
-            )
+            );
+        (bytes32 lowerChildId, EdgeAddedData memory lowerChildAdded, EdgeAddedData memory upperChildAdded) = store
+            .bisectEdge(
+            edge.idMem(),
+            bisectionRoot,
+            prefixProof
         );
         bisectEdgeEmitted(
             edge,
@@ -1212,7 +1213,6 @@ contract EdgeChallengeManagerLibTest is Test {
                     getLayerZeroStepSize(NUM_BIGSTEP_LEVEL, BIGSTEPHEIGHT, SMALLSTEPHEIGHT, i) * startHeights[i];
             }
         }
-        MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
 
         if (flag != 1) {
             store.add(data.e1);
@@ -1251,6 +1251,7 @@ contract EdgeChallengeManagerLibTest is Test {
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
+        MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
         store.confirmEdgeByOneStepProof(
             eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6
         );

@@ -19,7 +19,7 @@
   },
   "scripts": {
     "prepublishOnly": "hardhat clean && forge clean && hardhat compile && yarn build:forge:yul",
-    "coverage": "forge coverage --report lcov --ir-minimum && lcov --remove lcov.info 'node_modules/*' 'test/*' 'script/*' 'src/test-helpers/*' 'challenge/*' --ignore-errors unused -o lcov.info && genhtml lcov.info --branch-coverage --output-dir coverage",
+    "coverage": "forge coverage --report lcov && lcov --remove lcov.info 'node_modules/*' 'test/*' 'script/*' 'src/test-helpers/*' 'challenge/*' --ignore-errors unused -o lcov.info && genhtml lcov.info --branch-coverage --output-dir coverage",
     "build:all": "yarn build && yarn build:forge",
     "build": "hardhat compile",
     "build:forge:sol": "forge build --skip *.yul",
