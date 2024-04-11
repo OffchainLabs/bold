@@ -1248,10 +1248,11 @@ contract EdgeChallengeManagerLibTest is Test {
             data.revertArg = abi.encodeWithSelector(RivalEdgeConfirmed.selector, data.e1.idMem(), data.e2.idMem());
         }
 
+        MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
+        
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
-        MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
         store.confirmEdgeByOneStepProof(
             eid, entry, d, e, data.beforeProof, data.afterProof, NUM_BIGSTEP_LEVEL, 1 << 4, 1 << 6
         );
