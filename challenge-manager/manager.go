@@ -73,6 +73,8 @@ type Manager struct {
 	averageTimeForBlockCreation time.Duration
 	mode                        types.Mode
 	maxDelaySeconds             int
+	fastSyncDuration            time.Duration
+	validatorStartTime          time.Time
 
 	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
 	// API
@@ -149,6 +151,12 @@ func WithRPCClient(client *rpc.Client) Opt {
 	}
 }
 
+func WithFastSyncDuration(d time.Duration) Opt {
+	return func(val *Manager) {
+		val.fastSyncDuration = d
+	}
+}
+
 // New sets up a challenge manager instance provided a protocol, state manager, and additional options.
 func New(
 	ctx context.Context,
@@ -173,6 +181,7 @@ func New(
 		assertionConfirmingInterval:  time.Second * 10,
 		averageTimeForBlockCreation:  time.Second * 12,
 		claimedAssertionsInChallenge: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
+		validatorStartTime:           time.Now(),
 	}
 	for _, o := range opts {
 		o(m)
@@ -381,6 +390,8 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.watcher,
 			m,
 			&edgeTrackerAssertionInfo,
+			m.validatorStartTime,
+			m.fastSyncDuration,
 			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
 			edgetracker.WithValidatorName(m.name),

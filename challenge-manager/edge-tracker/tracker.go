@@ -117,6 +117,8 @@ type Tracker struct {
 	challengeManager            ChallengeTracker
 	associatedAssertionMetadata *AssociatedAssertionMetadata
 	challengeConfirmer          *challengeConfirmer
+	validatorStartTime          time.Time
+	fastSyncDuration            time.Duration
 }
 
 func New(
@@ -127,6 +129,8 @@ func New(
 	chainWatcher RoyalChallengeWriter,
 	challengeManager ChallengeTracker,
 	assertionCreationInfo *AssociatedAssertionMetadata,
+	validatorStartTime time.Time,
+	fastSyncDuration time.Duration,
 	opts ...Opt,
 ) (*Tracker, error) {
 	tr := &Tracker{
@@ -138,6 +142,8 @@ func New(
 		associatedAssertionMetadata: assertionCreationInfo,
 		actInterval:                 time.Second,
 		timeRef:                     utilTime.NewRealTimeReference(),
+		validatorStartTime:          validatorStartTime,
+		fastSyncDuration:            fastSyncDuration,
 	}
 	for _, o := range opts {
 		o(tr)
@@ -201,11 +207,16 @@ func (et *Tracker) Spawn(ctx context.Context) {
 	srvlog.Info("Now tracking challenge edge locally and making moves", fields)
 	spawnedCounter.Inc(1)
 	et.challengeManager.MarkTrackedEdge(et.edge.Id(), et)
-	t := et.timeRef.NewTicker(et.actInterval)
-	defer t.Stop()
 	for {
+		actInterval := et.actInterval
+		// If we are in the fast sync period, we want to act more frequently.
+		// This is mostly helpful when the validator is restarted during a challenge and
+		// needs to catch up to the current state of the challenge.
+		if time.Since(et.validatorStartTime) < et.fastSyncDuration {
+			actInterval = time.Second
+		}
 		select {
-		case <-t.C():
+		case <-time.After(actInterval):
 			if et.ShouldDespawn(ctx) {
 				srvlog.Debug("Tracked edge received notice it should exit - now despawning", fields)
 				spawnedCounter.Dec(1)
@@ -312,6 +323,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 			et.chainWatcher,
 			et.challengeManager,
 			et.associatedAssertionMetadata,
+			et.validatorStartTime,
+			et.fastSyncDuration,
 			WithActInterval(et.actInterval),
 			WithTimeReference(et.timeRef),
 			WithValidatorName(et.validatorName),
@@ -331,6 +344,8 @@ func (et *Tracker) Act(ctx context.Context) error {
 			et.chainWatcher,
 			et.challengeManager,
 			et.associatedAssertionMetadata,
+			et.validatorStartTime,
+			et.fastSyncDuration,
 			WithActInterval(et.actInterval),
 			WithTimeReference(et.timeRef),
 			WithValidatorName(et.validatorName),
@@ -839,6 +854,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		et.chainWatcher,
 		et.challengeManager,
 		et.associatedAssertionMetadata,
+		et.validatorStartTime,
+		et.fastSyncDuration,
 		WithActInterval(et.actInterval),
 		WithTimeReference(et.timeRef),
 		WithValidatorName(et.validatorName),

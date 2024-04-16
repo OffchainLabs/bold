@@ -193,6 +193,8 @@ func setupEdgeTrackersForBisection(
 		honestWatcher,
 		honestValidator,
 		assertionInfo,
+		time.Now(),
+		time.Duration(0),
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(honestValidator.name),
 	)
@@ -209,6 +211,8 @@ func setupEdgeTrackersForBisection(
 		evilWatcher,
 		evilValidator,
 		assertionInfo,
+		time.Now(),
+		time.Duration(0),
 		edgetracker.WithTimeReference(customTime.NewArtificialTimeReference()),
 		edgetracker.WithValidatorName(evilValidator.name),
 	)

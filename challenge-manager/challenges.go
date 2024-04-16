@@ -67,6 +67,8 @@ func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionH
 		m.watcher,
 		m,
 		edgeTrackerAssertionInfo,
+		m.validatorStartTime,
+		m.fastSyncDuration,
 		edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 		edgetracker.WithTimeReference(m.timeRef),
 		edgetracker.WithValidatorName(m.name),
