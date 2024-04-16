@@ -333,6 +333,14 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 			if edge.ClaimId().IsSome() {
 				claimId = common.Hash(edge.ClaimId().Unwrap())
 			}
+			var inheritedTimer uint64
+			if edge.ClaimId().IsSome() && edge.GetChallengeLevel() == 0 {
+				rootInherited, err2 := w.ComputeRootInheritedTimer(ctx, assertionHash)
+				if err2 != nil {
+					return err2
+				}
+				inheritedTimer = uint64(rootInherited)
+			}
 			response[assertionHash] = append(
 				response[assertionHash],
 				&api.JsonTrackedRoyalEdge{
@@ -346,6 +354,7 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 					MutualId:         common.Hash(edge.MutualId()),
 					OriginId:         common.Hash(edge.OriginId()),
 					ClaimId:          claimId,
+					InheritedTimer:   inheritedTimer,
 					HasRival:         hasRival,
 					TimeUnrivaled:    timeUnrivaled,
 					MiniStaker:       miniStaker,

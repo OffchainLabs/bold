@@ -82,6 +82,7 @@ type JsonTrackedRoyalEdge struct {
 	MiniStaker       common.Address `json:"miniStaker" db:"MiniStaker"`
 	AssertionHash    common.Hash    `json:"assertionHash" db:"AssertionHash"`
 	TimeUnrivaled    uint64         `json:"timeUnrivaled" db:"TimeUnrivaled"`
+	InheritedTimer   uint64         `json:"inheritedTimer" db:"InheritedTimer"`
 	HasRival         bool           `json:"hasRival" db:"HasRival"`
 	Ancestors        []common.Hash  `json:"ancestors"`
 }
