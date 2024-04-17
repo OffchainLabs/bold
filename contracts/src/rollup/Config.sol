@@ -12,10 +12,11 @@ import "../bridge/IOutbox.sol";
 import "../bridge/IInboxBase.sol";
 import "./IRollupEventInbox.sol";
 import "./IRollupLogic.sol";
-import "../challengeV2/EdgeChallengeManager.sol";
+import "../challenge/IChallengeManager.sol";
 
 struct Config {
     uint64 confirmPeriodBlocks;
+    uint64 extraChallengeTimeBlocks;
     address stakeToken;
     uint256 baseStake;
     bytes32 wasmModuleRoot;
@@ -23,18 +24,9 @@ struct Config {
     address loserStakeEscrow;
     uint256 chainId;
     string chainConfig;
-    uint256[] miniStakeValues;
+    uint64 genesisBlockNum;
     ISequencerInbox.MaxTimeVariation sequencerInboxMaxTimeVariation;
-    uint256 layerZeroBlockEdgeHeight;
-    uint256 layerZeroBigStepEdgeHeight;
-    uint256 layerZeroSmallStepEdgeHeight;
-    /// @notice The execution state to be used in the genesis assertion
-    AssertionState genesisAssertionState;
-    /// @notice The inbox size at the time the genesis execution state was created
-    uint256 genesisInboxCount;
-    address anyTrustFastConfirmer;
-    uint8 numBigStepLevel;
-    uint64 challengeGracePeriodBlocks;
+    BufferConfig bufferConfig;
 }
 
 struct ContractDependencies {
@@ -43,8 +35,10 @@ struct ContractDependencies {
     IInboxBase inbox;
     IOutbox outbox;
     IRollupEventInbox rollupEventInbox;
-    IEdgeChallengeManager challengeManager;
-    address rollupAdminLogic; // this cannot be IRollupAdmin because of circular dependencies
+    IChallengeManager challengeManager;
+    address rollupAdminLogic;
     IRollupUser rollupUserLogic;
+    // misc contracts that are useful when interacting with the rollup
+    address validatorUtils;
     address validatorWalletCreator;
 }
