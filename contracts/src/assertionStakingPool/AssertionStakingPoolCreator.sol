@@ -8,7 +8,6 @@ pragma solidity ^0.8.0;
 import "./AssertionStakingPool.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "./StakingPoolErrors.sol";
 
 /// @notice Creates staking pool contract for a target assertion. Can be used for any child Arbitrum chain running on top of the deployed AssertionStakingPoolCreator's chain.
 contract AssertionStakingPoolCreator {
