@@ -10,6 +10,9 @@ import "../challengeV2/EdgeChallengeManager.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/// @notice Staking pool contract for creating layer zero edges.
+/// Allows users to deposit stake, create an edge once required stake amount is reached,
+/// and reclaim their stake when and if the edge is confirmed.
 contract EdgeStakingPool is AbsBoldStakingPool {
     using SafeERC20 for IERC20;
 
@@ -17,8 +20,11 @@ contract EdgeStakingPool is AbsBoldStakingPool {
     bytes32 public immutable createEdgeArgsHash;
     uint256 immutable requiredStake;
 
+    /// @notice The provided arguments to not match createEdgeArgsHash
     error IncorrectCreateEdgeArgs();
 
+    /// @param _challengeManager EdgeChallengeManager contract
+    /// @param createEdgeArgs Arguments to be passed into EdgeChallengeManager.createLayerZeroEdge
     constructor(
         address _challengeManager,
         CreateEdgeArgs memory createEdgeArgs
@@ -37,12 +43,12 @@ contract EdgeStakingPool is AbsBoldStakingPool {
         challengeManager.createLayerZeroEdge(args);
     }
 
+    /// @notice Check that the provided arguments match the expected arguments
     function isCorrectCreateEdgeArgs(CreateEdgeArgs calldata args) public view returns (bool) {
         return keccak256(abi.encode(args)) == createEdgeArgsHash;
     }
 
-    /// @notice Get required stake for pool's assertion.
-    /// Requried stake for a given assertion is set in the previous assertion's config data
+    /// @notice Get required stake for creating the edge
     function getRequiredStake() public view override returns (uint256) {
         return requiredStake;
     }

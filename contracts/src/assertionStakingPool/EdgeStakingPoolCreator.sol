@@ -9,12 +9,15 @@ import "./EdgeStakingPool.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-/// @notice Creates staking pool contract for a target assertion. Can be used for any child Arbitrum chain running on top of the deployed AssertionStakingPoolCreator's chain.
+/// @notice Creates EdgeStakingPool contracts.
 contract EdgeStakingPoolCreator {
     event NewEdgeStakingPoolCreated(address indexed challengeManager, bytes32 indexed createEdgeArgsHash);
 
     error PoolDoesntExist();
 
+    /// @notice Create an edge staking pool contract
+    /// @param challengeManager ChallengeManager contract
+    /// @param createEdgeArgs Arguments to be passed into EdgeChallengeManager.createLayerZeroEdge
     function createPool(
         address challengeManager,
         CreateEdgeArgs memory createEdgeArgs

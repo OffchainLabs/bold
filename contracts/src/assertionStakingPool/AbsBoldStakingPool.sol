@@ -18,8 +18,11 @@ abstract contract AbsBoldStakingPool {
     event StakeDeposited(address indexed sender, uint256 amount);
     event StakeWithdrawn(address indexed sender, uint256 amount);
 
+    /// @notice The required amount of stake has been met, depositing is not allowed
     error RequiredStakeAmountMet();
+    /// @notice Cannot deposit or withdraw zero amount
     error ZeroAmount();
+    /// @notice Amount exceeds balance
     error AmountExceedsBalance(address sender, uint256 amount, uint256 balance);
 
     constructor(IERC20 _stakeToken) {
