@@ -2,6 +2,7 @@ package inprogresscache
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -79,7 +80,7 @@ func TestConcurrentComputationsWithError(t *testing.T) {
 	computeFunc := func() (int, error) {
 		time.Sleep(100 * time.Millisecond)
 		counter++
-		return 0, errors.New("1")
+		return 0, errors.New(strconv.Itoa(counter))
 	}
 
 	expectedError := errors.New("1")
