@@ -298,10 +298,10 @@ contract AssertinPoolTest is Test {
         vm.prank(staker2);
         pool.depositIntoPool(staker2Bal);
 
-        pool.createMove();
+        pool.createAssertion();
 
         vm.expectRevert("ALREADY_STAKED");
-        pool.createMove();
+        pool.createAssertion();
     }
 
     function testCantAssertTwiceAfterConfirmed() external {
@@ -310,7 +310,7 @@ contract AssertinPoolTest is Test {
         pool.withdrawStakeBackIntoPool();
 
         vm.expectRevert("EXPECTED_ASSERTION_SEEN");
-        pool.createMove();
+        pool.createAssertion();
     }
 
     function _createAssertion() internal {
@@ -320,7 +320,7 @@ contract AssertinPoolTest is Test {
         pool.depositIntoPool(staker2Bal);
 
         vm.prank(rando);
-        pool.createMove();
+        pool.createAssertion();
     }
 
     function _createAndConfirmAssertion() internal {

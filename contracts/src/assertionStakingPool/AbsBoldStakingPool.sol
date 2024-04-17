@@ -70,12 +70,6 @@ abstract contract AbsBoldStakingPool {
         withdrawFromPool(depositedTokenBalances[msg.sender]);
     }
 
-    /// @notice Make the move. This could be creating an assertion or challenge edge.
-    function createMove() external virtual;
-
-    /// @notice Reclaim the pool's stake from the rollup or challenge manager to this contract.
-    function withdrawStakeBackIntoPool() external virtual;
-
     /// @notice Get required stake to create a move.
     function getRequiredStake() public virtual view returns (uint256);
 }

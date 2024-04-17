@@ -7,6 +7,6 @@ import "../rollup/IRollupLogic.sol";
 
 // error NoBalanceToWithdraw(address sender);
 
-error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
+// error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
 
 // error AmountExceedsBalance(address sender, uint256 amount, uint256 balance);

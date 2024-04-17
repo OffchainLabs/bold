@@ -5,11 +5,9 @@
 
 pragma solidity ^0.8.0;
 
-import {AbsBoldStakingPool} from "./AbsBoldStakingPool.sol";
-
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./StakingPoolErrors.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../rollup/IRollupLogic.sol";
+import "./AbsBoldStakingPool.sol";
 
 /// @notice Staking pool contract for target assertion.
 /// Allows users to deposit stake, create assertion once required stake amount is reached,
@@ -34,7 +32,7 @@ contract AssertionStakingPool is AbsBoldStakingPool {
     }
 
     /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
-    function createMove() external override {
+    function createAssertion() external {
         uint256 requiredStake = getRequiredStake();
         // approve spending from rollup for newStakeOnNewAssertion call
         stakeToken.safeIncreaseAllowance(rollup, requiredStake);
@@ -52,7 +50,7 @@ contract AssertionStakingPool is AbsBoldStakingPool {
     /// @notice Move stake back from rollup contract to this contract.
     /// Callable only if this contract has already created an assertion and it's now inactive.
     /// @dev Separate call from makeStakeWithdrawable since returnOldDeposit reverts with 0 balance (in e.g., case of admin forceRefundStaker)
-    function withdrawStakeBackIntoPool() public override {
+    function withdrawStakeBackIntoPool() public {
         IRollupUser(rollup).withdrawStakerFunds();
     }
 

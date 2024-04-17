@@ -26,11 +26,11 @@ contract FakeStakingPool is AbsBoldStakingPool {
         return reqStake;
     }
 
-    function createMove() external override {
+    function createMove() external {
         stakeToken.transfer(address(fundsHolder), reqStake);
     }
 
-    function withdrawStakeBackIntoPool() external override {
+    function withdrawStakeBackIntoPool() external {
         fundsHolder.withdraw(stakeToken, reqStake);
     }
 }

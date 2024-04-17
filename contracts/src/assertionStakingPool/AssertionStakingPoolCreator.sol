@@ -18,6 +18,8 @@ contract AssertionStakingPoolCreator {
         address assertionPool
     );
 
+    error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
+
     /// @notice Create a staking pool contract
     /// @param _rollup Rollup contract of target chain
     /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
