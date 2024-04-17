@@ -424,10 +424,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // The contract initializer can disable staking by setting zeros for token or amount, to change
         // this a new challenge manager needs to be deployed and its address updated in the assertion chain
         if (address(st) != address(0) && sa != 0) {
-            // since only one edge in a group of rivals can ever be confirmed, we know that we
-            // will never need to refund more than one edge. Therefore we can immediately send
-            // all stakes provided after the first one to an excess stake receiver.
-            address receiver = edgeAdded.hasRival ? excessStakeReceiver : address(this);
+            // All stake will be sent to excess stake receiver and refund will be handled out-of-band
+            address receiver = excessStakeReceiver;
             st.safeTransferFrom(msg.sender, receiver, sa);
         }
 
@@ -566,19 +564,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function refundStake(bytes32 edgeId) public {
-        ChallengeEdge storage edge = store.get(edgeId);
-        // setting refunded also do checks that the edge cannot be refunded twice
-        edge.setRefunded();
-
-        IERC20 st = stakeToken;
-        uint256 sa = stakeAmounts[edge.level];
-        // no need to refund with the token or amount where zero'd out
-        if (address(st) != address(0) && sa != 0) {
-            st.safeTransfer(edge.staker, sa);
-        }
-
-        emit EdgeRefunded(edgeId, store.edges[edgeId].mutualId(), address(st), sa);
+    function refundStake(bytes32) pure external {
+        revert StakeRefundDisabled();
     }
 
     ///////////////////////

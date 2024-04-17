@@ -104,3 +104,5 @@ error LevelTooHigh(uint8 level, uint8 numBigStepLevels);
 error InvalidEdgeType(EdgeType edgeType);
 /// @dev Thrown when endHistoryRoot not matching the assertion
 error EndHistoryRootMismatch(bytes32 endHistoryRoot, bytes32 assertionEndRoot);
+/// @dev Thrown when calling stake refund when it is disabled
+error StakeRefundDisabled();

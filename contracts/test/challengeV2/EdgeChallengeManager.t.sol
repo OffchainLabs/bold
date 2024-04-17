@@ -1800,85 +1800,16 @@ contract EdgeChallengeManagerTest is Test {
         IERC20 stakeToken = ei.challengeManager.stakeToken();
         uint256 totalAmount;
         for (uint256 i = 0; i < NUM_BIGSTEP_LEVEL + 2; i++) {
-            totalAmount += ei.challengeManager.stakeAmounts(i);
+            totalAmount += 2 * ei.challengeManager.stakeAmounts(i);
         }
+        assertEq(stakeToken.balanceOf(address(ei.challengeManager)), 0, "Stake token balance");
         assertEq(stakeToken.balanceOf(excessStakeReceiver), totalAmount, "Excess stake received");
     }
 
-    function testCanRefundStake() external {
+    function testRevertRefundStake() external {
         (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-
-        IERC20 stakeToken = ei.challengeManager.stakeToken();
-        uint256 beforeBalance = stakeToken.balanceOf(address(this));
-        vm.prank(nobody); // call refund as nobody
-        bytes32 edgeId = allWinners[allWinners.length - 1].lowerChildId;
-        ei.challengeManager.refundStake(edgeId);
-        uint256 level = ei.challengeManager.getEdge(edgeId).level;
-        uint256 afterBalance = stakeToken.balanceOf(address(this));
-        // block level
-        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmounts(level), "Stake refunded");
-    }
-
-    function testRevertRefundStakeTwice() external {
-        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
+        vm.expectRevert(abi.encodeWithSelector(StakeRefundDisabled.selector));
         ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
-        vm.expectRevert(
-            abi.encodeWithSelector(EdgeAlreadyRefunded.selector, allWinners[allWinners.length - 1].lowerChildId)
-        );
-        ei.challengeManager.refundStake(allWinners[allWinners.length - 1].lowerChildId);
-    }
-
-    function testRevertRefundStakeNotLayerZero() external {
-        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                EdgeNotConfirmed.selector, allWinners[allWinners.length - 2].lowerChildId, EdgeStatus.Pending
-            )
-        );
-        ei.challengeManager.refundStake(allWinners[allWinners.length - 2].lowerChildId);
-    }
-
-    function testRefundStakeBigStep() external {
-        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-
-        // advance just enough to allow confirmEdgeByTime
-        _safeVmRoll(block.number + (NUM_BIGSTEP_LEVEL) * NUM_BLOCK_UNRIVALED);
-        _updateTimers(ei, allWinners);
-
-        IERC20 stakeToken = ei.challengeManager.stakeToken();
-        uint256 beforeBalance = stakeToken.balanceOf(address(this));
-        vm.prank(nobody); // call refund as nobody
-        bytes32 edgeId = allWinners[11].lowerChildId;
-        ei.challengeManager.confirmEdgeByTime(edgeId, ei.a1Data);
-        ei.challengeManager.refundStake(edgeId);
-        uint256 afterBalance = stakeToken.balanceOf(address(this));
-        uint256 level = ei.challengeManager.getEdge(edgeId).level;
-        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmounts(level), "Stake refunded");
-    }
-
-    function testRefundStakeSmallStep() external {
-        (EdgeInitData memory ei, BisectionChildren[] memory allWinners) = testCanConfirmByOneStep();
-
-        // advance just enough to allow confirmEdgeByTime
-        _safeVmRoll(block.number + (NUM_BIGSTEP_LEVEL + 1) * NUM_BLOCK_UNRIVALED);
-        _updateTimers(ei, allWinners);
-
-        IERC20 stakeToken = ei.challengeManager.stakeToken();
-        uint256 beforeBalance = stakeToken.balanceOf(address(this));
-        vm.prank(nobody); // call refund as nobody
-        bytes32 edgeId = allWinners[5].lowerChildId;
-        ei.challengeManager.confirmEdgeByTime(edgeId, ei.a1Data);
-        ei.challengeManager.refundStake(edgeId);
-        uint256 afterBalance = stakeToken.balanceOf(address(this));
-        uint256 level = ei.challengeManager.getEdge(edgeId).level;
-        assertEq(afterBalance - beforeBalance, ei.challengeManager.stakeAmounts(level), "Stake refunded");
-    }
-
-    function testRevertRefundStakeNotConfirmed() external {
-        (EdgeInitData memory ei,,, bytes32 edgeId) = testCanCreateEdgeWithStake();
-
-        vm.expectRevert(abi.encodeWithSelector(EdgeNotConfirmed.selector, edgeId, EdgeStatus.Pending));
-        ei.challengeManager.refundStake(edgeId);
     }
 
     function testGetPrevAssertionHash() public {
