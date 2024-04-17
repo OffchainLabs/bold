@@ -52,8 +52,14 @@ contract AssertionStakingPool is AbsBoldStakingPool {
     /// @notice Move stake back from rollup contract to this contract.
     /// Callable only if this contract has already created an assertion and it's now inactive.
     /// @dev Separate call from makeStakeWithdrawable since returnOldDeposit reverts with 0 balance (in e.g., case of admin forceRefundStaker)
-    function withdrawStakeBackIntoPool() external override {
+    function withdrawStakeBackIntoPool() public override {
         IRollupUser(rollup).withdrawStakerFunds();
+    }
+
+    /// @notice Combines makeStakeWithdrawable and withdrawStakeBackIntoPool into single call
+    function makeStakeWithdrawableAndWithdrawBackIntoPool() external {
+        makeStakeWithdrawable();
+        withdrawStakeBackIntoPool();
     }
 
     /// @notice Get required stake for pool's assertion.

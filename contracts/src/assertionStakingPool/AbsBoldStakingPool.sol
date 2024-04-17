@@ -11,8 +11,9 @@ abstract contract AbsBoldStakingPool {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable stakeToken;
-    mapping(address => uint256) public depositedTokenBalances;
+    
     uint256 public totalDepositedTokens;
+    mapping(address => uint256) public depositedTokenBalances;
 
     event StakeDeposited(address indexed sender, uint256 amount);
     event StakeWithdrawn(address indexed sender, uint256 amount);
