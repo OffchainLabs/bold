@@ -425,8 +425,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         // this a new challenge manager needs to be deployed and its address updated in the assertion chain
         if (address(st) != address(0) && sa != 0) {
             // All stake will be sent to excess stake receiver and refund will be handled out-of-band
-            address receiver = excessStakeReceiver;
-            st.safeTransferFrom(msg.sender, receiver, sa);
+            st.safeTransferFrom(msg.sender, excessStakeReceiver, sa);
         }
 
         emit EdgeAdded(
