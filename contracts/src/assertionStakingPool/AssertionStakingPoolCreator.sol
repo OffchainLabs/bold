@@ -28,7 +28,7 @@ contract AssertionStakingPoolCreator {
         bytes32 _assertionHash
     ) external returns (address) {
         address assertionPoolAddress = address(
-            new AssertionStakingPool{salt: _getPoolSalt(_rollup, _assertionInputs, _assertionHash)}(
+            new AssertionStakingPool{salt: 0}(
                 _rollup,
                 _assertionInputs,
                 _assertionHash
@@ -48,24 +48,14 @@ contract AssertionStakingPoolCreator {
         AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
     ) public view returns (AssertionStakingPool) {
-        bytes32 salt = _getPoolSalt(_rollup, _assertionInputs, _assertionHash);
         bytes32 bytecodeHash = _getPoolByteCodeHash(_rollup, _assertionInputs, _assertionHash);
 
-        address pool = Create2.computeAddress(salt, bytecodeHash, address(this));
+        address pool = Create2.computeAddress(0, bytecodeHash, address(this));
         if (Address.isContract(pool)) {
             return AssertionStakingPool(pool);
         } else {
             revert PoolDoesntExist(_rollup, _assertionInputs, _assertionHash);
         }
-    }
-
-    /// @notice get salt for create2 staking pool deployment
-    function _getPoolSalt(
-        address _rollup,
-        AssertionInputs memory _assertionInputs,
-        bytes32 _assertionHash
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_rollup, _assertionInputs, _assertionHash));
     }
 
     /// @notice get bytecodehash for create2 staking pool deployment
