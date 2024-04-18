@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /// @notice Staking pool contract for creating layer zero edges.
 /// Allows users to deposit stake, create an edge once required stake amount is reached,
 /// and reclaim their stake when and if the edge is confirmed.
+/// @dev Unlike the assertion staking pool, there is no need for a function to claim the stake back into the pool.
 contract EdgeStakingPool is AbsBoldStakingPool {
     using SafeERC20 for IERC20;
 
