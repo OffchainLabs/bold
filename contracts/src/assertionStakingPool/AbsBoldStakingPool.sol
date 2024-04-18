@@ -17,7 +17,6 @@ abstract contract AbsBoldStakingPool {
 
     IERC20 public immutable stakeToken;
     
-    uint256 public totalDepositedTokens;
     mapping(address => uint256) public depositedTokenBalances;
 
     event StakeDeposited(address indexed sender, uint256 amount);
@@ -40,8 +39,6 @@ abstract contract AbsBoldStakingPool {
         }
 
         depositedTokenBalances[msg.sender] += amount;
-        totalDepositedTokens += amount;
-
         stakeToken.safeTransferFrom(msg.sender, address(this), amount);
 
         emit StakeDeposited(msg.sender, amount);
