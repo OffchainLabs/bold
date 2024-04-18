@@ -6,14 +6,11 @@
 pragma solidity ^0.8.0;
 
 import "./EdgeStakingPool.sol";
-import "@openzeppelin/contracts/utils/Create2.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "./StakingPoolCreatorUtils.sol";
 
 /// @notice Creates EdgeStakingPool contracts.
 contract EdgeStakingPoolCreator {
     event NewEdgeStakingPoolCreated(address indexed challengeManager, bytes32 indexed createEdgeArgsHash);
-
-    error PoolDoesntExist();
 
     /// @notice Create an edge staking pool contract
     /// @param challengeManager ChallengeManager contract
@@ -31,25 +28,11 @@ contract EdgeStakingPoolCreator {
         address challengeManager,
         CreateEdgeArgs memory createEdgeArgs
     ) public view returns (EdgeStakingPool) {
-        bytes32 bytecodeHash = _getPoolByteCodeHash(challengeManager, createEdgeArgs);
-
-        address pool = Create2.computeAddress(0, bytecodeHash, address(this));
-        if (Address.isContract(pool)) {
-            return EdgeStakingPool(pool);
-        } else {
-            revert PoolDoesntExist();
-        }
-    }
-
-    /// @notice get bytecodehash for create2 staking pool deployment
-    function _getPoolByteCodeHash(
-        address challengeManager,
-        CreateEdgeArgs memory createEdgeArgs
-    ) internal pure returns (bytes32) {
-        bytes memory bytecode = type(EdgeStakingPool).creationCode;
-        return
-            keccak256(
-                abi.encodePacked(bytecode, abi.encode(challengeManager, createEdgeArgs))
-            );
+        return EdgeStakingPool(
+            StakingPoolCreatorUtils.getPool(
+                type(EdgeStakingPool).creationCode,
+                abi.encode(challengeManager, createEdgeArgs)
+            )
+        );
     }
 }
