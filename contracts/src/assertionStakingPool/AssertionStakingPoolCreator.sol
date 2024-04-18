@@ -23,7 +23,7 @@ contract AssertionStakingPoolCreator {
     /// @param _rollup Rollup contract of target chain
     /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
     /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
-    function createPoolForAssertion(
+    function createPool(
         address _rollup,
         AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash

@@ -240,7 +240,7 @@ contract AssertinPoolTest is Test {
         });
         aspcreator = new AssertionStakingPoolCreator();
         pool =
-            AssertionStakingPool(aspcreator.createPoolForAssertion(address(rollupAddr), assertionInputs, assertionHash));
+            AssertionStakingPool(aspcreator.createPool(address(rollupAddr), assertionInputs, assertionHash));
 
         token.transfer(staker1, staker1Bal);
         token.transfer(staker2, staker2Bal);
