@@ -27,17 +27,10 @@ contract AssertionStakingPoolCreator {
         address _rollup,
         AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
-    ) external returns (address) {
-        address assertionPoolAddress = address(
-            new AssertionStakingPool{salt: 0}(
-                _rollup,
-                _assertionInputs,
-                _assertionHash
-            )
-        );
-
-        emit NewAssertionPoolCreated(_rollup, _assertionHash, assertionPoolAddress);
-        return assertionPoolAddress;
+    ) external returns (AssertionStakingPool) {
+        AssertionStakingPool assertionPool = new AssertionStakingPool{salt: 0}(_rollup, _assertionInputs, _assertionHash);
+        emit NewAssertionPoolCreated(_rollup, _assertionHash, address(assertionPool));
+        return assertionPool;
     }
 
     /// @notice get staking pool deployed with provided inputs; reverts if pool contract doesn't exist.

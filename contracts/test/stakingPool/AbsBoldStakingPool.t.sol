@@ -22,10 +22,6 @@ contract FakeStakingPool is AbsBoldStakingPool {
         reqStake = _reqStake;
     }
 
-    function getRequiredStake() public view override returns (uint256) {
-        return reqStake;
-    }
-
     function createMove() external {
         stakeToken.transfer(address(fundsHolder), reqStake);
     }

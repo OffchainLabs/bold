@@ -289,7 +289,7 @@ contract AssertinPoolTest is Test {
     }
 
     function testgetRequiredStake() external {
-        assertEq(pool.getRequiredStake(), BASE_STAKE, "required stake set");
+        assertEq(pool.requiredStake(), BASE_STAKE, "required stake set");
     }
 
     function testCantAssertTwice() external {

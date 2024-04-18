@@ -63,8 +63,4 @@ abstract contract AbsBoldStakingPool {
     function withdrawFromPool() external {
         withdrawFromPool(depositedTokenBalances[msg.sender]);
     }
-
-    /// @notice Get required stake to create a move.
-    // todo: this doesn;'t need to be here anymore
-    function getRequiredStake() public virtual view returns (uint256);
 }

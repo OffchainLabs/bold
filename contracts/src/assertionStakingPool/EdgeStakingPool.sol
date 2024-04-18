@@ -18,7 +18,7 @@ contract EdgeStakingPool is AbsBoldStakingPool {
 
     EdgeChallengeManager public immutable challengeManager;
     bytes32 public immutable createEdgeArgsHash;
-    uint256 immutable requiredStake;
+    uint256 public immutable requiredStake;
 
     /// @notice The provided arguments to not match createEdgeArgsHash
     error IncorrectCreateEdgeArgs();
@@ -46,10 +46,5 @@ contract EdgeStakingPool is AbsBoldStakingPool {
     /// @notice Check that the provided arguments match the expected arguments
     function isCorrectCreateEdgeArgs(CreateEdgeArgs calldata args) public view returns (bool) {
         return keccak256(abi.encode(args)) == createEdgeArgsHash;
-    }
-
-    /// @notice Get required stake for creating the edge
-    function getRequiredStake() public view override returns (uint256) {
-        return requiredStake;
     }
 }

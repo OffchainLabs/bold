@@ -21,11 +21,8 @@ contract EdgeStakingPoolCreator {
     function createPool(
         address challengeManager,
         CreateEdgeArgs memory createEdgeArgs
-    ) external returns (address) {
-        address pool = address(
-            new EdgeStakingPool{salt: 0}(challengeManager, createEdgeArgs)
-        );
-
+    ) external returns (EdgeStakingPool) {
+        EdgeStakingPool pool = new EdgeStakingPool{salt: 0}(challengeManager, createEdgeArgs);
         emit NewEdgeStakingPoolCreated(challengeManager, keccak256(abi.encode(createEdgeArgs)));
         return pool;
     }

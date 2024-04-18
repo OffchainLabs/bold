@@ -33,11 +33,11 @@ contract AssertionStakingPool is AbsBoldStakingPool {
 
     /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
     function createAssertion() external {
-        uint256 requiredStake = getRequiredStake();
+        uint256 _requiredStake = requiredStake();
         // approve spending from rollup for newStakeOnNewAssertion call
-        stakeToken.safeIncreaseAllowance(rollup, requiredStake);
+        stakeToken.safeIncreaseAllowance(rollup, _requiredStake);
         // reverts if pool doesn't have enough stake and if assertion has already been asserted
-        IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
+        IRollupUser(rollup).newStakeOnNewAssertion(_requiredStake, assertionInputs, assertionHash);
     }
 
     /// @notice Make stake withdrawable.
@@ -62,7 +62,7 @@ contract AssertionStakingPool is AbsBoldStakingPool {
 
     /// @notice Get required stake for pool's assertion.
     /// Requried stake for a given assertion is set in the previous assertion's config data
-    function getRequiredStake() public view override returns (uint256) {
+    function requiredStake() public view returns (uint256) {
         return assertionInputs.beforeStateData.configData.requiredStake;
     }
 }
