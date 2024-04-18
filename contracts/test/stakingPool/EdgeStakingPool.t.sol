@@ -48,6 +48,8 @@ contract EdgeStakingPoolTest is Test {
     function testProperInitialization(CreateEdgeArgs memory args) public {
         EdgeStakingPool stakingPool = stakingPoolCreator.createPool(address(challengeManager), args);
 
+        assertEq(address(stakingPoolCreator.getPool(address(challengeManager), args)), address(stakingPool));
+
         assertEq(address(stakingPool.challengeManager()), address(challengeManager));
         assertEq(stakingPool.createEdgeArgsHash(), keccak256(abi.encode(args)));
         assertEq(address(stakingPool.stakeToken()), address(token));

@@ -24,6 +24,9 @@ contract EdgeStakingPoolCreator {
         return pool;
     }
 
+    /// @notice get staking pool deployed with provided inputs; reverts if pool contract doesn't exist.
+    /// @param challengeManager ChallengeManager contract
+    /// @param createEdgeArgs Arguments to be passed into EdgeChallengeManager.createLayerZeroEdge
     function getPool(
         address challengeManager,
         CreateEdgeArgs memory createEdgeArgs
