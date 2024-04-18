@@ -79,27 +79,17 @@ contract AbsBoldStakingPoolTest is Test {
         token.approve(address(pool), type(uint256).max);
     }
 
-    function testDepositCap() external {
-        vm.prank(fullStaker);
-        vm.expectEmit(true, false, false, true);
-        emit StakeDeposited(fullStaker, 9 ether);
-        pool.depositIntoPool(9 ether);
-        vm.prank(staker2);
-        vm.expectEmit(true, false, false, true);
-        emit StakeDeposited(staker2, 1 ether);
-        pool.depositIntoPool(2 ether);
-
-        assertEq(token.balanceOf(address(pool)), 10 ether, "tokens depositted into pool");
-        assertEq(token.balanceOf(address(fullStaker)), 1 ether, "full staker balance");
-        assertEq(token.balanceOf(address(staker2)), staker2Bal - 1 ether, "staker2 balance");
-
-        assertEq(pool.depositedTokenBalances(fullStaker), 9 ether, "full staker balance");
-        assertEq(pool.depositedTokenBalances(staker2), 1 ether, "staker2 balance");
-
-        // since we are at cap, we can't deposit more
-        vm.expectRevert(AbsBoldStakingPool.RequiredStakeAmountMet.selector);
+    function testOverDeposit() external {
         vm.prank(staker1);
-        pool.depositIntoPool(1 ether);
+        pool.depositIntoPool(staker1Bal);
+        vm.prank(staker2);
+        pool.depositIntoPool(staker2Bal);
+
+        vm.startPrank(excessStaker);
+        pool.depositIntoPool(excessStakerBal);
+        pool.withdrawFromPool();
+        vm.stopPrank();
+        assertEq(token.balanceOf(excessStaker), excessStakerBal, "excess balance returned");
     }
 
     function testCanDepositAndWithdrawWhilePending() external {
@@ -131,12 +121,28 @@ contract AbsBoldStakingPoolTest is Test {
         pool.createMove();
     }
 
+    function testCanDepositInAssertedState() external {
+        vm.startPrank(excessStaker);
+        pool.depositIntoPool(excessStakerBal);
+        pool.withdrawFromPool();
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(excessStaker), excessStakerBal, "excess balance returned");
+    }
+
     function testPartialWithdraw() external {
+        vm.prank(staker1);
+        pool.depositIntoPool(staker1Bal);
+
         vm.startPrank(fullStaker);
         pool.depositIntoPool(fullStakerBal);
+        pool.createMove();
 
-        pool.withdrawFromPool(1000);
-        assertEq(token.balanceOf(fullStaker), 1000, "partial stake returned");
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        pool.withdrawFromPool();
+
+        pool.withdrawFromPool(staker1Bal);
+        assertEq(token.balanceOf(fullStaker), staker1Bal, "partial stake returned");
 
         vm.stopPrank();
     }

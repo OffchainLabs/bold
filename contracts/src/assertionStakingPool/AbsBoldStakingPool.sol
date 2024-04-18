@@ -18,8 +18,6 @@ abstract contract AbsBoldStakingPool {
     event StakeDeposited(address indexed sender, uint256 amount);
     event StakeWithdrawn(address indexed sender, uint256 amount);
 
-    /// @notice The required amount of stake has been met, depositing is not allowed
-    error RequiredStakeAmountMet();
     /// @notice Cannot deposit or withdraw zero amount
     error ZeroAmount();
     /// @notice Amount exceeds balance
@@ -35,20 +33,13 @@ abstract contract AbsBoldStakingPool {
         if (amount == 0) {
             revert ZeroAmount();
         }
-        uint256 _totalDepositedTokens = totalDepositedTokens;
-        uint256 _requiredStake = getRequiredStake();
-        if (_totalDepositedTokens >= _requiredStake) {
-            revert RequiredStakeAmountMet();
-        }
 
-        uint256 cappedAmount = _totalDepositedTokens + amount > _requiredStake ? _requiredStake - totalDepositedTokens : amount;
+        depositedTokenBalances[msg.sender] += amount;
+        totalDepositedTokens += amount;
 
-        depositedTokenBalances[msg.sender] += cappedAmount;
-        totalDepositedTokens = _totalDepositedTokens + cappedAmount;
+        stakeToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        stakeToken.safeTransferFrom(msg.sender, address(this), cappedAmount);
-
-        emit StakeDeposited(msg.sender, cappedAmount);
+        emit StakeDeposited(msg.sender, amount);
     }
 
     /// @notice Send supplied amount of stake from this contract back to its depositor.
@@ -74,5 +65,6 @@ abstract contract AbsBoldStakingPool {
     }
 
     /// @notice Get required stake to create a move.
+    // todo: this doesn;'t need to be here anymore
     function getRequiredStake() public virtual view returns (uint256);
 }
