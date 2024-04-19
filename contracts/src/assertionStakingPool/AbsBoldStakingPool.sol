@@ -7,9 +7,8 @@ pragma solidity ^0.8.0;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @notice Abstract contract for handling accounting of trustless edge/assertion staking pools.
-///         Allows users to deposit stake and create a protocol move once required stake amount is reached.
-///         The total deposited amount can exceed the required stake amount. 
+/// @notice Abstract contract for handling deposits and withdrawals of trustless edge/assertion staking pools.
+/// @dev    The total deposited amount can exceed the required stake amount. 
 ///         If the total deposited amount exceeds the required amount, any depositor can withdraw some stake early even after the protocol move has been made.
 ///         This is okay because the protocol move will still be created once the required stake amount is reached, 
 ///         and all depositors will still be eventually refunded.
@@ -18,7 +17,6 @@ abstract contract AbsBoldStakingPool {
 
     IERC20 public immutable stakeToken;
     
-    uint256 public totalDepositedTokens;
     mapping(address => uint256) public depositedTokenBalances;
 
     event StakeDeposited(address indexed sender, uint256 amount);
@@ -41,8 +39,6 @@ abstract contract AbsBoldStakingPool {
         }
 
         depositedTokenBalances[msg.sender] += amount;
-        totalDepositedTokens += amount;
-
         stakeToken.safeTransferFrom(msg.sender, address(this), amount);
 
         emit StakeDeposited(msg.sender, amount);
