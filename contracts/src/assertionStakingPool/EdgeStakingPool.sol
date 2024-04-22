@@ -24,7 +24,9 @@ contract EdgeStakingPool is AbsBoldStakingPool {
 
     /// @notice The targeted challenge manager contract
     EdgeChallengeManager public immutable challengeManager;
+    /// @notice The ID of the edge to be created (see ChallengeEdgeLib.id)
     bytes32 public immutable edgeId;
+    /// @notice The level of the edge to be created
     uint8 public immutable edgeLevel;
     /// @notice The required stake amount to create the edge
     uint256 public immutable requiredStake;
