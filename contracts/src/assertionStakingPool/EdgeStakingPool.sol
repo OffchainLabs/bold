@@ -17,8 +17,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract EdgeStakingPool is AbsBoldStakingPool {
     using SafeERC20 for IERC20;
 
+    /// @notice The targeted challenge manager contract
     EdgeChallengeManager public immutable challengeManager;
+    /// @notice todo
     bytes32 public immutable createEdgeArgsHash;
+    /// @notice The required stake amount to create the edge
     uint256 public immutable requiredStake;
 
     /// @notice The provided arguments to not match createEdgeArgsHash
