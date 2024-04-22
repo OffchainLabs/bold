@@ -6,8 +6,7 @@
 pragma solidity ^0.8.0;
 
 import "./AssertionStakingPool.sol";
-import "@openzeppelin/contracts/utils/Create2.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "./StakingPoolCreatorUtils.sol";
 
 /// @notice Creates staking pool contract for a target assertion. Can be used for any child Arbitrum chain running on top of the deployed AssertionStakingPoolCreator's chain.
 contract AssertionStakingPoolCreator {
@@ -16,8 +15,6 @@ contract AssertionStakingPoolCreator {
         bytes32 indexed _assertionHash,
         address assertionPool
     );
-
-    error PoolDoesntExist(address rollup, AssertionInputs assertionInputs, bytes32 assertionHash);
 
     /// @notice Create a staking pool contract
     /// @param _rollup Rollup contract of target chain
@@ -42,26 +39,11 @@ contract AssertionStakingPoolCreator {
         AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
     ) public view returns (AssertionStakingPool) {
-        bytes32 bytecodeHash = _getPoolByteCodeHash(_rollup, _assertionInputs, _assertionHash);
-
-        address pool = Create2.computeAddress(0, bytecodeHash, address(this));
-        if (Address.isContract(pool)) {
-            return AssertionStakingPool(pool);
-        } else {
-            revert PoolDoesntExist(_rollup, _assertionInputs, _assertionHash);
-        }
-    }
-
-    /// @notice get bytecodehash for create2 staking pool deployment
-    function _getPoolByteCodeHash(
-        address _rollup,
-        AssertionInputs memory _assertionInputs,
-        bytes32 _assertionHash
-    ) internal pure returns (bytes32) {
-        bytes memory bytecode = type(AssertionStakingPool).creationCode;
-        return
-            keccak256(
-                abi.encodePacked(bytecode, abi.encode(_rollup, _assertionInputs, _assertionHash))
-            );
+        return AssertionStakingPool(
+            StakingPoolCreatorUtils.getPool(
+                type(AssertionStakingPool).creationCode, 
+                abi.encode(_rollup, _assertionInputs, _assertionHash)
+            )
+        );
     }
 }
