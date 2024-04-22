@@ -10,31 +10,35 @@ import "./StakingPoolCreatorUtils.sol";
 
 /// @notice Creates EdgeStakingPool contracts.
 contract EdgeStakingPoolCreator {
-    event NewEdgeStakingPoolCreated(address indexed challengeManager, bytes32 indexed createEdgeArgsHash);
+    event NewEdgeStakingPoolCreated(address indexed challengeManager, bytes32 indexed edgeId);
 
     /// @notice Create an edge staking pool contract
-    /// @param challengeManager ChallengeManager contract
-    /// @param createEdgeArgs Arguments to be passed into EdgeChallengeManager.createLayerZeroEdge
+    /// @param challengeManager EdgeChallengeManager contract
+    /// @param edgeId The ID of the edge to be created (see ChallengeEdgeLib.id)
+    /// @param edgeLevel The level of the edge to be created
     function createPool(
         address challengeManager,
-        CreateEdgeArgs memory createEdgeArgs
+        bytes32 edgeId,
+        uint8 edgeLevel
     ) external returns (EdgeStakingPool) {
-        EdgeStakingPool pool = new EdgeStakingPool{salt: 0}(challengeManager, createEdgeArgs);
-        emit NewEdgeStakingPoolCreated(challengeManager, keccak256(abi.encode(createEdgeArgs)));
+        EdgeStakingPool pool = new EdgeStakingPool{salt: 0}(challengeManager, edgeId, edgeLevel);
+        emit NewEdgeStakingPoolCreated(challengeManager, edgeId);
         return pool;
     }
 
     /// @notice get staking pool deployed with provided inputs; reverts if pool contract doesn't exist.
-    /// @param challengeManager ChallengeManager contract
-    /// @param createEdgeArgs Arguments to be passed into EdgeChallengeManager.createLayerZeroEdge
+    /// @param challengeManager EdgeChallengeManager contract
+    /// @param edgeId The ID of the edge to be created (see ChallengeEdgeLib.id)
+    /// @param edgeLevel The level of the edge to be created
     function getPool(
         address challengeManager,
-        CreateEdgeArgs memory createEdgeArgs
+        bytes32 edgeId,
+        uint8 edgeLevel
     ) public view returns (EdgeStakingPool) {
         return EdgeStakingPool(
             StakingPoolCreatorUtils.getPool(
                 type(EdgeStakingPool).creationCode,
-                abi.encode(challengeManager, createEdgeArgs)
+                abi.encode(challengeManager, edgeId, edgeLevel)
             )
         );
     }
