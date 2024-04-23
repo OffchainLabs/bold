@@ -183,7 +183,7 @@ contract BOLDUpgradeAction {
     uint256 public immutable SMALLSTEP_LEAF_SIZE;
     uint8 public immutable NUM_BIGSTEP_LEVEL;
 
-    address public immutable L1_TIMELOCK;
+    address public immutable LOSER_STAKE_ESCROW;
     IOldRollup public immutable OLD_ROLLUP;
     address public immutable BRIDGE;
     address public immutable SEQ_INBOX;
@@ -259,7 +259,7 @@ contract BOLDUpgradeAction {
     }
 
     struct Contracts {
-        address l1Timelock;
+        address loserStakeEscrow;
         IOldRollup rollup;
         address bridge;
         address sequencerInbox;
@@ -275,7 +275,7 @@ contract BOLDUpgradeAction {
         Implementations memory implementations,
         Settings memory settings
     ) {
-        L1_TIMELOCK = contracts.l1Timelock;
+        LOSER_STAKE_ESCROW = contracts.loserStakeEscrow;
         OLD_ROLLUP = contracts.rollup;
         BRIDGE = contracts.bridge;
         SEQ_INBOX = contracts.sequencerInbox;
@@ -369,7 +369,7 @@ contract BOLDUpgradeAction {
             baseStake: STAKE_AMOUNT,
             wasmModuleRoot: ROLLUP_READER.wasmModuleRoot(),
             owner: address(this), // upgrade executor is the owner
-            loserStakeEscrow: L1_TIMELOCK, // additional funds get sent to the l1 timelock
+            loserStakeEscrow: LOSER_STAKE_ESCROW,
             chainId: CHAIN_ID,
             chainConfig: "", // we can use an empty chain config it wont be used in the rollup initialization because we check if the rei is already connected there
             miniStakeValues: ConstantArrayStorage(MINI_STAKE_AMOUNTS_STORAGE).array(),
@@ -462,7 +462,7 @@ contract BOLDUpgradeAction {
             layerZeroSmallStepEdgeHeight: config.layerZeroSmallStepEdgeHeight,
             _stakeToken: IERC20(config.stakeToken),
             _stakeAmounts: config.miniStakeValues,
-            _excessStakeReceiver: L1_TIMELOCK,
+            _excessStakeReceiver: LOSER_STAKE_ESCROW,
             _numBigStepLevel: config.numBigStepLevel
         });
 
