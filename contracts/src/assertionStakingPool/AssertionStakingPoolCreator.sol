@@ -18,31 +18,27 @@ contract AssertionStakingPoolCreator {
 
     /// @notice Create a staking pool contract
     /// @param _rollup Rollup contract of target chain
-    /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
     /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
     function createPool(
         address _rollup,
-        AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
     ) external returns (AssertionStakingPool) {
-        AssertionStakingPool assertionPool = new AssertionStakingPool{salt: 0}(_rollup, _assertionInputs, _assertionHash);
+        AssertionStakingPool assertionPool = new AssertionStakingPool{salt: 0}(_rollup, _assertionHash);
         emit NewAssertionPoolCreated(_rollup, _assertionHash, address(assertionPool));
         return assertionPool;
     }
 
     /// @notice get staking pool deployed with provided inputs; reverts if pool contract doesn't exist.
     /// @param _rollup Rollup contract of target chain
-    /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
     /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
     function getPool(
         address _rollup,
-        AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
     ) public view returns (AssertionStakingPool) {
         return AssertionStakingPool(
             StakingPoolCreatorUtils.getPool(
                 type(AssertionStakingPool).creationCode, 
-                abi.encode(_rollup, _assertionInputs, _assertionHash)
+                abi.encode(_rollup, _assertionHash)
             )
         );
     }
