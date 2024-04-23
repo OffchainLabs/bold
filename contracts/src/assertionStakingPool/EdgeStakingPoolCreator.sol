@@ -15,13 +15,11 @@ contract EdgeStakingPoolCreator {
     /// @notice Create an edge staking pool contract
     /// @param challengeManager EdgeChallengeManager contract
     /// @param edgeId The ID of the edge to be created (see ChallengeEdgeLib.id)
-    /// @param edgeLevel The level of the edge to be created
     function createPool(
         address challengeManager,
-        bytes32 edgeId,
-        uint8 edgeLevel
+        bytes32 edgeId
     ) external returns (EdgeStakingPool) {
-        EdgeStakingPool pool = new EdgeStakingPool{salt: 0}(challengeManager, edgeId, edgeLevel);
+        EdgeStakingPool pool = new EdgeStakingPool{salt: 0}(challengeManager, edgeId);
         emit NewEdgeStakingPoolCreated(challengeManager, edgeId);
         return pool;
     }
@@ -29,16 +27,14 @@ contract EdgeStakingPoolCreator {
     /// @notice get staking pool deployed with provided inputs; reverts if pool contract doesn't exist.
     /// @param challengeManager EdgeChallengeManager contract
     /// @param edgeId The ID of the edge to be created (see ChallengeEdgeLib.id)
-    /// @param edgeLevel The level of the edge to be created
     function getPool(
         address challengeManager,
-        bytes32 edgeId,
-        uint8 edgeLevel
+        bytes32 edgeId
     ) public view returns (EdgeStakingPool) {
         return EdgeStakingPool(
             StakingPoolCreatorUtils.getPool(
                 type(EdgeStakingPool).creationCode,
-                abi.encode(challengeManager, edgeId, edgeLevel)
+                abi.encode(challengeManager, edgeId)
             )
         );
     }
