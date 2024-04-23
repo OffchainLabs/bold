@@ -16,24 +16,20 @@ contract AssertionStakingPool is AbsBoldStakingPool {
     using SafeERC20 for IERC20;
     address public immutable rollup;
     bytes32 public immutable assertionHash;
-    AssertionInputs public assertionInputs;
 
     /// @param _rollup Rollup contract of target chain
-    /// @param _assertionInputs Inputs to be passed into Rollup.stakeOnNewAssertion
     /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
     constructor(
         address _rollup,
-        AssertionInputs memory _assertionInputs,
         bytes32 _assertionHash
     ) AbsBoldStakingPool(IERC20(IRollupCore(_rollup).stakeToken())) {
         rollup = _rollup;
         assertionHash = _assertionHash;
-        assertionInputs = _assertionInputs;
     }
 
     /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
-    function createAssertion() external {
-        uint256 requiredStake = getRequiredStake();
+    function createAssertion(AssertionInputs calldata assertionInputs) external {
+        uint256 requiredStake = assertionInputs.beforeStateData.configData.requiredStake;
         // approve spending from rollup for newStakeOnNewAssertion call
         stakeToken.safeIncreaseAllowance(rollup, requiredStake);
         // reverts if pool doesn't have enough stake and if assertion has already been asserted
@@ -58,11 +54,5 @@ contract AssertionStakingPool is AbsBoldStakingPool {
     function makeStakeWithdrawableAndWithdrawBackIntoPool() external {
         makeStakeWithdrawable();
         withdrawStakeBackIntoPool();
-    }
-
-    /// @notice Get required stake for pool's assertion.
-    /// Requried stake for a given assertion is set in the previous assertion's config data
-    function getRequiredStake() public view returns (uint256) {
-        return assertionInputs.beforeStateData.configData.requiredStake;
     }
 }

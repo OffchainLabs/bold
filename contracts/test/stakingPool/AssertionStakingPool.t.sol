@@ -240,7 +240,7 @@ contract AssertinPoolTest is Test {
         });
         aspcreator = new AssertionStakingPoolCreator();
         pool =
-            AssertionStakingPool(aspcreator.createPool(address(rollupAddr), assertionInputs, assertionHash));
+            AssertionStakingPool(aspcreator.createPool(address(rollupAddr), assertionHash));
 
         token.transfer(staker1, staker1Bal);
         token.transfer(staker2, staker2Bal);
@@ -283,13 +283,9 @@ contract AssertinPoolTest is Test {
     function testGetPool() external {
         assertEq(
             address(pool),
-            address(aspcreator.getPool(rollupAddr, assertionInputs, assertionHash)),
+            address(aspcreator.getPool(rollupAddr, assertionHash)),
             "getPool returns created pool's expected address"
         );
-    }
-
-    function testgetRequiredStake() external {
-        assertEq(pool.getRequiredStake(), BASE_STAKE, "required stake set");
     }
 
     function testCantAssertTwice() external {
@@ -298,10 +294,10 @@ contract AssertinPoolTest is Test {
         vm.prank(staker2);
         pool.depositIntoPool(staker2Bal);
 
-        pool.createAssertion();
+        pool.createAssertion(assertionInputs);
 
         vm.expectRevert("ALREADY_STAKED");
-        pool.createAssertion();
+        pool.createAssertion(assertionInputs);
     }
 
     function testCantAssertTwiceAfterConfirmed() external {
@@ -310,7 +306,19 @@ contract AssertinPoolTest is Test {
         pool.withdrawStakeBackIntoPool();
 
         vm.expectRevert("EXPECTED_ASSERTION_SEEN");
-        pool.createAssertion();
+        pool.createAssertion(assertionInputs);
+    }
+
+    function testCantMakeBadAssertion() external {
+        vm.prank(staker1);
+        pool.depositIntoPool(staker1Bal);
+        vm.prank(staker2);
+        pool.depositIntoPool(staker2Bal);
+
+        AssertionInputs memory _inputs = assertionInputs;
+        _inputs.afterState.endHistoryRoot = keccak256("bad");
+        vm.expectRevert("UNEXPECTED_ASSERTION_HASH");
+        pool.createAssertion(_inputs);
     }
 
     function _createAssertion() internal {
@@ -320,7 +328,7 @@ contract AssertinPoolTest is Test {
         pool.depositIntoPool(staker2Bal);
 
         vm.prank(rando);
-        pool.createAssertion();
+        pool.createAssertion(assertionInputs);
     }
 
     function _createAndConfirmAssertion() internal {
