@@ -310,7 +310,8 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     }
 
     /**
-     * @notice Deprecated, 
+     * @notice Deprecated, use the function with `withdrawalAddress` instead
+     *         Using this default `withdrawalAddress` to msg.sender
      */
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
