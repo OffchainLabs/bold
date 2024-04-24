@@ -17,17 +17,17 @@ contract FakeStakingPool is AbsBoldStakingPool {
     FundsHolder public immutable fundsHolder;
     uint256 immutable reqStake;
 
-    constructor(IERC20 _stakeToken, FundsHolder _fundsHolder, uint256 _reqStake) AbsBoldStakingPool(_stakeToken) {
+    constructor(address _stakeToken, FundsHolder _fundsHolder, uint256 _reqStake) AbsBoldStakingPool(_stakeToken) {
         fundsHolder = _fundsHolder;
         reqStake = _reqStake;
     }
 
     function createMove() external {
-        stakeToken.transfer(address(fundsHolder), reqStake);
+        IERC20(stakeToken).transfer(address(fundsHolder), reqStake);
     }
 
     function withdrawStakeBackIntoPool() external {
-        fundsHolder.withdraw(stakeToken, reqStake);
+        fundsHolder.withdraw(IERC20(stakeToken), reqStake);
     }
 }
 
@@ -51,7 +51,7 @@ contract AbsBoldStakingPoolTest is Test {
 
     function setUp() public {
         token = new TestWETH9("Test", "TEST");
-        pool = new FakeStakingPool(token, new FundsHolder(), BASE_STAKE);
+        pool = new FakeStakingPool(address(token), new FundsHolder(), BASE_STAKE);
 
         
         IWETH9(address(token)).deposit{value: 21 ether}();
@@ -188,7 +188,7 @@ contract AbsBoldStakingPoolTest is Test {
 
         vm.startPrank(staker1);
         pool.withdrawFromPool();
-        vm.expectRevert(abi.encodeWithSelector(AbsBoldStakingPool.ZeroAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(IAbsBoldStakingPool.ZeroAmount.selector));
         pool.withdrawFromPool();
         vm.stopPrank();
     }

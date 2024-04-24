@@ -7,35 +7,26 @@ pragma solidity ^0.8.0;
 
 import "./AssertionStakingPool.sol";
 import "./StakingPoolCreatorUtils.sol";
+import "./interfaces/IAssertionStakingPoolCreator.sol";
 
 /// @notice Creates staking pool contract for a target assertion. Can be used for any child Arbitrum chain running on top of the deployed AssertionStakingPoolCreator's chain.
-contract AssertionStakingPoolCreator {
-    event NewAssertionPoolCreated(
-        address indexed rollup,
-        bytes32 indexed _assertionHash,
-        address assertionPool
-    );
-
-    /// @notice Create a staking pool contract
-    /// @param _rollup Rollup contract of target chain
-    /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
+contract AssertionStakingPoolCreator is IAssertionStakingPoolCreator {
+    /// @inheritdoc IAssertionStakingPoolCreator
     function createPool(
         address _rollup,
         bytes32 _assertionHash
-    ) external returns (AssertionStakingPool) {
+    ) external returns (IAssertionStakingPool) {
         AssertionStakingPool assertionPool = new AssertionStakingPool{salt: 0}(_rollup, _assertionHash);
         emit NewAssertionPoolCreated(_rollup, _assertionHash, address(assertionPool));
         return assertionPool;
     }
 
-    /// @notice get staking pool deployed with provided inputs; reverts if pool contract doesn't exist.
-    /// @param _rollup Rollup contract of target chain
-    /// @param _assertionHash Assertion hash to be passed into Rollup.stakeOnNewAssertion
+    /// @inheritdoc IAssertionStakingPoolCreator
     function getPool(
         address _rollup,
         bytes32 _assertionHash
-    ) public view returns (AssertionStakingPool) {
-        return AssertionStakingPool(
+    ) public view returns (IAssertionStakingPool) {
+        return IAssertionStakingPool(
             StakingPoolCreatorUtils.getPool(
                 type(AssertionStakingPool).creationCode, 
                 abi.encode(_rollup, _assertionHash)

@@ -5,6 +5,7 @@
 pragma solidity ^0.8.0;
 
 import "./AbsBoldStakingPool.sol";
+import "./interfaces/IEdgeStakingPool.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -16,32 +17,29 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ///         and reclaim their stake when and if the edge is confirmed.
 ///
 /// @dev    Unlike the assertion staking pool, there is no need for a function to claim the stake back into the pool.
-contract EdgeStakingPool is AbsBoldStakingPool {
+contract EdgeStakingPool is AbsBoldStakingPool, IEdgeStakingPool {
     using SafeERC20 for IERC20;
 
-    /// @notice The targeted challenge manager contract
-    EdgeChallengeManager public immutable challengeManager;
-    /// @notice The ID of the edge to be created (see ChallengeEdgeLib.id)
+    /// @inheritdoc IEdgeStakingPool
+    address public immutable challengeManager;
+    /// @inheritdoc IEdgeStakingPool
     bytes32 public immutable edgeId;
-
-    /// @notice The provided arguments to not match createEdgeArgsHash
-    error IncorrectEdgeId(bytes32 actual, bytes32 expected);
 
     /// @param _challengeManager EdgeChallengeManager contract
     /// @param _edgeId The ID of the edge to be created (see ChallengeEdgeLib.id)
     constructor(
         address _challengeManager,
         bytes32 _edgeId
-    ) AbsBoldStakingPool(EdgeChallengeManager(_challengeManager).stakeToken()) {
-        challengeManager = EdgeChallengeManager(_challengeManager);
+    ) AbsBoldStakingPool(address(EdgeChallengeManager(_challengeManager).stakeToken())) {
+        challengeManager = _challengeManager;
         edgeId = _edgeId;
     }
 
-    /// @notice Create the edge. Callable only if required stake has been reached and edge has not been created yet.
+    /// @inheritdoc IEdgeStakingPool
     function createEdge(CreateEdgeArgs calldata args) external {
-        uint256 requiredStake = challengeManager.stakeAmounts(args.level);
-        stakeToken.safeIncreaseAllowance(address(challengeManager), requiredStake);
-        bytes32 newEdgeId = challengeManager.createLayerZeroEdge(args);
+        uint256 requiredStake = EdgeChallengeManager(challengeManager).stakeAmounts(args.level);
+        IERC20(stakeToken).safeIncreaseAllowance(address(challengeManager), requiredStake);
+        bytes32 newEdgeId = EdgeChallengeManager(challengeManager).createLayerZeroEdge(args);
         if (newEdgeId != edgeId) {
             revert IncorrectEdgeId(newEdgeId, edgeId);
         }

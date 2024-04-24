@@ -8,11 +8,12 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../rollup/IRollupLogic.sol";
 import "./AbsBoldStakingPool.sol";
+import "./interfaces/IAssertionStakingPool.sol";
 
 /// @notice Staking pool contract for target assertion.
 /// Allows users to deposit stake, create assertion once required stake amount is reached,
 /// and reclaim their stake when and if the assertion is confirmed.
-contract AssertionStakingPool is AbsBoldStakingPool {
+contract AssertionStakingPool is AbsBoldStakingPool, IAssertionStakingPool {
     using SafeERC20 for IERC20;
     address public immutable rollup;
     bytes32 public immutable assertionHash;
@@ -22,35 +23,32 @@ contract AssertionStakingPool is AbsBoldStakingPool {
     constructor(
         address _rollup,
         bytes32 _assertionHash
-    ) AbsBoldStakingPool(IERC20(IRollupCore(_rollup).stakeToken())) {
+    ) AbsBoldStakingPool(IRollupCore(_rollup).stakeToken()) {
         rollup = _rollup;
         assertionHash = _assertionHash;
     }
 
-    /// @notice Create assertion. Callable only if required stake has been reached and assertion has not been asserted yet.
+    /// @inheritdoc IAssertionStakingPool
     function createAssertion(AssertionInputs calldata assertionInputs) external {
         uint256 requiredStake = assertionInputs.beforeStateData.configData.requiredStake;
         // approve spending from rollup for newStakeOnNewAssertion call
-        stakeToken.safeIncreaseAllowance(rollup, requiredStake);
+        IERC20(stakeToken).safeIncreaseAllowance(rollup, requiredStake);
         // reverts if pool doesn't have enough stake and if assertion has already been asserted
         IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
     }
 
-    /// @notice Make stake withdrawable.
-    /// @dev Separate call from withdrawStakeBackIntoPool since returnOldDeposit reverts with 0 balance (in e.g., case of admin forceRefundStaker)
+    /// @inheritdoc IAssertionStakingPool
     function makeStakeWithdrawable() public {
         // this checks for active staker
         IRollupUser(rollup).returnOldDeposit();
     }
 
-    /// @notice Move stake back from rollup contract to this contract.
-    /// Callable only if this contract has already created an assertion and it's now inactive.
-    /// @dev Separate call from makeStakeWithdrawable since returnOldDeposit reverts with 0 balance (in e.g., case of admin forceRefundStaker)
+    /// @inheritdoc IAssertionStakingPool
     function withdrawStakeBackIntoPool() public {
         IRollupUser(rollup).withdrawStakerFunds();
     }
 
-    /// @notice Combines makeStakeWithdrawable and withdrawStakeBackIntoPool into single call
+    /// @inheritdoc IAssertionStakingPool
     function makeStakeWithdrawableAndWithdrawBackIntoPool() external {
         makeStakeWithdrawable();
         withdrawStakeBackIntoPool();

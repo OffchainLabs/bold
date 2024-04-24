@@ -57,7 +57,7 @@ contract AssertinPoolTest is Test {
     });
     AssertionState firstState;
 
-    AssertionStakingPool pool;
+    IAssertionStakingPool pool;
 
     AssertionStakingPoolCreator aspcreator;
     address staker1 = address(4000001);
@@ -240,7 +240,7 @@ contract AssertinPoolTest is Test {
         });
         aspcreator = new AssertionStakingPoolCreator();
         pool =
-            AssertionStakingPool(aspcreator.createPool(address(rollupAddr), assertionHash));
+            aspcreator.createPool(address(rollupAddr), assertionHash);
 
         token.transfer(staker1, staker1Bal);
         token.transfer(staker2, staker2Bal);
