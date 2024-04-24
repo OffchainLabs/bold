@@ -271,10 +271,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the new staker
      * @param depositAmount Stake amount of the new staker
      */
-    function createNewStake(address stakerAddress, uint256 depositAmount) internal {
+    function createNewStake(address stakerAddress, uint256 depositAmount, address withdrawalAddress) internal {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
-        _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true);
+        _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true, withdrawalAddress);
         emit UserStakeUpdated(stakerAddress, 0, depositAmount);
     }
 
@@ -299,11 +299,12 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function reduceStakeTo(address stakerAddress, uint256 target) internal returns (uint256) {
         Staker storage staker = _stakerMap[stakerAddress];
+        address withdrawalAddress = staker.withdrawalAddress;
         uint256 current = staker.amountStaked;
         require(target <= current, "TOO_LITTLE_STAKE");
         uint256 amountWithdrawn = current - target;
         staker.amountStaked = target;
-        increaseWithdrawableFunds(stakerAddress, amountWithdrawn);
+        increaseWithdrawableFunds(withdrawalAddress, amountWithdrawn);
         emit UserStakeUpdated(stakerAddress, current, target);
         return amountWithdrawn;
     }
@@ -315,8 +316,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function withdrawStaker(address stakerAddress) internal {
         Staker storage staker = _stakerMap[stakerAddress];
+        address withdrawalAddress = staker.withdrawalAddress;
         uint256 initialStaked = staker.amountStaked;
-        increaseWithdrawableFunds(stakerAddress, initialStaked);
+        increaseWithdrawableFunds(withdrawalAddress, initialStaked);
         deleteStaker(stakerAddress);
         emit UserStakeUpdated(stakerAddress, initialStaked, 0);
     }

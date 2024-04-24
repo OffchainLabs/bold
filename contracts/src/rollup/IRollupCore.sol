@@ -17,6 +17,7 @@ interface IRollupCore is IAssertionChain {
         bytes32 latestStakedAssertion;
         uint64 index;
         bool isStaked;
+        address withdrawalAddress;
     }
 
     event RollupInitialized(bytes32 machineHash, uint256 chainId);
