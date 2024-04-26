@@ -996,6 +996,19 @@ contract RollupTest is Test {
         });
     }
 
+    function testRevertZeroWithdrawalAddress() public {
+        testSuccessCreateAssertion();
+        vm.prank(validator1);
+        AssertionInputs memory emptyAssertion;
+        vm.expectRevert("EMPTY_WITHDRAWAL_ADDRESS");
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
+            assertion: emptyAssertion,
+            expectedAssertionHash: bytes32(0),
+            withdrawalAddress: address(0)
+        });
+    }
+
     function testSuccessReduceDeposit() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
