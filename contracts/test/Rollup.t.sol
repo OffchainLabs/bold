@@ -36,6 +36,9 @@ contract RollupTest is Test {
     address constant validator1 = address(100001);
     address constant validator2 = address(100002);
     address constant validator3 = address(100003);
+    address constant validator1Withdrawal = address(1000010);
+    address constant validator2Withdrawal = address(1000020);
+    address constant validator3Withdrawal = address(1000030);
     address constant loserStakeEscrow = address(200001);
     address constant anyTrustFastConfirmer = address(300001);
 
@@ -371,7 +374,8 @@ contract RollupTest is Test {
                 beforeState: beforeState,
                 afterState: afterState
             }),
-            expectedAssertionHash: expectedAssertionHash
+            expectedAssertionHash: expectedAssertionHash,
+            withdrawalAddress: validator1Withdrawal
         });
 
         return (expectedAssertionHash, afterState, inboxcount);
@@ -419,7 +423,8 @@ contract RollupTest is Test {
                 beforeState: beforeState,
                 afterState: afterState
             }),
-            expectedAssertionHash: expectedAssertionHash
+            expectedAssertionHash: expectedAssertionHash,
+            withdrawalAddress: validator1Withdrawal
         });
 
         return (expectedAssertionHash, afterState, inboxcount);
@@ -453,7 +458,8 @@ contract RollupTest is Test {
                 beforeState: beforeState,
                 afterState: afterState
             }),
-            expectedAssertionHash: bytes32(0)
+            expectedAssertionHash: bytes32(0),
+            withdrawalAddress: validator1Withdrawal
         });
 
         vm.prank(validator2);
@@ -475,7 +481,8 @@ contract RollupTest is Test {
                 beforeState: beforeState,
                 afterState: afterState
             }),
-            expectedAssertionHash: bytes32(0)
+            expectedAssertionHash: bytes32(0),
+            withdrawalAddress: validator2Withdrawal
         });
     }
 
@@ -514,7 +521,8 @@ contract RollupTest is Test {
                 beforeState: beforeState,
                 afterState: afterState
             }),
-            expectedAssertionHash: expectedAssertionHash
+            expectedAssertionHash: expectedAssertionHash,
+            withdrawalAddress: validator1Withdrawal
         });
 
         AssertionState memory afterState2;
@@ -613,7 +621,8 @@ contract RollupTest is Test {
                 beforeState: beforeState,
                 afterState: afterState
             }),
-            expectedAssertionHash: expectedAssertionHash
+            expectedAssertionHash: expectedAssertionHash,
+            withdrawalAddress: validator1Withdrawal
         });
 
         AssertionState memory afterState2;
@@ -655,7 +664,8 @@ contract RollupTest is Test {
                 }),
                 afterState: afterState2
             }),
-            expectedAssertionHash: expectedAssertionHash2
+            expectedAssertionHash: expectedAssertionHash2,
+            withdrawalAddress: validator2Withdrawal
         });
 
         assertEq(userRollup.getAssertion(genesisHash).secondChildBlock, block.number);
@@ -707,7 +717,8 @@ contract RollupTest is Test {
                 }),
                 afterState: afterState3
             }),
-            expectedAssertionHash: expectedAssertionHash3
+            expectedAssertionHash: expectedAssertionHash3,
+            withdrawalAddress: validator3Withdrawal
         });
     }
 
@@ -943,8 +954,8 @@ contract RollupTest is Test {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
         userRollup.returnOldDeposit();
-        assertGt(userRollup.withdrawableFunds(validator1), 0);
-        vm.prank(validator1);
+        assertGt(userRollup.withdrawableFunds(validator1Withdrawal), 0);
+        vm.prank(validator1Withdrawal);
         userRollup.withdrawStakerFunds();
     }
 
@@ -1147,7 +1158,8 @@ contract RollupTest is Test {
             userRollup.newStakeOnNewAssertion({
                 tokenAmount: BASE_STAKE,
                 assertion: assertion,
-                expectedAssertionHash: expectedAssertionHash
+                expectedAssertionHash: expectedAssertionHash,
+                withdrawalAddress: validator1Withdrawal
             });
         }
 

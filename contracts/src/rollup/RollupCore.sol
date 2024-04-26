@@ -275,7 +275,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
         _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true, withdrawalAddress);
-        emit UserStakeUpdated(stakerAddress, 0, depositAmount);
+        emit UserStakeUpdated(stakerAddress, withdrawalAddress, 0, depositAmount);
     }
 
     /**
@@ -288,7 +288,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint256 initialStaked = staker.amountStaked;
         uint256 finalStaked = initialStaked + amountAdded;
         staker.amountStaked = finalStaked;
-        emit UserStakeUpdated(stakerAddress, initialStaked, finalStaked);
+        emit UserStakeUpdated(stakerAddress, staker.withdrawalAddress, initialStaked, finalStaked);
     }
 
     /**
@@ -305,7 +305,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint256 amountWithdrawn = current - target;
         staker.amountStaked = target;
         increaseWithdrawableFunds(withdrawalAddress, amountWithdrawn);
-        emit UserStakeUpdated(stakerAddress, current, target);
+        emit UserStakeUpdated(stakerAddress, withdrawalAddress, current, target);
         return amountWithdrawn;
     }
 
@@ -320,7 +320,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         uint256 initialStaked = staker.amountStaked;
         increaseWithdrawableFunds(withdrawalAddress, initialStaked);
         deleteStaker(stakerAddress);
-        emit UserStakeUpdated(stakerAddress, initialStaked, 0);
+        emit UserStakeUpdated(stakerAddress, withdrawalAddress, initialStaked, 0);
     }
 
     /**
