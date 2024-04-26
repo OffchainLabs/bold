@@ -1,19 +1,19 @@
 {
   "contracts": {
-    "l1Timelock": "0x6900354cF23D12A2c3cc98F48F1a28f9e3Ca1029",
-    "bridge": "0x6900354cF23D12A2c3cc98F48F1a28f9e3Ca1029",
-    "inbox": "0xAc4C9Ac691E928C3D004773efc9CA4Ca76747a2e",
-    "outbox": "0xa5f95320288c773fe9e568a404c7A4305a75C70A",
-    "rollup": "0x23a0311dc615bae798666c73500bdca005eefbcf",
-    "sequencerInbox": "0xd7EEdf4eA5dE1868EB825c39fb0d2cbE2d0EFdC0",
-    "rollupEventInbox": "0x23f10f9725ab85ebe53e452d6e3e8b165a4d5eef",
-    "upgradeExecutor": "0xfb0a643101012625fa222ce07c75e3a53381f1a9"
+    "bridge": "0x5eCF728ffC5C5E802091875f96281B5aeECf6C49",
+    "inbox": "0x9f8c1c641336A371031499e3c362e40d58d0f254",
+    "outbox": "0x50143333b44Ea46255BEb67255C9Afd35551072F",
+    "rollup": "0x8553016d4F782A42882BD982CDaD9a3B3dfb36BC",
+    "sequencerInbox": "0x18d19C5d3E685f5be5b9C86E097f0E439285D216",
+    "rollupEventInbox": "0x0e73faf857e1ca53e700856fcf19f31f920a1e3c",
+    "upgradeExecutor": "0x513d9f96d4d0563debae8a0dc307ea0e46b10ed7",
+    "l1Timelock": "0x8553016d4F782A42882BD982CDaD9a3B3dfb36BC"
   },
   "proxyAdmins": {
-    "outbox": "0x05485096e90ea515807b233e26758705d93b3b7a",
-    "bridge": "0x05485096e90ea515807b233e26758705d93b3b7a",
-    "rei": "0x05485096e90ea515807b233e26758705d93b3b7a",
-    "seqInbox": "0x05485096e90ea515807b233e26758705d93b3b7a"
+    "outbox": "0x2a1f38c9097e7883570e0b02bfbe6869cc25d8a3",
+    "bridge": "0x2a1f38c9097e7883570e0b02bfbe6869cc25d8a3",
+    "rei": "0x2a1f38c9097e7883570e0b02bfbe6869cc25d8a3",
+    "seqInbox": "0x2a1f38c9097e7883570e0b02bfbe6869cc25d8a3"
   },
   "settings": {
     "challengeGracePeriodBlocks": 10,
