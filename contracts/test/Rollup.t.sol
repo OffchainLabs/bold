@@ -954,6 +954,10 @@ contract RollupTest is Test {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
         userRollup.returnOldDeposit();
+
+        RollupCore.Staker memory emptyStaker;
+        assertEq(keccak256(abi.encode(emptyStaker)), keccak256(abi.encode(userRollup.getStaker(validator1))));
+
         assertGt(userRollup.withdrawableFunds(validator1Withdrawal), 0);
         vm.prank(validator1Withdrawal);
         userRollup.withdrawStakerFunds();
@@ -977,6 +981,19 @@ contract RollupTest is Test {
         vm.prank(loserStakeEscrow);
         vm.expectRevert("NO_FUNDS_TO_WITHDRAW");
         userRollup.withdrawStakerFunds();
+    }
+
+    function testRevertAlreadyStaked() public {
+        testSuccessCreateAssertion();
+        vm.prank(validator1);
+        AssertionInputs memory emptyAssertion;
+        vm.expectRevert("ALREADY_STAKED");
+        userRollup.newStakeOnNewAssertion({
+            tokenAmount: BASE_STAKE,
+            assertion: emptyAssertion,
+            expectedAssertionHash: bytes32(0),
+            withdrawalAddress: validator2Withdrawal
+        });
     }
 
     function testSuccessReduceDeposit() public {
