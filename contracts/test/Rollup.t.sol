@@ -959,8 +959,10 @@ contract RollupTest is Test {
         assertEq(keccak256(abi.encode(emptyStaker)), keccak256(abi.encode(userRollup.getStaker(validator1))));
 
         assertGt(userRollup.withdrawableFunds(validator1Withdrawal), 0);
+        assertEq(token.balanceOf(validator1Withdrawal), 0);
         vm.prank(validator1Withdrawal);
         userRollup.withdrawStakerFunds();
+        assertEq(token.balanceOf(validator1Withdrawal), BASE_STAKE);
     }
 
     function testRevertWithdrawActiveStake() public {
