@@ -381,7 +381,8 @@ contract BOLDUpgradeAction {
             genesisInboxCount: inboxMaxCount,
             anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER,
             numBigStepLevel: NUM_BIGSTEP_LEVEL,
-            challengeGracePeriodBlocks: CHALLENGE_GRACE_PERIOD_BLOCKS
+            challengeGracePeriodBlocks: CHALLENGE_GRACE_PERIOD_BLOCKS,
+            bufferConfig: BufferConfig({threshold: 600, max: 14400, replenishRateInBasis: 500})
         });
     }
 
