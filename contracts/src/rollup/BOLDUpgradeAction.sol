@@ -362,6 +362,7 @@ contract BOLDUpgradeAction {
 
         // this isnt used during rollup creation, so we can pass in empty
         ISequencerInbox.MaxTimeVariation memory maxTimeVariation;
+        BufferConfig memory bufferConfig;
 
         return Config({
             confirmPeriodBlocks: CONFIRM_PERIOD_BLOCKS,
@@ -382,7 +383,7 @@ contract BOLDUpgradeAction {
             anyTrustFastConfirmer: ANY_TRUST_FAST_CONFIRMER,
             numBigStepLevel: NUM_BIGSTEP_LEVEL,
             challengeGracePeriodBlocks: CHALLENGE_GRACE_PERIOD_BLOCKS,
-            bufferConfig: BufferConfig({threshold: 600, max: 14400, replenishRateInBasis: 500})
+            bufferConfig: bufferConfig
         });
     }
 
