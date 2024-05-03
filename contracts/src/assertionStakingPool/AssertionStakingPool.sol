@@ -15,7 +15,10 @@ import "./interfaces/IAssertionStakingPool.sol";
 /// and reclaim their stake when and if the assertion is confirmed.
 contract AssertionStakingPool is AbsBoldStakingPool, IAssertionStakingPool {
     using SafeERC20 for IERC20;
+    
+    /// @inheritdoc IAssertionStakingPool
     address public immutable rollup;
+    /// @inheritdoc IAssertionStakingPool
     bytes32 public immutable assertionHash;
 
     /// @param _rollup Rollup contract of target chain

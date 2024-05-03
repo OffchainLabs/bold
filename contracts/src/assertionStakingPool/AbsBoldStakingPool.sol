@@ -16,7 +16,9 @@ import {IAbsBoldStakingPool} from "./interfaces/IAbsBoldStakingPool.sol";
 abstract contract AbsBoldStakingPool is IAbsBoldStakingPool {
     using SafeERC20 for IERC20;
 
+    /// @inheritdoc IAbsBoldStakingPool
     address public immutable stakeToken;
+    /// @inheritdoc IAbsBoldStakingPool
     mapping(address => uint256) public depositBalance;
 
     constructor(address _stakeToken) {
