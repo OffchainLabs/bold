@@ -19,8 +19,8 @@ func TestIsConfirmableEssentialNode(t *testing.T) {
 	// understand the setup of the challenge tree.
 	_, _, _, err := tree.IsConfirmableEssentialNode(
 		ctx,
-		isConfirmableArgs{
-			essentialNode: protocol.EdgeId{},
+		IsConfirmableArgs{
+			EssentialNode: protocol.EdgeId{},
 		},
 	)
 	require.ErrorContains(t, err, "essential node not found")
@@ -32,10 +32,10 @@ func TestIsConfirmableEssentialNode(t *testing.T) {
 	blockNum := uint64(10)
 	isConfirmable, _, minPathWeight, err := tree.IsConfirmableEssentialNode(
 		ctx,
-		isConfirmableArgs{
-			confirmationThreshold: 10,
-			essentialNode:         essentialHonestRoot.Id(),
-			blockNum:              blockNum,
+		IsConfirmableArgs{
+			ConfirmationThreshold: 10,
+			EssentialNode:         essentialHonestRoot.Id(),
+			BlockNum:              blockNum,
 		},
 	)
 	require.NoError(t, err)
@@ -47,10 +47,10 @@ func TestIsConfirmableEssentialNode(t *testing.T) {
 	blockNum = uint64(14)
 	isConfirmable, _, minPathWeight, err = tree.IsConfirmableEssentialNode(
 		ctx,
-		isConfirmableArgs{
-			confirmationThreshold: 10,
-			essentialNode:         essentialHonestRoot.Id(),
-			blockNum:              blockNum,
+		IsConfirmableArgs{
+			ConfirmationThreshold: 10,
+			EssentialNode:         essentialHonestRoot.Id(),
+			BlockNum:              blockNum,
 		},
 	)
 	require.NoError(t, err)

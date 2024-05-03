@@ -104,6 +104,10 @@ func (ht *RoyalChallengeTree) GetEdges() *threadsafe.Map[protocol.EdgeId, protoc
 	return ht.edges
 }
 
+func (ht *RoyalChallengeTree) GetEdge(edgeId protocol.EdgeId) (protocol.SpecEdge, bool) {
+	return ht.edges.TryGet(edgeId)
+}
+
 func (ht *RoyalChallengeTree) HasRoyalEdge(edgeId protocol.EdgeId) bool {
 	return ht.edges.Has(edgeId)
 }
