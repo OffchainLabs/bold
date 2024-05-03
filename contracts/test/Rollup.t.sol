@@ -943,6 +943,21 @@ contract RollupTest is Test {
         return data.e1Id;
     }
 
+    function testWithdrawLoserStakeEscrowFunds() public {
+        uint256 balanceBefore = token.balanceOf(loserStakeEscrow);
+
+        testSuccessConfirmEdgeByTime();
+        vm.prank(address(1)); // should be permissionless
+        userRollup.withdrawLoserStakeEscrowFunds();
+
+        uint256 balanceAfter = token.balanceOf(loserStakeEscrow);
+
+        assertEq(balanceAfter - balanceBefore, BASE_STAKE);
+
+        vm.expectRevert("NO_FUNDS_TO_WITHDRAW");
+        userRollup.withdrawLoserStakeEscrowFunds();
+    }
+
     function testRevertWithdrawStake() public {
         testSuccessConfirmEdgeByTime();
         vm.prank(validator1);
