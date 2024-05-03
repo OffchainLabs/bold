@@ -356,10 +356,21 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @notice Withdraw uncommitted funds owned by sender from the rollup chain
      */
     function withdrawStakerFunds() external override whenNotPaused returns (uint256) {
-        uint256 amount = withdrawFunds(msg.sender);
+        return _withdrawStakerFunds(msg.sender);
+    }
+
+    /**
+     * @notice Withdraw loser stake escrow funds
+     */
+    function withdrawLoserStakeEscrowFunds() external override whenNotPaused returns (uint256) {
+        return _withdrawStakerFunds(loserStakeEscrow);
+    }
+
+    function _withdrawStakerFunds(address account) internal returns (uint256) {
+        uint256 amount = withdrawFunds(account);
         require(amount > 0, "NO_FUNDS_TO_WITHDRAW");
         // This is safe because it occurs after all checks and effects
-        IERC20(stakeToken).safeTransfer(msg.sender, amount);
+        IERC20(stakeToken).safeTransfer(account, amount);
         return amount;
     }
 

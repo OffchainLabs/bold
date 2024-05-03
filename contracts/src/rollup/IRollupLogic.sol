@@ -35,6 +35,8 @@ interface IRollupUser is IRollupCore, IOwnable {
 
     function withdrawStakerFunds() external returns (uint256);
 
+    function withdrawLoserStakeEscrowFunds() external returns (uint256);
+
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
         AssertionInputs calldata assertion,
