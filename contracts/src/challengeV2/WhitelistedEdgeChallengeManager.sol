@@ -69,7 +69,7 @@ contract WhitelistedEdgeChallengeManager is EdgeChallengeManager, IWhitelistedEd
         }
 
         bytes32 edgeId = super.createLayerZeroEdge(args);
-        bytes32 mutualId = getEdge(edgeId).mutualIdMem();
+        bytes32 mutualId = store.edges[edgeId].mutualId();
 
         if (accountHasMadeRival[mutualId][msg.sender]) {
             revert AccountHasMadeRival(msg.sender);
