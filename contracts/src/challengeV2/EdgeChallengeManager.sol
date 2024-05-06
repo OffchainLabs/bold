@@ -184,7 +184,7 @@ interface IEdgeChallengeManager {
     ///         until it gets to the origin assertion
     function getPrevAssertionHash(bytes32 edgeId) external view returns (bytes32);
 
-    /// @notice Fetch the raw first rival record for this edge
+    /// @notice Fetch the raw first rival record for the given mutual id
     /// @dev    Returns 0 if there is no edge with the given mutual id
     ///         Returns a magic value if there is one edge but it is unrivaled
     ///         Returns the id of the second edge created with the mutual id, if > 1 exists
