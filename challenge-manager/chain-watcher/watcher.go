@@ -409,6 +409,86 @@ func (w *Watcher) ComputeAncestors(
 	return chal.honestEdgeTree.ComputeAncestors(ctx, edgeId, blockHeader.Number.Uint64())
 }
 
+func (w *Watcher) PathWeightToClosestEssentialAncestor(
+	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
+	edge protocol.ReadOnlyEdge,
+) (uint64, error) {
+	chal, ok := w.challenges.TryGet(challengedAssertionHash)
+	if !ok {
+		return 0, fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			challengedAssertionHash,
+		)
+	}
+	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
+	if err != nil {
+		return 0, err
+	}
+	if !blockHeader.Number.IsUint64() {
+		return 0, errors.New("block number is not uint64")
+	}
+	if !chal.honestEdgeTree.HasRoyalEdge(edge.Id()) {
+		return 0, fmt.Errorf("edge with id %#x is not yet tracked locally", edge.Id().Hash)
+	}
+	return 0, nil
+}
+
+func (w *Watcher) IsConfirmableEssentialNode(
+	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
+	essentialNodeId protocol.EdgeId,
+	confirmationThreshold uint64,
+) (confirmable bool, essentialPaths [][]protocol.ReadOnlyEdge, timer uint64, err error) {
+	chal, ok := w.challenges.TryGet(challengedAssertionHash)
+	if !ok {
+		err = fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			challengedAssertionHash,
+		)
+		return
+	}
+	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
+	if err != nil {
+		return
+	}
+	if !blockHeader.Number.IsUint64() {
+		err = errors.New("block number is not uint64")
+		return
+	}
+	essentialNode, ok := chal.honestEdgeTree.GetEdge(essentialNodeId)
+	if !ok {
+		err = fmt.Errorf("could not get essential node with id %#x", essentialNodeId.Hash)
+		return
+	}
+	isConfirmable, paths, computedTimer, err := chal.honestEdgeTree.IsConfirmableEssentialNode(
+		ctx,
+		challengetree.IsConfirmableArgs{
+			EssentialNode:         essentialNode.Id(),
+			BlockNum:              blockHeader.Number.Uint64(),
+			ConfirmationThreshold: confirmationThreshold,
+		},
+	)
+	if err != nil {
+		return
+	}
+	confirmable = isConfirmable
+	timer = computedTimer
+	essentialPaths = make([][]protocol.ReadOnlyEdge, len(paths))
+	for i, path := range paths {
+		essentialPaths[i] = make([]protocol.ReadOnlyEdge, len(path))
+		for j, edgeId := range path {
+			edge, ok := chal.honestEdgeTree.GetEdge(edgeId)
+			if !ok {
+				err = fmt.Errorf("could not get edge with id %#x", edgeId.Hash)
+				return
+			}
+			essentialPaths[i][j] = edge
+		}
+	}
+	return
+}
+
 func (w *Watcher) ComputeRootInheritedTimer(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,

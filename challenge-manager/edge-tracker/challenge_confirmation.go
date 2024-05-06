@@ -23,7 +23,6 @@ var onchainTimerDifferAfterConfirmationJobCounter = metrics.NewRegisteredCounter
 // it ensures to confirm that edge. If this is not the case, it will return an error
 // and write data to disk to help with debugging the issue.
 type challengeConfirmer struct {
-	reader                      RoyalChallengeReader
 	writer                      ChainWriter
 	backend                     protocol.ChainBackend
 	validatorName               string
@@ -40,31 +39,13 @@ type ChainWriter interface {
 	) (*types.Transaction, error)
 }
 
-type RoyalChallengeReader interface {
-	BlockChallengeRootEdge(
-		ctx context.Context,
-		challengedAssertionHash protocol.AssertionHash,
-	) (protocol.SpecEdge, error)
-	LowerMostRoyalEdges(
-		ctx context.Context,
-		challengedAssertionHash protocol.AssertionHash,
-	) ([]protocol.SpecEdge, error)
-	ComputeAncestors(
-		ctx context.Context,
-		challengedAssertionHash protocol.AssertionHash,
-		edgeId protocol.EdgeId,
-	) ([]protocol.ReadOnlyEdge, error)
-}
-
 func newChallengeConfirmer(
-	challengeReader RoyalChallengeReader,
 	chainWriter ChainWriter,
 	backend protocol.ChainBackend,
 	averageTimeForBlockCreation time.Duration,
 	validatorName string,
 ) *challengeConfirmer {
 	return &challengeConfirmer{
-		reader:                      challengeReader,
 		writer:                      chainWriter,
 		validatorName:               validatorName,
 		averageTimeForBlockCreation: averageTimeForBlockCreation,
@@ -84,76 +65,34 @@ func newChallengeConfirmer(
 // This function must only be called once the locally computed value of the block challenge, royal root
 // edge has an inherited timer that is confirmable. This function MUST complete, and it will retry
 // any external call if it errors during its execution.
-func (cc *challengeConfirmer) beginConfirmationJob(
+func (cc *challengeConfirmer) confirmEssentialNode(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
-	royalRootEdge protocol.SpecEdge,
+	essentialNode protocol.SpecEdge,
+	essentialPaths [][]protocol.ReadOnlyEdge,
 	challengePeriodBlocks uint64,
 ) error {
 	fields := log.Ctx{
-		"validatorName":               cc.validatorName,
-		"challengedAssertion":         fmt.Sprintf("%#x", challengedAssertionHash.Hash[:4]),
-		"royalRootBlockChallengeEdge": fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
+		"validatorName":       cc.validatorName,
+		"challengedAssertion": fmt.Sprintf("%#x", challengedAssertionHash.Hash[:4]),
+		"essentialNode":       fmt.Sprintf("%#x", essentialNode.Id().Hash.Bytes()[:4]),
 	}
-	srvlog.Info("Starting challenge confirmation job", fields)
-	// Find the bottom-most royal edges that exist in our local challenge tree, each one
-	// will be the base of a branch we will update.
-	royalTreeLeaves, err := retry.UntilSucceeds(ctx, func() ([]protocol.SpecEdge, error) {
-		edges, innerErr := cc.reader.LowerMostRoyalEdges(ctx, challengedAssertionHash)
-		if innerErr != nil {
-			fields["error"] = innerErr
-			srvlog.Error("Could not fetch lower-most royal edges", fields)
-			return nil, innerErr
-		}
-		return edges, nil
-	})
-	if err != nil {
-		return err
-	}
-	delete(fields, "error")
-
-	srvlog.Info(fmt.Sprintf("Obtained all %d royal tree leaves for confirmation job", len(royalTreeLeaves)), fields)
-	// For each branch, compute the royal ancestor branch up to the root of the tree.
-	// The branch should contain royal ancestors ordered from a bottom-most leaf edge to the root edge
-	// of the block level challenge, meaning it should also include claim id links.
-	royalBranches := make([][]protocol.ReadOnlyEdge, 0)
-	for _, edge := range royalTreeLeaves {
-		branch := []protocol.ReadOnlyEdge{edge}
-		ancestors, err2 := retry.UntilSucceeds(ctx, func() ([]protocol.ReadOnlyEdge, error) {
-			resp, innerErr := cc.reader.ComputeAncestors(
-				ctx, challengedAssertionHash, edge.Id(),
-			)
-			if innerErr != nil {
-				fields["error"] = innerErr
-				srvlog.Error("Could not compute ancestors for edge", fields)
-				return nil, innerErr
-			}
-			return resp, nil
-		})
-		if err2 != nil {
-			return err2
-		}
-		delete(fields, "error")
-		branch = append(branch, ancestors...)
-		royalBranches = append(royalBranches, branch)
-	}
-	srvlog.Info("Computed all the royal branches to update onchain", fields)
-
+	srvlog.Info("Running essential node confirmation job", fields)
 	// For each branch, update the inherited timers onchain via transactions and don't
 	// wait for them to reach safe head.
 	var lastPropagationTx *types.Transaction
-	for i, branch := range royalBranches {
-		tx, innerErr := cc.propageTimerUpdateToBranch(
+	for i, branch := range essentialPaths {
+		tx, err := cc.propageTimerUpdateToBranch(
 			ctx,
-			royalRootEdge,
+			essentialNode,
 			challengedAssertionHash,
 			i,
-			len(royalBranches),
+			len(essentialPaths),
 			branch,
 			challengePeriodBlocks,
 		)
-		if innerErr != nil {
-			return innerErr
+		if err != nil {
+			return err
 		}
 		lastPropagationTx = tx
 	}
@@ -165,13 +104,13 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		if innerErr != nil {
 			return innerErr
 		}
-		if err = cc.waitForTxToBeSafe(ctx, cc.backend, lastPropagationTx, receipt); err != nil {
+		if err := cc.waitForTxToBeSafe(ctx, cc.backend, lastPropagationTx, receipt); err != nil {
 			return err
 		}
 	}
 
 	onchainInheritedTimer, err := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {
-		timer, innerErr := royalRootEdge.SafeHeadInheritedTimer(ctx)
+		timer, innerErr := essentialNode.SafeHeadInheritedTimer(ctx)
 		if innerErr != nil {
 			fields["error"] = innerErr
 			srvlog.Error("Could not get inherited timer for edge", fields)
@@ -202,7 +141,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	}
 	srvlog.Info("Confirming edge by time", fields)
 	if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		if _, innerErr := royalRootEdge.ConfirmByTimer(ctx); innerErr != nil {
+		if _, innerErr := essentialNode.ConfirmByTimer(ctx); innerErr != nil {
 			fields["error"] = innerErr
 			srvlog.Error("Could not confirm edge by timer", fields)
 			return false, innerErr
@@ -263,7 +202,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	delete(fields, "error")
 
 	fields["onchainTimer"] = rootTimer
-	srvlog.Info("Updated the onchain inherited timer for royal branch", fields)
+	srvlog.Info("Updated the onchain inherited timer for essential branch", fields)
 
 	if uint64(rootTimer) < challengePeriodBlocks {
 		return tx, nil
@@ -283,7 +222,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	if err != nil {
 		return nil, err
 	}
-	srvlog.Info("Challenge root edge confirmed, assertion can now be confirmed to finish challenge", fields)
+	srvlog.Info("Essential node confirmed", fields)
 	return tx, nil
 }
 

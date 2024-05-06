@@ -9,14 +9,61 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/pkg/errors"
 )
 
-type essentialPath []protocol.EdgeId
+type ComputePathWeightArgs struct {
+	Child    protocol.EdgeId
+	Ancestor protocol.EdgeId
+	BlockNum uint64
+}
 
-type isConfirmableArgs struct {
-	essentialNode         protocol.EdgeId
-	confirmationThreshold uint64
-	blockNum              uint64
+func (ht *RoyalChallengeTree) ComputePathWeight(
+	ctx context.Context,
+	args ComputePathWeightArgs,
+) (uint64, error) {
+	child, ok := ht.edges.TryGet(args.Child)
+	if !ok {
+		return 0, fmt.Errorf("child edge not yet tracked %#x", args.Child.Hash)
+	}
+	ancestor, ok := ht.edges.TryGet(args.Ancestor)
+	if !ok {
+		return 0, fmt.Errorf("ancestor not yet tracked %#x", args.Ancestor.Hash)
+	}
+	pathWeight := uint64(0)
+	curr := protocol.ReadOnlyEdge(ancestor)
+	for curr.Id() != child.Id() {
+		localTimer, err := ht.LocalTimer(curr, args.BlockNum)
+		if err != nil {
+			return 0, err
+		}
+		pathWeight += localTimer
+
+		hasChildren, err := curr.HasChildren(ctx)
+		if err != nil {
+			return 0, err
+		}
+		isClaimed, claimingEdge := ht.isClaimedEdge(ctx, curr)
+		if err != nil {
+			return 0, err
+		}
+		if hasChildren {
+
+		} else if isClaimed {
+			curr = claimingEdge
+		} else {
+			return 0, errors.New("child is not ancestor of specified edge")
+		}
+	}
+	return pathWeight, nil
+}
+
+type EssentialPath []protocol.EdgeId
+
+type IsConfirmableArgs struct {
+	EssentialNode         protocol.EdgeId
+	ConfirmationThreshold uint64
+	BlockNum              uint64
 }
 
 // Find all the paths down from an essential node, and
@@ -32,16 +79,16 @@ type isConfirmableArgs struct {
 // essential node is then confirmable.
 func (ht *RoyalChallengeTree) IsConfirmableEssentialNode(
 	ctx context.Context,
-	args isConfirmableArgs,
-) (bool, []essentialPath, uint64, error) {
-	essentialNode, ok := ht.edges.TryGet(args.essentialNode)
+	args IsConfirmableArgs,
+) (bool, []EssentialPath, uint64, error) {
+	essentialNode, ok := ht.edges.TryGet(args.EssentialNode)
 	if !ok {
 		return false, nil, 0, fmt.Errorf("essential node not found")
 	}
 	essentialPaths, essentialTimers, err := ht.findEssentialPaths(
 		ctx,
 		essentialNode,
-		args.blockNum,
+		args.BlockNum,
 	)
 	if err != nil {
 		return false, nil, 0, err
@@ -66,7 +113,7 @@ func (ht *RoyalChallengeTree) IsConfirmableEssentialNode(
 		return false, nil, 0, fmt.Errorf("no path weights computed")
 	}
 	minWeight := pathWeights.Pop()
-	allEssentialPathsConfirmable := minWeight >= args.confirmationThreshold
+	allEssentialPathsConfirmable := minWeight >= args.ConfirmationThreshold
 	return allEssentialPathsConfirmable, essentialPaths, minWeight, nil
 }
 
@@ -81,13 +128,13 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 	ctx context.Context,
 	essentialNode protocol.ReadOnlyEdge,
 	blockNum uint64,
-) ([]essentialPath, []essentialLocalTimers, error) {
-	allPaths := make([]essentialPath, 0)
+) ([]EssentialPath, []essentialLocalTimers, error) {
+	allPaths := make([]EssentialPath, 0)
 	allTimers := make([]essentialLocalTimers, 0)
 
 	type visited struct {
 		essentialNode protocol.ReadOnlyEdge
-		path          essentialPath
+		path          EssentialPath
 		localTimers   essentialLocalTimers
 	}
 	stack := newStack[*visited]()
@@ -99,7 +146,7 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 
 	stack.push(&visited{
 		essentialNode: essentialNode,
-		path:          essentialPath{essentialNode.Id()},
+		path:          EssentialPath{essentialNode.Id()},
 		localTimers:   essentialLocalTimers{localTimer},
 	})
 
