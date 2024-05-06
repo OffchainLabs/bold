@@ -189,9 +189,6 @@ interface IEdgeChallengeManager {
     ///         Returns a magic string if the edge exists but is unrivaled
     ///         Returns the id of the second edge created with the same mutual id as this edge, if a rival exists
     function firstRival(bytes32 edgeId) external view returns (bytes32);
-
-    /// @notice Whether the challenge manager uses a whitelist
-    function usesWhitelist() external view returns (bool);
 }
 
 /// @title  A challenge manager that uses edge structures to decide between Assertions
@@ -296,9 +293,6 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///         There is 1 block level, 1 small step level and N big step levels
     uint8 public NUM_BIGSTEP_LEVEL;
 
-    /// @dev Pad out storage so new variables can be added without changing the storage layout of the whitelisted version
-    uint256[50] __gap;
-
     constructor() {
         _disableInitializers();
     }
@@ -315,7 +309,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
         address _excessStakeReceiver,
         uint8 _numBigStepLevel,
         uint256[] calldata _stakeAmounts
-    ) public virtual initializer {
+    ) public initializer {
         if (address(_assertionChain) == address(0)) {
             revert EmptyAssertionChain();
         }
@@ -658,10 +652,5 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function firstRival(bytes32 mutualId) public view returns (bytes32) {
         return store.firstRivals[mutualId];
-    }
-
-    /// @inheritdoc IEdgeChallengeManager
-    function usesWhitelist() external pure virtual returns (bool) {
-        return false;
     }
 }
