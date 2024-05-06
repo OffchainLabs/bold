@@ -296,7 +296,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///         There is 1 block level, 1 small step level and N big step levels
     uint8 public NUM_BIGSTEP_LEVEL;
 
-    /// @dev Pad out storage so new variables can be added without changing the contract layout of the whitelisted version
+    /// @dev Pad out storage so new variables can be added without changing the storage layout of the whitelisted version
     uint256[50] __gap;
 
     constructor() {
