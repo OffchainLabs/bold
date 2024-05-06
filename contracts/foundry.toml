@@ -7,7 +7,9 @@ optimizer = true
 optimizer_runs = 2000
 via_ir = false
 solc_version = '0.8.17'
-remappings = ['@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/', '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/', '@offchainlabs/upgrade-executor/=node_modules/@offchainlabs/upgrade-executor/']
+remappings = ['@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/', 
+              '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/', 
+              '@offchainlabs/upgrade-executor/=node_modules/@offchainlabs/upgrade-executor/']
 
 [profile.yul]
 src = 'yul'
