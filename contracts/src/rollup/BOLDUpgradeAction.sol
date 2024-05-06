@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "./RollupProxy.sol";
 import "./RollupLib.sol";
 import "./RollupAdminLogic.sol";
+import "../challengeV2/WhitelistedEdgeChallengeManager.sol";
 
 struct Node {
     // Hash of the state of the chain as of this node
@@ -485,6 +486,10 @@ contract BOLDUpgradeAction {
                 _vals[i] = true;
             }
             IRollupAdmin(address(rollup)).setValidator(validators, _vals);
+
+            if (challengeManager.usesWhitelist()) {
+                IWhitelistedEdgeChallengeManager(address(challengeManager)).setValidator(validators, _vals);
+            }
         }
         if (DISABLE_VALIDATOR_WHITELIST) {
             IRollupAdmin(address(rollup)).setValidatorWhitelistDisabled(DISABLE_VALIDATOR_WHITELIST);
