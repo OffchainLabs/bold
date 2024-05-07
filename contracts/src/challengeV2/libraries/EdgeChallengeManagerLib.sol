@@ -414,8 +414,7 @@ library EdgeChallengeManagerLib {
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        uint8 numBigStepLevel,
-        bool whitelistEnabled
+        uint8 numBigStepLevel
     ) internal returns (EdgeAddedData memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) =
@@ -425,13 +424,12 @@ library EdgeChallengeManagerLib {
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
 
-        if (whitelistEnabled) {
-            bytes32 mutualId = ce.mutualIdMem();
-            if (store.accountHasMadeLayerZeroRival[msg.sender][mutualId]) {
-                revert AccountHasMadeLayerZeroRival(msg.sender, mutualId);
-            }
-            store.accountHasMadeLayerZeroRival[msg.sender][mutualId] = true;
+        // update accountHasMadeLayerZeroRival
+        bytes32 mutualId = ce.mutualIdMem();
+        if (store.accountHasMadeLayerZeroRival[msg.sender][mutualId]) {
+            revert AccountHasMadeLayerZeroRival(msg.sender, mutualId);
         }
+        store.accountHasMadeLayerZeroRival[msg.sender][mutualId] = true;
 
         return add(store, ce);
     }

@@ -371,9 +371,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
         // check whitelist
         IRollupCore rollup = IRollupCore(address(assertionChain));
-        bool whitelistEnabled = !rollup.validatorWhitelistDisabled();
-
-        if (whitelistEnabled && !rollup.isValidator(msg.sender)) {
+        if (!rollup.validatorWhitelistDisabled() && !rollup.isValidator(msg.sender)) {
             revert NotValidator(msg.sender);
         }
 
@@ -414,7 +412,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.assertionState
             );
         }
-        edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, whitelistEnabled);
+        edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
 
         IERC20 st = stakeToken;
         uint256 sa = stakeAmounts[args.level];
