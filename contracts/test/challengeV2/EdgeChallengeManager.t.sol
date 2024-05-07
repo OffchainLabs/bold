@@ -92,6 +92,7 @@ contract EdgeChallengeManagerTest is Test {
 
     function deploy() internal returns (MockAssertionChain, EdgeChallengeManager, bytes32) {
         MockAssertionChain assertionChain = new MockAssertionChain();
+        assertionChain.setValidatorWhitelistDisabled(true);
         EdgeChallengeManager challengeManagerTemplate = new EdgeChallengeManager();
         EdgeChallengeManager challengeManager = EdgeChallengeManager(
             address(new TransparentUpgradeableProxy(address(challengeManagerTemplate), address(new ProxyAdmin()), ""))
@@ -319,6 +320,19 @@ contract EdgeChallengeManagerTest is Test {
             a1Data: AssertionStateData(a1State, genesis, bytes32(0)),
             a2Data: AssertionStateData(a2State, genesis, bytes32(0))
         });
+    }
+
+    function testWhitelist() public {
+        (MockAssertionChain assertionChain, EdgeChallengeManager challengeManager, bytes32 genesis) = deploy();
+
+        assertionChain.setValidatorWhitelistDisabled(false);
+
+        CreateEdgeArgs memory emptyArgs;
+        vm.expectRevert(abi.encodeWithSelector(NotValidator.selector, address(this)));
+        challengeManager.createLayerZeroEdge(emptyArgs);
+
+        assertionChain.setIsValidator(address(this), true);
+        testCanCreateEdgeWithStake();
     }
 
     function testRevertBlockNoFork() public {
