@@ -64,9 +64,10 @@ contract EdgeChallengeManagerLibAccess {
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        uint8 numBigStepLevel
+        uint8 numBigStepLevel,
+        bool whitelistEnabled
     ) public returns (EdgeAddedData memory) {
-        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, false); //todo
+        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, whitelistEnabled);
     }
 
     function getPrevAssertionHash(bytes32 edgeId) public view returns (bytes32) {
@@ -134,6 +135,14 @@ contract EdgeChallengeManagerLibAccess {
 
     function firstRivals(bytes32 mutualId) public view returns (bytes32) {
         return store.firstRivals[mutualId];
+    }
+
+    function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) public view returns (bool) {
+        return store.accountHasMadeLayerZeroRival[account][mutualId];
+    }
+
+    function setAccountHasMadeLayerZeroRival(address account, bytes32 mutualId, bool x) public {
+        store.accountHasMadeLayerZeroRival[account][mutualId] = x;
     }
 
     function remove(bytes32 edgeId) public {
@@ -1381,13 +1390,24 @@ contract EdgeChallengeManagerLibTest is Test {
         return ExecStateVars(assertionState, machineHash);
     }
 
-    function createZeroBlockEdge(uint256 mode) internal {
+    function createZeroBlockEdge(uint256 mode) internal returns (EdgeAddedData memory) {
+        return createZeroBlockEdge(mode, "");
+    }
+
+    function createZeroBlockEdge(uint256 mode, bytes memory extraData) internal returns (EdgeAddedData memory) {
         bytes memory revertArg;
         MockOneStepProofEntry entry = new MockOneStepProofEntry(0);
         uint256 expectedEndHeight = 2 ** 2;
         if (mode == 139) {
             expectedEndHeight = 2 ** 5 - 1;
             revertArg = abi.encodeWithSelector(NotPowerOfTwo.selector, expectedEndHeight);
+        }
+
+        bool whitelistEnabled = mode == 150 || mode == 151;
+
+        if (mode == 151) {
+            bytes32 expectedMutualId = abi.decode(extraData, (bytes32));
+            revertArg = abi.encodeWithSelector(AccountHasMadeLayerZeroRival.selector, address(this), expectedMutualId);
         }
 
         ExecStateVars memory startExec = randomAssertionState(entry);
@@ -1471,7 +1491,7 @@ contract EdgeChallengeManagerLibTest is Test {
             vm.expectRevert(revertArg);
         }
         EdgeAddedData memory addedEdge =
-            store.createLayerZeroEdge(args, ard, entry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
+            store.createLayerZeroEdge(args, ard, entry, expectedEndHeight, NUM_BIGSTEP_LEVEL, whitelistEnabled);
         if (revertArg.length == 0) {
             assertEq(
                 store.get(addedEdge.edgeId).startHistoryRoot,
@@ -1483,6 +1503,8 @@ contract EdgeChallengeManagerLibTest is Test {
                 "Start history root"
             );
         }
+
+        return addedEdge;
     }
 
     function testCreateLayerZeroEdgeBlockA() public {
@@ -1535,6 +1557,16 @@ contract EdgeChallengeManagerLibTest is Test {
 
     function testCreateLayerZeroEdgeEmptyPrefixProof() public {
         createZeroBlockEdge(148);
+    }
+
+    function testPerAccountRivalRestriction() public {
+        uint256 snapshot = vm.snapshot();
+        EdgeAddedData memory edgeAdded = createZeroBlockEdge(150);
+        assertTrue(store.accountHasMadeLayerZeroRival(address(this), edgeAdded.mutualId));
+        vm.revertTo(snapshot);
+
+        store.setAccountHasMadeLayerZeroRival(address(this), edgeAdded.mutualId, true);
+        createZeroBlockEdge(151, abi.encode(edgeAdded.mutualId));
     }
 
     function createClaimEdge(EdgeChallengeManagerLibAccess c, uint256 start, uint256 end, bool includeRival)
@@ -1649,7 +1681,8 @@ contract EdgeChallengeManagerLibTest is Test {
             vars.emptyArd,
             vars.a,
             vars.expectedEndHeight,
-            NUM_BIGSTEP_LEVEL
+            NUM_BIGSTEP_LEVEL,
+            false
         );
     }
 
@@ -1737,7 +1770,8 @@ contract EdgeChallengeManagerLibTest is Test {
             ard,
             mockOsp,
             expectedEndHeight,
-            numBigStepLevel
+            numBigStepLevel,
+            false
         ).edgeId;
     }
 
@@ -1912,7 +1946,8 @@ contract EdgeChallengeManagerLibTest is Test {
                 emptyArd,
                 mockOsp,
                 32,
-                1
+                1,
+                false
             ).edgeId;
         }
 
@@ -1956,7 +1991,8 @@ contract EdgeChallengeManagerLibTest is Test {
                 emptyArd,
                 mockOsp,
                 32,
-                1
+                1,
+                false
             ).edgeId;
         }
 
