@@ -11,9 +11,13 @@ import "./AbsBoldStakingPool.sol";
 import "./interfaces/IAssertionStakingPool.sol";
 
 /// @notice Staking pool contract for target assertion.
-/// Allows users to deposit stake, create assertion once required stake amount is reached,
-/// and reclaim their stake when and if the assertion is confirmed.
-/// Tokens sent directly to this contract will be lost.
+///
+///         Allows users to deposit stake, create assertion once required stake amount is reached,
+///         and reclaim their stake when and if the assertion is confirmed.
+///
+///         Tokens sent directly to this contract will be lost. 
+///         It is assumed that the rollup will not return more tokens than the amount deposited by the pool.
+///         Any excess tokens will be stuck in the pool forever.
 contract AssertionStakingPool is AbsBoldStakingPool, IAssertionStakingPool {
     using SafeERC20 for IERC20;
     

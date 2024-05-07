@@ -17,6 +17,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ///         and reclaim their stake when and if the edge is confirmed.
 ///
 ///         Tokens sent directly to this contract will be lost.
+///         It is assumed that the challenge manager will not return more tokens than the amount deposited by the pool.
+///         Any excess tokens will be stuck in the pool forever.
 ///
 /// @dev    Unlike the assertion staking pool, there is no need for a function to claim the stake back into the pool.
 ///         (see `EdgeChallengeManager.refundStake(bytes32 edgeId)`)
