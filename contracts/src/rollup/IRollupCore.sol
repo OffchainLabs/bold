@@ -10,7 +10,6 @@ import "../bridge/IOutbox.sol";
 import "../bridge/IInboxBase.sol";
 import "./IRollupEventInbox.sol";
 import "../challengeV2/EdgeChallengeManager.sol";
-import "../challengeV2/IAssertionChain.sol";
 
 interface IRollupCore is IAssertionChain {
     struct Staker {
