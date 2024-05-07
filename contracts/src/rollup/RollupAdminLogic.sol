@@ -52,8 +52,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         minimumAssertionPeriod = 75;
         challengeGracePeriodBlocks = config.challengeGracePeriodBlocks;
 
-        // loserStakeEscrow stake is now sent directly to loserStakeEscrow
-        // it must not be address(0) because some token do not allow transfers to address(0)
+        // loser stake is now sent directly to loserStakeEscrow, it must not
+        // be address(0) because some token do not allow transfers to address(0)
         require(config.loserStakeEscrow != address(0), "INVALID_ESCROW_0");
         loserStakeEscrow = config.loserStakeEscrow;
 
@@ -267,8 +267,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     }
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external override {
-        // loserStakeEscrow stake is now sent directly to loserStakeEscrow
-        // it must not be address(0) because some token do not allow transfers to address(0)
+        // loser stake is now sent directly to loserStakeEscrow, it must not
+        // be address(0) because some token do not allow transfers to address(0)
         require(newLoserStakerEscrow != address(0), "INVALID_ESCROW_0");
         loserStakeEscrow = newLoserStakerEscrow;
         emit OwnerFunctionCalled(25);
