@@ -16,7 +16,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 ///         Allows users to deposit stake, create an edge once required stake amount is reached,
 ///         and reclaim their stake when and if the edge is confirmed.
 ///
+///         Tokens sent directly to this contract will be lost.
+///
 /// @dev    Unlike the assertion staking pool, there is no need for a function to claim the stake back into the pool.
+///         (see `EdgeChallengeManager.refundStake(bytes32 edgeId)`)
 contract EdgeStakingPool is AbsBoldStakingPool, IEdgeStakingPool {
     using SafeERC20 for IERC20;
 
