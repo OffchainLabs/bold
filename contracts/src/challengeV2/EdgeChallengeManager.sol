@@ -5,6 +5,7 @@
 pragma solidity ^0.8.17;
 
 import "../rollup/Assertion.sol";
+import "../rollup/IRollupCore.sol";
 import "./libraries/UintUtilsLib.sol";
 import "./IAssertionChain.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
@@ -189,6 +190,9 @@ interface IEdgeChallengeManager {
     ///         Returns a magic value if there is one edge but it is unrivaled
     ///         Returns the id of the second edge created with the mutual id, if > 1 exists
     function firstRival(bytes32 mutualId) external view returns (bytes32);
+
+    /// @notice True if an account has made a layer zero edge with the given mutual id
+    function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) external view returns (bool);
 }
 
 /// @title  A challenge manager that uses edge structures to decide between Assertions
@@ -368,6 +372,14 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function createLayerZeroEdge(CreateEdgeArgs calldata args) public virtual returns (bytes32) {
+        // check whitelist
+        IRollupCore rollup = IRollupCore(address(assertionChain));
+        bool whitelistEnabled = !rollup.validatorWhitelistDisabled();
+
+        if (whitelistEnabled && !rollup.isValidator(msg.sender)) {
+            revert NotValidator(msg.sender);
+        }
+
         EdgeAddedData memory edgeAdded;
         EdgeType eType = ChallengeEdgeLib.levelToType(args.level, NUM_BIGSTEP_LEVEL);
         uint256 expectedEndHeight = getLayerZeroEndHeight(eType);
@@ -405,7 +417,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.assertionState
             );
         }
-        edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL);
+        edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, whitelistEnabled);
 
         IERC20 st = stakeToken;
         uint256 sa = stakeAmounts[args.level];
@@ -655,5 +667,10 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function firstRival(bytes32 mutualId) public view returns (bytes32) {
         return store.firstRivals[mutualId];
+    }
+
+    /// @inheritdoc IEdgeChallengeManager
+    function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) public view returns (bool) {
+        return store.accountHasMadeLayerZeroRival[account][mutualId];
     }
 }

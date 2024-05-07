@@ -82,6 +82,8 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
+    /// @notice A mapping of account -> mutualId -> bool indicating if the account has created a layer zero edge with the mutual id
+    mapping(address => mapping(bytes32 => bool)) accountHasMadeLayerZeroRival;
 }
 
 /// @notice Input data to a one step proof
@@ -412,7 +414,8 @@ library EdgeChallengeManagerLib {
         AssertionReferenceData memory ard,
         IOneStepProofEntry oneStepProofEntry,
         uint256 expectedEndHeight,
-        uint8 numBigStepLevel
+        uint8 numBigStepLevel,
+        bool whitelistEnabled
     ) internal returns (EdgeAddedData memory) {
         // each edge type requires some specific checks
         (ProofData memory proofData, bytes32 originId) =
@@ -421,6 +424,15 @@ library EdgeChallengeManagerLib {
         (bytes32 startHistoryRoot) = layerZeroCommonChecks(proofData, args, expectedEndHeight);
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
+
+        if (whitelistEnabled) {
+            bytes32 mutualId = ce.mutualIdMem();
+            if (store.accountHasMadeLayerZeroRival[msg.sender][mutualId]) {
+                revert AccountHasMadeLayerZeroRival(msg.sender, mutualId);
+            }
+            store.accountHasMadeLayerZeroRival[msg.sender][mutualId] = true;
+        }
+
         return add(store, ce);
     }
 

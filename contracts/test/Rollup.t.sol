@@ -223,6 +223,8 @@ contract RollupTest is Test {
         validators.push(validator1);
         validators.push(validator2);
         validators.push(validator3);
+        validators.push(address(this));
+        flags.push(true);
         flags.push(true);
         flags.push(true);
         flags.push(true);
@@ -855,6 +857,8 @@ contract RollupTest is Test {
         bytes32 root =
             MerkleTreeLib.root(ProofUtils.expansionFromLeaves(randomStates2, 0, LAYERZERO_BLOCKEDGE_HEIGHT + 1));
 
+        token.transfer(validator1, 1 ether);
+        vm.startPrank(validator1);
         bytes32 e2Id = challengeManager.createLayerZeroEdge(
             CreateEdgeArgs({
                 level: 0,
@@ -872,6 +876,7 @@ contract RollupTest is Test {
                     )
             })
         );
+        vm.stopPrank();
 
         return (data.e1Id, e2Id);
     }

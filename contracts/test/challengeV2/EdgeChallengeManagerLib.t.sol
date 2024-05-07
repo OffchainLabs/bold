@@ -66,7 +66,7 @@ contract EdgeChallengeManagerLibAccess {
         uint256 expectedEndHeight,
         uint8 numBigStepLevel
     ) public returns (EdgeAddedData memory) {
-        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel);
+        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, false); //todo
     }
 
     function getPrevAssertionHash(bytes32 edgeId) public view returns (bytes32) {

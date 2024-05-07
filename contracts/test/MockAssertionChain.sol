@@ -152,4 +152,12 @@ contract MockAssertionChain is IAssertionChain {
 
         return addAssertionUnsafe(predecessorId, height, nextInboxPosition, afterState, successionChallenge);
     }
+
+    function validatorWhitelistDisabled() external view returns (bool) {
+        return true;
+    }
+
+    function isValidator(address addr) external view returns (bool) {
+        return true;
+    }
 }
