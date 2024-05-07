@@ -368,7 +368,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /////////////////////////////
 
     /// @inheritdoc IEdgeChallengeManager
-    function createLayerZeroEdge(CreateEdgeArgs calldata args) public virtual returns (bytes32) {
+    function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
         // check whitelist
         IRollupCore rollup = IRollupCore(address(assertionChain));
         bool whitelistEnabled = !rollup.validatorWhitelistDisabled();
