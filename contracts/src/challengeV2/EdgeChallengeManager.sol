@@ -293,6 +293,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     ///         There is 1 block level, 1 small step level and N big step levels
     uint8 public NUM_BIGSTEP_LEVEL;
 
+    // gap in storage layout
+    uint256[50] private __gap;
+
     constructor() {
         _disableInitializers();
     }
