@@ -38,7 +38,7 @@ contract AssertionStakingPool is AbsBoldStakingPool, IAssertionStakingPool {
         // approve spending from rollup for newStakeOnNewAssertion call
         IERC20(stakeToken).safeIncreaseAllowance(rollup, requiredStake);
         // reverts if pool doesn't have enough stake and if assertion has already been asserted
-        IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash);
+        IRollupUser(rollup).newStakeOnNewAssertion(requiredStake, assertionInputs, assertionHash, address(this));
     }
 
     /// @inheritdoc IAssertionStakingPool
