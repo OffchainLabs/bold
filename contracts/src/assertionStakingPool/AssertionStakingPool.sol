@@ -17,7 +17,7 @@ import "./interfaces/IAssertionStakingPool.sol";
 ///
 ///         Tokens sent directly to this contract will be lost. 
 ///         It is assumed that the rollup will not return more tokens than the amount deposited by the pool.
-///         Any excess tokens will be stuck in the pool forever.
+///         Any tokens exceeding the deposited amount will be stuck in the pool forever.
 contract AssertionStakingPool is AbsBoldStakingPool, IAssertionStakingPool {
     using SafeERC20 for IERC20;
     
