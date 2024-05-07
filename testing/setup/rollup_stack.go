@@ -275,7 +275,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	wasmModuleRoot := common.Hash{}
 	rollupOwner := accs[0].AccountAddr
 	chainId := big.NewInt(1337)
-	loserStakeEscrow := accs[0].AccountAddr
+	loserStakeEscrow := rollupOwner
 	cfgOpts := &rollupgen.Config{}
 	for _, o := range setp.challengeTestingOpts {
 		o(cfgOpts)
