@@ -141,12 +141,12 @@ contract EdgeChallengeManagerLibAccess {
         return store.firstRivals[mutualId];
     }
 
-    function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) public view returns (bool) {
-        return store.accountHasMadeLayerZeroRival[account][mutualId];
+    function hasMadeLayerZeroRival(address account, bytes32 mutualId) public view returns (bool) {
+        return store.hasMadeLayerZeroRival[account][mutualId];
     }
 
-    function setAccountHasMadeLayerZeroRival(address account, bytes32 mutualId, bool x) public {
-        store.accountHasMadeLayerZeroRival[account][mutualId] = x;
+    function setHasMadeLayerZeroRival(address account, bytes32 mutualId, bool x) public {
+        store.hasMadeLayerZeroRival[account][mutualId] = x;
     }
 
     function remove(bytes32 edgeId) public {
@@ -1566,10 +1566,10 @@ contract EdgeChallengeManagerLibTest is Test {
     function testPerAccountRivalRestriction() public {
         uint256 snapshot = vm.snapshot();
         EdgeAddedData memory edgeAdded = createZeroBlockEdge(150);
-        assertTrue(store.accountHasMadeLayerZeroRival(address(this), edgeAdded.mutualId));
+        assertTrue(store.hasMadeLayerZeroRival(address(this), edgeAdded.mutualId));
         vm.revertTo(snapshot);
 
-        store.setAccountHasMadeLayerZeroRival(address(this), edgeAdded.mutualId, true);
+        store.setHasMadeLayerZeroRival(address(this), edgeAdded.mutualId, true);
         createZeroBlockEdge(151, abi.encode(edgeAdded.mutualId));
     }
 

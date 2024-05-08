@@ -82,8 +82,8 @@ struct EdgeStore {
     /// @notice A mapping of mutualId to the edge id of the confirmed rival with that mutualId
     /// @dev    Each group of rivals (edges sharing mutual id) can only have at most one confirmed edge
     mapping(bytes32 => bytes32) confirmedRivals;
-    /// @notice A mapping of account -> mutualId -> bool indicating if the account has created a layer zero edge with the mutual id
-    mapping(address => mapping(bytes32 => bool)) accountHasMadeLayerZeroRival;
+    /// @notice A mapping of account -> mutualId -> bool indicating if the account has created a layer zero edge with a mutual id
+    mapping(address => mapping(bytes32 => bool)) hasMadeLayerZeroRival;
 }
 
 /// @notice Input data to a one step proof
@@ -425,12 +425,14 @@ library EdgeChallengeManagerLib {
         // we only wrap the struct creation in a function as doing so with exceeds the stack limit
         ChallengeEdge memory ce = toLayerZeroEdge(originId, startHistoryRoot, args);
 
+        // if the validator whitelist is enabled, we can enforce that a single party cannot create two layer zero edges that rival each other
+        // if the validator whitelist is disabled, this check serves no purpose since an attacker can create new accounts
         if (whitelistEnabled) {
             bytes32 mutualId = ce.mutualIdMem();
-            if (store.accountHasMadeLayerZeroRival[msg.sender][mutualId]) {
+            if (store.hasMadeLayerZeroRival[msg.sender][mutualId]) {
                 revert AccountHasMadeLayerZeroRival(msg.sender, mutualId);
             }
-            store.accountHasMadeLayerZeroRival[msg.sender][mutualId] = true;
+            store.hasMadeLayerZeroRival[msg.sender][mutualId] = true;
         }
 
         return add(store, ce);

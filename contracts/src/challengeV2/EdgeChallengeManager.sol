@@ -5,7 +5,6 @@
 pragma solidity ^0.8.17;
 
 import "../rollup/Assertion.sol";
-import "../rollup/IRollupCore.sol";
 import "./libraries/UintUtilsLib.sol";
 import "./IAssertionChain.sol";
 import "./libraries/EdgeChallengeManagerLib.sol";
@@ -193,7 +192,7 @@ interface IEdgeChallengeManager {
 
     /// @notice True if an account has made a layer zero edge with the given mutual id.
     ///         This is only tracked when the validator whitelist is enabled
-    function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) external view returns (bool);
+    function hasMadeLayerZeroRival(address account, bytes32 mutualId) external view returns (bool);
 }
 
 /// @title  A challenge manager that uses edge structures to decide between Assertions
@@ -371,10 +370,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     /// @inheritdoc IEdgeChallengeManager
     function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
         // check whitelist
-        IRollupCore rollup = IRollupCore(address(assertionChain));
-        bool whitelistEnabled = !rollup.validatorWhitelistDisabled();
+        bool whitelistEnabled = !assertionChain.validatorWhitelistDisabled();
 
-        if (whitelistEnabled && !rollup.isValidator(msg.sender)) {
+        if (whitelistEnabled && !assertionChain.isValidator(msg.sender)) {
             revert NotValidator(msg.sender);
         }
 
@@ -668,7 +666,7 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
     }
 
     /// @inheritdoc IEdgeChallengeManager
-    function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) public view returns (bool) {
-        return store.accountHasMadeLayerZeroRival[account][mutualId];
+    function hasMadeLayerZeroRival(address account, bytes32 mutualId) external view returns (bool) {
+        return store.hasMadeLayerZeroRival[account][mutualId];
     }
 }

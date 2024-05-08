@@ -69,10 +69,6 @@ interface IRollupCore is IAssertionChain {
 
     function minimumAssertionPeriod() external view returns (uint256);
 
-    function isValidator(address) external view returns (bool);
-
-    function validatorWhitelistDisabled() external view returns (bool);
-
     function genesisAssertionHash() external pure returns (bytes32);
 
     /**
