@@ -430,7 +430,7 @@ contract BOLDUpgradeAction {
         PROXY_ADMIN_REI.upgrade(rollupEventInbox, currentRollupEventInboxImpl);
 
         TransparentUpgradeableProxy outbox = TransparentUpgradeableProxy(payable(OUTBOX));
-        address currentOutboxImpl = PROXY_ADMIN_REI.getProxyImplementation(outbox);
+        address currentOutboxImpl = PROXY_ADMIN_OUTBOX.getProxyImplementation(outbox);
         PROXY_ADMIN_OUTBOX.upgrade(outbox, IMPL_OUTBOX);
         IOutbox(OUTBOX).updateRollupAddress();
         PROXY_ADMIN_OUTBOX.upgrade(outbox, currentOutboxImpl);
