@@ -413,10 +413,8 @@ contract BOLDUpgradeAction {
         // the rollup address to be set to the new rollup address
 
         TransparentUpgradeableProxy bridge = TransparentUpgradeableProxy(payable(BRIDGE));
-        address currentBridgeImpl = PROXY_ADMIN_BRIDGE.getProxyImplementation(bridge);
         PROXY_ADMIN_BRIDGE.upgrade(bridge, IMPL_BRIDGE);
         IBridge(BRIDGE).updateRollupAddress(IOwnable(newRollupAddress));
-        PROXY_ADMIN_BRIDGE.upgrade(bridge, currentBridgeImpl);
 
         upgradeSequencerInbox();
 
@@ -424,16 +422,12 @@ contract BOLDUpgradeAction {
         PROXY_ADMIN_INBOX.upgrade(inbox, IMPL_INBOX);
 
         TransparentUpgradeableProxy rollupEventInbox = TransparentUpgradeableProxy(payable(REI));
-        address currentRollupEventInboxImpl = PROXY_ADMIN_REI.getProxyImplementation(rollupEventInbox);
         PROXY_ADMIN_REI.upgrade(rollupEventInbox, IMPL_REI);
         IRollupEventInbox(REI).updateRollupAddress();
-        PROXY_ADMIN_REI.upgrade(rollupEventInbox, currentRollupEventInboxImpl);
 
         TransparentUpgradeableProxy outbox = TransparentUpgradeableProxy(payable(OUTBOX));
-        address currentOutboxImpl = PROXY_ADMIN_OUTBOX.getProxyImplementation(outbox);
         PROXY_ADMIN_OUTBOX.upgrade(outbox, IMPL_OUTBOX);
         IOutbox(OUTBOX).updateRollupAddress();
-        PROXY_ADMIN_OUTBOX.upgrade(outbox, currentOutboxImpl);
     }
 
     function upgradeSequencerInbox() private {
