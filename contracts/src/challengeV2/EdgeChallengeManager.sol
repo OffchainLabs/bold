@@ -369,7 +369,8 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
 
     /// @inheritdoc IEdgeChallengeManager
     function createLayerZeroEdge(CreateEdgeArgs calldata args) external returns (bytes32) {
-        // check whitelist
+        // Check if whitelist is enabled in the Rollup
+        // We only enforce whitelist in this function as it may exhaust resources
         bool whitelistEnabled = !assertionChain.validatorWhitelistDisabled();
 
         if (whitelistEnabled && !assertionChain.isValidator(msg.sender)) {
