@@ -499,7 +499,10 @@ library EdgeChallengeManagerLib {
     /// @dev    The cache is only updated if the new value is greater than the current value.
     ///         If the new value is greater than uint64 max then the cache is set to uint64 max
     /// @return (bool, uint256) A boolean indicating if the cache was updated, and the value of the cache
-    function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint256 newValue) internal returns (bool, uint256) {
+    function updateTimerCache(EdgeStore storage store, bytes32 edgeId, uint256 newValue)
+        internal
+        returns (bool, uint256)
+    {
         uint256 currentAccuTimer = store.edges[edgeId].totalTimeUnrivaledCache;
         newValue = newValue > type(uint64).max ? type(uint64).max : newValue;
         // only update when increased
@@ -741,7 +744,7 @@ library EdgeChallengeManagerLib {
 
         // we also check the edge is pending in setConfirmed()
         store.edges[edgeId].setConfirmed();
-        
+
         // also checks that no other rival has been confirmed
         setConfirmedRival(store, edgeId);
 

@@ -18,7 +18,7 @@ contract MockOneStepProofEntry is IOneStepProofEntry {
 
     uint256 public testMachineStep;
 
-    function getStartMachineHash(bytes32 globalStateHash, bytes32 wasmModuleRoot) external pure returns(bytes32) {
+    function getStartMachineHash(bytes32 globalStateHash, bytes32 wasmModuleRoot) external pure returns (bytes32) {
         return keccak256(abi.encodePacked("Machine:", globalStateHash, wasmModuleRoot));
     }
 
@@ -71,7 +71,9 @@ contract EdgeChallengeManagerLibAccess {
         uint8 numBigStepLevel,
         bool whitelistEnabled
     ) public returns (EdgeAddedData memory) {
-        return store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, whitelistEnabled);
+        return store.createLayerZeroEdge(
+            args, ard, oneStepProofEntry, expectedEndHeight, numBigStepLevel, whitelistEnabled
+        );
     }
 
     function getPrevAssertionHash(bytes32 edgeId) public view returns (bytes32) {
@@ -677,17 +679,13 @@ contract EdgeChallengeManagerLibTest is Test {
         bool upperHasRival
     ) internal {
         bytes memory prefixProof = abi.encode(
-                ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1),
-                ProofUtils.generatePrefixProof(
-                    bisectionPoint + 1, ArrayUtilsLib.slice(states, bisectionPoint + 1, states.length)
-                )
-            );
-        (bytes32 lowerChildId, EdgeAddedData memory lowerChildAdded, EdgeAddedData memory upperChildAdded) = store
-            .bisectEdge(
-            edge.idMem(),
-            bisectionRoot,
-            prefixProof
+            ProofUtils.expansionFromLeaves(states, 0, bisectionPoint + 1),
+            ProofUtils.generatePrefixProof(
+                bisectionPoint + 1, ArrayUtilsLib.slice(states, bisectionPoint + 1, states.length)
+            )
         );
+        (bytes32 lowerChildId, EdgeAddedData memory lowerChildAdded, EdgeAddedData memory upperChildAdded) =
+            store.bisectEdge(edge.idMem(), bisectionRoot, prefixProof);
         bisectEdgeEmitted(
             edge,
             bisectionRoot,
@@ -1262,7 +1260,7 @@ contract EdgeChallengeManagerLibTest is Test {
         }
 
         MockOneStepProofEntry entry = new MockOneStepProofEntry(expectedStartMachineStep);
-        
+
         if (data.revertArg.length != 0) {
             vm.expectRevert(data.revertArg);
         }
@@ -1944,7 +1942,7 @@ contract EdgeChallengeManagerLibTest is Test {
                     prefixProof: abi.encode(
                         ProofUtils.expansionFromLeaves(states1, 0, 1),
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states1, 1, states1.length))
-                        ),
+                    ),
                     proof: typeSpecificProof1
                 }),
                 emptyArd,
@@ -1989,7 +1987,7 @@ contract EdgeChallengeManagerLibTest is Test {
                     prefixProof: abi.encode(
                         ProofUtils.expansionFromLeaves(states2, 0, 1),
                         ProofUtils.generatePrefixProof(1, ArrayUtilsLib.slice(states2, 1, states2.length))
-                        ),
+                    ),
                     proof: typeSpecificProof2
                 }),
                 emptyArd,

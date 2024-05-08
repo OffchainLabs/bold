@@ -414,7 +414,9 @@ contract EdgeChallengeManager is IEdgeChallengeManager, Initializable {
                 claimStateData.assertionState
             );
         }
-        edgeAdded = store.createLayerZeroEdge(args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, whitelistEnabled);
+        edgeAdded = store.createLayerZeroEdge(
+            args, ard, oneStepProofEntry, expectedEndHeight, NUM_BIGSTEP_LEVEL, whitelistEnabled
+        );
 
         IERC20 st = stakeToken;
         uint256 sa = stakeAmounts[args.level];
