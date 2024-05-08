@@ -191,7 +191,8 @@ interface IEdgeChallengeManager {
     ///         Returns the id of the second edge created with the mutual id, if > 1 exists
     function firstRival(bytes32 mutualId) external view returns (bytes32);
 
-    /// @notice True if an account has made a layer zero edge with the given mutual id
+    /// @notice True if an account has made a layer zero edge with the given mutual id.
+    ///         This is only tracked when the validator whitelist is enabled
     function accountHasMadeLayerZeroRival(address account, bytes32 mutualId) external view returns (bool);
 }
 
