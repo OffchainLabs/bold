@@ -191,6 +191,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
+     * @notice Get the withdrawal address of the given staker
+     * @param staker Staker address to lookup
+     * @return Withdrawal address of the staker
+     */
+    function withdrawalAddress(address staker) public view override returns (address) {
+        return _stakerMap[staker].withdrawalAddress;
+    }
+
+    /**
      * @notice Retrieves stored information about a requested staker
      * @param staker Staker address to retrieve
      * @return A structure with information about the requested staker
