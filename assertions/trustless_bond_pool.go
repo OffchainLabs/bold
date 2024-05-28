@@ -8,6 +8,7 @@ import (
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
 	pools "github.com/OffchainLabs/bold/solgen/go/assertionStakingPoolgen"
+	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -129,6 +130,7 @@ func (m *Manager) createAssertionStakingPool(
 
 type assertionStakingPool struct {
 	cfg            *AssertionPoolingConfig
+	backend        protocol.ChainBackend
 	addr           common.Address
 	assertionHash  common.Hash
 	pool           *pools.AssertionStakingPool
@@ -159,13 +161,26 @@ func (p *assertionStakingPool) waitUntilFunded(
 	args monitorPoolCreatorArgs,
 ) {
 	fromBlock := p.createdAtBlock
-	// latestBlock, err := p.pool.HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
-	// if err != nil {
-	// 	log.Error("Could not get latest header", "err", err)
-	// 	continue
-	// }
+	latestBlock, err := p.backend.HeaderByNumber(ctx, nil) // TODO: Get desired block number.
+	if err != nil {
+		panic(err)
+	}
+	tokenAddr, err := p.pool.StakeToken(&bind.CallOpts{Context: ctx}) // TODO: Get desired block number.
+	if err != nil {
+		panic(err)
+	}
+	stakeToken, err := mocksgen.NewTestWETH9(tokenAddr, p.backend) // TODO: Do not use the mock here, just use an ierc20 binding.
+	if err != nil {
+		panic(err)
+	}
+	bal, err := stakeToken.BalanceOf(&bind.CallOpts{Context: ctx}, p.addr) // TODO: Get desired block number.
+	if err != nil {
+		panic(err)
+	}
 
-	latestBlock := new(big.Int)
+	// If balance is already enough, return.
+	_ = bal
+
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -188,6 +203,9 @@ func (p *assertionStakingPool) waitUntilFunded(
 				End:     nil,
 			}
 			it, err := p.pool.FilterStakeDeposited(filterOpts, nil)
+			if err != nil {
+				panic(err)
+			}
 			for it.Next() {
 				// Get the balance after the deposit at that block number.
 				// If balance reached...
