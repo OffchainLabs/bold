@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
@@ -69,5 +70,7 @@ func NewSimulated(blockTime time.Duration, opts ...setup.Opt) (*LocalSimulatedBa
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Rollup addr", setup.Addrs.Rollup)
+	time.Sleep(time.Second * 10)
 	return &LocalSimulatedBackend{blockTime: blockTime, setup: setup}, nil
 }

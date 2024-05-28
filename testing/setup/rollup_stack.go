@@ -23,14 +23,17 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/yulgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/node"
 	"github.com/pkg/errors"
 )
 
@@ -320,7 +323,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		}
 		var challengeManagerAddr common.Address
 		challengeManagerAddr, err = assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
-			&bind.CallOpts{Context: ctx},
+			util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
 		)
 		if err != nil {
 			return nil, err
@@ -1032,6 +1035,16 @@ func Accounts(numAccounts uint64) ([]*TestAccount, *SimulatedBackendWrapper, err
 			TxOpts:      txOpts,
 		}
 	}
-	backend := NewSimulatedBackendWrapper(simulated.NewBackend(genesis, simulated.WithBlockGasLimit(gasLimit)))
+	backend := NewSimulatedBackendWrapper(simulated.NewBackend(genesis, simulated.WithBlockGasLimit(gasLimit), WithHttpApi(8545)))
 	return accs, backend, nil
+}
+
+// WithBlockGasLimit configures the simulated backend to target a specific gas limit
+// when producing blocks.
+func WithHttpApi(port int) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+		nodeConf.HTTPHost = "localhost"
+		nodeConf.HTTPPort = port
+		nodeConf.HTTPModules = append(nodeConf.HTTPModules, "eth")
+	}
 }

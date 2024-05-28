@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "reimbursement-service_lib",
+    srcs = [
+        "challenge_protocol_graph.go",
+        "event_scraper.go",
+        "main.go",
+        "payments.go",
+        "reimbursement_computation.go",
+    ],
+    importpath = "github.com/OffchainLabs/bold/tools/reimbursement-service",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//chain-abstraction:protocol",
+        "//containers/option",
+        "//containers/threadsafe",
+        "//solgen/go/challengeV2gen",
+        "//solgen/go/rollupgen",
+        "//util",
+        "@com_github_ethereum_go_ethereum//:go-ethereum",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
+        "@com_github_ethereum_go_ethereum//ethclient",
+        "@com_github_ethereum_go_ethereum//log",
+        "@com_github_ethereum_go_ethereum//rpc",
+    ],
+)
+
+go_binary(
+    name = "reimbursement-service",
+    embed = [":reimbursement-service_lib"],
+    visibility = ["//visibility:public"],
+)

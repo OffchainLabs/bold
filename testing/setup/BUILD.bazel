@@ -22,6 +22,7 @@ go_library(
         "//solgen/go/yulgen",
         "//testing",
         "//testing/mocks/state-provider",
+        "//util",
         "@com_github_ethereum_go_ethereum//:go-ethereum",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
@@ -29,8 +30,10 @@ go_library(
         "@com_github_ethereum_go_ethereum//core",
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//crypto",
+        "@com_github_ethereum_go_ethereum//eth/ethconfig",
         "@com_github_ethereum_go_ethereum//ethclient/simulated",
         "@com_github_ethereum_go_ethereum//log",
+        "@com_github_ethereum_go_ethereum//node",
         "@com_github_pkg_errors//:errors",
     ],
 )
