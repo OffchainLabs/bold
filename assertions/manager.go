@@ -37,6 +37,8 @@ var (
 	safeBlockDelayCounter                 = metrics.GetOrRegisterCounter("arb/validator/scanner/safe_block_delay", nil)
 )
 
+const defaultAssertionPoolMaxGwei = uint64(1000000000) // 1 ETH.
+
 // The Manager struct is responsible for several tasks related to the assertion chain:
 // 1. It continuously polls the assertion chain to check for posted, on-chain assertions starting from the latest confirmed assertion up to the newest one.
 // 2. As the assertion chain advances, the Manager keeps polling to stay updated.
@@ -70,6 +72,16 @@ type Manager struct {
 	startPostingSignal          chan struct{}
 	layerZeroHeightsCache       *protocol.LayerZeroHeights
 	layerZeroHeightsCacheLock   sync.RWMutex
+	poolingConfig               *AssertionPoolingConfig
+}
+
+type AssertionPoolingConfig struct {
+	Enable bool // Whether or not to enable the use of trustless assertion bond pools.
+	// The max amount of gwei to deposit into an assertion bond pool at a time. If 0, then a warning will be logged
+	// and no amount will be pooled.
+	MaxGweiToPool                   uint64
+	AssertionPoolCreatorFactoryAddr common.Address // The address of the assertion bonding pool creator contract.
+	PoolingTxOpts                   *bind.TransactOpts
 }
 
 type assertionChainData struct {
@@ -89,6 +101,18 @@ func WithPostingDisabled() Opt {
 func WithDangerousReadyToPost() Opt {
 	return func(m *Manager) {
 		m.isReadyToPost = true
+	}
+}
+
+func WithAssertionPoolCreatorFactoryAddr(addr common.Address) Opt {
+	return func(m *Manager) {
+		m.poolingConfig.AssertionPoolCreatorFactoryAddr = addr
+	}
+}
+
+func WithPoolingTxOpts(opts *bind.TransactOpts) Opt {
+	return func(m *Manager) {
+		m.poolingConfig.PoolingTxOpts = opts
 	}
 }
 
@@ -140,6 +164,10 @@ func NewManager(
 		observedCanonicalAssertions: make(chan protocol.AssertionHash, 1000),
 		isReadyToPost:               false,
 		startPostingSignal:          make(chan struct{}),
+		poolingConfig: &AssertionPoolingConfig{
+			Enable:        true, // Enable the use of assertion bonding pools by default.
+			MaxGweiToPool: defaultAssertionPoolMaxGwei,
+		},
 	}
 	for _, o := range opts {
 		o(m)
