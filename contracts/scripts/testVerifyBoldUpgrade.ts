@@ -5,6 +5,7 @@ import {
   EdgeChallengeManager__factory,
   RollupUserLogic__factory,
 } from '../build/types'
+import { getAddress } from 'ethers/lib/utils'
 
 dotenv.config()
 
@@ -41,8 +42,7 @@ async function main() {
     existingDeployedContracts.newEdgeChallengeManager,
     l1Rpc
   )
-
-  if ((await edgeChallengeManager.stakeToken()) != config.settings.stakeToken) {
+  if (getAddress(await edgeChallengeManager.stakeToken()) != getAddress(config.settings.stakeToken)) {
     throw new Error('Stake token address does not match')
   }
 
@@ -100,7 +100,7 @@ async function main() {
     l1Rpc
   )
 
-  if ((await assertionChain.stakeToken()) != config.settings.stakeToken) {
+  if (getAddress(await assertionChain.stakeToken()) != getAddress(config.settings.stakeToken)) {
     throw new Error('Stake token address does not match')
   }
 
@@ -118,8 +118,8 @@ async function main() {
 
   if (config.settings.anyTrustFastConfirmer.length != 0) {
     if (
-      (await assertionChain.anyTrustFastConfirmer()) !=
-      config.settings.anyTrustFastConfirmer
+      getAddress(await assertionChain.anyTrustFastConfirmer()) !=
+      getAddress(config.settings.anyTrustFastConfirmer)
     ) {
       throw new Error('Any trust fast confirmer does not match')
     }

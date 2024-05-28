@@ -1,11 +1,11 @@
-import { Contract, ContractReceipt, Wallet, ethers } from 'ethers'
+import { Contract, ContractReceipt } from 'ethers'
+import { ethers as ethers2 } from 'hardhat'
 import { DeployedContracts, getConfig, getJsonFile } from './common'
 import fs from 'fs'
-import { BOLDUpgradeAction__factory, RollupAdminLogic__factory } from '../build/types'
+import { BOLDUpgradeAction__factory } from '../build/types'
 import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
 import { RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
-import { AbiCoder } from 'ethers/lib/utils'
 
 dotenv.config()
 
@@ -14,13 +14,8 @@ async function main() {
   if (!l1RpcVal) {
     throw new Error('L1_RPC_URL env variable not set')
   }
-  const l1Rpc = new ethers.providers.JsonRpcProvider(l1RpcVal)
+  const l1Rpc = new ethers2.providers.JsonRpcProvider(l1RpcVal)
 
-  const l1PrivKey = process.env.L1_PRIV_KEY
-  if (!l1PrivKey) {
-    throw new Error('L1_PRIV_KEY env variable not set')
-  }
-  const wallet = new Wallet(l1PrivKey, l1Rpc)
 
   const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
   if (!deployedContractsLocation) {
@@ -39,23 +34,27 @@ async function main() {
     throw new Error('No boldAction contract deployed')
   }
 
+  await l1Rpc.send(
+    "hardhat_impersonateAccount",
+    ["0xE6841D92B0C345144506576eC13ECf5103aC7f49".toLowerCase()],
+  )
+
+  await l1Rpc.send(
+    "hardhat_setBalance",
+    ["0xE6841D92B0C345144506576eC13ECf5103aC7f49", '0x1000000000000000'],
+  )
+
+  const timelockImposter = l1Rpc.getSigner('0xE6841D92B0C345144506576eC13ECf5103aC7f49'.toLowerCase())
+  
   const upExec = new Contract(
     config.contracts.upgradeExecutor,
     UpgradeExecutorAbi,
-    wallet
+    timelockImposter
   )
   const boldAction = BOLDUpgradeAction__factory.connect(
     deployedContracts.boldAction,
-    wallet
+    timelockImposter
   )
-
-  // set config.validators in old rollup
-  const setValidatorCalldata = RollupAdminLogic__factory.createInterface().encodeFunctionData('setValidator', [config.validators, Array(config.validators.length).fill(true)])
-  const executeCallCalldata = ethers.utils.concat(['0xbca8c7b5', new AbiCoder().encode(['address', 'bytes'], [config.contracts.rollup, setValidatorCalldata])])
-  await (await wallet.sendTransaction({
-    to: upExec.address,
-    data: executeCallCalldata,
-  })).wait()
 
   // what validators did we have in the old rollup?
   const boldActionPerformData = boldAction.interface.encodeFunctionData(
