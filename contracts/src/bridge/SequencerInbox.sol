@@ -887,7 +887,7 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
         onlyRollupOwner
     {
         _setMaxTimeVariation(maxTimeVariation_);
-        emit OwnerFunctionCalled(0);
+        emit MaxTimeVariationSet(maxTimeVariation_);
     }
 
     /// @inheritdoc ISequencerInbox
@@ -896,7 +896,7 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
         onlyRollupOwnerOrBatchPosterManager
     {
         isBatchPoster[addr] = isBatchPoster_;
-        emit OwnerFunctionCalled(1);
+        emit BatchPosterSet(addr, isBatchPoster_);
     }
 
     /// @inheritdoc ISequencerInbox
@@ -915,7 +915,6 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
             creationBlock: uint64(creationBlock)
         });
         emit SetValidKeyset(ksHash, keysetBytes);
-        emit OwnerFunctionCalled(2);
     }
 
     /// @inheritdoc ISequencerInbox
@@ -926,7 +925,6 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
         // this is still needed when syncing the chain after a keyset is invalidated.
         dasKeySetInfo[ksHash].isValidKeyset = false;
         emit InvalidateKeyset(ksHash);
-        emit OwnerFunctionCalled(3);
     }
 
     /// @inheritdoc ISequencerInbox
@@ -935,18 +933,18 @@ contract SequencerInbox is DelegateCallAware, GasRefundEnabled, ISequencerInbox 
         onlyRollupOwnerOrBatchPosterManager
     {
         isSequencer[addr] = isSequencer_;
-        emit OwnerFunctionCalled(4); // Owner in this context can also be batch poster manager
+        emit SequencerSet(addr, isSequencer_);
     }
 
     /// @inheritdoc ISequencerInbox
     function setBatchPosterManager(address newBatchPosterManager) external onlyRollupOwner {
         batchPosterManager = newBatchPosterManager;
-        emit OwnerFunctionCalled(5);
+        emit BatchPosterManagerSet(newBatchPosterManager);
     }
 
     function setBufferConfig(BufferConfig memory bufferConfig_) external onlyRollupOwner {
         _setBufferConfig(bufferConfig_);
-        emit OwnerFunctionCalled(6);
+        emit BufferConfigSet(bufferConfig_);
     }
 
     function isValidKeysetHash(bytes32 ksHash) external view returns (bool) {

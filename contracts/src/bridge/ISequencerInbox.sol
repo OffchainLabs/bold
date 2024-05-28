@@ -35,8 +35,6 @@ interface ISequencerInbox is IDelayedMessageProvider {
         IBridge.BatchDataLocation dataLocation
     );
 
-    event OwnerFunctionCalled(uint256 indexed id);
-
     /// @dev a separate event that emits batch data when this isn't easily accessible in the tx.input
     event SequencerBatchData(uint256 indexed batchSequenceNumber, bytes data);
 
@@ -45,6 +43,21 @@ interface ISequencerInbox is IDelayedMessageProvider {
 
     /// @dev a keyset was invalidated
     event InvalidateKeyset(bytes32 indexed keysetHash);
+
+    /// @dev Owner set max time variation
+    event MaxTimeVariationSet(MaxTimeVariation maxTimeVariation);
+
+    /// @dev Owner set a batch poster
+    event BatchPosterSet(address batchPoster, bool isBatchPoster);
+
+    /// @dev Owner or batch poster manager set a sequencer
+    event SequencerSet(address addr, bool isSequencer);
+
+    /// @dev Owner set the batch poster manager
+    event BatchPosterManagerSet(address newBatchPosterManager);
+
+    /// @dev Owner set the buffer config
+    event BufferConfigSet(BufferConfig bufferConfig);
 
     function totalDelayedMessagesRead() external view returns (uint256);
 
