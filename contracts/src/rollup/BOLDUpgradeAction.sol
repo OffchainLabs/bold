@@ -357,7 +357,7 @@ contract BOLDUpgradeAction {
                 IOldRollupAdmin(address(OLD_ROLLUP)).forceRefundStaker(stakersToRefund);
                 stakerCount -= 1;
             } else {
-              i++;
+                i++;
             }
         }
 
