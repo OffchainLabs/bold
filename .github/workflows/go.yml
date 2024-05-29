@@ -245,8 +245,5 @@ jobs:
       - name: Populate state hash lookup
         run: yarn script:bold-populate-lookup
 
-      - name: Execute bold upgrade
+      - name: Execute and verify bold upgrade
         run: yarn script:bold-local-execute
-
-      - name: Execute bold upgrade
-        run: yarn script:bold-verify
