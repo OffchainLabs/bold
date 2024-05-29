@@ -371,6 +371,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     /**
      * @notice Increase the amount staked tokens for the given staker
      * @param stakerAddress Address of the staker whose stake is increased
+     * @param expectedWithdrawalAddress The expected withdrawal address of the staker (protects depositor from a staker changing their withdrawal address)
      * @param tokenAmount the amount of tokens staked
      */
     function addToDeposit(address stakerAddress, address expectedWithdrawalAddress, uint256 tokenAmount) external whenNotPaused {
