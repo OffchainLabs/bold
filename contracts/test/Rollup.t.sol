@@ -147,7 +147,7 @@ contract RollupTest is Test {
         miniStakeValues[4] = 5 ether;
 
         Config memory config = Config({
-            baseStake: BASE_STAKE - 1,
+            baseStake: BASE_STAKE,
             chainId: 0,
             chainConfig: "{}",
             confirmPeriodBlocks: uint64(CONFIRM_PERIOD_BLOCKS),
@@ -265,23 +265,6 @@ contract RollupTest is Test {
         vm.deal(sequencer, 1 ether);
 
         vm.roll(block.number + 75);
-    }
-
-    function testBaseStake() public {
-        assertEq(adminRollup.baseStake(), BASE_STAKE - 1, "Invalid before base stake");
-
-        // increase base stake amount
-        vm.startPrank(upgradeExecutorAddr);
-        adminRollup.setBaseStake(BASE_STAKE);
-        assertEq(adminRollup.baseStake(), BASE_STAKE, "Invalid after increase base stake");
-
-        // set it to be the same
-        vm.expectRevert("BASE_STAKE_MUST_BE_INCREASED");
-        adminRollup.setBaseStake(BASE_STAKE);
-
-        // set it to be less
-        vm.expectRevert("BASE_STAKE_MUST_BE_INCREASED");
-        adminRollup.setBaseStake(BASE_STAKE - 1);
     }
 
     function _createNewBatch() internal returns (uint256) {
@@ -1388,5 +1371,23 @@ contract RollupTest is Test {
         bytes32 inboxAcc = rand.hash();
         bytes32 expectedHash = keccak256(abi.encodePacked(parentHash, astate.hash(), inboxAcc));
         assertEq(RollupLib.assertionHash(parentHash, astate, inboxAcc), expectedHash, "Unexpected hash");
+    }
+
+    // do this last as it changes the base stake
+    function testBaseStake() public {
+        assertEq(adminRollup.baseStake(), BASE_STAKE, "Invalid before base stake");
+
+        // increase base stake amount
+        vm.startPrank(upgradeExecutorAddr);
+        adminRollup.setBaseStake(BASE_STAKE + 1);
+        assertEq(adminRollup.baseStake(), BASE_STAKE + 1, "Invalid after increase base stake");
+
+        // set it to be the same
+        vm.expectRevert("BASE_STAKE_MUST_BE_INCREASED");
+        adminRollup.setBaseStake(BASE_STAKE + 1);
+
+        // set it to be less
+        vm.expectRevert("BASE_STAKE_MUST_BE_INCREASED");
+        adminRollup.setBaseStake(BASE_STAKE);
     }
 }
