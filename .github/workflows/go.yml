@@ -227,7 +227,7 @@ jobs:
           cache-dependency-path: "**/yarn.lock"
 
       - name: Start anvil
-        run: anvil --fork-url https://eth.llamarpc.com & # todo, use gh secrets
+        run: anvil --fork-url ${{ secrets.L1_RPC }} &
 
       - name: Install packages
         run: yarn
