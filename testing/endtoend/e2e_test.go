@@ -105,7 +105,7 @@ type protocolParams struct {
 func defaultProtocolParams() protocolParams {
 	return protocolParams{
 		numBigStepLevels:      1,
-		challengePeriodBlocks: 60,
+		challengePeriodBlocks: 50,
 		layerZeroHeights: protocol.LayerZeroHeights{
 			BlockChallengeHeight:     1 << 5,
 			BigStepChallengeHeight:   1 << 5,
@@ -336,6 +336,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		})
 	}
 	require.NoError(t, g.Wait())
+	time.Sleep(time.Hour)
 }
 
 type seqMessage struct {

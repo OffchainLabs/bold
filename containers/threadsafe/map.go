@@ -86,6 +86,16 @@ func (s *Map[K, V]) Delete(k K) {
 	}
 }
 
+func (s *Map[K, V]) Copy() map[K]V {
+	s.RLock()
+	defer s.RUnlock()
+	m := make(map[K]V)
+	for k, v := range s.items {
+		m[k] = v
+	}
+	return m
+}
+
 func (s *Map[K, V]) ForEach(fn func(k K, v V) error) error {
 	s.RLock()
 	defer s.RUnlock()
