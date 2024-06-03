@@ -35,6 +35,8 @@ interface ISequencerInbox is IDelayedMessageProvider {
         IBridge.BatchDataLocation dataLocation
     );
 
+    event OwnerFunctionCalled(uint256 indexed id);
+
     /// @dev a separate event that emits batch data when this isn't easily accessible in the tx.input
     event SequencerBatchData(uint256 indexed batchSequenceNumber, bytes data);
 
@@ -44,19 +46,27 @@ interface ISequencerInbox is IDelayedMessageProvider {
     /// @dev a keyset was invalidated
     event InvalidateKeyset(bytes32 indexed keysetHash);
 
-    /// @dev Owner set max time variation
+    /// @dev Owner set max time variation.
+    ///      This event may have been introduced in an upgrade and therefore might not give the full history.
+    ///      To get the full history, search for `OwnerFunctionCalled(0)` events.
     event MaxTimeVariationSet(MaxTimeVariation maxTimeVariation);
 
-    /// @dev Owner set a batch poster
+    /// @dev Owner set a batch poster.
+    ///      This event may have been introduced in an upgrade and therefore might not give the full history.
+    ///      To get the full history, search for `OwnerFunctionCalled(1)` events.
     event BatchPosterSet(address batchPoster, bool isBatchPoster);
 
-    /// @dev Owner or batch poster manager set a sequencer
+    /// @dev Owner or batch poster manager set a sequencer.
+    ///      This event may have been introduced in an upgrade and therefore might not give the full history.
+    ///      To get the full history, search for `OwnerFunctionCalled(4)` events.
     event SequencerSet(address addr, bool isSequencer);
 
-    /// @dev Owner set the batch poster manager
+    /// @dev Owner set the batch poster manager.
+    ///      This event may have been introduced in an upgrade and therefore might not give the full history.
+    ///      To get the full history, search for `OwnerFunctionCalled(5)` events.
     event BatchPosterManagerSet(address newBatchPosterManager);
 
-    /// @dev Owner set the buffer config
+    /// @dev Owner set the buffer config.
     event BufferConfigSet(BufferConfig bufferConfig);
 
     function totalDelayedMessagesRead() external view returns (uint256);
