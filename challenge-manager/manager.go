@@ -7,10 +7,7 @@ package challengemanager
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
-	"os"
 	"time"
 
 	apibackend "github.com/OffchainLabs/bold/api/backend"
@@ -21,6 +18,7 @@ import (
 	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
+	"github.com/OffchainLabs/bold/containers/events"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
@@ -31,17 +29,10 @@ import (
 	"github.com/OffchainLabs/bold/util/stopwaiter"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 )
-
-var (
-	srvlog = log.New("service", "challenge-manager")
-)
-
-func init() {
-	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
-}
 
 type Opt = func(val *Manager)
 
@@ -49,24 +40,27 @@ type Opt = func(val *Manager)
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
 	stopwaiter.StopWaiter
-	chain                               protocol.Protocol
-	chalManagerAddr                     common.Address
-	rollupAddr                          common.Address
-	rollup                              *rollupgen.RollupCore
-	rollupFilterer                      *rollupgen.RollupCoreFilterer
-	chalManager                         *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                             bind.ContractBackend
-	client                              *rpc.Client
-	stateManager                        l2stateprovider.Provider
-	address                             common.Address
-	name                                string
-	timeRef                             utilTime.Reference
-	edgeTrackerWakeInterval             time.Duration
-	chainWatcherInterval                time.Duration
-	watcher                             *watcher.Watcher
-	trackedEdgeIds                      *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
-	batchIndexForAssertionCache         *threadsafe.LruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
-	trackChallengeParentAssertionHashes []protocol.AssertionHash // Only track challenges for these parent assertion hashes. Track all if empty / nil.
+	chain                       protocol.Protocol
+	chalManagerAddr             common.Address
+	rollupAddr                  common.Address
+	rollup                      *rollupgen.RollupCore
+	rollupFilterer              *rollupgen.RollupCoreFilterer
+	chalManager                 *challengeV2gen.EdgeChallengeManagerFilterer
+	backend                     bind.ContractBackend
+	client                      *rpc.Client
+	stateManager                l2stateprovider.Provider
+	address                     common.Address
+	name                        string
+	timeRef                     utilTime.Reference
+	chainWatcherInterval        time.Duration
+	watcher                     *watcher.Watcher
+	trackedEdgeIds              *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
+	batchIndexForAssertionCache *threadsafe.LruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
+	newBlockNotifier            *events.Producer[*gethtypes.Header]
+	notifyOnNumberOfBlocks      uint64
+	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
+	// all challenges will be tracked.
+	trackChallengeParentAssertionHashes []protocol.AssertionHash
 	assertionManager                    *assertions.Manager
 	assertionPostingInterval            time.Duration
 	assertionScanningInterval           time.Duration
@@ -74,8 +68,7 @@ type Manager struct {
 	averageTimeForBlockCreation         time.Duration
 	mode                                types.Mode
 	maxDelaySeconds                     int
-
-	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
+	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
 	// API
 	apiAddr   string
 	apiDBPath string
@@ -94,14 +87,6 @@ func WithName(name string) Opt {
 func WithAddress(addr common.Address) Opt {
 	return func(val *Manager) {
 		val.address = addr
-	}
-}
-
-// WithEdgeTrackerWakeInterval specifies how often each edge tracker goroutine will
-// act on its responsibilities.
-func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.edgeTrackerWakeInterval = d
 	}
 }
 
@@ -126,6 +111,14 @@ func WithAssertionConfirmingInterval(d time.Duration) Opt {
 func WithAvgBlockCreationTime(d time.Duration) Opt {
 	return func(val *Manager) {
 		val.averageTimeForBlockCreation = d
+	}
+}
+
+// Edges tick on every block received from the parent chain of the rollup, by default. Alternatively,
+// they can be configured to tick every N blocks.
+func WithTickEdgesOnNumberOfBlocks(n uint64) Opt {
+	return func(val *Manager) {
+		val.notifyOnNumberOfBlocks = n
 	}
 }
 
@@ -178,6 +171,8 @@ func New(
 		chainWatcherInterval:         time.Millisecond * 500,
 		trackedEdgeIds:               threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache:  threadsafe.NewLruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
+		notifyOnNumberOfBlocks:       1,
+		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
 		assertionPostingInterval:     time.Hour,
 		assertionScanningInterval:    time.Minute,
 		assertionConfirmingInterval:  time.Second * 10,
@@ -187,17 +182,6 @@ func New(
 	for _, o := range opts {
 		o(m)
 	}
-
-	if m.edgeTrackerWakeInterval == 0 {
-		// Generating a random integer between 0 and 60 second to wake up the edge tracker.
-		// This is to avoid all edge trackers waking up at the same time across participants.
-		n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(60))
-		if err != nil {
-			return nil, err
-		}
-		m.edgeTrackerWakeInterval = time.Second * time.Duration(n.Uint64())
-	}
-
 	chalManager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err
@@ -391,7 +375,6 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.watcher,
 			m,
 			&edgeTrackerAssertionInfo,
-			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
 			edgetracker.WithValidatorName(m.name),
 		)
@@ -405,11 +388,15 @@ func (m *Manager) ChallengeManager() *challengeV2gen.EdgeChallengeManagerFiltere
 	return m.chalManager
 }
 
+func (m *Manager) NewBlockSubscriber() *events.Producer[*gethtypes.Header] {
+	return m.newBlockNotifier
+}
+
 func (m *Manager) Start(ctx context.Context) {
 	m.StopWaiter.Start(ctx, m)
-	srvlog.Info("Started challenge manager", log.Ctx{
-		"validatorAddress": m.address.Hex(),
-	})
+	log.Info("Started challenge manager",
+		"validatorAddress", m.address.Hex(),
+	)
 
 	// Start the assertion manager.
 	m.LaunchThread(m.assertionManager.Start)
@@ -419,16 +406,19 @@ func (m *Manager) Start(ctx context.Context) {
 		return
 	}
 
+	// Start watching for parent chain block events in the background.
+	m.LaunchThread(m.listenForBlockEvents)
+
 	// Start watching for ongoing chain events in the background.
 	m.LaunchThread(m.watcher.Start)
 
 	if m.api != nil {
 		m.LaunchThread(func(ctx context.Context) {
 			if err := m.api.Start(ctx); err != nil {
-				srvlog.Error("Could not start API server", log.Ctx{
-					"address": m.apiAddr,
-					"err":     err,
-				})
+				log.Error("Could not start API server",
+					"address", m.apiAddr,
+					"err", err,
+				)
 			}
 		})
 	}
@@ -439,4 +429,29 @@ func (m *Manager) StopAndWait() {
 	m.assertionManager.StopAndWait()
 	m.watcher.StopAndWait()
 	m.api.StopAndWait()
+}
+
+func (m *Manager) listenForBlockEvents(ctx context.Context) {
+	ch := make(chan *gethtypes.Header, 100)
+	sub, err := m.chain.Backend().SubscribeNewHead(ctx, ch)
+	if err != nil {
+		panic(err)
+	}
+	defer sub.Unsubscribe()
+	numBlocksReceived := uint64(0)
+	for {
+		select {
+		case header := <-ch:
+			numBlocksReceived += 1
+			// Only broadcast every N blocks received. This is important for Orbit chains
+			// that have parent chains with very fast block times, such as Arbitrum One, as broadcasting
+			// every 250ms would otherwise be too frequent.
+			if numBlocksReceived%m.notifyOnNumberOfBlocks == 0 {
+				m.newBlockNotifier.Broadcast(ctx, header)
+			}
+		case <-sub.Err():
+		case <-ctx.Done():
+			return
+		}
+	}
 }
