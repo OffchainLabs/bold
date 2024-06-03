@@ -353,6 +353,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         address _withdrawalAddress
     ) public {
         require(_withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
+        // _newStake makes sure the validator is whitelisted if the whitelist is enabled
         _newStake(tokenAmount, _withdrawalAddress);
         stakeOnNewAssertion(assertion, expectedAssertionHash);
         /// @dev This is an external call, safe because it's at the end of the function
@@ -370,6 +371,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         address _withdrawalAddress
     ) external whenNotPaused {
         require(_withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
+        // _newStake makes sure the validator is whitelisted if the whitelist is enabled
         _newStake(tokenAmount, _withdrawalAddress);
         /// @dev This is an external call, safe because it's at the end of the function
         if (tokenAmount > 0) receiveTokens(tokenAmount);
