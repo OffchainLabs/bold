@@ -457,7 +457,7 @@ contract RollupTest is Test {
         vm.revertTo(snapshot);
 
         vm.startPrank(validator1Withdrawal);
-        userRollup.returnOldDepositFromWithdrawalAddress(validator1);
+        userRollup.returnOldDepositFor(validator1);
         userRollup.withdrawStakerFunds();
         vm.stopPrank();
 
