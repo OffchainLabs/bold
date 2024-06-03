@@ -60,15 +60,15 @@ type Manager struct {
 	notifyOnNumberOfBlocks      uint64
 	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
 	// all challenges will be tracked.
-	challengesToTrack            []protocol.AssertionHash
-	assertionManager             *assertions.Manager
-	assertionPostingInterval     time.Duration
-	assertionScanningInterval    time.Duration
-	assertionConfirmingInterval  time.Duration
-	averageTimeForBlockCreation  time.Duration
-	mode                         types.Mode
-	maxDelaySeconds              int
-	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
+	trackChallengeParentAssertionHashes []protocol.AssertionHash
+	assertionManager                    *assertions.Manager
+	assertionPostingInterval            time.Duration
+	assertionScanningInterval           time.Duration
+	assertionConfirmingInterval         time.Duration
+	averageTimeForBlockCreation         time.Duration
+	mode                                types.Mode
+	maxDelaySeconds                     int
+	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
 	// API
 	apiAddr   string
 	apiDBPath string
@@ -143,11 +143,11 @@ func WithRPCClient(client *rpc.Client) Opt {
 	}
 }
 
-func WithChallengesToTrack(parentAssertionHashes []string) Opt {
+func WithTrackChallengeParentAssertionHashes(trackChallengeParentAssertionHashes []string) Opt {
 	return func(val *Manager) {
-		val.challengesToTrack = make([]protocol.AssertionHash, len(parentAssertionHashes))
-		for i, hash := range parentAssertionHashes {
-			val.challengesToTrack[i] = protocol.AssertionHash{Hash: common.HexToHash(hash)}
+		val.trackChallengeParentAssertionHashes = make([]protocol.AssertionHash, len(trackChallengeParentAssertionHashes))
+		for i, hash := range trackChallengeParentAssertionHashes {
+			val.trackChallengeParentAssertionHashes[i] = protocol.AssertionHash{Hash: common.HexToHash(hash)}
 		}
 	}
 }
@@ -217,7 +217,7 @@ func New(
 		m.apiDB = apiDB
 	}
 
-	watcher, err := watcher.New(m.chain, m, m.stateManager, m.backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB, m.assertionConfirmingInterval, m.averageTimeForBlockCreation, m.challengesToTrack)
+	watcher, err := watcher.New(m.chain, m, m.stateManager, m.backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB, m.assertionConfirmingInterval, m.averageTimeForBlockCreation, m.trackChallengeParentAssertionHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -432,6 +432,14 @@ func (m *Manager) StopAndWait() {
 }
 
 func (m *Manager) listenForBlockEvents(ctx context.Context) {
+	// If the chain watcher has not yet scraped and caught up all BOLD
+	// events up to the latest head, then we fire "block notification" events
+	// every second. This will help the tracked edges act fast if we are
+	// just starting up the validator or catching up to a challenge.
+	m.fastTickWhileCatchingUp(ctx)
+
+	// Then, once the watcher has reached the latest head, we
+	// fire off a block notifications events normally.
 	ch := make(chan *gethtypes.Header, 100)
 	sub, err := m.chain.Backend().SubscribeNewHead(ctx, ch)
 	if err != nil {
@@ -452,6 +460,22 @@ func (m *Manager) listenForBlockEvents(ctx context.Context) {
 		case <-sub.Err():
 		case <-ctx.Done():
 			return
+		}
+	}
+}
+
+func (m *Manager) fastTickWhileCatchingUp(ctx context.Context) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+			m.newBlockNotifier.Broadcast(ctx, nil)
+			if m.watcher.IsSynced() {
+				return
+			}
 		}
 	}
 }
