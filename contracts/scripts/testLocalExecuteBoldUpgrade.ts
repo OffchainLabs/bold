@@ -1,28 +1,40 @@
 import { Contract, ContractReceipt } from 'ethers'
 import { ethers } from 'hardhat'
 import { Config, DeployedContracts, getConfig, getJsonFile } from './common'
-import { BOLDUpgradeAction__factory, EdgeChallengeManager__factory, RollupUserLogic__factory } from '../build/types'
+import {
+  BOLDUpgradeAction__factory,
+  EdgeChallengeManager__factory,
+  RollupUserLogic__factory,
+} from '../build/types'
 import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
-import { BOLDUpgradeAction, RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
+import {
+  BOLDUpgradeAction,
+  RollupMigratedEvent,
+} from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { getAddress } from 'ethers/lib/utils'
 
 dotenv.config()
 
-async function perform(l1Rpc: JsonRpcProvider, config: Config, deployedContracts: DeployedContracts) {
-  await l1Rpc.send(
-    "hardhat_impersonateAccount",
-    ["0xE6841D92B0C345144506576eC13ECf5103aC7f49".toLowerCase()],
+async function perform(
+  l1Rpc: JsonRpcProvider,
+  config: Config,
+  deployedContracts: DeployedContracts
+) {
+  await l1Rpc.send('hardhat_impersonateAccount', [
+    '0xE6841D92B0C345144506576eC13ECf5103aC7f49'.toLowerCase(),
+  ])
+
+  await l1Rpc.send('hardhat_setBalance', [
+    '0xE6841D92B0C345144506576eC13ECf5103aC7f49',
+    '0x1000000000000000',
+  ])
+
+  const timelockImposter = l1Rpc.getSigner(
+    '0xE6841D92B0C345144506576eC13ECf5103aC7f49'.toLowerCase()
   )
 
-  await l1Rpc.send(
-    "hardhat_setBalance",
-    ["0xE6841D92B0C345144506576eC13ECf5103aC7f49", '0x1000000000000000'],
-  )
-
-  const timelockImposter = l1Rpc.getSigner('0xE6841D92B0C345144506576eC13ECf5103aC7f49'.toLowerCase())
-  
   const upExec = new Contract(
     config.contracts.upgradeExecutor,
     UpgradeExecutorAbi,
@@ -44,7 +56,12 @@ async function perform(l1Rpc: JsonRpcProvider, config: Config, deployedContracts
   ).wait()) as ContractReceipt
 }
 
-async function verifyPostUpgrade(l1Rpc: JsonRpcProvider, config: Config, deployedContracts: DeployedContracts, receipt: ContractReceipt) {
+async function verifyPostUpgrade(
+  l1Rpc: JsonRpcProvider,
+  config: Config,
+  deployedContracts: DeployedContracts,
+  receipt: ContractReceipt
+) {
   const boldAction = BOLDUpgradeAction__factory.connect(
     deployedContracts.boldAction,
     l1Rpc
@@ -58,7 +75,10 @@ async function verifyPostUpgrade(l1Rpc: JsonRpcProvider, config: Config, deploye
     parsedLog.challengeManager,
     l1Rpc
   )
-  if (getAddress(await edgeChallengeManager.stakeToken()) != getAddress(config.settings.stakeToken)) {
+  if (
+    getAddress(await edgeChallengeManager.stakeToken()) !=
+    getAddress(config.settings.stakeToken)
+  ) {
     throw new Error('Stake token address does not match')
   }
 
@@ -116,7 +136,10 @@ async function verifyPostUpgrade(l1Rpc: JsonRpcProvider, config: Config, deploye
     l1Rpc
   )
 
-  if (getAddress(await assertionChain.stakeToken()) != getAddress(config.settings.stakeToken)) {
+  if (
+    getAddress(await assertionChain.stakeToken()) !=
+    getAddress(config.settings.stakeToken)
+  ) {
     throw new Error('Stake token address does not match')
   }
 
@@ -147,7 +170,9 @@ async function main() {
   if (!l1RpcVal) {
     throw new Error('L1_RPC_URL env variable not set')
   }
-  const l1Rpc = new ethers.providers.JsonRpcProvider(l1RpcVal) as JsonRpcProvider
+  const l1Rpc = new ethers.providers.JsonRpcProvider(
+    l1RpcVal
+  ) as JsonRpcProvider
 
   const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
   if (!deployedContractsLocation) {
