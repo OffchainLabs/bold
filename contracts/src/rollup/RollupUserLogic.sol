@@ -358,7 +358,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param tokenAmount Amount to stake (can be zero)
      * @param withdrawalAddress The address the send the stake back upon withdrawal
      */
-    function newStakeWithoutAssertion(
+    function newStake(
         uint256 tokenAmount,
         address withdrawalAddress
     ) external whenNotPaused {

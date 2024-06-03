@@ -404,7 +404,7 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeWithoutAssertion(0, validator1Withdrawal);
+        userRollup.newStake(0, validator1Withdrawal);
 
         address rando = address(98139098);
         token.transfer(rando, BASE_STAKE);
@@ -441,7 +441,7 @@ contract RollupTest is Test {
         IRollupCore.Staker memory emptyStaker;
 
         vm.prank(validator1);
-        userRollup.newStakeWithoutAssertion(10, validator1Withdrawal);
+        userRollup.newStake(10, validator1Withdrawal);
 
         uint256 snapshot = vm.snapshot();
 
@@ -483,7 +483,7 @@ contract RollupTest is Test {
         });
 
         vm.prank(validator1);
-        userRollup.newStakeWithoutAssertion(BASE_STAKE - 1, validator1Withdrawal);
+        userRollup.newStake(BASE_STAKE - 1, validator1Withdrawal);
 
         vm.prank(validator1);
         vm.expectRevert("INSUFFICIENT_STAKE");
