@@ -133,12 +133,13 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     /**
      * @notice Create a new stake
      * @param depositAmount The amount of either eth or tokens staked
+     * @param _withdrawalAddress The new staker's withdrawal address
      */
-    function _newStake(uint256 depositAmount, address withdrawalAddress) internal onlyValidator(msg.sender) whenNotPaused {
+    function _newStake(uint256 depositAmount, address _withdrawalAddress) internal onlyValidator(msg.sender) whenNotPaused {
         // Verify that sender is not already a staker
         require(!isStaked(msg.sender), "ALREADY_STAKED");
         // amount will be checked when creating an assertion
-        createNewStake(msg.sender, depositAmount, withdrawalAddress);
+        createNewStake(msg.sender, depositAmount, _withdrawalAddress);
     }
 
     /**
@@ -337,16 +338,16 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param tokenAmount Amount of the rollups staking token to stake
      * @param assertion Assertion describing the state change between the old assertion and the new one
      * @param expectedAssertionHash Assertion hash of the assertion that will be created
-     * @param withdrawalAddress The address the send the stake back upon withdrawal
+     * @param _withdrawalAddress The address the send the stake back upon withdrawal
      */
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash,
-        address withdrawalAddress
+        address _withdrawalAddress
     ) public {
-        require(withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
-        _newStake(tokenAmount, withdrawalAddress);
+        require(_withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
+        _newStake(tokenAmount, _withdrawalAddress);
         stakeOnNewAssertion(assertion, expectedAssertionHash);
         /// @dev This is an external call, safe because it's at the end of the function
         receiveTokens(tokenAmount);
@@ -356,14 +357,14 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @notice Create a new stake without creating a new assertion.
      *         Token amount can be zero if the staker wants to use `addToDeposit` from another account
      * @param tokenAmount Amount to stake (can be zero)
-     * @param withdrawalAddress The address the send the stake back upon withdrawal
+     * @param _withdrawalAddress The address the send the stake back upon withdrawal
      */
     function newStake(
         uint256 tokenAmount,
-        address withdrawalAddress
+        address _withdrawalAddress
     ) external whenNotPaused {
-        require(withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
-        _newStake(tokenAmount, withdrawalAddress);
+        require(_withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
+        _newStake(tokenAmount, _withdrawalAddress);
         /// @dev This is an external call, safe because it's at the end of the function
         if (tokenAmount > 0) receiveTokens(tokenAmount);
     }
