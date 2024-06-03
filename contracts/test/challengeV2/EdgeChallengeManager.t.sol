@@ -1387,6 +1387,9 @@ contract EdgeChallengeManagerTest is Test {
         emit TimerCacheUpdated(edge1BigStepId, challengePeriodBlock);
         ei.challengeManager.updateTimerCacheByChildren(edge1BigStepId, challengePeriodBlock);
 
+        vm.expectRevert(abi.encodeWithSelector(EdgeClaimMismatch.selector, edges1[0].lowerChildId, bytes32(0)));
+        ei.challengeManager.updateTimerCacheByClaim(edges1[0].lowerChildId, edges1[0].lowerChildId, challengePeriodBlock);
+
         vm.expectEmit(true, false, false, true);
         emit TimerCacheUpdated(edges1[0].lowerChildId, challengePeriodBlock);
         ei.challengeManager.updateTimerCacheByClaim(edges1[0].lowerChildId, edge1BigStepId, challengePeriodBlock);
