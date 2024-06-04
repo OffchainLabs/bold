@@ -3,10 +3,15 @@ import { ethers } from 'hardhat'
 import { Config, DeployedContracts, getConfig, getJsonFile } from './common'
 import {
   BOLDUpgradeAction__factory,
+  Bridge,
+  Bridge__factory,
   EdgeChallengeManager,
   EdgeChallengeManager__factory,
+  Outbox__factory,
+  RollupEventInbox__factory,
   RollupUserLogic,
   RollupUserLogic__factory,
+  SequencerInbox__factory,
 } from '../build/types'
 import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
@@ -41,8 +46,11 @@ async function getPreUpgradeState(l1Rpc: JsonRpcProvider, config: Config) {
     stakers.push(await oldRollupContract.getStakerAddress(i))
   }
 
+  const boxes = await getAllowedInboxesOutboxesFromBridge(Bridge__factory.connect(config.contracts.bridge, l1Rpc))
+
   return {
     stakers,
+    ...boxes
   }
 }
 
@@ -108,15 +116,24 @@ async function verifyPostUpgrade(params: VerificationParams) {
 
   const newRollup = RollupUserLogic__factory.connect(parsedLog.rollup, l1Rpc)
 
-  await checkSequencerInbox(params)
-  await checkBridge(params)
+  await checkSequencerInbox(params, newRollup)
+  await checkInbox(params)
+  await checkBridge(params, newRollup)
+  await checkRollupEventInbox(params, newRollup)
+  await checkOutbox(params, newRollup)
   await checkOldRollup(params)
   await checkNewRollup(params, newRollup)
-  await checkNewChallengeManager(params, edgeChallengeManager)
+  await checkNewChallengeManager(params, newRollup, edgeChallengeManager)
 }
 
-async function checkSequencerInbox(params: VerificationParams) {
+async function checkSequencerInbox(params: VerificationParams, newRollup: RollupUserLogic) {
   const { l1Rpc, config, deployedContracts } = params
+
+  const seqInboxContract = SequencerInbox__factory.connect(
+    config.contracts.sequencerInbox,
+    l1Rpc
+  )
+
   // make sure the impl was updated
   if (
     (await getProxyImpl(l1Rpc, config.contracts.sequencerInbox)) !==
@@ -126,17 +143,115 @@ async function checkSequencerInbox(params: VerificationParams) {
   }
 
   // check delay buffer parameters
-  // todo
+  const buffer = await seqInboxContract.buffer()
+
+  if (!buffer.bufferBlocks.eq(config.settings.bufferConfig.max)) {
+    throw new Error('bufferBlocks does not match')
+  }
+  if (!buffer.max.eq(config.settings.bufferConfig.max)) {
+    throw new Error('max does not match')
+  }
+  if (!buffer.threshold.eq(config.settings.bufferConfig.threshold)) {
+    throw new Error('threshold does not match')
+  }
+  if (!buffer.replenishRateInBasis.eq(config.settings.bufferConfig.replenishRateInBasis)) {
+    throw new Error('replenishRateInBasis does not match')
+  }
+
+  // check rollup was set
+  if ((await seqInboxContract.rollup()) !== newRollup.address) {
+    throw new Error('SequencerInbox rollup address does not match')
+  }
 }
 
-async function checkBridge(params: VerificationParams) {
+async function checkInbox(params: VerificationParams) {
   const { l1Rpc, config, deployedContracts } = params
+
+  // make sure the impl was updated
+  if (
+    (await getProxyImpl(l1Rpc, config.contracts.inbox)) !==
+    deployedContracts.inbox
+  ) {
+    throw new Error('Inbox was not upgraded')
+  }
+}
+
+async function checkRollupEventInbox(params: VerificationParams, newRollup: RollupUserLogic) {
+  const { l1Rpc, config, deployedContracts } = params
+
+  const rollupEventInboxContract = RollupEventInbox__factory.connect(
+    config.contracts.rollupEventInbox,
+    l1Rpc
+  )
+
+  // make sure the impl was updated
+  if (
+    (await getProxyImpl(l1Rpc, config.contracts.rollupEventInbox)) !==
+    deployedContracts.rei
+  ) {
+    throw new Error('RollupEventInbox was not upgraded')
+  }
+
+  // make sure rollup was set
+  if ((await rollupEventInboxContract.rollup()) !== newRollup.address) {
+    throw new Error('RollupEventInbox rollup address does not match')
+  }
+}
+
+async function checkOutbox(params: VerificationParams, newRollup: RollupUserLogic) {
+  const { l1Rpc, config, deployedContracts } = params
+
+  const outboxContract = Outbox__factory.connect(
+    config.contracts.outbox,
+    l1Rpc
+  )
+
+  // make sure the impl was updated
+  if (
+    (await getProxyImpl(l1Rpc, config.contracts.outbox)) !==
+    deployedContracts.outbox
+  ) {
+    throw new Error('Outbox was not upgraded')
+  }
+
+  // make sure rollup was set
+  if ((await outboxContract.rollup()) !== newRollup.address) {
+    throw new Error('Outbox rollup address does not match')
+  }
+}
+
+async function checkBridge(params: VerificationParams, newRollup: RollupUserLogic) {
+  const { l1Rpc, config, deployedContracts, preUpgradeState } = params
+  const bridgeContract = Bridge__factory.connect(
+    config.contracts.bridge,
+    l1Rpc
+  )
+
   // make sure the impl was updated
   if (
     (await getProxyImpl(l1Rpc, config.contracts.bridge)) !==
     deployedContracts.bridge
   ) {
     throw new Error('Bridge was not upgraded')
+  }
+
+  // make sure rollup was set
+  if ((await bridgeContract.rollup()) !== newRollup.address) {
+    throw new Error('Bridge rollup address does not match')
+  }
+
+  // make sure allowed inbox list is unchanged
+  const {inboxes, outboxes } = await getAllowedInboxesOutboxesFromBridge(bridgeContract)
+  if (JSON.stringify(inboxes) !== JSON.stringify(preUpgradeState.inboxes)) {
+    throw new Error('Allowed inbox list has changed')
+  }
+  if (JSON.stringify(outboxes) !== JSON.stringify(preUpgradeState.outboxes)) {
+    throw new Error('Allowed outbox list has changed')
+  }
+
+  // make sure the sequencer inbox is unchanged
+  if (await bridgeContract.sequencerInbox() !== config.contracts.sequencerInbox) {
+    throw new Error('Sequencer inbox has changed')
   }
 }
 
@@ -168,7 +283,7 @@ async function checkOldRollup(params: VerificationParams) {
 
   // ensure old rollup was upgraded
   if (
-    (await getProxyImpl(l1Rpc, config.contracts.rollup, false)) !==
+    (await getProxyImpl(l1Rpc, config.contracts.rollup, true)) !==
     getAddress(deployedContracts.oldRollupUser)
   ) {
     throw new Error('Old rollup was not upgraded')
@@ -216,27 +331,14 @@ async function checkNewRollup(
 
 async function checkNewChallengeManager(
   params: VerificationParams,
+  newRollup: RollupUserLogic,
   edgeChallengeManager: EdgeChallengeManager
 ) {
-  const { config } = params
+  const { config, deployedContracts } = params
 
-  // check stake token address
-  if (
-    getAddress(await edgeChallengeManager.stakeToken()) !=
-    getAddress(config.settings.stakeToken)
-  ) {
-    throw new Error('Stake token address does not match')
-  }
-
-  // check mini stake amounts
-  for (let i = 0; i < config.settings.miniStakeAmounts.length; i++) {
-    if (
-      !(await edgeChallengeManager.stakeAmounts(i)).eq(
-        config.settings.miniStakeAmounts[i]
-      )
-    ) {
-      throw new Error('Mini stake amount does not match')
-    }
+  // check assertion chain
+  if (getAddress(await edgeChallengeManager.assertionChain()) != getAddress(newRollup.address)) {
+    throw new Error('Assertion chain address does not match')
   }
 
   // check challenge period blocks
@@ -246,6 +348,14 @@ async function checkNewChallengeManager(
     )
   ) {
     throw new Error('Challenge period blocks does not match')
+  }
+
+  // check osp entry
+  if (
+    getAddress(await edgeChallengeManager.oneStepProofEntry()) !=
+    getAddress(deployedContracts.osp)
+  ) {
+    throw new Error('OSP address does not match')
   }
 
   // check level heights
@@ -273,6 +383,30 @@ async function checkNewChallengeManager(
     throw new Error('Small step leaf size does not match')
   }
 
+  // check stake token address
+  if (
+    getAddress(await edgeChallengeManager.stakeToken()) !=
+    getAddress(config.settings.stakeToken)
+  ) {
+    throw new Error('Stake token address does not match')
+  }
+
+  // check mini stake amounts
+  for (let i = 0; i < config.settings.miniStakeAmounts.length; i++) {
+    if (
+      !(await edgeChallengeManager.stakeAmounts(i)).eq(
+        config.settings.miniStakeAmounts[i]
+      )
+    ) {
+      throw new Error('Mini stake amount does not match')
+    }
+  }
+
+  // check excess stake receiver
+  if ((await edgeChallengeManager.excessStakeReceiver()) !== config.contracts.l1Timelock) {
+    throw new Error('Excess stake receiver does not match')
+  }
+
   // check num bigstep levels
   if (
     (await edgeChallengeManager.NUM_BIGSTEP_LEVEL()) !==
@@ -285,7 +419,7 @@ async function checkNewChallengeManager(
 async function getProxyImpl(
   l1Rpc: JsonRpcProvider,
   proxyAddr: string,
-  primary = true
+  secondary = false
 ) {
   const primarySlot =
     '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
@@ -293,9 +427,42 @@ async function getProxyImpl(
     '0x2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d'
   const val = await l1Rpc.getStorageAt(
     proxyAddr,
-    primary ? primarySlot : secondarySlot
+    secondary ? secondarySlot : primarySlot
   )
   return getAddress('0x' + val.slice(26))
+}
+
+
+async function getAllowedInboxesOutboxesFromBridge(bridge: Bridge) {
+  const inboxes: string[] = []
+  const outboxes: string[] = []
+
+  for (let i = 0;;i++) {
+    try {
+      inboxes.push(await bridge.allowedDelayedInboxList(i))
+    } catch (e: any) {
+      if (e.code !== 'CALL_EXCEPTION') {
+        throw e
+      }
+      break
+    }
+  }
+
+  for (let i = 0;;i++) {
+    try {
+      outboxes.push(await bridge.allowedOutboxList(i))
+    } catch (e: any) {
+      if (e.code !== 'CALL_EXCEPTION') {
+        throw e
+      }
+      break
+    }
+  }
+
+  return {
+    inboxes,
+    outboxes
+  }
 }
 
 async function main() {
