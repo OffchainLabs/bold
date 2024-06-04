@@ -4,13 +4,13 @@ import { Config, DeployedContracts, getConfig, getJsonFile } from './common'
 import {
   BOLDUpgradeAction__factory,
   EdgeChallengeManager,
-  EdgeChallengeManager__factory, RollupUserLogic, RollupUserLogic__factory
+  EdgeChallengeManager__factory,
+  RollupUserLogic,
+  RollupUserLogic__factory,
 } from '../build/types'
 import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
-import {
-  RollupMigratedEvent
-} from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
+import { RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
 import { abi as OldRollupAbi } from './files/OldRollupUserLogic.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { getAddress } from 'ethers/lib/utils'
@@ -27,21 +27,22 @@ type VerificationParams = {
   receipt: ContractReceipt
 }
 
-async function getPreUpgradeState(
-  l1Rpc: JsonRpcProvider,
-  config: Config
-) {
+async function getPreUpgradeState(l1Rpc: JsonRpcProvider, config: Config) {
   const oldRollupContract = new Contract(
     config.contracts.rollup,
     OldRollupAbi,
     l1Rpc
   )
-  const zombieCount = await oldRollupContract.zombieCount()
+
   const stakerCount = await oldRollupContract.stakerCount()
 
+  const stakers: string[] = []
+  for (let i = 0; i < stakerCount; i++) {
+    stakers.push(await oldRollupContract.getStakerAddress(i))
+  }
+
   return {
-    zombieCount,
-    stakerCount,
+    stakers,
   }
 }
 
@@ -101,10 +102,7 @@ async function verifyPostUpgrade(params: VerificationParams) {
     l1Rpc
   )
 
-  const newRollup = RollupUserLogic__factory.connect(
-    parsedLog.rollup,
-    l1Rpc
-  )
+  const newRollup = RollupUserLogic__factory.connect(parsedLog.rollup, l1Rpc)
 
   await checkBridge(params)
   await checkOldRollup(params)
@@ -115,7 +113,10 @@ async function verifyPostUpgrade(params: VerificationParams) {
 async function checkSequencerInbox(params: VerificationParams) {
   const { l1Rpc, config, deployedContracts } = params
   // make sure the impl was updated
-  if (await getProxyImpl(l1Rpc, config.contracts.sequencerInbox) !== deployedContracts.seqInbox) {
+  if (
+    (await getProxyImpl(l1Rpc, config.contracts.sequencerInbox)) !==
+    deployedContracts.seqInbox
+  ) {
     throw new Error('SequencerInbox was not upgraded')
   }
 
@@ -124,13 +125,12 @@ async function checkSequencerInbox(params: VerificationParams) {
 }
 
 async function checkBridge(params: VerificationParams) {
-  const {
-    l1Rpc,
-    config,
-    deployedContracts
-  } = params
+  const { l1Rpc, config, deployedContracts } = params
   // make sure the impl was updated
-  if (await getProxyImpl(l1Rpc, config.contracts.bridge) !== deployedContracts.bridge) {
+  if (
+    (await getProxyImpl(l1Rpc, config.contracts.bridge)) !==
+    deployedContracts.bridge
+  ) {
     throw new Error('Bridge was not upgraded')
   }
 }
@@ -154,13 +154,11 @@ async function checkOldRollup(params: VerificationParams) {
     throw new Error('Old rollup has stakers')
   }
 
-  // ensure there are the right number of zombies
-  if (
-    !(await oldRollupContract.zombieCount()).eq(
-      preUpgradeState.zombieCount.add(preUpgradeState.stakerCount)
-    )
-  ) {
-    throw new Error('Old rollup has wrong number of zombies')
+  // ensure that the old stakers are now zombies
+  for (const staker of preUpgradeState.stakers) {
+    if (!(await oldRollupContract.isZombie(staker))) {
+      throw new Error('Old staker is not a zombie')
+    }
   }
 
   // ensure old rollup was upgraded
@@ -321,10 +319,7 @@ async function main() {
     throw new Error('No boldAction contract deployed')
   }
 
-  const preUpgradeState = await getPreUpgradeState(
-    l1Rpc,
-    config
-  )
+  const preUpgradeState = await getPreUpgradeState(l1Rpc, config)
   const receipt = await perform(l1Rpc, config, deployedContracts)
   await verifyPostUpgrade({
     l1Rpc,
