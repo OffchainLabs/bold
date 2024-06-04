@@ -26,6 +26,9 @@ interface IRollupAdmin {
     /// @dev A new minimum assertion period was set
     event MinimumAssertionPeriodSet(uint256 newPeriod);
 
+    /// @dev A new validator afk blocks was set
+    event ValidatorAfkBlocksSet(uint256 newPeriod);
+
     /// @dev New confirm period blocks was set
     event ConfirmPeriodBlocksSet(uint64 newConfirmPeriod);
 
@@ -114,6 +117,12 @@ interface IRollupAdmin {
      * @param newPeriod new minimum period for assertions
      */
     function setMinimumAssertionPeriod(uint256 newPeriod) external;
+
+    /**
+     * @notice Set minimum assertion period for the rollup
+     * @param newAfkBlocks new number of blocks before a validator is considered afk (0 to disable)
+     */
+    function setValidatorAfkBlocks(uint64 newAfkBlocks) external;
 
     /**
      * @notice Set number of blocks until a assertion is considered confirmed
