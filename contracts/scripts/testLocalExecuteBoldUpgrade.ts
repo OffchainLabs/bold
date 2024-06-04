@@ -51,17 +51,21 @@ async function perform(
   config: Config,
   deployedContracts: DeployedContracts
 ) {
+  const executor = process.env.EXECUTOR
+  if (!executor) {
+    throw new Error('EXECUTOR env variable not set')
+  }
   await l1Rpc.send('hardhat_impersonateAccount', [
-    '0xE6841D92B0C345144506576eC13ECf5103aC7f49'.toLowerCase(),
+    executor
   ])
 
   await l1Rpc.send('hardhat_setBalance', [
-    '0xE6841D92B0C345144506576eC13ECf5103aC7f49',
+    executor,
     '0x1000000000000000',
   ])
 
   const timelockImposter = l1Rpc.getSigner(
-    '0xE6841D92B0C345144506576eC13ECf5103aC7f49'
+    executor
   )
 
   const upExec = new Contract(
@@ -86,7 +90,7 @@ async function perform(
 }
 
 async function verifyPostUpgrade(params: VerificationParams) {
-  const { l1Rpc, config, deployedContracts, preUpgradeState, receipt } = params
+  const { l1Rpc, deployedContracts, receipt } = params
 
   const boldAction = BOLDUpgradeAction__factory.connect(
     deployedContracts.boldAction,
@@ -104,6 +108,7 @@ async function verifyPostUpgrade(params: VerificationParams) {
 
   const newRollup = RollupUserLogic__factory.connect(parsedLog.rollup, l1Rpc)
 
+  await checkSequencerInbox(params)
   await checkBridge(params)
   await checkOldRollup(params)
   await checkNewRollup(params, newRollup)
@@ -174,7 +179,7 @@ async function checkNewRollup(
   params: VerificationParams,
   newRollup: RollupUserLogic
 ) {
-  const { l1Rpc, config } = params
+  const { config } = params
 
   // check stake token address
   if (
