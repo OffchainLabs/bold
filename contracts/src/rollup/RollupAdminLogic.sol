@@ -118,7 +118,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function setOutbox(IOutbox _outbox) external override {
         outbox = _outbox;
         bridge.setOutbox(address(_outbox), true);
-        emit OwnerFunctionCalled(0);
+        emit OutboxSet(address(_outbox));
+        // previously: emit OwnerFunctionCalled(0);
     }
 
     /**
@@ -128,7 +129,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function removeOldOutbox(address _outbox) external override {
         require(_outbox != address(outbox), "CUR_OUTBOX");
         bridge.setOutbox(_outbox, false);
-        emit OwnerFunctionCalled(1);
+        emit OldOutboxRemoved(address(_outbox));
+        // previously: emit OwnerFunctionCalled(1);
     }
 
     /**
@@ -138,7 +140,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setDelayedInbox(address _inbox, bool _enabled) external override {
         bridge.setDelayedInbox(address(_inbox), _enabled);
-        emit OwnerFunctionCalled(2);
+        emit DelayedInboxSet(address(_inbox), _enabled);
+        // previously: emit OwnerFunctionCalled(2);
     }
 
     /**
@@ -150,7 +153,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function pause() external override {
         _pause();
-        emit OwnerFunctionCalled(3);
+        // previously: emit OwnerFunctionCalled(3);
     }
 
     /**
@@ -158,7 +161,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function resume() external override {
         _unpause();
-        emit OwnerFunctionCalled(4);
+        // previously: emit OwnerFunctionCalled(4);
     }
 
     /// @notice allows the admin to upgrade the primary logic contract (ie rollup admin logic, aka this)
@@ -186,7 +189,9 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             if (_val[i]) validators.add(_validator[i]);
             else validators.remove(_validator[i]);
         }
-        emit OwnerFunctionCalled(6);
+
+        emit ValidatorsSet(_validator, _val);
+        // previously: emit OwnerFunctionCalled(6);
     }
 
     /**
@@ -196,7 +201,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setOwner(address newOwner) external override {
         _changeAdmin(newOwner);
-        emit OwnerFunctionCalled(7);
+        // previously: emit OwnerFunctionCalled(7);
     }
 
     /**
@@ -205,7 +210,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setMinimumAssertionPeriod(uint256 newPeriod) external override {
         minimumAssertionPeriod = newPeriod;
-        emit OwnerFunctionCalled(8);
+        emit MinimumAssertionPeriodSet(newPeriod);
+        // previously: emit OwnerFunctionCalled(8);
     }
 
     /**
@@ -215,7 +221,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     function setConfirmPeriodBlocks(uint64 newConfirmPeriod) external override {
         require(newConfirmPeriod > 0, "INVALID_CONFIRM_PERIOD");
         confirmPeriodBlocks = newConfirmPeriod;
-        emit OwnerFunctionCalled(9);
+        emit ConfirmPeriodBlocksSet(newConfirmPeriod);
+        // previously: emit OwnerFunctionCalled(9);
     }
 
     /**
@@ -232,7 +239,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // 4. This allows the malicious party to withdraw the stake S, since assertions with children set the staker to "inactive"
         require(newBaseStake > baseStake, "BASE_STAKE_MUST_BE_INCREASED");
         baseStake = newBaseStake;
-        emit OwnerFunctionCalled(12);
+        emit BaseStakeSet(newBaseStake);
+        // previously: emit OwnerFunctionCalled(12);
     }
 
     function forceRefundStaker(address[] calldata staker) external override whenPaused {
@@ -241,7 +249,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
             requireInactiveStaker(staker[i]);
             reduceStakeTo(staker[i], 0);
         }
-        emit OwnerFunctionCalled(22);
+        emit StakersForceRefunded(staker);
+        // previously: emit OwnerFunctionCalled(22);
     }
 
     function forceCreateAssertion(
@@ -262,7 +271,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // in the case of a force create, we use the rollup's current confirmPeriodBlocks
         createNewAssertion(assertion, prevAssertionHash, expectedAssertionHash);
 
-        emit OwnerFunctionCalled(23);
+        emit AssertionForceCreated(expectedAssertionHash);
+        // previously: emit OwnerFunctionCalled(23);
     }
 
     function forceConfirmAssertion(
@@ -273,7 +283,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
     ) external override whenPaused {
         // this skip deadline, prev, challenge validations
         confirmAssertionInternal(assertionHash, parentAssertionHash, confirmState, inboxAcc);
-        emit OwnerFunctionCalled(24);
+        emit AssertionForceConfirmed(assertionHash);
+        // previously: emit OwnerFunctionCalled(24);
     }
 
     function setLoserStakeEscrow(address newLoserStakerEscrow) external override {
@@ -281,7 +292,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
         // be address(0) because some token do not allow transfers to address(0)
         require(newLoserStakerEscrow != address(0), "INVALID_ESCROW_0");
         loserStakeEscrow = newLoserStakerEscrow;
-        emit OwnerFunctionCalled(25);
+        emit LoserStakeEscrowSet(newLoserStakerEscrow);
+        // previously: emit OwnerFunctionCalled(25);
     }
 
     /**
@@ -290,7 +302,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setWasmModuleRoot(bytes32 newWasmModuleRoot) external override {
         wasmModuleRoot = newWasmModuleRoot;
-        emit OwnerFunctionCalled(26);
+        emit WasmModuleRootSet(newWasmModuleRoot);
+        // previously: emit OwnerFunctionCalled(26);
     }
 
     /**
@@ -299,7 +312,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setSequencerInbox(address _sequencerInbox) external override {
         bridge.setSequencerInbox(_sequencerInbox);
-        emit OwnerFunctionCalled(27);
+        emit SequencerInboxSet(_sequencerInbox);
+        // previously: emit OwnerFunctionCalled(27);
     }
 
     /**
@@ -308,7 +322,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setInbox(IInboxBase newInbox) external {
         inbox = newInbox;
-        emit OwnerFunctionCalled(28);
+        emit InboxSet(address(newInbox));
+        // previously: emit OwnerFunctionCalled(28);
     }
 
     /**
@@ -317,7 +332,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setValidatorWhitelistDisabled(bool _validatorWhitelistDisabled) external {
         validatorWhitelistDisabled = _validatorWhitelistDisabled;
-        emit OwnerFunctionCalled(30);
+        emit ValidatorWhitelistDisabledSet(_validatorWhitelistDisabled);
+        // previously: emit OwnerFunctionCalled(30);
     }
 
     /**
@@ -326,7 +342,8 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setAnyTrustFastConfirmer(address _anyTrustFastConfirmer) external {
         anyTrustFastConfirmer = _anyTrustFastConfirmer;
-        emit OwnerFunctionCalled(31);
+        emit AnyTrustFastConfirmerSet(_anyTrustFastConfirmer);
+        // previously: emit OwnerFunctionCalled(31);
     }
 
     /**
@@ -335,6 +352,7 @@ contract RollupAdminLogic is RollupCore, IRollupAdmin, DoubleLogicUUPSUpgradeabl
      */
     function setChallengeManager(address _challengeManager) external {
         challengeManager = IEdgeChallengeManager(_challengeManager);
-        emit OwnerFunctionCalled(32);
+        emit ChallengeManagerSet(_challengeManager);
+        // previously: emit OwnerFunctionCalled(32);
     }
 }
