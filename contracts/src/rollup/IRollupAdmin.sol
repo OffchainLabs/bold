@@ -119,7 +119,7 @@ interface IRollupAdmin {
     function setMinimumAssertionPeriod(uint256 newPeriod) external;
 
     /**
-     * @notice Set minimum assertion period for the rollup
+     * @notice Set validator afk blocks for the rollup
      * @param newAfkBlocks new number of blocks before a validator is considered afk (0 to disable)
      */
     function setValidatorAfkBlocks(uint64 newAfkBlocks) external;
