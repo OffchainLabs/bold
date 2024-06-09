@@ -47,8 +47,6 @@ interface IRollupCore is IAssertionChain {
 
     function confirmPeriodBlocks() external view returns (uint64);
 
-    function validatorAfkBlocks() external view returns (uint64);
-
     function chainId() external view returns (uint256);
 
     function baseStake() external view returns (uint256);
