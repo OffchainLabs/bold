@@ -440,28 +440,28 @@ func (m *Manager) listenForBlockEvents(ctx context.Context) {
 
 	// Then, once the watcher has reached the latest head, we
 	// fire off a block notifications events normally.
-	ch := make(chan *gethtypes.Header, 100)
-	sub, err := m.chain.Backend().SubscribeNewHead(ctx, ch)
-	if err != nil {
-		panic(err)
-	}
-	defer sub.Unsubscribe()
-	numBlocksReceived := uint64(0)
-	for {
-		select {
-		case header := <-ch:
-			numBlocksReceived += 1
-			// Only broadcast every N blocks received. This is important for Orbit chains
-			// that have parent chains with very fast block times, such as Arbitrum One, as broadcasting
-			// every 250ms would otherwise be too frequent.
-			if numBlocksReceived%m.notifyOnNumberOfBlocks == 0 {
-				m.newBlockNotifier.Broadcast(ctx, header)
-			}
-		case <-sub.Err():
-		case <-ctx.Done():
-			return
-		}
-	}
+	// ch := make(chan *gethtypes.Header, 100)
+	// sub, err := m.chain.Backend().SubscribeNewHead(ctx, ch)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer sub.Unsubscribe()
+	// numBlocksReceived := uint64(0)
+	// for {
+	// 	select {
+	// 	case header := <-ch:
+	// 		numBlocksReceived += 1
+	// 		// Only broadcast every N blocks received. This is important for Orbit chains
+	// 		// that have parent chains with very fast block times, such as Arbitrum One, as broadcasting
+	// 		// every 250ms would otherwise be too frequent.
+	// 		if numBlocksReceived%m.notifyOnNumberOfBlocks == 0 {
+	// 			m.newBlockNotifier.Broadcast(ctx, header)
+	// 		}
+	// 	case <-sub.Err():
+	// 	case <-ctx.Done():
+	// 		return
+	// 	}
+	// }
 }
 
 func (m *Manager) fastTickWhileCatchingUp(ctx context.Context) {
@@ -473,9 +473,9 @@ func (m *Manager) fastTickWhileCatchingUp(ctx context.Context) {
 			return
 		case <-time.After(time.Second):
 			m.newBlockNotifier.Broadcast(ctx, nil)
-			if m.watcher.IsSynced() {
-				return
-			}
+			// if m.watcher.IsSynced() {
+			// 	return
+			// }
 		}
 	}
 }
