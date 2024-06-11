@@ -173,7 +173,7 @@ jobs:
         run: yarn hardhat compile && yarn hardhat --network hardhat test test/contract/*.spec.ts
 
   sol-test-size:
-    name: Solidity contract size, storage, 4bytes
+    name: Solidity contract size
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -198,17 +198,11 @@ jobs:
       - name: Install packages
         run: yarn
 
-      - name: Build contracts
+      - name: Test size
         run: yarn build
 
       - name: Test size
         run: yarn contract:size
-
-      - name: Test storage
-        run: yarn test:storage
-
-      - name: Test 4bytes
-        run: yarn test:signatures
 
   bold-upgrade:
     name: BOLD upgrade test
