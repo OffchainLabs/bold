@@ -2,7 +2,7 @@ import { BigNumber, BigNumberish, providers } from 'ethers'
 import { parseEther } from 'ethers/lib/utils'
 import fs from 'fs'
 
-import { allConfigs } from './files/config'
+import { configs } from './files/configs'
 
 export interface DeployedContracts {
   bridge: string
@@ -32,7 +32,7 @@ export const getConfig = async (
   configName: string,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
-  const config = allConfigs[configName]
+  const config = configs[configName]
   if (!config) {
     throw new Error('config not found')
   }
