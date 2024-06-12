@@ -28,7 +28,7 @@ export const arb1: Config = {
     challengePeriodBlocks: 45818, // same as confirm period
     stakeToken: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
     stakeAmt: parseEther('3600'),
-    miniStakeAmounts: ['0', parseEther('555'), parseEther('79')],
+    miniStakeAmounts: [parseEther('0'), parseEther('555'), parseEther('79')],
     chainId: 42161,
     anyTrustFastConfirmer: '0x0000000000000000000000000000000000000000',
     disableValidatorWhitelist: true,

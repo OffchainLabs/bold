@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish, providers } from 'ethers'
+import { BigNumber, providers } from 'ethers'
 import { parseEther } from 'ethers/lib/utils'
 import fs from 'fs'
 
@@ -63,8 +63,8 @@ export interface Config {
     confirmPeriodBlocks: number
     challengePeriodBlocks: number
     stakeToken: string
-    stakeAmt: BigNumberish
-    miniStakeAmounts: BigNumberish[]
+    stakeAmt: BigNumber
+    miniStakeAmounts: BigNumber[]
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
@@ -135,25 +135,25 @@ export const validateConfig = async (
   }
 
   // check all the settings exist
-  if (config.settings.confirmPeriodBlocks == 0) {
+  if (config.settings.confirmPeriodBlocks === 0) {
     throw new Error('confirmPeriodBlocks is 0')
   }
-  if (config.settings.stakeToken.length == 0) {
+  if (config.settings.stakeToken.length === 0) {
     throw new Error('stakeToken address is empty')
   }
-  if (config.settings.chainId == 0) {
+  if (config.settings.chainId === 0) {
     throw new Error('chainId is 0')
   }
-  if (config.settings.blockLeafSize == 0) {
+  if (config.settings.blockLeafSize === 0) {
     throw new Error('blockLeafSize is 0')
   }
-  if (config.settings.bigStepLeafSize == 0) {
+  if (config.settings.bigStepLeafSize === 0) {
     throw new Error('bigStepLeafSize is 0')
   }
-  if (config.settings.smallStepLeafSize == 0) {
+  if (config.settings.smallStepLeafSize === 0) {
     throw new Error('smallStepLeafSize is 0')
   }
-  if (config.settings.numBigStepLevel == 0) {
+  if (config.settings.numBigStepLevel === 0) {
     throw new Error('numBigStepLevel is 0')
   }
 
@@ -168,7 +168,7 @@ export const validateConfig = async (
     throw new Error('miniStakeAmts length is not numBigStepLevel + 2')
   }
 
-  if (config.validators.length == 0) {
+  if (config.validators.length === 0) {
     throw new Error('no validators')
   }
 }

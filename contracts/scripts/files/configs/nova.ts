@@ -1,3 +1,4 @@
+import { parseEther } from "ethers/lib/utils";
 import { Config } from "../../common";
 
 export const nova: Config = {
@@ -23,14 +24,14 @@ export const nova: Config = {
     confirmPeriodBlocks: 50400,
     challengePeriodBlocks: 51600,
     stakeToken: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-    stakeAmt: '100000000000000000000',
+    stakeAmt: parseEther('1'),
     miniStakeAmounts: [
-      '6000000000000000000',
-      '5000000000000000000',
-      '4000000000000000000',
-      '3000000000000000000',
-      '2000000000000000000',
-      '1000000000000000000',
+      parseEther('6'),
+      parseEther('5'),
+      parseEther('4'),
+      parseEther('3'),
+      parseEther('2'),
+      parseEther('1'),
     ],
     chainId: 42161,
     anyTrustFastConfirmer: '0x0000000000000000000000000000000000000000',

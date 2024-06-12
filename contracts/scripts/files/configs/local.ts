@@ -1,3 +1,4 @@
+import { parseEther } from "ethers/lib/utils";
 import { Config } from "../../common";
 
 export const local: Config = {
@@ -23,14 +24,14 @@ export const local: Config = {
     confirmPeriodBlocks: 100,
     challengePeriodBlocks: 110,
     stakeToken: '0x408Da76E87511429485C32E4Ad647DD14823Fdc4',
-    stakeAmt: '100000000000000000000',
+    stakeAmt: parseEther('1'),
     miniStakeAmounts: [
-      '6000000000000000000',
-      '5000000000000000000',
-      '4000000000000000000',
-      '3000000000000000000',
-      '2000000000000000000',
-      '1000000000000000000',
+      parseEther('6'),
+      parseEther('5'),
+      parseEther('4'),
+      parseEther('3'),
+      parseEther('2'),
+      parseEther('1'),
     ],
     chainId: 412346,
     anyTrustFastConfirmer: '0x6d903f6003cca6255D85CcA4D3B5E5146dC33925',
