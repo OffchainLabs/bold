@@ -6,11 +6,12 @@ import {
   Bridge,
   Bridge__factory,
   EdgeChallengeManager,
-  EdgeChallengeManager__factory, Outbox__factory,
+  EdgeChallengeManager__factory,
+  Outbox__factory,
   RollupEventInbox__factory,
   RollupUserLogic,
   RollupUserLogic__factory,
-  SequencerInbox__factory
+  SequencerInbox__factory,
 } from '../build/types'
 import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
@@ -45,14 +46,16 @@ async function getPreUpgradeState(l1Rpc: JsonRpcProvider, config: Config) {
     stakers.push(await oldRollupContract.getStakerAddress(i))
   }
 
-  const boxes = await getAllowedInboxesOutboxesFromBridge(Bridge__factory.connect(config.contracts.bridge, l1Rpc))
+  const boxes = await getAllowedInboxesOutboxesFromBridge(
+    Bridge__factory.connect(config.contracts.bridge, l1Rpc)
+  )
 
   const wasmModuleRoot = await oldRollupContract.wasmModuleRoot()
 
   return {
     stakers,
     wasmModuleRoot,
-    ...boxes
+    ...boxes,
   }
 }
 
@@ -65,18 +68,11 @@ async function perform(
   if (!executor) {
     throw new Error('EXECUTOR env variable not set')
   }
-  await l1Rpc.send('hardhat_impersonateAccount', [
-    executor
-  ])
+  await l1Rpc.send('hardhat_impersonateAccount', [executor])
 
-  await l1Rpc.send('hardhat_setBalance', [
-    executor,
-    '0x1000000000000000',
-  ])
+  await l1Rpc.send('hardhat_setBalance', [executor, '0x1000000000000000'])
 
-  const timelockImposter = l1Rpc.getSigner(
-    executor
-  )
+  const timelockImposter = l1Rpc.getSigner(executor)
 
   const upExec = new Contract(
     config.contracts.upgradeExecutor,
@@ -128,7 +124,10 @@ async function verifyPostUpgrade(params: VerificationParams) {
   await checkNewChallengeManager(params, newRollup, edgeChallengeManager)
 }
 
-async function checkSequencerInbox(params: VerificationParams, newRollup: RollupUserLogic) {
+async function checkSequencerInbox(
+  params: VerificationParams,
+  newRollup: RollupUserLogic
+) {
   const { l1Rpc, config, deployedContracts } = params
 
   const seqInboxContract = SequencerInbox__factory.connect(
@@ -156,7 +155,11 @@ async function checkSequencerInbox(params: VerificationParams, newRollup: Rollup
   if (!buffer.threshold.eq(config.settings.bufferConfig.threshold)) {
     throw new Error('threshold does not match')
   }
-  if (!buffer.replenishRateInBasis.eq(config.settings.bufferConfig.replenishRateInBasis)) {
+  if (
+    !buffer.replenishRateInBasis.eq(
+      config.settings.bufferConfig.replenishRateInBasis
+    )
+  ) {
     throw new Error('replenishRateInBasis does not match')
   }
 
@@ -178,7 +181,10 @@ async function checkInbox(params: VerificationParams) {
   }
 }
 
-async function checkRollupEventInbox(params: VerificationParams, newRollup: RollupUserLogic) {
+async function checkRollupEventInbox(
+  params: VerificationParams,
+  newRollup: RollupUserLogic
+) {
   const { l1Rpc, config, deployedContracts } = params
 
   const rollupEventInboxContract = RollupEventInbox__factory.connect(
@@ -200,13 +206,13 @@ async function checkRollupEventInbox(params: VerificationParams, newRollup: Roll
   }
 }
 
-async function checkOutbox(params: VerificationParams, newRollup: RollupUserLogic) {
+async function checkOutbox(
+  params: VerificationParams,
+  newRollup: RollupUserLogic
+) {
   const { l1Rpc, config, deployedContracts } = params
 
-  const outboxContract = Outbox__factory.connect(
-    config.contracts.outbox,
-    l1Rpc
-  )
+  const outboxContract = Outbox__factory.connect(config.contracts.outbox, l1Rpc)
 
   // make sure the impl was updated
   if (
@@ -222,12 +228,12 @@ async function checkOutbox(params: VerificationParams, newRollup: RollupUserLogi
   }
 }
 
-async function checkBridge(params: VerificationParams, newRollup: RollupUserLogic) {
+async function checkBridge(
+  params: VerificationParams,
+  newRollup: RollupUserLogic
+) {
   const { l1Rpc, config, deployedContracts, preUpgradeState } = params
-  const bridgeContract = Bridge__factory.connect(
-    config.contracts.bridge,
-    l1Rpc
-  )
+  const bridgeContract = Bridge__factory.connect(config.contracts.bridge, l1Rpc)
 
   // make sure the impl was updated
   if (
@@ -243,7 +249,8 @@ async function checkBridge(params: VerificationParams, newRollup: RollupUserLogi
   }
 
   // make sure allowed inbox and outbox list is unchanged
-  const {inboxes, outboxes } = await getAllowedInboxesOutboxesFromBridge(bridgeContract)
+  const { inboxes, outboxes } =
+    await getAllowedInboxesOutboxesFromBridge(bridgeContract)
   if (JSON.stringify(inboxes) !== JSON.stringify(preUpgradeState.inboxes)) {
     throw new Error('Allowed inbox list has changed')
   }
@@ -252,7 +259,9 @@ async function checkBridge(params: VerificationParams, newRollup: RollupUserLogi
   }
 
   // make sure the sequencer inbox is unchanged
-  if (await bridgeContract.sequencerInbox() !== config.contracts.sequencerInbox) {
+  if (
+    (await bridgeContract.sequencerInbox()) !== config.contracts.sequencerInbox
+  ) {
     throw new Error('Sequencer inbox has changed')
   }
 }
@@ -302,13 +311,13 @@ async function checkInitialAssertion(
   const bridgeContract = Bridge__factory.connect(config.contracts.bridge, l1Rpc)
 
   const latestConfirmed = await newRollup.latestConfirmed()
-  
+
   await newRollup.validateConfig(latestConfirmed, {
     wasmModuleRoot: params.preUpgradeState.wasmModuleRoot,
     requiredStake: config.settings.stakeAmt,
     challengeManager: newEdgeChallengeManager.address,
     confirmPeriodBlocks: config.settings.confirmPeriodBlocks,
-    nextInboxPosition: await bridgeContract.sequencerMessageCount()
+    nextInboxPosition: await bridgeContract.sequencerMessageCount(),
   })
 }
 
@@ -320,27 +329,39 @@ async function checkNewRollup(
   const { config, deployedContracts, preUpgradeState } = params
 
   // check bridge
-  if (getAddress(await newRollup.bridge()) != getAddress(config.contracts.bridge)) {
+  if (
+    getAddress(await newRollup.bridge()) != getAddress(config.contracts.bridge)
+  ) {
     throw new Error('Bridge address does not match')
   }
-  
+
   // check rei
-  if (getAddress(await newRollup.rollupEventInbox()) != getAddress(config.contracts.rollupEventInbox)) {
+  if (
+    getAddress(await newRollup.rollupEventInbox()) !=
+    getAddress(config.contracts.rollupEventInbox)
+  ) {
     throw new Error('RollupEventInbox address does not match')
   }
 
   // check inbox
-  if (getAddress(await newRollup.inbox()) != getAddress(config.contracts.inbox)) {
+  if (
+    getAddress(await newRollup.inbox()) != getAddress(config.contracts.inbox)
+  ) {
     throw new Error('Inbox address does not match')
   }
 
   // check outbox
-  if (getAddress(await newRollup.outbox()) != getAddress(config.contracts.outbox)) {
+  if (
+    getAddress(await newRollup.outbox()) != getAddress(config.contracts.outbox)
+  ) {
     throw new Error('Outbox address does not match')
   }
 
   // check challengeManager
-  if (getAddress(await newRollup.challengeManager()) !== newEdgeChallengeManager.address) {
+  if (
+    getAddress(await newRollup.challengeManager()) !==
+    newEdgeChallengeManager.address
+  ) {
     throw new Error('ChallengeManager address does not match')
   }
 
@@ -350,17 +371,24 @@ async function checkNewRollup(
   }
 
   // wasmModuleRoot
-  if (await newRollup.wasmModuleRoot() !== preUpgradeState.wasmModuleRoot) {
+  if ((await newRollup.wasmModuleRoot()) !== preUpgradeState.wasmModuleRoot) {
     throw new Error('Wasm module root does not match')
   }
 
   // challengeGracePeriodBlocks
-  if (!(await newRollup.challengeGracePeriodBlocks()).eq(config.settings.challengeGracePeriodBlocks)) {
+  if (
+    !(await newRollup.challengeGracePeriodBlocks()).eq(
+      config.settings.challengeGracePeriodBlocks
+    )
+  ) {
     throw new Error('Challenge grace period blocks does not match')
   }
 
   // loserStakeEscrow
-  if (getAddress(await newRollup.loserStakeEscrow()) !== getAddress(config.contracts.l1Timelock)) {
+  if (
+    getAddress(await newRollup.loserStakeEscrow()) !==
+    getAddress(config.contracts.l1Timelock)
+  ) {
     throw new Error('Loser stake escrow address does not match')
   }
 
@@ -368,7 +396,10 @@ async function checkNewRollup(
   await checkInitialAssertion(params, newRollup, newEdgeChallengeManager)
 
   // check validator whitelist disabled
-  if (await newRollup.validatorWhitelistDisabled() !== config.settings.disableValidatorWhitelist) {
+  if (
+    (await newRollup.validatorWhitelistDisabled()) !==
+    config.settings.disableValidatorWhitelist
+  ) {
     throw new Error('Validator whitelist disabled does not match')
   }
 
@@ -420,7 +451,10 @@ async function checkNewChallengeManager(
   const { config, deployedContracts } = params
 
   // check assertion chain
-  if (getAddress(await edgeChallengeManager.assertionChain()) != getAddress(newRollup.address)) {
+  if (
+    getAddress(await edgeChallengeManager.assertionChain()) !=
+    getAddress(newRollup.address)
+  ) {
     throw new Error('Assertion chain address does not match')
   }
 
@@ -486,7 +520,10 @@ async function checkNewChallengeManager(
   }
 
   // check excess stake receiver
-  if ((await edgeChallengeManager.excessStakeReceiver()) !== config.contracts.l1Timelock) {
+  if (
+    (await edgeChallengeManager.excessStakeReceiver()) !==
+    config.contracts.l1Timelock
+  ) {
     throw new Error('Excess stake receiver does not match')
   }
 
@@ -515,12 +552,11 @@ async function getProxyImpl(
   return getAddress('0x' + val.slice(26))
 }
 
-
 async function getAllowedInboxesOutboxesFromBridge(bridge: Bridge) {
   const inboxes: string[] = []
   const outboxes: string[] = []
 
-  for (let i = 0;;i++) {
+  for (let i = 0; ; i++) {
     try {
       inboxes.push(await bridge.allowedDelayedInboxList(i))
     } catch (e: any) {
@@ -531,7 +567,7 @@ async function getAllowedInboxesOutboxesFromBridge(bridge: Bridge) {
     }
   }
 
-  for (let i = 0;;i++) {
+  for (let i = 0; ; i++) {
     try {
       outboxes.push(await bridge.allowedOutboxList(i))
     } catch (e: any) {
@@ -544,7 +580,7 @@ async function getAllowedInboxesOutboxesFromBridge(bridge: Bridge) {
 
   return {
     inboxes,
-    outboxes
+    outboxes,
   }
 }
 
