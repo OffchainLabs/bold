@@ -6,12 +6,11 @@ import {
   Bridge,
   Bridge__factory,
   EdgeChallengeManager,
-  EdgeChallengeManager__factory,
-  Outbox__factory,
+  EdgeChallengeManager__factory, Outbox__factory,
   RollupEventInbox__factory,
   RollupUserLogic,
   RollupUserLogic__factory,
-  SequencerInbox__factory,
+  SequencerInbox__factory
 } from '../build/types'
 import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
 import dotenv from 'dotenv'
@@ -48,8 +47,11 @@ async function getPreUpgradeState(l1Rpc: JsonRpcProvider, config: Config) {
 
   const boxes = await getAllowedInboxesOutboxesFromBridge(Bridge__factory.connect(config.contracts.bridge, l1Rpc))
 
+  const wasmModuleRoot = await oldRollupContract.wasmModuleRoot()
+
   return {
     stakers,
+    wasmModuleRoot,
     ...boxes
   }
 }
@@ -122,7 +124,7 @@ async function verifyPostUpgrade(params: VerificationParams) {
   await checkRollupEventInbox(params, newRollup)
   await checkOutbox(params, newRollup)
   await checkOldRollup(params)
-  await checkNewRollup(params, newRollup)
+  await checkNewRollup(params, newRollup, edgeChallengeManager)
   await checkNewChallengeManager(params, newRollup, edgeChallengeManager)
 }
 
@@ -240,7 +242,7 @@ async function checkBridge(params: VerificationParams, newRollup: RollupUserLogi
     throw new Error('Bridge rollup address does not match')
   }
 
-  // make sure allowed inbox list is unchanged
+  // make sure allowed inbox and outbox list is unchanged
   const {inboxes, outboxes } = await getAllowedInboxesOutboxesFromBridge(bridgeContract)
   if (JSON.stringify(inboxes) !== JSON.stringify(preUpgradeState.inboxes)) {
     throw new Error('Allowed inbox list has changed')
@@ -290,11 +292,92 @@ async function checkOldRollup(params: VerificationParams) {
   }
 }
 
+async function checkInitialAssertion(
+  params: VerificationParams,
+  newRollup: RollupUserLogic,
+  newEdgeChallengeManager: EdgeChallengeManager
+) {
+  const { config, l1Rpc } = params
+
+  const bridgeContract = Bridge__factory.connect(config.contracts.bridge, l1Rpc)
+
+  const latestConfirmed = await newRollup.latestConfirmed()
+  
+  await newRollup.validateConfig(latestConfirmed, {
+    wasmModuleRoot: params.preUpgradeState.wasmModuleRoot,
+    requiredStake: config.settings.stakeAmt,
+    challengeManager: newEdgeChallengeManager.address,
+    confirmPeriodBlocks: config.settings.confirmPeriodBlocks,
+    nextInboxPosition: await bridgeContract.sequencerMessageCount()
+  })
+}
+
 async function checkNewRollup(
   params: VerificationParams,
-  newRollup: RollupUserLogic
+  newRollup: RollupUserLogic,
+  newEdgeChallengeManager: EdgeChallengeManager
 ) {
-  const { config } = params
+  const { config, deployedContracts, preUpgradeState } = params
+
+  // check bridge
+  if (getAddress(await newRollup.bridge()) != getAddress(config.contracts.bridge)) {
+    throw new Error('Bridge address does not match')
+  }
+  
+  // check rei
+  if (getAddress(await newRollup.rollupEventInbox()) != getAddress(config.contracts.rollupEventInbox)) {
+    throw new Error('RollupEventInbox address does not match')
+  }
+
+  // check inbox
+  if (getAddress(await newRollup.inbox()) != getAddress(config.contracts.inbox)) {
+    throw new Error('Inbox address does not match')
+  }
+
+  // check outbox
+  if (getAddress(await newRollup.outbox()) != getAddress(config.contracts.outbox)) {
+    throw new Error('Outbox address does not match')
+  }
+
+  // check challengeManager
+  if (getAddress(await newRollup.challengeManager()) !== newEdgeChallengeManager.address) {
+    throw new Error('ChallengeManager address does not match')
+  }
+
+  // chainId
+  if (!(await newRollup.chainId()).eq(config.settings.chainId)) {
+    throw new Error('Chain ID does not match')
+  }
+
+  // wasmModuleRoot
+  if (await newRollup.wasmModuleRoot() !== preUpgradeState.wasmModuleRoot) {
+    throw new Error('Wasm module root does not match')
+  }
+
+  // challengeGracePeriodBlocks
+  if (!(await newRollup.challengeGracePeriodBlocks()).eq(config.settings.challengeGracePeriodBlocks)) {
+    throw new Error('Challenge grace period blocks does not match')
+  }
+
+  // loserStakeEscrow
+  if (getAddress(await newRollup.loserStakeEscrow()) !== getAddress(config.contracts.l1Timelock)) {
+    throw new Error('Loser stake escrow address does not match')
+  }
+
+  // check initial assertion TODO
+  await checkInitialAssertion(params, newRollup, newEdgeChallengeManager)
+
+  // check validator whitelist disabled
+  if (await newRollup.validatorWhitelistDisabled() !== config.settings.disableValidatorWhitelist) {
+    throw new Error('Validator whitelist disabled does not match')
+  }
+
+  // make sure all validators are set
+  for (const val of config.validators) {
+    if (!(await newRollup.isValidator(val))) {
+      throw new Error('Validator not set')
+    }
+  }
 
   // check stake token address
   if (
