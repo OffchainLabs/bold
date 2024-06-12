@@ -1,5 +1,5 @@
-import { parseEther } from "ethers/lib/utils";
-import { Config } from "../../common";
+import { parseEther } from 'ethers/lib/utils'
+import { Config } from '../../common'
 
 export const nova: Config = {
   contracts: {
