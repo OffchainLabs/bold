@@ -16,9 +16,10 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     using AssertionNodeLib for AssertionNode;
     using GlobalStateLib for GlobalState;
     using SafeERC20 for IERC20;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
-    modifier onlyValidator() {
-        require(isValidator[msg.sender] || validatorWhitelistDisabled, "NOT_VALIDATOR");
+    modifier onlyValidator(address account) {
+        require(validators.contains(account) || validatorWhitelistDisabled, "NOT_VALIDATOR");
         _;
     }
 
@@ -34,29 +35,17 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         return deployTimeChainId != block.chainid;
     }
 
-    /**
-     * @notice Number of blocks since the last confirmed assertion before the validator whitelist is removed
-     *         This is 28 days assuming a 12 seconds block time. Since it can take 14 days under normal
-     *         circumstances to confirm an assertion, this means that validators will have been inactive for
-     *         a further 14 days before the validator whitelist is removed.
-     *
-     *         It's important that this time is greater than the max amount of time it can take to
-     *         to confirm an assertion via the normal method. Therefore we need it to be greater
-     *         than max(2* confirmPeriod, 2 * challengePeriod). With some additional margin
-     *         It's expected that initially confirm and challenge periods are set to 1 week, so 4 weeks
-     *         should give a two weeks of margin before the validators are considered afk.
-     */
-    uint256 public constant VALIDATOR_AFK_BLOCKS = 201600;
-
     function _validatorIsAfk() internal view returns (bool) {
         AssertionNode memory latestConfirmedAssertion = getAssertionStorage(latestConfirmed());
+        uint256 _validatorAfkBlocks = validatorAfkBlocks; // cache and cast to uint256 to prevent overflow
+        if (_validatorAfkBlocks == 0) return false;
         if (latestConfirmedAssertion.createdAtBlock == 0) return false;
         // We consider the validator is gone if the last known assertion is older than VALIDATOR_AFK_BLOCKS
         // Which is either the latest confirmed assertion or the first child of the latest confirmed assertion
         if (latestConfirmedAssertion.firstChildBlock > 0) {
-            return latestConfirmedAssertion.firstChildBlock + VALIDATOR_AFK_BLOCKS < block.number;
+            return latestConfirmedAssertion.firstChildBlock + _validatorAfkBlocks < block.number;
         }
-        return latestConfirmedAssertion.createdAtBlock + VALIDATOR_AFK_BLOCKS < block.number;
+        return latestConfirmedAssertion.createdAtBlock + _validatorAfkBlocks < block.number;
     }
 
     function removeWhitelistAfterFork() external {
@@ -86,7 +75,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
         bytes32 winningEdgeId,
         ConfigData calldata prevConfig,
         bytes32 inboxAcc
-    ) external onlyValidator whenNotPaused {
+    ) external onlyValidator(msg.sender) whenNotPaused {
         /*
         * To confirm an assertion, the following must be true:
         * 1. The assertion must be pending
@@ -133,12 +122,13 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     /**
      * @notice Create a new stake
      * @param depositAmount The amount of either eth or tokens staked
+     * @param _withdrawalAddress The new staker's withdrawal address
      */
-    function _newStake(uint256 depositAmount, address withdrawalAddress) internal onlyValidator whenNotPaused {
+    function _newStake(uint256 depositAmount, address _withdrawalAddress) internal onlyValidator(msg.sender) whenNotPaused {
         // Verify that sender is not already a staker
         require(!isStaked(msg.sender), "ALREADY_STAKED");
         // amount will be checked when creating an assertion
-        createNewStake(msg.sender, depositAmount, withdrawalAddress);
+        createNewStake(msg.sender, depositAmount, _withdrawalAddress);
     }
 
     /**
@@ -162,7 +152,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      */
     function stakeOnNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash)
         public
-        onlyValidator
+        onlyValidator(msg.sender)
         whenNotPaused
     {
         // Early revert on duplicated assertion if expectedAssertionHash is set
@@ -219,9 +209,25 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
     /**
      * @notice Refund a staker that is currently staked on an assertion that either has a chlid assertion or is the latest confirmed assertion.
      */
-    function returnOldDeposit() external override onlyValidator whenNotPaused {
-        requireInactiveStaker(msg.sender);
-        withdrawStaker(msg.sender);
+    function returnOldDeposit() external override onlyValidator(msg.sender) whenNotPaused {
+        _requireInactiveAndWithdrawStaker(msg.sender);
+    }
+
+    /**
+     * @notice From the staker's withdrawal address, 
+     * refund a staker that is currently staked on an assertion that either has a chlid assertion or is the latest confirmed assertion.
+     */
+    function returnOldDepositFor(address stakerAddress) external override onlyValidator(stakerAddress) whenNotPaused {
+        require(msg.sender == withdrawalAddress(stakerAddress), "NOT_WITHDRAWAL_ADDRESS");
+        _requireInactiveAndWithdrawStaker(stakerAddress);
+    }
+
+    /**
+     * @dev Require that the staker is inactive and withdraw their stake
+     */
+    function _requireInactiveAndWithdrawStaker(address stakerAddress) internal {
+        requireInactiveStaker(stakerAddress);
+        withdrawStaker(stakerAddress);
     }
 
     /**
@@ -229,8 +235,9 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param stakerAddress Address of the staker whose stake is increased
      * @param depositAmount The amount of either eth or tokens deposited
      */
-    function _addToDeposit(address stakerAddress, uint256 depositAmount) internal onlyValidator whenNotPaused {
+    function _addToDeposit(address stakerAddress, address expectedWithdrawalAddress, uint256 depositAmount) internal onlyValidator(stakerAddress) whenNotPaused {
         require(isStaked(stakerAddress), "NOT_STAKED");
+        require(withdrawalAddress(stakerAddress) == expectedWithdrawalAddress, "WRONG_WITHDRAWAL_ADDRESS");
         increaseStakeBy(stakerAddress, depositAmount);
     }
 
@@ -238,7 +245,7 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @notice Reduce the amount staked for the sender (difference between initial amount staked and target is creditted back to the sender).
      * @param target Target amount of stake for the staker.
      */
-    function reduceDeposit(uint256 target) external onlyValidator whenNotPaused {
+    function reduceDeposit(uint256 target) external onlyValidator(msg.sender) whenNotPaused {
         requireInactiveStaker(msg.sender);
         // amount will be checked when creating an assertion
         reduceStakeTo(msg.sender, target);
@@ -326,28 +333,47 @@ contract RollupUserLogic is RollupCore, UUPSNotUpgradeable, IRollupUser {
      * @param tokenAmount Amount of the rollups staking token to stake
      * @param assertion Assertion describing the state change between the old assertion and the new one
      * @param expectedAssertionHash Assertion hash of the assertion that will be created
-     * @param withdrawalAddress The address the send the stake back upon withdrawal
+     * @param _withdrawalAddress The address the send the stake back upon withdrawal
      */
     function newStakeOnNewAssertion(
         uint256 tokenAmount,
         AssertionInputs calldata assertion,
         bytes32 expectedAssertionHash,
-        address withdrawalAddress
+        address _withdrawalAddress
     ) public {
-        require(withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
-        _newStake(tokenAmount, withdrawalAddress);
+        require(_withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
+        // _newStake makes sure the validator is whitelisted if the whitelist is enabled
+        _newStake(tokenAmount, _withdrawalAddress);
         stakeOnNewAssertion(assertion, expectedAssertionHash);
         /// @dev This is an external call, safe because it's at the end of the function
         receiveTokens(tokenAmount);
     }
 
     /**
+     * @notice Create a new stake without creating a new assertion.
+     *         Token amount can be zero if the staker wants to use `addToDeposit` from another account
+     * @param tokenAmount Amount to stake (can be zero)
+     * @param _withdrawalAddress The address the send the stake back upon withdrawal
+     */
+    function newStake(
+        uint256 tokenAmount,
+        address _withdrawalAddress
+    ) external whenNotPaused {
+        require(_withdrawalAddress != address(0), "EMPTY_WITHDRAWAL_ADDRESS");
+        // _newStake makes sure the validator is whitelisted if the whitelist is enabled
+        _newStake(tokenAmount, _withdrawalAddress);
+        /// @dev This is an external call, safe because it's at the end of the function
+        if (tokenAmount > 0) receiveTokens(tokenAmount);
+    }
+
+    /**
      * @notice Increase the amount staked tokens for the given staker
      * @param stakerAddress Address of the staker whose stake is increased
+     * @param expectedWithdrawalAddress The expected withdrawal address of the staker (protects depositor from a staker changing their withdrawal address)
      * @param tokenAmount the amount of tokens staked
      */
-    function addToDeposit(address stakerAddress, uint256 tokenAmount) external onlyValidator whenNotPaused {
-        _addToDeposit(stakerAddress, tokenAmount);
+    function addToDeposit(address stakerAddress, address expectedWithdrawalAddress, uint256 tokenAmount) external whenNotPaused {
+        _addToDeposit(stakerAddress, expectedWithdrawalAddress, tokenAmount);
         /// @dev This is an external call, safe because it's at the end of the function
         receiveTokens(tokenAmount);
     }

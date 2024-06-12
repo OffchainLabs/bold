@@ -5,6 +5,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 
 import "./Assertion.sol";
 import "./RollupLib.sol";
@@ -22,6 +23,7 @@ import "../libraries/ArbitrumChecker.sol";
 abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     using AssertionNodeLib for AssertionNode;
     using GlobalStateLib for GlobalState;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
     // Rollup Config
     uint256 public chainId;
@@ -29,6 +31,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     // These 4 config should be stored into the prev and not used directly
     // An assertion can be confirmed after confirmPeriodBlocks when it is unchallenged
     uint64 public confirmPeriodBlocks;
+    // The validator whitelist can be dropped permissionlessly once the last confirmed assertion or its first child is at least validatorAfkBlocks old
+    uint64 public validatorAfkBlocks;
 
     // ------------------------------
     // STAKING
@@ -93,7 +97,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     address public stakeToken;
     uint256 public minimumAssertionPeriod;
 
-    mapping(address => bool) public isValidator;
+    EnumerableSetUpgradeable.AddressSet validators;
 
     bytes32 private _latestConfirmed;
     mapping(bytes32 => AssertionNode) private _assertions;
@@ -191,6 +195,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     }
 
     /**
+     * @notice Get the withdrawal address of the given staker
+     * @param staker Staker address to lookup
+     * @return Withdrawal address of the staker
+     */
+    function withdrawalAddress(address staker) public view override returns (address) {
+        return _stakerMap[staker].withdrawalAddress;
+    }
+
+    /**
      * @notice Retrieves stored information about a requested staker
      * @param staker Staker address to retrieve
      * @return A structure with information about the requested staker
@@ -271,11 +284,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the new staker
      * @param depositAmount Stake amount of the new staker
      */
-    function createNewStake(address stakerAddress, uint256 depositAmount, address withdrawalAddress) internal {
+    function createNewStake(address stakerAddress, uint256 depositAmount, address _withdrawalAddress) internal {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
-        _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true, withdrawalAddress);
-        emit UserStakeUpdated(stakerAddress, withdrawalAddress, 0, depositAmount);
+        _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true, _withdrawalAddress);
+        emit UserStakeUpdated(stakerAddress, _withdrawalAddress, 0, depositAmount);
     }
 
     /**
@@ -299,13 +312,13 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function reduceStakeTo(address stakerAddress, uint256 target) internal returns (uint256) {
         Staker storage staker = _stakerMap[stakerAddress];
-        address withdrawalAddress = staker.withdrawalAddress;
+        address _withdrawalAddress = staker.withdrawalAddress;
         uint256 current = staker.amountStaked;
         require(target <= current, "TOO_LITTLE_STAKE");
         uint256 amountWithdrawn = current - target;
         staker.amountStaked = target;
-        increaseWithdrawableFunds(withdrawalAddress, amountWithdrawn);
-        emit UserStakeUpdated(stakerAddress, withdrawalAddress, current, target);
+        increaseWithdrawableFunds(_withdrawalAddress, amountWithdrawn);
+        emit UserStakeUpdated(stakerAddress, _withdrawalAddress, current, target);
         return amountWithdrawn;
     }
 
@@ -316,11 +329,11 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      */
     function withdrawStaker(address stakerAddress) internal {
         Staker storage staker = _stakerMap[stakerAddress];
-        address withdrawalAddress = staker.withdrawalAddress;
+        address _withdrawalAddress = staker.withdrawalAddress;
         uint256 initialStaked = staker.amountStaked;
-        increaseWithdrawableFunds(withdrawalAddress, initialStaked);
+        increaseWithdrawableFunds(_withdrawalAddress, initialStaked);
         deleteStaker(stakerAddress);
-        emit UserStakeUpdated(stakerAddress, withdrawalAddress, initialStaked, 0);
+        emit UserStakeUpdated(stakerAddress, _withdrawalAddress, initialStaked, 0);
     }
 
     /**
@@ -556,6 +569,14 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function isPending(bytes32 assertionHash) external view returns (bool) {
         return getAssertionStorage(assertionHash).status == AssertionStatus.Pending;
+    }
+
+    function getValidators() external view returns (address[] memory) {
+        return validators.values();
+    }
+
+    function isValidator(address validator) external view returns (bool) {
+        return validators.contains(validator);
     }
 
     /**
