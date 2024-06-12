@@ -1,6 +1,9 @@
-import { BigNumber, providers } from 'ethers'
+import { BigNumber, BigNumberish, providers } from 'ethers'
 import { parseEther } from 'ethers/lib/utils'
 import fs from 'fs'
+
+import { allConfigs } from './files/config'
+
 export interface DeployedContracts {
   bridge: string
   seqInbox: string
@@ -26,11 +29,15 @@ export const getJsonFile = (fileLocation: string) => {
 }
 
 export const getConfig = async (
-  configLocation: string,
+  configName: string,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
-  const config = getJsonFile(configLocation) as RawConfig
-  return await validateConfig(config, l1Rpc)
+  const config = allConfigs[configName]
+  if (!config) {
+    throw new Error('config not found')
+  }
+  await validateConfig(config, l1Rpc)
+  return config
 }
 
 export interface Config {
@@ -56,8 +63,8 @@ export interface Config {
     confirmPeriodBlocks: number
     challengePeriodBlocks: number
     stakeToken: string
-    stakeAmt: BigNumber
-    miniStakeAmounts: BigNumber[]
+    stakeAmt: BigNumberish
+    miniStakeAmounts: BigNumberish[]
     chainId: number
     anyTrustFastConfirmer: string
     disableValidatorWhitelist: boolean
@@ -84,9 +91,9 @@ export type RawConfig = Omit<Config, 'settings'> & {
 }
 
 export const validateConfig = async (
-  config: RawConfig,
+  config: Config,
   l1Rpc: providers.Provider
-): Promise<Config> => {
+) => {
   // check all the config.contracts exist
   if ((await l1Rpc.getCode(config.contracts.l1Timelock)).length <= 2) {
     throw new Error('l1Timelock address is not a contract')
@@ -160,20 +167,8 @@ export const validateConfig = async (
   if (miniStakeAmounts.length !== config.settings.numBigStepLevel + 2) {
     throw new Error('miniStakeAmts length is not numBigStepLevel + 2')
   }
-  if (miniStakeAmounts.some((amt) => amt.lt(parseEther('0.1')))) {
-    throw new Error('miniStakeAmt is less than 0.1 eth')
-  }
 
   if (config.validators.length == 0) {
     throw new Error('no validators')
-  }
-
-  return {
-    ...config,
-    settings: {
-      ...config.settings,
-      stakeAmt: stakeAmount,
-      miniStakeAmounts,
-    },
   }
 }
