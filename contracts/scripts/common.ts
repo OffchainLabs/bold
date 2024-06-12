@@ -32,7 +32,7 @@ export const getConfig = async (
   configName: string,
   l1Rpc: providers.Provider
 ): Promise<Config> => {
-  const config = configs[configName]
+  const config = configs[configName as keyof typeof configs]
   if (!config) {
     throw new Error('config not found')
   }
