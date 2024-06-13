@@ -1,5 +1,6 @@
 import { parseEther } from 'ethers/lib/utils'
 import { Config } from '../../common'
+import { hoursToBlocks } from '.'
 
 export const arb1: Config = {
   contracts: {
@@ -23,7 +24,7 @@ export const arb1: Config = {
     seqInbox: '0x554723262467f125ac9e1cdfa9ce15cc53822dbd',
   },
   settings: {
-    challengeGracePeriodBlocks: 14400, // 2 days
+    challengeGracePeriodBlocks: hoursToBlocks(48),
     confirmPeriodBlocks: 45818, // same as old rollup, ~6.4 days
     challengePeriodBlocks: 45818, // same as confirm period
     stakeToken: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
@@ -32,19 +33,19 @@ export const arb1: Config = {
     chainId: 42161,
     anyTrustFastConfirmer: '0x0000000000000000000000000000000000000000',
     disableValidatorWhitelist: true,
-    blockLeafSize: 1048576, // todo below
-    bigStepLeafSize: 512,
-    smallStepLeafSize: 128,
+    blockLeafSize: 2**26,
+    bigStepLeafSize: 2**19,
+    smallStepLeafSize: 2**23,
     numBigStepLevel: 1,
     maxDataSize: 117964,
     isDelayBufferable: true,
     bufferConfig: {
-      max: 14400,
-      threshold: 300,
+      max: hoursToBlocks(48),
+      threshold: hoursToBlocks(1),
       replenishRateInBasis: 500,
     },
   },
-  validators: [
+  validators: [ // TODO: double check validators or just remove them
     '0x0ff813f6bd577c3d1cdbe435bac0621be6ae34b4',
     '0x54c0d3d6c101580db3be8763a2ae2c6bb9dc840c',
     '0x56d83349c2b8dcf74d7e92d5b6b33d0badd52d78',
