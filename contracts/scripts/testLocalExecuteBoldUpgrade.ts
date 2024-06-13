@@ -19,6 +19,7 @@ import { RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction
 import { abi as OldRollupAbi } from './files/OldRollupUserLogic.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { getAddress } from 'ethers/lib/utils'
+import path from 'path'
 
 dotenv.config()
 
@@ -30,6 +31,13 @@ type VerificationParams = {
   deployedContracts: DeployedContracts
   preUpgradeState: UnwrapPromise<ReturnType<typeof getPreUpgradeState>>
   receipt: ContractReceipt
+}
+
+const executors: {[key: string]: string} = {
+  // DAO L1 Timelocks
+  arb1: '0xE6841D92B0C345144506576eC13ECf5103aC7f49',
+  nova: '0xE6841D92B0C345144506576eC13ECf5103aC7f49',
+  sepolia: '0x6EC62D826aDc24AeA360be9cF2647c42b9Cdb19b'
 }
 
 async function getPreUpgradeState(l1Rpc: JsonRpcProvider, config: Config) {
@@ -64,9 +72,9 @@ async function perform(
   config: Config,
   deployedContracts: DeployedContracts
 ) {
-  const executor = process.env.EXECUTOR
+  const executor = executors[process.env.CONFIG_NETWORK_NAME!]
   if (!executor) {
-    throw new Error('EXECUTOR env variable not set')
+    throw new Error('no executor found for CONFIG_NETWORK_NAME or CONFIG_NETWORK_NAME not set')
   }
   await l1Rpc.send('hardhat_impersonateAccount', [executor])
 
@@ -593,15 +601,20 @@ async function main() {
     l1RpcVal
   ) as JsonRpcProvider
 
-  const deployedContractsLocation = process.env.DEPLOYED_CONTRACTS_LOCATION
-  if (!deployedContractsLocation) {
-    throw new Error('DEPLOYED_CONTRACTS_LOCATION env variable not set')
+  const configNetworkName = process.env.CONFIG_NETWORK_NAME
+  if (!configNetworkName) {
+    throw new Error('CONFIG_NETWORK_NAME env variable not set')
   }
-  const configLocation = process.env.CONFIG_LOCATION
-  if (!configLocation) {
-    throw new Error('CONFIG_LOCATION env variable not set')
+  const config = await getConfig(configNetworkName, l1Rpc)
+
+  const deployedContractsDir = process.env.DEPLOYED_CONTRACTS_DIR
+  if (!deployedContractsDir) {
+    throw new Error('DEPLOYED_CONTRACTS_DIR env variable not set')
   }
-  const config = await getConfig(configLocation, l1Rpc)
+  const deployedContractsLocation = path.join(
+    deployedContractsDir,
+    configNetworkName + 'DeployedContracts.json'
+  )
 
   const deployedContracts = getJsonFile(
     deployedContractsLocation
