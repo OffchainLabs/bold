@@ -7,7 +7,6 @@ import (
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -241,7 +240,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 			// is less than what already exists onchain, we will receive the below error.
 			// This means we can finish early as the onchain timer is already sufficient,
 			// and our transaction reverted. We can gracefully continue if so.
-			if strings.Contains(innerErr.Error(), solimpl.ErrCachedTimeSufficient) {
+			if strings.Contains(innerErr.Error(), protocol.ErrCachedTimeSufficient) {
 				log.Info("Onchain, cached timer for branch is already sufficient, so no need to transact", fields)
 				return nil, nil
 			}

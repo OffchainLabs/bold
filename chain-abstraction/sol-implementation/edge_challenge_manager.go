@@ -30,7 +30,6 @@ import (
 var (
 	errorConfirmingEdgeByOneStepProofCounter = metrics.GetOrRegisterCounter("arb/validator/tracker/error_confirming_edge_by_one_step_proof", nil)
 	invalidInclusionProofCounter             = metrics.GetOrRegisterCounter("arb/validator/tracker/invalid_inclusion_proof", nil)
-	ErrCachedTimeSufficient                  = "CachedTimeSufficient"
 )
 
 const InvalidInclusionProofError = "invalid inclusion proof"
