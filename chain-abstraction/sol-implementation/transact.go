@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -56,8 +55,6 @@ func (a *AssertionChain) transact(
 	}
 	// We do not send the tx, but instead estimate gas first.
 	opts := copyTxOpts(a.txOpts)
-
-	log.Info("Attempting tx with address", "address", opts.From)
 
 	// No BOLD transactions require a value.
 	opts.Value = big.NewInt(0)

@@ -100,11 +100,8 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 			}
 			afterState := protocol.GoExecutionStateFromSolidity(info.AfterState)
 			log.Info("Latest confirmed assertion", "assertionAfterState", fmt.Sprintf("%+v", afterState))
-			// TODO: Deal with canonical assertions that are not yet synced instead of this scary message.
-			if _, ok := m.assertionChainData.canonicalAssertions[latestConfirmed.Id()]; !ok {
-				log.Warn("Evil assertion was possibly confirmed", "assertionHash", latestConfirmed.Id().Hash)
-				evilAssertionConfirmedCounter.Inc(1)
-			}
+
+			// TODO: Check if the latest assertion that was confirmed is one we agree with.
 			latestConfirmedAssertionGauge.Update(int64(latestConfirmed.CreatedAtBlock()))
 		case <-ctx.Done():
 			return
