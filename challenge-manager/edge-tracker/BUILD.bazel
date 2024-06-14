@@ -12,6 +12,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
+        "//chain-abstraction/sol-implementation",
         "//containers",
         "//containers/events",
         "//containers/fsm",
