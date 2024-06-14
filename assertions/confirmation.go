@@ -2,6 +2,7 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -92,6 +93,14 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 				log.Debug("Could not fetch latest confirmed assertion", "err", err)
 				continue
 			}
+			info, err := m.chain.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+			if err != nil {
+				log.Debug("Could not fetch latest confirmed assertion", "err", err)
+				continue
+			}
+			afterState := protocol.GoExecutionStateFromSolidity(info.AfterState)
+			log.Info("Latest confirmed assertion", "assertionAfterState", fmt.Sprintf("%+v", afterState))
+			// TODO: Deal with canonical assertions that are not yet synced instead of this scary message.
 			if _, ok := m.assertionChainData.canonicalAssertions[latestConfirmed.Id()]; !ok {
 				log.Warn("Evil assertion was possibly confirmed", "assertionHash", latestConfirmed.Id().Hash)
 				evilAssertionConfirmedCounter.Inc(1)
