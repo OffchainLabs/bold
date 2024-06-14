@@ -47,6 +47,8 @@ interface IRollupCore is IAssertionChain {
 
     function confirmPeriodBlocks() external view returns (uint64);
 
+    function validatorAfkBlocks() external view returns (uint64);
+
     function chainId() external view returns (uint256);
 
     function baseStake() external view returns (uint256);
@@ -112,6 +114,13 @@ interface IRollupCore is IAssertionChain {
      * @return Amount staked of the staker
      */
     function amountStaked(address staker) external view returns (uint256);
+
+    /**
+     * @notice Get the withdrawal address of the given staker
+     * @param staker Staker address to lookup
+     * @return Withdrawal address of the staker
+     */
+    function withdrawalAddress(address staker) external view returns (address);
 
     /**
      * @notice Retrieves stored information about a requested staker

@@ -11,7 +11,60 @@ import "../bridge/IOwnable.sol";
 import "./Config.sol";
 
 interface IRollupAdmin {
-    event OwnerFunctionCalled(uint256 indexed id);
+    /// @dev Outbox address was set
+    event OutboxSet(address outbox);
+
+    /// @dev Old outbox was removed
+    event OldOutboxRemoved(address outbox);
+
+    /// @dev Inbox was enabled or disabled
+    event DelayedInboxSet(address inbox, bool enabled);
+
+    /// @dev A list of validators was set
+    event ValidatorsSet(address[] validators, bool[] enabled);
+
+    /// @dev A new minimum assertion period was set
+    event MinimumAssertionPeriodSet(uint256 newPeriod);
+
+    /// @dev A new validator afk blocks was set
+    event ValidatorAfkBlocksSet(uint256 newPeriod);
+
+    /// @dev New confirm period blocks was set
+    event ConfirmPeriodBlocksSet(uint64 newConfirmPeriod);
+
+    /// @dev Base stake was set
+    event BaseStakeSet(uint256 newBaseStake);
+
+    /// @dev Stakers were force refunded
+    event StakersForceRefunded(address[] staker);
+
+    /// @dev An assertion was force created
+    event AssertionForceCreated(bytes32 indexed assertionHash);
+
+    /// @dev An assertion was force confirmed
+    event AssertionForceConfirmed(bytes32 indexed assertionHash);
+
+    /// @dev New loser stake escrow set
+    event LoserStakeEscrowSet(address newLoserStakerEscrow);
+
+    /// @dev New wasm module root was set
+    event WasmModuleRootSet(bytes32 newWasmModuleRoot);
+
+    /// @dev New sequencer inbox was set
+    event SequencerInboxSet(address newSequencerInbox);
+
+    /// @dev New inbox set
+    event InboxSet(address inbox);
+
+    /// @dev Validator whitelist was disabled or enabled
+    event ValidatorWhitelistDisabledSet(bool _validatorWhitelistDisabled);
+
+    /// @dev AnyTrust fast confirmer was set
+    event AnyTrustFastConfirmerSet(address anyTrustFastConfirmer);
+
+    /// @dev Challenge manager was set
+    event ChallengeManagerSet(address challengeManager);
+
 
     function initialize(Config calldata config, ContractDependencies calldata connectedContracts) external;
 
@@ -64,6 +117,17 @@ interface IRollupAdmin {
      * @param newPeriod new minimum period for assertions
      */
     function setMinimumAssertionPeriod(uint256 newPeriod) external;
+
+    /**
+     * @notice Set validator afk blocks for the rollup
+     * @param  newAfkBlocks new number of blocks before a validator is considered afk (0 to disable)
+     * @dev    ValidatorAfkBlocks is the number of blocks since the last confirmed 
+     *         assertion (or its first child) before the validator whitelist is removed.
+     *         It's important that this time is greater than the max amount of time it can take to
+     *         to confirm an assertion via the normal method. Therefore we need it to be greater
+     *         than max(2* confirmPeriod, 2 * challengePeriod) with some additional margin.
+     */
+    function setValidatorAfkBlocks(uint64 newAfkBlocks) external;
 
     /**
      * @notice Set number of blocks until a assertion is considered confirmed
