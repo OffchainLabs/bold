@@ -49,9 +49,10 @@ export const nova: Config = {
       replenishRateInBasis: 500,
     },
   },
-  validators: [ // TODO: double check validators
-    '0xE27d4Ed355e5273A3D4855c8e11BC4a8d3e39b87',
-    '0x57004b440Cc4eb2FEd8c4d1865FaC907F9150C76',
-    '0x24ca61c31c7f9af3ab104db6b9a444f28e9071e3',
+  validators: [ // current validators
+    '0xB51EDdfc9A945e2B909905e4F242C4796Ac0C61d',
+    '0x54c0D3d6C101580dB3be8763A2aE2c6bb9dc840c',
+    '0x658e8123722462F888b6fa01a7dbcEFe1D6DD709',
+    '0xDfB23DFE9De7dcC974467195C8B7D5cd21C9d7cB'
   ],
 }
