@@ -49,7 +49,7 @@ export const sepolia: Config = {
       replenishRateInBasis: 500,
     },
   },
-  validators: [ // TODO: double check validators or just remove them
+  validators: [ // current validators
     '0x8a8f0a24d7e58a76FC8F77bb68C7c902b91e182e',
     '0x87630025E63A30eCf9Ca9d580d9D95922Fea6aF0',
     '0xC32B93e581db6EBc50C08ce381143A259B92f1ED',
