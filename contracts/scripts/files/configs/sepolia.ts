@@ -25,8 +25,8 @@ export const sepolia: Config = {
   },
   settings: {
     challengeGracePeriodBlocks: hoursToBlocks(48),
-    confirmPeriodBlocks: 45818, // current is 20 blocks, 45818 is arb1 config
-    challengePeriodBlocks: 45818, // same as confirm period
+    confirmPeriodBlocks: 20, // current is 20 blocks, 45818 is arb1 config
+    challengePeriodBlocks: 45818, // same as arb1
     stakeToken: '0xefb383126640fe4a760010c6e59c397d2b6c7141', // WETH
     stakeAmt: parseEther('36'), // 1/100th of arb1, same for mini stakes
     miniStakeAmounts: [
@@ -36,13 +36,13 @@ export const sepolia: Config = {
     ],
     chainId: 421614,
     anyTrustFastConfirmer: '0x0000000000000000000000000000000000000000',
-    disableValidatorWhitelist: true, // warrants discussion
+    disableValidatorWhitelist: false,
     blockLeafSize: 2**26, // leaf sizes same as arb1
     bigStepLeafSize: 2**19,
     smallStepLeafSize: 2**23,
     numBigStepLevel: 1,
     maxDataSize: 117964,
-    isDelayBufferable: true,
+    isDelayBufferable: false, // batch poster not yet ready
     bufferConfig: {
       max: hoursToBlocks(48),
       threshold: hoursToBlocks(1),
