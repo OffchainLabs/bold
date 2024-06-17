@@ -24,7 +24,7 @@ export const sepolia: Config = {
     seqInbox: '0xdd63bcaa89d7c3199ef220c1dd59c49f821078b8',
   },
   settings: {
-    challengeGracePeriodBlocks: hoursToBlocks(48),
+    challengeGracePeriodBlocks: 20,
     confirmPeriodBlocks: 20, // current is 20 blocks, 45818 is arb1 config
     challengePeriodBlocks: 45818, // same as arb1
     stakeToken: '0xefb383126640fe4a760010c6e59c397d2b6c7141', // WETH
