@@ -159,6 +159,10 @@ type AssertionChain interface {
 		assertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,
 	) (Assertion, error)
+	FastConfirmAssertion(
+		ctx context.Context,
+		assertionCreationInfo *AssertionCreatedInfo,
+	) error
 	ConfirmAssertionByTime(
 		ctx context.Context,
 		assertionHash AssertionHash,

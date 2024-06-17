@@ -601,6 +601,29 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	return nil
 }
 
+// FastConfirmAssertion attempts to fast confirm an assertion onchain.
+func (a *AssertionChain) FastConfirmAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) error {
+	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return a.userLogic.RollupUserLogicTransactor.FastConfirmAssertion(
+			opts,
+			assertionCreationInfo.AssertionHash,
+			assertionCreationInfo.ParentAssertionHash,
+			assertionCreationInfo.AfterState,
+			assertionCreationInfo.AfterInboxBatchAcc,
+		)
+	})
+	if err != nil {
+		return err
+	}
+	if len(receipt.Logs) == 0 {
+		return errors.New("no logs observed from assertion confirmation")
+	}
+	return nil
+}
+
 // SpecChallengeManager creates a new spec challenge manager
 func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
 	return a.specChallengeManager, nil

@@ -69,6 +69,7 @@ type Manager struct {
 	mode                                types.Mode
 	maxDelaySeconds                     int
 	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
+	enableFastConfirmation              bool
 	// API
 	apiAddr   string
 	apiDBPath string
@@ -80,6 +81,13 @@ type Manager struct {
 func WithName(name string) Opt {
 	return func(val *Manager) {
 		val.name = name
+	}
+}
+
+// WithEnableFastConfirmation enables fast confirmation of challenges.
+func WithEnableFastConfirmation(enableFastConfirmation bool) Opt {
+	return func(val *Manager) {
+		val.enableFastConfirmation = enableFastConfirmation
 	}
 }
 
@@ -246,6 +254,7 @@ func New(
 		m.assertionPostingInterval,
 		m.averageTimeForBlockCreation,
 		m.apiDB,
+		m.enableFastConfirmation,
 	)
 	if err != nil {
 		return nil, err
