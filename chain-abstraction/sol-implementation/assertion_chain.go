@@ -20,6 +20,7 @@ import (
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
+	"github.com/OffchainLabs/bold/solgen/go/contractsgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -138,7 +139,11 @@ type AssertionChain struct {
 	specChallengeManager                     protocol.SpecChallengeManager
 	averageTimeForBlockCreation              time.Duration
 	transactor                               Transactor
-
+	fastConfirmSafeAddress                   common.Address
+	fastConfirmSafe                          *contractsgen.Safe
+	fastConfirmSafeOwners                    []common.Address
+	fastConfirmSafeApprovedHashesOwners      map[common.Hash]map[common.Address]bool
+	fastConfirmSafeThreshold                 uint64
 	// rpcHeadBlockNumber is the block number of the latest block on the chain.
 	// It is set to rpc.FinalizedBlockNumber by default.
 	// WithRpcHeadBlockNumber can be used to set a different block number.
@@ -162,6 +167,12 @@ func WithMetricsContractBackend() Opt {
 func WithRpcHeadBlockNumber(rpcHeadBlockNumber rpc.BlockNumber) Opt {
 	return func(a *AssertionChain) {
 		a.rpcHeadBlockNumber = rpcHeadBlockNumber
+	}
+}
+
+func WithFastConfirmSafeAddress(fastConfirmSafeAddress common.Address) Opt {
+	return func(a *AssertionChain) {
+		a.fastConfirmSafeAddress = fastConfirmSafeAddress
 	}
 }
 
@@ -217,6 +228,24 @@ func NewAssertionChain(
 		return nil, err
 	}
 	chain.specChallengeManager = specChallengeManager
+	if chain.fastConfirmSafeAddress != (common.Address{}) {
+		safe, err := contractsgen.NewSafe(chain.fastConfirmSafeAddress, chain.backend)
+		if err != nil {
+			return nil, err
+		}
+		chain.fastConfirmSafe = safe
+		owners, err := safe.GetOwners(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		if err != nil {
+			return nil, err
+		}
+		chain.fastConfirmSafeOwners = owners
+		threshold, err := safe.GetThreshold(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		if err != nil {
+			return nil, err
+		}
+		chain.fastConfirmSafeThreshold = threshold.Uint64()
+		chain.fastConfirmSafeApprovedHashesOwners = make(map[common.Hash]map[common.Address]bool)
+	}
 	return chain, nil
 }
 
@@ -606,6 +635,9 @@ func (a *AssertionChain) FastConfirmAssertion(
 	ctx context.Context,
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
 ) error {
+	if a.fastConfirmSafe != nil {
+		return a.fastConfirmSafeAssertion(ctx, assertionCreationInfo)
+	}
 	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return a.userLogic.RollupUserLogicTransactor.FastConfirmAssertion(
 			opts,
@@ -620,6 +652,145 @@ func (a *AssertionChain) FastConfirmAssertion(
 	}
 	if len(receipt.Logs) == 0 {
 		return errors.New("no logs observed from assertion confirmation")
+	}
+	return nil
+}
+
+func (a *AssertionChain) fastConfirmSafeAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) error {
+	tx, gas, err := a.createFastConfirmTransactionAndEstimateGas(ctx, assertionCreationInfo)
+
+	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+
+	// Current nonce of the safe.
+	nonce, err := a.fastConfirmSafe.Nonce(callOpts)
+	if err != nil {
+		return err
+	}
+	// Hash of the safe transaction.
+	safeTxHash, err := a.fastConfirmSafe.GetTransactionHash(
+		callOpts,
+		*tx.To(),
+		tx.Value(),
+		tx.Data(),
+		0,
+		big.NewInt(int64(gas)),
+		big.NewInt(500000),
+		tx.GasPrice(),
+		common.Address{},
+		common.Address{},
+		nonce,
+	)
+	if err != nil {
+		return err
+	}
+	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return a.fastConfirmSafe.ApproveHash(opts, safeTxHash)
+	})
+	if err != nil {
+		return err
+	}
+	if len(receipt.Logs) == 0 {
+		return errors.New("no logs observed from hash approval")
+	}
+	if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash]; !ok {
+		a.fastConfirmSafeApprovedHashesOwners[safeTxHash] = make(map[common.Address]bool)
+	}
+	a.fastConfirmSafeApprovedHashesOwners[safeTxHash][a.txOpts.From] = true
+	return a.checkApprovedHashAndExecTransaction(ctx, callOpts, tx, safeTxHash, gas)
+}
+
+func (a *AssertionChain) createFastConfirmTransactionAndEstimateGas(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) (*types.Transaction, uint64, error) {
+	// We do not send the tx, but instead estimate gas first.
+	txOpts := copyTxOpts(a.txOpts)
+
+	// No BOLD transactions require a value.
+	txOpts.Value = big.NewInt(0)
+	txOpts.NoSend = true
+
+	tx, err := a.userLogic.RollupUserLogicTransactor.FastConfirmAssertion(
+		txOpts,
+		assertionCreationInfo.AssertionHash,
+		assertionCreationInfo.ParentAssertionHash,
+		assertionCreationInfo.AfterState,
+		assertionCreationInfo.AfterInboxBatchAcc,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	msg := ethereum.CallMsg{
+		From:     txOpts.From,
+		To:       tx.To(),
+		Gas:      0, // Set to 0 to let the node decide
+		GasPrice: txOpts.GasPrice,
+		Value:    txOpts.Value,
+		Data:     tx.Data(),
+	}
+
+	// Estimate the gas required for the transaction. This will catch errors early
+	// without needing to pay for the transaction and waste funds.
+	gas, err := a.backend.EstimateGas(ctx, msg)
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "gas estimation errored for tx with hash %s", containers.Trunc(tx.Hash().Bytes()))
+	}
+	return tx, gas, nil
+}
+
+func (a *AssertionChain) checkApprovedHashAndExecTransaction(ctx context.Context, callOpts *bind.CallOpts, fastConfirmTx *types.Transaction, safeTxHash [32]byte, gas uint64) error {
+	var signatures []byte
+	for _, owner := range a.fastConfirmSafeOwners {
+		if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner]; !ok {
+			approved, err := a.fastConfirmSafe.ApprovedHashes(callOpts, owner, safeTxHash)
+			if err != nil {
+				return err
+			}
+			if approved.Cmp(big.NewInt(0)) != 0 {
+				a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner] = true
+			}
+		}
+		// If the owner has approved the hash, we add the signature to the transaction.
+		// We add the signature in the format r, s, v.
+		// We set v to 1, as it is the only possible value for a approved hash.
+		// We set r to the owner's address.
+		// We set s to the empty hash.
+		// Refer to the Safe contract for more information.
+		if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner]; ok {
+			v := uint8(1)
+			r := common.BytesToHash(owner.Bytes())
+			s := common.Hash{}
+			signatures = append(signatures, r.Bytes()...)
+			signatures = append(signatures, s.Bytes()...)
+			signatures = append(signatures, v)
+		}
+		if uint64(len(a.fastConfirmSafeApprovedHashesOwners[safeTxHash])) >= a.fastConfirmSafeThreshold {
+			receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+				return a.fastConfirmSafe.ExecTransaction(
+					opts,
+					*fastConfirmTx.To(),
+					fastConfirmTx.Value(),
+					fastConfirmTx.Data(),
+					0,
+					big.NewInt(int64(gas)),
+					big.NewInt(500000),
+					fastConfirmTx.GasPrice(),
+					common.Address{},
+					common.Address{},
+					signatures,
+				)
+			})
+			if err != nil {
+				return err
+			}
+			if len(receipt.Logs) == 0 {
+				return errors.New("no logs observed from transaction execution")
+			}
+		}
 	}
 	return nil
 }
