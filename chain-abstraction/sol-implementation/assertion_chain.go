@@ -661,6 +661,9 @@ func (a *AssertionChain) fastConfirmSafeAssertion(
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
 ) error {
 	tx, gas, err := a.createFastConfirmTransactionAndEstimateGas(ctx, assertionCreationInfo)
+	if err != nil {
+		return err
+	}
 
 	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
 
