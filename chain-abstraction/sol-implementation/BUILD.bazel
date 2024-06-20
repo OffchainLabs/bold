@@ -22,6 +22,7 @@ go_library(
         "//containers/threadsafe",
         "//solgen/go/bridgegen",
         "//solgen/go/challengeV2gen",
+        "//solgen/go/contractsgen",
         "//solgen/go/ospgen",
         "//solgen/go/rollupgen",
         "//state-commitments/history",
