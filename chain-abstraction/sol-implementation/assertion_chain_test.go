@@ -15,7 +15,6 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum"
@@ -351,7 +350,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 
 	chain := createdData.Chains[0]
 
-	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	latestConfirmed, err := chain.LatestConfirmed(ctx, &bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	t.Run("genesis case", func(t *testing.T) {
@@ -380,7 +379,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		latestConfirmed, err = chain.LatestConfirmed(ctx)
+		latestConfirmed, err = chain.LatestConfirmed(ctx, &bind.CallOpts{Context: ctx})
 		require.NoError(t, err)
 		require.Equal(t, createdData.Leaf1.Id(), latestConfirmed.Id())
 
@@ -397,7 +396,7 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
-	latestConfirmed, err := chain.LatestConfirmed(ctx)
+	latestConfirmed, err := chain.LatestConfirmed(ctx, &bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 	opts := &bind.CallOpts{Context: ctx}
 	_, err = chain.GetAssertion(ctx, opts, latestConfirmed.Id())
@@ -518,187 +517,4 @@ type mockBackend struct {
 
 func (mb *mockBackend) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	return mb.logs, nil
-}
-
-func TestLatestCreatedAssertion(t *testing.T) {
-	ctx := context.Background()
-	cfg, err := setup.ChainsWithEdgeChallengeManager()
-	require.NoError(t, err)
-	chain := cfg.Chains[0]
-
-	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
-	if err != nil {
-		t.Fatal(err)
-	}
-	abiEvt := abi.Events["AssertionCreated"]
-
-	packLog := func(evt *rollupgen.RollupCoreAssertionCreated) []byte {
-		// event AssertionCreated(
-		// 	bytes32 indexed assertionHash,
-		// 	bytes32 indexed parentAssertionHash,
-		// 	AssertionInputs assertion,
-		// 	bytes32 afterInboxBatchAcc,
-		// 	uint256 inboxMaxCount,
-		// 	bytes32 wasmModuleRoot,
-		// 	uint256 requiredStake,
-		// 	address challengeManager,
-		// 	uint64 confirmPeriodBlocks
-		// );
-		d, packErr := abiEvt.Inputs.Pack(
-			evt.AssertionHash,
-			evt.ParentAssertionHash,
-			// Non-indexed fields.
-			evt.Assertion,
-			evt.AfterInboxBatchAcc,
-			evt.InboxMaxCount,
-			evt.WasmModuleRoot,
-			evt.RequiredStake,
-			evt.ChallengeManager,
-			evt.ConfirmPeriodBlocks,
-		)
-
-		if packErr != nil {
-			t.Fatal(packErr)
-		}
-
-		return d
-	}
-
-	// Minimal event data.
-	// Note: *big.Int values cannot be nil.
-	latest := &rollupgen.RollupCoreAssertionCreated{
-		Assertion: rollupgen.AssertionInputs{
-			BeforeStateData: rollupgen.BeforeStateData{
-				ConfigData: rollupgen.ConfigData{RequiredStake: big.NewInt(0)},
-			},
-		},
-		InboxMaxCount: big.NewInt(0),
-		RequiredStake: big.NewInt(0),
-	}
-
-	// Use the latest confirmed assertion as the last assertion.
-	expected, err := chain.LatestConfirmed(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var latestAssertionID [32]byte
-	copy(latestAssertionID[:], expected.Id().Bytes())
-	var fakeAssertionID [32]byte
-	copy(fakeAssertionID[:], []byte("fake assertion id as parent"))
-
-	evtID := abiEvt.ID
-	validTopics := []common.Hash{evtID, latestAssertionID, fakeAssertionID}
-	// Invalid topics will return an error when trying to lookup an assertion with the fake ID.
-	invalidTopics := []common.Hash{evtID, fakeAssertionID, fakeAssertionID}
-
-	// The backend is bad and sent logs in the wrong order and also
-	// sent "removed" logs from a nasty reorg.
-	logs := []types.Log{
-		{
-			BlockNumber: 120,
-			Index:       0,
-			Topics:      invalidTopics,
-		}, {
-			BlockNumber: 119,
-			Index:       0,
-			Topics:      invalidTopics,
-		}, {
-			BlockNumber: 122,
-			Index:       4,
-			Topics:      invalidTopics,
-			Removed:     true,
-		},
-		{ // This is the latest created assertion.
-			BlockNumber: 122,
-			Index:       3,
-			Topics:      validTopics,
-			Data:        packLog(latest),
-		},
-		{
-			BlockNumber: 122,
-			Index:       2,
-			Topics:      invalidTopics,
-		}, {
-			BlockNumber: 120,
-			Index:       0,
-			Topics:      invalidTopics,
-		},
-	}
-
-	chain.SetBackend(&mockBackend{logs: logs})
-
-	latestCreated, err := chain.LatestCreatedAssertion(ctx)
-	require.NoError(t, err)
-
-	require.Equal(t, expected.Id().Hash, latestCreated.Id().Hash)
-}
-
-func TestLatestCreatedAssertionHashes(t *testing.T) {
-	ctx := context.Background()
-	cfg, err := setup.ChainsWithEdgeChallengeManager()
-	require.NoError(t, err)
-	chain := cfg.Chains[0]
-
-	abi, err := rollupgen.RollupCoreMetaData.GetAbi()
-	if err != nil {
-		t.Fatal(err)
-	}
-	abiEvt := abi.Events["AssertionCreated"]
-	evtID := abiEvt.ID
-
-	// The backend is bad and sent logs in the wrong order and also
-	// sent "removed" logs from a nasty reorg.
-	logs := []types.Log{
-		{
-			BlockNumber: 120,
-			Index:       0,
-			Topics: []common.Hash{
-				evtID,
-				common.BigToHash(big.NewInt(1)),
-			},
-		}, {
-			BlockNumber: 119,
-			Index:       0,
-			Topics: []common.Hash{
-				evtID,
-				common.BigToHash(big.NewInt(0)),
-			},
-		}, {
-			BlockNumber: 122,
-			Index:       4,
-			Topics: []common.Hash{
-				evtID,
-				common.BigToHash(big.NewInt(-1)),
-			},
-			Removed: true,
-		},
-		{
-			BlockNumber: 122,
-			Index:       3,
-			Topics: []common.Hash{
-				evtID,
-				common.BigToHash(big.NewInt(3)),
-			},
-		},
-		{
-			BlockNumber: 122,
-			Index:       2,
-			Topics: []common.Hash{
-				evtID,
-				common.BigToHash(big.NewInt(2)),
-			},
-		},
-	}
-
-	chain.SetBackend(&mockBackend{logs: logs})
-
-	latest, err := chain.LatestCreatedAssertionHashes(ctx)
-	require.NoError(t, err)
-
-	// The logs received were in the wrong order, but their IDs indicate their expected position
-	// in the return slice.
-	require.Equal(t, 4, len(latest))
-	for i, id := range latest {
-		require.Equal(t, uint64(i), id.Big().Uint64())
-	}
 }

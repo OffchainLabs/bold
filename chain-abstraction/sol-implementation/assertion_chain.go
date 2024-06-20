@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"sort"
 	"strings"
 	"time"
 
@@ -257,8 +256,7 @@ func (a *AssertionChain) AssertionStatus(ctx context.Context, assertionHash prot
 	return protocol.AssertionStatus(res.Status), nil
 }
 
-func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+func (a *AssertionChain) LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (protocol.Assertion, error) {
 	res, err := a.rollup.LatestConfirmed(opts)
 	if err != nil {
 		return nil, err
@@ -294,7 +292,7 @@ func (a *AssertionChain) IsChallengeComplete(
 	if !parentIsConfirmed {
 		return false, nil
 	}
-	latestConfirmed, err := a.LatestConfirmed(ctx)
+	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return false, err
 	}
@@ -564,7 +562,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if err != nil {
 		return err
 	}
-	latestConfirmed, err := a.LatestConfirmed(ctx)
+	latestConfirmed, err := a.LatestConfirmed(ctx, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
 	}
@@ -715,98 +713,6 @@ func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protoc
 	}
 	edge := edgeOpt.Unwrap()
 	return edge.TopLevelClaimHeight(ctx)
-}
-
-// LatestCreatedAssertion retrieves the latest assertion from the rollup contract by reading the
-// latest confirmed assertion and then querying the contract log events for all assertions created
-// since that block and returning the most recent one.
-func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
-	latestConfirmed, err := a.LatestConfirmed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	createdAtBlock := latestConfirmed.CreatedAtBlock()
-	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(createdAtBlock),
-		ToBlock:   a.GetDesiredRpcHeadBlockNumber(),
-		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}},
-	}
-	logs, err := a.backend.FilterLogs(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	// The logs are likely sorted by blockNumber, index, but we find the latest one, just in case,
-	// while ignoring any removed logs from a reorged event.
-	var latestBlockNumber uint64
-	var latestLogIndex uint
-	var latestLog *types.Log
-	for _, log := range logs {
-		l := log
-		if l.Removed {
-			continue
-		}
-		if l.BlockNumber > latestBlockNumber ||
-			(l.BlockNumber == latestBlockNumber && l.Index >= latestLogIndex) {
-			latestBlockNumber = l.BlockNumber
-			latestLogIndex = l.Index
-			latestLog = &l
-		}
-	}
-
-	if latestLog == nil {
-		return nil, errors.New("no assertion creation events found")
-	}
-
-	creationEvent, err := a.rollup.ParseAssertionCreated(*latestLog)
-	if err != nil {
-		return nil, err
-	}
-	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
-	return a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
-}
-
-// LatestCreatedAssertionHashes retrieves the latest assertion hashes posted to the rollup contract
-// since the last confirmed assertion block. The results are ordered in ascending order by block
-// number, log index.
-func (a *AssertionChain) LatestCreatedAssertionHashes(ctx context.Context) ([]protocol.AssertionHash, error) {
-	latestConfirmed, err := a.LatestConfirmed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	createdAtBlock := latestConfirmed.CreatedAtBlock()
-	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(createdAtBlock),
-		ToBlock:   a.GetDesiredRpcHeadBlockNumber(),
-		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}},
-	}
-	logs, err := a.backend.FilterLogs(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(logs, func(i, j int) bool {
-		if logs[i].BlockNumber == logs[j].BlockNumber {
-			return logs[i].Index < logs[j].Index
-		}
-		return logs[i].BlockNumber < logs[j].BlockNumber
-	})
-
-	var assertionHashes []protocol.AssertionHash
-	for _, l := range logs {
-		if len(l.Topics) < 2 {
-			continue // Should never happen.
-		}
-		if l.Removed {
-			continue
-		}
-		// The first topic is the event id, the second is the indexed assertion hash.
-		assertionHashes = append(assertionHashes, protocol.AssertionHash{Hash: l.Topics[1]})
-	}
-
-	return assertionHashes, nil
 }
 
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation

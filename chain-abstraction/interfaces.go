@@ -139,8 +139,6 @@ type AssertionChain interface {
 		assertionHash AssertionHash,
 	) (AssertionStatus, error)
 	LatestConfirmed(ctx context.Context) (Assertion, error)
-	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
-	LatestCreatedAssertionHashes(ctx context.Context) ([]AssertionHash, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
