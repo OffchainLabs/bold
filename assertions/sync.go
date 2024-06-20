@@ -520,7 +520,7 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, creationInfo *protocol.
 	if err != nil {
 		return err
 	}
-	assertion, err := m.chain.GetAssertion(ctx, assertionHash)
+	assertion, err := m.chain.GetAssertion(ctx, &bind.CallOpts{Context: ctx}, assertionHash)
 	if err != nil {
 		return err
 	}

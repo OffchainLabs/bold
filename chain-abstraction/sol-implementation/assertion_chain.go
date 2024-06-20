@@ -228,10 +228,10 @@ func (a *AssertionChain) Backend() protocol.ChainBackend {
 	return a.backend
 }
 
-func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
+func (a *AssertionChain) GetAssertion(ctx context.Context, opts *bind.CallOpts, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	res, err := a.userLogic.GetAssertion(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), b)
+	res, err := a.userLogic.GetAssertion(opts, b)
 	if err != nil {
 		return nil, err
 	}
@@ -258,11 +258,12 @@ func (a *AssertionChain) AssertionStatus(ctx context.Context, assertionHash prot
 }
 
 func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	res, err := a.rollup.LatestConfirmed(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	res, err := a.rollup.LatestConfirmed(opts)
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: res})
+	return a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: res})
 }
 
 // Returns true if the staker's address is currently staked in the assertion chain.
@@ -381,7 +382,8 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if err != nil {
 		return nil, errors.Wrap(err, "could not compute assertion hash")
 	}
-	existingAssertion, err := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+	// Check if the assertion already exists based on latest head, which means we should not make a mutating call.
+	existingAssertion, err := a.GetAssertion(ctx, &bind.CallOpts{Context: ctx}, protocol.AssertionHash{Hash: computedHash})
 	switch {
 	case err == nil:
 		return existingAssertion, nil
@@ -411,9 +413,10 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 			computedHash,
 		)
 	})
+	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
 		if strings.Contains(err.Error(), "already exists") {
-			assertionItem, err2 := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+			assertionItem, err2 := a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: computedHash})
 			if err2 != nil {
 				return nil, err2
 			}
@@ -437,7 +440,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if !found {
 		return nil, errors.New("could not find assertion created event in logs")
 	}
-	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
+	return a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
 }
 
 func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
@@ -760,7 +763,8 @@ func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.A
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
+	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	return a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
 }
 
 // LatestCreatedAssertionHashes retrieves the latest assertion hashes posted to the rollup contract

@@ -399,10 +399,11 @@ func TestAssertionBySequenceNum(t *testing.T) {
 	chain := cfg.Chains[0]
 	latestConfirmed, err := chain.LatestConfirmed(ctx)
 	require.NoError(t, err)
-	_, err = chain.GetAssertion(ctx, latestConfirmed.Id())
+	opts := &bind.CallOpts{Context: ctx}
+	_, err = chain.GetAssertion(ctx, opts, latestConfirmed.Id())
 	require.NoError(t, err)
 
-	_, err = chain.GetAssertion(ctx, protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))})
+	_, err = chain.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))})
 	require.ErrorIs(t, err, solimpl.ErrNotFound)
 }
 

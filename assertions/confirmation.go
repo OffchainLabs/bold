@@ -11,6 +11,7 @@ import (
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers/option"
 	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -51,7 +52,11 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			parentAssertion, err := m.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+			parentAssertion, err := m.chain.GetAssertion(
+				ctx,
+				m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
+				protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash},
+			)
 			if err != nil {
 				log.Error("Could not get parent assertion", "err", err)
 				continue

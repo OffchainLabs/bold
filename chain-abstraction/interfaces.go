@@ -131,7 +131,7 @@ type AssertionChain interface {
 	// Read-only methods.
 	IsStaked(ctx context.Context) (bool, error)
 	RollupUserLogic() *rollupgen.RollupUserLogic
-	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
+	GetAssertion(ctx context.Context, opts *bind.CallOpts, id AssertionHash) (Assertion, error)
 	IsChallengeComplete(ctx context.Context, challengeParentAssertionHash AssertionHash) (bool, error)
 	Backend() ChainBackend
 	AssertionStatus(
