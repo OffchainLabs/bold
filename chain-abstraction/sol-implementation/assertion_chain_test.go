@@ -17,12 +17,9 @@ import (
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -507,14 +504,4 @@ func TestIsChallengeComplete(t *testing.T) {
 	chalComplete, err = chain.IsChallengeComplete(ctx, challengeParentAssertionHash)
 	require.NoError(t, err)
 	require.Equal(t, true, chalComplete)
-}
-
-type mockBackend struct {
-	*backends.SimulatedBackend
-
-	logs []types.Log
-}
-
-func (mb *mockBackend) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
-	return mb.logs, nil
 }
