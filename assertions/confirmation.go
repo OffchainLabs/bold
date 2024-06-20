@@ -93,7 +93,7 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			latestConfirmed, err := m.chain.LatestConfirmed(ctx)
+			latestConfirmed, err := m.chain.LatestConfirmed(ctx, m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 			if err != nil {
 				log.Debug("Could not fetch latest confirmed assertion", "err", err)
 				continue

@@ -275,7 +275,7 @@ func (b *Backend) GetTrackedRoyalEdges(ctx context.Context) ([]*api.JsonEdgesByC
 }
 
 func (b *Backend) LatestConfirmedAssertion(ctx context.Context) (*api.JsonAssertion, error) {
-	latestConfirmedAssertion, err := b.chainDataFetcher.LatestConfirmed(ctx)
+	latestConfirmedAssertion, err := b.chainDataFetcher.LatestConfirmed(ctx, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
