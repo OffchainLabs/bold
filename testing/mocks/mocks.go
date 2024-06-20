@@ -443,8 +443,8 @@ func (m *MockProtocol) LatestCreatedAssertion(ctx context.Context) (protocol.Ass
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	args := m.Called(ctx)
+func (m *MockProtocol) LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (protocol.Assertion, error) {
+	args := m.Called(ctx, opts)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
