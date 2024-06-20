@@ -251,7 +251,6 @@ func (w *Watcher) Start(ctx context.Context) {
 			toBlock := latestBlock.Number.Uint64()
 			if fromBlock == toBlock {
 				w.initialSyncCompleted.Store(true)
-				log.Info("BOLD chain event scraper caught up to latest block", "blockNum", toBlock)
 				continue
 			}
 			// Get a challenge manager instance and filterer.
@@ -920,7 +919,7 @@ type filterRange struct {
 // Gets the start and end block numbers for our filter queries, starting from the
 // latest confirmed assertion's block number up to the latest block number.
 func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) {
-	latestConfirmed, err := w.chain.LatestConfirmed(ctx)
+	latestConfirmed, err := w.chain.LatestConfirmed(ctx, w.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return filterRange{}, err
 	}

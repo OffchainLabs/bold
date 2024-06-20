@@ -20,6 +20,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// ErrCachedTimeSufficient is an error received from the challenge manager smart contract
+// when attempting to update an edge's onchain cached timer to a value less than what it already has.
+var ErrCachedTimeSufficient = "CachedTimeSufficient"
+
 // ChainBackend to interact with the underlying blockchain.
 type ChainBackend interface {
 	bind.ContractBackend
@@ -127,16 +131,14 @@ type AssertionChain interface {
 	// Read-only methods.
 	IsStaked(ctx context.Context) (bool, error)
 	RollupUserLogic() *rollupgen.RollupUserLogic
-	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
+	GetAssertion(ctx context.Context, opts *bind.CallOpts, id AssertionHash) (Assertion, error)
 	IsChallengeComplete(ctx context.Context, challengeParentAssertionHash AssertionHash) (bool, error)
 	Backend() ChainBackend
 	AssertionStatus(
 		ctx context.Context,
 		assertionHash AssertionHash,
 	) (AssertionStatus, error)
-	LatestConfirmed(ctx context.Context) (Assertion, error)
-	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
-	LatestCreatedAssertionHashes(ctx context.Context) ([]AssertionHash, error)
+	LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (Assertion, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
