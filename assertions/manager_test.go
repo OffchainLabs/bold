@@ -116,7 +116,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		time.Hour, // poll interval
 		time.Second*1,
 		nil,
-		false,
 		assertions.WithPostingDisabled(),
 	)
 	require.NoError(t, err)
@@ -315,7 +314,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		time.Hour, // poll interval
 		time.Second*1,
 		nil,
-		false,
 		assertions.WithPostingDisabled(),
 	)
 	require.NoError(t, err)

@@ -18,6 +18,7 @@ import (
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/containers/threadsafe"
+	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/contractsgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
@@ -39,6 +40,8 @@ var (
 )
 
 var assertionCreatedId common.Hash
+
+var defaultBaseGas = int64(500000)
 
 func init() {
 	rollupAbi, err := rollupgen.RollupCoreMetaData.GetAbi()
@@ -233,12 +236,16 @@ func NewAssertionChain(
 			return nil, err
 		}
 		chain.fastConfirmSafe = safe
-		owners, err := safe.GetOwners(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		owners, err := retry.UntilSucceeds(ctx, func() ([]common.Address, error) {
+			return safe.GetOwners(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		})
 		if err != nil {
 			return nil, err
 		}
 		chain.fastConfirmSafeOwners = owners
-		threshold, err := safe.GetThreshold(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		threshold, err := retry.UntilSucceeds(ctx, func() (*big.Int, error) {
+			return safe.GetThreshold(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -681,7 +688,7 @@ func (a *AssertionChain) fastConfirmSafeAssertion(
 		tx.Data(),
 		0,
 		big.NewInt(int64(gas)),
-		big.NewInt(500000),
+		big.NewInt(defaultBaseGas),
 		tx.GasPrice(),
 		common.Address{},
 		common.Address{},
@@ -781,7 +788,7 @@ func (a *AssertionChain) checkApprovedHashAndExecTransaction(ctx context.Context
 					fastConfirmTx.Data(),
 					0,
 					big.NewInt(int64(gas)),
-					big.NewInt(500000),
+					big.NewInt(defaultBaseGas),
 					fastConfirmTx.GasPrice(),
 					common.Address{},
 					common.Address{},

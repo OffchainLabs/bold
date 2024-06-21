@@ -81,7 +81,6 @@ func TestPostAssertion(t *testing.T) {
 		time.Millisecond*100, // poll interval
 		time.Second*1,
 		nil,
-		false,
 		assertions.WithDangerousReadyToPost(),
 		assertions.WithPostingDisabled(),
 	)

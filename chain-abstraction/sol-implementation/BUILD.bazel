@@ -20,6 +20,7 @@ go_library(
         "//containers",
         "//containers/option",
         "//containers/threadsafe",
+        "//runtime",
         "//solgen/go/bridgegen",
         "//solgen/go/challengeV2gen",
         "//solgen/go/contractsgen",

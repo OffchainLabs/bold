@@ -86,6 +86,12 @@ func WithPostingDisabled() Opt {
 	}
 }
 
+func WithFastConfirmation(enableFastConfirmation bool) Opt {
+	return func(m *Manager) {
+		m.enableFastConfirmation = enableFastConfirmation
+	}
+}
+
 func WithDangerousReadyToPost() Opt {
 	return func(m *Manager) {
 		m.isReadyToPost = true
@@ -107,7 +113,6 @@ func NewManager(
 	postInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	apiDB db.Database,
-	enableFastConfirmation bool,
 	opts ...Opt,
 ) (*Manager, error) {
 	if pollInterval == 0 {
@@ -141,7 +146,6 @@ func NewManager(
 		observedCanonicalAssertions: make(chan protocol.AssertionHash, 1000),
 		isReadyToPost:               false,
 		startPostingSignal:          make(chan struct{}),
-		enableFastConfirmation:      enableFastConfirmation,
 	}
 	for _, o := range opts {
 		o(m)

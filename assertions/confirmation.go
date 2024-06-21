@@ -42,6 +42,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		err = m.chain.FastConfirmAssertion(ctx, creationInfo)
 		if err != nil {
 			log.Error("Could not fast confirm latest assertion", "err", err)
+			return
 		}
 		assertionConfirmedCounter.Inc(1)
 		log.Info("Fast Confirmed assertion", "assertionHash", creationInfo.AssertionHash)
