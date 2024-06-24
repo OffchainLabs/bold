@@ -161,16 +161,18 @@ func CreateTwoValidatorFork(
 }
 
 type ChainSetup struct {
-	Chains               []*solimpl.AssertionChain
-	Accounts             []*TestAccount
-	Addrs                *RollupAddresses
-	Backend              *SimulatedBackendWrapper
-	RollupConfig         rollupgen.Config
-	useMockBridge        bool
-	useMockOneStepProver bool
-	numAccountsToGen     uint64
-	challengeTestingOpts []challenge_testing.Opt
-	StateManagerOpts     []statemanager.Opt
+	Chains                 []*solimpl.AssertionChain
+	Accounts               []*TestAccount
+	Addrs                  *RollupAddresses
+	Backend                *SimulatedBackendWrapper
+	RollupConfig           rollupgen.Config
+	useMockBridge          bool
+	useMockOneStepProver   bool
+	numAccountsToGen       uint64
+	challengeTestingOpts   []challenge_testing.Opt
+	StateManagerOpts       []statemanager.Opt
+	AnyTrustFastConfirmer  common.Address
+	EnableFastConfirmation bool
 }
 
 type Opt func(setup *ChainSetup)
@@ -178,6 +180,13 @@ type Opt func(setup *ChainSetup)
 func WithMockOneStepProver() Opt {
 	return func(setup *ChainSetup) {
 		setup.useMockOneStepProver = true
+	}
+}
+
+func WithAnyTrustFastConfirmer(anyTrustFastConfirmer common.Address) Opt {
+	return func(setup *ChainSetup) {
+		setup.AnyTrustFastConfirmer = anyTrustFastConfirmer
+		setup.EnableFastConfirmation = true
 	}
 }
 
@@ -269,6 +278,13 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	for _, o := range setp.challengeTestingOpts {
 		o(cfgOpts)
 	}
+	if setp.EnableFastConfirmation {
+		if setp.AnyTrustFastConfirmer == (common.Address{}) {
+			cfgOpts.AnyTrustFastConfirmer = accs[1].AccountAddr
+		} else {
+			cfgOpts.AnyTrustFastConfirmer = setp.AnyTrustFastConfirmer
+		}
+	}
 	numLevels := cfgOpts.NumBigStepLevel + 2
 	if numLevels == 2 {
 		numLevels = 3
@@ -282,7 +298,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		MachineStatus: 1,
 	}
 	genesisInboxCount := big.NewInt(0)
-	anyTrustFastConfirmer := common.Address{}
+	anyTrustFastConfirmer := cfgOpts.AnyTrustFastConfirmer
 	cfg := challenge_testing.GenerateRollupConfig(
 		prod,
 		wasmModuleRoot,

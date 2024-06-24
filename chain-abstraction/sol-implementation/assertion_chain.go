@@ -259,6 +259,10 @@ func (a *AssertionChain) RollupUserLogic() *rollupgen.RollupUserLogic {
 	return a.userLogic
 }
 
+func (a *AssertionChain) RollupCore() *rollupgen.RollupCore {
+	return a.rollup
+}
+
 func (a *AssertionChain) Backend() protocol.ChainBackend {
 	return a.backend
 }
