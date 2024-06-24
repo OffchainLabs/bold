@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
 )
@@ -779,6 +780,12 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 		Bridge:                bridgeAddr,
 		InitialWasmModuleRoot: creationInfo.WasmModuleRoot,
 	}
+	log.Info(
+		"Attempting to confirm edge by one step proof",
+		"machineStep", machineStep,
+		"beforeHash", oneStepData.BeforeHash,
+		"afterHash", oneStepData.AfterHash,
+	)
 	result, err := ospBindings.ProveOneStep(
 		cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		execCtx,
@@ -796,6 +803,12 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 			result,
 		)
 	}
+	log.Info(
+		"SUCCEEDED local check before transacting",
+		"machineStep", machineStep,
+		"beforeHash", oneStepData.BeforeHash,
+		"afterHash", oneStepData.AfterHash,
+	)
 	if _, err = cm.assertionChain.transact(
 		ctx,
 		cm.assertionChain.backend,
@@ -819,6 +832,12 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 			)
 		}); err != nil {
 		errorConfirmingEdgeByOneStepProofCounter.Inc(1)
+		log.Info(
+			"FAILED osp submission",
+			"machineStep", machineStep,
+			"beforeHash", oneStepData.BeforeHash,
+			"afterHash", oneStepData.AfterHash,
+		)
 		return errors.Wrapf(
 			err,
 			"could not confirm one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
