@@ -470,7 +470,9 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		"startHeight", startCommit.Height,
 		"endCommit", fmt.Sprintf("%#x", endCommit.Merkle),
 		"endHeight", endCommit.Height,
-		"firstHash", fmt.Sprintf("%#x", endCommit.FirstLeaf),
+		"startCommitLastLeaf", fmt.Sprintf("%#x", startCommit.LastLeaf),
+		"startCommitFirstLeaf", fmt.Sprintf("%#x", startCommit.FirstLeaf),
+		"endCommitFirstLeaf", fmt.Sprintf("%#x", endCommit.FirstLeaf),
 		"lastHash", fmt.Sprintf("%#x", endCommit.LastLeaf),
 		"machineStartIndex", machineIndex,
 	)
