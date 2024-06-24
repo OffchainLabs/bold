@@ -11,6 +11,7 @@ import (
 	inprogresscache "github.com/OffchainLabs/bold/containers/in-progress-cache"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 
 	"github.com/OffchainLabs/bold/api"
@@ -463,6 +464,16 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 	}
 	machineIndex += OpcodeIndex(upToHeight)
 
+	log.Info(
+		"Computed history commitments for one step proof",
+		"startCommit", fmt.Sprintf("%#x", startCommit.Merkle),
+		"startHeight", startCommit.Height,
+		"endCommit", fmt.Sprintf("%#x", endCommit.Merkle),
+		"endHeight", endCommit.Height,
+		"firstHash", fmt.Sprintf("%#x", endCommit.FirstLeaf),
+		"lastHash", fmt.Sprintf("%#x", endCommit.LastLeaf),
+		"machineStartIndex", machineIndex,
+	)
 	osp, err := p.proofCollector.CollectProof(ctx, wasmModuleRoot, fromBatch, startHeights[0], machineIndex)
 	if err != nil {
 		return nil, nil, nil, err
