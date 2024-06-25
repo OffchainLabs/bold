@@ -88,10 +88,8 @@ func (h *HashCollectorConfig) String() string {
 // L2MessageStateCollector defines an interface which can obtain the machine hashes at each L2 message
 // in a specified message range for a given batch index on Arbitrum.
 type L2MessageStateCollector interface {
-	L2MessageStatesUpTo(
+	L2MessageHashesInRange(
 		ctx context.Context,
-		fromHeight Height,
-		toHeight option.Option[Height],
 		fromBatch,
 		toBatch Batch,
 	) ([]common.Hash, error)
@@ -146,14 +144,73 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
 ) (commitments.History, error) {
-	hashes, err := p.historyCommitmentImpl(ctx, req)
+	var emptyCommit commitments.History
+	hashes, err := p.hashesForHistoryCommitment(ctx, req)
 	if err != nil {
-		return commitments.History{}, err
+		return emptyCommit, err
 	}
-	return commitments.New(hashes)
+	validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
+	if err != nil {
+		return emptyCommit, err
+	}
+	desiredChallengeLevel := deepestRequestedChallengeLevel(validatedHeights)
+	maxHeightForLevel, err := p.leafHeightAtChallengeLevel(desiredChallengeLevel)
+	if err != nil {
+		return emptyCommit, err
+	}
+	// Hashes contains 3 elements, but we need an expansion of 2^26 levels,
+	// and want a slice from index 2^20 to 2^23.
+	merkleExpansion := prefixproofs.NewEmptyMerkleExpansion()
+	from := uint64(req.FromHeight)
+	var to uint64
+	if req.UpToHeight.IsSome() {
+		to = uint64(req.UpToHeight.Unwrap())
+	} else {
+		to = uint64(maxHeightForLevel)
+	}
+	if to <= from {
+		return emptyCommit, fmt.Errorf("invalid range: end %d was <= start %d", to, from)
+	}
+	if to > uint64(maxHeightForLevel) {
+		return emptyCommit, fmt.Errorf("invalid range: end %d was greater than max height for level %d", to, maxHeightForLevel)
+	}
+	// If the requested range is within the bounds of the length of the hashes list, we simply
+	// build a Merkle expansion from the slice hashes[from:to].
+	if to < uint64(len(hashes)) {
+		for i := from; i < to; i++ {
+			merkleExpansion, err = prefixproofs.AppendLeaf(merkleExpansion, hashes[i])
+			if err != nil {
+				return emptyCommit, err
+			}
+		}
+	} else if from < uint64(len(hashes)) && to >= uint64(len(hashes)) {
+		// Otherwise, if the from index is within the bounds of the hashes list, but the to index is not,
+		// then we build a Merkle expansion from the slice hashes[from:] and append the last hash in the list
+		// to fill in whatever we are missing.
+		for i := from; i < to; i++ {
+			if i >= uint64(len(hashes)) {
+				merkleExpansion, err = prefixproofs.AppendLeaf(merkleExpansion, hashes[len(hashes)-1])
+			} else {
+				merkleExpansion, err = prefixproofs.AppendLeaf(merkleExpansion, hashes[i])
+			}
+			if err != nil {
+				return emptyCommit, err
+			}
+		}
+	} else {
+		// If the requested from:to range is greater than the length of the hashes list,
+		// then we build a Merkle expansion of size (from-to)+1 using the last hash in the list.
+		for i := from; i < to; i++ {
+			merkleExpansion, err = prefixproofs.AppendLeaf(merkleExpansion, hashes[len(hashes)-1])
+			if err != nil {
+				return emptyCommit, err
+			}
+		}
+	}
+	return emptyCommit, nil
 }
 
-func (p *HistoryCommitmentProvider) historyCommitmentImpl(
+func (p *HistoryCommitmentProvider) hashesForHistoryCommitment(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
 ) ([]common.Hash, error) {
@@ -166,10 +223,8 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// those states and return a commitment for them.
 	var fromBlockChallengeHeight Height
 	if len(validatedHeights) == 0 {
-		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(
+		hashes, hashesErr := p.l2MessageStateCollector.L2MessageHashesInRange(
 			ctx,
-			req.FromHeight,
-			req.UpToHeight,
 			req.FromBatch,
 			req.ToBatch,
 		)
@@ -342,7 +397,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	prefixHeight Height,
 ) ([]byte, error) {
 	// Obtain the leaves we need to produce our Merkle expansion.
-	leaves, err := p.historyCommitmentImpl(
+	leaves, err := p.hashesForHistoryCommitment(
 		ctx,
 		req,
 	)

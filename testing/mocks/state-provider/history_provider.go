@@ -3,7 +3,6 @@ package stateprovider
 import (
 	"context"
 
-	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -55,19 +54,10 @@ func (s *L2StateBackend) CollectProof(
 // Computes a block history commitment from a start L2 message to an end L2 message index
 // and up to a required batch index. The hashes used for this commitment are the machine hashes
 // at each message number.
-func (s *L2StateBackend) L2MessageStatesUpTo(
+func (s *L2StateBackend) L2MessageHashesInRange(
 	ctx context.Context,
-	from l2stateprovider.Height,
-	upTo option.Option[l2stateprovider.Height],
 	fromBatch,
 	toBatch l2stateprovider.Batch,
 ) ([]common.Hash, error) {
-	var to l2stateprovider.Height
-	if !upTo.IsNone() {
-		to = upTo.Unwrap()
-	} else {
-		blockChallengeLeafHeight := s.challengeLeafHeights[0]
-		to = l2stateprovider.Height(blockChallengeLeafHeight)
-	}
-	return s.statesUpTo(uint64(from), uint64(to), uint64(fromBatch), uint64(toBatch))
+	return s.statesUpTo(uint64(fromBatch), uint64(toBatch))
 }

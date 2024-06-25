@@ -234,10 +234,11 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 			if previousGlobalState != nil {
 				fromBatch = previousGlobalState.Batch
 			}
-			historyCommit, err := s.statesUpTo(0, uint64(s.challengeLeafHeights[0]), fromBatch, st.GlobalState.Batch)
+			historyCommit, err := s.statesUpTo(fromBatch, st.GlobalState.Batch)
 			if err != nil {
 				return nil, err
 			}
+			// TODO: Optimize this history commitment.
 			commit, err := history.New(historyCommit)
 			if err != nil {
 				return nil, err
@@ -252,32 +253,30 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 	return nil, fmt.Errorf("no execution state at message number %d found", maxInboxCount)
 }
 
-func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uint64) ([]common.Hash, error) {
-	if blockEnd < blockStart {
-		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
-	}
+func (s *L2StateBackend) statesUpTo(fromBatch, toBatch uint64) ([]common.Hash, error) {
 	var startIndex uint64
+	var endIndex uint64
 	for i, st := range s.executionStates {
 		if st.GlobalState.Batch == fromBatch {
 			startIndex = uint64(i)
 			break
 		}
 	}
-	start := startIndex + blockStart
-	end := start + blockEnd
-
+	for i, st := range s.executionStates {
+		if st.GlobalState.Batch == toBatch {
+			endIndex = uint64(i)
+			break
+		}
+	}
 	// The size is the number of elements being committed to. For example, if the height is 7, there will
 	// be 8 elements being committed to from [0, 7] inclusive.
-	desiredStatesLen := int(blockEnd - blockStart + 1)
 	var states []common.Hash
-	var lastState common.Hash
-	for i := start; i <= end; i++ {
+	for i := startIndex; i <= endIndex; i++ {
 		if i >= uint64(len(s.stateRoots)) {
 			break
 		}
 		state := s.stateRoots[i]
 		states = append(states, state)
-		lastState = state
 		if len(s.executionStates) == 0 {
 			// should only happen in tests
 			continue
@@ -289,9 +288,6 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uin
 			}
 			break
 		}
-	}
-	for len(states) < desiredStatesLen {
-		states = append(states, lastState)
 	}
 	return states, nil
 }
