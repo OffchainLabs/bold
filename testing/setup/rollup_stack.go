@@ -17,8 +17,10 @@ import (
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	"github.com/OffchainLabs/bold/solgen/go/contractsgen"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/ospgen"
+	"github.com/OffchainLabs/bold/solgen/go/proxiesgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
 	"github.com/OffchainLabs/bold/solgen/go/yulgen"
 	challenge_testing "github.com/OffchainLabs/bold/testing"
@@ -161,18 +163,18 @@ func CreateTwoValidatorFork(
 }
 
 type ChainSetup struct {
-	Chains                 []*solimpl.AssertionChain
-	Accounts               []*TestAccount
-	Addrs                  *RollupAddresses
-	Backend                *SimulatedBackendWrapper
-	RollupConfig           rollupgen.Config
-	useMockBridge          bool
-	useMockOneStepProver   bool
-	numAccountsToGen       uint64
-	challengeTestingOpts   []challenge_testing.Opt
-	StateManagerOpts       []statemanager.Opt
-	AnyTrustFastConfirmer  common.Address
-	EnableFastConfirmation bool
+	Chains                     []*solimpl.AssertionChain
+	Accounts                   []*TestAccount
+	Addrs                      *RollupAddresses
+	Backend                    *SimulatedBackendWrapper
+	RollupConfig               rollupgen.Config
+	useMockBridge              bool
+	useMockOneStepProver       bool
+	numAccountsToGen           uint64
+	challengeTestingOpts       []challenge_testing.Opt
+	StateManagerOpts           []statemanager.Opt
+	EnableFastConfirmation     bool
+	EnableSafeFastConfirmation bool
 }
 
 type Opt func(setup *ChainSetup)
@@ -183,10 +185,15 @@ func WithMockOneStepProver() Opt {
 	}
 }
 
-func WithAnyTrustFastConfirmer(anyTrustFastConfirmer common.Address) Opt {
+func WithFastConfirmation() Opt {
 	return func(setup *ChainSetup) {
-		setup.AnyTrustFastConfirmer = anyTrustFastConfirmer
 		setup.EnableFastConfirmation = true
+	}
+}
+
+func WithSafeFastConfirmation() Opt {
+	return func(setup *ChainSetup) {
+		setup.EnableSafeFastConfirmation = true
 	}
 }
 
@@ -279,11 +286,63 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		o(cfgOpts)
 	}
 	if setp.EnableFastConfirmation {
-		if setp.AnyTrustFastConfirmer == (common.Address{}) {
-			cfgOpts.AnyTrustFastConfirmer = accs[1].AccountAddr
-		} else {
-			cfgOpts.AnyTrustFastConfirmer = setp.AnyTrustFastConfirmer
+		cfgOpts.AnyTrustFastConfirmer = accs[1].AccountAddr
+	}
+	var safeProxyAddress common.Address
+	if setp.EnableSafeFastConfirmation {
+		var safeAddress common.Address
+		safeAddress, err = retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+			safeAddress, tx, _, err = contractsgen.DeploySafeL2(accs[0].TxOpts, backend)
+			if err != nil {
+				return common.Address{}, err
+			}
+			err = challenge_testing.TxSucceeded(ctx, tx, safeAddress, backend, err)
+			if err != nil {
+				return common.Address{}, err
+			}
+			return safeAddress, nil
+		})
+		if err != nil {
+			return nil, err
 		}
+
+		safeProxyAddress, err = retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+			safeProxyAddress, tx, _, err = proxiesgen.DeploySafeProxy(accs[0].TxOpts, backend, safeAddress)
+			if err != nil {
+				return common.Address{}, err
+			}
+			err = challenge_testing.TxSucceeded(ctx, tx, safeProxyAddress, backend, err)
+			if err != nil {
+				return common.Address{}, err
+			}
+			return safeProxyAddress, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		var safe *contractsgen.Safe
+		safe, err = contractsgen.NewSafe(safeProxyAddress, backend)
+		if err != nil {
+			return nil, err
+		}
+		tx, err = safe.Setup(
+			accs[0].TxOpts,
+			[]common.Address{accs[1].AccountAddr, accs[2].AccountAddr},
+			big.NewInt(2),
+			common.Address{},
+			nil,
+			common.Address{},
+			common.Address{},
+			big.NewInt(0),
+			common.Address{},
+		)
+		if err != nil {
+			return nil, err
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, tx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "errored waiting for transaction")
+		}
+		cfgOpts.AnyTrustFastConfirmer = safeProxyAddress
 	}
 	numLevels := cfgOpts.NumBigStepLevel + 2
 	if numLevels == 2 {
@@ -348,6 +407,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 			acc.TxOpts,
 			backend,
 			solimpl.NewChainBackendTransactor(backend),
+			solimpl.WithFastConfirmSafeAddress(safeProxyAddress),
 		)
 		if chainErr != nil {
 			return nil, chainErr
