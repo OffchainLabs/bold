@@ -86,9 +86,9 @@ func WithPostingDisabled() Opt {
 	}
 }
 
-func WithFastConfirmation(enableFastConfirmation bool) Opt {
+func WithFastConfirmation() Opt {
 	return func(m *Manager) {
-		m.enableFastConfirmation = enableFastConfirmation
+		m.enableFastConfirmation = true
 	}
 }
 

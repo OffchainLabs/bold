@@ -86,9 +86,9 @@ func WithName(name string) Opt {
 }
 
 // WithFastConfirmation enables fast confirmation of challenges.
-func WithFastConfirmation(enableFastConfirmation bool) Opt {
+func WithFastConfirmation() Opt {
 	return func(val *Manager) {
-		val.enableFastConfirmation = enableFastConfirmation
+		val.enableFastConfirmation = true
 	}
 }
 
@@ -247,6 +247,10 @@ func New(
 		}
 		m.api = srv
 	}
+	assertionsOpts := make([]assertions.Opt, 0)
+	if m.enableFastConfirmation {
+		assertionsOpts = append(assertionsOpts, assertions.WithFastConfirmation())
+	}
 	assertionManager, err := assertions.NewManager(
 		m.chain,
 		m.stateManager,
@@ -261,7 +265,7 @@ func New(
 		m.assertionPostingInterval,
 		m.averageTimeForBlockCreation,
 		m.apiDB,
-		assertions.WithFastConfirmation(m.enableFastConfirmation),
+		assertionsOpts...,
 	)
 	if err != nil {
 		return nil, err

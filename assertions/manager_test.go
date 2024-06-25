@@ -376,7 +376,7 @@ func TestFastConfirmation(t *testing.T) {
 		stateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.ResolveMode),
-		challengemanager.WithFastConfirmation(true),
+		challengemanager.WithFastConfirmation(),
 	)
 	require.NoError(t, err)
 	chalManager.Start(ctx)
@@ -402,7 +402,7 @@ func TestFastConfirmation(t *testing.T) {
 		nil,
 		assertions.WithDangerousReadyToPost(),
 		assertions.WithPostingDisabled(),
-		assertions.WithFastConfirmation(true),
+		assertions.WithFastConfirmation(),
 	)
 	require.NoError(t, err)
 
@@ -461,7 +461,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		stateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.ResolveMode),
-		challengemanager.WithFastConfirmation(true),
+		challengemanager.WithFastConfirmation(),
 	)
 	require.NoError(t, err)
 	chalManagerAlice.Start(ctx)
@@ -487,7 +487,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		nil,
 		assertions.WithDangerousReadyToPost(),
 		assertions.WithPostingDisabled(),
-		assertions.WithFastConfirmation(true),
+		assertions.WithFastConfirmation(),
 	)
 	require.NoError(t, err)
 
@@ -512,7 +512,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		stateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.ResolveMode),
-		challengemanager.WithFastConfirmation(true),
+		challengemanager.WithFastConfirmation(),
 	)
 	require.NoError(t, err)
 	chalManagerBob.Start(ctx)
@@ -533,7 +533,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		nil,
 		assertions.WithDangerousReadyToPost(),
 		assertions.WithPostingDisabled(),
-		assertions.WithFastConfirmation(true),
+		assertions.WithFastConfirmation(),
 	)
 	require.NoError(t, err)
 
