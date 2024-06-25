@@ -340,7 +340,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 func TestFastConfirmation(t *testing.T) {
 	ctx := context.Background()
 	setup, err := setup.ChainsWithEdgeChallengeManager(
-		// setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
