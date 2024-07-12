@@ -460,11 +460,11 @@ func (m *Manager) listenForBlockEvents(ctx context.Context) {
 
 	// Then, once the watcher has reached the latest head, we
 	// fire off a block notifications events normally.
-	if m.headBlockSubscriptions {
-		m.tickOnHeadBlockSubscriptions(ctx)
-	} else {
-		m.tickAtInterval(ctx)
-	}
+	// if m.headBlockSubscriptions {
+	// 	m.tickOnHeadBlockSubscriptions(ctx)
+	// } else {
+	m.tickAtInterval(ctx)
+	// }
 }
 
 func (m *Manager) tickOnHeadBlockSubscriptions(ctx context.Context) {
