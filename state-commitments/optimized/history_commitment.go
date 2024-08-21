@@ -39,8 +39,7 @@ func ComputeHistoryCommitment(
 		// If this slice has a non-power of two length, we use virtual zero hashes
 		// to build a sparse Merkle tree and compute its root.
 		slicedLeaves := realLeaves[from:to]
-		depth := uint64(math.Log2(float64(nextPowerOf2(uint64(len(slicedLeaves))))))
-		return computeSparseRoot(slicedLeaves, depth)
+		return computeVirtualSparseTree(slicedLeaves, uint64(len(slicedLeaves)))
 	} else if from < uint64(len(realLeaves)) && to >= uint64(len(realLeaves)) {
 		// Case 1: the `from` index is within the range of the length of the real
 		// hashes list, but the `to` index exceeds it.
@@ -48,49 +47,54 @@ func ComputeHistoryCommitment(
 		// realLeaves[from:] ++ (realLeaves[-1] * (to - len(realLeaves)))
 		// This means the leaves we are committing to are the real leaves up to the end of the list,
 		// and the last leaf padded to the `to` index.
-		return emptyHash, nil
+		// If the number of leaves we are committing to is not a power of two, we use virtual zero hashes
+		// to compute a sparse Merkle tree and root.
+		slicedLeaves := realLeaves[from:]
+		return computeVirtualSparseTree(slicedLeaves, to-from)
 	} else {
 		// Case 2: Both the `from` and `to` indices are out of range of the real hashes list.
 		// In this case, we commit to a Merkle tree formed by realLeaves[-1] * (to - from). That is,
 		// we commit to a Merkle tree formed by the last leaf of the real leaves list repeated until
 		// the specified range.
-		slicedLeaves := []common.Hash{realLeaves[len(realLeaves)-1]}
-		depth := uint64(math.Log2(float64(nextPowerOf2(to - from))))
-		return computeSparseRoot(slicedLeaves, depth)
+		leaves := []common.Hash{realLeaves[len(realLeaves)-1]}
+		return computeVirtualSparseTree(leaves, to-from)
 	}
 }
 
-// GenerateTrieFromItems constructs a Merkle trie from a sequence of byte slices.
-func computeSparseRoot(leaves []common.Hash, depth uint64) (common.Hash, error) {
-	var emptyHash common.Hash
+func computeVirtualSparseTree(leaves []common.Hash, virtualLength uint64) (common.Hash, error) {
 	if len(leaves) == 0 {
-		return emptyHash, errors.New("no items provided to generate Merkle trie")
+		return common.Hash{}, errors.New("no items provided to generate Merkle trie")
 	}
+	depth := uint64(math.Log2(float64(nextPowerOf2(virtualLength))))
 	if depth >= 26 {
-		return emptyHash, errors.New("supported merkle trie depth exceeded (max depth is 26)")
+		return common.Hash{}, errors.New("supported Merkle trie depth exceeded (max depth is 26)")
 	}
-	layers := make([][]common.Hash, depth+1)
-	layers[0] = leaves
-	for i := uint64(0); i < depth; i++ {
-		if len(layers[i])%2 == 1 {
-			layers[i] = append(layers[i], emptyHash) // TODO: Use zerohashes[i]
+	elements := leaves
+	lastLeaf := leaves[len(leaves)-1]
+	currentLayerSize := virtualLength
+	for layerIdx := uint64(0); layerIdx < depth; layerIdx++ {
+		var nextLayer []common.Hash
+		for i := uint64(0); i < currentLayerSize; i += 2 {
+			left := getLeafAt(elements, lastLeaf, i)
+			right := getLeafAt(elements, lastLeaf, i+1)
+
+			if i+1 >= currentLayerSize {
+				right = zeroHashes[layerIdx]
+			}
+			concatHash := crypto.Keccak256Hash(left[:], right[:])
+			nextLayer = append(nextLayer, concatHash)
 		}
-		updatedValues := make([]common.Hash, 0)
-		for j := 0; j < len(layers[i]); j += 2 {
-			concat := crypto.Keccak256Hash(layers[i][j][:], layers[i][j+1][:])
-			updatedValues = append(updatedValues, concat)
-		}
-		layers[i+1] = updatedValues
+		elements = nextLayer
+		currentLayerSize = (currentLayerSize + 1) / 2
 	}
-	return layers[len(layers)-1][0], nil
+	return elements[0], nil
 }
 
-func virtualHashAtDepth(depth uint64, leaf common.Hash) common.Hash {
-	currentHash := leaf
-	for i := uint64(1); i <= depth; i++ {
-		currentHash = crypto.Keccak256Hash(currentHash[:], currentHash[:])
+func getLeafAt(leaves []common.Hash, lastLeaf common.Hash, index uint64) common.Hash {
+	if index < uint64(len(leaves)) {
+		return leaves[index]
 	}
-	return currentHash
+	return lastLeaf
 }
 
 func nextPowerOf2(n uint64) uint64 {
