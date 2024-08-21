@@ -32,10 +32,6 @@ func TestVirtualSparse(t *testing.T) {
 	fullRoot, err := computeVirtualSparseTree([]common.Hash{simpleHash}, 3)
 	require.NoError(t, err)
 	fmt.Println(fullRoot.Hex())
-
-	// fullRoot, err = computeVirtualSparseTree([]common.Hash{simpleHash}, (1<<26)-1)
-	// require.NoError(t, err)
-	// fmt.Println(fullRoot.Hex())
 	t.Fatal(1)
 }
 

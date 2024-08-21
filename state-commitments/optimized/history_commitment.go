@@ -2,7 +2,6 @@ package optimized
 
 import (
 	"errors"
-	"math"
 
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/ethereum/go-ethereum/common"
@@ -62,46 +61,88 @@ func ComputeHistoryCommitment(
 }
 
 func computeVirtualSparseTree(leaves []common.Hash, virtualLength uint64) (common.Hash, error) {
-	if len(leaves) == 0 {
-		return common.Hash{}, errors.New("no items provided to generate Merkle trie")
-	}
-	depth := uint64(math.Log2(float64(nextPowerOf2(virtualLength))))
-	if depth > 26 {
-		return common.Hash{}, errors.New("supported Merkle trie depth exceeded (max allowed depth is 26)")
-	}
-	elements := leaves
+	m := uint64(len(leaves))
 	lastLeaf := leaves[len(leaves)-1]
-	currentLayerSize := virtualLength
+	if len(leaves) == 1 {
+		leaves = append(leaves, common.Hash{})
+	}
 	var left, right, concatHash common.Hash
 	keccak := crypto.NewKeccakState()
-	nextLayer := make([]common.Hash, (currentLayerSize+1)/2)
-	for layerIdx := uint64(0); layerIdx < depth; layerIdx++ {
-		j := 0
-		for i := uint64(0); i < currentLayerSize; i += 2 {
-			if i < uint64(len(elements)) {
-				left = elements[i]
+	height := 0
+
+	for m > 1 || virtualLength > 1 {
+		nextLevel := (virtualLength + 1) / 2
+		for i := uint64(0); i < nextLevel; i++ {
+			if 2*i < m {
+				left = leaves[2*i]
 			} else {
+				// Else, use the last leaf as as a virtual element.
 				left = lastLeaf
 			}
-			if i+1 < uint64(len(elements)) {
-				right = elements[i+1]
-			} else if i+1 < currentLayerSize {
+			if 2*i+1 < m {
+				// If index within range, use the leaves.
+				right = leaves[2*i+1]
+			} else if 2*i+1 < virtualLength {
+				// Else if index is within virtual length, use the last leaf.
 				right = lastLeaf
 			} else {
-				right = zeroHashes[layerIdx]
+				// Else, use the zero hash at the current tree height.
+				right = zeroHashes[height]
 			}
 			keccak.Write(left[:])
 			keccak.Write(right[:])
 			keccak.Read(concatHash[:])
 			keccak.Reset()
-			nextLayer[j] = concatHash
-			j += 1
+			leaves[i] = concatHash
 		}
-		elements = nextLayer
-		currentLayerSize = (currentLayerSize + 1) / 2
+		m = nextLevel
+		height++
+		virtualLength = (virtualLength + 1) / 2
 	}
-	return elements[0], nil
+	return leaves[0], nil
 }
+
+// func computeVirtualSparseTree2() (common.Hash, error) {
+// 	if len(leaves) == 0 {
+// 		return common.Hash{}, errors.New("no items provided to generate Merkle trie")
+// 	}
+// 	depth := uint64(math.Log2(float64(nextPowerOf2(virtualLength))))
+// 	if depth > 26 {
+// 		return common.Hash{}, errors.New("supported Merkle trie depth exceeded (max allowed depth is 26)")
+// 	}
+// 	elements := leaves
+// 	lastLeaf := leaves[len(leaves)-1]
+// 	currentLayerSize := virtualLength
+// 	var left, right, concatHash common.Hash
+// 	keccak := crypto.NewKeccakState()
+// 	nextLayer := make([]common.Hash, (currentLayerSize+1)/2)
+// 	for layerIdx := uint64(0); layerIdx < depth; layerIdx++ {
+// 		j := 0
+// 		for i := uint64(0); i < currentLayerSize; i += 2 {
+// 			if i < uint64(len(elements)) {
+// 				left = elements[i]
+// 			} else {
+// 				left = lastLeaf
+// 			}
+// 			if i+1 < uint64(len(elements)) {
+// 				right = elements[i+1]
+// 			} else if i+1 < currentLayerSize {
+// 				right = lastLeaf
+// 			} else {
+// 				right = zeroHashes[layerIdx]
+// 			}
+// 			keccak.Write(left[:])
+// 			keccak.Write(right[:])
+// 			keccak.Read(concatHash[:])
+// 			keccak.Reset()
+// 			nextLayer[j] = concatHash
+// 			j += 1
+// 		}
+// 		elements = nextLayer
+// 		currentLayerSize = (currentLayerSize + 1) / 2
+// 	}
+// 	return elements[0], nil
+// }
 
 func nextPowerOf2(n uint64) uint64 {
 	if n == 0 {
