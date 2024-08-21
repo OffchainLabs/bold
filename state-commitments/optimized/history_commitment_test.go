@@ -33,10 +33,25 @@ func TestVirtualSparse(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println(fullRoot.Hex())
 
-	fullRoot, err = computeVirtualSparseTree([]common.Hash{simpleHash}, 1<<24)
-	require.NoError(t, err)
-	fmt.Println(fullRoot.Hex())
+	// fullRoot, err = computeVirtualSparseTree([]common.Hash{simpleHash}, (1<<26)-1)
+	// require.NoError(t, err)
+	// fmt.Println(fullRoot.Hex())
 	t.Fatal(1)
+}
+
+func TestMaximumDepthHistoryCommitment(t *testing.T) {
+	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	_, err := computeVirtualSparseTree([]common.Hash{simpleHash}, (1<<26)-1)
+	require.NoError(t, err)
+}
+
+func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
+	b.StopTimer()
+	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		computeVirtualSparseTree([]common.Hash{simpleHash}, (1<<26)-1)
+	}
 }
 
 // GenerateTrieFromItems constructs a Merkle trie from a sequence of byte slices.
