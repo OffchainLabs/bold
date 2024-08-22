@@ -1,7 +1,6 @@
 package optimized
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/OffchainLabs/bold/state-commitments/history"
@@ -12,7 +11,6 @@ import (
 
 func TestVirtualSparse(t *testing.T) {
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
-	// Now compare against a history commitment implementation.
 	t.Run("real length 1, virtual length 3, limit 4", func(t *testing.T) {
 		_, err := computeVirtualSparseTree([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3, 0)
 		require.NoError(t, err)
@@ -120,49 +118,58 @@ func TestVirtualSparse(t *testing.T) {
 		}
 		histCommit, err := history.New(leaves)
 		require.NoError(t, err)
-		t.Log(computedRoot, histCommit.Merkle)
-		require.Equal(t, histCommit.Merkle, computedRoot)
+		require.Equal(t, computedRoot, histCommit.Merkle)
+	})
+	t.Run("real length 12, virtual length 14, limit 16", func(t *testing.T) {
+		hashedLeaves := make([]common.Hash, 12)
+		for i := range hashedLeaves {
+			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+		}
+		_, err := computeVirtualSparseTree(hashedLeaves, 14, 0)
+		require.NoError(t, err)
+		hashedLeaves = make([]common.Hash, 12)
+		for i := range hashedLeaves {
+			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+		}
+		computedRoot, err := computeVirtualSparseTree(hashedLeaves, 14, 16)
+		require.NoError(t, err)
+		leaves := make([]common.Hash, 14)
+		for i := range leaves {
+			leaves[i] = simpleHash
+		}
+		histCommit, err := history.New(leaves)
+		require.NoError(t, err)
+		require.Equal(t, computedRoot, histCommit.Merkle)
 	})
 }
 
 func TestMaximumDepthHistoryCommitment(t *testing.T) {
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
-	_, err := computeVirtualSparseTree([]common.Hash{simpleHash}, 1<<26, 0)
+	hashedLeaves := []common.Hash{
+		crypto.Keccak256Hash(simpleHash[:]),
+	}
+	_, err := computeVirtualSparseTree(hashedLeaves, 1<<26, 0)
 	require.NoError(t, err)
-	_, err = computeVirtualSparseTree([]common.Hash{simpleHash}, 1<<26, 1<<26)
+	hashedLeaves = []common.Hash{
+		crypto.Keccak256Hash(simpleHash[:]),
+	}
+	_, err = computeVirtualSparseTree(hashedLeaves, 1<<26, 1<<26)
 	require.NoError(t, err)
 }
 
 func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	b.StopTimer()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	hashedLeaves := []common.Hash{
+		crypto.Keccak256Hash(simpleHash[:]),
+	}
+	_, err := computeVirtualSparseTree(hashedLeaves, 1<<26, 0)
+	require.NoError(b, err)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		computeVirtualSparseTree([]common.Hash{simpleHash}, 1<<26, 1<<26)
-	}
-}
-
-// GenerateTrieFromItems constructs a Merkle trie from a sequence of byte slices.
-func computeSparseRoot(leaves []common.Hash, depth uint64) (common.Hash, error) {
-	var emptyHash common.Hash
-	if len(leaves) == 0 {
-		return emptyHash, errors.New("no items provided to generate Merkle trie")
-	}
-	if depth >= 26 {
-		return emptyHash, errors.New("supported merkle trie depth exceeded (max depth is 26)")
-	}
-	layers := make([][]common.Hash, depth+1)
-	layers[0] = leaves
-	for i := uint64(0); i < depth; i++ {
-		if len(layers[i])%2 == 1 {
-			layers[i] = append(layers[i], zeroHashes[i])
+		hashedLeaves = []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
 		}
-		updatedValues := make([]common.Hash, 0)
-		for j := 0; j < len(layers[i]); j += 2 {
-			concat := crypto.Keccak256Hash(layers[i][j][:], layers[i][j+1][:])
-			updatedValues = append(updatedValues, concat)
-		}
-		layers[i+1] = updatedValues
+		computeVirtualSparseTree(hashedLeaves, 1<<26, 1<<26)
 	}
-	return layers[len(layers)-1][0], nil
 }

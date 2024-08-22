@@ -12,6 +12,7 @@ import (
 var (
 	keccak          = crypto.NewKeccakState()
 	lastLeafFillers []common.Hash
+	emptyHash       common.Hash
 )
 
 func ComputeHistoryCommitment(
@@ -87,6 +88,21 @@ func precomputeRepeatedHashes(leaf *common.Hash, n int) []common.Hash {
 	return ret
 }
 
+// Warning: using ints, don't care about 32 bits systems.
+func nextPowerOf2(n int) int {
+	if n == 0 {
+		return 1
+	}
+	n--         // Decrement n to handle the case where n is already a power of 2
+	n |= n >> 1 // Propagate the highest bit set
+	n |= n >> 2
+	n |= n >> 4
+	n |= n >> 8
+	n |= n >> 16
+	n |= n >> 32
+	return n + 1 // Increment n to get the next power of 2
+}
+
 // computeSparseTree returns the htr of a hashtree with the given leaves and
 // limit. Any non-allocated leaf is filled with the passed zeroHash of depth 0.
 // Recursively, any non allocated intermediate layer at depth i is filled with
@@ -147,7 +163,7 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		return common.Hash{}, errors.New("nil leaves")
 	}
 	if virtual < m {
-		return common.Hash{}, errors.New("virtual cannot be smaller than the number of leaves")
+		return common.Hash{}, errors.New("Don't be nasty")
 	}
 	if limit == 0 {
 		// this is used in the initial case, to signal that the limit
@@ -162,16 +178,7 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		return leaves[0], nil
 	}
 	if limit < virtual {
-		return common.Hash{}, errors.New("limit cannot be smaller than the virtual length")
-	}
-	if virtual == m {
-		// If the leaves already have the virtual size then we are in a
-		// normal sparse tree that needs to be padded by zero.
-		// TODO: Check that this can't be run on an inner loop case, in
-		// which case the zeroHashes filler would need to start at a
-		// higher depth. This may be hiding a bug that is not hit by any
-		// testvector.
-		return computeSparseTree(leaves, limit, zeroHashes), nil
+		return common.Hash{}, errors.New("Don't be nasty")
 	}
 	var left, right common.Hash
 	var err error
@@ -188,16 +195,17 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 				return common.Hash{}, err
 			}
 		} else {
-			// Leaves and virtual fit in the first half of the tree, we can
+			// Leaves and virtual fit in the first half of the tree,
+			// In this case we need to compute the HTR of the
 			// compute then the full first half of the tree as if it
 			// were a normal sparse tree but with the virtual
 			// fillers
 			left = computeSparseTree(leaves, limit/2, lastLeafFillers)
 			if virtual == limit {
 				right = lastLeafFillers[int(math.Log2(float64(limit/2)))]
+			} else if virtual == limit/2 {
+				right = zeroHashes[0]
 			} else {
-				filemon := lastLeafFillers
-				_ = filemon
 				right, err = computeVirtualSparseTree([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
 				if err != nil {
 					return common.Hash{}, nil
@@ -212,26 +220,11 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		if err != nil {
 			return common.Hash{}, err
 		}
-		right = zeroHashes[int(math.Log2(float64(limit/2)))]
+		right = zeroHashes[0]
 	}
 	keccak.Write(left[:])
 	keccak.Write(right[:])
 	keccak.Read(leaves[0][:])
 	keccak.Reset()
 	return leaves[0], nil
-}
-
-// Warning: using ints, don't care about 32 bits systems.
-func nextPowerOf2(n int) int {
-	if n == 0 {
-		return 1
-	}
-	n--         // Decrement n to handle the case where n is already a power of 2
-	n |= n >> 1 // Propagate the highest bit set
-	n |= n >> 2
-	n |= n >> 4
-	n |= n >> 8
-	n |= n >> 16
-	n |= n >> 32
-	return n + 1 // Increment n to get the next power of 2
 }
