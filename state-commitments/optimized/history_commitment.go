@@ -196,6 +196,8 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 			if virtual == limit {
 				right = lastLeafFillers[int(math.Log2(float64(limit/2)))]
 			} else {
+				filemon := lastLeafFillers
+				_ = filemon
 				right, err = computeVirtualSparseTree([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
 				if err != nil {
 					return common.Hash{}, nil

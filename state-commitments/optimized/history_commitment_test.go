@@ -120,6 +120,7 @@ func TestVirtualSparse(t *testing.T) {
 		}
 		histCommit, err := history.New(leaves)
 		require.NoError(t, err)
+		t.Log(computedRoot, histCommit.Merkle)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
 }
