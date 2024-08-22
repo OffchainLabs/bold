@@ -2,16 +2,22 @@ package optimized
 
 import (
 	"errors"
+	"math"
 
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+var (
+	keccak          = crypto.NewKeccakState()
+	lastLeafFillers []common.Hash
+)
+
 func ComputeHistoryCommitment(
 	realLeaves []common.Hash,
-	fromIndex uint64,
-	toIndex option.Option[uint64],
+	fromIndex int,
+	toIndex option.Option[int],
 	maxSize uint64,
 ) (common.Hash, error) {
 	if len(realLeaves) == 0 {
@@ -19,27 +25,27 @@ func ComputeHistoryCommitment(
 	}
 	var emptyHash common.Hash
 	from := fromIndex
-	var to uint64
+	var to int
 	if toIndex.IsSome() {
 		to = toIndex.Unwrap()
 		if to <= fromIndex {
 			return emptyHash, errors.New("invalid range: end was <= start")
 		}
-		if to >= maxSize {
+		if uint64(to) >= maxSize {
 			return emptyHash, errors.New("invalid range: end was >= max size")
 		}
 	} else {
-		to = uint64(len(realLeaves) - 1)
+		to = len(realLeaves) - 1
 	}
-	if to < uint64(len(realLeaves)) {
+	if to < len(realLeaves) {
 		// Case 0: the range is entirely within the real leaves' length.
 		// we can simply compute a history commitment for it by slicing the list
 		// and computing the root of the Merkle tree formed the slice of these leaves.
 		// If this slice has a non-power of two length, we use virtual zero hashes
 		// to build a sparse Merkle tree and compute its root.
 		slicedLeaves := realLeaves[from:to]
-		return computeVirtualSparseTree(slicedLeaves, uint64(len(slicedLeaves)))
-	} else if from < uint64(len(realLeaves)) && to >= uint64(len(realLeaves)) {
+		return computeVirtualSparseTree(slicedLeaves, len(slicedLeaves), 1<<26)
+	} else if from < len(realLeaves) && to >= len(realLeaves) {
 		// Case 1: the `from` index is within the range of the length of the real
 		// hashes list, but the `to` index exceeds it.
 		// Here, we need to commit to commit to a Merkle tree formed by the following concatenation:
@@ -49,102 +55,172 @@ func ComputeHistoryCommitment(
 		// If the number of leaves we are committing to is not a power of two, we use virtual zero hashes
 		// to compute a sparse Merkle tree and root.
 		slicedLeaves := realLeaves[from:]
-		return computeVirtualSparseTree(slicedLeaves, to-from)
+		return computeVirtualSparseTree(slicedLeaves, to-from, 1<<26)
 	} else {
 		// Case 2: Both the `from` and `to` indices are out of range of the real hashes list.
 		// In this case, we commit to a Merkle tree formed by realLeaves[-1] * (to - from). That is,
 		// we commit to a Merkle tree formed by the last leaf of the real leaves list repeated until
 		// the specified range.
 		leaves := []common.Hash{realLeaves[len(realLeaves)-1]}
-		return computeVirtualSparseTree(leaves, to-from)
+		return computeVirtualSparseTree(leaves, to-from, 1<<26)
 	}
 }
 
-func computeVirtualSparseTree(leaves []common.Hash, virtualLength uint64) (common.Hash, error) {
-	m := uint64(len(leaves))
-	lastLeaf := leaves[len(leaves)-1]
-	if len(leaves) == 1 {
-		leaves = append(leaves, common.Hash{})
+// precomputeRepeatedHashes returns a slice where built recursively as
+// ret[0] = the passed in leaf
+// ret[i+1] = Hash(ret[i] + ret[i])
+// Allocates n hashes
+// Computes n-1 hashes
+// Copies 1 hash
+func precomputeRepeatedHashes(leaf *common.Hash, n int) []common.Hash {
+	if n < 0 {
+		return nil
 	}
-	var left, right, concatHash common.Hash
-	keccak := crypto.NewKeccakState()
-	height := 0
+	ret := make([]common.Hash, n)
+	copy(ret[0][:], (*leaf)[:])
+	for i := 1; i < n; i++ {
+		keccak.Write(ret[i-1][:])
+		keccak.Write(ret[i-1][:])
+		keccak.Read(ret[i][:])
+		keccak.Reset()
+	}
+	return ret
+}
 
-	for m > 1 || virtualLength > 1 {
-		nextLevel := (virtualLength + 1) / 2
-		for i := uint64(0); i < nextLevel; i++ {
-			if 2*i < m {
-				left = leaves[2*i]
-			} else {
-				// Else, use the last leaf as as a virtual element.
-				left = lastLeaf
-			}
-			if 2*i+1 < m {
-				// If index within range, use the leaves.
-				right = leaves[2*i+1]
-			} else if 2*i+1 < virtualLength {
-				// Else if index is within virtual length, use the last leaf.
-				right = lastLeaf
-			} else {
-				// Else, use the zero hash at the current tree height.
-				right = zeroHashes[height]
-			}
-			keccak.Write(left[:])
-			keccak.Write(right[:])
-			keccak.Read(concatHash[:])
-			keccak.Reset()
-			leaves[i] = concatHash
-		}
-		m = nextLevel
-		height++
-		virtualLength = (virtualLength + 1) / 2
+// computeSparseTree returns the htr of a hashtree with the given leaves and
+// limit. Any non-allocated leaf is filled with the passed zeroHash of depth 0.
+// Recursively, any non allocated intermediate layer at depth i is filled with
+// the passed zeroHash of the corresponding depth.
+// limit is assumed to be a power of two which is higher or equal than the
+// length of the leaves.
+// fillers is assumed to be precomputed to the necessary limit, no error
+// handling
+//
+// Zero allocations
+// Computes O(len(leaves)) hashes.
+func computeSparseTree(leaves []common.Hash, limit int, fillers []common.Hash) common.Hash {
+	if limit < 2 {
+		return leaves[0]
 	}
+	m := len(leaves)
+	depth := int(math.Log2(float64(limit)))
+	for j := 0; j < depth; j++ {
+		for i := 0; i < m/2; i++ {
+			keccak.Write(leaves[2*i][:])
+			keccak.Write(leaves[2*i+1][:])
+			keccak.Read(leaves[i][:])
+			keccak.Reset()
+		}
+		if m&1 == 1 {
+			keccak.Write(leaves[m-1][:])
+			keccak.Write(fillers[j][:])
+			keccak.Read(leaves[(m-1)/2][:])
+			keccak.Reset()
+		}
+		m = (m + 1) / 2
+	}
+	return leaves[0]
+}
+
+// computeVirtualSparseTree returns the htr of a hashtree where the first layer
+// is passed as leaves, the completed with the last leaf until it reaches
+// virtual and finally completed with zero hashes until it reaches limit.
+// limit is assumed to be either 0 or a power of 2 which is greater or equal to
+// virtual. If limit is zero it behaves as if it were the smallest power of two
+// that is greater or equal than virtual.
+//
+// The algorithm is split in three different logic parts:
+//
+//  1. If the virtual length is less than half the limit (this can never happen
+//     in the first iteration of the algorithm), then the first half of the tree
+//     is computed by recursion and the second half is a zero hash of a given
+//     depth.
+//  2. If the leaves all fit in the first half, then we can optimize the first
+//     half to being a simple sparse tree, just that instead of filling with zero
+//     hashes we fill with the precomputed virtual hashes. This is the most common
+//     starting scenario. The second part is computed by recursion.
+//  3. If the leaves do not fit in the first half, then we can compute the first half of
+//     the tree as a normal full hashtree. The second part is computed by recursion.
+func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (common.Hash, error) {
+	m := len(leaves)
+	if m == 0 {
+		return common.Hash{}, errors.New("nil leaves")
+	}
+	if virtual < m {
+		return common.Hash{}, errors.New("virtual cannot be smaller than the number of leaves")
+	}
+	if limit == 0 {
+		// this is used in the initial case, to signal that the limit
+		// needs to be set to be the smallest power of two larger than
+		// the virtual size. We also precompute the higher powers of the
+		// last leaf, this computes O(virtual) hashes and allocates
+		// O(log(virtual)) hashes.
+		limit = nextPowerOf2(virtual)
+		lastLeafFillers = precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual-m))+1))
+	}
+	if limit == 1 {
+		return leaves[0], nil
+	}
+	if limit < virtual {
+		return common.Hash{}, errors.New("limit cannot be smaller than the virtual length")
+	}
+	if virtual == m {
+		// If the leaves already have the virtual size then we are in a
+		// normal sparse tree that needs to be padded by zero.
+		// TODO: Check that this can't be run on an inner loop case, in
+		// which case the zeroHashes filler would need to start at a
+		// higher depth. This may be hiding a bug that is not hit by any
+		// testvector.
+		return computeSparseTree(leaves, limit, zeroHashes), nil
+	}
+	var left, right common.Hash
+	var err error
+	if virtual >= limit/2 {
+		if m > limit/2 {
+			// Leaves are enough to cover the first half of the
+			// tree, The first half is then a normal full hashtree
+			// and the right side is computed by recursion.
+			// It is safe to pass anything here as the fillers since
+			// the tree is full
+			left = computeSparseTree(leaves[:limit/2], limit/2, nil)
+			right, err = computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
+			if err != nil {
+				return common.Hash{}, err
+			}
+		} else {
+			// Leaves and virtual fit in the first half of the tree, we can
+			// compute then the full first half of the tree as if it
+			// were a normal sparse tree but with the virtual
+			// fillers
+			left = computeSparseTree(leaves, limit/2, lastLeafFillers)
+			if virtual == limit {
+				right = lastLeafFillers[int(math.Log2(float64(limit/2)))]
+			} else {
+				right, err = computeVirtualSparseTree([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
+				if err != nil {
+					return common.Hash{}, nil
+				}
+			}
+		}
+	} else {
+		// In this case both leaves and virtual size are in the first
+		// half of the tree, so the second half is just a higher zero
+		// hash.
+		left, err = computeVirtualSparseTree(leaves, virtual, limit/2)
+		if err != nil {
+			return common.Hash{}, err
+		}
+		right = zeroHashes[int(math.Log2(float64(limit/2)))]
+	}
+	keccak.Write(left[:])
+	keccak.Write(right[:])
+	keccak.Read(leaves[0][:])
+	keccak.Reset()
 	return leaves[0], nil
 }
 
-// func computeVirtualSparseTree2() (common.Hash, error) {
-// 	if len(leaves) == 0 {
-// 		return common.Hash{}, errors.New("no items provided to generate Merkle trie")
-// 	}
-// 	depth := uint64(math.Log2(float64(nextPowerOf2(virtualLength))))
-// 	if depth > 26 {
-// 		return common.Hash{}, errors.New("supported Merkle trie depth exceeded (max allowed depth is 26)")
-// 	}
-// 	elements := leaves
-// 	lastLeaf := leaves[len(leaves)-1]
-// 	currentLayerSize := virtualLength
-// 	var left, right, concatHash common.Hash
-// 	keccak := crypto.NewKeccakState()
-// 	nextLayer := make([]common.Hash, (currentLayerSize+1)/2)
-// 	for layerIdx := uint64(0); layerIdx < depth; layerIdx++ {
-// 		j := 0
-// 		for i := uint64(0); i < currentLayerSize; i += 2 {
-// 			if i < uint64(len(elements)) {
-// 				left = elements[i]
-// 			} else {
-// 				left = lastLeaf
-// 			}
-// 			if i+1 < uint64(len(elements)) {
-// 				right = elements[i+1]
-// 			} else if i+1 < currentLayerSize {
-// 				right = lastLeaf
-// 			} else {
-// 				right = zeroHashes[layerIdx]
-// 			}
-// 			keccak.Write(left[:])
-// 			keccak.Write(right[:])
-// 			keccak.Read(concatHash[:])
-// 			keccak.Reset()
-// 			nextLayer[j] = concatHash
-// 			j += 1
-// 		}
-// 		elements = nextLayer
-// 		currentLayerSize = (currentLayerSize + 1) / 2
-// 	}
-// 	return elements[0], nil
-// }
-
-func nextPowerOf2(n uint64) uint64 {
+// Warning: using ints, don't care about 32 bits systems.
+func nextPowerOf2(n int) int {
 	if n == 0 {
 		return 1
 	}
@@ -157,71 +233,3 @@ func nextPowerOf2(n uint64) uint64 {
 	n |= n >> 32
 	return n + 1 // Increment n to get the next power of 2
 }
-
-// def first_and_last_hash_inclusion_proofs(
-// 	real_hashes: [Hash],
-// 	from_idx: usize,
-// 	to_idx: usize,
-// 	challenge_level: usize,
-// ) -> ([Hash], [Hash]):
-// 	max_size = max_size_at_challenge_level(challenge_level)
-
-//   # Basic input validation
-// 	assert(to_idx > from_idx)
-// 	assert(to_idx <= max_size)
-
-// 	# If the commitment we are asking for is in the range of the length
-// 	# of the real hashes list, we can compute a tree and simple Merkle proofs
-// 	if to_idx < len(real_hashes):
-// 		 first_hash_proof = simple_merkle_proof(real_hashes, idx=0)
-// 	   last_hash_proof = simple_merkle_proof(real_hashes, idx=len(real_hashes)-1)
-// 	   return first_hash_proof, last_hash_proof
-
-// 	# However, if the from index is within the range of the length of the real
-// 	# hashes list, but the to index exceeds it, we need to commit to real hashes
-// 	# before we hit the end of the list, and then commit to the last hash
-// 	# repeated until we reach the to_idx
-// 	else if from_idx < len(real_hashes) && to_idx >= len(real_hashes):
-// 		first_hash_proof = simple_merkle_proof(real_hashes, idx=0)
-// 		last_hash_proof = padded_subtree_proof(n, real_hashes[-1], n)
-// 		return first_hash_proof, last_hash_proof
-// 	# If both the from index and to index are out of range, we know the history
-// 	# commitment consists of a Merkle tree of the same hash padded to a
-// 	# specified length
-// 	else:
-// 	   n = (to_idx - from_idx) + 1
-// 	   first_hash_proof = padded_subtree_proof(n, real_hashes[-1], 0)
-// 	   last_hash_proof = padded_subtree_proof(n, real_hashes[-1], n)
-// 	   return first_hash_proof, last_hash_proof
-
-// def padded_subtree_root(
-// 	hash: Hash,
-// 	depth: usize,
-// ) -> Hash:
-// 	curr = hash
-// 	for i = 0; i < depth; i++:
-// 		curr = keccak256(curr, curr)
-// 	return curr
-
-// # Computes a Merkle proof for a padded subtree where all leaves are the same
-// # element. This avoids the need to build a whole Merkle tree and allows us
-// # to compute proofs more easily
-// def padded_subtree_proof(padding_size, leaf, leaf_index):
-//     proof = []
-//     current_hash = keccak256(leaf)
-
-//     # Compute all necessary hashes at each level
-//     current_level_hashes = [current_hash] * padding_size
-//     while len(current_level_hashes) > 1:
-//         next_level_hashes = []
-//         for i in range(0, len(current_level_hashes), 2):
-//             if i + 1 < len(current_level_hashes):
-//                 next_level_hashes.append(hash_pair(current_level_hashes[i], current_level_hashes[i + 1]))
-//             else:
-//                 next_level_hashes.append(hash_pair(current_level_hashes[i], current_level_hashes[i]))
-//         sibling_index = leaf_index ^ 1
-//         if sibling_index < len(current_level_hashes):
-//             proof.append(current_level_hashes[sibling_index])
-//         current_level_hashes = next_level_hashes
-//         leaf_index //= 2
-//     return proof
