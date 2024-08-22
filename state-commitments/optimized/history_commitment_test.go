@@ -13,46 +13,31 @@ import (
 func TestVirtualSparse(t *testing.T) {
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	// Now compare against a history commitment implementation.
-	// t.Run("real length 1, virtual length 3, limit 4", func(t *testing.T) {
-	// 	_, err := computeVirtualSparseTree([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3, 0)
-	// 	require.NoError(t, err)
-	// 	computedRoot, err := computeVirtualSparseTree([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3, 4)
-	// 	require.NoError(t, err)
-	// 	leaves := []common.Hash{
-	// 		simpleHash,
-	// 		simpleHash,
-	// 		simpleHash,
-	// 	}
-	// 	histCommit, err := history.New(leaves)
-	// 	require.NoError(t, err)
-	// 	require.Equal(t, histCommit.Merkle, computedRoot)
-	// })
-	// t.Run("real length 2, virtual length 3, limit 4", func(t *testing.T) {
-	// 	hashedLeaves := []common.Hash{
-	// 		crypto.Keccak256Hash(simpleHash[:]),
-	// 		crypto.Keccak256Hash(simpleHash[:]),
-	// 	}
-	// 	_, err := computeVirtualSparseTree(hashedLeaves, 3, 0)
-	// 	require.NoError(t, err)
-	// 	computedRoot, err := computeVirtualSparseTree(hashedLeaves, 3, 4)
-	// 	require.NoError(t, err)
-	// 	leaves := []common.Hash{
-	// 		simpleHash,
-	// 		simpleHash,
-	// 		simpleHash,
-	// 	}
-	// 	histCommit, err := history.New(leaves)
-	// 	require.NoError(t, err)
-	// 	require.Equal(t, histCommit.Merkle, computedRoot)
-	// })
-	t.Run("real length 3, virtual length 3, limit 4", func(t *testing.T) {
+	t.Run("real length 1, virtual length 3, limit 4", func(t *testing.T) {
+		_, err := computeVirtualSparseTree([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3, 0)
+		require.NoError(t, err)
+		computedRoot, err := computeVirtualSparseTree([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3, 4)
+		require.NoError(t, err)
+		leaves := []common.Hash{
+			simpleHash,
+			simpleHash,
+			simpleHash,
+		}
+		histCommit, err := history.New(leaves)
+		require.NoError(t, err)
+		require.Equal(t, histCommit.Merkle, computedRoot)
+	})
+	t.Run("real length 2, virtual length 3, limit 4", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
-			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 		}
 		_, err := computeVirtualSparseTree(hashedLeaves, 3, 0)
 		require.NoError(t, err)
+		hashedLeaves = []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
 		computedRoot, err := computeVirtualSparseTree(hashedLeaves, 3, 4)
 		require.NoError(t, err)
 		leaves := []common.Hash{
@@ -64,27 +49,79 @@ func TestVirtualSparse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
-	// t.Run("real length 4, virtual length 4, limit 4", func(t *testing.T) {
-	// 	hashedLeaves := []common.Hash{
-	// 		crypto.Keccak256Hash(simpleHash[:]),
-	// 		crypto.Keccak256Hash(simpleHash[:]),
-	// 		crypto.Keccak256Hash(simpleHash[:]),
-	// 		crypto.Keccak256Hash(simpleHash[:]),
-	// 	}
-	// 	_, err := computeVirtualSparseTree(hashedLeaves, 4, 0)
-	// 	require.NoError(t, err)
-	// 	computedRoot, err := computeVirtualSparseTree(hashedLeaves, 4, 4)
-	// 	require.NoError(t, err)
-	// 	leaves := []common.Hash{
-	// 		simpleHash,
-	// 		simpleHash,
-	// 		simpleHash,
-	// 		simpleHash,
-	// 	}
-	// 	histCommit, err := history.New(leaves)
-	// 	require.NoError(t, err)
-	// 	require.Equal(t, histCommit.Merkle, computedRoot)
-	// })
+	t.Run("real length 3, virtual length 3, limit 4", func(t *testing.T) {
+		hashedLeaves := []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
+		_, err := computeVirtualSparseTree(hashedLeaves, 3, 0)
+		require.NoError(t, err)
+		hashedLeaves = []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
+		computedRoot, err := computeVirtualSparseTree(hashedLeaves, 3, 4)
+		require.NoError(t, err)
+		leaves := []common.Hash{
+			simpleHash,
+			simpleHash,
+			simpleHash,
+		}
+		histCommit, err := history.New(leaves)
+		require.NoError(t, err)
+		require.Equal(t, histCommit.Merkle, computedRoot)
+	})
+	t.Run("real length 4, virtual length 4, limit 4", func(t *testing.T) {
+		hashedLeaves := []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
+		_, err := computeVirtualSparseTree(hashedLeaves, 4, 0)
+		require.NoError(t, err)
+		hashedLeaves = []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
+		computedRoot, err := computeVirtualSparseTree(hashedLeaves, 4, 4)
+		require.NoError(t, err)
+		leaves := []common.Hash{
+			simpleHash,
+			simpleHash,
+			simpleHash,
+			simpleHash,
+		}
+		histCommit, err := history.New(leaves)
+		require.NoError(t, err)
+		require.Equal(t, histCommit.Merkle, computedRoot)
+	})
+	t.Run("real length 1, virtual length 5, limit 8", func(t *testing.T) {
+		hashedLeaves := []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
+		_, err := computeVirtualSparseTree(hashedLeaves, 5, 0)
+		require.NoError(t, err)
+		hashedLeaves = []common.Hash{
+			crypto.Keccak256Hash(simpleHash[:]),
+		}
+		computedRoot, err := computeVirtualSparseTree(hashedLeaves, 5, 8)
+		require.NoError(t, err)
+		leaves := []common.Hash{
+			simpleHash,
+			simpleHash,
+			simpleHash,
+			simpleHash,
+			simpleHash,
+		}
+		histCommit, err := history.New(leaves)
+		require.NoError(t, err)
+		require.Equal(t, histCommit.Merkle, computedRoot)
+	})
 }
 
 func TestMaximumDepthHistoryCommitment(t *testing.T) {
