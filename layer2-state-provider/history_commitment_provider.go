@@ -150,6 +150,9 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if err != nil {
 		return commitments.History{}, err
 	}
+	for _, h := range hashes {
+		fmt.Println(h.Hex())
+	}
 	return commitments.New(hashes)
 }
 

@@ -9,12 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var (
-	keccak          = crypto.NewKeccakState()
-	lastLeafFillers []common.Hash
-	emptyHash       common.Hash
-)
-
 func ComputeHistoryCommitment(
 	realLeaves []common.Hash,
 	fromIndex int,
@@ -66,6 +60,11 @@ func ComputeHistoryCommitment(
 		return computeVirtualSparseTree(leaves, to-from, 1<<26)
 	}
 }
+
+var (
+	keccak          = crypto.NewKeccakState()
+	lastLeafFillers []common.Hash
+)
 
 // precomputeRepeatedHashes returns a slice where built recursively as
 // ret[0] = the passed in leaf
