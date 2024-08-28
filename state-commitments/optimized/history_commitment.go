@@ -64,6 +64,7 @@ func ComputeHistoryCommitment(
 var (
 	keccak          = crypto.NewKeccakState()
 	lastLeafFillers []common.Hash
+	errNasty        = errors.New("Don't be nasty")
 )
 
 // precomputeRepeatedHashes returns a slice where built recursively as
@@ -162,7 +163,7 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		return common.Hash{}, errors.New("nil leaves")
 	}
 	if virtual < m {
-		return common.Hash{}, errors.New("virtual is less than number of leaves")
+		return common.Hash{}, errors.New("Don't be nasty")
 	}
 	if limit == 0 {
 		// this is used in the initial case, to signal that the limit
@@ -177,7 +178,7 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		return leaves[0], nil
 	}
 	if limit < virtual {
-		return common.Hash{}, errors.New("limit is less than virtual")
+		return common.Hash{}, errors.New("Don't be nasty")
 	}
 	var left, right common.Hash
 	var err error
@@ -226,134 +227,89 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 	return leaves[0], nil
 }
 
-func computeVirtualSparseTreeProof(index int, leaves []common.Hash, virtual int, limit int) ([]common.Hash, []common.Hash, error) {
+func subtreeExpansion(leaves []common.Hash, virtual int, limit int, stripped bool) (proof []common.Hash) {
 	m := len(leaves)
-	if m == 0 {
-		return nil, nil, errors.New("nil leaves")
-	}
-	if virtual < m {
-		return nil, nil, errors.New("virtual less than number of leaves")
-	}
-	if index >= virtual {
-		return nil, nil, errors.New("prefix index greater than virtual")
+	if virtual == 0 {
+		for i := limit; i > 1; i /= 2 {
+			proof = append(proof, zeroHashes[0])
+		}
+		return
 	}
 	if limit == 0 {
-		// Precompute the Fillers, the initial case should always pass
-		// limit == 0.
 		limit = nextPowerOf2(virtual)
-		lastLeafFillers = precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual-m))+1))
 	}
-	if limit < virtual {
-		return nil, nil, errors.New("limit is less than virtual")
+	if limit == virtual {
+		left := computeSparseTree(leaves, limit, lastLeafFillers)
+		if !stripped {
+			for i := limit; i > 1; i /= 2 {
+				proof = append(proof, zeroHashes[0])
+			}
+		}
+		return append(proof, left)
+	}
+	if m > limit/2 {
+		left := computeSparseTree(leaves[:limit/2], limit/2, nil)
+		proof = subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, stripped)
+		return append(proof, left)
+	}
+	if virtual >= limit/2 {
+		left := computeSparseTree(leaves, limit/2, lastLeafFillers)
+		proof = subtreeExpansion([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2, stripped)
+		return append(proof, left)
+	}
+	if stripped {
+		return subtreeExpansion(leaves, virtual, limit/2, stripped)
+	}
+	return append(subtreeExpansion(leaves, virtual, limit/2, stripped), zeroHashes[0])
+}
+
+func proof(index int, leaves []common.Hash, virtual int, limit int) (tail []common.Hash) {
+	m := len(leaves)
+	if limit == 0 {
+		limit = nextPowerOf2(virtual)
 	}
 	if limit == 1 {
-		// This is the final case of the recursion. This is a tree with
-		// only one element. It can only be called to obtain a prefix
-		if index == 0 {
-			return []common.Hash{leaves[0]}, nil, nil
-		}
-		return nil, nil, errors.New("should not have called with a proof")
+		// Can only reach this with index == 0
+		return
 	}
-	var prefix, proof []common.Hash
-	var err error
-	if virtual > limit/2 {
-		if limit == virtual && limit == index+1 {
-			// This is a full tree and we are requesting the proof,
-			// in this case we have the root of this tree and then
-			// filled with zeroes up to the lowest depth since we
-			// have no more subtrees.
-			left := computeSparseTree(leaves, limit, lastLeafFillers)
-			for i := limit; i > 1; i /= 2 {
-				prefix = append(prefix, zeroHashes[0])
-			}
-			prefix = append(prefix, left)
-			return prefix, nil, nil
-		}
+	if index >= limit/2 {
 		if m > limit/2 {
-			if index >= limit/2 {
-				// The left part is a full subtree, the right
-				// part by recursion contains the proof.
-				left, err := computeVirtualSparseTree(leaves[:limit/2], limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				prefix, proof, err = computeVirtualSparseTreeProof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				prefix = append(prefix, left)
-			} else {
-				// The left part contains by recursion the
-				// prefix and proof, the right part by recursion is added
-				// to the proof. If the limit > 1 we need to add
-				// a zero hash to the prefix because it means
-				// that we didn't have a full subtree at this
-				// depth
-				prefix, proof, err = computeVirtualSparseTreeProof(index, leaves[:limit/2], limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				if index+1 < limit/2 {
-					prefix = append(prefix, zeroHashes[0])
-				}
-				right, err := computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				proof = append(proof, right)
-			}
-		} else {
-			if index >= limit/2 {
-				// Similar to the case m > limit/2, left part is
-				// a full subtree, right part contains the
-				// prefix/proof
-				left, err := computeVirtualSparseTree(leaves, limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				prefix, proof, err = computeVirtualSparseTreeProof(index-limit/2, []common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				prefix = append(prefix, left)
-			} else {
-				// Similar to the case m > limit/2 left part
-				// contains the prefix,proof and the right part
-				// is added to the proof. We add a zero hash to
-				// the prefix because he hit this case when
-				// there are no more subtrees at this depth.
-				prefix, proof, err = computeVirtualSparseTreeProof(index, leaves, limit/2, limit/2)
-				if err != nil {
-					return nil, nil, err
-				}
-				if index+1 < limit/2 {
-					prefix = append(prefix, zeroHashes[0])
-				}
-				if virtual == limit {
-					proof = append(proof, lastLeafFillers[int(math.Log2(float64(limit/2)))])
-				} else {
-					right, err := computeVirtualSparseTree([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
-					if err != nil {
-						return nil, nil, err
-					}
-					proof = append(proof, right)
-				}
-			}
+			return proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
 		}
-	} else {
-		// In this case both leaves and virtual size are in the first
-		// half of the tree, so the second half is just a higher zero
-		// hash.
-		prefix, proof, err = computeVirtualSparseTreeProof(index, leaves, virtual, limit/2)
-		if err != nil {
-			return nil, nil, err
-		}
-		if index+1 < limit/2 {
-			prefix = append(prefix, zeroHashes[0])
-		}
-		proof = append(proof, zeroHashes[0])
+		return proof(index-limit/2, []common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
 	}
-	return prefix, proof, nil
+	if m > limit/2 {
+		tail = proof(index, leaves[:limit/2], limit/2, limit/2)
+		right := subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, true)
+		for i := len(right) - 1; i >= 0; i-- {
+			tail = append(tail, right[i])
+		}
+		return tail
+	}
+	if virtual > limit/2 {
+		tail = proof(index, leaves, limit/2, limit/2)
+		right := subtreeExpansion([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2, true)
+		for i := len(right) - 1; i >= 0; i-- {
+			tail = append(tail, right[i])
+		}
+		return tail
+	}
+	return proof(index, leaves, virtual, limit/2)
+}
+
+func prefixAndProof(index int, leaves []common.Hash, virtual int) (prefix []common.Hash, tail []common.Hash, err error) {
+	m := len(leaves)
+	if m == 0 || m > virtual || index+1 > virtual {
+		return nil, nil, errNasty
+	}
+	lastLeafFillers = precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual))+1))
+	if index+1 > m {
+		prefix = subtreeExpansion(leaves, index+1, 0, false)
+	} else {
+		prefix = subtreeExpansion(leaves[:index+1], index+1, 0, false)
+	}
+	tail = proof(index, leaves, virtual, 0)
+	return
 }
 
 func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {
@@ -366,4 +322,15 @@ func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {
 	}
 	// If all elements are zero, return an empty slice
 	return []common.Hash{}
+}
+
+func trimZeroes(hashes []common.Hash) []common.Hash {
+	newHashes := make([]common.Hash, 0, len(hashes))
+	for _, h := range hashes {
+		if h == (common.Hash{}) {
+			continue
+		}
+		newHashes = append(newHashes, h)
+	}
+	return newHashes
 }

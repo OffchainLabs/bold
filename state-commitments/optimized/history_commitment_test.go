@@ -21,52 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWeird(t *testing.T) {
-	ctx := context.Background()
-	merkleTreeContract, _ := setupMerkleTreeContract(t)
-	verify := func(t *testing.T, computed *prefixProofComputation) {
-		prefixExpRaw := make([][32]byte, len(computed.prefixExpansion))
-		for i := 0; i < len(computed.prefixExpansion); i++ {
-			var r [32]byte
-			copy(r[:], computed.prefixExpansion[i][:])
-			prefixExpRaw[i] = r
-		}
-		proofRaw := make([][32]byte, len(computed.proof))
-		for i := 0; i < len(computed.proof); i++ {
-			var r [32]byte
-			copy(r[:], computed.proof[i][:])
-			proofRaw[i] = r
-		}
-		err := prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-			PreRoot:      computed.prefixRoot,
-			PreSize:      computed.prefixTotalLeaves,
-			PostRoot:     computed.fullRoot,
-			PostSize:     computed.fullTreeTotalLeaves,
-			PreExpansion: computed.prefixExpansion,
-			PrefixProof:  computed.proof,
-		})
-		require.NoError(t, err)
-		err = merkleTreeContract.VerifyPrefixProof(
-			&bind.CallOpts{},
-			computed.prefixRoot,
-			new(big.Int).SetUint64(computed.prefixTotalLeaves),
-			computed.fullRoot,
-			new(big.Int).SetUint64(computed.fullTreeTotalLeaves),
-			prefixExpRaw,
-			proofRaw,
-		)
-		require.NoError(t, err)
-	}
-	real := 1
-	virtual := 4
-	limit := 4
-	prefixIndex := 2
-	legacy := computeLegacyPrefixProof(t, ctx, virtual, prefixIndex)
-	optimized := computeOptimizedPrefixProof(t, real, virtual, limit, prefixIndex)
-	verify(t, legacy)
-	verify(t, optimized)
-}
-
 func TestPrefixProofGeneration(t *testing.T) {
 	ctx := context.Background()
 	merkleTreeContract, _ := setupMerkleTreeContract(t)
@@ -137,80 +91,6 @@ func TestPrefixProofGeneration(t *testing.T) {
 	}
 }
 
-func TestOut(t *testing.T) {
-	// merkleTreeContract, _ := setupMerkleTreeContract(t)
-	prefix := [][32]byte{
-		common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8"),
-	}
-	proof := [][32]byte{
-		common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8"),
-		common.HexToHash("0x6a1fcb5ded2af0d756a17499c432672e4b0a34d179c4397e572b486a2147685c"),
-	}
-	// prefixNumLeaves := 1
-	// fullTreeNumLeaves := 3
-	prefixRoot := common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8")
-	fullRoot := common.HexToHash("0xd9fd2f33d76e0f85764cb189c93126fc98c854e1782ac2bd5295e34b30dca5e8")
-	prefixExp := make([]common.Hash, len(prefix))
-	for i := 0; i < len(prefix); i++ {
-		prefixExp[i] = prefix[i]
-	}
-	prefixProof := make([]common.Hash, len(proof))
-	for i := 0; i < len(proof); i++ {
-		prefixProof[i] = proof[i]
-	}
-	err := prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-		PreRoot:      prefixRoot,
-		PreSize:      1,
-		PostRoot:     fullRoot,
-		PostSize:     3,
-		PreExpansion: prefixExp,
-		PrefixProof:  prefixProof,
-	})
-	require.NoError(t, err)
-	// err = merkleTreeContract.VerifyPrefixProof(
-	// 	&bind.CallOpts{},
-	// 	prefixRoot,
-	// 	new(big.Int).SetUint64(uint64(prefixNumLeaves)),
-	// 	fullRoot,
-	// 	new(big.Int).SetUint64(uint64(fullTreeNumLeaves)),
-	// 	prefix,
-	// 	proof,
-	// )
-	// require.NoError(t, err)
-}
-
-func TestSimple(t *testing.T) {
-	merkleTreeContract, _ := setupMerkleTreeContract(t)
-	prefixRoot := common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8")
-
-	leftRight := crypto.Keccak256Hash(prefixRoot[:], prefixRoot[:])
-	_ = leftRight
-	leftRightRight := crypto.Keccak256Hash(prefixRoot[:], (common.Hash{}).Bytes())
-	t.Log(leftRightRight.Hex())
-
-	fullRoot := common.HexToHash("0xd9fd2f33d76e0f85764cb189c93126fc98c854e1782ac2bd5295e34b30dca5e8")
-	prefix := [][32]byte{
-		common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8"),
-	}
-	proof := [][32]byte{
-		common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8"),
-		common.HexToHash("0x4943a3029516011ac24ba62f5e4183eb6e7dbbe8a3c6644fbc3a515188eef7f8"),
-	}
-	prefixNumLeaves := 1
-	fullTreeNumLeaves := 3
-	err := merkleTreeContract.VerifyPrefixProof(
-		&bind.CallOpts{},
-		prefixRoot,
-		new(big.Int).SetUint64(uint64(prefixNumLeaves)),
-		fullRoot,
-		new(big.Int).SetUint64(uint64(fullTreeNumLeaves)),
-		prefix,
-		proof,
-	)
-	require.NoError(t, err)
-	t.Fatal(1)
-}
-
 type prefixProofComputation struct {
 	prefixRoot          common.Hash
 	fullRoot            common.Hash
@@ -227,12 +107,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes int, virtual int, l
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
 	}
-	computeVirtualSparseTreeProof(prefixIndex, hashes, virtual, 0)
-	hashes = make([]common.Hash, numRealHashes)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
-	}
-	prefixExp, proof, err := computeVirtualSparseTreeProof(prefixIndex, hashes, virtual, limit)
+	prefixExp, proof, err := prefixAndProof(prefixIndex, hashes, virtual)
 	require.NoError(t, err)
 	lastLeafFillers = nil
 
@@ -263,6 +138,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes int, virtual int, l
 	fullTreeRoot, err := computeVirtualSparseTree(hashes, virtual, limit)
 	require.NoError(t, err)
 	prefixExp = trimTrailingZeroHashes(prefixExp)
+	proof = trimZeroes(proof)
 	return &prefixProofComputation{
 		prefixRoot:          prefixRoot,
 		fullRoot:            fullTreeRoot,
