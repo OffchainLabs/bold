@@ -2,111 +2,74 @@ package optimized
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
-	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func ComputeHistoryCommitment(
-	realLeaves []common.Hash,
-	fromIndex int,
-	toIndex option.Option[int],
-	maxSize uint64,
-) (common.Hash, error) {
-	if len(realLeaves) == 0 {
-		return common.Hash{}, errors.New("no leaves provided")
-	}
-	var emptyHash common.Hash
-	from := fromIndex
-	var to int
-	if toIndex.IsSome() {
-		to = toIndex.Unwrap()
-		if to <= fromIndex {
-			return emptyHash, errors.New("invalid range: end was <= start")
-		}
-		if uint64(to) >= maxSize {
-			return emptyHash, errors.New("invalid range: end was >= max size")
-		}
-	} else {
-		to = len(realLeaves) - 1
-	}
-	if to < len(realLeaves) {
-		// Case 0: the range is entirely within the real leaves' length.
-		// we can simply compute a history commitment for it by slicing the list
-		// and computing the root of the Merkle tree formed the slice of these leaves.
-		// If this slice has a non-power of two length, we use virtual zero hashes
-		// to build a sparse Merkle tree and compute its root.
-		slicedLeaves := realLeaves[from:to]
-		return computeVirtualSparseTree(slicedLeaves, len(slicedLeaves), 1<<26)
-	} else if from < len(realLeaves) && to >= len(realLeaves) {
-		// Case 1: the `from` index is within the range of the length of the real
-		// hashes list, but the `to` index exceeds it.
-		// Here, we need to commit to commit to a Merkle tree formed by the following concatenation:
-		// realLeaves[from:] ++ (realLeaves[-1] * (to - len(realLeaves)))
-		// This means the leaves we are committing to are the real leaves up to the end of the list,
-		// and the last leaf padded to the `to` index.
-		// If the number of leaves we are committing to is not a power of two, we use virtual zero hashes
-		// to compute a sparse Merkle tree and root.
-		slicedLeaves := realLeaves[from:]
-		return computeVirtualSparseTree(slicedLeaves, to-from, 1<<26)
-	} else {
-		// Case 2: Both the `from` and `to` indices are out of range of the real hashes list.
-		// In this case, we commit to a Merkle tree formed by realLeaves[-1] * (to - from). That is,
-		// we commit to a Merkle tree formed by the last leaf of the real leaves list repeated until
-		// the specified range.
-		leaves := []common.Hash{realLeaves[len(realLeaves)-1]}
-		return computeVirtualSparseTree(leaves, to-from, 1<<26)
-	}
-}
-
-var (
-	keccak          = crypto.NewKeccakState()
+type HistoryCommitter struct {
 	lastLeafFillers []common.Hash
-	errNasty        = errors.New("Don't be nasty")
-)
-
-// precomputeRepeatedHashes returns a slice where built recursively as
-// ret[0] = the passed in leaf
-// ret[i+1] = Hash(ret[i] + ret[i])
-// Allocates n hashes
-// Computes n-1 hashes
-// Copies 1 hash
-func precomputeRepeatedHashes(leaf *common.Hash, n int) []common.Hash {
-	if n < 0 {
-		return nil
-	}
-	ret := make([]common.Hash, n)
-	copy(ret[0][:], (*leaf)[:])
-	for i := 1; i < n; i++ {
-		keccak.Write(ret[i-1][:])
-		keccak.Write(ret[i-1][:])
-		keccak.Read(ret[i][:])
-		keccak.Reset()
-	}
-	return ret
+	keccak          crypto.KeccakState
+	limit           uint64
+	virtual         uint64
 }
 
-// Warning: using ints, don't care about 32 bits systems.
-func nextPowerOf2(n int) int {
-	if n == 0 {
-		return 1
+type CommitmentBuilder struct {
+	leaves  []common.Hash
+	limit   *uint64
+	virtual *uint64
+}
+
+func NewBuilder() *CommitmentBuilder {
+	return &CommitmentBuilder{}
+}
+
+func (cb *CommitmentBuilder) Limit(n uint64) *CommitmentBuilder {
+	cb.limit = &n
+	return cb
+}
+
+func (cb *CommitmentBuilder) Virtual(n uint64) *CommitmentBuilder {
+	cb.limit = &n
+	return cb
+}
+
+func (cb *CommitmentBuilder) Build() (*HistoryCommitter, error) {
+	if cb.leaves == nil {
+		return nil, errors.New("leaves not set")
 	}
-	n--         // Decrement n to handle the case where n is already a power of 2
-	n |= n >> 1 // Propagate the highest bit set
-	n |= n >> 2
-	n |= n >> 4
-	n |= n >> 8
-	n |= n >> 16
-	n |= n >> 32
-	return n + 1 // Increment n to get the next power of 2
+	if cb.limit == nil {
+		return nil, errors.New("limit not set")
+	}
+	if cb.virtual == nil {
+		return nil, errors.New("virtual not set")
+	}
+	return &HistoryCommitter{
+		limit:   *cb.limit,
+		virtual: *cb.virtual,
+		keccak:  crypto.NewKeccakState(),
+	}, nil
+}
+
+func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash) (common.Hash, error) {
+	// Called with 0 limit first to compute the last leaf fillers for the commitment.
+	_, err := h.computeVirtualSparseTree(leaves, h.virtual, 0)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return h.computeVirtualSparseTree(leaves, h.virtual, h.limit)
+}
+
+func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash) ([]common.Hash, []common.Hash, error) {
+	return h.prefixAndProof(prefixIndex, leaves, h.virtual)
 }
 
 // computeSparseTree returns the htr of a hashtree with the given leaves and
 // limit. Any non-allocated leaf is filled with the passed zeroHash of depth 0.
 // Recursively, any non allocated intermediate layer at depth i is filled with
-// the passed zeroHash of the corresponding depth.
+// the passed zeroHash.
 // limit is assumed to be a power of two which is higher or equal than the
 // length of the leaves.
 // fillers is assumed to be precomputed to the necessary limit, no error
@@ -114,7 +77,7 @@ func nextPowerOf2(n int) int {
 //
 // Zero allocations
 // Computes O(len(leaves)) hashes.
-func computeSparseTree(leaves []common.Hash, limit int, fillers []common.Hash) common.Hash {
+func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64, fillers []common.Hash) common.Hash {
 	if limit < 2 {
 		return leaves[0]
 	}
@@ -122,16 +85,16 @@ func computeSparseTree(leaves []common.Hash, limit int, fillers []common.Hash) c
 	depth := int(math.Log2(float64(limit)))
 	for j := 0; j < depth; j++ {
 		for i := 0; i < m/2; i++ {
-			keccak.Write(leaves[2*i][:])
-			keccak.Write(leaves[2*i+1][:])
-			keccak.Read(leaves[i][:])
-			keccak.Reset()
+			h.keccak.Write(leaves[2*i][:])
+			h.keccak.Write(leaves[2*i+1][:])
+			h.keccak.Read(leaves[i][:])
+			h.keccak.Reset()
 		}
 		if m&1 == 1 {
-			keccak.Write(leaves[m-1][:])
-			keccak.Write(fillers[j][:])
-			keccak.Read(leaves[(m-1)/2][:])
-			keccak.Reset()
+			h.keccak.Write(leaves[m-1][:])
+			h.keccak.Write(fillers[j][:])
+			h.keccak.Read(leaves[(m-1)/2][:])
+			h.keccak.Reset()
 		}
 		m = (m + 1) / 2
 	}
@@ -157,13 +120,13 @@ func computeSparseTree(leaves []common.Hash, limit int, fillers []common.Hash) c
 //     starting scenario. The second part is computed by recursion.
 //  3. If the leaves do not fit in the first half, then we can compute the first half of
 //     the tree as a normal full hashtree. The second part is computed by recursion.
-func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (common.Hash, error) {
-	m := len(leaves)
+func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
+	m := uint64(len(leaves))
 	if m == 0 {
 		return common.Hash{}, errors.New("nil leaves")
 	}
 	if virtual < m {
-		return common.Hash{}, errors.New("Don't be nasty")
+		return common.Hash{}, fmt.Errorf("virtual %d should be >= num leaves %d", virtual, m)
 	}
 	if limit == 0 {
 		// this is used in the initial case, to signal that the limit
@@ -172,13 +135,13 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		// last leaf, this computes O(virtual) hashes and allocates
 		// O(log(virtual)) hashes.
 		limit = nextPowerOf2(virtual)
-		lastLeafFillers = precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual-m))+1))
+		h.lastLeafFillers = h.precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual-m))+1))
 	}
 	if limit == 1 {
 		return leaves[0], nil
 	}
 	if limit < virtual {
-		return common.Hash{}, errors.New("Don't be nasty")
+		return common.Hash{}, fmt.Errorf("limit %d should be >= virtual %d", limit, virtual)
 	}
 	var left, right common.Hash
 	var err error
@@ -189,8 +152,8 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 			// and the right side is computed by recursion.
 			// It is safe to pass anything here as the fillers since
 			// the tree is full
-			left = computeSparseTree(leaves[:limit/2], limit/2, nil)
-			right, err = computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
+			left = h.computeSparseTree(leaves[:limit/2], limit/2, nil)
+			right, err = h.computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
 			if err != nil {
 				return common.Hash{}, err
 			}
@@ -200,11 +163,11 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 			// compute then the full first half of the tree as if it
 			// were a normal sparse tree but with the virtual
 			// fillers
-			left = computeSparseTree(leaves, limit/2, lastLeafFillers)
+			left = h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
 			if virtual == limit {
-				right = lastLeafFillers[int(math.Log2(float64(limit/2)))]
+				right = h.lastLeafFillers[int(math.Log2(float64(limit/2)))]
 			} else {
-				right, err = computeVirtualSparseTree([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
+				right, err = h.computeVirtualSparseTree([]common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2)
 				if err != nil {
 					return common.Hash{}, err
 				}
@@ -214,21 +177,21 @@ func computeVirtualSparseTree(leaves []common.Hash, virtual int, limit int) (com
 		// In this case both leaves and virtual size are in the first
 		// half of the tree, so the second half is just a higher zero
 		// hash.
-		left, err = computeVirtualSparseTree(leaves, virtual, limit/2)
+		left, err = h.computeVirtualSparseTree(leaves, virtual, limit/2)
 		if err != nil {
 			return common.Hash{}, err
 		}
 		right = zeroHashes[0]
 	}
-	keccak.Write(left[:])
-	keccak.Write(right[:])
-	keccak.Read(leaves[0][:])
-	keccak.Reset()
+	h.keccak.Write(left[:])
+	h.keccak.Write(right[:])
+	h.keccak.Read(leaves[0][:])
+	h.keccak.Reset()
 	return leaves[0], nil
 }
 
-func subtreeExpansion(leaves []common.Hash, virtual int, limit int, stripped bool) (proof []common.Hash) {
-	m := len(leaves)
+func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit uint64, stripped bool) (proof []common.Hash) {
+	m := uint64(len(leaves))
 	if virtual == 0 {
 		for i := limit; i > 1; i /= 2 {
 			proof = append(proof, zeroHashes[0])
@@ -239,7 +202,7 @@ func subtreeExpansion(leaves []common.Hash, virtual int, limit int, stripped boo
 		limit = nextPowerOf2(virtual)
 	}
 	if limit == virtual {
-		left := computeSparseTree(leaves, limit, lastLeafFillers)
+		left := h.computeSparseTree(leaves, limit, h.lastLeafFillers)
 		if !stripped {
 			for i := limit; i > 1; i /= 2 {
 				proof = append(proof, zeroHashes[0])
@@ -248,23 +211,23 @@ func subtreeExpansion(leaves []common.Hash, virtual int, limit int, stripped boo
 		return append(proof, left)
 	}
 	if m > limit/2 {
-		left := computeSparseTree(leaves[:limit/2], limit/2, nil)
-		proof = subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, stripped)
+		left := h.computeSparseTree(leaves[:limit/2], limit/2, nil)
+		proof = h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, stripped)
 		return append(proof, left)
 	}
 	if virtual >= limit/2 {
-		left := computeSparseTree(leaves, limit/2, lastLeafFillers)
-		proof = subtreeExpansion([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2, stripped)
+		left := h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
+		proof = h.subtreeExpansion([]common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2, stripped)
 		return append(proof, left)
 	}
 	if stripped {
-		return subtreeExpansion(leaves, virtual, limit/2, stripped)
+		return h.subtreeExpansion(leaves, virtual, limit/2, stripped)
 	}
-	return append(subtreeExpansion(leaves, virtual, limit/2, stripped), zeroHashes[0])
+	return append(h.subtreeExpansion(leaves, virtual, limit/2, stripped), zeroHashes[0])
 }
 
-func proof(index int, leaves []common.Hash, virtual int, limit int) (tail []common.Hash) {
-	m := len(leaves)
+func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, limit uint64) (tail []common.Hash) {
+	m := uint64(len(leaves))
 	if limit == 0 {
 		limit = nextPowerOf2(virtual)
 	}
@@ -274,42 +237,83 @@ func proof(index int, leaves []common.Hash, virtual int, limit int) (tail []comm
 	}
 	if index >= limit/2 {
 		if m > limit/2 {
-			return proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
+			return h.proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
 		}
-		return proof(index-limit/2, []common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2)
+		return h.proof(index-limit/2, []common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2)
 	}
 	if m > limit/2 {
-		tail = proof(index, leaves[:limit/2], limit/2, limit/2)
-		right := subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, true)
+		tail = h.proof(index, leaves[:limit/2], limit/2, limit/2)
+		right := h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, true)
 		for i := len(right) - 1; i >= 0; i-- {
 			tail = append(tail, right[i])
 		}
 		return tail
 	}
 	if virtual > limit/2 {
-		tail = proof(index, leaves, limit/2, limit/2)
-		right := subtreeExpansion([]common.Hash{lastLeafFillers[0]}, virtual-limit/2, limit/2, true)
+		tail = h.proof(index, leaves, limit/2, limit/2)
+		right := h.subtreeExpansion([]common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2, true)
 		for i := len(right) - 1; i >= 0; i-- {
 			tail = append(tail, right[i])
 		}
 		return tail
 	}
-	return proof(index, leaves, virtual, limit/2)
+	return h.proof(index, leaves, virtual, limit/2)
 }
 
-func prefixAndProof(index int, leaves []common.Hash, virtual int) (prefix []common.Hash, tail []common.Hash, err error) {
-	m := len(leaves)
-	if m == 0 || m > virtual || index+1 > virtual {
-		return nil, nil, errNasty
+func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, virtual uint64) (prefix []common.Hash, tail []common.Hash, err error) {
+	m := uint64(len(leaves))
+	if m == 0 {
+		return nil, nil, errors.New("nil leaves")
 	}
-	lastLeafFillers = precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual))+1))
+	if m > virtual {
+		return nil, nil, fmt.Errorf("num leaves %d should be <= virtual %d", m, virtual)
+	}
+	if index+1 > virtual {
+		return nil, nil, fmt.Errorf("index %d + 1 should be <= virtual %d", index, virtual)
+	}
+	h.lastLeafFillers = h.precomputeRepeatedHashes(&leaves[m-1], int(math.Log2(float64(virtual))+1))
 	if index+1 > m {
-		prefix = subtreeExpansion(leaves, index+1, 0, false)
+		prefix = h.subtreeExpansion(leaves, index+1, 0, false)
 	} else {
-		prefix = subtreeExpansion(leaves[:index+1], index+1, 0, false)
+		prefix = h.subtreeExpansion(leaves[:index+1], index+1, 0, false)
 	}
-	tail = proof(index, leaves, virtual, 0)
+	tail = h.proof(index, leaves, virtual, 0)
 	return
+}
+
+// precomputeRepeatedHashes returns a slice where built recursively as
+// ret[0] = the passed in leaf
+// ret[i+1] = Hash(ret[i] + ret[i])
+// Allocates n hashes
+// Computes n-1 hashes
+// Copies 1 hash
+func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) []common.Hash {
+	if n < 0 {
+		return nil
+	}
+	ret := make([]common.Hash, n)
+	copy(ret[0][:], (*leaf)[:])
+	for i := 1; i < n; i++ {
+		h.keccak.Write(ret[i-1][:])
+		h.keccak.Write(ret[i-1][:])
+		h.keccak.Read(ret[i][:])
+		h.keccak.Reset()
+	}
+	return ret
+}
+
+func nextPowerOf2(n uint64) uint64 {
+	if n == 0 {
+		return 1
+	}
+	n--         // Decrement n to handle the case where n is already a power of 2
+	n |= n >> 1 // Propagate the highest bit set
+	n |= n >> 2
+	n |= n >> 4
+	n |= n >> 8
+	n |= n >> 16
+	n |= n >> 32
+	return n + 1 // Increment n to get the next power of 2
 }
 
 func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {

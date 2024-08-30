@@ -22,7 +22,6 @@ import (
 )
 
 func TestPrefixProofGeneration(t *testing.T) {
-	t.Skip()
 	ctx := context.Background()
 	merkleTreeContract, _ := setupMerkleTreeContract(t)
 	verify := func(t *testing.T, computed *prefixProofComputation) {
@@ -59,8 +58,8 @@ func TestPrefixProofGeneration(t *testing.T) {
 		require.NoError(t, err)
 	}
 	tests := []struct {
-		realLength    int
-		virtualLength int
+		realLength    uint64
+		virtualLength uint64
 	}{
 		{1, 4},
 		{2, 4},
@@ -80,7 +79,7 @@ func TestPrefixProofGeneration(t *testing.T) {
 	for _, tt := range tests {
 		for virtual := tt.realLength; virtual < tt.virtualLength; virtual++ {
 			limit := nextPowerOf2(virtual)
-			for prefixIndex := 0; prefixIndex < virtual-1; prefixIndex++ {
+			for prefixIndex := uint64(0); prefixIndex < virtual-1; prefixIndex++ {
 				t.Run(fmt.Sprintf("real length %d, virtual %d, limit %d, prefix index %d", tt.realLength, virtual, limit, prefixIndex), func(t *testing.T) {
 					legacy := computeLegacyPrefixProof(t, ctx, virtual, prefixIndex)
 					optimized := computeOptimizedPrefixProof(t, tt.realLength, virtual, limit, prefixIndex)
@@ -119,11 +118,13 @@ func BenchmarkPrefixProofGeneration_Optimized(b *testing.B) {
 	b.StopTimer()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashes := []common.Hash{crypto.Keccak256Hash(simpleHash[:])}
-	prefixIndex := 13384
-	virtual := 1 << 14
+	prefixIndex := uint64(13384)
+	virtual := uint64(1 << 14)
+	builder, err := NewBuilder().Virtual(virtual).Limit(virtual).Build()
+	require.NoError(b, err)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, _, err := prefixAndProof(prefixIndex, hashes, virtual)
+		_, _, err := builder.GeneratePrefixProof(prefixIndex, hashes)
 		require.NoError(b, err)
 	}
 }
@@ -242,7 +243,6 @@ func computeLegacyPrefixProof(t *testing.T, ctx context.Context, numHashes int, 
 }
 
 func TestLegacyVsOptimized(t *testing.T) {
-	t.Skip()
 	end := 1 << 9
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	for i := 1; i < end; i++ {
@@ -273,7 +273,6 @@ func TestLegacyVsOptimized(t *testing.T) {
 }
 
 func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
-	t.Skip()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 
 	tests := []struct {
@@ -320,7 +319,6 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 	}
 }
 func TestVirtualSparse(t *testing.T) {
-	t.Skip()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	t.Run("real length 1, virtual length 3, limit 4", func(t *testing.T) {
 		_, err := computeVirtualSparseTree([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3, 0)
@@ -455,7 +453,6 @@ func TestVirtualSparse(t *testing.T) {
 }
 
 func TestMaximumDepthHistoryCommitment(t *testing.T) {
-	t.Skip()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashedLeaves := []common.Hash{
 		crypto.Keccak256Hash(simpleHash[:]),
@@ -470,7 +467,6 @@ func TestMaximumDepthHistoryCommitment(t *testing.T) {
 }
 
 func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
-	b.Skip()
 	b.StopTimer()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashedLeaves := []common.Hash{
