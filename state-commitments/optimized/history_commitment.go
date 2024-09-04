@@ -17,7 +17,6 @@ type HistoryCommitter struct {
 }
 
 type CommitmentBuilder struct {
-	leaves  []common.Hash
 	limit   *uint64
 	virtual *uint64
 }
@@ -32,14 +31,11 @@ func (cb *CommitmentBuilder) Limit(n uint64) *CommitmentBuilder {
 }
 
 func (cb *CommitmentBuilder) Virtual(n uint64) *CommitmentBuilder {
-	cb.limit = &n
+	cb.virtual = &n
 	return cb
 }
 
 func (cb *CommitmentBuilder) Build() (*HistoryCommitter, error) {
-	if cb.leaves == nil {
-		return nil, errors.New("leaves not set")
-	}
 	if cb.limit == nil {
 		return nil, errors.New("limit not set")
 	}
@@ -55,7 +51,13 @@ func (cb *CommitmentBuilder) Build() (*HistoryCommitter, error) {
 
 func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash) (common.Hash, error) {
 	// Called with 0 limit first to compute the last leaf fillers for the commitment.
-	_, err := h.computeVirtualSparseTree(leaves, h.virtual, 0)
+	copiedLeaves := make([]common.Hash, len(leaves))
+	for i, leaf := range leaves {
+		var copied common.Hash
+		copy(copied[:], leaf[:])
+		copiedLeaves[i] = copied
+	}
+	_, err := h.computeVirtualSparseTree(copiedLeaves, h.virtual, 0)
 	if err != nil {
 		return common.Hash{}, err
 	}
