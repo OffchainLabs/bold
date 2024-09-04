@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "optimized",
-    srcs = [
-        "history_commitment.go",
-        "zerohashes.go",
-    ],
+    srcs = ["history_commitment.go"],
     importpath = "github.com/OffchainLabs/bold/state-commitments/optimized",
     visibility = ["//visibility:public"],
     deps = [

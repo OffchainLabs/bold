@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+var emptyHash = common.Hash{}
+
 type HistoryCommitter struct {
 	lastLeafFillers []common.Hash
 	keccak          crypto.KeccakState
@@ -210,7 +212,7 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		if err != nil {
 			return common.Hash{}, err
 		}
-		right = zeroHashes[0]
+		right = emptyHash
 	}
 	if _, err = h.keccak.Write(left[:]); err != nil {
 		return common.Hash{}, err
@@ -229,7 +231,7 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 	m := uint64(len(leaves))
 	if virtual == 0 {
 		for i := limit; i > 1; i /= 2 {
-			proof = append(proof, zeroHashes[0])
+			proof = append(proof, emptyHash)
 		}
 		return
 	}
@@ -243,7 +245,7 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		}
 		if !stripped {
 			for i := limit; i > 1; i /= 2 {
-				proof = append(proof, zeroHashes[0])
+				proof = append(proof, emptyHash)
 			}
 		}
 		return append(proof, left), nil
@@ -277,7 +279,7 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 	if err != nil {
 		return nil, err
 	}
-	return append(expac, zeroHashes[0]), nil
+	return append(expac, emptyHash), nil
 }
 
 func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, limit uint64) (tail []common.Hash, err error) {
