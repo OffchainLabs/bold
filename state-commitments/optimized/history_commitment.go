@@ -212,10 +212,10 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		}
 		right = zeroHashes[0]
 	}
-	if _, err := h.keccak.Write(left[:]); err != nil {
+	if _, err = h.keccak.Write(left[:]); err != nil {
 		return common.Hash{}, err
 	}
-	if _, err := h.keccak.Write(right[:]); err != nil {
+	if _, err = h.keccak.Write(right[:]); err != nil {
 		return common.Hash{}, err
 	}
 	if _, err = h.keccak.Read(leaves[0][:]); err != nil {
