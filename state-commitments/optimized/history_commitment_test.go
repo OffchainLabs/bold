@@ -143,7 +143,7 @@ type prefixProofComputation struct {
 func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uint64, limit uint64, prefixIndex uint64) *prefixProofComputation {
 	// Computes the prefix proof and expansion.
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
-	hashes := make([]common.Hash, numRealHashes)
+	hashes := make([]common.Hash, prefixIndex+1)
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
 	}
@@ -172,6 +172,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	builder, err = NewBuilder().Virtual(uint64(virtual)).Limit(uint64(limit)).Build()
 	require.NoError(t, err)
 	prefixExp, proof, err := builder.GeneratePrefixProof(uint64(prefixIndex), hashes)
+	require.NoError(t, err)
 	prefixExp = trimTrailingZeroHashes(prefixExp)
 	proof = trimZeroes(proof)
 	return &prefixProofComputation{
