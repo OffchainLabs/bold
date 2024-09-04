@@ -93,16 +93,24 @@ func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 	depth := int(math.Log2(float64(limit)))
 	for j := 0; j < depth; j++ {
 		for i := 0; i < m/2; i++ {
-			h.keccak.Write(leaves[2*i][:])
-			h.keccak.Write(leaves[2*i+1][:])
+			if _, err := h.keccak.Write(leaves[2*i][:]); err != nil {
+				return common.Hash{}, err
+			}
+			if _, err := h.keccak.Write(leaves[2*i+1][:]); err != nil {
+				return common.Hash{}, err
+			}
 			if _, err := h.keccak.Read(leaves[i][:]); err != nil {
 				return common.Hash{}, err
 			}
 			h.keccak.Reset()
 		}
 		if m&1 == 1 {
-			h.keccak.Write(leaves[m-1][:])
-			h.keccak.Write(fillers[j][:])
+			if _, err := h.keccak.Write(leaves[m-1][:]); err != nil {
+				return common.Hash{}, err
+			}
+			if _, err := h.keccak.Write(fillers[j][:]); err != nil {
+				return common.Hash{}, err
+			}
 			if _, err := h.keccak.Read(leaves[(m-1)/2][:]); err != nil {
 				return common.Hash{}, err
 			}
@@ -204,8 +212,12 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		}
 		right = zeroHashes[0]
 	}
-	h.keccak.Write(left[:])
-	h.keccak.Write(right[:])
+	if _, err := h.keccak.Write(left[:]); err != nil {
+		return common.Hash{}, err
+	}
+	if _, err := h.keccak.Write(right[:]); err != nil {
+		return common.Hash{}, err
+	}
 	if _, err = h.keccak.Read(leaves[0][:]); err != nil {
 		return common.Hash{}, err
 	}
@@ -225,9 +237,9 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		limit = nextPowerOf2(virtual)
 	}
 	if limit == virtual {
-		left, err := h.computeSparseTree(leaves, limit, h.lastLeafFillers)
-		if err != nil {
-			return nil, err
+		left, err2 := h.computeSparseTree(leaves, limit, h.lastLeafFillers)
+		if err2 != nil {
+			return nil, err2
 		}
 		if !stripped {
 			for i := limit; i > 1; i /= 2 {
@@ -237,9 +249,9 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		return append(proof, left), nil
 	}
 	if m > limit/2 {
-		left, err := h.computeSparseTree(leaves[:limit/2], limit/2, nil)
-		if err != nil {
-			return nil, err
+		left, err2 := h.computeSparseTree(leaves[:limit/2], limit/2, nil)
+		if err2 != nil {
+			return nil, err2
 		}
 		proof, err = h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, stripped)
 		if err != nil {
@@ -248,9 +260,9 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		return append(proof, left), nil
 	}
 	if virtual >= limit/2 {
-		left, err := h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
-		if err != nil {
-			return nil, err
+		left, err2 := h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
+		if err2 != nil {
+			return nil, err2
 		}
 		proof, err = h.subtreeExpansion([]common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2, stripped)
 		if err != nil {
@@ -288,9 +300,9 @@ func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, li
 		if err != nil {
 			return nil, err
 		}
-		right, err := h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, true)
-		if err != nil {
-			return nil, err
+		right, err2 := h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, true)
+		if err2 != nil {
+			return nil, err2
 		}
 		for i := len(right) - 1; i >= 0; i-- {
 			tail = append(tail, right[i])
@@ -354,8 +366,12 @@ func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([
 	ret := make([]common.Hash, n)
 	copy(ret[0][:], (*leaf)[:])
 	for i := 1; i < n; i++ {
-		h.keccak.Write(ret[i-1][:])
-		h.keccak.Write(ret[i-1][:])
+		if _, err := h.keccak.Write(ret[i-1][:]); err != nil {
+			return nil, err
+		}
+		if _, err := h.keccak.Write(ret[i-1][:]); err != nil {
+			return nil, err
+		}
 		if _, err := h.keccak.Read(ret[i][:]); err != nil {
 			return nil, err
 		}
