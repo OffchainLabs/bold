@@ -173,8 +173,6 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	require.NoError(t, err)
 	prefixExp, proof, err := builder.GeneratePrefixProof(uint64(prefixIndex), hashes)
 	require.NoError(t, err)
-	prefixExp = trimTrailingZeroHashes(prefixExp)
-	proof = trimZeroes(proof)
 	return &prefixProofComputation{
 		prefixRoot:          prefixRoot,
 		fullRoot:            fullTreeRoot,

@@ -65,7 +65,13 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash) (common.Hash, error
 }
 
 func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash) ([]common.Hash, []common.Hash, error) {
-	return h.prefixAndProof(prefixIndex, leaves, h.virtual)
+	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, leaves, h.virtual)
+	if err != nil {
+		return nil, nil, err
+	}
+	prefixExpansion = trimTrailingZeroHashes(prefixExpansion)
+	proof = trimZeroes(proof)
+	return prefixExpansion, proof, nil
 }
 
 // computeSparseTree returns the htr of a hashtree with the given leaves and
