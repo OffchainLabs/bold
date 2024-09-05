@@ -85,8 +85,7 @@ func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []comm
 // the passed zeroHash.
 // limit is assumed to be a power of two which is higher or equal than the
 // length of the leaves.
-// fillers is assumed to be precomputed to the necessary limit, no error
-// handling
+// fillers is assumed to be precomputed to the necessary limit.
 //
 // Zero allocations
 // Computes O(len(leaves)) hashes.
