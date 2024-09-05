@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/OffchainLabs/bold/containers/option"
-
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/state-commitments/history"
