@@ -22,6 +22,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func FuzzHistoryCommitter(f *testing.F) {
+	f.Skip()
+	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	f.Fuzz(func(t *testing.T, numReal uint64, virtual uint64, limit uint64) {
+		// Set some bounds.
+		numReal = numReal % (1 << 10)
+		virtual = virtual % (1 << 20)
+		limit = limit % (1 << 20)
+		hashedLeaves := make([]common.Hash, numReal)
+		for i := range hashedLeaves {
+			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+		}
+		builder := NewBuilder().Virtual(virtual).Limit(limit)
+		committer, _ := builder.Build()
+		committer.ComputeRoot(hashedLeaves)
+	})
+}
+
 func TestPrefixProofGeneration(t *testing.T) {
 	ctx := context.Background()
 	merkleTreeContract, _ := setupMerkleTreeContract(t)
