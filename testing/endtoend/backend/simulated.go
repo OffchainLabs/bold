@@ -2,10 +2,10 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -51,6 +51,7 @@ func (l *LocalSimulatedBackend) Accounts() []*bind.TransactOpts {
 	accs := make([]*bind.TransactOpts, len(l.setup.Accounts))
 	for i := 0; i < len(l.setup.Accounts); i++ {
 		accs[i] = l.setup.Accounts[i].TxOpts
+		fmt.Printf("%d and priv key %#x\n", i, l.setup.Accounts[i].PrivateKey.D)
 	}
 	return accs
 }
@@ -59,7 +60,7 @@ func (l *LocalSimulatedBackend) ContractAddresses() *setup.RollupAddresses {
 	return l.setup.Addrs
 }
 
-func (l *LocalSimulatedBackend) DeployRollup(_ context.Context, _ ...challenge_testing.Opt) (*setup.RollupAddresses, error) {
+func (l *LocalSimulatedBackend) DeployRollup(_ context.Context) (*setup.RollupAddresses, error) {
 	// No-op, as the sim backend deploys the rollup on initialization.
 	return l.setup.Addrs, nil
 }

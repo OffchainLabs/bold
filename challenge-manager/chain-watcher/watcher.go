@@ -622,9 +622,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 				evilEdges = threadsafe.NewSet[protocol.EdgeId](threadsafe.SetWithMetric[protocol.EdgeId]("evilEdges"))
 				w.evilEdgesByLevel.Put(edge.GetChallengeLevel(), evilEdges)
 			}
-			if evilEdges.NumItems() < 5 {
-				evilEdges.Insert(edge.Id())
-			}
+			evilEdges.Insert(edge.Id())
 			if evilEdges.NumItems() >= 5 {
 				log.Warn("High number of evil edges observed", "numEvilEdges", evilEdges.NumItems(), "challengeLevel", edge.GetChallengeLevel())
 				metrics.GetOrRegisterCounter("arb/validator/watcher/high_num_evil_edges_at_level_"+fmt.Sprint(edge.GetChallengeLevel()), nil).Inc(1)

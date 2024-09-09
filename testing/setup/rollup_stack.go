@@ -31,8 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/node"
 	"github.com/pkg/errors"
 )
 
@@ -170,7 +172,7 @@ type ChainSetup struct {
 	RollupConfig               rollupgen.Config
 	useMockBridge              bool
 	useMockOneStepProver       bool
-	numAccountsToGen           uint64
+	NumAccountsToGen           uint64
 	challengeTestingOpts       []challenge_testing.Opt
 	StateManagerOpts           []statemanager.Opt
 	EnableFastConfirmation     bool
@@ -217,25 +219,34 @@ func WithStateManagerOpts(opts ...statemanager.Opt) Opt {
 
 func WithNumAccounts(n uint64) Opt {
 	return func(setup *ChainSetup) {
-		setup.numAccountsToGen = n
+		setup.NumAccountsToGen = n
 	}
 }
 
 func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
-	ctx := context.Background()
 	setp := &ChainSetup{
-		numAccountsToGen: 4,
+		NumAccountsToGen: 4,
 	}
 	for _, o := range opts {
 		o(setp)
 	}
-	if setp.numAccountsToGen < 3 {
-		setp.numAccountsToGen = 3
+	if setp.NumAccountsToGen < 3 {
+		setp.NumAccountsToGen = 3
 	}
-	accs, backend, err := Accounts(setp.numAccountsToGen)
+	accs, backend, err := Accounts(setp.NumAccountsToGen)
 	if err != nil {
 		return nil, err
 	}
+	setup, err := SetupStackFromBackend(setp, accs, backend)
+	if err != nil {
+		return nil, err
+	}
+	setup.Backend = backend
+	return setup, nil
+}
+
+func SetupStackFromBackend(setup *ChainSetup, accs []*TestAccount, backend protocol.ChainBackend, opts ...Opt) (*ChainSetup, error) {
+	ctx := context.Background()
 	stakeToken, tx, tokenBindings, err := mocksgen.DeployTestWETH9(
 		accs[0].TxOpts,
 		backend,
@@ -282,14 +293,14 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	chainId := big.NewInt(1337)
 	loserStakeEscrow := rollupOwner
 	cfgOpts := &rollupgen.Config{}
-	for _, o := range setp.challengeTestingOpts {
+	for _, o := range setup.challengeTestingOpts {
 		o(cfgOpts)
 	}
-	if setp.EnableFastConfirmation {
+	if setup.EnableFastConfirmation {
 		cfgOpts.AnyTrustFastConfirmer = accs[1].AccountAddr
 	}
 	var safeProxyAddress common.Address
-	if setp.EnableSafeFastConfirmation {
+	if setup.EnableSafeFastConfirmation {
 		var safeAddress common.Address
 		safeAddress, err = retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
 			safeAddress, tx, _, err = contractsgen.DeploySafeL2(accs[0].TxOpts, backend)
@@ -369,7 +380,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		genesisExecutionState,
 		genesisInboxCount,
 		anyTrustFastConfirmer,
-		setp.challengeTestingOpts...,
+		setup.challengeTestingOpts...,
 	)
 	addresses, err := DeployFullRollupStack(
 		ctx,
@@ -377,8 +388,8 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		accs[0].TxOpts,
 		accs[0].TxOpts.From, // Sequencer addr.
 		cfg,
-		setp.useMockBridge,
-		setp.useMockOneStepProver,
+		setup.useMockBridge,
+		setup.useMockOneStepProver,
 	)
 	if err != nil {
 		return nil, err
@@ -424,6 +435,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		return nil, errors.New("could not set big int")
 	}
 	for _, acc := range accs {
+		log.Info("Account approving", "from", accs[0].TxOpts.From, "account", acc.AccountAddr)
 		transferTx, err := tokenBindings.TestWETH9Transactor.Transfer(accs[0].TxOpts, acc.TxOpts.From, seed)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not approve account")
@@ -468,12 +480,11 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		}
 	}
 
-	setp.Chains = chains
-	setp.Accounts = accs
-	setp.Addrs = addresses
-	setp.Backend = backend
-	setp.RollupConfig = cfg
-	return setp, nil
+	setup.Chains = chains
+	setup.Accounts = accs
+	setup.Addrs = addresses
+	setup.RollupConfig = cfg
+	return setup, nil
 }
 
 type RollupAddresses struct {
@@ -645,7 +656,6 @@ func deployBridgeCreator(
 		if err != nil {
 			return common.Address{}, err
 		}
-		fmt.Println("Got template")
 	}
 
 	datahashesReader, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
@@ -1069,15 +1079,20 @@ func deployRollupCreator(
 type TestAccount struct {
 	AccountAddr common.Address
 	TxOpts      *bind.TransactOpts
+	PrivateKey  *ecdsa.PrivateKey
 }
 
 func Accounts(numAccounts uint64) ([]*TestAccount, *SimulatedBackendWrapper, error) {
 	genesis := make(core.GenesisAlloc)
 	gasLimit := uint64(100000000)
 
+	maxAccounts := len(privKeys)
+	if numAccounts >= uint64(maxAccounts) {
+		return nil, nil, fmt.Errorf("numAccounts %d must be <= the number of test private key fixtures: %d", numAccounts, maxAccounts)
+	}
 	accs := make([]*TestAccount, numAccounts)
 	for i := uint64(0); i < numAccounts; i++ {
-		privKey, err := crypto.GenerateKey()
+		privKey, err := crypto.HexToECDSA(privKeys[i])
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1106,8 +1121,17 @@ func Accounts(numAccounts uint64) ([]*TestAccount, *SimulatedBackendWrapper, err
 		accs[i] = &TestAccount{
 			AccountAddr: addr,
 			TxOpts:      txOpts,
+			PrivateKey:  privKey,
 		}
 	}
-	backend := NewSimulatedBackendWrapper(simulated.NewBackend(genesis, simulated.WithBlockGasLimit(gasLimit)))
+	withRpc := func(nodeConf *node.Config, ethConfig *eth.Config) {
+		nodeConf.HTTPModules = append(nodeConf.HTTPModules, "eth")
+		nodeConf.HTTPHost = "localhost"
+		nodeConf.HTTPPort = 8545
+		nodeConf.WSModules = append(nodeConf.HTTPModules, "eth")
+		nodeConf.WSHost = "localhost"
+		nodeConf.WSPort = 8546
+	}
+	backend := NewSimulatedBackendWrapper(simulated.NewBackend(genesis, simulated.WithBlockGasLimit(gasLimit), withRpc))
 	return accs, backend, nil
 }

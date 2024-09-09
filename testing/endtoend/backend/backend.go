@@ -7,7 +7,6 @@ import (
 	"context"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/OffchainLabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +20,7 @@ type Backend interface {
 	// Accounts managed by the backend.
 	Accounts() []*bind.TransactOpts
 	// DeployRollup contract, if not already deployed.
-	DeployRollup(ctx context.Context, opts ...challenge_testing.Opt) (*setup.RollupAddresses, error)
+	DeployRollup(ctx context.Context) (*setup.RollupAddresses, error)
 	// Contract addresses relevant to the challenge protocol.
 	ContractAddresses() *setup.RollupAddresses
 	// Commit a tx to the backend, if possible (simulated backend requires this)

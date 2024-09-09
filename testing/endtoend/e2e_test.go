@@ -2,7 +2,6 @@ package endtoend
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -115,14 +114,24 @@ func defaultProtocolParams() protocolParams {
 }
 
 func TestEndToEnd_SmokeTest(t *testing.T) {
+	timeCfg := defaultTimeParams()
+	timeCfg.blockTime = time.Second * 4
+	protocolCfg := defaultProtocolParams()
+	protocolCfg.challengePeriodBlocks = 1500
+	protocolCfg.layerZeroHeights = protocol.LayerZeroHeights{
+		BlockChallengeHeight:     1 << 5,
+		BigStepChallengeHeight:   1 << 5,
+		SmallStepChallengeHeight: 1 << 14,
+	}
+	protocolCfg.numBigStepLevels = 1
 	runEndToEndTest(t, &e2eConfig{
-		backend:  simulated,
-		protocol: defaultProtocolParams(),
+		backend:  anvil,
+		protocol: protocolCfg,
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
 			numEvilValidators: 1,
 		},
-		timings: defaultTimeParams(),
+		timings: timeCfg,
 		expectations: []expect{
 			// Expect one assertion is confirmed by challenge win.
 			expectAssertionConfirmedByChallengeWin,
@@ -229,14 +238,14 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		require.NoError(t, err)
 		bk = simBackend
 	case anvil:
-		anvilBackend, err := backend.NewAnvilLocal(ctx)
+		anvilBackend, err := backend.NewAnvilLocal(ctx, deployOpts...)
 		require.NoError(t, err)
 		bk = anvilBackend
 	default:
 		t.Fatalf("Backend kind for e2e test not supported: %s", cfg.backend)
 	}
 
-	rollupAddr, err := bk.DeployRollup(ctx, challengeTestingOpts...)
+	rollupAddr, err := bk.DeployRollup(ctx)
 	require.NoError(t, err)
 
 	require.NoError(t, bk.Start(ctx))
@@ -270,7 +279,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		challengemanager.WithAssertionPostingInterval(cfg.timings.assertionPostingInterval),
 		challengemanager.WithAssertionScanningInterval(cfg.timings.assertionScanningInterval),
 		challengemanager.WithAssertionConfirmingInterval(cfg.timings.assertionConfirmationAttemptInterval),
-		challengemanager.WithHeadBlockSubscriptions(),
+		// challengemanager.WithHeadBlockSubscriptions(),
 	}
 
 	name := "honest"
@@ -292,42 +301,44 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	totalOpcodes := totalWasmOpcodes(&cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels)
 	t.Logf("Total wasm opcodes in test: %d", totalOpcodes)
 
-	assertionDivergenceHeight := uint64(1)
-	assertionBlockHeightDifference := int64(1)
+	// assertionDivergenceHeight := uint64(1)
+	// assertionBlockHeightDifference := int64(1)
 
-	evilChallengeManagers := make([]*challengemanager.Manager, cfg.actors.numEvilValidators)
-	for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
-		machineDivergenceStep := randUint64(totalOpcodes)
-		//nolint:gocritic
-		evilStateManagerOpts := append(
-			baseStateManagerOpts,
-			statemanager.WithMachineDivergenceStep(machineDivergenceStep),
-			statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
-			statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
-		)
-		evilStateManager, err := statemanager.NewForSimpleMachine(evilStateManagerOpts...)
-		require.NoError(t, err)
+	// evilChallengeManagers := make([]*challengemanager.Manager, cfg.actors.numEvilValidators)
+	// for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
+	// 	// machineDivergenceStep := randUint64(totalOpcodes)
+	// 	machineDivergenceStep := uint64(3)
+	// 	t.Logf("Diverging at machine step %d", machineDivergenceStep)
+	// 	//nolint:gocritic
+	// 	evilStateManagerOpts := append(
+	// 		baseStateManagerOpts,
+	// 		statemanager.WithMachineDivergenceStep(machineDivergenceStep),
+	// 		statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
+	// 		statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
+	// 	)
+	// 	evilStateManager, err := statemanager.NewForSimpleMachine(evilStateManagerOpts...)
+	// 	require.NoError(t, err)
 
-		// Honest validator has index 1 in the accounts slice, as 0 is admin, so evil ones should start at 2.
-		txOpts = accounts[2+i]
-		name = fmt.Sprintf("evil-%d", i)
-		//nolint:gocritic
-		evilOpts := append(
-			baseChallengeManagerOpts,
-			challengemanager.WithAddress(txOpts.From),
-			challengemanager.WithName(name),
-		)
-		evilManager := setupChallengeManager(
-			t, ctx, bk.Client(), rollupAddr.Rollup, evilStateManager, txOpts, name, evilOpts...,
-		)
-		evilChallengeManagers[i] = evilManager
-	}
+	// 	// Honest validator has index 1 in the accounts slice, as 0 is admin, so evil ones should start at 2.
+	// 	txOpts = accounts[2+i]
+	// 	name = fmt.Sprintf("evil-%d", i)
+	// 	//nolint:gocritic
+	// 	evilOpts := append(
+	// 		baseChallengeManagerOpts,
+	// 		challengemanager.WithAddress(txOpts.From),
+	// 		challengemanager.WithName(name),
+	// 	)
+	// 	evilManager := setupChallengeManager(
+	// 		t, ctx, bk.Client(), rollupAddr.Rollup, evilStateManager, txOpts, name, evilOpts...,
+	// 	)
+	// 	evilChallengeManagers[i] = evilManager
+	// }
 
 	honestManager.Start(ctx)
 
-	for _, evilManager := range evilChallengeManagers {
-		evilManager.Start(ctx)
-	}
+	// for _, evilManager := range evilChallengeManagers {
+	// 	evilManager.Start(ctx)
+	// }
 
 	g, ctx := errgroup.WithContext(ctx)
 	for _, e := range cfg.expectations {

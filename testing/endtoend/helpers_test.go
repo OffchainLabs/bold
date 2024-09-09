@@ -3,6 +3,7 @@ package endtoend
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -30,6 +31,7 @@ func setupChallengeManager(
 	name string,
 	opts ...challengemanager.Opt,
 ) *challengemanager.Manager {
+	fmt.Printf("Rollup addr: %#x\n", rollup)
 	assertionChainBinding, err := rollupgen.NewRollupUserLogic(
 		rollup, backend,
 	)

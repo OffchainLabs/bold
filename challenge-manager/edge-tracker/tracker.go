@@ -94,6 +94,12 @@ func WithFSMOpts(opts ...fsm.Opt[edgeTrackerAction, State]) Opt {
 	}
 }
 
+func WithStoppingChallengeLevel(lvl uint64) Opt {
+	return func(et *Tracker) {
+		et.stoppingChallengeLevel = option.Some(lvl)
+	}
+}
+
 type Tracker struct {
 	edge                        protocol.SpecEdge
 	fsm                         *fsm.Fsm[edgeTrackerAction, State]
@@ -106,6 +112,7 @@ type Tracker struct {
 	challengeManager            ChallengeTracker
 	associatedAssertionMetadata *AssociatedAssertionMetadata
 	challengeConfirmer          *challengeConfirmer
+	stoppingChallengeLevel      option.Option[uint64]
 }
 
 func New(
@@ -219,7 +226,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 	case EdgeStarted:
 		canOsp, err := canOneStepProve(ctx, et.edge)
 		if err != nil {
-			log.Error("Could not check if edge can be one step proven", fields, "err", err)
+			log.Error("Could not check if edge can be one step proven", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
 			return et.fsm.Do(edgeBackToStart{})
 		}
@@ -228,7 +235,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirmEdge(ctx)
 		if err != nil {
-			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			log.Error("Could not check if edge can be confirmed", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
 		}
 		if wasConfirmed {
@@ -236,7 +243,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		hasRival, err := et.edge.HasRival(ctx)
 		if err != nil {
-			log.Error("Could not check if edge has rival", fields, "err", err)
+			log.Error("Could not check if edge has rival", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
 			return et.fsm.Do(edgeBackToStart{})
 		}
@@ -263,6 +270,14 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitChallengeCompletion{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case EdgeAddingSubchallengeLeaf:
+		stopOpt := et.stoppingChallengeLevel
+		if stopOpt.IsSome() {
+			stopAt := stopOpt.Unwrap()
+			if stopAt == uint64(et.edge.GetChallengeLevel()) {
+				log.Warn("Configured to stop at challenge level")
+				return et.fsm.Do(edgeAwaitChallengeCompletion{})
+			}
+		}
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			log.Error("Could not open subchallenge leaf", append(fields, "err", err)...)
 			et.fsm.MarkError(err)

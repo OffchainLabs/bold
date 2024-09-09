@@ -4,6 +4,7 @@ go_library(
     name = "setup_lib",
     testonly = 1,
     srcs = [
+        "privkeys.go",
         "rollup_stack.go",
         "simulated_backend_wrapper.go",
     ],
@@ -31,8 +32,10 @@ go_library(
         "@com_github_ethereum_go_ethereum//core",
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//crypto",
+        "@com_github_ethereum_go_ethereum//eth",
         "@com_github_ethereum_go_ethereum//ethclient/simulated",
         "@com_github_ethereum_go_ethereum//log",
+        "@com_github_ethereum_go_ethereum//node",
         "@com_github_pkg_errors//:errors",
     ],
 )

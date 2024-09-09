@@ -493,13 +493,13 @@ func (m *Manager) tickOnHeadBlockSubscriptions(ctx context.Context) {
 }
 
 func (m *Manager) tickAtInterval(ctx context.Context) {
-	ticker := time.NewTicker(time.Second * 12)
+	ticker := time.NewTicker(time.Second * 12) // TODO: Make this customizable
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(time.Second):
+		case <-time.After(time.Second * 12):
 			m.newBlockNotifier.Broadcast(ctx, nil)
 		}
 	}

@@ -97,14 +97,14 @@ func (a *AssertionChain) transact(
 		return nil, err
 	}
 
-	if config.waitForDesiredBlockNum {
-		ctxWaitSafe, cancelWaitSafe := context.WithTimeout(ctx, time.Minute*20)
-		defer cancelWaitSafe()
-		receipt, err = a.waitForTxToBeSafe(ctxWaitSafe, backend, tx, receipt)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// if config.waitForDesiredBlockNum {
+	// 	ctxWaitSafe, cancelWaitSafe := context.WithTimeout(ctx, time.Minute*20)
+	// 	defer cancelWaitSafe()
+	// 	receipt, err = a.waitForTxToBeSafe(ctxWaitSafe, backend, tx, receipt)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		callMsg := ethereum.CallMsg{
