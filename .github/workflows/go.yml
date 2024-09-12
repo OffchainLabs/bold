@@ -168,7 +168,7 @@ jobs:
         run: yarn build:all
 
       - name: Run foundry tests
-        run: forge test
+        run: forge test --gas-limit 10000000000
 
       - name: Run hardhat tests
         run: yarn hardhat compile && yarn hardhat --network hardhat test test/contract/*.spec.ts
