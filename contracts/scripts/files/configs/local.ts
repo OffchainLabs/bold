@@ -1,5 +1,6 @@
 import { parseEther } from 'ethers/lib/utils'
-import { Config } from '../../common'
+import { Config } from '../../boldUpgradeCommon'
+import { hoursToBlocks } from './utils'
 
 export const local: Config = {
   contracts: {
@@ -10,7 +11,7 @@ export const local: Config = {
     sequencerInbox: '0x18d19C5d3E685f5be5b9C86E097f0E439285D216',
     rollupEventInbox: '0x0e73faf857e1ca53e700856fcf19f31f920a1e3c',
     upgradeExecutor: '0x513d9f96d4d0563debae8a0dc307ea0e46b10ed7',
-    l1Timelock: '0xC3124dD1FA0e5D6135c25279760DBF9d9286467B',
+    excessStakeReceiver: '0xC3124dD1FA0e5D6135c25279760DBF9d9286467B',
   },
   proxyAdmins: {
     outbox: '0x2a1f38c9097e7883570e0b02bfbe6869cc25d8a3',
@@ -34,7 +35,6 @@ export const local: Config = {
       parseEther('1'),
     ],
     chainId: 412346,
-    anyTrustFastConfirmer: '0x6d903f6003cca6255D85CcA4D3B5E5146dC33925',
     disableValidatorWhitelist: true,
     blockLeafSize: 1048576,
     bigStepLeafSize: 512,

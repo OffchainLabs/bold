@@ -8,4 +8,8 @@ yarn script:bold-prepare && \
 yarn script:bold-populate-lookup && \
 yarn script:bold-local-execute
 
+ecode=$? 
+
 kill $anvil_pid
+
+exit $ecode

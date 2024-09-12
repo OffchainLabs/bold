@@ -41,18 +41,43 @@ contract ERC20BridgeTest is AbsBridgeTest {
     /* solhint-disable func-name-mixedcase */
     function test_initialize() public {
         assertEq(
-            address(erc20Bridge.nativeToken()),
-            address(nativeToken),
-            "Invalid nativeToken ref"
+            address(erc20Bridge.nativeToken()), address(nativeToken), "Invalid nativeToken ref"
         );
         assertEq(address(bridge.rollup()), rollup, "Invalid rollup ref");
         assertEq(bridge.activeOutbox(), address(0), "Invalid activeOutbox ref");
+        assertEq(
+            IERC20Bridge(address(bridge)).nativeTokenDecimals(), 18, "Invalid native token decimals"
+        );
     }
 
     function test_initialize_revert_ZeroAddressToken() public {
         IERC20Bridge noTokenBridge = ERC20Bridge(TestUtil.deployProxy(address(new ERC20Bridge())));
         vm.expectRevert(abi.encodeWithSelector(InvalidTokenSet.selector, address(0)));
         noTokenBridge.initialize(IOwnable(rollup), address(0));
+    }
+
+    function test_initialize_ERC20_LessThan18Decimals() public {
+        ERC20 _nativeToken = new ERC20_6Decimals();
+        ERC20Bridge _bridge = ERC20Bridge(TestUtil.deployProxy(address(new ERC20Bridge())));
+
+        _bridge.initialize(IOwnable(makeAddr("_rollup")), address(_nativeToken));
+        assertEq(_bridge.nativeTokenDecimals(), 6, "Invalid native token decimals");
+    }
+
+    function test_initialize_ERC20_NoDecimals() public {
+        ERC20NoDecimals _nativeToken = new ERC20NoDecimals();
+        ERC20Bridge _bridge = ERC20Bridge(TestUtil.deployProxy(address(new ERC20Bridge())));
+
+        _bridge.initialize(IOwnable(makeAddr("_rollup")), address(_nativeToken));
+        assertEq(_bridge.nativeTokenDecimals(), 0, "Invalid native token decimals");
+    }
+
+    function test_initialize_revert_37Decimals() public {
+        ERC20_37Decimals _nativeToken = new ERC20_37Decimals();
+        ERC20Bridge _bridge = ERC20Bridge(TestUtil.deployProxy(address(new ERC20Bridge())));
+
+        vm.expectRevert(abi.encodeWithSelector(NativeTokenDecimalsTooLarge.selector, 37));
+        _bridge.initialize(IOwnable(makeAddr("_rollup")), address(_nativeToken));
     }
 
     function test_initialize_revert_ReInit() public {
@@ -107,9 +132,7 @@ contract ERC20BridgeTest is AbsBridgeTest {
         //// checks
         uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(address(user));
         assertEq(
-            userNativeTokenBalanceAfter,
-            userNativeTokenBalanceBefore,
-            "Invalid user token balance"
+            userNativeTokenBalanceAfter, userNativeTokenBalanceBefore, "Invalid user token balance"
         );
 
         uint256 bridgeNativeTokenBalanceAfter = nativeToken.balanceOf(address(bridge));
@@ -139,9 +162,7 @@ contract ERC20BridgeTest is AbsBridgeTest {
         hoax(inbox);
         vm.expectRevert();
         IEthBridge(address(bridge)).enqueueDelayedMessage{value: 0.1 ether}(
-            kind,
-            user,
-            messageDataHash
+            kind, user, messageDataHash
         );
     }
 
@@ -172,7 +193,7 @@ contract ERC20BridgeTest is AbsBridgeTest {
 
         //// execute call
         vm.prank(outbox);
-        (bool success, ) = bridge.executeCall(user, withdrawalAmount, data);
+        (bool success,) = bridge.executeCall(user, withdrawalAmount, data);
 
         //// checks
         assertTrue(success, "Execute call failed");
@@ -218,11 +239,8 @@ contract ERC20BridgeTest is AbsBridgeTest {
 
         //// execute call
         vm.prank(outbox);
-        (bool success, ) = bridge.executeCall({
-            to: address(vault),
-            value: withdrawalAmount,
-            data: data
-        });
+        (bool success,) =
+            bridge.executeCall({to: address(vault), value: withdrawalAmount, data: data});
 
         //// checks
         assertTrue(success, "Execute call failed");
@@ -268,11 +286,8 @@ contract ERC20BridgeTest is AbsBridgeTest {
 
         //// execute call - do call which reverts
         vm.prank(outbox);
-        (bool success, bytes memory returnData) = bridge.executeCall({
-            to: address(vault),
-            value: withdrawalAmount,
-            data: data
-        });
+        (bool success, bytes memory returnData) =
+            bridge.executeCall({to: address(vault), value: withdrawalAmount, data: data});
 
         //// checks
         assertEq(success, false, "Execute shall be unsuccessful");
@@ -373,9 +388,7 @@ contract ERC20BridgeTest is AbsBridgeTest {
         address to = _gateway;
         uint256 withdrawAmount = 25 ether;
         bytes memory data = abi.encodeWithSelector(
-            MockGateway.withdraw.selector,
-            MockBridgedToken(_nativeToken),
-            withdrawAmount
+            MockGateway.withdraw.selector, MockBridgedToken(_nativeToken), withdrawAmount
         );
         vm.expectRevert(abi.encodeWithSelector(CallNotAllowed.selector));
         vm.prank(_outbox);
@@ -386,7 +399,9 @@ contract ERC20BridgeTest is AbsBridgeTest {
 contract MockBridgedToken is ERC20 {
     address public gateway;
 
-    constructor(address _gateway) ERC20("MockBridgedToken", "TT") {
+    constructor(
+        address _gateway
+    ) ERC20("MockBridgedToken", "TT") {
         gateway = _gateway;
         _mint(msg.sender, 1_000_000 ether);
     }
@@ -400,5 +415,69 @@ contract MockBridgedToken is ERC20 {
 contract MockGateway {
     function withdraw(MockBridgedToken token, uint256 amount) external {
         token.bridgeBurn(msg.sender, amount);
+    }
+}
+
+/* solhint-disable contract-name-camelcase */
+contract ERC20_6Decimals is ERC20 {
+    constructor() ERC20("XY", "xy") {}
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+
+    function mint(address to, uint256 amount) public virtual {
+        _mint(to, amount);
+    }
+}
+
+/* solhint-disable contract-name-camelcase */
+contract ERC20_20Decimals is ERC20 {
+    constructor() ERC20("XY", "xy") {}
+
+    function decimals() public pure override returns (uint8) {
+        return 20;
+    }
+
+    function mint(address to, uint256 amount) public virtual {
+        _mint(to, amount);
+    }
+}
+
+/* solhint-disable contract-name-camelcase */
+contract ERC20_37Decimals is ERC20 {
+    constructor() ERC20("XY", "xy") {}
+
+    function decimals() public pure override returns (uint8) {
+        return 37;
+    }
+
+    function mint(address to, uint256 amount) public virtual {
+        _mint(to, amount);
+    }
+}
+
+/* solhint-disable contract-name-camelcase */
+contract ERC20_36Decimals is ERC20 {
+    constructor() ERC20("XY", "xy") {}
+
+    function decimals() public pure override returns (uint8) {
+        return 36;
+    }
+
+    function mint(address to, uint256 amount) public virtual {
+        _mint(to, amount);
+    }
+}
+
+contract ERC20NoDecimals is ERC20 {
+    constructor() ERC20("XY", "xy") {}
+
+    function decimals() public pure override returns (uint8) {
+        revert("not supported");
+    }
+
+    function mint(address to, uint256 amount) public virtual {
+        _mint(to, amount);
     }
 }

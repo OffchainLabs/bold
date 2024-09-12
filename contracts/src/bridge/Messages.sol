@@ -17,17 +17,18 @@ library Messages {
         bytes32 messageDataHash;
     }
 
-    function messageHash(Message memory message) internal pure returns (bytes32) {
-        return
-            messageHash(
-                message.kind,
-                message.sender,
-                message.blockNumber,
-                message.timestamp,
-                message.inboxSeqNum,
-                message.baseFeeL1,
-                message.messageDataHash
-            );
+    function messageHash(
+        Message memory message
+    ) internal pure returns (bytes32) {
+        return messageHash(
+            message.kind,
+            message.sender,
+            message.blockNumber,
+            message.timestamp,
+            message.inboxSeqNum,
+            message.baseFeeL1,
+            message.messageDataHash
+        );
     }
 
     function messageHash(
@@ -39,25 +40,17 @@ library Messages {
         uint256 baseFeeL1,
         bytes32 messageDataHash
     ) internal pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    kind,
-                    sender,
-                    blockNumber,
-                    timestamp,
-                    inboxSeqNum,
-                    baseFeeL1,
-                    messageDataHash
-                )
-            );
+        return keccak256(
+            abi.encodePacked(
+                kind, sender, blockNumber, timestamp, inboxSeqNum, baseFeeL1, messageDataHash
+            )
+        );
     }
 
-    function accumulateInboxMessage(bytes32 prevAcc, bytes32 message)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function accumulateInboxMessage(
+        bytes32 prevAcc,
+        bytes32 message
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prevAcc, message));
     }
 

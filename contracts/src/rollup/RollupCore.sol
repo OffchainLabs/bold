@@ -97,7 +97,7 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     address public stakeToken;
     uint256 public minimumAssertionPeriod;
 
-    EnumerableSetUpgradeable.AddressSet validators;
+    EnumerableSetUpgradeable.AddressSet internal validators;
 
     bytes32 private _latestConfirmed;
     mapping(bytes32 => AssertionNode) private _assertions;
@@ -127,7 +127,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param assertionHash Id of the assertion
      * @return Assertion struct
      */
-    function getAssertionStorage(bytes32 assertionHash) internal view returns (AssertionNode storage) {
+    function getAssertionStorage(
+        bytes32 assertionHash
+    ) internal view returns (AssertionNode storage) {
         require(assertionHash != bytes32(0), "ASSERTION_ID_CANNOT_BE_ZERO");
         return _assertions[assertionHash];
     }
@@ -135,7 +137,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
     /**
      * @notice Get the Assertion for the given index.
      */
-    function getAssertion(bytes32 assertionHash) public view override returns (AssertionNode memory) {
+    function getAssertion(
+        bytes32 assertionHash
+    ) public view override returns (AssertionNode memory) {
         return getAssertionStorage(assertionHash);
     }
 
@@ -146,7 +150,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * This function will revert if the given assertion hash does not exist.
      * @dev This function is meant for internal use only and has no stability guarantees.
      */
-    function getAssertionCreationBlockForLogLookup(bytes32 assertionHash) external view override returns (uint256) {
+    function getAssertionCreationBlockForLogLookup(
+        bytes32 assertionHash
+    ) external view override returns (uint256) {
         if (_hostChainIsArbitrum) {
             uint256 blockNum = _assertionCreatedAtArbSysBlock[assertionHash];
             require(blockNum > 0, "NO_ASSERTION");
@@ -163,7 +169,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerNum Index of the staker
      * @return Address of the staker
      */
-    function getStakerAddress(uint64 stakerNum) external view override returns (address) {
+    function getStakerAddress(
+        uint64 stakerNum
+    ) external view override returns (address) {
         return _stakerList[stakerNum];
     }
 
@@ -172,7 +180,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param staker Staker address to check
      * @return True or False for whether the staker was staked
      */
-    function isStaked(address staker) public view override returns (bool) {
+    function isStaked(
+        address staker
+    ) public view override returns (bool) {
         return _stakerMap[staker].isStaked;
     }
 
@@ -181,7 +191,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param staker Staker address to lookup
      * @return Latest assertion staked of the staker
      */
-    function latestStakedAssertion(address staker) public view override returns (bytes32) {
+    function latestStakedAssertion(
+        address staker
+    ) public view override returns (bytes32) {
         return _stakerMap[staker].latestStakedAssertion;
     }
 
@@ -190,7 +202,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param staker Staker address to lookup
      * @return Amount staked of the staker
      */
-    function amountStaked(address staker) public view override returns (uint256) {
+    function amountStaked(
+        address staker
+    ) public view override returns (uint256) {
         return _stakerMap[staker].amountStaked;
     }
 
@@ -199,7 +213,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param staker Staker address to lookup
      * @return Withdrawal address of the staker
      */
-    function withdrawalAddress(address staker) public view override returns (address) {
+    function withdrawalAddress(
+        address staker
+    ) public view override returns (address) {
         return _stakerMap[staker].withdrawalAddress;
     }
 
@@ -208,7 +224,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param staker Staker address to retrieve
      * @return A structure with information about the requested staker
      */
-    function getStaker(address staker) external view override returns (Staker memory) {
+    function getStaker(
+        address staker
+    ) external view override returns (Staker memory) {
         return _stakerMap[staker];
     }
 
@@ -217,7 +235,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param user Address to check the funds of
      * @return Amount of funds withdrawable by user
      */
-    function withdrawableFunds(address user) external view override returns (uint256) {
+    function withdrawableFunds(
+        address user
+    ) external view override returns (uint256) {
         return _withdrawableFunds[user];
     }
 
@@ -235,7 +255,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @notice Initialize the core with an initial assertion
      * @param initialAssertion Initial assertion to start the chain with
      */
-    function initializeCore(AssertionNode memory initialAssertion, bytes32 assertionHash) internal {
+    function initializeCore(
+        AssertionNode memory initialAssertion,
+        bytes32 assertionHash
+    ) internal {
         __Pausable_init();
         initialAssertion.status = AssertionStatus.Confirmed;
         _assertions[assertionHash] = initialAssertion;
@@ -284,10 +307,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param stakerAddress Address of the new staker
      * @param depositAmount Stake amount of the new staker
      */
-    function createNewStake(address stakerAddress, uint256 depositAmount, address _withdrawalAddress) internal {
+    function createNewStake(
+        address stakerAddress,
+        uint256 depositAmount,
+        address _withdrawalAddress
+    ) internal {
         uint64 stakerIndex = uint64(_stakerList.length);
         _stakerList.push(stakerAddress);
-        _stakerMap[stakerAddress] = Staker(depositAmount, _latestConfirmed, stakerIndex, true, _withdrawalAddress);
+        _stakerMap[stakerAddress] =
+            Staker(depositAmount, _latestConfirmed, stakerIndex, true, _withdrawalAddress);
         emit UserStakeUpdated(stakerAddress, _withdrawalAddress, 0, depositAmount);
     }
 
@@ -327,7 +355,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * This should only be called when the staker is inactive
      * @param stakerAddress Address of the staker withdrawing their stake
      */
-    function withdrawStaker(address stakerAddress) internal {
+    function withdrawStaker(
+        address stakerAddress
+    ) internal {
         Staker storage staker = _stakerMap[stakerAddress];
         address _withdrawalAddress = staker.withdrawalAddress;
         uint256 initialStaked = staker.amountStaked;
@@ -341,7 +371,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @param account Address of the account to remove funds from
      * @return Amount of funds removed from account
      */
-    function withdrawFunds(address account) internal returns (uint256) {
+    function withdrawFunds(
+        address account
+    ) internal returns (uint256) {
         uint256 amount = _withdrawableFunds[account];
         _withdrawableFunds[account] = 0;
         totalWithdrawableFunds -= amount;
@@ -365,7 +397,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @notice Remove the given staker
      * @param stakerAddress Address of the staker to remove
      */
-    function deleteStaker(address stakerAddress) private {
+    function deleteStaker(
+        address stakerAddress
+    ) private {
         Staker storage staker = _stakerMap[stakerAddress];
         require(staker.isStaked, "NOT_STAKED");
         uint64 stakerIndex = staker.index;
@@ -435,11 +469,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
             //    All types of assertion must have inbox position in the range prev.inboxPosition <= x <= prev.nextInboxPosition
             require(afterGS.comparePositions(beforeGS) >= 0, "INBOX_BACKWARDS");
-            int256 afterStateCmpMaxInbox =
-                afterGS.comparePositionsAgainstStartOfBatch(assertion.beforeStateData.configData.nextInboxPosition);
+            int256 afterStateCmpMaxInbox = afterGS.comparePositionsAgainstStartOfBatch(
+                assertion.beforeStateData.configData.nextInboxPosition
+            );
             require(afterStateCmpMaxInbox <= 0, "INBOX_TOO_FAR");
 
-            if (assertion.afterState.machineStatus != MachineStatus.ERRORED && afterStateCmpMaxInbox < 0) {
+            if (
+                assertion.afterState.machineStatus != MachineStatus.ERRORED
+                    && afterStateCmpMaxInbox < 0
+            ) {
                 // If we didn't reach the target next inbox position, this is an overflow assertion.
                 overflowAssertion = true;
                 // This shouldn't be necessary, but might as well constrain the assertion to be non-empty
@@ -448,7 +486,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             // Inbox position at the time of this assertion being created
             uint256 currentInboxPosition = bridge.sequencerMessageCount();
             // Cannot read more messages than currently exist in the inbox
-            require(afterGS.comparePositionsAgainstStartOfBatch(currentInboxPosition) <= 0, "INBOX_PAST_END");
+            require(
+                afterGS.comparePositionsAgainstStartOfBatch(currentInboxPosition) <= 0,
+                "INBOX_PAST_END"
+            );
 
             // under normal circumstances prev.nextInboxPosition is guaranteed to exist
             // because we populate it from bridge.sequencerMessageCount(). However, when
@@ -456,7 +497,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             // in this case we need to ensure when the assertion is made the inbox messages are available
             // to ensure that a valid assertion can actually be made.
             require(
-                assertion.beforeStateData.configData.nextInboxPosition <= currentInboxPosition, "INBOX_NOT_POPULATED"
+                assertion.beforeStateData.configData.nextInboxPosition <= currentInboxPosition,
+                "INBOX_NOT_POPULATED"
             );
 
             // The next assertion must consume all the messages that are currently found in the inbox
@@ -484,7 +526,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
             sequencerBatchAcc = bridge.sequencerInboxAccs(afterInboxPosition - 1);
         }
 
-        newAssertionHash = RollupLib.assertionHash(prevAssertionHash, assertion.afterState, sequencerBatchAcc);
+        newAssertionHash =
+            RollupLib.assertionHash(prevAssertionHash, assertion.afterState, sequencerBatchAcc);
 
         // allow an assertion creator to ensure that they're creating their assertion against the expected state
         require(
@@ -495,7 +538,10 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         // the assertion hash is unique - it's only possible to have one correct assertion hash
         // per assertion. Therefore we can check if this assertion has already been made, and if so
         // we can revert
-        require(getAssertionStorage(newAssertionHash).status == AssertionStatus.NoAssertion, "ASSERTION_SEEN");
+        require(
+            getAssertionStorage(newAssertionHash).status == AssertionStatus.NoAssertion,
+            "ASSERTION_SEEN"
+        );
 
         // state updates
         AssertionNode memory newAssertion = AssertionNodeLib.createAssertion(
@@ -532,7 +578,8 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
 
     function genesisAssertionHash() external pure returns (bytes32) {
         GlobalState memory emptyGlobalState;
-        AssertionState memory emptyAssertionState = AssertionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
+        AssertionState memory emptyAssertionState =
+            AssertionState(emptyGlobalState, MachineStatus.FINISHED, bytes32(0));
         bytes32 parentAssertionHash = bytes32(0);
         bytes32 inboxAcc = bytes32(0);
         return RollupLib.assertionHash({
@@ -542,11 +589,15 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         });
     }
 
-    function getFirstChildCreationBlock(bytes32 assertionHash) external view returns (uint64) {
+    function getFirstChildCreationBlock(
+        bytes32 assertionHash
+    ) external view returns (uint64) {
         return getAssertionStorage(assertionHash).firstChildBlock;
     }
 
-    function getSecondChildCreationBlock(bytes32 assertionHash) external view returns (uint64) {
+    function getSecondChildCreationBlock(
+        bytes32 assertionHash
+    ) external view returns (uint64) {
         return getAssertionStorage(assertionHash).secondChildBlock;
     }
 
@@ -556,18 +607,25 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         bytes32 prevAssertionHash,
         bytes32 inboxAcc
     ) external pure {
-        require(assertionHash == RollupLib.assertionHash(prevAssertionHash, state, inboxAcc), "INVALID_ASSERTION_HASH");
+        require(
+            assertionHash == RollupLib.assertionHash(prevAssertionHash, state, inboxAcc),
+            "INVALID_ASSERTION_HASH"
+        );
     }
 
     function validateConfig(bytes32 assertionHash, ConfigData calldata configData) external view {
         RollupLib.validateConfigHash(configData, getAssertionStorage(assertionHash).configHash);
     }
 
-    function isFirstChild(bytes32 assertionHash) external view returns (bool) {
+    function isFirstChild(
+        bytes32 assertionHash
+    ) external view returns (bool) {
         return getAssertionStorage(assertionHash).isFirstChild;
     }
 
-    function isPending(bytes32 assertionHash) external view returns (bool) {
+    function isPending(
+        bytes32 assertionHash
+    ) external view returns (bool) {
         return getAssertionStorage(assertionHash).status == AssertionStatus.Pending;
     }
 
@@ -575,7 +633,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
         return validators.values();
     }
 
-    function isValidator(address validator) external view returns (bool) {
+    function isValidator(
+        address validator
+    ) external view returns (bool) {
         return validators.contains(validator);
     }
 
@@ -583,7 +643,9 @@ abstract contract RollupCore is IRollupCore, PausableUpgradeable {
      * @notice Verify that the given staker is not active
      * @param stakerAddress Address to check
      */
-    function requireInactiveStaker(address stakerAddress) internal view {
+    function requireInactiveStaker(
+        address stakerAddress
+    ) internal view {
         require(isStaked(stakerAddress), "NOT_STAKED");
         // A staker is inactive if
         // a) their last staked assertion is the latest confirmed assertion

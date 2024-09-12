@@ -15,11 +15,13 @@ interface IEdgeStakingPool is IAbsBoldStakingPool {
     error EmptyEdgeId();
 
     /// @notice Create the edge. Callable only if required stake has been reached and edge has not been created yet.
-    function createEdge(CreateEdgeArgs calldata args) external;
+    function createEdge(
+        CreateEdgeArgs calldata args
+    ) external;
 
     /// @notice The targeted challenge manager contract
     function challengeManager() external view returns (address);
-    
+
     /// @notice The edge that this pool will create
     function edgeId() external view returns (bytes32);
 }

@@ -13,10 +13,12 @@ import "./Utils.sol";
 library StateToolsLib {
     using GlobalStateLib for GlobalState;
 
-    function randomState(Random rand, uint256 inboxMsgCountProcessed, bytes32 blockHash, MachineStatus ms)
-        internal
-        returns (AssertionState memory)
-    {
+    function randomState(
+        Random rand,
+        uint256 inboxMsgCountProcessed,
+        bytes32 blockHash,
+        MachineStatus ms
+    ) internal returns (AssertionState memory) {
         bytes32[2] memory bytes32Vals = [blockHash, rand.hash()];
         uint64[2] memory u64Vals = [uint64(inboxMsgCountProcessed), uint64(uint256(rand.hash()))];
 
@@ -24,11 +26,15 @@ library StateToolsLib {
         return AssertionState({globalState: gs, machineStatus: ms, endHistoryRoot: bytes32(0)});
     }
 
-    function hash(AssertionState memory s) internal pure returns (bytes32) {
+    function hash(
+        AssertionState memory s
+    ) internal pure returns (bytes32) {
         return s.globalState.hash();
     }
 
-    function mockMachineHash(AssertionState memory s) internal pure returns (bytes32) {
+    function mockMachineHash(
+        AssertionState memory s
+    ) internal pure returns (bytes32) {
         return s.globalState.hash();
     }
 }

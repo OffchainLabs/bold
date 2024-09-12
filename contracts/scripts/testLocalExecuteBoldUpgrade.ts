@@ -1,6 +1,11 @@
 import { Contract, ContractReceipt } from 'ethers'
 import { ethers } from 'hardhat'
-import { Config, DeployedContracts, getConfig, getJsonFile } from './common'
+import {
+  Config,
+  DeployedContracts,
+  getConfig,
+  getJsonFile,
+} from './boldUpgradeCommon'
 import {
   BOLDUpgradeAction__factory,
   Bridge,
@@ -13,10 +18,10 @@ import {
   RollupUserLogic__factory,
   SequencerInbox__factory,
 } from '../build/types'
-import { abi as UpgradeExecutorAbi } from './files/UpgradeExecutor.json'
+import { abi as UpgradeExecutorAbi } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import dotenv from 'dotenv'
 import { RollupMigratedEvent } from '../build/types/src/rollup/BOLDUpgradeAction.sol/BOLDUpgradeAction'
-import { abi as OldRollupAbi } from './files/OldRollupUserLogic.json'
+import { abi as OldRollupAbi } from '@arbitrum/nitro-contracts-2.0.0/build/contracts/src/rollup/RollupUserLogic.sol/RollupUserLogic.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { getAddress } from 'ethers/lib/utils'
 import path from 'path'
@@ -33,11 +38,11 @@ type VerificationParams = {
   receipt: ContractReceipt
 }
 
-const executors: {[key: string]: string} = {
+const executors: { [key: string]: string } = {
   // DAO L1 Timelocks
   arb1: '0xE6841D92B0C345144506576eC13ECf5103aC7f49',
   nova: '0xE6841D92B0C345144506576eC13ECf5103aC7f49',
-  sepolia: '0x6EC62D826aDc24AeA360be9cF2647c42b9Cdb19b'
+  sepolia: '0x6EC62D826aDc24AeA360be9cF2647c42b9Cdb19b',
 }
 
 async function getPreUpgradeState(l1Rpc: JsonRpcProvider, config: Config) {
@@ -74,7 +79,9 @@ async function perform(
 ) {
   const executor = executors[process.env.CONFIG_NETWORK_NAME!]
   if (!executor) {
-    throw new Error('no executor found for CONFIG_NETWORK_NAME or CONFIG_NETWORK_NAME not set')
+    throw new Error(
+      'no executor found for CONFIG_NETWORK_NAME or CONFIG_NETWORK_NAME not set'
+    )
   }
   await l1Rpc.send('hardhat_impersonateAccount', [executor])
 
@@ -257,8 +264,9 @@ async function checkBridge(
   }
 
   // make sure allowed inbox and outbox list is unchanged
-  const { inboxes, outboxes } =
-    await getAllowedInboxesOutboxesFromBridge(bridgeContract)
+  const { inboxes, outboxes } = await getAllowedInboxesOutboxesFromBridge(
+    bridgeContract
+  )
   if (JSON.stringify(inboxes) !== JSON.stringify(preUpgradeState.inboxes)) {
     throw new Error('Allowed inbox list has changed')
   }
@@ -395,7 +403,7 @@ async function checkNewRollup(
   // loserStakeEscrow
   if (
     getAddress(await newRollup.loserStakeEscrow()) !==
-    getAddress(config.contracts.l1Timelock)
+    getAddress(config.contracts.excessStakeReceiver)
   ) {
     throw new Error('Loser stake escrow address does not match')
   }
@@ -440,14 +448,12 @@ async function checkNewRollup(
     throw new Error('Base stake does not match')
   }
 
-  // check fast confirmer
-  if (config.settings.anyTrustFastConfirmer.length != 0) {
-    if (
-      getAddress(await newRollup.anyTrustFastConfirmer()) !==
-      getAddress(config.settings.anyTrustFastConfirmer)
-    ) {
-      throw new Error('Any trust fast confirmer does not match')
-    }
+  // check fast confirmer (must be 0 for the local chain)
+  if (
+    getAddress(await newRollup.anyTrustFastConfirmer()) !==
+    ethers.constants.AddressZero
+  ) {
+    throw new Error('Any trust fast confirmer does not match')
   }
 }
 
@@ -530,7 +536,7 @@ async function checkNewChallengeManager(
   // check excess stake receiver
   if (
     (await edgeChallengeManager.excessStakeReceiver()) !==
-    config.contracts.l1Timelock
+    config.contracts.excessStakeReceiver
   ) {
     throw new Error('Excess stake receiver does not match')
   }

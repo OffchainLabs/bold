@@ -9,9 +9,9 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IAbsBoldStakingPool} from "./interfaces/IAbsBoldStakingPool.sol";
 
 /// @notice Abstract contract for handling deposits and withdrawals of trustless edge/assertion staking pools.
-/// @dev    The total deposited amount can exceed the required stake amount. 
+/// @dev    The total deposited amount can exceed the required stake amount.
 ///         If the total deposited amount exceeds the required amount, any depositor can withdraw some stake early even after the protocol move has been made.
-///         This is okay because the protocol move will still be created once the required stake amount is reached, 
+///         This is okay because the protocol move will still be created once the required stake amount is reached,
 ///         and all depositors will still be eventually refunded.
 abstract contract AbsBoldStakingPool is IAbsBoldStakingPool {
     using SafeERC20 for IERC20;
@@ -21,12 +21,16 @@ abstract contract AbsBoldStakingPool is IAbsBoldStakingPool {
     /// @inheritdoc IAbsBoldStakingPool
     mapping(address => uint256) public depositBalance;
 
-    constructor(address _stakeToken) {
+    constructor(
+        address _stakeToken
+    ) {
         stakeToken = _stakeToken;
     }
 
     /// @inheritdoc IAbsBoldStakingPool
-    function depositIntoPool(uint256 amount) external {
+    function depositIntoPool(
+        uint256 amount
+    ) external {
         if (amount == 0) {
             revert ZeroAmount();
         }
@@ -38,7 +42,9 @@ abstract contract AbsBoldStakingPool is IAbsBoldStakingPool {
     }
 
     /// @inheritdoc IAbsBoldStakingPool
-    function withdrawFromPool(uint256 amount) public {
+    function withdrawFromPool(
+        uint256 amount
+    ) public {
         if (amount == 0) {
             revert ZeroAmount();
         }
@@ -49,7 +55,7 @@ abstract contract AbsBoldStakingPool is IAbsBoldStakingPool {
 
         depositBalance[msg.sender] = balance - amount;
         IERC20(stakeToken).safeTransfer(msg.sender, amount);
-        
+
         emit StakeWithdrawn(msg.sender, amount);
     }
 

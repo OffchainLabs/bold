@@ -79,44 +79,45 @@ library DelayBuffer {
     /// @notice Calculates the buffer changes up to the requested block number
     /// @param self The delay buffer data
     /// @param blockNumber The block number to process the delay up to
-    function calcPendingBuffer(BufferData storage self, uint64 blockNumber)
-        internal
-        view
-        returns (uint64)
-    {
+    function calcPendingBuffer(
+        BufferData storage self,
+        uint64 blockNumber
+    ) internal view returns (uint64) {
         // bufferUpdate will not overflow since inputs are uint64
-        return
-            uint64(
-                calcBuffer({
-                    start: self.prevBlockNumber,
-                    end: blockNumber,
-                    buffer: self.bufferBlocks,
-                    threshold: self.threshold,
-                    sequenced: self.prevSequencedBlockNumber,
-                    max: self.max,
-                    replenishRateInBasis: self.replenishRateInBasis
-                })
-            );
+        return uint64(
+            calcBuffer({
+                start: self.prevBlockNumber,
+                end: blockNumber,
+                buffer: self.bufferBlocks,
+                threshold: self.threshold,
+                sequenced: self.prevSequencedBlockNumber,
+                max: self.max,
+                replenishRateInBasis: self.replenishRateInBasis
+            })
+        );
     }
 
     /// @dev    This is the `sync validity window` during which no proofs are required.
     /// @notice Returns true if the inbox is in a synced state (no unexpected delays are possible)
-    function isSynced(BufferData storage self) internal view returns (bool) {
+    function isSynced(
+        BufferData storage self
+    ) internal view returns (bool) {
         return block.number - self.prevBlockNumber <= self.threshold;
     }
 
-    function isUpdatable(BufferData storage self) internal view returns (bool) {
+    function isUpdatable(
+        BufferData storage self
+    ) internal view returns (bool) {
         // if synced, the buffer can't be depleted
         // if full, the buffer can't be replenished
         // if neither synced nor full, the buffer updatable (depletable / replenishable)
         return !isSynced(self) || self.bufferBlocks < self.max;
     }
 
-    function isValidBufferConfig(BufferConfig memory config) internal pure returns (bool) {
-        return
-            config.threshold != 0 &&
-            config.max != 0 &&
-            config.replenishRateInBasis <= BASIS &&
-            config.threshold <= config.max;
+    function isValidBufferConfig(
+        BufferConfig memory config
+    ) internal pure returns (bool) {
+        return config.threshold != 0 && config.max != 0 && config.replenishRateInBasis <= BASIS
+            && config.threshold <= config.max;
     }
 }

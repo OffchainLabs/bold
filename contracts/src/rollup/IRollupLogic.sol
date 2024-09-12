@@ -12,7 +12,9 @@ import "../bridge/IOwnable.sol";
 interface IRollupUser is IRollupCore, IOwnable {
     /// @dev the user logic just validated configuration and shouldn't write to state during init
     /// this allows the admin logic to ensure consistency on parameters.
-    function initialize(address stakeToken) external view;
+    function initialize(
+        address stakeToken
+    ) external view;
 
     function removeWhitelistAfterFork() external;
 
@@ -27,13 +29,20 @@ interface IRollupUser is IRollupCore, IOwnable {
         bytes32 inboxAcc
     ) external;
 
-    function stakeOnNewAssertion(AssertionInputs calldata assertion, bytes32 expectedAssertionHash) external;
+    function stakeOnNewAssertion(
+        AssertionInputs calldata assertion,
+        bytes32 expectedAssertionHash
+    ) external;
 
     function returnOldDeposit() external;
 
-    function returnOldDepositFor(address stakerAddress) external;
+    function returnOldDepositFor(
+        address stakerAddress
+    ) external;
 
-    function reduceDeposit(uint256 target) external;
+    function reduceDeposit(
+        uint256 target
+    ) external;
 
     function withdrawStakerFunds() external returns (uint256);
 
@@ -52,5 +61,9 @@ interface IRollupUser is IRollupCore, IOwnable {
 
     function newStake(uint256 tokenAmount, address withdrawalAddress) external;
 
-    function addToDeposit(address stakerAddress, address expectedWithdrawalAddress, uint256 tokenAmount) external;
+    function addToDeposit(
+        address stakerAddress,
+        address expectedWithdrawalAddress,
+        uint256 tokenAmount
+    ) external;
 }

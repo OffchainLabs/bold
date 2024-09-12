@@ -17,10 +17,10 @@ struct ExecutionState {
 }
 
 interface IOneStepProofEntry {
-    function getStartMachineHash(bytes32 globalStateHash, bytes32 wasmModuleRoot)
-        external
-        pure
-        returns (bytes32);
+    function getStartMachineHash(
+        bytes32 globalStateHash,
+        bytes32 wasmModuleRoot
+    ) external pure returns (bytes32);
 
     function proveOneStep(
         ExecutionContext calldata execCtx,
@@ -29,5 +29,7 @@ interface IOneStepProofEntry {
         bytes calldata proof
     ) external view returns (bytes32 afterHash);
 
-    function getMachineHash(ExecutionState calldata execState) external pure returns (bytes32);
+    function getMachineHash(
+        ExecutionState calldata execState
+    ) external pure returns (bytes32);
 }

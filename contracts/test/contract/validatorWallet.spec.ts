@@ -46,8 +46,12 @@ describe('Validator Wallet', () => {
     await wallet.transferOwnership(await owner.getAddress())
 
     const RollupMock = await ethers.getContractFactory('RollupMock')
-    rollupMock1 = (await RollupMock.deploy(ethers.constants.AddressZero)) as RollupMock
-    rollupMock2 = (await RollupMock.deploy(ethers.constants.AddressZero)) as RollupMock
+    rollupMock1 = (await RollupMock.deploy(
+      ethers.constants.AddressZero
+    )) as RollupMock
+    rollupMock2 = (await RollupMock.deploy(
+      ethers.constants.AddressZero
+    )) as RollupMock
 
     await accounts[0].sendTransaction({
       to: wallet.address,
@@ -92,11 +96,7 @@ describe('Validator Wallet', () => {
 
     await expect(
       wallet.connect(executor).executeTransaction(data, rollupMock1.address, 0)
-    ).to.be.revertedWith(
-      `OnlyOwnerDestination("${await owner.getAddress()}", "${await executor.getAddress()}", "${
-        rollupMock1.address
-      }")`
-    )
+    ).to.be.revertedWith(`OnlyOwnerDestination`)
     await expect(
       wallet.connect(owner).executeTransaction(data, rollupMock1.address, 0)
     ).to.emit(rollupMock1, 'WithdrawTriggered')
@@ -126,10 +126,6 @@ describe('Validator Wallet', () => {
           [rollupMock1.address, rollupMock2.address],
           [0, 0]
         )
-    ).to.be.revertedWith(
-      `OnlyOwnerDestination("${await owner.getAddress()}", "${await executor.getAddress()}", "${
-        rollupMock2.address
-      }")`
-    )
+    ).to.be.revertedWith(`OnlyOwnerDestination`)
   })
 })

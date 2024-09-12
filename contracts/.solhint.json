@@ -1,7 +1,6 @@
 {
   "extends": ["solhint:recommended"],
   "rules": {
-    "prettier/prettier": "error",
     "avoid-throw": "off",
     "avoid-suicide": "error",
     "avoid-sha3": "warn",
@@ -11,8 +10,12 @@
     "no-empty-blocks": "off",
     "reason-string": ["warn", { "maxLength": 128 }],
     "not-rely-on-time": "off",
-    "max-states-count": ["warn", 30],
-    "no-inline-assembly": "off"
+    "max-states-count": ["warn", 40],
+    "no-inline-assembly": "off",
+    "no-global-import": "off",
+    "custom-errors": "off",
+    "immutable-vars-naming": "off",
+    "var-name-mixedcase": "off"
   },
-  "plugins": ["prettier"]
+  "plugins": []
 }

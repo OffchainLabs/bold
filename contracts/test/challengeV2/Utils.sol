@@ -4,7 +4,7 @@
 //
 pragma solidity ^0.8.17;
 
-import "../../src/challengeV2/libraries/MerkleTreeLib.sol";
+import "../../src/challengeV2/libraries/MerkleTreeAccumulatorLib.sol";
 import "../../src/challengeV2/libraries/UintUtilsLib.sol";
 import "../../src/challengeV2/libraries/ArrayUtilsLib.sol";
 import "forge-std/Test.sol";
@@ -17,7 +17,9 @@ contract Random {
         return seed;
     }
 
-    function hashes(uint256 count) public returns (bytes32[] memory) {
+    function hashes(
+        uint256 count
+    ) public returns (bytes32[] memory) {
         bytes32[] memory h = new bytes32[](count);
         for (uint256 i = 0; i < h.length; i++) {
             h[i] = hash();
@@ -30,7 +32,9 @@ contract Random {
         return address(bytes20(seed));
     }
 
-    function unsignedInt(uint256 max) public returns (uint256) {
+    function unsignedInt(
+        uint256 max
+    ) public returns (uint256) {
         bytes32 h = hash();
         return uint256(h) % max;
     }
@@ -51,17 +55,17 @@ library ProofUtils {
     /// @param leaves The leaves to form into an expansion
     /// @param leafStartIndex The subset of the leaves to start the expansion from - inclusive
     /// @param leafEndIndex The subset of the leaves to end the expansion from - exclusive
-    function expansionFromLeaves(bytes32[] memory leaves, uint256 leafStartIndex, uint256 leafEndIndex)
-        internal
-        pure
-        returns (bytes32[] memory)
-    {
+    function expansionFromLeaves(
+        bytes32[] memory leaves,
+        uint256 leafStartIndex,
+        uint256 leafEndIndex
+    ) internal pure returns (bytes32[] memory) {
         require(leafStartIndex < leafEndIndex, "Leaf start not less than leaf end");
         require(leafEndIndex <= leaves.length, "Leaf end not less than leaf length");
 
         bytes32[] memory expansion = new bytes32[](0);
         for (uint256 i = leafStartIndex; i < leafEndIndex; i++) {
-            expansion = MerkleTreeLib.appendLeaf(expansion, leaves[i]);
+            expansion = MerkleTreeAccumulatorLib.appendLeaf(expansion, leaves[i]);
         }
 
         return expansion;
@@ -71,11 +75,10 @@ library ProofUtils {
     ///         results in the tree at size preSize + newLeaves.length
     /// @dev    The proof is the minimum number of complete sub trees that must
     ///         be appended to the pre tree in order to produce the post tree.
-    function generatePrefixProof(uint256 preSize, bytes32[] memory newLeaves)
-        internal
-        pure
-        returns (bytes32[] memory)
-    {
+    function generatePrefixProof(
+        uint256 preSize,
+        bytes32[] memory newLeaves
+    ) internal pure returns (bytes32[] memory) {
         require(preSize > 0, "Pre-size cannot be 0");
         require(newLeaves.length > 0, "No new leaves added");
 
@@ -88,7 +91,7 @@ library ProofUtils {
         // that we can append at, then append these leaves, then repeat the process.
 
         while (size < postSize) {
-            uint256 level = MerkleTreeLib.maximumAppendBetween(size, postSize);
+            uint256 level = MerkleTreeAccumulatorLib.maximumAppendBetween(size, postSize);
             // add 2^level leaves to create a subtree
             uint256 numLeaves = 1 << level;
 
@@ -96,7 +99,7 @@ library ProofUtils {
             uint256 endIndex = startIndex + numLeaves;
             // create a complete sub tree at the specified level
             bytes32[] memory exp = expansionFromLeaves(newLeaves, startIndex, endIndex);
-            proof = ArrayUtilsLib.append(proof, MerkleTreeLib.root(exp));
+            proof = ArrayUtilsLib.append(proof, MerkleTreeAccumulatorLib.root(exp));
 
             size += numLeaves;
 
@@ -106,7 +109,10 @@ library ProofUtils {
         return proof;
     }
 
-    function generateInclusionProof(bytes32[] memory leaves, uint256 index) internal pure returns (bytes32[] memory) {
+    function generateInclusionProof(
+        bytes32[] memory leaves,
+        uint256 index
+    ) internal pure returns (bytes32[] memory) {
         require(leaves.length >= 1, "No leaves");
         require(index < leaves.length, "Index too high");
         bytes32[][] memory fullT = fullTree(leaves);
@@ -121,14 +127,17 @@ library ProofUtils {
 
             uint256 counterpartIndex = levelIndex ^ 1;
             bytes32[] memory layer = fullT[level];
-            bytes32 counterpart = counterpartIndex > layer.length - 1 ? bytes32(0) : layer[counterpartIndex];
+            bytes32 counterpart =
+                counterpartIndex > layer.length - 1 ? bytes32(0) : layer[counterpartIndex];
 
             proof[level] = counterpart;
         }
         return proof;
     }
 
-    function fullTree(bytes32[] memory leaves) internal pure returns (bytes32[][] memory) {
+    function fullTree(
+        bytes32[] memory leaves
+    ) internal pure returns (bytes32[][] memory) {
         uint256 msb = UintUtilsLib.mostSignificantBit(leaves.length);
         uint256 lsb = UintUtilsLib.leastSignificantBit(leaves.length);
 
@@ -143,7 +152,8 @@ library ProofUtils {
             bytes32[] memory nextLayer = new bytes32[]((prevLayer.length + 1) / 2);
             for (uint256 i = 0; i < nextLayer.length; i++) {
                 if (2 * i + 1 < prevLayer.length) {
-                    nextLayer[i] = keccak256(abi.encodePacked(prevLayer[2 * i], prevLayer[2 * i + 1]));
+                    nextLayer[i] =
+                        keccak256(abi.encodePacked(prevLayer[2 * i], prevLayer[2 * i + 1]));
                 } else {
                     nextLayer[i] = keccak256(abi.encodePacked(prevLayer[2 * i], bytes32(0)));
                 }
@@ -155,7 +165,9 @@ library ProofUtils {
         return layers;
     }
 
-    function rehashed(bytes32[] memory arr) internal pure returns (bytes32[] memory) {
+    function rehashed(
+        bytes32[] memory arr
+    ) internal pure returns (bytes32[] memory) {
         bytes32[] memory arr2 = new bytes32[](arr.length);
         for (uint256 i = 0; i < arr.length; i++) {
             arr2[i] = keccak256(abi.encodePacked(arr[i]));

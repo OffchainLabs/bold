@@ -5,5 +5,8 @@ coverage/**
 deployments/**
 src/lib/abi/**
 .nyc_output
-lib/**
 out/**
+lib/**
+src/mocks/MultiCallTest.sol
+slither.db.json
+LICENSE.md

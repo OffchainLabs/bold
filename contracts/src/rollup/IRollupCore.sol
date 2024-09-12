@@ -38,12 +38,22 @@ interface IRollupCore is IAssertionChain {
     event AssertionConfirmed(bytes32 indexed assertionHash, bytes32 blockHash, bytes32 sendRoot);
 
     event RollupChallengeStarted(
-        uint64 indexed challengeIndex, address asserter, address challenger, uint64 challengedAssertion
+        uint64 indexed challengeIndex,
+        address asserter,
+        address challenger,
+        uint64 challengedAssertion
     );
 
-    event UserStakeUpdated(address indexed user, address indexed withdrawalAddress, uint256 initialBalance, uint256 finalBalance);
+    event UserStakeUpdated(
+        address indexed user,
+        address indexed withdrawalAddress,
+        uint256 initialBalance,
+        uint256 finalBalance
+    );
 
-    event UserWithdrawableFundsUpdated(address indexed user, uint256 initialBalance, uint256 finalBalance);
+    event UserWithdrawableFundsUpdated(
+        address indexed user, uint256 initialBalance, uint256 finalBalance
+    );
 
     function confirmPeriodBlocks() external view returns (uint64);
 
@@ -76,7 +86,9 @@ interface IRollupCore is IAssertionChain {
     /**
      * @notice Get the Assertion for the given id.
      */
-    function getAssertion(bytes32 assertionHash) external view returns (AssertionNode memory);
+    function getAssertion(
+        bytes32 assertionHash
+    ) external view returns (AssertionNode memory);
 
     /**
      * @notice Returns the block in which the given assertion was created for looking up its creation event.
@@ -85,56 +97,72 @@ interface IRollupCore is IAssertionChain {
      * This function will revert if the given assertion hash does not exist.
      * @dev This function is meant for internal use only and has no stability guarantees.
      */
-    function getAssertionCreationBlockForLogLookup(bytes32 assertionHash) external view returns (uint256);
+    function getAssertionCreationBlockForLogLookup(
+        bytes32 assertionHash
+    ) external view returns (uint256);
 
     /**
      * @notice Get the address of the staker at the given index
      * @param stakerNum Index of the staker
      * @return Address of the staker
      */
-    function getStakerAddress(uint64 stakerNum) external view returns (address);
+    function getStakerAddress(
+        uint64 stakerNum
+    ) external view returns (address);
 
     /**
      * @notice Check whether the given staker is staked
      * @param staker Staker address to check
      * @return True or False for whether the staker was staked
      */
-    function isStaked(address staker) external view returns (bool);
+    function isStaked(
+        address staker
+    ) external view returns (bool);
 
     /**
      * @notice Get the latest staked assertion of the given staker
      * @param staker Staker address to lookup
      * @return Latest assertion staked of the staker
      */
-    function latestStakedAssertion(address staker) external view returns (bytes32);
+    function latestStakedAssertion(
+        address staker
+    ) external view returns (bytes32);
 
     /**
      * @notice Get the amount staked of the given staker
      * @param staker Staker address to lookup
      * @return Amount staked of the staker
      */
-    function amountStaked(address staker) external view returns (uint256);
+    function amountStaked(
+        address staker
+    ) external view returns (uint256);
 
     /**
      * @notice Get the withdrawal address of the given staker
      * @param staker Staker address to lookup
      * @return Withdrawal address of the staker
      */
-    function withdrawalAddress(address staker) external view returns (address);
+    function withdrawalAddress(
+        address staker
+    ) external view returns (address);
 
     /**
      * @notice Retrieves stored information about a requested staker
      * @param staker Staker address to retrieve
      * @return A structure with information about the requested staker
      */
-    function getStaker(address staker) external view returns (Staker memory);
+    function getStaker(
+        address staker
+    ) external view returns (Staker memory);
 
     /**
      * @notice Get the amount of funds withdrawable by the given address
      * @param owner Address to check the funds of
      * @return Amount of funds withdrawable by owner
      */
-    function withdrawableFunds(address owner) external view returns (uint256);
+    function withdrawableFunds(
+        address owner
+    ) external view returns (uint256);
     /// @return Hash of the latest confirmed assertion
     function latestConfirmed() external view returns (bytes32);
 

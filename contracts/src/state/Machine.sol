@@ -37,17 +37,15 @@ library MachineLib {
 
     bytes32 internal constant NO_RECOVERY_PC = ~bytes32(0);
 
-    function hash(Machine memory mach) internal pure returns (bytes32) {
+    function hash(
+        Machine memory mach
+    ) internal pure returns (bytes32) {
         // Warning: the non-running hashes are replicated in Challenge
         if (mach.status == MachineStatus.RUNNING) {
-            bytes32 valueMultiHash = mach.valueMultiStack.hash(
-                mach.valueStack.hash(),
-                mach.recoveryPc != NO_RECOVERY_PC
-            );
-            bytes32 frameMultiHash = mach.frameMultiStack.hash(
-                mach.frameStack.hash(),
-                mach.recoveryPc != NO_RECOVERY_PC
-            );
+            bytes32 valueMultiHash =
+                mach.valueMultiStack.hash(mach.valueStack.hash(), mach.recoveryPc != NO_RECOVERY_PC);
+            bytes32 frameMultiHash =
+                mach.frameMultiStack.hash(mach.frameStack.hash(), mach.recoveryPc != NO_RECOVERY_PC);
             bytes memory preimage = abi.encodePacked(
                 "Machine running:",
                 valueMultiHash,
@@ -70,12 +68,14 @@ library MachineLib {
         }
     }
 
-    function switchCoThreadStacks(Machine memory mach) internal pure {
+    function switchCoThreadStacks(
+        Machine memory mach
+    ) internal pure {
         bytes32 newActiveValue = mach.valueMultiStack.inactiveStackHash;
         bytes32 newActiveFrame = mach.frameMultiStack.inactiveStackHash;
         if (
-            newActiveFrame == MultiStackLib.NO_STACK_HASH ||
-            newActiveValue == MultiStackLib.NO_STACK_HASH
+            newActiveFrame == MultiStackLib.NO_STACK_HASH
+                || newActiveValue == MultiStackLib.NO_STACK_HASH
         ) {
             mach.status = MachineStatus.ERRORED;
             return;
@@ -97,7 +97,9 @@ library MachineLib {
         return true;
     }
 
-    function setPcFromRecovery(Machine memory mach) internal pure returns (bool) {
+    function setPcFromRecovery(
+        Machine memory mach
+    ) internal pure returns (bool) {
         if (!setPcFromData(mach, uint256(mach.recoveryPc))) {
             return false;
         }

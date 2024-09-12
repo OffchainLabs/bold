@@ -4,16 +4,7 @@
 
 pragma solidity ^0.8.4;
 
-import {
-    NotOrigin,
-    DataTooLarge,
-    InsufficientValue,
-    InsufficientSubmissionCost,
-    RetryableData,
-    L1Forked,
-    NotForked,
-    GasLimitTooLarge
-} from "../libraries/Error.sol";
+import {NotOrigin, NotForked, GasLimitTooLarge} from "../libraries/Error.sol";
 import "./AbsInbox.sol";
 import "./IInbox.sol";
 import "./IBridge.sol";
@@ -22,7 +13,6 @@ import "../libraries/AddressAliasHelper.sol";
 import {
     L2_MSG,
     L1MessageType_L2FundedByL1,
-    L1MessageType_submitRetryableTx,
     L1MessageType_ethDeposit,
     L2MessageType_unsignedEOATx,
     L2MessageType_unsignedContractTx
@@ -37,19 +27,22 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
  * to await inclusion in the SequencerInbox
  */
 contract Inbox is AbsInbox, IInbox {
-    constructor(uint256 _maxDataSize) AbsInbox(_maxDataSize) {}
+    constructor(
+        uint256 _maxDataSize
+    ) AbsInbox(_maxDataSize) {}
 
     /// @inheritdoc IInboxBase
-    function initialize(IBridge _bridge, ISequencerInbox _sequencerInbox)
-        external
-        initializer
-        onlyDelegated
-    {
+    function initialize(
+        IBridge _bridge,
+        ISequencerInbox _sequencerInbox
+    ) external initializer onlyDelegated {
         __AbsInbox_init(_bridge, _sequencerInbox);
     }
 
     /// @inheritdoc IInbox
-    function postUpgradeInit(IBridge) external onlyDelegated onlyProxyOwner {}
+    function postUpgradeInit(
+        IBridge
+    ) external onlyDelegated onlyProxyOwner {}
 
     /// @inheritdoc IInbox
     function sendL1FundedUnsignedTransaction(
@@ -63,21 +56,20 @@ contract Inbox is AbsInbox, IInbox {
         if (gasLimit > type(uint64).max) {
             revert GasLimitTooLarge();
         }
-        return
-            _deliverMessage(
-                L1MessageType_L2FundedByL1,
-                msg.sender,
-                abi.encodePacked(
-                    L2MessageType_unsignedEOATx,
-                    gasLimit,
-                    maxFeePerGas,
-                    nonce,
-                    uint256(uint160(to)),
-                    msg.value,
-                    data
-                ),
-                msg.value
-            );
+        return _deliverMessage(
+            L1MessageType_L2FundedByL1,
+            msg.sender,
+            abi.encodePacked(
+                L2MessageType_unsignedEOATx,
+                gasLimit,
+                maxFeePerGas,
+                nonce,
+                uint256(uint160(to)),
+                msg.value,
+                data
+            ),
+            msg.value
+        );
     }
 
     /// @inheritdoc IInbox
@@ -91,20 +83,19 @@ contract Inbox is AbsInbox, IInbox {
         if (gasLimit > type(uint64).max) {
             revert GasLimitTooLarge();
         }
-        return
-            _deliverMessage(
-                L1MessageType_L2FundedByL1,
-                msg.sender,
-                abi.encodePacked(
-                    L2MessageType_unsignedContractTx,
-                    gasLimit,
-                    maxFeePerGas,
-                    uint256(uint160(to)),
-                    msg.value,
-                    data
-                ),
-                msg.value
-            );
+        return _deliverMessage(
+            L1MessageType_L2FundedByL1,
+            msg.sender,
+            abi.encodePacked(
+                L2MessageType_unsignedContractTx,
+                gasLimit,
+                maxFeePerGas,
+                uint256(uint160(to)),
+                msg.value,
+                data
+            ),
+            msg.value
+        );
     }
 
     /// @inheritdoc IInbox
@@ -122,22 +113,21 @@ contract Inbox is AbsInbox, IInbox {
         if (gasLimit > type(uint64).max) {
             revert GasLimitTooLarge();
         }
-        return
-            _deliverMessage(
-                L1MessageType_L2FundedByL1,
-                // undoing sender alias here to cancel out the aliasing
-                AddressAliasHelper.undoL1ToL2Alias(msg.sender),
-                abi.encodePacked(
-                    L2MessageType_unsignedEOATx,
-                    gasLimit,
-                    maxFeePerGas,
-                    nonce,
-                    uint256(uint160(to)),
-                    msg.value,
-                    data
-                ),
-                msg.value
-            );
+        return _deliverMessage(
+            L1MessageType_L2FundedByL1,
+            // undoing sender alias here to cancel out the aliasing
+            AddressAliasHelper.undoL1ToL2Alias(msg.sender),
+            abi.encodePacked(
+                L2MessageType_unsignedEOATx,
+                gasLimit,
+                maxFeePerGas,
+                nonce,
+                uint256(uint160(to)),
+                msg.value,
+                data
+            ),
+            msg.value
+        );
     }
 
     /// @inheritdoc IInbox
@@ -156,22 +146,21 @@ contract Inbox is AbsInbox, IInbox {
         if (gasLimit > type(uint64).max) {
             revert GasLimitTooLarge();
         }
-        return
-            _deliverMessage(
-                L2_MSG,
-                // undoing sender alias here to cancel out the aliasing
-                AddressAliasHelper.undoL1ToL2Alias(msg.sender),
-                abi.encodePacked(
-                    L2MessageType_unsignedEOATx,
-                    gasLimit,
-                    maxFeePerGas,
-                    nonce,
-                    uint256(uint160(to)),
-                    value,
-                    data
-                ),
-                0
-            );
+        return _deliverMessage(
+            L2_MSG,
+            // undoing sender alias here to cancel out the aliasing
+            AddressAliasHelper.undoL1ToL2Alias(msg.sender),
+            abi.encodePacked(
+                L2MessageType_unsignedEOATx,
+                gasLimit,
+                maxFeePerGas,
+                nonce,
+                uint256(uint160(to)),
+                value,
+                data
+            ),
+            0
+        );
     }
 
     /// @inheritdoc IInbox
@@ -189,22 +178,21 @@ contract Inbox is AbsInbox, IInbox {
         if (gasLimit > type(uint64).max) {
             revert GasLimitTooLarge();
         }
-        return
-            _deliverMessage(
-                L2_MSG,
-                // undoing sender alias here to cancel out the aliasing
-                AddressAliasHelper.undoL1ToL2Alias(msg.sender),
-                abi.encodePacked(
-                    L2MessageType_unsignedEOATx,
-                    gasLimit,
-                    maxFeePerGas,
-                    nonce,
-                    uint256(uint160(address(100))), // ArbSys address
-                    value,
-                    abi.encodeWithSelector(ArbSys.withdrawEth.selector, withdrawTo)
-                ),
-                0
-            );
+        return _deliverMessage(
+            L2_MSG,
+            // undoing sender alias here to cancel out the aliasing
+            AddressAliasHelper.undoL1ToL2Alias(msg.sender),
+            abi.encodePacked(
+                L2MessageType_unsignedEOATx,
+                gasLimit,
+                maxFeePerGas,
+                nonce,
+                uint256(uint160(address(100))), // ArbSys address
+                value,
+                abi.encodeWithSelector(ArbSys.withdrawEth.selector, withdrawTo)
+            ),
+            0
+        );
     }
 
     /// @inheritdoc IInbox
@@ -217,17 +205,15 @@ contract Inbox is AbsInbox, IInbox {
             dest = AddressAliasHelper.applyL1ToL2Alias(msg.sender);
         }
 
-        return
-            _deliverMessage(
-                L1MessageType_ethDeposit,
-                msg.sender,
-                abi.encodePacked(dest, msg.value),
-                msg.value
-            );
+        return _deliverMessage(
+            L1MessageType_ethDeposit, msg.sender, abi.encodePacked(dest, msg.value), msg.value
+        );
     }
 
     /// @notice deprecated in favour of depositEth with no parameters
-    function depositEth(uint256) external payable whenNotPaused onlyAllowed returns (uint256) {
+    function depositEth(
+        uint256
+    ) external payable whenNotPaused onlyAllowed returns (uint256) {
         return depositEth();
     }
 
@@ -238,7 +224,7 @@ contract Inbox is AbsInbox, IInbox {
      * @param to destination L2 contract address
      * @param l2CallValue call value for retryable L2 message
      * @param maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
-     * @param excessFeeRefundAddress gasLimit x maxFeePerGas - execution cost gets credited here on L2 balance
+     * @param excessFeeRefundAddress the address which receives the difference between execution fee paid and the actual execution cost
      * @param callValueRefundAddress l2Callvalue gets credited here on L2 if retryable txn times out or gets cancelled
      * @param gasLimit Max gas deducted from user's L2 balance to cover L2 execution. Should not be set to 1 (magic value used to trigger the RetryableData error)
      * @param maxFeePerGas price bid for L2 execution. Should not be set to 1 (magic value used to trigger the RetryableData error)
@@ -256,17 +242,16 @@ contract Inbox is AbsInbox, IInbox {
         bytes calldata data
     ) external payable whenNotPaused onlyAllowed returns (uint256) {
         // gas limit is validated to be within uint64 in unsafeCreateRetryableTicket
-        return
-            unsafeCreateRetryableTicket(
-                to,
-                l2CallValue,
-                maxSubmissionCost,
-                excessFeeRefundAddress,
-                callValueRefundAddress,
-                gasLimit,
-                maxFeePerGas,
-                data
-            );
+        return unsafeCreateRetryableTicket(
+            to,
+            l2CallValue,
+            maxSubmissionCost,
+            excessFeeRefundAddress,
+            callValueRefundAddress,
+            gasLimit,
+            maxFeePerGas,
+            data
+        );
     }
 
     /// @inheritdoc IInbox
@@ -280,18 +265,17 @@ contract Inbox is AbsInbox, IInbox {
         uint256 maxFeePerGas,
         bytes calldata data
     ) external payable whenNotPaused onlyAllowed returns (uint256) {
-        return
-            _createRetryableTicket(
-                to,
-                l2CallValue,
-                maxSubmissionCost,
-                excessFeeRefundAddress,
-                callValueRefundAddress,
-                gasLimit,
-                maxFeePerGas,
-                msg.value,
-                data
-            );
+        return _createRetryableTicket(
+            to,
+            l2CallValue,
+            maxSubmissionCost,
+            excessFeeRefundAddress,
+            callValueRefundAddress,
+            gasLimit,
+            maxFeePerGas,
+            msg.value,
+            data
+        );
     }
 
     /// @inheritdoc IInbox
@@ -305,27 +289,24 @@ contract Inbox is AbsInbox, IInbox {
         uint256 maxFeePerGas,
         bytes calldata data
     ) public payable whenNotPaused onlyAllowed returns (uint256) {
-        return
-            _unsafeCreateRetryableTicket(
-                to,
-                l2CallValue,
-                maxSubmissionCost,
-                excessFeeRefundAddress,
-                callValueRefundAddress,
-                gasLimit,
-                maxFeePerGas,
-                msg.value,
-                data
-            );
+        return _unsafeCreateRetryableTicket(
+            to,
+            l2CallValue,
+            maxSubmissionCost,
+            excessFeeRefundAddress,
+            callValueRefundAddress,
+            gasLimit,
+            maxFeePerGas,
+            msg.value,
+            data
+        );
     }
 
     /// @inheritdoc IInboxBase
-    function calculateRetryableSubmissionFee(uint256 dataLength, uint256 baseFee)
-        public
-        view
-        override(AbsInbox, IInboxBase)
-        returns (uint256)
-    {
+    function calculateRetryableSubmissionFee(
+        uint256 dataLength,
+        uint256 baseFee
+    ) public view override(AbsInbox, IInboxBase) returns (uint256) {
         // Use current block basefee if baseFee parameter is 0
         return (1400 + 6 * dataLength) * (baseFee == 0 ? block.basefee : baseFee);
     }
@@ -336,11 +317,15 @@ contract Inbox is AbsInbox, IInbox {
         bytes32 messageDataHash,
         uint256 amount
     ) internal override returns (uint256) {
-        return
-            IEthBridge(address(bridge)).enqueueDelayedMessage{value: amount}(
-                kind,
-                AddressAliasHelper.applyL1ToL2Alias(sender),
-                messageDataHash
-            );
+        return IEthBridge(address(bridge)).enqueueDelayedMessage{value: amount}(
+            kind, AddressAliasHelper.applyL1ToL2Alias(sender), messageDataHash
+        );
+    }
+
+    /// @inheritdoc AbsInbox
+    function _fromNativeTo18Decimals(
+        uint256 value
+    ) internal pure override returns (uint256) {
+        return value;
     }
 }
