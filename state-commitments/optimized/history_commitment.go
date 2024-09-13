@@ -11,6 +11,33 @@ import (
 
 var emptyHash = common.Hash{}
 
+type Commitment struct {
+	Height         uint64
+	Merkle         common.Hash
+	FirstLeaf      common.Hash
+	LastLeafProof  []common.Hash
+	FirstLeafProof []common.Hash
+	LastLeaf       common.Hash
+}
+
+func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
+	if len(leaves) == 0 {
+		return nil, errors.New("must commit to at least one leaf")
+	}
+	comm := NewCommitter()
+	root, err := comm.ComputeRoot(leaves, virtual)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: Generate the inclusion proofs necessary.
+	return &Commitment{
+		Height:    virtual,
+		Merkle:    root,
+		FirstLeaf: leaves[0],
+		LastLeaf:  leaves[len(leaves)-1],
+	}, nil
+}
+
 type HistoryCommitter struct {
 	lastLeafFillers []common.Hash
 	keccak          crypto.KeccakState
