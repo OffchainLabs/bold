@@ -33,9 +33,8 @@ func FuzzHistoryCommitter(f *testing.F) {
 		for i := range hashedLeaves {
 			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
 		}
-		builder := NewBuilder().Virtual(virtual).Limit(limit)
-		committer, _ := builder.Build()
-		committer.ComputeRoot(hashedLeaves)
+		committer := NewCommitter()
+		committer.ComputeRoot(hashedLeaves, virtual)
 	})
 }
 
@@ -138,12 +137,10 @@ func BenchmarkPrefixProofGeneration_Optimized(b *testing.B) {
 	hashes := []common.Hash{crypto.Keccak256Hash(simpleHash[:])}
 	prefixIndex := uint64(13384)
 	virtual := uint64(1 << 14)
-	limit := virtual
-	builder, err := NewBuilder().Virtual(virtual).Limit(limit).Build()
-	require.NoError(b, err)
+	committer := NewCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, _, err := builder.GeneratePrefixProof(prefixIndex, hashes)
+		_, _, err := committer.GeneratePrefixProof(prefixIndex, hashes, virtual)
 		require.NoError(b, err)
 	}
 }

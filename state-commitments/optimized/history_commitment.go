@@ -14,44 +14,16 @@ var emptyHash = common.Hash{}
 type HistoryCommitter struct {
 	lastLeafFillers []common.Hash
 	keccak          crypto.KeccakState
-	limit           uint64
-	virtual         uint64
 }
 
-type CommitmentBuilder struct {
-	limit   *uint64
-	virtual *uint64
-}
-
-func NewBuilder() *CommitmentBuilder {
-	return &CommitmentBuilder{}
-}
-
-func (cb *CommitmentBuilder) Limit(n uint64) *CommitmentBuilder {
-	cb.limit = &n
-	return cb
-}
-
-func (cb *CommitmentBuilder) Virtual(n uint64) *CommitmentBuilder {
-	cb.virtual = &n
-	return cb
-}
-
-func (cb *CommitmentBuilder) Build() (*HistoryCommitter, error) {
-	if cb.limit == nil {
-		return nil, errors.New("limit not set")
-	}
-	if cb.virtual == nil {
-		return nil, errors.New("virtual not set")
-	}
+func NewCommitter() *HistoryCommitter {
 	return &HistoryCommitter{
-		limit:   *cb.limit,
-		virtual: *cb.virtual,
-		keccak:  crypto.NewKeccakState(),
-	}, nil
+		lastLeafFillers: make([]common.Hash, 0),
+		keccak:          crypto.NewKeccakState(),
+	}
 }
 
-func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash) (common.Hash, error) {
+func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
 	if len(leaves) == 0 {
 		return common.Hash{}, nil
 	}
@@ -62,15 +34,16 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash) (common.Hash, error
 		copy(copied[:], leaf[:])
 		copiedLeaves[i] = copied
 	}
-	_, err := h.computeVirtualSparseTree(copiedLeaves, h.virtual, 0)
+	limit := nextPowerOf2(virtual)
+	_, err := h.computeVirtualSparseTree(copiedLeaves, virtual, 0)
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return h.computeVirtualSparseTree(leaves, h.virtual, h.limit)
+	return h.computeVirtualSparseTree(leaves, virtual, limit)
 }
 
-func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash) ([]common.Hash, []common.Hash, error) {
-	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, leaves, h.virtual)
+func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
+	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, leaves, virtual)
 	if err != nil {
 		return nil, nil, err
 	}
