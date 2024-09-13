@@ -32,7 +32,7 @@ var (
 // AddressAliasHelperMetaData contains all meta data concerning the AddressAliasHelper contract.
 var AddressAliasHelperMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212201b1c7c1eed6308a3167edcc47c3ecd54d20200159e384b2fa53f8ed918ceaeee64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212201fb8cda33d4467ba81eae897f7f310396da90933efd7aa352e4297760df9612c64736f6c63430008110033",
 }
 
 // AddressAliasHelperABI is the input ABI used to generate the binding from.
@@ -205,7 +205,7 @@ func (_AddressAliasHelper *AddressAliasHelperTransactorRaw) Transact(opts *bind.
 // AdminFallbackProxyMetaData contains all meta data concerning the AdminFallbackProxy contract.
 var AdminFallbackProxyMetaData = &bind.MetaData{
 	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"previousAdmin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"AdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"beacon\",\"type\":\"address\"}],\"name\":\"BeaconUpgraded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"UpgradedSecondary\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
-	Bin: "0x608060405234801561001057600080fd5b50610245806100206000396000f3fe60806040523661001357610011610017565b005b6100115b610027610022610029565b61015b565b565b6000600436101561009b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600b60248201527f4e4f5f46554e435f53494700000000000000000000000000000000000000000060448201526064015b60405180910390fd5b6000336100a661017f565b73ffffffffffffffffffffffffffffffffffffffff16036100ce576100c96101bf565b6100d6565b6100d66101e7565b905073ffffffffffffffffffffffffffffffffffffffff81163b610156576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601360248201527f5441524745545f4e4f545f434f4e5452414354000000000000000000000000006044820152606401610092565b919050565b3660008037600080366000845af43d6000803e80801561017a573d6000f35b3d6000fd5b60007fb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d61035b5473ffffffffffffffffffffffffffffffffffffffff16919050565b60007f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc6101a3565b60007f2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d6101a356fea26469706673582212203170ab15fbcb10688949c192cd5e26073e1877dee31cd823a939d33a39fc1a6e64736f6c63430008110033",
+	Bin: "0x608060405234801561001057600080fd5b50610245806100206000396000f3fe60806040523661001357610011610017565b005b6100115b610027610022610029565b61015b565b565b6000600436101561009b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600b60248201527f4e4f5f46554e435f53494700000000000000000000000000000000000000000060448201526064015b60405180910390fd5b6000336100a661017f565b73ffffffffffffffffffffffffffffffffffffffff16036100ce576100c96101bf565b6100d6565b6100d66101e7565b905073ffffffffffffffffffffffffffffffffffffffff81163b610156576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601360248201527f5441524745545f4e4f545f434f4e5452414354000000000000000000000000006044820152606401610092565b919050565b3660008037600080366000845af43d6000803e80801561017a573d6000f35b3d6000fd5b60007fb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d61035b5473ffffffffffffffffffffffffffffffffffffffff16919050565b60007f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc6101a3565b60007f2b1dbce74324248c222f0ec2d5ed7bd323cfc425b336f0253c5ccfda7265546d6101a356fea264697066735822122082d9b607586ffbb38f7bc81a395e284096a8e0bae2b22d7d9294a1fdb17279b064736f6c63430008110033",
 }
 
 // AdminFallbackProxyABI is the input ABI used to generate the binding from.
@@ -987,7 +987,7 @@ func (_AdminFallbackProxy *AdminFallbackProxyFilterer) ParseUpgradedSecondary(lo
 // ArbitrumCheckerMetaData contains all meta data concerning the ArbitrumChecker contract.
 var ArbitrumCheckerMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122040c6bb794acf80741366e0fd21ce6d4bc9275edf89631a495ced7d2c12534ada64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122050149d2d63507b1a3127de95e1488f248b040be9ce1e05baacb198e1fd3374fb64736f6c63430008110033",
 }
 
 // ArbitrumCheckerABI is the input ABI used to generate the binding from.
@@ -1160,7 +1160,7 @@ func (_ArbitrumChecker *ArbitrumCheckerTransactorRaw) Transact(opts *bind.Transa
 // CryptographyPrimitivesMetaData contains all meta data concerning the CryptographyPrimitives contract.
 var CryptographyPrimitivesMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220cf259683d0f53e6866060206401ed3afb138c743830ab040df6197c5b8f3cc8e64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122067145cead57d141c39956747feea595fd3b26b06cad9849ee11841524f30444564736f6c63430008110033",
 }
 
 // CryptographyPrimitivesABI is the input ABI used to generate the binding from.
@@ -1328,6 +1328,179 @@ func (_CryptographyPrimitives *CryptographyPrimitivesTransactorRaw) Transfer(opt
 // Transact invokes the (paid) contract method with params as input values.
 func (_CryptographyPrimitives *CryptographyPrimitivesTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _CryptographyPrimitives.Contract.contract.Transact(opts, method, params...)
+}
+
+// DecimalsConverterHelperMetaData contains all meta data concerning the DecimalsConverterHelper contract.
+var DecimalsConverterHelperMetaData = &bind.MetaData{
+	ABI: "[]",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212209d47a1cf0714ec1e6c1948b2db9257586ea674baed6139e0553a5a74c3576f9464736f6c63430008110033",
+}
+
+// DecimalsConverterHelperABI is the input ABI used to generate the binding from.
+// Deprecated: Use DecimalsConverterHelperMetaData.ABI instead.
+var DecimalsConverterHelperABI = DecimalsConverterHelperMetaData.ABI
+
+// DecimalsConverterHelperBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use DecimalsConverterHelperMetaData.Bin instead.
+var DecimalsConverterHelperBin = DecimalsConverterHelperMetaData.Bin
+
+// DeployDecimalsConverterHelper deploys a new Ethereum contract, binding an instance of DecimalsConverterHelper to it.
+func DeployDecimalsConverterHelper(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *DecimalsConverterHelper, error) {
+	parsed, err := DecimalsConverterHelperMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(DecimalsConverterHelperBin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &DecimalsConverterHelper{DecimalsConverterHelperCaller: DecimalsConverterHelperCaller{contract: contract}, DecimalsConverterHelperTransactor: DecimalsConverterHelperTransactor{contract: contract}, DecimalsConverterHelperFilterer: DecimalsConverterHelperFilterer{contract: contract}}, nil
+}
+
+// DecimalsConverterHelper is an auto generated Go binding around an Ethereum contract.
+type DecimalsConverterHelper struct {
+	DecimalsConverterHelperCaller     // Read-only binding to the contract
+	DecimalsConverterHelperTransactor // Write-only binding to the contract
+	DecimalsConverterHelperFilterer   // Log filterer for contract events
+}
+
+// DecimalsConverterHelperCaller is an auto generated read-only Go binding around an Ethereum contract.
+type DecimalsConverterHelperCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// DecimalsConverterHelperTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type DecimalsConverterHelperTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// DecimalsConverterHelperFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type DecimalsConverterHelperFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// DecimalsConverterHelperSession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type DecimalsConverterHelperSession struct {
+	Contract     *DecimalsConverterHelper // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts            // Call options to use throughout this session
+	TransactOpts bind.TransactOpts        // Transaction auth options to use throughout this session
+}
+
+// DecimalsConverterHelperCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type DecimalsConverterHelperCallerSession struct {
+	Contract *DecimalsConverterHelperCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts                  // Call options to use throughout this session
+}
+
+// DecimalsConverterHelperTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type DecimalsConverterHelperTransactorSession struct {
+	Contract     *DecimalsConverterHelperTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts                  // Transaction auth options to use throughout this session
+}
+
+// DecimalsConverterHelperRaw is an auto generated low-level Go binding around an Ethereum contract.
+type DecimalsConverterHelperRaw struct {
+	Contract *DecimalsConverterHelper // Generic contract binding to access the raw methods on
+}
+
+// DecimalsConverterHelperCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type DecimalsConverterHelperCallerRaw struct {
+	Contract *DecimalsConverterHelperCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// DecimalsConverterHelperTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type DecimalsConverterHelperTransactorRaw struct {
+	Contract *DecimalsConverterHelperTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewDecimalsConverterHelper creates a new instance of DecimalsConverterHelper, bound to a specific deployed contract.
+func NewDecimalsConverterHelper(address common.Address, backend bind.ContractBackend) (*DecimalsConverterHelper, error) {
+	contract, err := bindDecimalsConverterHelper(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &DecimalsConverterHelper{DecimalsConverterHelperCaller: DecimalsConverterHelperCaller{contract: contract}, DecimalsConverterHelperTransactor: DecimalsConverterHelperTransactor{contract: contract}, DecimalsConverterHelperFilterer: DecimalsConverterHelperFilterer{contract: contract}}, nil
+}
+
+// NewDecimalsConverterHelperCaller creates a new read-only instance of DecimalsConverterHelper, bound to a specific deployed contract.
+func NewDecimalsConverterHelperCaller(address common.Address, caller bind.ContractCaller) (*DecimalsConverterHelperCaller, error) {
+	contract, err := bindDecimalsConverterHelper(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &DecimalsConverterHelperCaller{contract: contract}, nil
+}
+
+// NewDecimalsConverterHelperTransactor creates a new write-only instance of DecimalsConverterHelper, bound to a specific deployed contract.
+func NewDecimalsConverterHelperTransactor(address common.Address, transactor bind.ContractTransactor) (*DecimalsConverterHelperTransactor, error) {
+	contract, err := bindDecimalsConverterHelper(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &DecimalsConverterHelperTransactor{contract: contract}, nil
+}
+
+// NewDecimalsConverterHelperFilterer creates a new log filterer instance of DecimalsConverterHelper, bound to a specific deployed contract.
+func NewDecimalsConverterHelperFilterer(address common.Address, filterer bind.ContractFilterer) (*DecimalsConverterHelperFilterer, error) {
+	contract, err := bindDecimalsConverterHelper(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &DecimalsConverterHelperFilterer{contract: contract}, nil
+}
+
+// bindDecimalsConverterHelper binds a generic wrapper to an already deployed contract.
+func bindDecimalsConverterHelper(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := DecimalsConverterHelperMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_DecimalsConverterHelper *DecimalsConverterHelperRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _DecimalsConverterHelper.Contract.DecimalsConverterHelperCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_DecimalsConverterHelper *DecimalsConverterHelperRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _DecimalsConverterHelper.Contract.DecimalsConverterHelperTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_DecimalsConverterHelper *DecimalsConverterHelperRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _DecimalsConverterHelper.Contract.DecimalsConverterHelperTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_DecimalsConverterHelper *DecimalsConverterHelperCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _DecimalsConverterHelper.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_DecimalsConverterHelper *DecimalsConverterHelperTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _DecimalsConverterHelper.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_DecimalsConverterHelper *DecimalsConverterHelperTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _DecimalsConverterHelper.Contract.contract.Transact(opts, method, params...)
 }
 
 // DelegateCallAwareMetaData contains all meta data concerning the DelegateCallAware contract.
@@ -3571,7 +3744,7 @@ func (_IReader4844 *IReader4844CallerSession) GetDataHashes() ([][32]byte, error
 // MerkleLibMetaData contains all meta data concerning the MerkleLib contract.
 var MerkleLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212204a5b3ffdd8b72b42021b2fb144a0b94b37a252bdef73b56cf23c6f077f9228d664736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220968bac2cb01d87cc5232ec5d4048c071c015a63900278a2410d04ba87453684664736f6c63430008110033",
 }
 
 // MerkleLibABI is the input ABI used to generate the binding from.
