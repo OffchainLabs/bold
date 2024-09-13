@@ -22,7 +22,6 @@ import (
 )
 
 func FuzzHistoryCommitter(f *testing.F) {
-	f.Skip()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	f.Fuzz(func(t *testing.T, numReal uint64, virtual uint64, limit uint64) {
 		// Set some bounds.
@@ -38,6 +37,7 @@ func FuzzHistoryCommitter(f *testing.F) {
 }
 
 func TestPrefixProofGeneration(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	merkleTreeContract, _ := setupMerkleTreeContract(t)
 	verify := func(t *testing.T, computed *prefixProofComputation) {
@@ -248,6 +248,7 @@ func computeLegacyPrefixProof(t *testing.T, ctx context.Context, numHashes uint6
 }
 
 func TestLegacyVsOptimized(t *testing.T) {
+	t.Parallel()
 	end := uint64(1 << 9)
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	for i := uint64(1); i < end; i++ {
@@ -273,6 +274,7 @@ func TestLegacyVsOptimized(t *testing.T) {
 }
 
 func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
+	t.Parallel()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 
 	tests := []struct {
@@ -292,7 +294,7 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("real length %d, virtual %d, limit %d", tt.realLength, tt.virtualLength), func(t *testing.T) {
+		t.Run(fmt.Sprintf("real length %d, virtual %d", tt.realLength, tt.virtualLength), func(t *testing.T) {
 			hashedLeaves := make([]common.Hash, tt.realLength)
 			for i := range hashedLeaves {
 				hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
@@ -313,6 +315,7 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 }
 
 func TestVirtualSparse(t *testing.T) {
+	t.Parallel()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	t.Run("real length 1, virtual length 3", func(t *testing.T) {
 		committer := NewCommitter()
@@ -422,6 +425,7 @@ func TestVirtualSparse(t *testing.T) {
 }
 
 func TestMaximumDepthHistoryCommitment(t *testing.T) {
+	t.Parallel()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashedLeaves := []common.Hash{
 		crypto.Keccak256Hash(simpleHash[:]),
