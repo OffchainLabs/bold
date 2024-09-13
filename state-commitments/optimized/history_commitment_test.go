@@ -28,7 +28,6 @@ func FuzzHistoryCommitter(f *testing.F) {
 		// Set some bounds.
 		numReal = numReal % (1 << 10)
 		virtual = virtual % (1 << 20)
-		limit = limit % (1 << 20)
 		hashedLeaves := make([]common.Hash, numReal)
 		for i := range hashedLeaves {
 			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
@@ -95,11 +94,10 @@ func TestPrefixProofGeneration(t *testing.T) {
 
 	for _, tt := range tests {
 		for virtual := tt.realLength; virtual < tt.virtualLength; virtual++ {
-			limit := nextPowerOf2(virtual)
 			for prefixIndex := uint64(0); prefixIndex < virtual-1; prefixIndex++ {
-				t.Run(fmt.Sprintf("real length %d, virtual %d, limit %d, prefix index %d", tt.realLength, virtual, limit, prefixIndex), func(t *testing.T) {
+				t.Run(fmt.Sprintf("real length %d, virtual %d, prefix index %d", tt.realLength, virtual, prefixIndex), func(t *testing.T) {
 					legacy := computeLegacyPrefixProof(t, ctx, virtual, prefixIndex)
-					optimized := computeOptimizedPrefixProof(t, tt.realLength, virtual, limit, prefixIndex)
+					optimized := computeOptimizedPrefixProof(t, tt.realLength, virtual, prefixIndex)
 					verify(t, legacy)
 					verify(t, optimized)
 				})
@@ -154,7 +152,7 @@ type prefixProofComputation struct {
 	proof               []common.Hash
 }
 
-func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uint64, limit uint64, prefixIndex uint64) *prefixProofComputation {
+func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uint64, prefixIndex uint64) *prefixProofComputation {
 	// Computes the prefix proof and expansion.
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashes := make([]common.Hash, prefixIndex+1)
@@ -163,9 +161,8 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	}
 
 	// Computes the prefix root.
-	builder, err := NewBuilder().Virtual(uint64(prefixIndex + 1)).Limit(nextPowerOf2(uint64(prefixIndex + 1))).Build()
-	require.NoError(t, err)
-	prefixRoot, err := builder.ComputeRoot(hashes)
+	committer := NewCommitter()
+	prefixRoot, err := committer.ComputeRoot(hashes, prefixIndex+1)
 	require.NoError(t, err)
 
 	// Computes the full tree root.
@@ -173,9 +170,8 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
 	}
-	builder, err = NewBuilder().Virtual(uint64(virtual)).Limit(uint64(limit)).Build()
-	require.NoError(t, err)
-	fullTreeRoot, err := builder.ComputeRoot(hashes)
+	committer = NewCommitter()
+	fullTreeRoot, err := committer.ComputeRoot(hashes, virtual)
 	require.NoError(t, err)
 
 	// Computes the prefix proof.
@@ -183,9 +179,8 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
 	}
-	builder, err = NewBuilder().Virtual(uint64(virtual)).Limit(uint64(limit)).Build()
-	require.NoError(t, err)
-	prefixExp, proof, err := builder.GeneratePrefixProof(uint64(prefixIndex), hashes)
+	committer = NewCommitter()
+	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
 	require.NoError(t, err)
 	return &prefixProofComputation{
 		prefixRoot:          prefixRoot,
@@ -262,10 +257,8 @@ func TestLegacyVsOptimized(t *testing.T) {
 			for i := range hashedLeaves {
 				hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
 			}
-			builder := NewBuilder().Virtual(uint64(j)).Limit(limit)
-			committer, err := builder.Build()
-			require.NoError(t, err)
-			computedRoot, err := committer.ComputeRoot(hashedLeaves)
+			committer := NewCommitter()
+			computedRoot, err := committer.ComputeRoot(hashedLeaves, uint64(j))
 			require.NoError(t, err)
 
 			legacyInputLeaves := make([]common.Hash, j)
@@ -285,30 +278,27 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 	tests := []struct {
 		realLength    int
 		virtualLength int
-		limit         int
 	}{
-		{12, 14, 16},
-		{8, 10, 16},
-		{6, 6, 8},
-		{10, 16, 16},
-		{4, 8, 8},
-		{1, 5, 8},
-		{3, 5, 8},
-		{5, 5, 8},
-		{1023, 1024, 1024},
-		{(1 << 14) - 7, (1 << 14) - 7, 1 << 14},
+		{12, 14},
+		{8, 10},
+		{6, 6},
+		{10, 16},
+		{4, 8},
+		{1, 5},
+		{3, 5},
+		{5, 5},
+		{1023, 1024},
+		{(1 << 14) - 7, (1 << 14) - 7},
 	}
 
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("real length %d, virtual %d, limit %d", tt.realLength, tt.virtualLength, tt.limit), func(t *testing.T) {
+		t.Run(fmt.Sprintf("real length %d, virtual %d, limit %d", tt.realLength, tt.virtualLength), func(t *testing.T) {
 			hashedLeaves := make([]common.Hash, tt.realLength)
 			for i := range hashedLeaves {
 				hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
 			}
-			builder := NewBuilder().Virtual(uint64(tt.virtualLength)).Limit(uint64(tt.limit))
-			committer, err := builder.Build()
-			require.NoError(t, err)
-			computedRoot, err := committer.ComputeRoot(hashedLeaves)
+			committer := NewCommitter()
+			computedRoot, err := committer.ComputeRoot(hashedLeaves, uint64(tt.virtualLength))
 			require.NoError(t, err)
 
 			leaves := make([]common.Hash, tt.virtualLength)
@@ -324,11 +314,9 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 
 func TestVirtualSparse(t *testing.T) {
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
-	t.Run("real length 1, virtual length 3, limit 4", func(t *testing.T) {
-		builder := NewBuilder().Virtual(3).Limit(4)
-		committer, err := builder.Build()
-		require.NoError(t, err)
-		computedRoot, err := committer.ComputeRoot([]common.Hash{crypto.Keccak256Hash(simpleHash[:])})
+	t.Run("real length 1, virtual length 3", func(t *testing.T) {
+		committer := NewCommitter()
+		computedRoot, err := committer.ComputeRoot([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3)
 		require.NoError(t, err)
 
 		leaves := []common.Hash{
@@ -340,15 +328,13 @@ func TestVirtualSparse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
-	t.Run("real length 2, virtual length 3, limit 4", func(t *testing.T) {
+	t.Run("real length 2, virtual length 3", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 		}
-		builder := NewBuilder().Virtual(3).Limit(4)
-		committer, err := builder.Build()
-		require.NoError(t, err)
-		computedRoot, err := committer.ComputeRoot(hashedLeaves)
+		committer := NewCommitter()
+		computedRoot, err := committer.ComputeRoot(hashedLeaves, 3)
 		require.NoError(t, err)
 		leaves := []common.Hash{
 			simpleHash,
@@ -359,16 +345,14 @@ func TestVirtualSparse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
-	t.Run("real length 3, virtual length 3, limit 4", func(t *testing.T) {
+	t.Run("real length 3, virtual length 3", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 		}
-		builder := NewBuilder().Virtual(3).Limit(4)
-		committer, err := builder.Build()
-		require.NoError(t, err)
-		computedRoot, err := committer.ComputeRoot(hashedLeaves)
+		committer := NewCommitter()
+		computedRoot, err := committer.ComputeRoot(hashedLeaves, 3)
 		require.NoError(t, err)
 		leaves := []common.Hash{
 			simpleHash,
@@ -379,17 +363,15 @@ func TestVirtualSparse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
-	t.Run("real length 4, virtual length 4, limit 4", func(t *testing.T) {
+	t.Run("real length 4, virtual length 4", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 			crypto.Keccak256Hash(simpleHash[:]),
 		}
-		builder := NewBuilder().Virtual(4).Limit(4)
-		committer, err := builder.Build()
-		require.NoError(t, err)
-		computedRoot, err := committer.ComputeRoot(hashedLeaves)
+		committer := NewCommitter()
+		computedRoot, err := committer.ComputeRoot(hashedLeaves, 4)
 		require.NoError(t, err)
 		leaves := []common.Hash{
 			simpleHash,
@@ -401,14 +383,12 @@ func TestVirtualSparse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
-	t.Run("real length 1, virtual length 5, limit 8", func(t *testing.T) {
+	t.Run("real length 1, virtual length 5", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
 			crypto.Keccak256Hash(simpleHash[:]),
 		}
-		builder := NewBuilder().Virtual(5).Limit(8)
-		committer, err := builder.Build()
-		require.NoError(t, err)
-		computedRoot, err := committer.ComputeRoot(hashedLeaves)
+		committer := NewCommitter()
+		computedRoot, err := committer.ComputeRoot(hashedLeaves, 5)
 		require.NoError(t, err)
 
 		leaves := []common.Hash{
@@ -422,15 +402,13 @@ func TestVirtualSparse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, computedRoot, histCommit.Merkle)
 	})
-	t.Run("real length 12, virtual length 14, limit 16", func(t *testing.T) {
+	t.Run("real length 12, virtual length 14", func(t *testing.T) {
 		hashedLeaves := make([]common.Hash, 12)
 		for i := range hashedLeaves {
 			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
 		}
-		builder := NewBuilder().Virtual(14).Limit(16)
-		committer, err := builder.Build()
-		require.NoError(t, err)
-		computedRoot, err := committer.ComputeRoot(hashedLeaves)
+		committer := NewCommitter()
+		computedRoot, err := committer.ComputeRoot(hashedLeaves, 14)
 		require.NoError(t, err)
 
 		leaves := make([]common.Hash, 14)
@@ -448,10 +426,8 @@ func TestMaximumDepthHistoryCommitment(t *testing.T) {
 	hashedLeaves := []common.Hash{
 		crypto.Keccak256Hash(simpleHash[:]),
 	}
-	builder := NewBuilder().Virtual(1 << 26).Limit(1 << 26)
-	committer, err := builder.Build()
-	require.NoError(t, err)
-	_, err = committer.ComputeRoot(hashedLeaves)
+	committer := NewCommitter()
+	_, err := committer.ComputeRoot(hashedLeaves, 1<<26)
 	require.NoError(t, err)
 }
 
@@ -461,13 +437,10 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	hashedLeaves := []common.Hash{
 		crypto.Keccak256Hash(simpleHash[:]),
 	}
-	builder := NewBuilder().Virtual(1 << 26).Limit(1 << 26)
-	committer, err := builder.Build()
-	require.NoError(b, err)
+	committer := NewCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, err = committer.ComputeRoot(hashedLeaves)
-		require.NoError(b, err)
+		committer.ComputeRoot(hashedLeaves, 1<<26)
 	}
 }
 
