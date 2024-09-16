@@ -29,24 +29,22 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
 	}
 	comm := NewCommitter()
 	leavesForProofs := make([]common.Hash, len(leaves))
+	leavesForCommit := make([]common.Hash, len(leaves))
 	copy(leavesForProofs, leaves)
 	firstLeaf := leavesForProofs[0]
 	lastLeaf := leavesForProofs[len(leavesForProofs)-1]
 	for i := 0; i < len(leavesForProofs); i++ {
-		if _, err := comm.keccak.Write(leavesForProofs[i][:]); err != nil {
-			comm.keccak.Reset()
+		result, err := comm.hash(leavesForProofs[i][:])
+		if err != nil {
 			return nil, err
 		}
-		if _, err := comm.keccak.Read(leavesForProofs[i][:]); err != nil {
-			comm.keccak.Reset()
-			return nil, err
-		}
-		comm.keccak.Reset()
+		leavesForCommit[i] = result
+		leavesForProofs[i] = result
 	}
 	// TODO: Avoid using ints here...
 	firstLeafProof := computeMerkleProof(0, int(virtual), leavesForProofs)
 	lastLeafProof := computeMerkleProof(int(virtual)-1, int(virtual), leavesForProofs)
-	root, err := comm.ComputeRoot(leaves, virtual)
+	root, err := comm.ComputeRoot(leavesForCommit, virtual)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +68,18 @@ func NewCommitter() *HistoryCommitter {
 		lastLeafFillers: make([]common.Hash, 0),
 		keccak:          crypto.NewKeccakState(),
 	}
+}
+
+func (h *HistoryCommitter) hash(item []byte) (common.Hash, error) {
+	defer h.keccak.Reset()
+	if _, err := h.keccak.Write(item); err != nil {
+		return emptyHash, err
+	}
+	var result common.Hash
+	if _, err := h.keccak.Read(result[:]); err != nil {
+		return emptyHash, err
+	}
+	return result, nil
 }
 
 func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {

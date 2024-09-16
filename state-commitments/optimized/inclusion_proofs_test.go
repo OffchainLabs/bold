@@ -11,6 +11,11 @@ import (
 
 func TestInclusionProofEquivalence(t *testing.T) {
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	rehashed := crypto.Keccak256Hash(simpleHash.Bytes())
+	left := crypto.Keccak256Hash(rehashed.Bytes(), rehashed.Bytes())
+	right := crypto.Keccak256Hash(rehashed.Bytes(), rehashed.Bytes())
+	total := crypto.Keccak256Hash(left.Bytes(), right.Bytes())
+	_ = total
 	leaves := []common.Hash{
 		simpleHash,
 		simpleHash,
