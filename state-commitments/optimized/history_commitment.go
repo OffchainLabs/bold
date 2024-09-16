@@ -24,17 +24,39 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
 	if len(leaves) == 0 {
 		return nil, errors.New("must commit to at least one leaf")
 	}
+	if virtual == 0 {
+		return nil, errors.New("virtual size cannot be zero")
+	}
 	comm := NewCommitter()
+	leavesForProofs := make([]common.Hash, len(leaves))
+	copy(leavesForProofs, leaves)
+	firstLeaf := leavesForProofs[0]
+	lastLeaf := leavesForProofs[len(leavesForProofs)-1]
+	for i := 0; i < len(leavesForProofs); i++ {
+		if _, err := comm.keccak.Write(leavesForProofs[i][:]); err != nil {
+			comm.keccak.Reset()
+			return nil, err
+		}
+		if _, err := comm.keccak.Read(leavesForProofs[i][:]); err != nil {
+			comm.keccak.Reset()
+			return nil, err
+		}
+		comm.keccak.Reset()
+	}
+	// TODO: Avoid using ints here...
+	firstLeafProof := computeMerkleProof(0, int(virtual), leavesForProofs)
+	lastLeafProof := computeMerkleProof(int(virtual)-1, int(virtual), leavesForProofs)
 	root, err := comm.ComputeRoot(leaves, virtual)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Generate the inclusion proofs necessary.
 	return &Commitment{
-		Height:    virtual,
-		Merkle:    root,
-		FirstLeaf: leaves[0],
-		LastLeaf:  leaves[len(leaves)-1],
+		Height:         virtual - 1,
+		Merkle:         root,
+		FirstLeaf:      firstLeaf,
+		LastLeaf:       lastLeaf,
+		FirstLeafProof: firstLeafProof,
+		LastLeafProof:  lastLeafProof,
 	}, nil
 }
 
@@ -55,14 +77,22 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 		return common.Hash{}, nil
 	}
 	// Called with 0 limit first to compute the last leaf fillers for the commitment.
-	copiedLeaves := make([]common.Hash, len(leaves))
-	for i, leaf := range leaves {
-		var copied common.Hash
-		copy(copied[:], leaf[:])
-		copiedLeaves[i] = copied
-	}
+	// copiedLeaves := make([]common.Hash, len(leaves))
+	// for i, leaf := range leaves {
+	// 	if _, err := h.keccak.Write(leaf[:]); err != nil {
+	// 		h.keccak.Reset()
+	// 		return common.Hash{}, err
+	// 	}
+	// 	var result common.Hash
+	// 	if _, err := h.keccak.Read(result[:]); err != nil {
+	// 		h.keccak.Reset()
+	// 		return common.Hash{}, err
+	// 	}
+	// 	copiedLeaves[i] = result
+	// 	h.keccak.Reset()
+	// }
 	limit := nextPowerOf2(virtual)
-	_, err := h.computeVirtualSparseTree(copiedLeaves, virtual, 0)
+	_, err := h.computeVirtualSparseTree(leaves, virtual, 0)
 	if err != nil {
 		return common.Hash{}, err
 	}
