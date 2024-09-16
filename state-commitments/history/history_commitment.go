@@ -1,4 +1,4 @@
-package optimized
+package history
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 
 var emptyHash = common.Hash{}
 
-type Commitment struct {
+type History struct {
 	Height         uint64
 	Merkle         common.Hash
 	FirstLeaf      common.Hash
@@ -20,7 +20,7 @@ type Commitment struct {
 	LastLeaf       common.Hash
 }
 
-func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
+func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
 	if len(leaves) == 0 {
 		return nil, errors.New("must commit to at least one leaf")
 	}
@@ -57,7 +57,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Commitment{
+	return &History{
 		Height:         virtual - 1,
 		Merkle:         root,
 		FirstLeaf:      firstLeaf,

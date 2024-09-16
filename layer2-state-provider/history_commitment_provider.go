@@ -150,7 +150,10 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if err != nil {
 		return commitments.History{}, err
 	}
-	return commitments.New(hashes)
+	// TODO: If upToHeight is none, then based on the challenge level (look the number of elements
+	// in req.upperChallengeOriginHeights to find out challenge level), determine the required max leaf height
+	// for that level and use that as the virtual value below. Otherwise, useUpToHeight as virtual.
+	return commitments.NewCommitment(hashes, 0 /* TODO: virtual, replace */)
 }
 
 func (p *HistoryCommitmentProvider) historyCommitmentImpl(

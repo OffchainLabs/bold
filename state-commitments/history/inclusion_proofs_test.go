@@ -1,9 +1,8 @@
-package optimized
+package history
 
 import (
 	"testing"
 
-	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -25,7 +24,7 @@ func TestInclusionProofEquivalence(t *testing.T) {
 		simpleHash,
 		simpleHash,
 	}
-	oldCommit, err := history.New(oldLeaves)
+	oldCommit, err := NewLegacy(oldLeaves)
 	require.NoError(t, err)
 	require.Equal(t, commit.Merkle, oldCommit.Merkle)
 }
