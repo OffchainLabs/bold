@@ -41,9 +41,18 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
 		leavesForCommit[i] = result
 		leavesForProofs[i] = result
 	}
-	// TODO: Only compute these proofs if virtual is a power of two.
-	firstLeafProof := computeMerkleProof(0, leavesForProofs, virtual)
-	lastLeafProof := computeMerkleProof(virtual-1, leavesForProofs, virtual)
+	var firstLeafProof, lastLeafProof []common.Hash
+	var err error
+	if isPowTwo(virtual) {
+		firstLeafProof, err = comm.computeMerkleProof(0, leavesForProofs, virtual)
+		if err != nil {
+			return nil, err
+		}
+		lastLeafProof, err = comm.computeMerkleProof(virtual-1, leavesForProofs, virtual)
+		if err != nil {
+			return nil, err
+		}
+	}
 	root, err := comm.ComputeRoot(leavesForCommit, virtual)
 	if err != nil {
 		return nil, err
@@ -518,4 +527,11 @@ func trimZeroes(hashes []common.Hash) []common.Hash {
 		newHashes = append(newHashes, h)
 	}
 	return newHashes
+}
+
+func isPowTwo(n uint64) bool {
+	if n == 0 {
+		return false
+	}
+	return (n & (n - 1)) == 0
 }
