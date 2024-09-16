@@ -238,7 +238,7 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 			if err != nil {
 				return nil, err
 			}
-			commit, err := history.New(historyCommit)
+			commit, err := history.NewCommitment(historyCommit, uint64(s.challengeLeafHeights[0]))
 			if err != nil {
 				return nil, err
 			}
