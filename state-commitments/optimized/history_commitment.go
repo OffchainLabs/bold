@@ -41,9 +41,9 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
 		leavesForCommit[i] = result
 		leavesForProofs[i] = result
 	}
-	// TODO: Avoid using ints here...
-	firstLeafProof := computeMerkleProof(0, int(virtual), leavesForProofs)
-	lastLeafProof := computeMerkleProof(int(virtual)-1, int(virtual), leavesForProofs)
+	// TODO: Only compute these proofs if virtual is a power of two.
+	firstLeafProof := computeMerkleProof(0, leavesForProofs, virtual)
+	lastLeafProof := computeMerkleProof(virtual-1, leavesForProofs, virtual)
 	root, err := comm.ComputeRoot(leavesForCommit, virtual)
 	if err != nil {
 		return nil, err
@@ -87,22 +87,14 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 		return common.Hash{}, nil
 	}
 	// Called with 0 limit first to compute the last leaf fillers for the commitment.
-	// copiedLeaves := make([]common.Hash, len(leaves))
-	// for i, leaf := range leaves {
-	// 	if _, err := h.keccak.Write(leaf[:]); err != nil {
-	// 		h.keccak.Reset()
-	// 		return common.Hash{}, err
-	// 	}
-	// 	var result common.Hash
-	// 	if _, err := h.keccak.Read(result[:]); err != nil {
-	// 		h.keccak.Reset()
-	// 		return common.Hash{}, err
-	// 	}
-	// 	copiedLeaves[i] = result
-	// 	h.keccak.Reset()
-	// }
+	copiedLeaves := make([]common.Hash, len(leaves))
+	for i, leaf := range leaves {
+		var copied common.Hash
+		copy(copied[:], leaf[:])
+		copiedLeaves[i] = copied
+	}
 	limit := nextPowerOf2(virtual)
-	_, err := h.computeVirtualSparseTree(leaves, virtual, 0)
+	_, err := h.computeVirtualSparseTree(copiedLeaves, virtual, 0)
 	if err != nil {
 		return common.Hash{}, err
 	}

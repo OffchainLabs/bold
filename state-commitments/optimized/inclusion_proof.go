@@ -7,20 +7,28 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// computeMerkleProof computes the Merkle proof for a leaf at a given index.
-// It uses the last leaf in hLeaves to pad the tree up to the 'virtual' size if needed.
-func computeMerkleProof(index int, virtual int, hLeaves []common.Hash) []common.Hash {
-	N := len(hLeaves)                                // Number of real leaves
-	hN := hLeaves[N-1]                               // Last leaf used for padding
-	D := int(math.Ceil(math.Log2(float64(virtual)))) // Tree depth
+// Computes the Merkle proof for a leaf at a given index.
+// It uses the last leaf to pad the tree up to the 'virtual' size if needed.
+func computeMerkleProof(leafIndex uint64, leaves []common.Hash, virtual uint64) []common.Hash {
+	if len(leaves) == 0 {
+		return nil
+	}
+	// TODO: Add all other safety conditions.
+	if virtual == 0 {
+		return nil
+	}
+	numRealLeaves := uint64(len(leaves))
+	// Last leaf used for padding.
+	lastLeaf := leaves[numRealLeaves-1]
+	depth := uint64(math.Ceil(math.Log2(float64(virtual))))
 
-	// Precompute hNHashes
-	hNHashes := precomputeHNHashes(hN, D)
+	// Precompute virtual hashes
+	virtualHashes := precomputeVirtualHashes(lastLeaf, depth)
 
 	var proof []common.Hash
-	for level := 0; level < D; level++ {
-		nodeIndex := index >> level
-		siblingHash, exists := computeSiblingHash(nodeIndex, level, N, virtual, hLeaves, hNHashes)
+	for level := uint64(0); level < depth; level++ {
+		nodeIndex := leafIndex >> level
+		siblingHash, exists := computeSiblingHash(nodeIndex, level, numRealLeaves, virtual, leaves, virtualHashes)
 		if exists {
 			proof = append(proof, siblingHash)
 		}
@@ -28,24 +36,30 @@ func computeMerkleProof(index int, virtual int, hLeaves []common.Hash) []common.
 	return proof
 }
 
-// precomputeHNHashes precomputes the hashes formed by combining hN with itself at each level.
-func precomputeHNHashes(hN common.Hash, D int) []common.Hash {
-	hNHashes := make([]common.Hash, D+1)
-	hNHashes[0] = hN
-	for level := 1; level <= D; level++ {
+// Precomputes hashes formed by combining an element with itself at each level.
+func precomputeVirtualHashes(item common.Hash, depth uint64) []common.Hash {
+	hNHashes := make([]common.Hash, depth+1)
+	hNHashes[0] = item
+	for level := uint64(1); level <= depth; level++ {
 		data := append(hNHashes[level-1].Bytes(), hNHashes[level-1].Bytes()...)
 		hNHashes[level] = crypto.Keccak256Hash(data)
 	}
 	return hNHashes
 }
 
-// computeSiblingHash computes the hash of a node's sibling at a given index and level.
-func computeSiblingHash(nodeIndex int, level int, N int, virtual int, hLeaves []common.Hash, hNHashes []common.Hash) (common.Hash, bool) {
+// Computes the hash of a node's sibling at a given index and level.
+func computeSiblingHash(
+	nodeIndex uint64,
+	level uint64,
+	N uint64,
+	virtual uint64,
+	hLeaves []common.Hash,
+	hNHashes []common.Hash,
+) (common.Hash, bool) {
 	siblingIndex := nodeIndex ^ 1
 	numNodes := (virtual + (1 << level) - 1) / (1 << level) // Equivalent to ceil(virtual / (2 ** level))
-
 	if siblingIndex >= numNodes {
-		// No sibling exists; handle according to your tree's rules
+		// No sibling exists, so use a zero hash.
 		return common.Hash{}, false
 	} else if siblingIndex >= paddingStartIndexAtLevel(N, level) {
 		return hNHashes[level], true
@@ -55,28 +69,28 @@ func computeSiblingHash(nodeIndex int, level int, N int, virtual int, hLeaves []
 	}
 }
 
-// computeNodeHash recursively computes the hash of a node at a given index and level.
-func computeNodeHash(nodeIndex int, level int, N int, hLeaves []common.Hash, hNHashes []common.Hash) common.Hash {
+// Recursively computes the hash of a node at a given index and level.
+func computeNodeHash(nodeIndex uint64, level uint64, numRealLeaves uint64, leaves []common.Hash, virtualHashes []common.Hash) common.Hash {
 	if level == 0 {
-		if nodeIndex >= N {
-			// Node is in padding
-			return hNHashes[0]
+		if nodeIndex >= numRealLeaves {
+			// Node is in padding (the virtual segment of the tree).
+			return virtualHashes[0]
 		} else {
-			return hLeaves[nodeIndex]
+			return leaves[nodeIndex]
 		}
 	} else {
-		if nodeIndex >= paddingStartIndexAtLevel(N, level) {
-			return hNHashes[level]
+		if nodeIndex >= paddingStartIndexAtLevel(numRealLeaves, level) {
+			return virtualHashes[level]
 		} else {
-			leftChild := computeNodeHash(2*nodeIndex, level-1, N, hLeaves, hNHashes)
-			rightChild := computeNodeHash(2*nodeIndex+1, level-1, N, hLeaves, hNHashes)
+			leftChild := computeNodeHash(2*nodeIndex, level-1, numRealLeaves, leaves, virtualHashes)
+			rightChild := computeNodeHash(2*nodeIndex+1, level-1, numRealLeaves, leaves, virtualHashes)
 			data := append(leftChild.Bytes(), rightChild.Bytes()...)
 			return crypto.Keccak256Hash(data)
 		}
 	}
 }
 
-// paddingStartIndexAtLevel calculates the index at which padding starts at a given tree level.
-func paddingStartIndexAtLevel(N int, level int) int {
+// Calculates the index at which padding starts at a given tree level.
+func paddingStartIndexAtLevel(N uint64, level uint64) uint64 {
 	return N / (1 << level)
 }
