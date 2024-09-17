@@ -29,4 +29,5 @@ go_test(
         "//containers/option",
         "@com_github_stretchr_testify//require",
     ],
+    size = "small",
 )
