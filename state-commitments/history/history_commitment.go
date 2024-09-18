@@ -20,6 +20,9 @@ type History struct {
 	LastLeaf       common.Hash
 }
 
+// NewCommitment produces a history commitment from a list of leaves that are virtually padded using
+// the last leaf in the list to some virtual length, without making those extra allocations needed to do so.
+// Virtual must be >= len(leaves).
 func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
 	if len(leaves) == 0 {
 		return nil, errors.New("must commit to at least one leaf")
@@ -27,14 +30,16 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
 	if virtual == 0 {
 		return nil, errors.New("virtual size cannot be zero")
 	}
+	if virtual < uint64(len(leaves)) {
+		return nil, errors.New("virtual size must be less than or equal to the number of leaves")
+	}
 	comm := NewCommitter()
 	leavesForProofs := make([]common.Hash, len(leaves))
 	leavesForCommit := make([]common.Hash, len(leaves))
-	copy(leavesForProofs, leaves)
-	firstLeaf := leavesForProofs[0]
-	lastLeaf := leavesForProofs[len(leavesForProofs)-1]
-	for i := 0; i < len(leavesForProofs); i++ {
-		result, err := comm.hash(leavesForProofs[i][:])
+	firstLeaf := leaves[0]
+	lastLeaf := leaves[len(leaves)-1]
+	for i, leaf := range leaves {
+		result, err := comm.hash(leaf[:])
 		if err != nil {
 			return nil, err
 		}
@@ -42,8 +47,11 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
 		leavesForProofs[i] = result
 	}
 	var firstLeafProof, lastLeafProof []common.Hash
-	var err error
-	if isPowTwo(virtual) {
+	ok, err := isPowTwo(virtual)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
 		firstLeafProof, err = comm.computeMerkleProof(0, leavesForProofs, virtual)
 		if err != nil {
 			return nil, err
@@ -529,9 +537,9 @@ func trimZeroes(hashes []common.Hash) []common.Hash {
 	return newHashes
 }
 
-func isPowTwo(n uint64) bool {
+func isPowTwo(n uint64) (bool, error) {
 	if n == 0 {
-		return false
+		return false, errors.New("n must be non-zero")
 	}
-	return (n & (n - 1)) == 0
+	return (n & (n - 1)) == 0, nil
 }

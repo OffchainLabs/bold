@@ -27,7 +27,8 @@ func FuzzHistoryCommitter(f *testing.F) {
 			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
 		}
 		committer := NewCommitter()
-		committer.ComputeRoot(hashedLeaves, virtual)
+		_, err := committer.ComputeRoot(hashedLeaves, virtual)
+		_ = err
 	})
 }
 
@@ -439,8 +440,30 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	committer := NewCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		committer.ComputeRoot(hashedLeaves, 1<<26)
+		_, err := committer.ComputeRoot(hashedLeaves, 1<<26)
+		_ = err
 	}
+}
+
+func TestInclusionProofEquivalence(t *testing.T) {
+	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	leaves := []common.Hash{
+		simpleHash,
+		simpleHash,
+		simpleHash,
+		simpleHash,
+	}
+	commit, err := NewCommitment(leaves, 4)
+	require.NoError(t, err)
+	oldLeaves := []common.Hash{
+		simpleHash,
+		simpleHash,
+		simpleHash,
+		simpleHash,
+	}
+	oldCommit, err := NewLegacy(oldLeaves)
+	require.NoError(t, err)
+	require.Equal(t, commit.Merkle, oldCommit.Merkle)
 }
 
 func setupMerkleTreeContract(t testing.TB) (*mocksgen.MerkleTreeAccess, *simulated.Backend) {
