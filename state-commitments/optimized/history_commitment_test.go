@@ -29,7 +29,7 @@ func FuzzHistoryCommitter(f *testing.F) {
 		virtual = virtual % (1 << 20)
 		hashedLeaves := make([]common.Hash, numReal)
 		for i := range hashedLeaves {
-			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+			hashedLeaves[i] = simpleHash
 		}
 		committer := NewCommitter()
 		_, err := committer.ComputeRoot(hashedLeaves, virtual)
@@ -158,7 +158,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashes := make([]common.Hash, prefixIndex+1)
 	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
+		hashes[i] = simpleHash
 	}
 
 	// Computes the prefix root.
@@ -169,7 +169,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	// Computes the full tree root.
 	hashes = make([]common.Hash, numRealHashes)
 	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
+		hashes[i] = simpleHash
 	}
 	committer = NewCommitter()
 	fullTreeRoot, err := committer.ComputeRoot(hashes, virtual)
@@ -178,7 +178,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	// Computes the prefix proof.
 	hashes = make([]common.Hash, numRealHashes)
 	for i := 0; i < len(hashes); i++ {
-		hashes[i] = crypto.Keccak256Hash(simpleHash[:])
+		hashes[i] = simpleHash
 	}
 	committer = NewCommitter()
 	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
@@ -255,12 +255,12 @@ func TestLegacyVsOptimized(t *testing.T) {
 	for i := uint64(1); i < end; i++ {
 		limit := nextPowerOf2(i)
 		for j := i; j < limit; j++ {
-			hashedLeaves := make([]common.Hash, i)
-			for i := range hashedLeaves {
-				hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+			inputLeaves := make([]common.Hash, i)
+			for i := range inputLeaves {
+				inputLeaves[i] = simpleHash
 			}
 			committer := NewCommitter()
-			computedRoot, err := committer.ComputeRoot(hashedLeaves, uint64(j))
+			computedRoot, err := committer.ComputeRoot(inputLeaves, uint64(j))
 			require.NoError(t, err)
 
 			legacyInputLeaves := make([]common.Hash, j)
@@ -296,12 +296,12 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("real length %d, virtual %d", tt.realLength, tt.virtualLength), func(t *testing.T) {
-			hashedLeaves := make([]common.Hash, tt.realLength)
-			for i := range hashedLeaves {
-				hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+			inputLeaves := make([]common.Hash, tt.realLength)
+			for i := range inputLeaves {
+				inputLeaves[i] = simpleHash
 			}
 			committer := NewCommitter()
-			computedRoot, err := committer.ComputeRoot(hashedLeaves, uint64(tt.virtualLength))
+			computedRoot, err := committer.ComputeRoot(inputLeaves, uint64(tt.virtualLength))
 			require.NoError(t, err)
 
 			leaves := make([]common.Hash, tt.virtualLength)
@@ -320,7 +320,7 @@ func TestVirtualSparse(t *testing.T) {
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	t.Run("real length 1, virtual length 3", func(t *testing.T) {
 		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot([]common.Hash{crypto.Keccak256Hash(simpleHash[:])}, 3)
+		computedRoot, err := committer.ComputeRoot([]common.Hash{simpleHash}, 3)
 		require.NoError(t, err)
 
 		leaves := []common.Hash{
@@ -334,8 +334,8 @@ func TestVirtualSparse(t *testing.T) {
 	})
 	t.Run("real length 2, virtual length 3", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
-			crypto.Keccak256Hash(simpleHash[:]),
-			crypto.Keccak256Hash(simpleHash[:]),
+			simpleHash,
+			simpleHash,
 		}
 		committer := NewCommitter()
 		computedRoot, err := committer.ComputeRoot(hashedLeaves, 3)
@@ -351,9 +351,9 @@ func TestVirtualSparse(t *testing.T) {
 	})
 	t.Run("real length 3, virtual length 3", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
-			crypto.Keccak256Hash(simpleHash[:]),
-			crypto.Keccak256Hash(simpleHash[:]),
-			crypto.Keccak256Hash(simpleHash[:]),
+			simpleHash,
+			simpleHash,
+			simpleHash,
 		}
 		committer := NewCommitter()
 		computedRoot, err := committer.ComputeRoot(hashedLeaves, 3)
@@ -369,10 +369,10 @@ func TestVirtualSparse(t *testing.T) {
 	})
 	t.Run("real length 4, virtual length 4", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
-			crypto.Keccak256Hash(simpleHash[:]),
-			crypto.Keccak256Hash(simpleHash[:]),
-			crypto.Keccak256Hash(simpleHash[:]),
-			crypto.Keccak256Hash(simpleHash[:]),
+			simpleHash,
+			simpleHash,
+			simpleHash,
+			simpleHash,
 		}
 		committer := NewCommitter()
 		computedRoot, err := committer.ComputeRoot(hashedLeaves, 4)
@@ -389,7 +389,7 @@ func TestVirtualSparse(t *testing.T) {
 	})
 	t.Run("real length 1, virtual length 5", func(t *testing.T) {
 		hashedLeaves := []common.Hash{
-			crypto.Keccak256Hash(simpleHash[:]),
+			simpleHash,
 		}
 		committer := NewCommitter()
 		computedRoot, err := committer.ComputeRoot(hashedLeaves, 5)
@@ -409,7 +409,7 @@ func TestVirtualSparse(t *testing.T) {
 	t.Run("real length 12, virtual length 14", func(t *testing.T) {
 		hashedLeaves := make([]common.Hash, 12)
 		for i := range hashedLeaves {
-			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
+			hashedLeaves[i] = simpleHash
 		}
 		committer := NewCommitter()
 		computedRoot, err := committer.ComputeRoot(hashedLeaves, 14)
@@ -429,7 +429,7 @@ func TestMaximumDepthHistoryCommitment(t *testing.T) {
 	t.Parallel()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashedLeaves := []common.Hash{
-		crypto.Keccak256Hash(simpleHash[:]),
+		simpleHash,
 	}
 	committer := NewCommitter()
 	_, err := committer.ComputeRoot(hashedLeaves, 1<<26)
@@ -440,7 +440,7 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	b.StopTimer()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	hashedLeaves := []common.Hash{
-		crypto.Keccak256Hash(simpleHash[:]),
+		simpleHash,
 	}
 	committer := NewCommitter()
 	b.StartTimer()

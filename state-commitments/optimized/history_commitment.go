@@ -105,7 +105,15 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 }
 
 func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
-	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, leaves, virtual)
+	rehashedLeaves := make([]common.Hash, len(leaves))
+	for i, leaf := range leaves {
+		result, err := h.hash(leaf[:])
+		if err != nil {
+			return nil, nil, err
+		}
+		rehashedLeaves[i] = result
+	}
+	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, rehashedLeaves, virtual)
 	if err != nil {
 		return nil, nil, err
 	}
