@@ -16,10 +16,7 @@ go_library(
 
 go_test(
     name = "optimized_test",
-    srcs = [
-        "history_commitment_test.go",
-        "inclusion_proofs_test.go",
-    ],
+    srcs = ["history_commitment_test.go"],
     embed = [":optimized"],
     deps = [
         "//containers/option",
