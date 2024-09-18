@@ -156,13 +156,13 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 			return commitments.History{}, err
 		}
 		if len(validatedHeights) == 0 {
-			virtual = uint64(p.challengeLeafHeights[0])
+			virtual = uint64(p.challengeLeafHeights[0]) + 1
 		} else {
 			lvl := deepestRequestedChallengeLevel(validatedHeights)
-			virtual = uint64(p.challengeLeafHeights[lvl])
+			virtual = uint64(p.challengeLeafHeights[lvl]) + 1
 		}
 	} else {
-		virtual = uint64(req.UpToHeight.Unwrap())
+		virtual = uint64(req.UpToHeight.Unwrap()) + 1
 	}
 	return commitments.NewCommitment(hashes, virtual)
 }
@@ -360,33 +360,26 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Do the same thing about upToHeight inside of HistoryCommitment() function...
+	// If upToHeight is none, then based on the challenge level, determine the required max leaf height
+	// for that level and use that as the virtual value below. Otherwise, useUpToHeight as virtual.
+	var virtual uint64
+	if req.UpToHeight.IsNone() {
+		validatedHeights, err2 := p.validateOriginHeights(req.UpperChallengeOriginHeights)
+		if err2 != nil {
+			return nil, err2
+		}
+		if len(validatedHeights) == 0 {
+			virtual = uint64(p.challengeLeafHeights[0]) + 1
+		} else {
+			lvl := deepestRequestedChallengeLevel(validatedHeights)
+			virtual = uint64(p.challengeLeafHeights[lvl]) + 1
+		}
+	} else {
+		virtual = uint64(req.UpToHeight.Unwrap()) + 1
+	}
 	//
 	// If no upToHeight is provided, we want to use the max number of leaves in our computation.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
-	var highCommitmentNumLeaves uint64
-	if req.UpToHeight.IsNone() {
-		highCommitmentNumLeaves = uint64(len(leaves))
-	} else {
-		// Else if it is provided, we expect the number of leaves to be the difference
-		// between the to and from height + 1.
-		upTo := req.UpToHeight.Unwrap()
-		if upTo < req.FromHeight {
-			return nil, fmt.Errorf("invalid range: end %d was < start %d", upTo, req.FromHeight)
-		}
-		highCommitmentNumLeaves = uint64(upTo) - uint64(req.FromHeight) + 1
-	}
-
-	// Validate we are within bounds of the leaves slice.
-	if highCommitmentNumLeaves > uint64(len(leaves)) {
-		return nil, fmt.Errorf("high prefix size out of bounds, got %d, leaves length %d", highCommitmentNumLeaves, len(leaves))
-	}
-
-	// Validate low vs high commitment.
-	if lowCommitmentNumLeaves > highCommitmentNumLeaves {
-		return nil, fmt.Errorf("low prefix size %d was greater than high prefix size %d", lowCommitmentNumLeaves, highCommitmentNumLeaves)
-	}
-
 	prefixHashes := make([]common.Hash, lowCommitmentNumLeaves)
 	for i := uint64(0); i < lowCommitmentNumLeaves; i++ {
 		prefixHashes[i] = leaves[i]
@@ -401,16 +394,16 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		fullTreeHashes[i] = leaves[i]
 	}
 	committer = commitments.NewCommitter()
-	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, uint64(len(leaves)))
+	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, virtual)
 	if err != nil {
 		return nil, err
 	}
-	hashesForProof := make([]common.Hash, highCommitmentNumLeaves)
+	hashesForProof := make([]common.Hash, len(leaves))
 	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		hashesForProof[i] = leaves[i]
 	}
 	committer = commitments.NewCommitter()
-	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixHeight), hashesForProof, highCommitmentNumLeaves)
+	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixHeight), hashesForProof, virtual)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +412,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		PreRoot:      prefixRoot,
 		PreSize:      lowCommitmentNumLeaves,
 		PostRoot:     fullTreeRoot,
-		PostSize:     highCommitmentNumLeaves,
+		PostSize:     virtual,
 		PreExpansion: prefixExp,
 		PrefixProof:  proof,
 	}); err != nil {
