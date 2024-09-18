@@ -12,7 +12,6 @@ go_library(
         "//api",
         "//api/db",
         "//chain-abstraction:protocol",
-        "//containers/in-progress-cache",
         "//containers/option",
         "//state-commitments/history",
         "//state-commitments/prefix-proofs",
@@ -30,4 +29,5 @@ go_test(
         "//containers/option",
         "@com_github_stretchr_testify//require",
     ],
+    size = "small",
 )
