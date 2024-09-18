@@ -32,7 +32,8 @@ func FuzzHistoryCommitter(f *testing.F) {
 			hashedLeaves[i] = crypto.Keccak256Hash(simpleHash[:])
 		}
 		committer := NewCommitter()
-		committer.ComputeRoot(hashedLeaves, virtual)
+		_, err := committer.ComputeRoot(hashedLeaves, virtual)
+		_ = err
 	})
 }
 
@@ -444,7 +445,8 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	committer := NewCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		committer.ComputeRoot(hashedLeaves, 1<<26)
+		_, err := committer.ComputeRoot(hashedLeaves, 1<<26)
+		_ = err
 	}
 }
 
