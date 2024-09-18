@@ -147,10 +147,24 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if err != nil {
 		return commitments.History{}, err
 	}
-	// TODO: If upToHeight is none, then based on the challenge level (look the number of elements
-	// in req.upperChallengeOriginHeights to find out challenge level), determine the required max leaf height
+	// If upToHeight is none, then based on the challenge level, determine the required max leaf height
 	// for that level and use that as the virtual value below. Otherwise, useUpToHeight as virtual.
-	return commitments.NewCommitment(hashes, 0 /* TODO: virtual, replace */)
+	var virtual uint64
+	if req.UpToHeight.IsNone() {
+		validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
+		if err != nil {
+			return commitments.History{}, err
+		}
+		if len(validatedHeights) == 0 {
+			virtual = uint64(p.challengeLeafHeights[0])
+		} else {
+			lvl := deepestRequestedChallengeLevel(validatedHeights)
+			virtual = uint64(p.challengeLeafHeights[lvl])
+		}
+	} else {
+		virtual = uint64(req.UpToHeight.Unwrap())
+	}
+	return commitments.NewCommitment(hashes, virtual)
 }
 
 func (p *HistoryCommitmentProvider) historyCommitmentImpl(
@@ -371,43 +385,45 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 		return nil, fmt.Errorf("low prefix size %d was greater than high prefix size %d", lowCommitmentNumLeaves, highCommitmentNumLeaves)
 	}
 
-	prefixExpansion, err := prefixproofs.ExpansionFromLeaves(leaves[:lowCommitmentNumLeaves])
+	prefixHashes := make([]common.Hash, lowCommitmentNumLeaves)
+	for i := uint64(0); i < lowCommitmentNumLeaves; i++ {
+		prefixHashes[i] = leaves[i]
+	}
+	committer := commitments.NewCommitter()
+	prefixRoot, err := committer.ComputeRoot(prefixHashes, lowCommitmentNumLeaves)
 	if err != nil {
 		return nil, err
 	}
-	prefixProof, err := prefixproofs.GeneratePrefixProof(
-		lowCommitmentNumLeaves,
-		prefixExpansion,
-		leaves[lowCommitmentNumLeaves:highCommitmentNumLeaves],
-		prefixproofs.RootFetcherFromExpansion,
-	)
+	fullTreeHashes := make([]common.Hash, highCommitmentNumLeaves)
+	for i := uint64(0); i < highCommitmentNumLeaves; i++ {
+		fullTreeHashes[i] = leaves[i]
+	}
+	committer = commitments.NewCommitter()
+	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, highCommitmentNumLeaves)
 	if err != nil {
 		return nil, err
 	}
-	bigCommit, err := commitments.New(leaves[:highCommitmentNumLeaves])
+	hashesForProof := make([]common.Hash, highCommitmentNumLeaves)
+	for i := uint64(0); i < highCommitmentNumLeaves; i++ {
+		hashesForProof[i] = leaves[i]
+	}
+	committer = commitments.NewCommitter()
+	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixHeight), hashesForProof, highCommitmentNumLeaves)
 	if err != nil {
 		return nil, err
 	}
-
-	prefixCommit, err := commitments.New(leaves[:lowCommitmentNumLeaves])
-	if err != nil {
-		return nil, err
-	}
-	_, numRead := prefixproofs.MerkleExpansionFromCompact(prefixProof, lowCommitmentNumLeaves)
-	onlyProof := prefixProof[numRead:]
-
 	// We verify our prefix proof before an onchain submission as an extra safety-check.
 	if err = prefixproofs.VerifyPrefixProof(&prefixproofs.VerifyPrefixProofConfig{
-		PreRoot:      prefixCommit.Merkle,
+		PreRoot:      prefixRoot,
 		PreSize:      lowCommitmentNumLeaves,
-		PostRoot:     bigCommit.Merkle,
+		PostRoot:     fullTreeRoot,
 		PostSize:     highCommitmentNumLeaves,
-		PreExpansion: prefixExpansion,
-		PrefixProof:  onlyProof,
+		PreExpansion: prefixExp,
+		PrefixProof:  proof,
 	}); err != nil {
 		return nil, fmt.Errorf("could not verify prefix proof locally: %w", err)
 	}
-	return ProofArgs.Pack(&prefixExpansion, &onlyProof)
+	return ProofArgs.Pack(&prefixExp, &proof)
 }
 
 func (p *HistoryCommitmentProvider) OneStepProofData(

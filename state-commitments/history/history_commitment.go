@@ -9,7 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var emptyHash = common.Hash{}
+var (
+	emptyHash    = common.Hash{}
+	emptyHistory = History{}
+)
 
 type History struct {
 	Height         uint64
@@ -23,15 +26,15 @@ type History struct {
 // NewCommitment produces a history commitment from a list of leaves that are virtually padded using
 // the last leaf in the list to some virtual length, without making those extra allocations needed to do so.
 // Virtual must be >= len(leaves).
-func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
+func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	if len(leaves) == 0 {
-		return nil, errors.New("must commit to at least one leaf")
+		return emptyHistory, errors.New("must commit to at least one leaf")
 	}
 	if virtual == 0 {
-		return nil, errors.New("virtual size cannot be zero")
+		return emptyHistory, errors.New("virtual size cannot be zero")
 	}
 	if virtual < uint64(len(leaves)) {
-		return nil, errors.New("virtual size must be less than or equal to the number of leaves")
+		return emptyHistory, errors.New("virtual size must be less than or equal to the number of leaves")
 	}
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
@@ -39,23 +42,23 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
 	var firstLeafProof, lastLeafProof []common.Hash
 	ok, err := isPowTwo(virtual)
 	if err != nil {
-		return nil, err
+		return emptyHistory, err
 	}
 	if ok {
 		firstLeafProof, err = comm.computeMerkleProof(0, leaves, virtual)
 		if err != nil {
-			return nil, err
+			return emptyHistory, err
 		}
 		lastLeafProof, err = comm.computeMerkleProof(virtual-1, leaves, virtual)
 		if err != nil {
-			return nil, err
+			return emptyHistory, err
 		}
 	}
 	root, err := comm.ComputeRoot(leaves, virtual)
 	if err != nil {
-		return nil, err
+		return emptyHistory, err
 	}
-	return &History{
+	return History{
 		Height:         virtual - 1,
 		Merkle:         root,
 		FirstLeaf:      firstLeaf,

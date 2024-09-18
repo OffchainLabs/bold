@@ -19,16 +19,10 @@ go_library(
 
 go_test(
     name = "history_test",
-<<<<<<< HEAD
     srcs = [
         "history_commitment_test.go",
-        "inclusion_proofs_test.go",
         "legacy_test.go",
     ],
-=======
-    size = "small",
-    srcs = ["commitments_test.go"],
->>>>>>> replace-history-commits
     embed = [":history"],
     deps = [
         "//solgen/go/mocksgen",
