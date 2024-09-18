@@ -34,34 +34,24 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*History, error) {
 		return nil, errors.New("virtual size must be less than or equal to the number of leaves")
 	}
 	comm := NewCommitter()
-	leavesForProofs := make([]common.Hash, len(leaves))
-	leavesForCommit := make([]common.Hash, len(leaves))
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
-	for i, leaf := range leaves {
-		result, err := comm.hash(leaf[:])
-		if err != nil {
-			return nil, err
-		}
-		leavesForCommit[i] = result
-		leavesForProofs[i] = result
-	}
 	var firstLeafProof, lastLeafProof []common.Hash
 	ok, err := isPowTwo(virtual)
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		firstLeafProof, err = comm.computeMerkleProof(0, leavesForProofs, virtual)
+	if ok {
+		firstLeafProof, err = comm.computeMerkleProof(0, leaves, virtual)
 		if err != nil {
 			return nil, err
 		}
-		lastLeafProof, err = comm.computeMerkleProof(virtual-1, leavesForProofs, virtual)
+		lastLeafProof, err = comm.computeMerkleProof(virtual-1, leaves, virtual)
 		if err != nil {
 			return nil, err
 		}
 	}
-	root, err := comm.ComputeRoot(leavesForCommit, virtual)
+	root, err := comm.ComputeRoot(leaves, virtual)
 	if err != nil {
 		return nil, err
 	}
@@ -103,23 +93,27 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	if len(leaves) == 0 {
 		return common.Hash{}, nil
 	}
-	// Called with 0 limit first to compute the last leaf fillers for the commitment.
-	copiedLeaves := make([]common.Hash, len(leaves))
+	rehashedLeaves := make([]common.Hash, len(leaves))
 	for i, leaf := range leaves {
-		var copied common.Hash
-		copy(copied[:], leaf[:])
-		copiedLeaves[i] = copied
+		result, err := h.hash(leaf[:])
+		if err != nil {
+			return common.Hash{}, err
+		}
+		rehashedLeaves[i] = result
 	}
-	limit := nextPowerOf2(virtual)
-	_, err := h.computeVirtualSparseTree(copiedLeaves, virtual, 0)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return h.computeVirtualSparseTree(leaves, virtual, limit)
+	return h.computeVirtualSparseTree(rehashedLeaves, virtual, 0)
 }
 
 func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
-	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, leaves, virtual)
+	rehashedLeaves := make([]common.Hash, len(leaves))
+	for i, leaf := range leaves {
+		result, err := h.hash(leaf[:])
+		if err != nil {
+			return nil, nil, err
+		}
+		rehashedLeaves[i] = result
+	}
+	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, rehashedLeaves, virtual)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -223,10 +217,10 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 			}
 			h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], n)
 			if err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 		} else {
-			return common.Hash{}, errors.New("leaves slice is empty")
+			return emptyHash, errors.New("leaves slice is empty")
 		}
 	}
 	if limit == 1 {
