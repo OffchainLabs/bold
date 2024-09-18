@@ -40,6 +40,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
 	var firstLeafProof, lastLeafProof []common.Hash
+	// TODO: This fails because the layer zero edge sizes at 2^26 + 1, 2^20 + 1, 2^22 + 1, which are not powers of two...
 	ok, err := isPowTwo(virtual)
 	if err != nil {
 		return emptyHistory, err
@@ -479,6 +480,9 @@ func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([
 	}
 	if n < 0 {
 		return nil, fmt.Errorf("invalid n: %d, must be non-negative", n)
+	}
+	if n == 0 {
+		return []common.Hash{*leaf}, nil
 	}
 	ret := make([]common.Hash, n)
 	copy(ret[0][:], (*leaf)[:])

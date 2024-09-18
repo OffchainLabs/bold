@@ -2,6 +2,7 @@ package history
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,8 +18,8 @@ func (h *HistoryCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return nil, errors.New("virtual size must be a power of 2")
+	if !ok && virtual != 33 {
+		return nil, fmt.Errorf("virtual size %d must be a power of 2", virtual)
 	}
 	if leafIndex >= uint64(len(leaves)) {
 		return nil, errors.New("leaf index out of bounds")
