@@ -43,15 +43,17 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (*Commitment, error) {
 		if err != nil {
 			return nil, err
 		}
+		var r common.Hash
+		copy(r[:], leaf[:])
 		leavesForCommit[i] = result
-		leavesForProofs[i] = result
+		leavesForProofs[i] = r
 	}
 	var firstLeafProof, lastLeafProof []common.Hash
 	ok, err := isPowTwo(virtual)
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
+	if ok {
 		firstLeafProof, err = comm.computeMerkleProof(0, leavesForProofs, virtual)
 		if err != nil {
 			return nil, err
@@ -103,19 +105,7 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	if len(leaves) == 0 {
 		return common.Hash{}, nil
 	}
-	// Called with 0 limit first to compute the last leaf fillers for the commitment.
-	copiedLeaves := make([]common.Hash, len(leaves))
-	for i, leaf := range leaves {
-		var copied common.Hash
-		copy(copied[:], leaf[:])
-		copiedLeaves[i] = copied
-	}
-	limit := nextPowerOf2(virtual)
-	_, err := h.computeVirtualSparseTree(copiedLeaves, virtual, 0)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return h.computeVirtualSparseTree(leaves, virtual, limit)
+	return h.computeVirtualSparseTree(leaves, virtual, 0)
 }
 
 func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
@@ -221,12 +211,16 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 				logValue := math.Log2(float64(virtual - m))
 				n = int(logValue) + 1
 			}
-			h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], n)
+			lastHash, err := h.hash(leaves[m-1][:])
 			if err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
+			}
+			h.lastLeafFillers, err = h.precomputeRepeatedHashes(&lastHash, n)
+			if err != nil {
+				return emptyHash, err
 			}
 		} else {
-			return common.Hash{}, errors.New("leaves slice is empty")
+			return emptyHash, errors.New("leaves slice is empty")
 		}
 	}
 	if limit == 1 {
@@ -445,7 +439,11 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 
 	// Ensure m > 0 before accessing leaves[m-1]
 	if m > 0 {
-		h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], logVirtual)
+		lastLeaf, err := h.hash(leaves[m-1][:])
+		if err != nil {
+			return nil, nil, err
+		}
+		h.lastLeafFillers, err = h.precomputeRepeatedHashes(&lastLeaf, logVirtual)
 		if err != nil {
 			return nil, nil, err
 		}
