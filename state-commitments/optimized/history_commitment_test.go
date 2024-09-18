@@ -448,6 +448,27 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	}
 }
 
+func TestInclusionProofEquivalence(t *testing.T) {
+	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	leaves := []common.Hash{
+		simpleHash,
+		simpleHash,
+		simpleHash,
+		simpleHash,
+	}
+	commit, err := NewCommitment(leaves, 4)
+	require.NoError(t, err)
+	oldLeaves := []common.Hash{
+		simpleHash,
+		simpleHash,
+		simpleHash,
+		simpleHash,
+	}
+	oldCommit, err := history.New(oldLeaves)
+	require.NoError(t, err)
+	require.Equal(t, commit.Merkle, oldCommit.Merkle)
+}
+
 func setupMerkleTreeContract(t testing.TB) (*mocksgen.MerkleTreeAccess, *simulated.Backend) {
 	numChains := uint64(1)
 	accs, backend := setupAccounts(t, numChains)
