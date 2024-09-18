@@ -13,6 +13,13 @@ func (h *HistoryCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 	if len(leaves) == 0 {
 		return nil, nil
 	}
+	ok, err := isPowTwo(virtual)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("virtual size must be a power of 2")
+	}
 	if leafIndex >= uint64(len(leaves)) {
 		return nil, errors.New("leaf index out of bounds")
 	}
