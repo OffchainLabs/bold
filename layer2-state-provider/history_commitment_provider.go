@@ -360,6 +360,8 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
+	// TODO: Do the same thing about upToHeight inside of HistoryCommitment() function...
+	//
 	// If no upToHeight is provided, we want to use the max number of leaves in our computation.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	var highCommitmentNumLeaves uint64
@@ -394,17 +396,17 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
-	fullTreeHashes := make([]common.Hash, highCommitmentNumLeaves)
-	for i := uint64(0); i < highCommitmentNumLeaves; i++ {
+	fullTreeHashes := make([]common.Hash, len(leaves))
+	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		fullTreeHashes[i] = leaves[i]
 	}
 	committer = commitments.NewCommitter()
-	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, highCommitmentNumLeaves)
+	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, uint64(len(leaves)))
 	if err != nil {
 		return nil, err
 	}
 	hashesForProof := make([]common.Hash, highCommitmentNumLeaves)
-	for i := uint64(0); i < highCommitmentNumLeaves; i++ {
+	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		hashesForProof[i] = leaves[i]
 	}
 	committer = commitments.NewCommitter()
