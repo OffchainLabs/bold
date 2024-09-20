@@ -12,6 +12,7 @@ import (
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	challengetree "github.com/OffchainLabs/bold/challenge-manager/challenge-tree"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/fsm"
 	"github.com/OffchainLabs/bold/containers/option"
@@ -49,10 +50,12 @@ type RoyalChallengeWriter interface {
 	AddVerifiedHonestEdge(
 		ctx context.Context, verifiedHonest protocol.VerifiedRoyalEdge,
 	) error
-	ComputeRootInheritedTimer(
+	IsConfirmableEssentialNode(
 		ctx context.Context,
 		challengedAssertionHash protocol.AssertionHash,
-	) (protocol.InheritedTimer, error)
+		essentialNodeId protocol.EdgeId,
+		confirmationThreshold uint64,
+	) (confirmable bool, essentialPaths []challengetree.EssentialPath, timer uint64, err error)
 }
 
 type ChallengeTracker interface {
@@ -426,18 +429,6 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	fields := et.uniqueTrackerLogFields()
-	start := time.Now()
-	computedTimer, err := et.chainWatcher.ComputeRootInheritedTimer(ctx, assertionHash)
-	if err != nil {
-		fields["error"] = err
-		srvlog.Error("Could not update time cache")
-		return false, errors.Wrap(err, "could not update edge inherited timer")
-	}
-	end := time.Since(start)
-	onchainTimer, err := et.edge.SafeHeadInheritedTimer(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
-	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get challenge manager")
@@ -446,53 +437,23 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	localFields := log.Ctx{
-		"localTimer":       computedTimer,
-		"onchainTimer":     onchainTimer,
-		"confirmableAfter": chalPeriod,
-		"edgeId":           fmt.Sprintf("%#x", et.edge.Id().Bytes()[:4]),
-		"took":             end,
-		"fromBatch":        et.associatedAssertionMetadata.FromBatch,
-		"toBatch":          et.associatedAssertionMetadata.ToBatch,
-		"claimedAssertion": fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+	start := time.Now()
+	isConfirmable, essentialPaths, timer, err := et.chainWatcher.IsConfirmableEssentialNode(
+		ctx,
+		assertionHash,
+		et.edge.Id(),
+		chalPeriod,
+	)
+	if err != nil {
+		fields["error"] = err
+		srvlog.Error("Could not check if essential node is confirmable")
+		return false, errors.Wrap(err, "not check if essential node is confirmable")
 	}
-	srvlog.Info("Updated edge timer", localFields)
-	// Short circuit early if the edge is confirmable.
-	// We have a few things to check here:
-	// First, if the edge's onchain timer is greater than a challenge period, then we can
-	// immediately confirm by time by sending a transaction.
-	if onchainTimer >= protocol.InheritedTimer(chalPeriod) {
-		srvlog.Info("Onchain timer is greater than challenge period, now confirming edge by time", localFields)
-		if _, err := et.edge.ConfirmByTimer(ctx); err != nil {
-			return false, errors.Wrapf(
-				err,
-				"could not confirm by timer: got timer %d, chal period %d",
-				onchainTimer,
-				chalPeriod,
-			)
-		}
-		srvlog.Info("Confirmed edge by time", fields)
-		confirmedCounter.Inc(1)
-		return true, nil
-	}
-	// Otherwise, if the locally cached timer is greater than a challenge period, it means
-	// we need to trigger a confirmation job that will propagate updates to the whole royal
-	// challenge tree onchain until the edge has an onchain timer >= a challenge period.
-	// We let our confirmer dependency take care of this confirmatin job.
-	if uint64(computedTimer) >= chalPeriod {
-		srvlog.Info("Local computed timer big enough to confirm edge", localFields)
-		if err := et.challengeConfirmer.beginConfirmationJob(
-			ctx,
-			assertionHash,
-			et.edge,
-			chalPeriod,
-		); err != nil {
-			return false, errors.Wrap(
-				err,
-				"could not complete confirmation job for royal, block challenge edge",
-			)
-		}
-		// The edge is now confirmed.
+	end := time.Since(start)
+	_ = end
+	_ = essentialPaths
+	_ = timer
+	if isConfirmable {
 		return true, nil
 	}
 	return false, nil
