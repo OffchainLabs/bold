@@ -37,11 +37,15 @@ var (
 )
 
 // The Manager struct is responsible for several tasks related to the assertion chain:
-// 1. It continuously polls the assertion chain to check for posted, on-chain assertions starting from the latest confirmed assertion up to the newest one.
-// 2. As the assertion chain advances, the Manager keeps polling to stay updated.
-// 3. Upon observing each new assertion, the Manager evaluates whether it should challenge the assertion or not.
-// 4. The Manager frequently posts new assertions to the assertion chain at specific intervals.
-// 5. When posting assertions, it relies on the most recent execution state available in its local state manager.
+//
+//  1. It continuously polls the assertion chain to check for posted, on-chain assertions starting
+//     from the latest confirmed assertion up to the newest one.
+//  2. As the assertion chain advances, the Manager keeps polling to stay updated.
+//  3. Upon observing each new assertion, the Manager evaluates whether it should challenge the
+//     assertion or not.
+//  4. The Manager frequently posts new assertions to the assertion chain at specific intervals.
+//  5. When posting assertions, it relies on the most recent execution state available in its local
+//     state provider.
 type Manager struct {
 	stopwaiter.StopWaiter
 	chain                       protocol.AssertionChain
