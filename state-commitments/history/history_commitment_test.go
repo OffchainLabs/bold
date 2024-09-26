@@ -175,7 +175,6 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = simpleHash
 	}
-	committer = NewCommitter()
 	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
 	require.NoError(t, err)
 	return &prefixProofComputation{
