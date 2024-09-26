@@ -212,7 +212,7 @@ func (s *L2StateBackend) UpdateAPIDatabase(database db.Database) {
 	s.HistoryCommitmentProvider = *commitmentProvider
 }
 
-// ExecutionStateAfterBatchCount produces the l2 state to assert at the message number specified.
+// ExecutionStateAfterPreviousState produces the l2 state to assert at the message number specified.
 func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
