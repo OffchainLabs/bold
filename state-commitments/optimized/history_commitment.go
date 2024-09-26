@@ -129,10 +129,14 @@ func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []comm
 // limit is assumed to be a power of two which is higher or equal than the
 // length of the leaves.
 // fillers is assumed to be precomputed to the necessary limit.
+// It is a programming error to call this function with a limit of 0.
 //
 // Zero allocations
 // Computes O(len(leaves)) hashes.
 func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64, fillers []common.Hash) (common.Hash, error) {
+	if limit == 0 {
+		panic("limit must be greater than 0")
+	}
 	if len(leaves) == 0 {
 		return common.Hash{}, nil
 	}
@@ -208,19 +212,14 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 	var err error
 	if limit == 0 {
 		limit = nextPowerOf2(virtual)
-		// Check if m-1 is a valid index before accessing leaves[m-1]
-		if m > 0 {
-			n := 1
-			if virtual > m {
-				logValue := math.Log2(float64(virtual - m))
-				n = int(logValue) + 1
-			}
-			h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], n)
-			if err != nil {
-				return emptyHash, err
-			}
-		} else {
-			return emptyHash, errors.New("leaves slice is empty")
+		n := 1
+		if virtual > m {
+			logValue := math.Log2(float64(limit))
+			n = int(logValue) + 1
+		}
+		h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], n)
+		if err != nil {
+			return emptyHash, err
 		}
 	}
 	if limit == 1 {
@@ -314,20 +313,15 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		return append(proof, left), nil
 	}
 	if m > limit/2 {
-		// Check if limit/2 is a valid index before slicing
-		if limit/2 <= m {
-			left, err2 := h.computeSparseTree(leaves[:limit/2], limit/2, nil)
-			if err2 != nil {
-				return nil, err2
-			}
-			proof, err = h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, stripped)
-			if err != nil {
-				return nil, err
-			}
-			return append(proof, left), nil
-		} else {
-			return nil, errors.New("invalid limit for given leaves")
+		left, err2 := h.computeSparseTree(leaves[:limit/2], limit/2, nil)
+		if err2 != nil {
+			return nil, err2
 		}
+		proof, err = h.subtreeExpansion(leaves[limit/2:], virtual-limit/2, limit/2, stripped)
+		if err != nil {
+			return nil, err
+		}
+		return append(proof, left), nil
 	}
 	if virtual >= limit/2 {
 		left, err2 := h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
@@ -436,26 +430,15 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 		return nil, nil, errors.New("virtual size cannot be zero")
 	}
 	logVirtual := int(math.Log2(float64(virtual)) + 1)
-
-	// Ensure m > 0 before accessing leaves[m-1]
-	if m > 0 {
-		h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], logVirtual)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		return nil, nil, errors.New("leaves slice is empty")
+	h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], logVirtual)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if index+1 > m {
 		prefix, err = h.subtreeExpansion(leaves, index+1, 0, false)
 	} else {
-		// Ensure index+1 <= m before slicing
-		if index+1 <= m {
-			prefix, err = h.subtreeExpansion(leaves[:index+1], index+1, 0, false)
-		} else {
-			return nil, nil, fmt.Errorf("index %d + 1 should be <= num leaves %d", index, m)
-		}
+		prefix, err = h.subtreeExpansion(leaves[:index+1], index+1, 0, false)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -471,6 +454,9 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 // Computes n-1 hashes
 // Copies 1 hash
 func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([]common.Hash, error) {
+	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0].Cmp(*leaf) == 0 && len(h.lastLeafFillers) >= n {
+		return h.lastLeafFillers, nil
+	}
 	if leaf == nil {
 		return nil, errors.New("nil leaf pointer")
 	}
