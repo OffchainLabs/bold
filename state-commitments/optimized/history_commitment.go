@@ -137,17 +137,17 @@ func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 	if limit == 0 {
 		panic("limit must be greater than 0")
 	}
-	if len(leaves) == 0 {
+	m := len(leaves)
+	if m == 0 {
 		return common.Hash{}, nil
 	}
 	if limit < 2 {
 		return leaves[0], nil
 	}
-	m := len(leaves)
 	depth := int(math.Log2(float64(limit)))
 	for j := 0; j < depth; j++ {
 		// Check to ensure we don't access out of bounds.
-		for i := 0; i < m/2 && 2*i+1 < m; i++ {
+		for i := 0; i < m/2; i++ {
 			if _, err := h.keccak.Write(leaves[2*i][:]); err != nil {
 				return common.Hash{}, err
 			}
@@ -159,7 +159,7 @@ func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 			}
 			h.keccak.Reset()
 		}
-		if m&1 == 1 && m-1 < len(leaves) {
+		if m&1 == 1 {
 			// Check to ensure m-1 is a valid index.
 			if _, err := h.keccak.Write(leaves[m-1][:]); err != nil {
 				return common.Hash{}, err
@@ -231,18 +231,13 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 	var left, right common.Hash
 	if virtual > limit/2 {
 		if m > limit/2 {
-			// Check if limit/2 is a valid index before slicing
-			if limit/2 <= uint64(len(leaves)) {
-				left, err = h.computeSparseTree(leaves[:limit/2], limit/2, nil)
-				if err != nil {
-					return common.Hash{}, err
-				}
-				right, err = h.computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
-				if err != nil {
-					return common.Hash{}, err
-				}
-			} else {
-				return common.Hash{}, errors.New("invalid limit for given leaves")
+			left, err = h.computeSparseTree(leaves[:limit/2], limit/2, nil)
+			if err != nil {
+				return common.Hash{}, err
+			}
+			right, err = h.computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
+			if err != nil {
+				return common.Hash{}, err
 			}
 		} else {
 			left, err = h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
@@ -454,11 +449,11 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 // Computes n-1 hashes
 // Copies 1 hash
 func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([]common.Hash, error) {
-	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0].Cmp(*leaf) == 0 && len(h.lastLeafFillers) >= n {
-		return h.lastLeafFillers, nil
-	}
 	if leaf == nil {
 		return nil, errors.New("nil leaf pointer")
+	}
+	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0] == *leaf && len(h.lastLeafFillers) >= n {
+		return h.lastLeafFillers, nil
 	}
 	if n < 0 {
 		return nil, fmt.Errorf("invalid n: %d, must be non-negative", n)
