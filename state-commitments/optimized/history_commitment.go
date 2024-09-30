@@ -397,11 +397,11 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 // Computes n-1 hashes
 // Copies 1 hash
 func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([]common.Hash, error) {
-	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0].Cmp(*leaf) == 0 && len(h.lastLeafFillers) >= n {
-		return h.lastLeafFillers, nil
-	}
 	if leaf == nil {
 		return nil, errors.New("nil leaf pointer")
+	}
+	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0] == *leaf && len(h.lastLeafFillers) >= n {
+		return h.lastLeafFillers, nil
 	}
 	if n < 0 {
 		return nil, fmt.Errorf("invalid n: %d, must be non-negative", n)
