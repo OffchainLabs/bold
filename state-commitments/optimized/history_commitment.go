@@ -170,11 +170,11 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 			return common.Hash{}, err
 		}
 	}
-	if limit == 1 {
-		return leaves[0], nil
-	}
 	if limit < virtual {
 		return common.Hash{}, fmt.Errorf("limit %d should be >= virtual %d", limit, virtual)
+	}
+	if limit == 1 {
+		return leaves[0], nil
 	}
 	var left, right common.Hash
 	if virtual > limit/2 {
@@ -306,11 +306,7 @@ func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, li
 	}
 	if index >= limit/2 {
 		if m > limit/2 {
-			if limit/2 < m {
-				return h.proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
-			} else {
-				return nil, errors.New("invalid limit for given leaves")
-			}
+			return h.proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
 		}
 		if len(h.lastLeafFillers) > 0 {
 			return h.proof(index-limit/2, []common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2)
@@ -366,11 +362,6 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 	}
 	if index+1 > virtual {
 		return nil, nil, fmt.Errorf("index %d + 1 should be <= virtual %d", index, virtual)
-	}
-
-	// Check for potential overflow before doing math.Log2
-	if virtual == 0 {
-		return nil, nil, errors.New("virtual size cannot be zero")
 	}
 	logVirtual := int(math.Log2(float64(virtual)) + 1)
 	h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], logVirtual)
