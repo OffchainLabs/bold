@@ -1,18 +1,12 @@
 package history
 
 import (
-	"crypto/ecdsa"
 	"fmt"
-	"math/big"
 	"testing"
 
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 )
 
@@ -87,7 +81,7 @@ func FuzzHistoryCommitter(f *testing.F) {
 // 		{8, 8},
 // 		{1, 16},
 // 	}
-
+//
 // 	for _, tt := range tests {
 // 		for virtual := tt.realLength; virtual < tt.virtualLength; virtual++ {
 // 			for prefixIndex := uint64(0); prefixIndex < virtual-1; prefixIndex++ {
@@ -139,54 +133,54 @@ func BenchmarkPrefixProofGeneration_Optimized(b *testing.B) {
 	}
 }
 
-type prefixProofComputation struct {
-	prefixRoot          common.Hash
-	fullRoot            common.Hash
-	prefixTotalLeaves   uint64
-	fullTreeTotalLeaves uint64
-	prefixExpansion     []common.Hash
-	proof               []common.Hash
-}
-
-func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uint64, prefixIndex uint64) *prefixProofComputation {
-	// Computes the prefix proof and expansion.
-	simpleHash := crypto.Keccak256Hash([]byte("foo"))
-	hashes := make([]common.Hash, prefixIndex+1)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = simpleHash
-	}
-
-	// Computes the prefix root.
-	committer := NewCommitter()
-	prefixRoot, err := committer.ComputeRoot(hashes, prefixIndex+1)
-	require.NoError(t, err)
-
-	// Computes the full tree root.
-	hashes = make([]common.Hash, numRealHashes)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = simpleHash
-	}
-	committer = NewCommitter()
-	fullTreeRoot, err := committer.ComputeRoot(hashes, virtual)
-	require.NoError(t, err)
-
-	// Computes the prefix proof.
-	hashes = make([]common.Hash, numRealHashes)
-	for i := 0; i < len(hashes); i++ {
-		hashes[i] = simpleHash
-	}
-	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
-	require.NoError(t, err)
-	return &prefixProofComputation{
-		prefixRoot:          prefixRoot,
-		fullRoot:            fullTreeRoot,
-		prefixTotalLeaves:   uint64(prefixIndex) + 1,
-		fullTreeTotalLeaves: uint64(virtual),
-		prefixExpansion:     prefixExp,
-		proof:               proof,
-	}
-}
-
+// type prefixProofComputation struct {
+// 	prefixRoot          common.Hash
+// 	fullRoot            common.Hash
+// 	prefixTotalLeaves   uint64
+// 	fullTreeTotalLeaves uint64
+// 	prefixExpansion     []common.Hash
+// 	proof               []common.Hash
+// }
+//
+// func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uint64, prefixIndex uint64) *prefixProofComputation {
+// 	// Computes the prefix proof and expansion.
+// 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+// 	hashes := make([]common.Hash, prefixIndex+1)
+// 	for i := 0; i < len(hashes); i++ {
+// 		hashes[i] = simpleHash
+// 	}
+//
+// 	// Computes the prefix root.
+// 	committer := NewCommitter()
+// 	prefixRoot, err := committer.ComputeRoot(hashes, prefixIndex+1)
+// 	require.NoError(t, err)
+//
+// 	// Computes the full tree root.
+// 	hashes = make([]common.Hash, numRealHashes)
+// 	for i := 0; i < len(hashes); i++ {
+// 		hashes[i] = simpleHash
+// 	}
+// 	committer = NewCommitter()
+// 	fullTreeRoot, err := committer.ComputeRoot(hashes, virtual)
+// 	require.NoError(t, err)
+//
+// 	// Computes the prefix proof.
+// 	hashes = make([]common.Hash, numRealHashes)
+// 	for i := 0; i < len(hashes); i++ {
+// 		hashes[i] = simpleHash
+// 	}
+// 	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
+// 	require.NoError(t, err)
+// 	return &prefixProofComputation{
+// 		prefixRoot:          prefixRoot,
+// 		fullRoot:            fullTreeRoot,
+// 		prefixTotalLeaves:   uint64(prefixIndex) + 1,
+// 		fullTreeTotalLeaves: uint64(virtual),
+// 		prefixExpansion:     prefixExp,
+// 		proof:               proof,
+// 	}
+// }
+//
 // func computeLegacyPrefixProof(t *testing.T, ctx context.Context, numHashes uint64, prefixIndex uint64) *prefixProofComputation {
 // 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 // 	hashes := make([]common.Hash, numHashes)
@@ -195,7 +189,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 // 	}
 // 	manager, err := statemanager.NewWithMockedStateRoots(hashes)
 // 	require.NoError(t, err)
-
+//
 // 	wasmModuleRoot := common.Hash{}
 // 	startMessageNumber := l2stateprovider.Height(0)
 // 	fromMessageNumber := l2stateprovider.Height(prefixIndex)
@@ -209,21 +203,21 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 // 	}
 // 	loCommit, err := manager.HistoryCommitment(ctx, req)
 // 	require.NoError(t, err)
-
+//
 // 	req.UpToHeight = option.Some(l2stateprovider.Height(numHashes - 1))
 // 	hiCommit, err := manager.HistoryCommitment(ctx, req)
 // 	require.NoError(t, err)
-
+//
 // 	packedProof, err := manager.PrefixProof(ctx, req, fromMessageNumber)
 // 	require.NoError(t, err)
-
+//
 // 	data, err := statemanager.ProofArgs.Unpack(packedProof)
 // 	require.NoError(t, err)
 // 	preExpansion, ok := data[0].([][32]byte)
 // 	require.Equal(t, true, ok)
 // 	proof, ok := data[1].([][32]byte)
 // 	require.Equal(t, true, ok)
-
+//
 // 	preExpansionHashes := make([]common.Hash, len(preExpansion))
 // 	for i := 0; i < len(preExpansion); i++ {
 // 		preExpansionHashes[i] = preExpansion[i]
@@ -465,60 +459,60 @@ func TestInclusionProofEquivalence(t *testing.T) {
 	require.Equal(t, commit.Merkle, oldCommit.Merkle)
 }
 
-func setupMerkleTreeContract(t testing.TB) (*mocksgen.MerkleTreeAccess, *simulated.Backend) {
-	numChains := uint64(1)
-	accs, backend := setupAccounts(t, numChains)
-	_, _, merkleTreeContract, err := mocksgen.DeployMerkleTreeAccess(accs[0].txOpts, backend.Client())
-	if err != nil {
-		t.Fatal(err)
-	}
-	backend.Commit()
-	return merkleTreeContract, backend
-}
-
+// func setupMerkleTreeContract(t testing.TB) (*mocksgen.MerkleTreeAccess, *simulated.Backend) {
+// 	numChains := uint64(1)
+// 	accs, backend := setupAccounts(t, numChains)
+// 	_, _, merkleTreeContract, err := mocksgen.DeployMerkleTreeAccess(accs[0].txOpts, backend.Client())
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	backend.Commit()
+// 	return merkleTreeContract, backend
+// }
+//
 // Represents a test EOA account in the simulated backend,
-type testAccount struct {
-	accountAddr common.Address
-	txOpts      *bind.TransactOpts
-}
-
-func setupAccounts(t testing.TB, numAccounts uint64) ([]*testAccount, *simulated.Backend) {
-	genesis := make(core.GenesisAlloc)
-	gasLimit := uint64(100000000)
-
-	accs := make([]*testAccount, numAccounts)
-	for i := uint64(0); i < numAccounts; i++ {
-		privKey, err := crypto.GenerateKey()
-		if err != nil {
-			t.Fatal(err)
-		}
-		pubKeyECDSA, ok := privKey.Public().(*ecdsa.PublicKey)
-		if !ok {
-			t.Fatal("not ok")
-		}
-
-		// Strip off the 0x and the first 2 characters 04 which is always the
-		// EC prefix and is not required.
-		publicKeyBytes := crypto.FromECDSAPub(pubKeyECDSA)[4:]
-		var pubKey = make([]byte, 48)
-		copy(pubKey, publicKeyBytes)
-
-		addr := crypto.PubkeyToAddress(privKey.PublicKey)
-		chainID := big.NewInt(1337)
-		txOpts, err := bind.NewKeyedTransactorWithChainID(privKey, chainID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		startingBalance, _ := new(big.Int).SetString(
-			"100000000000000000000000000000000000000",
-			10,
-		)
-		genesis[addr] = core.GenesisAccount{Balance: startingBalance}
-		accs[i] = &testAccount{
-			accountAddr: addr,
-			txOpts:      txOpts,
-		}
-	}
-	backend := simulated.NewBackend(genesis, simulated.WithBlockGasLimit(gasLimit))
-	return accs, backend
-}
+// type testAccount struct {
+// 	accountAddr common.Address
+// 	txOpts      *bind.TransactOpts
+// }
+//
+// func setupAccounts(t testing.TB, numAccounts uint64) ([]*testAccount, *simulated.Backend) {
+// 	genesis := make(core.GenesisAlloc)
+// 	gasLimit := uint64(100000000)
+//
+// 	accs := make([]*testAccount, numAccounts)
+// 	for i := uint64(0); i < numAccounts; i++ {
+// 		privKey, err := crypto.GenerateKey()
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		pubKeyECDSA, ok := privKey.Public().(*ecdsa.PublicKey)
+// 		if !ok {
+// 			t.Fatal("not ok")
+// 		}
+//
+// 		// Strip off the 0x and the first 2 characters 04 which is always the
+// 		// EC prefix and is not required.
+// 		publicKeyBytes := crypto.FromECDSAPub(pubKeyECDSA)[4:]
+// 		var pubKey = make([]byte, 48)
+// 		copy(pubKey, publicKeyBytes)
+//
+// 		addr := crypto.PubkeyToAddress(privKey.PublicKey)
+// 		chainID := big.NewInt(1337)
+// 		txOpts, err := bind.NewKeyedTransactorWithChainID(privKey, chainID)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		startingBalance, _ := new(big.Int).SetString(
+// 			"100000000000000000000000000000000000000",
+// 			10,
+// 		)
+// 		genesis[addr] = core.GenesisAccount{Balance: startingBalance}
+// 		accs[i] = &testAccount{
+// 			accountAddr: addr,
+// 			txOpts:      txOpts,
+// 		}
+// 	}
+// 	backend := simulated.NewBackend(genesis, simulated.WithBlockGasLimit(gasLimit))
+// 	return accs, backend
+// }
