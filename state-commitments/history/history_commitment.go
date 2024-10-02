@@ -34,7 +34,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 		return emptyHistory, errors.New("virtual size cannot be zero")
 	}
 	if virtual < uint64(len(leaves)) {
-		return emptyHistory, errors.New("virtual size must be less than or equal to the number of leaves")
+		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
 	}
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
@@ -95,13 +95,13 @@ func (h *HistoryCommitter) hash(item []byte) (common.Hash, error) {
 
 func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
 	if len(leaves) == 0 {
-		return common.Hash{}, nil
+		return emptyHash, nil
 	}
 	rehashedLeaves := make([]common.Hash, len(leaves))
 	for i, leaf := range leaves {
 		result, err := h.hash(leaf[:])
 		if err != nil {
-			return common.Hash{}, err
+			return emptyHash, err
 		}
 		rehashedLeaves[i] = result
 	}
@@ -141,43 +141,43 @@ func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 	if limit == 0 {
 		panic("limit must be greater than 0")
 	}
-	if len(leaves) == 0 {
-		return common.Hash{}, nil
+	m := len(leaves)
+	if m == 0 {
+		return emptyHash, nil
 	}
 	if limit < 2 {
 		return leaves[0], nil
 	}
-	m := len(leaves)
 	depth := int(math.Log2(float64(limit)))
 	for j := 0; j < depth; j++ {
 		// Check to ensure we don't access out of bounds.
-		for i := 0; i < m/2 && 2*i+1 < m; i++ {
+		for i := 0; i < m/2; i++ {
 			if _, err := h.keccak.Write(leaves[2*i][:]); err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 			if _, err := h.keccak.Write(leaves[2*i+1][:]); err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 			if _, err := h.keccak.Read(leaves[i][:]); err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 			h.keccak.Reset()
 		}
-		if m&1 == 1 && m-1 < len(leaves) {
+		if m&1 == 1 {
 			// Check to ensure m-1 is a valid index.
 			if _, err := h.keccak.Write(leaves[m-1][:]); err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 			if j < len(fillers) { // Check to prevent index out of range for fillers.
 				if _, err := h.keccak.Write(fillers[j][:]); err != nil {
-					return common.Hash{}, err
+					return emptyHash, err
 				}
 			} else {
 				// Handle the case where j is out of range for fillers.
-				return common.Hash{}, errors.New("insufficient fillers")
+				return emptyHash, errors.New("insufficient fillers")
 			}
 			if _, err := h.keccak.Read(leaves[(m-1)/2][:]); err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 			h.keccak.Reset()
 		}
@@ -208,10 +208,10 @@ func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
 	m := uint64(len(leaves))
 	if m == 0 {
-		return common.Hash{}, errors.New("nil leaves")
+		return emptyHash, errors.New("nil leaves")
 	}
 	if virtual < m {
-		return common.Hash{}, fmt.Errorf("virtual %d should be >= num leaves %d", virtual, m)
+		return emptyHash, fmt.Errorf("virtual %d should be >= num leaves %d", virtual, m)
 	}
 	var err error
 	if limit == 0 {
@@ -226,65 +226,60 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 			return emptyHash, err
 		}
 	}
+	if limit < virtual {
+		return emptyHash, fmt.Errorf("limit %d should be >= virtual %d", limit, virtual)
+	}
 	if limit == 1 {
 		return leaves[0], nil
-	}
-	if limit < virtual {
-		return common.Hash{}, fmt.Errorf("limit %d should be >= virtual %d", limit, virtual)
 	}
 	var left, right common.Hash
 	if virtual > limit/2 {
 		if m > limit/2 {
-			// Check if limit/2 is a valid index before slicing
-			if limit/2 <= uint64(len(leaves)) {
-				left, err = h.computeSparseTree(leaves[:limit/2], limit/2, nil)
-				if err != nil {
-					return common.Hash{}, err
-				}
-				right, err = h.computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
-				if err != nil {
-					return common.Hash{}, err
-				}
-			} else {
-				return common.Hash{}, errors.New("invalid limit for given leaves")
+			left, err = h.computeSparseTree(leaves[:limit/2], limit/2, nil)
+			if err != nil {
+				return emptyHash, err
+			}
+			right, err = h.computeVirtualSparseTree(leaves[limit/2:], virtual-limit/2, limit/2)
+			if err != nil {
+				return emptyHash, err
 			}
 		} else {
 			left, err = h.computeSparseTree(leaves, limit/2, h.lastLeafFillers)
 			if err != nil {
-				return common.Hash{}, err
+				return emptyHash, err
 			}
 			if virtual == limit {
 				if len(h.lastLeafFillers) > int(math.Log2(float64(limit/2))) {
 					right = h.lastLeafFillers[int(math.Log2(float64(limit/2)))]
 				} else {
-					return common.Hash{}, errors.New("insufficient lastLeafFillers")
+					return emptyHash, errors.New("insufficient lastLeafFillers")
 				}
 			} else {
 				if len(h.lastLeafFillers) > 0 {
 					right, err = h.computeVirtualSparseTree([]common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2)
 					if err != nil {
-						return common.Hash{}, err
+						return emptyHash, err
 					}
 				} else {
-					return common.Hash{}, errors.New("empty lastLeafFillers")
+					return emptyHash, errors.New("empty lastLeafFillers")
 				}
 			}
 		}
 	} else {
 		left, err = h.computeVirtualSparseTree(leaves, virtual, limit/2)
 		if err != nil {
-			return common.Hash{}, err
+			return emptyHash, err
 		}
 		right = emptyHash
 	}
 	if _, err = h.keccak.Write(left[:]); err != nil {
-		return common.Hash{}, err
+		return emptyHash, err
 	}
 	if _, err = h.keccak.Write(right[:]); err != nil {
-		return common.Hash{}, err
+		return emptyHash, err
 	}
 	if _, err = h.keccak.Read(leaves[0][:]); err != nil {
-		return common.Hash{}, err
+		return emptyHash, err
 	}
 	h.keccak.Reset()
 	return leaves[0], nil
@@ -367,11 +362,7 @@ func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, li
 	}
 	if index >= limit/2 {
 		if m > limit/2 {
-			if limit/2 < m {
-				return h.proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
-			} else {
-				return nil, errors.New("invalid limit for given leaves")
-			}
+			return h.proof(index-limit/2, leaves[limit/2:], virtual-limit/2, limit/2)
 		}
 		if len(h.lastLeafFillers) > 0 {
 			return h.proof(index-limit/2, []common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2)
@@ -428,11 +419,6 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 	if index+1 > virtual {
 		return nil, nil, fmt.Errorf("index %d + 1 should be <= virtual %d", index, virtual)
 	}
-
-	// Check for potential overflow before doing math.Log2
-	if virtual == 0 {
-		return nil, nil, errors.New("virtual size cannot be zero")
-	}
 	logVirtual := int(math.Log2(float64(virtual)) + 1)
 	h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], logVirtual)
 	if err != nil {
@@ -458,11 +444,11 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 // Computes n-1 hashes
 // Copies 1 hash
 func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([]common.Hash, error) {
-	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0].Cmp(*leaf) == 0 && len(h.lastLeafFillers) >= n {
-		return h.lastLeafFillers, nil
-	}
 	if leaf == nil {
 		return nil, errors.New("nil leaf pointer")
+	}
+	if len(h.lastLeafFillers) > 0 && h.lastLeafFillers[0] == *leaf && len(h.lastLeafFillers) >= n {
+		return h.lastLeafFillers, nil
 	}
 	if n < 0 {
 		return nil, fmt.Errorf("invalid n: %d, must be non-negative", n)
