@@ -36,6 +36,12 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	if virtual < uint64(len(leaves)) {
 		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
 	}
+	if virtual == 0 {
+		return nil, errors.New("virtual size cannot be zero")
+	}
+	if virtual < uint64(len(leaves)) {
+		return nil, errors.New("virtual size must be greater than or equal to the number of leaves")
+	}
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]

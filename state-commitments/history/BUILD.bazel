@@ -23,6 +23,7 @@ go_test(
         "history_commitment_test.go",
         "legacy_test.go",
     ],
+    size = "small",
     embed = [":history"],
     deps = [
         "//solgen/go/mocksgen",
