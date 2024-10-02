@@ -8,14 +8,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/offchainlabs/bold/util"
 	"github.com/pkg/errors"
 )
 
@@ -30,10 +31,18 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 		log.Warn("Staker strategy not configured to stake on latest assertions")
 		return
 	}
+
+	backoffLogLevel := time.Second
+	exceedsMaxMempoolSizeEphemeralErrorHandler := util.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+
 	log.Info("Ready to post")
 	if _, err := m.PostAssertion(ctx); err != nil {
 		if !errors.Is(err, solimpl.ErrAlreadyExists) {
-			log.Error("Could not submit latest assertion to L1", "err", err)
+			backoffLogLevel *= 2
+			logLevel := log.Warn
+			logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+			logLevel("Could not submit latest assertion to L1", "err", err)
 			errorPostingAssertionCounter.Inc(1)
 		}
 	}
@@ -49,9 +58,21 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 				case errors.Is(err, solimpl.ErrBatchNotYetFound):
 					log.Info("Waiting for more batches to post assertions about them onchain")
 				default:
-					log.Error("Could not submit latest assertion", "err", err, "validatorName", m.validatorName)
+					backoffLogLevel *= 2
+					logLevel := log.Error
+					if backoffLogLevel > time.Minute {
+						backoffLogLevel = time.Minute
+					} else {
+						logLevel = log.Warn
+					}
+					logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+					logLevel("Could not submit latest assertion", "err", err, "validatorName", m.validatorName)
 					errorPostingAssertionCounter.Inc(1)
 				}
+			} else {
+				exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+				backoff = time.Second
 			}
 		case <-ctx.Done():
 			return
