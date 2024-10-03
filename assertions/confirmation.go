@@ -13,7 +13,7 @@ import (
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers/option"
 	retry "github.com/offchainlabs/bold/runtime"
-	"github.com/offchainlabs/bold/util"
+	utillog "github.com/offchainlabs/bold/util/log"
 )
 
 func (m *Manager) queueCanonicalAssertionsForConfirmation(ctx context.Context) {
@@ -58,7 +58,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 	}
 
 	backoffLogLevel := time.Second
-	exceedsMaxMempoolSizeEphemeralErrorHandler := util.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
 
 	ticker := time.NewTicker(m.confirmationAttemptInterval)
 	defer ticker.Stop()
