@@ -25,6 +25,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
+	utillog "github.com/OffchainLabs/bold/util/log"
 	"github.com/OffchainLabs/bold/util/stopwaiter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -866,6 +867,9 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		challengeGracePeriodBlocks,
 	)
 
+	backoffLogLevel := time.Second
+	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
+
 	// Compute the number of blocks until we reach the assertion's
 	// deadline for confirmation.
 	ticker := time.NewTicker(w.assertionConfirmingInterval)
@@ -884,10 +888,23 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 				option.Some(edge.Id()),
 			)
 			if err != nil {
-				log.Error("Could not confirm assertion", "err", err, "assertionHash", common.Hash(claimId))
+				backoffLogLevel *= 2
+				logLevel := log.Error
+				if backoffLogLevel > time.Minute {
+					backoffLogLevel = time.Minute
+				} else {
+					logLevel = log.Warn
+				}
+				logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+				logLevel("Could not confirm assertion", "err", err, "assertionHash", common.Hash(claimId))
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue
 			}
+
+			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			backoffLogLevel = time.Second
+
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				w.challenges.Delete(challengeParentAssertionHash)
