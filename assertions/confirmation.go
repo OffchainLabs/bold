@@ -6,13 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/log"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers/option"
 	retry "github.com/offchainlabs/bold/runtime"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/offchainlabs/bold/util"
 )
 
 func (m *Manager) queueCanonicalAssertionsForConfirmation(ctx context.Context) {
@@ -101,7 +102,10 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 				}
 				continue
 			}
+
 			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			backoffLogLevel = time.Second
+
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				log.Info("Confirmed assertion by time", "assertionHash", creationInfo.AssertionHash)

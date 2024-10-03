@@ -25,6 +25,7 @@ import (
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
+	"github.com/offchainlabs/bold/util"
 	"github.com/offchainlabs/bold/util/stopwaiter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -900,7 +901,10 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue
 			}
+
 			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			backoffLogLevel = time.Second
+
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				w.challenges.Delete(challengeParentAssertionHash)

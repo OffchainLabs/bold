@@ -72,7 +72,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 				}
 			} else {
 				exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
-				backoff = time.Second
+				backoffLogLevel = time.Second
 			}
 		case <-ctx.Done():
 			return
