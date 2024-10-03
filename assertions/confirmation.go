@@ -11,6 +11,7 @@ import (
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers/option"
 	retry "github.com/OffchainLabs/bold/runtime"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -101,7 +102,10 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 				}
 				continue
 			}
+
 			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			backoffLogLevel = time.Second
+
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				log.Info("Confirmed assertion by time", "assertionHash", creationInfo.AssertionHash)

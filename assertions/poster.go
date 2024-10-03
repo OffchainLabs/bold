@@ -9,12 +9,12 @@ import (
 	"time"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/util"
 	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers"
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	"github.com/OffchainLabs/bold/util"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
@@ -72,7 +72,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 				}
 			} else {
 				exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
-				backoff = time.Second
+				backoffLogLevel = time.Second
 			}
 		case <-ctx.Done():
 			return
