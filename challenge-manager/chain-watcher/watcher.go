@@ -866,6 +866,9 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		challengeGracePeriodBlocks,
 	)
 
+	backoffLogLevel := time.Second
+	exceedsMaxMempoolSizeEphemeralErrorHandler := util.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+
 	// Compute the number of blocks until we reach the assertion's
 	// deadline for confirmation.
 	ticker := time.NewTicker(w.assertionConfirmingInterval)
@@ -884,10 +887,20 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 				option.Some(edge.Id()),
 			)
 			if err != nil {
-				log.Error("Could not confirm assertion", "err", err, "assertionHash", common.Hash(claimId))
+				backoffLogLevel *= 2
+				logLevel := log.Error
+				if backoffLogLevel > time.Minute {
+					backoffLogLevel = time.Minute
+				} else {
+					logLevel = log.Warn
+				}
+				logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+				logLevel("Could not confirm assertion", "err", err, "assertionHash", common.Hash(claimId))
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue
 			}
+			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				w.challenges.Delete(challengeParentAssertionHash)
