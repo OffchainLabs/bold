@@ -33,7 +33,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	}
 
 	backoffLogLevel := time.Second
-	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
 
 	log.Info("Ready to post")
 	if _, err := m.PostAssertion(ctx); err != nil {
