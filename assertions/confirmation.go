@@ -55,6 +55,10 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		log.Error("Could not get prev assertion creation info", "err", err)
 		return
 	}
+
+	backoffLogLevel := time.Second
+	exceedsMaxMempoolSizeEphemeralErrorHandler := util.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+
 	ticker := time.NewTicker(m.confirmationAttemptInterval)
 	defer ticker.Stop()
 	for {
@@ -83,11 +87,21 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.averageTimeForBlockCreation, option.None[protocol.EdgeId]())
 			if err != nil {
 				if !strings.Contains(err.Error(), "PREV_NOT_LATEST_CONFIRMED") {
-					log.Error("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
+					backoffLogLevel *= 2
+					logLevel := log.Error
+					if backoffLogLevel > time.Minute {
+						backoffLogLevel = time.Minute
+					} else {
+						logLevel = log.Warn
+					}
+					logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+					logLevel("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
 					errorConfirmingAssertionByTimeCounter.Inc(1)
 				}
 				continue
 			}
+			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				log.Info("Confirmed assertion by time", "assertionHash", creationInfo.AssertionHash)
