@@ -25,7 +25,7 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/bold/util"
+	utillog "github.com/OffchainLabs/bold/util/log"
 	"github.com/OffchainLabs/bold/util/stopwaiter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -868,7 +868,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 	)
 
 	backoffLogLevel := time.Second
-	exceedsMaxMempoolSizeEphemeralErrorHandler := util.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
 
 	// Compute the number of blocks until we reach the assertion's
 	// deadline for confirmation.
