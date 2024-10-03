@@ -868,7 +868,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 	)
 
 	backoffLogLevel := time.Second
-	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(5*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
 
 	// Compute the number of blocks until we reach the assertion's
 	// deadline for confirmation.
