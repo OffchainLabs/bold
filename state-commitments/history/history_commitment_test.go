@@ -1,6 +1,7 @@
 package history
 
 import (
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -348,4 +349,31 @@ func TestInclusionProofEquivalence(t *testing.T) {
 	oldCommit, err := NewLegacy(oldLeaves)
 	require.NoError(t, err)
 	require.Equal(t, commit.Merkle, oldCommit.Merkle)
+}
+
+// Utility function to generate random bytes for benchmarking
+func randomBytes(size int) []byte {
+	b := make([]byte, size)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err) // Handle error in production code
+	}
+	return b
+}
+
+// Benchmark for your custom hash function
+func BenchmarkHashFunction(b *testing.B) {
+	comm := NewCommitter()
+	data := randomBytes(32) // Change size as necessary
+	for i := 0; i < b.N; i++ {
+		comm.hash(data)
+	}
+}
+
+// Benchmark for the Keccak256Hash function
+func BenchmarkKeccak256Hash(b *testing.B) {
+	data := randomBytes(32) // Change size as necessary
+	for i := 0; i < b.N; i++ {
+		crypto.Keccak256Hash(data)
+	}
 }

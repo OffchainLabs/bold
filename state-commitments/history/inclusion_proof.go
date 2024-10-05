@@ -20,10 +20,7 @@ func (h *historyCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 		return nil, errors.New("virtual size must be greater than or equal to the number of leaves")
 	}
 	numRealLeaves := uint64(len(leaves))
-	lastLeaf, err := h.hash(leaves[numRealLeaves-1][:])
-	if err != nil {
-		return nil, err
-	}
+	lastLeaf := h.hash(leaves[numRealLeaves-1][:])
 	depth := int(math.Ceil(math.Log2(float64(virtual))))
 
 	// Precompute virtual hashes
@@ -84,7 +81,7 @@ func (h *historyCommitter) computeNodeHash(
 			// Node is in padding (the virtual segment of the tree).
 			return virtualHashes[0], nil
 		} else {
-			return h.hash(leaves[nodeIndex][:])
+			return h.hash(leaves[nodeIndex][:]), nil
 		}
 	} else {
 		if nodeIndex >= paddingStartIndexAtLevel(numRealLeaves, level) && nodeIndex <= paddingEndIndexAtLevel(virtual, level) {
@@ -99,7 +96,7 @@ func (h *historyCommitter) computeNodeHash(
 				return emptyHash, err
 			}
 			data := append(leftChild.Bytes(), rightChild.Bytes()...)
-			return h.hash(data)
+			return h.hash(data), nil
 		}
 	}
 }

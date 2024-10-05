@@ -15,8 +15,9 @@ var (
 	emptyHistory = protocol.History{}
 )
 
-// NewCommitment produces a history commitment from a list of leaves that are virtually padded using
-// the last leaf in the list to some virtual length, without making those extra allocations needed to do so.
+// NewCommitment produces a history commitment from a list of leaves that are
+// virtually padded using the last leaf in the list to some virtual length.
+//
 // Virtual must be >= len(leaves).
 func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, error) {
 	if len(leaves) == 0 {
@@ -58,42 +59,34 @@ func NewCommitter() *historyCommitter {
 	}
 }
 
-func (h *historyCommitter) hash(item []byte) (common.Hash, error) {
+// hash hashes the passed item into a common.Hash.
+func (h *historyCommitter) hash(item []byte) common.Hash {
 	defer h.keccak.Reset()
-	if _, err := h.keccak.Write(item); err != nil {
-		return emptyHash, err
-	}
+	h.keccak.Write(item)
 	var result common.Hash
-	if _, err := h.keccak.Read(result[:]); err != nil {
-		return emptyHash, err
+	h.keccak.Read(result[:])
+	return result
+}
+
+// hashInto hashes the concatenation of the passed items into the result.
+func (h *historyCommitter) hashInto(result common.Hash, items ...common.Hash) {
+	defer h.keccak.Reset()
+	for _, item := range items {
+		h.keccak.Write(item[:])
 	}
-	return result, nil
+	h.keccak.Read(result[:])
 }
 
 func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
 	if len(leaves) == 0 {
 		return emptyHash, nil
 	}
-	rehashedLeaves := make([]common.Hash, len(leaves))
-	for i, leaf := range leaves {
-		result, err := h.hash(leaf[:])
-		if err != nil {
-			return emptyHash, err
-		}
-		rehashedLeaves[i] = result
-	}
+	rehashedLeaves := h.hashLeaves(leaves)
 	return h.computeVirtualSparseTree(rehashedLeaves, virtual, 0)
 }
 
 func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
-	rehashedLeaves := make([]common.Hash, len(leaves))
-	for i, leaf := range leaves {
-		result, err := h.hash(leaf[:])
-		if err != nil {
-			return nil, nil, err
-		}
-		rehashedLeaves[i] = result
-	}
+	rehashedLeaves := h.hashLeaves(leaves)
 	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, rehashedLeaves, virtual)
 	if err != nil {
 		return nil, nil, err
@@ -101,6 +94,15 @@ func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []comm
 	prefixExpansion = trimTrailingZeroHashes(prefixExpansion)
 	proof = trimZeroes(proof)
 	return prefixExpansion, proof, nil
+}
+
+// hashLeaves returns a slich of hashes of the leaves
+func (h *historyCommitter) hashLeaves(leaves []common.Hash) []common.Hash {
+	hashedLeaves := make([]common.Hash, len(leaves))
+	for i, leaf := range leaves {
+		hashedLeaves[i] = h.hash(leaf[:])
+	}
+	return hashedLeaves
 }
 
 // computeSparseTree returns the htr of a hashtree with the given leaves and
@@ -129,34 +131,15 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 	for j := 0; j < depth; j++ {
 		// Check to ensure we don't access out of bounds.
 		for i := 0; i < m/2; i++ {
-			if _, err := h.keccak.Write(leaves[2*i][:]); err != nil {
-				return emptyHash, err
-			}
-			if _, err := h.keccak.Write(leaves[2*i+1][:]); err != nil {
-				return emptyHash, err
-			}
-			if _, err := h.keccak.Read(leaves[i][:]); err != nil {
-				return emptyHash, err
-			}
-			h.keccak.Reset()
+			h.hashInto(leaves[i], leaves[2*i], leaves[2*i+1])
 		}
 		if m&1 == 1 {
 			// Check to ensure m-1 is a valid index.
-			if _, err := h.keccak.Write(leaves[m-1][:]); err != nil {
-				return emptyHash, err
-			}
-			if j < len(fillers) { // Check to prevent index out of range for fillers.
-				if _, err := h.keccak.Write(fillers[j][:]); err != nil {
-					return emptyHash, err
-				}
-			} else {
+			if j >= len(fillers) {
 				// Handle the case where j is out of range for fillers.
 				return emptyHash, errors.New("insufficient fillers")
 			}
-			if _, err := h.keccak.Read(leaves[(m-1)/2][:]); err != nil {
-				return emptyHash, err
-			}
-			h.keccak.Reset()
+			h.hashInto(leaves[(m-1)/2], leaves[m-1], fillers[j])
 		}
 		m = (m + 1) / 2
 	}
@@ -177,11 +160,12 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 //     is computed by recursion and the second half is a zero hash of a given
 //     depth.
 //  2. If the leaves all fit in the first half, then we can optimize the first
-//     half to being a simple sparse tree, just that instead of filling with zero
-//     hashes we fill with the precomputed virtual hashes. This is the most common
-//     starting scenario. The second part is computed by recursion.
-//  3. If the leaves do not fit in the first half, then we can compute the first half of
-//     the tree as a normal full hashtree. The second part is computed by recursion.
+//     half to being a simple sparse tree, just that instead of filling with
+//     zero hashes we fill with the precomputed virtual hashes. This is the most
+//     common starting scenario. The second part is computed by recursion.
+//  3. If the leaves do not fit in the first half, then we can compute the first
+//     half of the tree as a normal full hashtree. The second part is computed
+//     by recursion.
 func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
 	m := uint64(len(leaves))
 	if m == 0 {
@@ -249,16 +233,7 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		}
 		right = emptyHash
 	}
-	if _, err = h.keccak.Write(left[:]); err != nil {
-		return emptyHash, err
-	}
-	if _, err = h.keccak.Write(right[:]); err != nil {
-		return emptyHash, err
-	}
-	if _, err = h.keccak.Read(leaves[0][:]); err != nil {
-		return emptyHash, err
-	}
-	h.keccak.Reset()
+	h.hashInto(leaves[0], left, right)
 	return leaves[0], nil
 }
 
@@ -304,7 +279,6 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		if err2 != nil {
 			return nil, err2
 		}
-		// Check if h.lastLeafFillers is not empty before accessing its first element
 		if len(h.lastLeafFillers) > 0 {
 			proof, err = h.subtreeExpansion([]common.Hash{h.lastLeafFillers[0]}, virtual-limit/2, limit/2, stripped)
 			if err != nil {
@@ -417,6 +391,7 @@ func (h *historyCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 // precomputeRepeatedHashes returns a slice where built recursively as
 // ret[0] = the passed in leaf
 // ret[i+1] = Hash(ret[i] + ret[i])
+//
 // Allocates n hashes
 // Computes n-1 hashes
 // Copies 1 hash
@@ -436,16 +411,7 @@ func (h *historyCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([
 	ret := make([]common.Hash, n)
 	copy(ret[0][:], (*leaf)[:])
 	for i := 1; i < n; i++ {
-		if _, err := h.keccak.Write(ret[i-1][:]); err != nil {
-			return nil, fmt.Errorf("keccak write error: %w", err)
-		}
-		if _, err := h.keccak.Write(ret[i-1][:]); err != nil {
-			return nil, fmt.Errorf("keccak write error: %w", err)
-		}
-		if _, err := h.keccak.Read(ret[i][:]); err != nil {
-			return nil, fmt.Errorf("keccak read error: %w", err)
-		}
-		h.keccak.Reset()
+		h.hashInto(ret[i], ret[i-1], ret[i-1])
 	}
 	return ret, nil
 }
@@ -454,7 +420,7 @@ func nextPowerOf2(n uint64) uint64 {
 	if n == 0 {
 		return 1
 	}
-	n--         // Decrement n to handle the case where n is already a power of 2
+	n--         // Decrement n to handle the case where n is a power of 2
 	n |= n >> 1 // Propagate the highest bit set
 	n |= n >> 2
 	n |= n >> 4
@@ -467,8 +433,7 @@ func nextPowerOf2(n uint64) uint64 {
 func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {
 	// Start from the end of the slice
 	for i := len(hashes) - 1; i >= 0; i-- {
-		// If we find a non-zero hash, return the slice up to and including this element
-		if hashes[i] != (common.Hash{}) {
+		if hashes[i] != emptyHash {
 			return hashes[:i+1]
 		}
 	}
@@ -479,7 +444,7 @@ func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {
 func trimZeroes(hashes []common.Hash) []common.Hash {
 	newHashes := make([]common.Hash, 0, len(hashes))
 	for _, h := range hashes {
-		if h == (common.Hash{}) {
+		if h == emptyHash {
 			continue
 		}
 		newHashes = append(newHashes, h)
