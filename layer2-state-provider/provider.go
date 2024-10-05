@@ -13,7 +13,6 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -22,14 +21,14 @@ var ErrChainCatchingUp = errors.New("chain is catching up to the execution state
 // Batch index for an Arbitrum L2 state.
 type Batch uint64
 
-// Height for a BOLD history commitment.
+// Height for a BoLD history commitment.
 type Height uint64
 
 // OpcodeIndex within an Arbitrator machine for an L2 message.
 type OpcodeIndex uint64
 
 // StepSize is the number of opcode increments used for stepping through
-// machines for BOLD challenges.
+// machines for BoLD challenges.
 type StepSize uint64
 
 // ConfigSnapshot for an assertion on Arbitrum.
@@ -86,7 +85,7 @@ type GeneralHistoryCommitter interface {
 	HistoryCommitment(
 		ctx context.Context,
 		req *HistoryCommitmentRequest,
-	) (commitments.History, error)
+	) (protocol.History, error)
 }
 
 type GeneralPrefixProver interface {
@@ -109,16 +108,11 @@ type OneStepProofProvider interface {
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }
 
-type History struct {
-	Height     uint64
-	MerkleRoot common.Hash
-}
-
 type HistoryChecker interface {
 	AgreesWithHistoryCommitment(
 		ctx context.Context,
 		challengeLevel protocol.ChallengeLevel,
 		historyCommitMetadata *HistoryCommitmentRequest,
-		commit History,
+		commit protocol.History,
 	) (bool, error)
 }

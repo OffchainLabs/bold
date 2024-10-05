@@ -30,6 +30,11 @@ var (
 	}
 )
 
+// NewCommitter makes an explicit dependency on the history package for the HistoryCommitter.
+func NewCommitter() l2stateprovider.HistoryCommitter {
+	return history.NewCommitter()
+}
+
 // L2StateBackend defines a very naive state manager that is initialized from a list of predetermined
 // state roots. It can produce state and history commitments from those roots.
 type L2StateBackend struct {
@@ -68,7 +73,7 @@ func NewWithMockedStateRoots(stateRoots []common.Hash, opts ...Opt) (*L2StateBac
 	for _, o := range opts {
 		o(s)
 	}
-	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, nil)
+	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, nil, history.NewCommitment, NewCommitter)
 	s.HistoryCommitmentProvider = *commitmentProvider
 	return s, nil
 }
@@ -151,7 +156,7 @@ func NewForSimpleMachine(
 	for _, o := range opts {
 		o(s)
 	}
-	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, nil)
+	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, nil, history.NewCommitment, NewCommitter)
 	s.HistoryCommitmentProvider = *commitmentProvider
 	totalWavmOpcodes := uint64(1)
 	for _, h := range s.challengeLeafHeights[1:] {
@@ -208,7 +213,7 @@ func NewForSimpleMachine(
 }
 
 func (s *L2StateBackend) UpdateAPIDatabase(database db.Database) {
-	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, database)
+	commitmentProvider := l2stateprovider.NewHistoryCommitmentProvider(s, s, s, s.challengeLeafHeights, s, database, history.NewCommitment, NewCommitter)
 	s.HistoryCommitmentProvider = *commitmentProvider
 }
 

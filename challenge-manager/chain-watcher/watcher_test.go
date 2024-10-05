@@ -187,9 +187,9 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
 		},
-		l2stateprovider.History{
-			Height:     uint64(0),
-			MerkleRoot: startCommit,
+		protocol.History{
+			Height: uint64(0),
+			Merkle: startCommit,
 		},
 	).Return(true, nil)
 	mockStateManager.On(
@@ -204,9 +204,9 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
 		},
-		l2stateprovider.History{
-			Height:     uint64(4),
-			MerkleRoot: endCommit,
+		protocol.History{
+			Height: uint64(4),
+			Merkle: endCommit,
 		},
 	).Return(true, nil)
 

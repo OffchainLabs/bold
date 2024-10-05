@@ -15,7 +15,6 @@ import (
 	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/api/db"
 	"github.com/OffchainLabs/bold/containers/option"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -64,6 +63,18 @@ type HashCollectorConfig struct {
 	ClaimId common.Hash
 }
 
+// NewCommitment is a function than can be called to create a new History commitment.
+type NewCommitment func([]common.Hash, uint64) (protocol.History, error)
+
+// HistoryCommitter defines an interface which can generate prefix proofs and calculate roots.
+type HistoryCommitter interface {
+	GeneratePrefixProof(uint64, []common.Hash, uint64) ([]common.Hash, []common.Hash, error)
+	ComputeRoot([]common.Hash, uint64) (common.Hash, error)
+}
+
+// NewCommitter is a function that can be called to create a new HistoryCommitter.
+type NewCommitter func() HistoryCommitter
+
 func (h *HashCollectorConfig) String() string {
 	str := ""
 	str += h.WasmModuleRoot.String()
@@ -105,11 +116,13 @@ type HistoryCommitmentProvider struct {
 	proofCollector          ProofCollector
 	challengeLeafHeights    []Height
 	apiDB                   db.Database
+	newCommitment           NewCommitment
+	newCommitter            NewCommitter
 	ExecutionProvider
 }
 
 // NewHistoryCommitmentProvider creates an instance of a struct which can compute history
-// commitments over any number of challenge levels for BOLD.
+// commitments over any number of challenge levels for BoLD.
 func NewHistoryCommitmentProvider(
 	l2MessageStateCollector L2MessageStateCollector,
 	machineHashCollector MachineHashCollector,
@@ -117,6 +130,8 @@ func NewHistoryCommitmentProvider(
 	challengeLeafHeights []Height,
 	executionProvider ExecutionProvider,
 	apiDB db.Database,
+	newCommitmentFunc NewCommitment,
+	newCommitterFunc NewCommitter,
 ) *HistoryCommitmentProvider {
 	return &HistoryCommitmentProvider{
 		l2MessageStateCollector: l2MessageStateCollector,
@@ -125,6 +140,8 @@ func NewHistoryCommitmentProvider(
 		challengeLeafHeights:    challengeLeafHeights,
 		ExecutionProvider:       executionProvider,
 		apiDB:                   apiDB,
+		newCommitment:           newCommitmentFunc,
+		newCommitter:            newCommitterFunc,
 	}
 }
 
@@ -142,10 +159,10 @@ func (p *HistoryCommitmentProvider) UpdateAPIDatabase(apiDB db.Database) {
 func (p *HistoryCommitmentProvider) HistoryCommitment(
 	ctx context.Context,
 	req *HistoryCommitmentRequest,
-) (commitments.History, error) {
+) (protocol.History, error) {
 	hashes, err := p.historyCommitmentImpl(ctx, req)
 	if err != nil {
-		return commitments.History{}, err
+		return protocol.History{}, err
 	}
 	// If upToHeight is none, then based on the challenge level, determine the required max leaf height
 	// for that level and use that as the virtual value below. Otherwise, useUpToHeight as virtual.
@@ -153,7 +170,7 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if req.UpToHeight.IsNone() {
 		validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
 		if err != nil {
-			return commitments.History{}, err
+			return protocol.History{}, err
 		}
 		if len(validatedHeights) == 0 {
 			virtual = uint64(p.challengeLeafHeights[0]) + 1
@@ -164,7 +181,7 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	} else {
 		virtual = uint64(req.UpToHeight.Unwrap()) + 1
 	}
-	return commitments.NewCommitment(hashes, virtual)
+	return p.newCommitment(hashes, virtual)
 }
 
 func (p *HistoryCommitmentProvider) historyCommitmentImpl(
@@ -281,9 +298,9 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	challengeLevel protocol.ChallengeLevel,
 	historyCommitMetadata *HistoryCommitmentRequest,
-	commit History,
+	commit protocol.History,
 ) (bool, error) {
-	var localCommit commitments.History
+	var localCommit protocol.History
 	var err error
 	switch challengeLevel {
 	case protocol.NewBlockChallengeLevel():
@@ -317,7 +334,7 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			return false, err
 		}
 	}
-	return localCommit.Height == commit.Height && localCommit.Merkle == commit.MerkleRoot, nil
+	return localCommit.Height == commit.Height && localCommit.Merkle == commit.Merkle, nil
 }
 
 var (
@@ -384,7 +401,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	for i := uint64(0); i < lowCommitmentNumLeaves; i++ {
 		prefixHashes[i] = leaves[i]
 	}
-	committer := commitments.NewCommitter()
+	committer := p.newCommitter()
 	prefixRoot, err := committer.ComputeRoot(prefixHashes, lowCommitmentNumLeaves)
 	if err != nil {
 		return nil, err
@@ -393,7 +410,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		fullTreeHashes[i] = leaves[i]
 	}
-	committer = commitments.NewCommitter()
+	committer = p.newCommitter()
 	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, virtual)
 	if err != nil {
 		return nil, err
@@ -402,7 +419,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		hashesForProof[i] = leaves[i]
 	}
-	committer = commitments.NewCommitter()
+	committer = p.newCommitter()
 	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixHeight), hashesForProof, virtual)
 	if err != nil {
 		return nil, err

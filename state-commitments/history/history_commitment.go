@@ -5,27 +5,20 @@ import (
 	"fmt"
 	"math"
 
+	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (
 	emptyHash    = common.Hash{}
-	emptyHistory = History{}
+	emptyHistory = protocol.History{}
 )
-
-type History struct {
-	Height        uint64
-	Merkle        common.Hash
-	FirstLeaf     common.Hash
-	LastLeafProof []common.Hash
-	LastLeaf      common.Hash
-}
 
 // NewCommitment produces a history commitment from a list of leaves that are virtually padded using
 // the last leaf in the list to some virtual length, without making those extra allocations needed to do so.
 // Virtual must be >= len(leaves).
-func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
+func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, error) {
 	if len(leaves) == 0 {
 		return emptyHistory, errors.New("must commit to at least one leaf")
 	}
@@ -44,7 +37,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	if err != nil {
 		return emptyHistory, err
 	}
-	return History{
+	return protocol.History{
 		Height:        virtual - 1,
 		Merkle:        root,
 		FirstLeaf:     firstLeaf,
@@ -53,19 +46,19 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	}, nil
 }
 
-type HistoryCommitter struct {
+type historyCommitter struct {
 	lastLeafFillers []common.Hash
 	keccak          crypto.KeccakState
 }
 
-func NewCommitter() *HistoryCommitter {
-	return &HistoryCommitter{
+func NewCommitter() *historyCommitter {
+	return &historyCommitter{
 		lastLeafFillers: make([]common.Hash, 0),
 		keccak:          crypto.NewKeccakState(),
 	}
 }
 
-func (h *HistoryCommitter) hash(item []byte) (common.Hash, error) {
+func (h *historyCommitter) hash(item []byte) (common.Hash, error) {
 	defer h.keccak.Reset()
 	if _, err := h.keccak.Write(item); err != nil {
 		return emptyHash, err
@@ -77,7 +70,7 @@ func (h *HistoryCommitter) hash(item []byte) (common.Hash, error) {
 	return result, nil
 }
 
-func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
+func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
 	if len(leaves) == 0 {
 		return emptyHash, nil
 	}
@@ -92,7 +85,7 @@ func (h *HistoryCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	return h.computeVirtualSparseTree(rehashedLeaves, virtual, 0)
 }
 
-func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
+func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
 	rehashedLeaves := make([]common.Hash, len(leaves))
 	for i, leaf := range leaves {
 		result, err := h.hash(leaf[:])
@@ -121,7 +114,7 @@ func (h *HistoryCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []comm
 //
 // Zero allocations
 // Computes O(len(leaves)) hashes.
-func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64, fillers []common.Hash) (common.Hash, error) {
+func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64, fillers []common.Hash) (common.Hash, error) {
 	if limit == 0 {
 		panic("limit must be greater than 0")
 	}
@@ -189,7 +182,7 @@ func (h *HistoryCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 //     starting scenario. The second part is computed by recursion.
 //  3. If the leaves do not fit in the first half, then we can compute the first half of
 //     the tree as a normal full hashtree. The second part is computed by recursion.
-func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
+func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
 	m := uint64(len(leaves))
 	if m == 0 {
 		return emptyHash, errors.New("nil leaves")
@@ -269,7 +262,7 @@ func (h *HistoryCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 	return leaves[0], nil
 }
 
-func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit uint64, stripped bool) (proof []common.Hash, err error) {
+func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit uint64, stripped bool) (proof []common.Hash, err error) {
 	m := uint64(len(leaves))
 	if m == 0 {
 		return make([]common.Hash, 0), nil
@@ -332,7 +325,7 @@ func (h *HistoryCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 	return append(expac, emptyHash), nil
 }
 
-func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, limit uint64) (tail []common.Hash, err error) {
+func (h *historyCommitter) proof(index uint64, leaves []common.Hash, virtual, limit uint64) (tail []common.Hash, err error) {
 	m := uint64(len(leaves))
 	if m == 0 {
 		return nil, errors.New("empty leaves slice")
@@ -389,7 +382,7 @@ func (h *HistoryCommitter) proof(index uint64, leaves []common.Hash, virtual, li
 	return h.proof(index, leaves, virtual, limit/2)
 }
 
-func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, virtual uint64) (prefix []common.Hash, tail []common.Hash, err error) {
+func (h *historyCommitter) prefixAndProof(index uint64, leaves []common.Hash, virtual uint64) (prefix []common.Hash, tail []common.Hash, err error) {
 	m := uint64(len(leaves))
 	if m == 0 {
 		return nil, nil, errors.New("nil leaves")
@@ -427,7 +420,7 @@ func (h *HistoryCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 // Allocates n hashes
 // Computes n-1 hashes
 // Copies 1 hash
-func (h *HistoryCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([]common.Hash, error) {
+func (h *historyCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([]common.Hash, error) {
 	if leaf == nil {
 		return nil, errors.New("nil leaf pointer")
 	}

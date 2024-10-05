@@ -18,7 +18,6 @@ import (
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/math"
 	retry "github.com/OffchainLabs/bold/runtime"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	utilTime "github.com/OffchainLabs/bold/time"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -471,12 +470,12 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 // commitment with a prefix proof for the action based on the challenge type.
 func (et *Tracker) DetermineBisectionHistoryWithProof(
 	ctx context.Context,
-) (commitments.History, []byte, error) {
+) (protocol.History, []byte, error) {
 	startHeight, _ := et.edge.StartCommitment()
 	endHeight, _ := et.edge.EndCommitment()
 	bisectTo, err := math.Bisect(uint64(startHeight), uint64(endHeight))
 	if err != nil {
-		return commitments.History{}, nil, errors.Wrapf(err, "determining bisection point errored for %d and %d", startHeight, endHeight)
+		return protocol.History{}, nil, errors.Wrapf(err, "determining bisection point errored for %d and %d", startHeight, endHeight)
 	}
 	challengeLevel := et.edge.GetChallengeLevel()
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
@@ -492,7 +491,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			},
 		)
 		if commitErr != nil {
-			return commitments.History{}, nil, commitErr
+			return protocol.History{}, nil, commitErr
 		}
 		proof, proofErr := et.stateProvider.PrefixProof(
 			ctx,
@@ -507,18 +506,18 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			l2stateprovider.Height(bisectTo),
 		)
 		if proofErr != nil {
-			return commitments.History{}, nil, proofErr
+			return protocol.History{}, nil, proofErr
 		}
 		return historyCommit, proof, nil
 	}
-	var historyCommit commitments.History
+	var historyCommit protocol.History
 	var commitErr error
 	var proof []byte
 	var proofErr error
 
 	originHeights, err := et.edge.TopLevelClaimHeight(ctx)
 	if err != nil {
-		return commitments.History{}, nil, err
+		return protocol.History{}, nil, err
 	}
 	challengeOriginHeights := make([]l2stateprovider.Height, len(originHeights.ChallengeOriginHeights))
 	for index, height := range originHeights.ChallengeOriginHeights {
@@ -537,7 +536,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		},
 	)
 	if commitErr != nil {
-		return commitments.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
+		return protocol.History{}, nil, errors.Wrap(commitErr, "could not produce history commitment")
 	}
 	proof, proofErr = et.stateProvider.PrefixProof(
 		ctx,
@@ -552,7 +551,7 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		l2stateprovider.Height(bisectTo),
 	)
 	if proofErr != nil {
-		return commitments.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
+		return protocol.History{}, nil, errors.Wrap(proofErr, "could not produce prefix proof")
 	}
 	return historyCommit, proof, nil
 }
@@ -601,10 +600,10 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 
 	fields := et.uniqueTrackerLogFields()
 
-	var startHistory commitments.History
-	var endHistory commitments.History
-	var startParentCommitment commitments.History
-	var endParentCommitment commitments.History
+	var startHistory protocol.History
+	var endHistory protocol.History
+	var startParentCommitment protocol.History
+	var endParentCommitment protocol.History
 	var startEndPrefixProof []byte
 	challengeLevel := et.edge.GetChallengeLevel()
 	switch challengeLevel {

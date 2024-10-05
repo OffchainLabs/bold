@@ -14,7 +14,6 @@ import (
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
@@ -84,9 +83,9 @@ type MockStateManager struct {
 func (m *MockStateManager) HistoryCommitment(
 	ctx context.Context,
 	req *l2stateprovider.HistoryCommitmentRequest,
-) (commitments.History, error) {
+) (protocol.History, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(commitments.History), args.Error(1)
+	return args.Get(0).(protocol.History), args.Error(1)
 }
 
 func (m *MockStateManager) PrefixProof(
@@ -102,7 +101,7 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	ctx context.Context,
 	challengeLevel protocol.ChallengeLevel,
 	historyCommitMetadata *l2stateprovider.HistoryCommitmentRequest,
-	commit l2stateprovider.History,
+	commit protocol.History,
 ) (bool, error) {
 	args := m.Called(ctx, challengeLevel, historyCommitMetadata, commit)
 	return args.Get(0).(bool), args.Error(1)
@@ -210,7 +209,7 @@ func (m *MockSpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
 	startCommit,
-	endCommit commitments.History,
+	endCommit protocol.History,
 	startEndPrefixProof []byte,
 ) (protocol.VerifiedRoyalEdge, error) {
 	args := m.Called(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
@@ -221,7 +220,7 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	ctx context.Context,
 	challengedEdge protocol.SpecEdge,
 	startCommit,
-	endCommit commitments.History,
+	endCommit protocol.History,
 	startParentInclusionProof []common.Hash,
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,

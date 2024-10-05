@@ -12,7 +12,6 @@ import (
 
 	"github.com/OffchainLabs/bold/containers/option"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,6 +51,15 @@ type LayerZeroHeights struct {
 	BlockChallengeHeight     uint64
 	BigStepChallengeHeight   uint64
 	SmallStepChallengeHeight uint64
+}
+
+// History represents a history commitment in the protocol.
+type History struct {
+	Height        uint64
+	Merkle        common.Hash
+	FirstLeaf     common.Hash
+	LastLeaf      common.Hash
+	LastLeafProof []common.Hash
 }
 
 // AssertionHash represents a unique identifier for an assertion
@@ -289,7 +297,7 @@ type SpecChallengeManager interface {
 		ctx context.Context,
 		assertion Assertion,
 		startCommit,
-		endCommit commitments.History,
+		endCommit History,
 		startEndPrefixProof []byte,
 	) (VerifiedRoyalEdge, error)
 	// Adds a level-zero edge to subchallenge given a source edge and history commitments.
@@ -297,7 +305,7 @@ type SpecChallengeManager interface {
 		ctx context.Context,
 		challengedEdge SpecEdge,
 		startCommit,
-		endCommit commitments.History,
+		endCommit History,
 		startParentInclusionProof []common.Hash,
 		endParentInclusionProof []common.Hash,
 		startEndPrefixProof []byte,

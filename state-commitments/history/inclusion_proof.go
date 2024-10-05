@@ -9,7 +9,7 @@ import (
 
 // Computes the Merkle proof for a leaf at a given index.
 // It uses the last leaf to pad the tree up to the 'virtual' size if needed.
-func (h *HistoryCommitter) computeMerkleProof(leafIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, error) {
+func (h *historyCommitter) computeMerkleProof(leafIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, error) {
 	if len(leaves) == 0 {
 		return nil, nil
 	}
@@ -46,7 +46,7 @@ func (h *HistoryCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 }
 
 // Computes the hash of a node's sibling at a given index and level.
-func (h *HistoryCommitter) computeSiblingHash(
+func (h *historyCommitter) computeSiblingHash(
 	nodeIndex uint64,
 	level uint64,
 	N uint64,
@@ -72,7 +72,7 @@ func (h *HistoryCommitter) computeSiblingHash(
 }
 
 // Recursively computes the hash of a node at a given index and level.
-func (h *HistoryCommitter) computeNodeHash(
+func (h *historyCommitter) computeNodeHash(
 	nodeIndex uint64, level uint64, numRealLeaves uint64, leaves []common.Hash, virtualHashes []common.Hash, virtual uint64,
 ) (common.Hash, error) {
 	if level == 0 {

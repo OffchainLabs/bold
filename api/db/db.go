@@ -11,7 +11,6 @@ import (
 	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -422,7 +421,7 @@ func WithEndHeight(end uint64) EdgeOption {
 		q.args = append(q.args, end)
 	}
 }
-func WithStartHistoryCommitment(startHistory history.History) EdgeOption {
+func WithStartHistoryCommitment(startHistory protocol.History) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "StartHistoryRoot = ?")
 		q.args = append(q.args, startHistory.Merkle)
@@ -430,7 +429,7 @@ func WithStartHistoryCommitment(startHistory history.History) EdgeOption {
 		q.args = append(q.args, startHistory.Height)
 	}
 }
-func WithEndHistoryCommitment(endHistory history.History) EdgeOption {
+func WithEndHistoryCommitment(endHistory protocol.History) EdgeOption {
 	return func(q *EdgeQuery) {
 		q.filters = append(q.filters, "EndHistoryRoot = ?")
 		q.args = append(q.args, endHistory.Merkle)
