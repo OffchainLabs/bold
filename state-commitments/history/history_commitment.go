@@ -60,21 +60,19 @@ func NewCommitter() *historyCommitter {
 }
 
 // hash hashes the passed item into a common.Hash.
-func (h *historyCommitter) hash(item []byte) common.Hash {
-	defer h.keccak.Reset()
-	h.keccak.Write(item)
+func (h *historyCommitter) hash(item ...[]byte) common.Hash {
 	var result common.Hash
-	h.keccak.Read(result[:])
+	h.hashInto(result[:], item...)
 	return result
 }
 
 // hashInto hashes the concatenation of the passed items into the result.
-func (h *historyCommitter) hashInto(result common.Hash, items ...common.Hash) {
+func (h *historyCommitter) hashInto(result []byte, items ...[]byte) {
 	defer h.keccak.Reset()
 	for _, item := range items {
-		h.keccak.Write(item[:])
+		h.keccak.Write(item)
 	}
-	h.keccak.Read(result[:])
+	h.keccak.Read(result)
 }
 
 func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
@@ -131,7 +129,7 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 	for j := 0; j < depth; j++ {
 		// Check to ensure we don't access out of bounds.
 		for i := 0; i < m/2; i++ {
-			h.hashInto(leaves[i], leaves[2*i], leaves[2*i+1])
+			h.hashInto(leaves[i][:], leaves[2*i][:], leaves[2*i+1][:])
 		}
 		if m&1 == 1 {
 			// Check to ensure m-1 is a valid index.
@@ -139,7 +137,7 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 				// Handle the case where j is out of range for fillers.
 				return emptyHash, errors.New("insufficient fillers")
 			}
-			h.hashInto(leaves[(m-1)/2], leaves[m-1], fillers[j])
+			h.hashInto(leaves[(m-1)/2][:], leaves[m-1][:], fillers[j][:])
 		}
 		m = (m + 1) / 2
 	}
@@ -233,7 +231,7 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		}
 		right = emptyHash
 	}
-	h.hashInto(leaves[0], left, right)
+	h.hashInto(leaves[0][:], left[:], right[:])
 	return leaves[0], nil
 }
 
@@ -411,7 +409,7 @@ func (h *historyCommitter) precomputeRepeatedHashes(leaf *common.Hash, n int) ([
 	ret := make([]common.Hash, n)
 	copy(ret[0][:], (*leaf)[:])
 	for i := 1; i < n; i++ {
-		h.hashInto(ret[i], ret[i-1], ret[i-1])
+		h.hashInto(ret[i][:], ret[i-1][:], ret[i-1][:])
 	}
 	return ret, nil
 }
