@@ -3,9 +3,9 @@ package history
 import (
 	"errors"
 	"fmt"
-	"math"
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/math"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -126,7 +126,7 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64,
 	if limit < 2 {
 		return leaves[0], nil
 	}
-	depth := int(math.Log2(float64(limit)))
+	depth := math.Log2Floor(limit)
 	for j := 0; j < depth; j++ {
 		// Check to ensure we don't access out of bounds.
 		for i := 0; i < m/2; i++ {
@@ -178,8 +178,7 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		limit = nextPowerOf2(virtual)
 		n := 1
 		if virtual > m {
-			logValue := math.Log2(float64(limit))
-			n = int(logValue) + 1
+			n = math.Log2Floor(limit) + 1
 		}
 		h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], n)
 		if err != nil {
@@ -209,8 +208,8 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 				return emptyHash, err
 			}
 			if virtual == limit {
-				if len(h.lastLeafFillers) > int(math.Log2(float64(limit/2))) {
-					right = h.lastLeafFillers[int(math.Log2(float64(limit/2)))]
+				if len(h.lastLeafFillers) > math.Log2Floor(limit/2) {
+					right = h.lastLeafFillers[math.Log2Floor(limit/2)]
 				} else {
 					return emptyHash, errors.New("insufficient lastLeafFillers")
 				}
@@ -369,7 +368,7 @@ func (h *historyCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 	if index+1 > virtual {
 		return nil, nil, fmt.Errorf("index %d + 1 should be <= virtual %d", index, virtual)
 	}
-	logVirtual := int(math.Log2(float64(virtual)) + 1)
+	logVirtual := math.Log2Floor(virtual) + 1
 	h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[m-1], logVirtual)
 	if err != nil {
 		return nil, nil, err

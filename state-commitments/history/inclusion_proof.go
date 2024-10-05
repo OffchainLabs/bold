@@ -2,8 +2,8 @@ package history
 
 import (
 	"errors"
-	"math"
 
+	"github.com/OffchainLabs/bold/math"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -21,7 +21,7 @@ func (h *historyCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 	}
 	numRealLeaves := uint64(len(leaves))
 	lastLeaf := h.hash(&leaves[numRealLeaves-1])
-	depth := int(math.Ceil(math.Log2(float64(virtual))))
+	depth := math.Log2Ceil(virtual)
 
 	// Precompute virtual hashes
 	virtualHashes, err := h.precomputeRepeatedHashes(&lastLeaf, depth)
