@@ -133,6 +133,70 @@ func BenchmarkPrefixProofGeneration_Optimized(b *testing.B) {
 	}
 }
 
+func TestSimpleHistoryCommitment(t *testing.T) {
+	aLeaf := common.HexToHash("0xA")
+	bLeaf := common.HexToHash("0xB")
+	// Level 0
+	aHash := crypto.Keccak256Hash(aLeaf[:])
+	bHash := crypto.Keccak256Hash(bLeaf[:])
+	// Level 1
+	abHash := crypto.Keccak256Hash(append(aHash[:], bHash[:]...))
+	bzHash := crypto.Keccak256Hash(append(bHash[:], emptyHash[:]...))
+	bbHash := crypto.Keccak256Hash(append(bHash[:], bHash[:]...))
+	// Level 2
+	abbzHash := crypto.Keccak256Hash(append(abHash[:], bzHash[:]...))
+	abbbHash := crypto.Keccak256Hash(append(abHash[:], bbHash[:]...))
+	tests := []struct {
+		name string
+		lvs  []common.Hash
+		virt uint64
+		want common.Hash
+	}{
+		{
+			name: "empty leaves",
+			lvs:  []common.Hash{},
+			virt: 0,
+			want: emptyHash,
+		},
+		{
+			name: "single leaf",
+			lvs:  []common.Hash{aLeaf},
+			virt: 1,
+			want: aHash,
+		},
+		{
+			name: "two leaves",
+			lvs:  []common.Hash{aLeaf, bLeaf},
+			virt: 2,
+			want: abHash,
+		},
+		{
+			name: "two leaves - virtual 3",
+			lvs:  []common.Hash{aLeaf, bLeaf},
+			virt: 3,
+			want: abbzHash,
+		},
+		{
+			name: "two leaves - virtual 4",
+			lvs:  []common.Hash{aLeaf, bLeaf},
+			virt: 4,
+			want: abbbHash,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hc := NewCommitter()
+			got, err := hc.ComputeRoot(tc.lvs, tc.virt)
+			if err != nil {
+				t.Errorf("ComputeRoot(%v, %d): err %v", tc.lvs, tc.virt, err)
+			}
+			if got != tc.want {
+				t.Errorf("ComputeRoot(%v, %d): got %s, want %s", tc.lvs, tc.virt, got.Hex(), tc.want.Hex())
+			}
+		})
+	}
+}
+
 // type prefixProofComputation struct {
 // 	prefixRoot          common.Hash
 // 	fullRoot            common.Hash

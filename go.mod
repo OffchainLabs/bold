@@ -6,6 +6,7 @@ replace github.com/ethereum/go-ethereum => github.com/OffchainLabs/go-ethereum v
 
 require (
 	github.com/ethereum/go-ethereum v1.12.0
+	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattn/go-sqlite3 v1.14.6

@@ -19,21 +19,19 @@ go_library(
 
 go_test(
     name = "history_test",
+    size = "small",
     srcs = [
         "history_commitment_test.go",
+        "inclusion_proof_test.go",
         "legacy_test.go",
     ],
-    size = "small",
     embed = [":history"],
     deps = [
-        "//solgen/go/mocksgen",
         "//state-commitments/inclusion-proofs",
         "//state-commitments/prefix-proofs",
-        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
-        "@com_github_ethereum_go_ethereum//core",
         "@com_github_ethereum_go_ethereum//crypto",
-        "@com_github_ethereum_go_ethereum//ethclient/simulated",
+        "@com_github_google_go_cmp//cmp",
         "@com_github_stretchr_testify//require",
     ],
 )

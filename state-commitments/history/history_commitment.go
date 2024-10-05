@@ -15,12 +15,11 @@ var (
 )
 
 type History struct {
-	Height         uint64
-	Merkle         common.Hash
-	FirstLeaf      common.Hash
-	LastLeafProof  []common.Hash
-	FirstLeafProof []common.Hash
-	LastLeaf       common.Hash
+	Height        uint64
+	Merkle        common.Hash
+	FirstLeaf     common.Hash
+	LastLeafProof []common.Hash
+	LastLeaf      common.Hash
 }
 
 // NewCommitment produces a history commitment from a list of leaves that are virtually padded using
@@ -30,48 +29,27 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	if len(leaves) == 0 {
 		return emptyHistory, errors.New("must commit to at least one leaf")
 	}
-	if virtual == 0 {
-		return emptyHistory, errors.New("virtual size cannot be zero")
-	}
-	if virtual < uint64(len(leaves)) {
-		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
-	}
-	if virtual == 0 {
-		return emptyHistory, errors.New("virtual size cannot be zero")
-	}
 	if virtual < uint64(len(leaves)) {
 		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
 	}
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
-	var firstLeafProof, lastLeafProof []common.Hash
-	// TODO: This fails because the layer zero edge sizes at 2^26 + 1, 2^20 + 1, 2^22 + 1, which are not powers of two...
-	ok, err := isPowTwo(virtual)
+	var lastLeafProof []common.Hash
+	lastLeafProof, err := comm.computeMerkleProof(virtual-1, leaves, virtual)
 	if err != nil {
 		return emptyHistory, err
-	}
-	if ok {
-		firstLeafProof, err = comm.computeMerkleProof(0, leaves, virtual)
-		if err != nil {
-			return emptyHistory, err
-		}
-		lastLeafProof, err = comm.computeMerkleProof(virtual-1, leaves, virtual)
-		if err != nil {
-			return emptyHistory, err
-		}
 	}
 	root, err := comm.ComputeRoot(leaves, virtual)
 	if err != nil {
 		return emptyHistory, err
 	}
 	return History{
-		Height:         virtual - 1,
-		Merkle:         root,
-		FirstLeaf:      firstLeaf,
-		LastLeaf:       lastLeaf,
-		FirstLeafProof: firstLeafProof,
-		LastLeafProof:  lastLeafProof,
+		Height:        virtual - 1,
+		Merkle:        root,
+		FirstLeaf:     firstLeaf,
+		LastLeaf:      lastLeaf,
+		LastLeafProof: lastLeafProof,
 	}, nil
 }
 

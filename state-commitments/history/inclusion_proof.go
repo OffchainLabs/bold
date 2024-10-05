@@ -2,7 +2,6 @@ package history
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,14 +13,7 @@ func (h *HistoryCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 	if len(leaves) == 0 {
 		return nil, nil
 	}
-	ok, err := isPowTwo(virtual)
-	if err != nil {
-		return nil, err
-	}
-	if !ok && virtual != 33 {
-		return nil, fmt.Errorf("virtual size %d must be a power of 2", virtual)
-	}
-	if leafIndex >= uint64(len(leaves)) {
+	if leafIndex >= virtual {
 		return nil, errors.New("leaf index out of bounds")
 	}
 	if virtual < uint64(len(leaves)) {
@@ -67,11 +59,11 @@ func (h *HistoryCommitter) computeSiblingHash(
 	numNodes := (virtual + (1 << level) - 1) / (1 << level)
 	if siblingIndex >= numNodes {
 		// No sibling exists, so use a zero hash.
-		return common.Hash{}, false, nil
-	} else if siblingIndex >= paddingStartIndexAtLevel(N, level) {
+		return emptyHash, true, nil
+	} else if siblingIndex >= paddingStartIndexAtLevel(N, level) && siblingIndex <= paddingEndIndexAtLevel(virtual, level) {
 		return hNHashes[level], true, nil
 	} else {
-		siblingHash, err := h.computeNodeHash(siblingIndex, level, N, hLeaves, hNHashes)
+		siblingHash, err := h.computeNodeHash(siblingIndex, level, N, hLeaves, hNHashes, virtual)
 		if err != nil {
 			return emptyHash, false, err
 		}
@@ -81,9 +73,13 @@ func (h *HistoryCommitter) computeSiblingHash(
 
 // Recursively computes the hash of a node at a given index and level.
 func (h *HistoryCommitter) computeNodeHash(
-	nodeIndex uint64, level uint64, numRealLeaves uint64, leaves []common.Hash, virtualHashes []common.Hash,
+	nodeIndex uint64, level uint64, numRealLeaves uint64, leaves []common.Hash, virtualHashes []common.Hash, virtual uint64,
 ) (common.Hash, error) {
 	if level == 0 {
+		if nodeIndex >= virtual && virtual > numRealLeaves {
+			// Beyond the virtual or real size of the tree, so use a zero hash.
+			return emptyHash, nil
+		}
 		if nodeIndex >= numRealLeaves {
 			// Node is in padding (the virtual segment of the tree).
 			return virtualHashes[0], nil
@@ -91,14 +87,14 @@ func (h *HistoryCommitter) computeNodeHash(
 			return h.hash(leaves[nodeIndex][:])
 		}
 	} else {
-		if nodeIndex >= paddingStartIndexAtLevel(numRealLeaves, level) {
+		if nodeIndex >= paddingStartIndexAtLevel(numRealLeaves, level) && nodeIndex <= paddingEndIndexAtLevel(virtual, level) {
 			return virtualHashes[level], nil
 		} else {
-			leftChild, err := h.computeNodeHash(2*nodeIndex, level-1, numRealLeaves, leaves, virtualHashes)
+			leftChild, err := h.computeNodeHash(2*nodeIndex, level-1, numRealLeaves, leaves, virtualHashes, virtual)
 			if err != nil {
 				return emptyHash, err
 			}
-			rightChild, err := h.computeNodeHash(2*nodeIndex+1, level-1, numRealLeaves, leaves, virtualHashes)
+			rightChild, err := h.computeNodeHash(2*nodeIndex+1, level-1, numRealLeaves, leaves, virtualHashes, virtual)
 			if err != nil {
 				return emptyHash, err
 			}
@@ -106,6 +102,11 @@ func (h *HistoryCommitter) computeNodeHash(
 			return h.hash(data)
 		}
 	}
+}
+
+// Calculates the highest index in a level which is purely padding.
+func paddingEndIndexAtLevel(virtual uint64, level uint64) uint64 {
+	return virtual/(1<<level) - 1
 }
 
 // Calculates the index at which padding starts at a given tree level.
