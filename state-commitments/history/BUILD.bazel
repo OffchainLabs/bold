@@ -19,7 +19,7 @@ go_library(
 
 go_test(
     name = "history_test",
-    size = "small",
+    size = "medium",
     srcs = [
         "history_commitment_test.go",
         "inclusion_proof_test.go",
