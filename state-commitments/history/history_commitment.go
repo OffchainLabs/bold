@@ -493,10 +493,3 @@ func trimZeroes(hashes []common.Hash) []common.Hash {
 	}
 	return newHashes
 }
-
-func isPowTwo(n uint64) (bool, error) {
-	if n == 0 {
-		return false, errors.New("n must be non-zero")
-	}
-	return (n & (n - 1)) == 0, nil
-}
