@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/OffchainLabs/bold/state-commitments/legacy"
 	prefixproofs "github.com/OffchainLabs/bold/state-commitments/prefix-proofs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -146,7 +147,7 @@ func TestLegacyVsOptimized(t *testing.T) {
 			for i := range legacyInputLeaves {
 				legacyInputLeaves[i] = simpleHash
 			}
-			histCommit, err := NewLegacy(legacyInputLeaves)
+			histCommit, err := legacy.NewLegacy(legacyInputLeaves)
 			require.NoError(t, err)
 			require.Equal(t, computedRoot, histCommit.Merkle)
 		}
@@ -187,7 +188,7 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 			for i := range leaves {
 				leaves[i] = simpleHash
 			}
-			histCommit, err := NewLegacy(leaves)
+			histCommit, err := legacy.NewLegacy(leaves)
 			require.NoError(t, err)
 			require.Equal(t, computedRoot, histCommit.Merkle)
 		})
@@ -207,7 +208,7 @@ func TestVirtualSparse(t *testing.T) {
 			simpleHash,
 			simpleHash,
 		}
-		histCommit, err := NewLegacy(leaves)
+		histCommit, err := legacy.NewLegacy(leaves)
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
@@ -224,7 +225,7 @@ func TestVirtualSparse(t *testing.T) {
 			simpleHash,
 			simpleHash,
 		}
-		histCommit, err := NewLegacy(leaves)
+		histCommit, err := legacy.NewLegacy(leaves)
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
@@ -242,7 +243,7 @@ func TestVirtualSparse(t *testing.T) {
 			simpleHash,
 			simpleHash,
 		}
-		histCommit, err := NewLegacy(leaves)
+		histCommit, err := legacy.NewLegacy(leaves)
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
@@ -262,7 +263,7 @@ func TestVirtualSparse(t *testing.T) {
 			simpleHash,
 			simpleHash,
 		}
-		histCommit, err := NewLegacy(leaves)
+		histCommit, err := legacy.NewLegacy(leaves)
 		require.NoError(t, err)
 		require.Equal(t, histCommit.Merkle, computedRoot)
 	})
@@ -281,7 +282,7 @@ func TestVirtualSparse(t *testing.T) {
 			simpleHash,
 			simpleHash,
 		}
-		histCommit, err := NewLegacy(leaves)
+		histCommit, err := legacy.NewLegacy(leaves)
 		require.NoError(t, err)
 		require.Equal(t, computedRoot, histCommit.Merkle)
 	})
@@ -298,7 +299,7 @@ func TestVirtualSparse(t *testing.T) {
 		for i := range leaves {
 			leaves[i] = simpleHash
 		}
-		histCommit, err := NewLegacy(leaves)
+		histCommit, err := legacy.NewLegacy(leaves)
 		require.NoError(t, err)
 		require.Equal(t, computedRoot, histCommit.Merkle)
 	})
@@ -345,7 +346,7 @@ func TestInclusionProofEquivalence(t *testing.T) {
 		simpleHash,
 		simpleHash,
 	}
-	oldCommit, err := NewLegacy(oldLeaves)
+	oldCommit, err := legacy.NewLegacy(oldLeaves)
 	require.NoError(t, err)
 	require.Equal(t, commit.Merkle, oldCommit.Merkle)
 }
