@@ -67,12 +67,13 @@ func (h *historyCommitter) hash(item ...*common.Hash) common.Hash {
 }
 
 // hashInto hashes the concatenation of the passed items into the result.
+// nolint:errcheck
 func (h *historyCommitter) hashInto(result *common.Hash, items ...*common.Hash) {
 	defer h.keccak.Reset()
 	for _, item := range items {
-		h.keccak.Write(item[:])
+		h.keccak.Write(item[:]) // #nosec G104 - KeccakState.Write never errors
 	}
-	h.keccak.Read(result[:]) // nolint:errcheck
+	h.keccak.Read(result[:]) // #nosec G104 - KeccakState.Read never errors
 }
 
 func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
@@ -97,8 +98,8 @@ func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []comm
 // hashLeaves returns a slich of hashes of the leaves
 func (h *historyCommitter) hashLeaves(leaves []common.Hash) []common.Hash {
 	hashedLeaves := make([]common.Hash, len(leaves))
-	for i, leaf := range leaves {
-		hashedLeaves[i] = h.hash(&leaf)
+	for i := range leaves {
+		hashedLeaves[i] = h.hash(&leaves[i])
 	}
 	return hashedLeaves
 }
