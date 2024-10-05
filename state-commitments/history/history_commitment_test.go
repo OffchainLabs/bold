@@ -1,7 +1,6 @@
 package history
 
 import (
-	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -351,29 +350,19 @@ func TestInclusionProofEquivalence(t *testing.T) {
 	require.Equal(t, commit.Merkle, oldCommit.Merkle)
 }
 
-// Utility function to generate random bytes for benchmarking
-func randomBytes(size int) []byte {
-	b := make([]byte, size)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err) // Handle error in production code
+func TestHashInto(t *testing.T) {
+	simpleHash := crypto.Keccak256Hash([]byte("foo"))
+	leaves := []common.Hash{
+		simpleHash,
+		simpleHash,
+		simpleHash,
+		simpleHash,
 	}
-	return b
-}
-
-// Benchmark for your custom hash function
-func BenchmarkHashFunction(b *testing.B) {
 	comm := NewCommitter()
-	data := randomBytes(32) // Change size as necessary
-	for i := 0; i < b.N; i++ {
-		comm.hash(data)
-	}
-}
-
-// Benchmark for the Keccak256Hash function
-func BenchmarkKeccak256Hash(b *testing.B) {
-	data := randomBytes(32) // Change size as necessary
-	for i := 0; i < b.N; i++ {
-		crypto.Keccak256Hash(data)
+	var got common.Hash
+	comm.hashInto(&got, &leaves[0], &leaves[1], &leaves[2], &leaves[3])
+	want := common.HexToHash("0xf79081b3d30d12471772f6f84714d3c94281fd0287976c6c87086c3a7ab14859")
+	if got != want {
+		t.Errorf("got %s, want %s", got.Hex(), want.Hex())
 	}
 }

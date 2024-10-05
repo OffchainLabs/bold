@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 go_test(
     name = "integration_test",
     srcs = ["prefixproofs_test.go"],
+    size = "small",
     deps = [
         "//containers/option",
         "//layer2-state-provider",
