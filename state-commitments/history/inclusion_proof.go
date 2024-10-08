@@ -21,7 +21,7 @@ func (h *historyCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 	}
 	numRealLeaves := uint64(len(leaves))
 	lastLeaf := h.hash(&leaves[numRealLeaves-1])
-	depth := math.Log2Ceil(virtual)
+	depth := uint(math.Log2Ceil(virtual))
 
 	// Precompute virtual hashes
 	virtualHashes, err := h.precomputeRepeatedHashes(&lastLeaf, depth)
@@ -29,7 +29,7 @@ func (h *historyCommitter) computeMerkleProof(leafIndex uint64, leaves []common.
 		return nil, err
 	}
 	var proof []common.Hash
-	for level := 0; level < depth; level++ {
+	for level := uint(0); level < depth; level++ {
 		nodeIndex := leafIndex >> level
 		siblingHash, exists, err := h.computeSiblingHash(nodeIndex, uint64(level), numRealLeaves, virtual, leaves, virtualHashes)
 		if err != nil {

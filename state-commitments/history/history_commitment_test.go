@@ -77,6 +77,12 @@ func TestSimpleHistoryCommitment(t *testing.T) {
 	// Level 2
 	abbzHash := crypto.Keccak256Hash(append(abHash[:], bzHash[:]...))
 	abbbHash := crypto.Keccak256Hash(append(abHash[:], bbHash[:]...))
+	ababHash := crypto.Keccak256Hash(append(abHash[:], abHash[:]...))
+	bbbbHash := crypto.Keccak256Hash(append(bbHash[:], bbHash[:]...))
+	// Level 3
+	ababbbbbHash := crypto.Keccak256Hash(append(ababHash[:], bbbbHash[:]...))
+	abababbbHash := crypto.Keccak256Hash(append(ababHash[:], abbbHash[:]...))
+
 	tests := []struct {
 		name string
 		lvs  []common.Hash
@@ -113,16 +119,34 @@ func TestSimpleHistoryCommitment(t *testing.T) {
 			virt: 4,
 			want: abbbHash,
 		},
+		{
+			name: "four leaves",
+			lvs:  []common.Hash{aLeaf, bLeaf, aLeaf, bLeaf},
+			virt: 4,
+			want: ababHash,
+		},
+		{
+			name: "four leaves - virtual 8",
+			lvs:  []common.Hash{aLeaf, bLeaf, aLeaf, bLeaf},
+			virt: 8,
+			want: ababbbbbHash,
+		},
+		{
+			name: "six leaves - virtual 8",
+			lvs:  []common.Hash{aLeaf, bLeaf, aLeaf, bLeaf, aLeaf, bLeaf},
+			virt: 8,
+			want: abababbbHash,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			hc := NewCommitter()
 			got, err := hc.ComputeRoot(tc.lvs, tc.virt)
 			if err != nil {
-				t.Errorf("ComputeRoot(%v, %d): err %v", tc.lvs, tc.virt, err)
+				t.Errorf("ComputeRoot(%v, %d): err %v\n", tc.lvs, tc.virt, err)
 			}
 			if got != tc.want {
-				t.Errorf("ComputeRoot(%v, %d): got %s, want %s", tc.lvs, tc.virt, got.Hex(), tc.want.Hex())
+				t.Errorf("ComputeRoot(%v, %d): got %s, want %s\n", tc.lvs, tc.virt, got.Hex(), tc.want.Hex())
 			}
 		})
 	}
