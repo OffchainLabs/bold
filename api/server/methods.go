@@ -11,6 +11,7 @@ import (
 	"github.com/OffchainLabs/bold/api"
 	"github.com/OffchainLabs/bold/api/db"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
@@ -345,7 +346,7 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Could not parse start commit hash: %v", err2), http.StatusBadRequest)
 			return
 		}
-		opts = append(opts, db.WithStartHistoryCommitment(protocol.History{
+		opts = append(opts, db.WithStartHistoryCommitment(history.History{
 			Height: startHeight,
 			Merkle: common.BytesToHash(startHash),
 		}))
@@ -367,7 +368,7 @@ func (s *Server) AllChallengeEdges(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Could not parse end commit hash: %v", err2), http.StatusBadRequest)
 			return
 		}
-		opts = append(opts, db.WithEndHistoryCommitment(protocol.History{
+		opts = append(opts, db.WithEndHistoryCommitment(history.History{
 			Height: endHeight,
 			Merkle: common.BytesToHash(endHash),
 		}))
@@ -517,11 +518,11 @@ func (s *Server) EdgeByHistoryCommitment(w http.ResponseWriter, r *http.Request)
 	}
 	opts := []db.EdgeOption{
 		db.WithEdgeAssertionHash(assertionHash),
-		db.WithStartHistoryCommitment(protocol.History{
+		db.WithStartHistoryCommitment(history.History{
 			Height: startHeight,
 			Merkle: common.BytesToHash(startHash),
 		}),
-		db.WithEndHistoryCommitment(protocol.History{
+		db.WithEndHistoryCommitment(history.History{
 			Height: endHeight,
 			Merkle: common.BytesToHash(endHash),
 		}),

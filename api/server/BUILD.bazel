@@ -13,6 +13,7 @@ go_library(
         "//api/backend",
         "//api/db",
         "//chain-abstraction:protocol",
+        "//state-commitments/history",
         "//util/stopwaiter",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//common/hexutil",

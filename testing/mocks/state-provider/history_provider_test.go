@@ -6,7 +6,6 @@ import (
 
 	"github.com/OffchainLabs/bold/containers/option"
 	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -42,8 +41,6 @@ func TestHistoryCommitment(t *testing.T) {
 		challengeLeafHeights,
 		stateBackend,
 		nil,
-		history.NewCommitment,
-		NewCommitter,
 	)
 	t.Run("produces a block challenge commitment with height equal to leaf height const", func(t *testing.T) {
 		got, err := provider.HistoryCommitment(

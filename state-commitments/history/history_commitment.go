@@ -39,7 +39,6 @@ import (
 	"errors"
 	"fmt"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/math"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -47,8 +46,17 @@ import (
 
 var (
 	emptyHash    = common.Hash{}
-	emptyHistory = protocol.History{}
+	emptyHistory = History{}
 )
+
+// History represents a history commitment in the protocol.
+type History struct {
+	Height        uint64
+	Merkle        common.Hash
+	FirstLeaf     common.Hash
+	LastLeaf      common.Hash
+	LastLeafProof []common.Hash
+}
 
 type nonZero uint64
 
@@ -181,7 +189,7 @@ func (h *historyCommitter) hashInto(result *common.Hash, items ...*common.Hash) 
 // are virtually padded using the last leaf in the list to some virtual length.
 //
 // Virtual must be >= len(leaves).
-func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, error) {
+func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	if len(leaves) == 0 {
 		return emptyHistory, errors.New("must commit to at least one leaf")
 	}
@@ -201,7 +209,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, erro
 		return emptyHistory, err
 	}
 	lastLeafProof := comm.lastLeafProof()
-	return protocol.History{
+	return History{
 		Height:        virtual - 1,
 		Merkle:        root,
 		FirstLeaf:     firstLeaf,

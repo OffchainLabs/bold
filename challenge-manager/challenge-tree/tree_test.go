@@ -79,9 +79,9 @@ func TestAddEdge(t *testing.T) {
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
 			},
-			protocol.History{
-				Height: uint64(start),
-				Merkle: startCommit,
+			l2stateprovider.History{
+				Height:     uint64(start),
+				MerkleRoot: startCommit,
 			},
 		).Return(false, errors.New("something went wrong"))
 		mockStateManager.On(
@@ -96,9 +96,9 @@ func TestAddEdge(t *testing.T) {
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
 			},
-			protocol.History{
-				Height: uint64(end),
-				Merkle: endCommit,
+			l2stateprovider.History{
+				Height:     uint64(end),
+				MerkleRoot: endCommit,
 			},
 		).Return(false, errors.New("something went wrong"))
 		ht.histChecker = mockStateManager
@@ -125,9 +125,9 @@ func TestAddEdge(t *testing.T) {
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
-			protocol.History{
-				Height: uint64(endHeight),
-				Merkle: endCommit,
+			l2stateprovider.History{
+				Height:     uint64(endHeight),
+				MerkleRoot: endCommit,
 			},
 		).Return(false, nil)
 		ht.histChecker = mockStateManager
@@ -168,9 +168,9 @@ func TestAddEdge(t *testing.T) {
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
-			protocol.History{
-				Height: uint64(startHeight),
-				Merkle: startCommit,
+			l2stateprovider.History{
+				Height:     uint64(startHeight),
+				MerkleRoot: startCommit,
 			},
 		).Return(true, nil)
 		mockStateManager.On(
@@ -185,9 +185,9 @@ func TestAddEdge(t *testing.T) {
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
-			protocol.History{
-				Height: uint64(endHeight),
-				Merkle: endCommit,
+			l2stateprovider.History{
+				Height:     uint64(endHeight),
+				MerkleRoot: endCommit,
 			},
 		).Return(true, nil)
 		ht.histChecker = mockStateManager
@@ -230,9 +230,9 @@ func TestAddEdge(t *testing.T) {
 				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
-			protocol.History{
-				Height: uint64(endHeight),
-				Merkle: endCommit,
+			l2stateprovider.History{
+				Height:     uint64(endHeight),
+				MerkleRoot: endCommit,
 			},
 		).Return(true, nil)
 		ht.histChecker = mockStateManager

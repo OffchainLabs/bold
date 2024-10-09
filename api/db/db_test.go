@@ -7,6 +7,7 @@ import (
 
 	"github.com/OffchainLabs/bold/api"
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
+	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -397,14 +398,14 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(edges))
 
-		edges, err = db.GetEdges(WithStartHistoryCommitment(protocol.History{
+		edges, err = db.GetEdges(WithStartHistoryCommitment(history.History{
 			Height: 0,
 			Merkle: common.Hash{},
 		}))
 		require.NoError(t, err)
 		require.Equal(t, 5, len(edges))
 
-		edges, err = db.GetEdges(WithEndHistoryCommitment(protocol.History{
+		edges, err = db.GetEdges(WithEndHistoryCommitment(history.History{
 			Height: 32,
 			Merkle: common.Hash{},
 		}))
@@ -412,11 +413,11 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 		require.Equal(t, 1, len(edges))
 
 		edges, err = db.GetEdges(
-			WithStartHistoryCommitment(protocol.History{
+			WithStartHistoryCommitment(history.History{
 				Height: 0,
 				Merkle: common.Hash{},
 			}),
-			WithEndHistoryCommitment(protocol.History{
+			WithEndHistoryCommitment(history.History{
 				Height: 16,
 				Merkle: common.Hash{},
 			}),

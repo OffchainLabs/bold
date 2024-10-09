@@ -11,6 +11,7 @@ go_library(
         "//containers/option",
         "//layer2-state-provider",
         "//solgen/go/rollupgen",
+        "//state-commitments/history",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",

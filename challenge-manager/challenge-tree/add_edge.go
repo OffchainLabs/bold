@@ -63,9 +63,9 @@ func (ht *RoyalChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge)
 		ctx,
 		challengeLevel,
 		historyCommitRequest,
-		protocol.History{
-			Height: uint64(endHeight),
-			Merkle: endCommit,
+		l2stateprovider.History{
+			Height:     uint64(endHeight),
+			MerkleRoot: endCommit,
 		},
 	)
 	if err != nil {

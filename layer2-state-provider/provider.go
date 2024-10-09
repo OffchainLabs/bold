@@ -13,6 +13,7 @@ import (
 
 	protocol "github.com/OffchainLabs/bold/chain-abstraction"
 	"github.com/OffchainLabs/bold/containers/option"
+	"github.com/OffchainLabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -38,6 +39,11 @@ type ConfigSnapshot struct {
 	ConfirmPeriodBlocks     uint64
 	WasmModuleRoot          [32]byte
 	InboxMaxCount           *big.Int
+}
+
+type History struct {
+	Height     uint64
+	MerkleRoot common.Hash
 }
 
 // Provider defines an L2 state backend that can provide history commitments, execution
@@ -85,7 +91,7 @@ type GeneralHistoryCommitter interface {
 	HistoryCommitment(
 		ctx context.Context,
 		req *HistoryCommitmentRequest,
-	) (protocol.History, error)
+	) (history.History, error)
 }
 
 type GeneralPrefixProver interface {
@@ -113,6 +119,6 @@ type HistoryChecker interface {
 		ctx context.Context,
 		challengeLevel protocol.ChallengeLevel,
 		historyCommitMetadata *HistoryCommitmentRequest,
-		commit protocol.History,
+		commit History,
 	) (bool, error)
 }

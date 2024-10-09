@@ -6,7 +6,6 @@ go_library(
     importpath = "github.com/OffchainLabs/bold/state-commitments/history",
     visibility = ["//visibility:public"],
     deps = [
-        "//chain-abstraction:protocol",
         "//math",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//crypto",
