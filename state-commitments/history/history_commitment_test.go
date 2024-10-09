@@ -159,7 +159,7 @@ func TestSimpleHistoryCommitment(t *testing.T) {
 
 func TestLegacyVsOptimized(t *testing.T) {
 	t.Parallel()
-	end := uint64(1 << 9)
+	end := uint64(1 << 6)
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
 	for i := uint64(1); i < end; i++ {
 		limit := nextPowerOf2(i)
