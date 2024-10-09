@@ -1,4 +1,4 @@
-// The history package provides functions for computing merkele tree roots
+// Package history provides functions for computing merkele tree roots
 // and proofs needed for the BoLD protocol's history commitments.
 //
 // Throughout this package, the following terms are used:
@@ -229,7 +229,7 @@ func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	depth := uint(math.Log2Floor(limit))
 	n := uint(1)
 	if virtual > lvLen {
-		n = depth
+		n = uint(math.Log2Ceil(virtual))
 	}
 	nzVirt, err := newNonZero(virtual)
 	if err != nil {
@@ -345,8 +345,8 @@ func (h *historyCommitter) completeRoot(leaves []common.Hash, limit uint64) (com
 //
 // Implementation note: It is very important that the historyCommitter's
 // fillers member is populated correctly before calling this method. There must
-// be at least Log2Floor(virtual-len(leaves)) filler nodes to properly pad each
-// layer of the tree if it is a partial virtual tree.
+// be at least Log2FCeil(virtual) filler nodes to properly pad each layer of
+// the tree if it is a partial virtual tree.
 //
 // The algorithm is split in three different logical cases:
 //
