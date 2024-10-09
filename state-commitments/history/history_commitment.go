@@ -1,3 +1,38 @@
+// The history package provides functions for computing merkele tree roots
+// and proofs needed for the BoLD protocol's history commitments.
+//
+// Throughout this package, the following terms are used:
+//
+//   - leaf: a leaf node in a merkle tree, which is a hash of some data.
+//   - virtual: the length of the desired number of leaf nodes. In the BoLD
+//     protocol, it is important that all history commitments which for a given
+//     challenge edge have the same length, even if the participants disagree
+//     about the number of blocks or steps to which they are committing. To
+//     solve this, history commitments must have fixed lengths at different
+//     challenge levels. Callers only need to provide the leaves they to which
+//     they commit, and the virtual length. The last leaf in the list is used
+//     to pad the tree to the virtual length.
+//   - limit: the length of the leaves that would be in a complete subtree
+//     of the depth required to hold the virtual leaves in a tree (or subtree)
+//   - pure tree: a tree where len(leaves) == virtual
+//   - complete tree: a tree where the number of leaves is a power of 2
+//   - complete virtual tree: a tree where the number of leaves including the
+//     virtual padding is a power of 2
+//   - partial tree: a tree where the number of leaves is not a power of 2
+//   - partial virtual tree: a tree where the number of leaves including the
+//     virtual padding is not a power of 2
+//   - empty hash: common.Hash{}
+//     Any time the root of a partial tree (either virtual or pure) is computed,
+//     the sibling node of the last node in a layer may be missing. In this case
+//     an empty hash (common.Hash{}) is used as the sibling node.
+//     Note: This is not the same as padding the leaves of the tree with
+//     common.Hash{} values. If that approach were taken, then the higher-level
+//     layers would contain the hash of the empty hash, or the hash of multiple
+//     empty hashes. This would be less efficient to calculate, and would not
+//     change expressiveness or security of the data structure, but it would
+//     produce a different root hash.
+//   - virtual node: a node in a virtual tree which is not one of the real
+//     leaves and not computed from the data in the real leaves.
 package history
 
 import (
@@ -26,7 +61,7 @@ func newNonZero(n uint64) (nonZero, error) {
 
 // treePosition tracks the current position in the merkele tree.
 type treePosition struct {
-	// layer is the layer of the tree that the cursor is currently tracking.
+	// layer is the layer of the tree.
 	layer uint64
 	// index is the index of the leaf in this layer of the tree.
 	index uint64
@@ -37,20 +72,25 @@ func (c *treePosition) copy() treePosition {
 }
 
 type historyCommitter struct {
-	lastLeafFillers []common.Hash
-	keccak          crypto.KeccakState
-	cursor          treePosition
-	lastLeafProver  *lastLeafProver
+	fillers        []common.Hash
+	keccak         crypto.KeccakState
+	cursor         treePosition
+	lastLeafProver *lastLeafProver
 }
 
 func NewCommitter() *historyCommitter {
 	return &historyCommitter{
-		lastLeafFillers: make([]common.Hash, 0),
-		keccak:          crypto.NewKeccakState(),
+		fillers: make([]common.Hash, 0),
+		keccak:  crypto.NewKeccakState(),
 	}
 }
 
-// soughtHash holds the hash that is being sought and whether it has been found.
+// soughtHash holds a pointer to the hash and whether it has been found.
+//
+// Without this type, it would be impossible to distinguish between a hash which
+// has not been found and a hash which is the value of common.Hash{}.
+// That's because the lastLeafProver's postions map is initialized with pointers
+// to common.Hash{} values in a pre-allocated slice.
 type soughtHash struct {
 	found bool
 	hash  *common.Hash
@@ -107,19 +147,18 @@ func (h *historyCommitter) hash(item ...*common.Hash) common.Hash {
 	return result
 }
 
-// proof returns the merkle inclusion proof for the last leaf in the virtual
-// merkle tree.
+// proof returns the merkle inclusion proof for the last leaf in a virtual tree.
 //
 // If the proof is not complete (i.e. some sibling nodes are missing), the
-// sibling nodes are filled in with the lastLeafFillers.
+// sibling nodes are filled in with the fillers.
 //
 // The reason this works, is that the only nodes which are not visited when
-// computing the merkle root are those which are in some complete subtree of
-// virtual nodes.
+// computing the merkle root are those which are in some complete virtual
+// subtree.
 func (h *historyCommitter) lastLeafProof() []common.Hash {
 	for pos, sibling := range h.lastLeafProver.positions {
 		if !sibling.found {
-			*h.lastLeafProver.positions[pos].hash = h.lastLeafFillers[pos.layer]
+			*h.lastLeafProver.positions[pos].hash = h.fillers[pos.layer]
 		}
 	}
 	if len(h.lastLeafProver.proof) == 0 {
@@ -138,8 +177,8 @@ func (h *historyCommitter) hashInto(result *common.Hash, items ...*common.Hash) 
 	h.keccak.Read(result[:]) // #nosec G104 - KeccakState.Read never errors
 }
 
-// NewCommitment produces a history commitment from a list of leaves that are
-// virtually padded using the last leaf in the list to some virtual length.
+// NewCommitment produces a history commitment from a list of real leaves that
+// are virtually padded using the last leaf in the list to some virtual length.
 //
 // Virtual must be >= len(leaves).
 func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, error) {
@@ -147,7 +186,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, erro
 		return emptyHistory, errors.New("must commit to at least one leaf")
 	}
 	if virtual < uint64(len(leaves)) {
-		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
+		return emptyHistory, errors.New("virtual size must be >= len(leaves)")
 	}
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
@@ -171,30 +210,42 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, erro
 	}, nil
 }
 
+// ComputeRoot computes the merkle root of a virtual merkle tree.
 func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
 	lvLen := uint64(len(leaves))
 	if lvLen == 0 {
 		return emptyHash, nil
 	}
-	rehashedLeaves := h.hashLeaves(leaves)
+	hashed := h.hashLeaves(leaves)
 	limit := nextPowerOf2(virtual)
 	depth := uint(math.Log2Floor(limit))
 	n := uint(1)
 	if virtual > lvLen {
 		n = depth
 	}
-	var err error
-	h.lastLeafFillers, err = h.precomputeRepeatedHashes(&rehashedLeaves[lvLen-1], n)
+	nzVirt, err := newNonZero(virtual)
 	if err != nil {
 		return emptyHash, err
 	}
+	nzLimit, err := newNonZero(limit)
+	if err != nil {
+		return emptyHash, err
+	}
+	if err := h.populateFillers(&hashed[lvLen-1], n); err != nil {
+		return emptyHash, err
+	}
 	h.cursor = treePosition{layer: uint64(depth), index: 0}
-	return h.computeVirtualSparseTree(rehashedLeaves, virtual, limit)
+	return h.partialRoot(hashed, nzVirt, nzLimit)
 }
 
+// GeneratePrefixProof generates a prefix proof for a given prefix index.
+//
+// A prefix proof consists of the data needed to prove that a merkle root
+// created from the leaves upto the prefix index represents a merkle tree which
+// spans a specific prefix of the virtual merkle tree.
 func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
-	rehashedLeaves := h.hashLeaves(leaves)
-	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, rehashedLeaves, virtual)
+	hashed := h.hashLeaves(leaves)
+	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, hashed, virtual)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -203,7 +254,7 @@ func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []comm
 	return prefixExpansion, proof, nil
 }
 
-// hashLeaves returns a slich of hashes of the leaves
+// hashLeaves returns a slice of hashes of the leaves
 func (h *historyCommitter) hashLeaves(leaves []common.Hash) []common.Hash {
 	hashedLeaves := make([]common.Hash, len(leaves))
 	for i := range leaves {
@@ -212,36 +263,42 @@ func (h *historyCommitter) hashLeaves(leaves []common.Hash) []common.Hash {
 	return hashedLeaves
 }
 
-// computeSparseTree returns the htr of a hashtree with the given leaves and
-// limit. Any non-allocated leaf is filled with the passed zeroHash of depth 0.
-// Recursively, any non allocated intermediate layer at depth i is filled with
-// the passed zeroHash.
-// limit is assumed to be a power of two which is higher or equal than the
-// length of the leaves.
-// fillers is assumed to be precomputed to the necessary limit.
-// It is a programming error to call this function with a limit of 0.
+// completeRoot returns the root hash of a complete tree given leaves and limit.
 //
-// Zero allocations
+// In the case of a complete virtual tree (when len(leaves) < limit)
+// non-allocated leaves are filled with the filler at the corresponding layer
+// in the tree.
+//
+// limit must be a power of two which is higher or equal to len(leaves).
+//
+// The historyCommitter's fillers must be precomputed to the necessary depth.
+//
+// Zero allocations (other than the local copy of the cursor)
 // Computes O(len(leaves)) hashes.
-func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64) (common.Hash, error) {
-	if limit == 0 {
-		panic("limit must be greater than 0")
-	}
+func (h *historyCommitter) completeRoot(leaves []common.Hash, limit uint64) (common.Hash, error) {
 	lvLen := len(leaves)
 	if lvLen == 0 {
 		return emptyHash, nil
 	}
-	if limit < 2 {
+	if limit < uint64(lvLen) {
+		return emptyHash, errors.New("limit must be >= len(leaves)")
+	}
+	if limit == 1 {
 		h.handle(leaves[0])
 		return leaves[0], nil
 	}
 	// Save the current cursor state
 	curr := h.cursor.copy()
 	depth := math.Log2Floor(limit)
+	// From the bottom up, the "real" leaves are hashed into their parent
+	// nodes in the next higher layer of the tree.
 	for j := 0; j < depth; j++ {
 		layerIndex := h.cursor.index * 2
 		h.cursor.layer = uint64(j)
-		// Check to ensure we don't access out of bounds.
+		// If the number of real leaves is even, then this loop will create
+		// all of the hashes needed for calculating the next layer of the tree.
+		// Even if the limit is not reached, it is okay, because the fillers are
+		// precomputed for the non-virtual nodes higher up the tree.
 		for i := 0; i < lvLen/2; i++ {
 			h.cursor.index = layerIndex + uint64(2*i)
 			h.handle(leaves[2*i])
@@ -249,18 +306,18 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64)
 			h.handle(leaves[2*i+1])
 			h.hashInto(&leaves[i], &leaves[2*i], &leaves[2*i+1])
 		}
+		// If the number of leaves is odd, then the last real leaf needs to be
+		// hashed with the filler at the same depth in the tree.
 		if lvLen&1 == 1 {
-			// Check to ensure m-1 is a valid index.
-			if j >= len(h.lastLeafFillers) {
-				// Handle the case where j is out of range for fillers.
-				return emptyHash, errors.New("insufficient fillers")
+			if j >= len(h.fillers) {
+				return emptyHash, fmt.Errorf("programming error: insufficient fillers, want %d, got %d", j, len(h.fillers))
 			}
-			target := (lvLen - 1) / 2
+			pIdx := (lvLen - 1) / 2
 			h.cursor.index = layerIndex + uint64(lvLen-1)
 			h.handle(leaves[lvLen-1])
 			h.cursor.index = layerIndex + uint64(lvLen)
-			h.handle(h.lastLeafFillers[j])
-			h.hashInto(&leaves[target], &leaves[lvLen-1], &h.lastLeafFillers[j])
+			h.handle(h.fillers[j])
+			h.hashInto(&leaves[pIdx], &leaves[lvLen-1], &h.fillers[j])
 		}
 		lvLen = (lvLen + 1) / 2
 		h.cursor.index = layerIndex * 2
@@ -271,33 +328,35 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64)
 	return leaves[0], nil
 }
 
-// computeVirtualSparseTree returns the merkle root of a hashtree where the
-// first layer is passed as leaves, then completed with the last leaf until it
-// reaches virtual and finally completed with zero hashes until it reaches
-// limit. limit power of 2 which is greater or equal to virtual.
+// partialRoot returns the merkle root of a possibly partial hashtree where the
+// first layer is passed as leaves, then padded by repeating the last leaf
+// until it reaches virtual and terminated with a single common.Hash{}.
+//
+// limit is a power of 2 which is greater or equal to virtual, and defines how
+// deep the complete tree analogous to this partial one would be.
 //
 // Implementation note: It is very important that the historyCommitter's
-// lastLeafFillers member is populated correctly before calling this method.
-// There must be Log2Floor(virtual-len(leaves)) filler nodes to properly pad
-// each layer of the tree.
+// fillers member is populated correctly before calling this method. There must
+// be at least Log2Floor(virtual-len(leaves)) filler nodes to properly pad each
+// layer of the tree if it is a partial virtual tree.
 //
 // The algorithm is split in three different logical cases:
-//  1. If the virtual length is less than half the limit (this can never happen
-//     in the first iteration of the algorithm), then the first half of the tree
-//     is computed by recursion and the second half is an empty hash.
-//  2. If the leaves all fit in the first half, then we can optimize the first
-//     half to being a simple sparse tree, just that instead of filling with
-//     zero hashes we fill with the precomputed virtual hashes. This is the most
-//     common starting scenario. The second part is computed by recursion.
-//  3. If the leaves do not fit in the first half, then we can compute the first
-//     half of the tree as a normal complete hashtree. The second part is
-//     computed by recursion.
-func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
+//
+//  1. If the virtual length is less than or equal to half the limit (this can
+//     never happen in the first iteration of the algorithm), the left half of
+//     the tree is computed by recursion and the right half is an empty hash.
+//  2. If the leaves all fit in the left half, then the left half can be
+//     optimized as computing a complete virtual tree. This is the most common
+//     starting scenario. The right half is computed by recursion.
+//  3. If the leaves do not fit in the left half, then the left half can be
+//     optimized as computing a complete tree. The right half is computed by
+//     recursion.
+func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZero) (common.Hash, error) {
 	lvLen := uint64(len(leaves))
 	if lvLen == 0 {
 		return emptyHash, errors.New("nil leaves")
 	}
-	if virtual < lvLen {
+	if uint64(virtual) < lvLen {
 		return emptyHash, fmt.Errorf("virtual %d should be >= num leaves %d", virtual, lvLen)
 	}
 	if limit < virtual {
@@ -318,48 +377,52 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 	h.cursor.index = curr.index * 2
 	if virtual > mid {
 		// Case 2 or 3: The virtual size is greater than half the limit
-		if lvLen > mid {
-			// Case 3: The leaves do not fit in the first half
-			left, err = h.computeSparseTree(leaves[:mid], mid)
+		if lvLen > uint64(mid) {
+			// Case 3: A pure complete subtree can be computed
+			left, err = h.completeRoot(leaves[:mid], uint64(mid))
+			if err != nil {
+				return emptyHash, err
+			}
 		} else {
-			// Case 2: The leaves fit in the first half
-			left, err = h.computeSparseTree(leaves, mid)
+			// Case 2: A virtual complete subtree can be computed
+			left, err = h.completeRoot(leaves, uint64(mid))
+			if err != nil {
+				return emptyHash, err
+			}
 		}
 	} else {
 		// Case 1: The virtual size is less than half the limit
-		left, err = h.computeVirtualSparseTree(leaves, virtual, mid)
-	}
-	// Any of the three cases can return an error
-	if err != nil {
-		return emptyHash, err
+		left, err = h.partialRoot(leaves, virtual, mid)
+		if err != nil {
+			return emptyHash, err
+		}
 	}
 
 	// Deal with the right child
 	h.cursor.index = curr.index*2 + 1
 	if virtual > mid {
 		// Case 2 or 3: The virtual size is greater than half the limit
-		if lvLen > mid {
+		if lvLen > uint64(mid) {
 			// Case 3: The leaves do not fit in the first half
-			right, err = h.computeVirtualSparseTree(leaves[mid:], virtual-mid, mid)
+			right, err = h.partialRoot(leaves[mid:], virtual-mid, mid)
 			if err != nil {
 				return emptyHash, err
 			}
 		} else {
 			// Case 2: The leaves fit in the first half
+			layer := math.Log2Floor(uint64(mid))
+			if len(h.fillers) <= layer {
+				return emptyHash, fmt.Errorf("programming error: insufficient fillers, want %d, got %d", layer, len(h.fillers))
+			}
 			if virtual == limit {
 				// This is a special case where the entire right subtree is
-				// made purely of virtual nodes, nand it is a complete tree
-				// (because limit is a power of 2).
-				if len(h.lastLeafFillers) <= math.Log2Floor(mid) {
-					return emptyHash, errors.New("insufficient lastLeafFillers")
-				}
-				right = h.lastLeafFillers[math.Log2Floor(mid)]
+				// made purely of virtual nodes, and it is a complete tree.
+				// So, the root of the subtree will be the precomputed filler
+				// at the current layer.
+				right = h.fillers[layer]
 				h.handle(right)
 			} else {
-				if len(h.lastLeafFillers) <= 0 {
-					return emptyHash, errors.New("empty lastLeafFillers")
-				}
-				right, err = h.computeVirtualSparseTree([]common.Hash{h.lastLeafFillers[0]}, virtual-mid, mid)
+				right, err = h.partialRoot([]common.Hash{h.fillers[0]}, virtual-mid, mid)
 				if err != nil {
 					return emptyHash, err
 				}
@@ -393,7 +456,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		limit = nextPowerOf2(virtual)
 	}
 	if limit == virtual {
-		left, err2 := h.computeSparseTree(leaves, limit)
+		left, err2 := h.completeRoot(leaves, limit)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -406,7 +469,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 	}
 	mid := limit / 2
 	if lvLen > mid {
-		left, err2 := h.computeSparseTree(leaves[:mid], mid)
+		left, err2 := h.completeRoot(leaves[:mid], mid)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -417,19 +480,18 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		return append(proof, left), nil
 	}
 	if virtual >= mid {
-		left, err2 := h.computeSparseTree(leaves, mid)
+		left, err2 := h.completeRoot(leaves, mid)
 		if err2 != nil {
 			return nil, err2
 		}
-		if len(h.lastLeafFillers) > 0 {
-			proof, err = h.subtreeExpansion([]common.Hash{h.lastLeafFillers[0]}, virtual-mid, mid, stripped)
-			if err != nil {
-				return nil, err
-			}
-			return append(proof, left), nil
-		} else {
-			return nil, errors.New("lastLeafFillers is empty")
+		if len(h.fillers) == 0 {
+			return nil, errors.New("fillers is empty")
 		}
+		proof, err = h.subtreeExpansion([]common.Hash{h.fillers[0]}, virtual-mid, mid, stripped)
+		if err != nil {
+			return nil, err
+		}
+		return append(proof, left), nil
 	}
 	if stripped {
 		return h.subtreeExpansion(leaves, virtual, mid, stripped)
@@ -458,11 +520,10 @@ func (h *historyCommitter) proof(index uint64, leaves []common.Hash, virtual, li
 		if lvLen > mid {
 			return h.proof(index-mid, leaves[mid:], virtual-mid, mid)
 		}
-		if len(h.lastLeafFillers) > 0 {
-			return h.proof(index-mid, []common.Hash{h.lastLeafFillers[0]}, virtual-mid, mid)
-		} else {
-			return nil, errors.New("lastLeafFillers is empty")
+		if len(h.fillers) == 0 {
+			return nil, errors.New("fillers is empty")
 		}
+		return h.proof(index-mid, []common.Hash{h.fillers[0]}, virtual-mid, mid)
 	}
 	if lvLen > mid {
 		tail, err = h.proof(index, leaves[:mid], mid, mid)
@@ -483,16 +544,15 @@ func (h *historyCommitter) proof(index uint64, leaves []common.Hash, virtual, li
 		if err != nil {
 			return nil, err
 		}
-		if len(h.lastLeafFillers) > 0 {
-			right, err := h.subtreeExpansion([]common.Hash{h.lastLeafFillers[0]}, virtual-mid, mid, true)
-			if err != nil {
-				return nil, err
-			}
-			for i := len(right) - 1; i >= 0; i-- {
-				tail = append(tail, right[i])
-			}
-		} else {
-			return nil, errors.New("lastLeafFillers is empty")
+		if len(h.fillers) == 0 {
+			return nil, errors.New("fillers is empty")
+		}
+		right, err := h.subtreeExpansion([]common.Hash{h.fillers[0]}, virtual-mid, mid, true)
+		if err != nil {
+			return nil, err
+		}
+		for i := len(right) - 1; i >= 0; i-- {
+			tail = append(tail, right[i])
 		}
 		return tail, nil
 	}
@@ -514,8 +574,7 @@ func (h *historyCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 		return nil, nil, fmt.Errorf("index %d + 1 should be <= virtual %d", index, virtual)
 	}
 	logVirtual := uint(math.Log2Floor(virtual) + 1)
-	h.lastLeafFillers, err = h.precomputeRepeatedHashes(&leaves[lvLen-1], logVirtual)
-	if err != nil {
+	if err = h.populateFillers(&leaves[lvLen-1], logVirtual); err != nil {
 		return nil, nil, err
 	}
 
@@ -531,30 +590,23 @@ func (h *historyCommitter) prefixAndProof(index uint64, leaves []common.Hash, vi
 	return
 }
 
-// precomputeRepeatedHashes returns a slice where built recursively as
+// populateFillers returns a slice built recursively as
 // ret[0] = the passed in leaf
 // ret[i+1] = Hash(ret[i] + ret[i])
 //
 // Allocates n hashes
 // Computes n-1 hashes
 // Copies 1 hash
-func (h *historyCommitter) precomputeRepeatedHashes(leaf *common.Hash, n uint) ([]common.Hash, error) {
+func (h *historyCommitter) populateFillers(leaf *common.Hash, n uint) error {
 	if leaf == nil {
-		return nil, errors.New("nil leaf pointer")
+		return errors.New("nil leaf pointer")
 	}
-	fLen := uint(len(h.lastLeafFillers))
-	if fLen > 0 && h.lastLeafFillers[0] == *leaf && fLen >= n {
-		return h.lastLeafFillers, nil
-	}
-	if n == 0 {
-		return []common.Hash{*leaf}, nil
-	}
-	ret := make([]common.Hash, n)
-	copy(ret[0][:], (*leaf)[:])
+	h.fillers = make([]common.Hash, n)
+	copy(h.fillers[0][:], (*leaf)[:])
 	for i := uint(1); i < n; i++ {
-		h.hashInto(&ret[i], &ret[i-1], &ret[i-1])
+		h.hashInto(&h.fillers[i], &h.fillers[i-1], &h.fillers[i-1])
 	}
-	return ret, nil
+	return nil
 }
 
 // lastLeafProofPositions returns the positions in a virtual merkle tree
@@ -575,7 +627,7 @@ func lastLeafProofPositions(virtual nonZero) []treePosition {
 	return positions
 }
 
-// sibling returns the cursor of the sibling of the node at the given layer
+// sibling returns the position of the sibling of the node at the given layer
 func sibling(index, layer uint64) treePosition {
 	return treePosition{layer: layer, index: index ^ 1}
 }
