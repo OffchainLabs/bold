@@ -323,13 +323,7 @@ func TestInclusionProofEquivalence(t *testing.T) {
 	}
 	commit, err := NewCommitment(leaves, 4)
 	require.NoError(t, err)
-	oldLeaves := []common.Hash{
-		simpleHash,
-		simpleHash,
-		simpleHash,
-		simpleHash,
-	}
-	oldCommit, err := legacy.NewLegacy(oldLeaves)
+	oldCommit, err := legacy.NewLegacy(leaves)
 	require.NoError(t, err)
 	require.Equal(t, commit.Merkle, oldCommit.Merkle)
 }
