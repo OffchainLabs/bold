@@ -84,7 +84,6 @@ func newLastLeafProver(virtual nonZero) *lastLeafProver {
 // them in the proof slice.
 func (p *lastLeafProver) handle(hash common.Hash, pos treePosition) {
 	if sibling, ok := p.positions[pos]; ok {
-		fmt.Printf("found sibling %v at %v\n", hash, pos)
 		sibling.found = true
 		*sibling.hash = hash
 	}
@@ -120,9 +119,7 @@ func (h *historyCommitter) hash(item ...*common.Hash) common.Hash {
 func (h *historyCommitter) lastLeafProof() []common.Hash {
 	for pos, sibling := range h.lastLeafProver.positions {
 		if !sibling.found {
-			// fmt.Printf("pos %v not found\n", pos)
 			*h.lastLeafProver.positions[pos].hash = h.lastLeafFillers[pos.layer]
-			// fmt.Printf("filling with: %v\n", h.lastLeafFillers[pos.layer])
 		}
 	}
 	if len(h.lastLeafProver.proof) == 0 {
@@ -152,7 +149,6 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, erro
 	if virtual < uint64(len(leaves)) {
 		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
 	}
-	// fmt.Println("leaves", leaves, "virtual", virtual, "len(leaves)", len(leaves))
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
