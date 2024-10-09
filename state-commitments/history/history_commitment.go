@@ -15,6 +15,132 @@ var (
 	emptyHistory = protocol.History{}
 )
 
+type nonZero uint64
+
+func newNonZero(n uint64) (nonZero, error) {
+	if n == 0 {
+		return 0, errors.New("zero is not a valid non-zero value")
+	}
+	return nonZero(n), nil
+}
+
+// treePosition tracks the current position in the merkele tree.
+type treePosition struct {
+	// layer is the layer of the tree that the cursor is currently tracking.
+	layer uint64
+	// index is the index of the leaf in this layer of the tree.
+	index uint64
+}
+
+func (c *treePosition) copy() treePosition {
+	return treePosition{layer: c.layer, index: c.index}
+}
+
+type historyCommitter struct {
+	lastLeafFillers []common.Hash
+	keccak          crypto.KeccakState
+	cursor          treePosition
+	lastLeafProver  *lastLeafProver
+}
+
+func NewCommitter() *historyCommitter {
+	return &historyCommitter{
+		lastLeafFillers: make([]common.Hash, 0),
+		keccak:          crypto.NewKeccakState(),
+	}
+}
+
+// soughtHash holds the hash that is being sought and whether it has been found.
+type soughtHash struct {
+	found bool
+	hash  *common.Hash
+}
+
+// lastLeafProver finds the siblings needed to produce a merkle inclusion
+// proof for the last leaf in a virtual merkle tree.
+//
+// The prover maintains a map of treePositions where sibling nodes live
+// and fills them in as the historyCommitter calculates them.
+type lastLeafProver struct {
+	positions map[treePosition]*soughtHash
+	proof     []common.Hash
+}
+
+func newLastLeafProver(virtual nonZero) *lastLeafProver {
+	positions := lastLeafProofPositions(virtual)
+	posMap := make(map[treePosition]*soughtHash, len(positions))
+	proof := make([]common.Hash, len(positions))
+	for i, pos := range positions {
+		posMap[pos] = &soughtHash{false, &proof[i]}
+	}
+	return &lastLeafProver{
+		positions: posMap,
+		proof:     proof,
+	}
+}
+
+// handle filters the hashes found while computing the merkle root looking for
+// the sibling nodes needed to produce the merkle inclusion proof, and fills
+// them in the proof slice.
+func (p *lastLeafProver) handle(hash common.Hash, pos treePosition) {
+	if sibling, ok := p.positions[pos]; ok {
+		fmt.Printf("found sibling %v at %v\n", hash, pos)
+		sibling.found = true
+		*sibling.hash = hash
+	}
+}
+
+// handle is called each time a hash is computed in the merkle tree.
+//
+// The cursor is kept in sync with tree traversal. The implementation of
+// handle can therefore assume that the currsor is pointing to the node which
+// has the value of the hash.
+func (h *historyCommitter) handle(hash common.Hash) {
+	if h.lastLeafProver != nil {
+		h.lastLeafProver.handle(hash, h.cursor)
+	}
+}
+
+// hash hashes the passed item into a common.Hash.
+func (h *historyCommitter) hash(item ...*common.Hash) common.Hash {
+	var result common.Hash
+	h.hashInto(&result, item...)
+	return result
+}
+
+// proof returns the merkle inclusion proof for the last leaf in the virtual
+// merkle tree.
+//
+// If the proof is not complete (i.e. some sibling nodes are missing), the
+// sibling nodes are filled in with the lastLeafFillers.
+//
+// The reason this works, is that the only nodes which are not visited when
+// computing the merkle root are those which are in some complete subtree of
+// virtual nodes.
+func (h *historyCommitter) lastLeafProof() []common.Hash {
+	for pos, sibling := range h.lastLeafProver.positions {
+		if !sibling.found {
+			// fmt.Printf("pos %v not found\n", pos)
+			*h.lastLeafProver.positions[pos].hash = h.lastLeafFillers[pos.layer]
+			// fmt.Printf("filling with: %v\n", h.lastLeafFillers[pos.layer])
+		}
+	}
+	if len(h.lastLeafProver.proof) == 0 {
+		return nil
+	}
+	return h.lastLeafProver.proof
+}
+
+// hashInto hashes the concatenation of the passed items into the result.
+// nolint:errcheck
+func (h *historyCommitter) hashInto(result *common.Hash, items ...*common.Hash) {
+	defer h.keccak.Reset()
+	for _, item := range items {
+		h.keccak.Write(item[:]) // #nosec G104 - KeccakState.Write never errors
+	}
+	h.keccak.Read(result[:]) // #nosec G104 - KeccakState.Read never errors
+}
+
 // NewCommitment produces a history commitment from a list of leaves that are
 // virtually padded using the last leaf in the list to some virtual length.
 //
@@ -26,18 +152,20 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, erro
 	if virtual < uint64(len(leaves)) {
 		return emptyHistory, errors.New("virtual size must be greater than or equal to the number of leaves")
 	}
+	// fmt.Println("leaves", leaves, "virtual", virtual, "len(leaves)", len(leaves))
 	comm := NewCommitter()
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
-	var lastLeafProof []common.Hash
-	lastLeafProof, err := comm.computeMerkleProof(virtual-1, leaves, virtual)
+	nzVirtual, err := newNonZero(virtual)
 	if err != nil {
 		return emptyHistory, err
 	}
+	comm.lastLeafProver = newLastLeafProver(nzVirtual)
 	root, err := comm.ComputeRoot(leaves, virtual)
 	if err != nil {
 		return emptyHistory, err
 	}
+	lastLeafProof := comm.lastLeafProof()
 	return protocol.History{
 		Height:        virtual - 1,
 		Merkle:        root,
@@ -45,57 +173,6 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (protocol.History, erro
 		LastLeaf:      lastLeaf,
 		LastLeafProof: lastLeafProof,
 	}, nil
-}
-
-// cursor tracks the current position in the merkele tree.
-type cursor struct {
-	// layer is the layer of the tree that the cursor is currently tracking.
-	layer uint64
-	// index is the index of the leaf in this layer of the tree.
-	index uint64
-}
-
-func (c *cursor) copy() cursor {
-	return cursor{layer: c.layer, index: c.index}
-}
-
-type historyCommitter struct {
-	lastLeafFillers []common.Hash
-	keccak          crypto.KeccakState
-	c               cursor
-}
-
-func NewCommitter() *historyCommitter {
-	return &historyCommitter{
-		lastLeafFillers: make([]common.Hash, 0),
-		keccak:          crypto.NewKeccakState(),
-	}
-}
-
-// handle is called each time a hash is computed in the merkle tree.
-//
-// The cursor is kept in sync with tree traversal. The implementation of
-// handle can therefore assume that the currsor is pointing to the node which
-// has the value of the hash.
-func (h *historyCommitter) handle(hash common.Hash) {
-	_ = hash // Do nothing
-}
-
-// hash hashes the passed item into a common.Hash.
-func (h *historyCommitter) hash(item ...*common.Hash) common.Hash {
-	var result common.Hash
-	h.hashInto(&result, item...)
-	return result
-}
-
-// hashInto hashes the concatenation of the passed items into the result.
-// nolint:errcheck
-func (h *historyCommitter) hashInto(result *common.Hash, items ...*common.Hash) {
-	defer h.keccak.Reset()
-	for _, item := range items {
-		h.keccak.Write(item[:]) // #nosec G104 - KeccakState.Write never errors
-	}
-	h.keccak.Read(result[:]) // #nosec G104 - KeccakState.Read never errors
 }
 
 func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
@@ -115,7 +192,7 @@ func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	if err != nil {
 		return emptyHash, err
 	}
-	h.c = cursor{layer: uint64(depth), index: 0}
+	h.cursor = treePosition{layer: uint64(depth), index: 0}
 	return h.computeVirtualSparseTree(rehashedLeaves, virtual, limit)
 }
 
@@ -163,16 +240,16 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64)
 		return leaves[0], nil
 	}
 	// Save the current cursor state
-	curr := h.c.copy()
+	curr := h.cursor.copy()
 	depth := math.Log2Floor(limit)
 	for j := 0; j < depth; j++ {
-		layerIndex := h.c.index * 2
-		h.c.layer = uint64(j)
+		layerIndex := h.cursor.index * 2
+		h.cursor.layer = uint64(j)
 		// Check to ensure we don't access out of bounds.
 		for i := 0; i < lvLen/2; i++ {
-			h.c.index = layerIndex + uint64(2*i)
+			h.cursor.index = layerIndex + uint64(2*i)
 			h.handle(leaves[2*i])
-			h.c.index = layerIndex + uint64(2*i+1)
+			h.cursor.index = layerIndex + uint64(2*i+1)
 			h.handle(leaves[2*i+1])
 			h.hashInto(&leaves[i], &leaves[2*i], &leaves[2*i+1])
 		}
@@ -183,17 +260,17 @@ func (h *historyCommitter) computeSparseTree(leaves []common.Hash, limit uint64)
 				return emptyHash, errors.New("insufficient fillers")
 			}
 			target := (lvLen - 1) / 2
-			h.c.index = layerIndex + uint64(lvLen-1)
+			h.cursor.index = layerIndex + uint64(lvLen-1)
 			h.handle(leaves[lvLen-1])
-			h.c.index = layerIndex + uint64(lvLen)
+			h.cursor.index = layerIndex + uint64(lvLen)
 			h.handle(h.lastLeafFillers[j])
 			h.hashInto(&leaves[target], &leaves[lvLen-1], &h.lastLeafFillers[j])
 		}
 		lvLen = (lvLen + 1) / 2
-		h.c.index = layerIndex * 2
+		h.cursor.index = layerIndex * 2
 	}
 	// Restore the cursor to the original state
-	h.c = curr
+	h.cursor = curr
 	h.handle(leaves[0])
 	return leaves[0], nil
 }
@@ -235,14 +312,14 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 		return leaves[0], nil
 	}
 	// Save the current cursor state
-	curr := h.c.copy()
-	h.c.layer--
+	curr := h.cursor.copy()
+	h.cursor.layer--
 	var left, right common.Hash
 	var err error
 	mid := limit / 2
 
 	// Deal with the left child first
-	h.c.index = curr.index * 2
+	h.cursor.index = curr.index * 2
 	if virtual > mid {
 		// Case 2 or 3: The virtual size is greater than half the limit
 		if lvLen > mid {
@@ -262,7 +339,7 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 	}
 
 	// Deal with the right child
-	h.c.index = curr.index*2 + 1
+	h.cursor.index = curr.index*2 + 1
 	if virtual > mid {
 		// Case 2 or 3: The virtual size is greater than half the limit
 		if lvLen > mid {
@@ -299,7 +376,7 @@ func (h *historyCommitter) computeVirtualSparseTree(leaves []common.Hash, virtua
 	}
 
 	// Restore the cursor to the state for this level of recursion
-	h.c = curr
+	h.cursor = curr
 	h.hashInto(&leaves[0], &left, &right)
 	h.handle(leaves[0])
 	return leaves[0], nil
@@ -482,6 +559,34 @@ func (h *historyCommitter) precomputeRepeatedHashes(leaf *common.Hash, n uint) (
 		h.hashInto(&ret[i], &ret[i-1], &ret[i-1])
 	}
 	return ret, nil
+}
+
+// lastLeafProofPositions returns the positions in a virtual merkle tree
+// of the sibling nodes that need to be hashed with the last leaf at each
+// layer to compute the root of the tree.
+func lastLeafProofPositions(virtual nonZero) []treePosition {
+	if virtual == 1 {
+		return []treePosition{}
+	}
+	limit := nextPowerOf2(uint64(virtual))
+	depth := math.Log2Floor(limit)
+	positions := make([]treePosition, depth)
+	idx := uint64(virtual) - 1
+	for l := range positions {
+		positions[l] = sibling(idx, uint64(l))
+		idx = parent(idx)
+	}
+	return positions
+}
+
+// sibling returns the cursor of the sibling of the node at the given layer
+func sibling(index, layer uint64) treePosition {
+	return treePosition{layer: layer, index: index ^ 1}
+}
+
+// parent returns the index of the parent of the node in the next higher layer
+func parent(index uint64) uint64 {
+	return index >> 1
 }
 
 func nextPowerOf2(n uint64) uint64 {

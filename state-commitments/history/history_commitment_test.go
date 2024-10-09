@@ -21,8 +21,13 @@ func FuzzHistoryCommitter(f *testing.F) {
 		for i := range hashedLeaves {
 			hashedLeaves[i] = simpleHash
 		}
-		committer := NewCommitter()
-		_, err := committer.ComputeRoot(hashedLeaves, virtual)
+		_, err := NewCommitment(hashedLeaves, virtual)
+		if err != nil {
+			if len(hashedLeaves) == 0 || virtual < uint64(len(hashedLeaves)) {
+				t.Skip()
+			}
+			t.Errorf("NewCommitment(%v, %d): err %v\n", hashedLeaves, virtual, err)
+		}
 		_ = err
 	})
 }
@@ -222,111 +227,66 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 func TestVirtualSparse(t *testing.T) {
 	t.Parallel()
 	simpleHash := crypto.Keccak256Hash([]byte("foo"))
-	t.Run("real length 1, virtual length 3", func(t *testing.T) {
-		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot([]common.Hash{simpleHash}, 3)
-		require.NoError(t, err)
-
-		leaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		histCommit, err := legacy.NewLegacy(leaves)
-		require.NoError(t, err)
-		require.Equal(t, histCommit.Merkle, computedRoot)
-	})
-	t.Run("real length 2, virtual length 3", func(t *testing.T) {
-		hashedLeaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-		}
-		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot(hashedLeaves, 3)
-		require.NoError(t, err)
-		leaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		histCommit, err := legacy.NewLegacy(leaves)
-		require.NoError(t, err)
-		require.Equal(t, histCommit.Merkle, computedRoot)
-	})
-	t.Run("real length 3, virtual length 3", func(t *testing.T) {
-		hashedLeaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot(hashedLeaves, 3)
-		require.NoError(t, err)
-		leaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		histCommit, err := legacy.NewLegacy(leaves)
-		require.NoError(t, err)
-		require.Equal(t, histCommit.Merkle, computedRoot)
-	})
-	t.Run("real length 4, virtual length 4", func(t *testing.T) {
-		hashedLeaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot(hashedLeaves, 4)
-		require.NoError(t, err)
-		leaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		histCommit, err := legacy.NewLegacy(leaves)
-		require.NoError(t, err)
-		require.Equal(t, histCommit.Merkle, computedRoot)
-	})
-	t.Run("real length 1, virtual length 5", func(t *testing.T) {
-		hashedLeaves := []common.Hash{
-			simpleHash,
-		}
-		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot(hashedLeaves, 5)
-		require.NoError(t, err)
-
-		leaves := []common.Hash{
-			simpleHash,
-			simpleHash,
-			simpleHash,
-			simpleHash,
-			simpleHash,
-		}
-		histCommit, err := legacy.NewLegacy(leaves)
-		require.NoError(t, err)
-		require.Equal(t, computedRoot, histCommit.Merkle)
-	})
-	t.Run("real length 12, virtual length 14", func(t *testing.T) {
-		hashedLeaves := make([]common.Hash, 12)
-		for i := range hashedLeaves {
-			hashedLeaves[i] = simpleHash
-		}
-		committer := NewCommitter()
-		computedRoot, err := committer.ComputeRoot(hashedLeaves, 14)
-		require.NoError(t, err)
-
-		leaves := make([]common.Hash, 14)
+	makeLeaves := func(n int) []common.Hash {
+		leaves := make([]common.Hash, n)
 		for i := range leaves {
 			leaves[i] = simpleHash
 		}
-		histCommit, err := legacy.NewLegacy(leaves)
-		require.NoError(t, err)
-		require.Equal(t, computedRoot, histCommit.Merkle)
-	})
+		return leaves
+	}
+	tests := []struct {
+		name string
+		real []common.Hash
+		virt uint64
+		full []common.Hash
+	}{
+		{
+			name: "real 1, virtual 3",
+			real: makeLeaves(1),
+			virt: 3,
+			full: makeLeaves(3),
+		},
+		{
+			name: "real 2, virtual 3",
+			real: makeLeaves(2),
+			virt: 3,
+			full: makeLeaves(3),
+		},
+		{
+			name: "real 3, virtual 3",
+			real: makeLeaves(3),
+			virt: 3,
+			full: makeLeaves(3),
+		},
+		{
+			name: "real 4, virtual 4",
+			real: makeLeaves(4),
+			virt: 4,
+			full: makeLeaves(4),
+		},
+		{
+			name: "real 1, virtual 5",
+			real: makeLeaves(1),
+			virt: 5,
+			full: makeLeaves(5),
+		},
+		{
+			name: "real 12, virtual 14",
+			real: makeLeaves(12),
+			virt: 14,
+			full: makeLeaves(14),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			optCommit, err := NewCommitment(tc.real, tc.virt)
+			require.NoError(t, err)
+
+			histCommit, err := legacy.NewLegacy(tc.full)
+			require.NoError(t, err)
+			require.Equal(t, histCommit.Merkle, optCommit.Merkle)
+		})
+	}
 }
 
 func TestMaximumDepthHistoryCommitment(t *testing.T) {
@@ -335,8 +295,7 @@ func TestMaximumDepthHistoryCommitment(t *testing.T) {
 	hashedLeaves := []common.Hash{
 		simpleHash,
 	}
-	committer := NewCommitter()
-	_, err := committer.ComputeRoot(hashedLeaves, 1<<26)
+	_, err := NewCommitment(hashedLeaves, 1<<26)
 	require.NoError(t, err)
 }
 
@@ -384,10 +343,33 @@ func TestHashInto(t *testing.T) {
 		simpleHash,
 	}
 	comm := NewCommitter()
+	want := crypto.Keccak256Hash(simpleHash[:], simpleHash[:], simpleHash[:], simpleHash[:])
 	var got common.Hash
 	comm.hashInto(&got, &leaves[0], &leaves[1], &leaves[2], &leaves[3])
-	want := common.HexToHash("0xf79081b3d30d12471772f6f84714d3c94281fd0287976c6c87086c3a7ab14859")
 	if got != want {
 		t.Errorf("got %s, want %s", got.Hex(), want.Hex())
+	}
+}
+
+func TestLastLeafProofPositions(t *testing.T) {
+	tests := []struct {
+		name    string
+		virtual nonZero
+		want    []treePosition
+	}{
+		{"virtual 1", 1, []treePosition{}},
+		{"virtual 2", 2, []treePosition{{0, 0}}},
+		{"virtual 9", 9, []treePosition{
+			{0, 9},
+			{1, 5},
+			{2, 3},
+			{3, 0},
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := lastLeafProofPositions(tc.virtual)
+			require.Equal(t, tc.want, got)
+		})
 	}
 }
