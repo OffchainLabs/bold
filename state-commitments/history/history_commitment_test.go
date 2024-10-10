@@ -61,10 +61,10 @@ func BenchmarkPrefixProofGeneration_Optimized(b *testing.B) {
 	hashes := []common.Hash{crypto.Keccak256Hash(simpleHash[:])}
 	prefixIndex := uint64(13384)
 	virtual := uint64(1 << 14)
-	committer := NewCommitter()
+	committer := newCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, _, err := committer.GeneratePrefixProof(prefixIndex, hashes, virtual)
+		_, _, err := committer.generatePrefixProof(prefixIndex, hashes, virtual)
 		require.NoError(b, err)
 	}
 }
@@ -145,8 +145,8 @@ func TestSimpleHistoryCommitment(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			hc := NewCommitter()
-			got, err := hc.ComputeRoot(tc.lvs, tc.virt)
+			hc := newCommitter()
+			got, err := hc.computeRoot(tc.lvs, tc.virt)
 			if err != nil {
 				t.Errorf("ComputeRoot(%v, %d): err %v\n", tc.lvs, tc.virt, err)
 			}
@@ -168,8 +168,8 @@ func TestLegacyVsOptimized(t *testing.T) {
 			for i := range inputLeaves {
 				inputLeaves[i] = simpleHash
 			}
-			committer := NewCommitter()
-			computedRoot, err := committer.ComputeRoot(inputLeaves, uint64(j))
+			committer := newCommitter()
+			computedRoot, err := committer.computeRoot(inputLeaves, uint64(j))
 			require.NoError(t, err)
 
 			legacyInputLeaves := make([]common.Hash, j)
@@ -209,8 +209,8 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 			for i := range inputLeaves {
 				inputLeaves[i] = simpleHash
 			}
-			committer := NewCommitter()
-			computedRoot, err := committer.ComputeRoot(inputLeaves, uint64(tt.virtualLength))
+			committer := newCommitter()
+			computedRoot, err := committer.computeRoot(inputLeaves, uint64(tt.virtualLength))
 			require.NoError(t, err)
 
 			leaves := make([]common.Hash, tt.virtualLength)
@@ -305,10 +305,10 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	hashedLeaves := []common.Hash{
 		simpleHash,
 	}
-	committer := NewCommitter()
+	committer := newCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := committer.ComputeRoot(hashedLeaves, 1<<26)
+		_, err := committer.computeRoot(hashedLeaves, 1<<26)
 		_ = err
 	}
 }
@@ -336,7 +336,7 @@ func TestHashInto(t *testing.T) {
 		simpleHash,
 		simpleHash,
 	}
-	comm := NewCommitter()
+	comm := newCommitter()
 	want := crypto.Keccak256Hash(simpleHash[:], simpleHash[:], simpleHash[:], simpleHash[:])
 	var got common.Hash
 	comm.hashInto(&got, &leaves[0], &leaves[1], &leaves[2], &leaves[3])

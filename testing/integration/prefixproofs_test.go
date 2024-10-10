@@ -109,8 +109,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	}
 
 	// Computes the prefix root.
-	committer := history.NewCommitter()
-	prefixRoot, err := committer.ComputeRoot(hashes, prefixIndex+1)
+	prefixRoot, err := history.ComputeRoot(hashes, prefixIndex+1)
 	require.NoError(t, err)
 
 	// Computes the full tree root.
@@ -118,8 +117,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = simpleHash
 	}
-	committer = history.NewCommitter()
-	fullTreeRoot, err := committer.ComputeRoot(hashes, virtual)
+	fullTreeRoot, err := history.ComputeRoot(hashes, virtual)
 	require.NoError(t, err)
 
 	// Computes the prefix proof.
@@ -127,7 +125,7 @@ func computeOptimizedPrefixProof(t *testing.T, numRealHashes uint64, virtual uin
 	for i := 0; i < len(hashes); i++ {
 		hashes[i] = simpleHash
 	}
-	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
+	prefixExp, proof, err := history.GeneratePrefixProof(uint64(prefixIndex), hashes, virtual)
 	require.NoError(t, err)
 	return &prefixProofComputation{
 		prefixRoot:          prefixRoot,

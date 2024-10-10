@@ -384,8 +384,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	for i := uint64(0); i < lowCommitmentNumLeaves; i++ {
 		prefixHashes[i] = leaves[i]
 	}
-	committer := history.NewCommitter()
-	prefixRoot, err := committer.ComputeRoot(prefixHashes, lowCommitmentNumLeaves)
+	prefixRoot, err := history.ComputeRoot(prefixHashes, lowCommitmentNumLeaves)
 	if err != nil {
 		return nil, err
 	}
@@ -393,8 +392,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		fullTreeHashes[i] = leaves[i]
 	}
-	committer = history.NewCommitter()
-	fullTreeRoot, err := committer.ComputeRoot(fullTreeHashes, virtual)
+	fullTreeRoot, err := history.ComputeRoot(fullTreeHashes, virtual)
 	if err != nil {
 		return nil, err
 	}
@@ -402,8 +400,7 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	for i := uint64(0); i < uint64(len(leaves)); i++ {
 		hashesForProof[i] = leaves[i]
 	}
-	committer = history.NewCommitter()
-	prefixExp, proof, err := committer.GeneratePrefixProof(uint64(prefixHeight), hashesForProof, virtual)
+	prefixExp, proof, err := history.GeneratePrefixProof(uint64(prefixHeight), hashesForProof, virtual)
 	if err != nil {
 		return nil, err
 	}

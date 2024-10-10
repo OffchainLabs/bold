@@ -86,7 +86,7 @@ type historyCommitter struct {
 	lastLeafProver *lastLeafProver
 }
 
-func NewCommitter() *historyCommitter {
+func newCommitter() *historyCommitter {
 	return &historyCommitter{
 		fillers: make([]common.Hash, 0),
 		keccak:  crypto.NewKeccakState(),
@@ -196,7 +196,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	if virtual < uint64(len(leaves)) {
 		return emptyHistory, errors.New("virtual size must be >= len(leaves)")
 	}
-	comm := NewCommitter()
+	comm := newCommitter()
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
 	nzVirtual, err := newNonZero(virtual)
@@ -204,7 +204,7 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 		return emptyHistory, err
 	}
 	comm.lastLeafProver = newLastLeafProver(nzVirtual)
-	root, err := comm.ComputeRoot(leaves, virtual)
+	root, err := comm.computeRoot(leaves, virtual)
 	if err != nil {
 		return emptyHistory, err
 	}
@@ -219,7 +219,19 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 }
 
 // ComputeRoot computes the merkle root of a virtual merkle tree.
-func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
+func ComputeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
+	comm := newCommitter()
+	return comm.computeRoot(leaves, virtual)
+}
+
+// GeneratePrefixProof generates a prefix proof for a given prefix index.
+func GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
+	comm := newCommitter()
+	return comm.generatePrefixProof(prefixIndex, leaves, virtual)
+}
+
+// computeRoot computes the merkle root of a virtual merkle tree.
+func (h *historyCommitter) computeRoot(leaves []common.Hash, virtual uint64) (common.Hash, error) {
 	lvLen := uint64(len(leaves))
 	if lvLen == 0 {
 		return emptyHash, nil
@@ -243,12 +255,12 @@ func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	return h.partialRoot(hashed, nzVirt, nzLimit)
 }
 
-// GeneratePrefixProof generates a prefix proof for a given prefix index.
+// generatePrefixProof generates a prefix proof for a given prefix index.
 //
 // A prefix proof consists of the data needed to prove that a merkle root
 // created from the leaves upto the prefix index represents a merkle tree which
 // spans a specific prefix of the virtual merkle tree.
-func (h *historyCommitter) GeneratePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
+func (h *historyCommitter) generatePrefixProof(prefixIndex uint64, leaves []common.Hash, virtual uint64) ([]common.Hash, []common.Hash, error) {
 	hashed := h.hashLeaves(leaves)
 	prefixExpansion, proof, err := h.prefixAndProof(prefixIndex, hashed, virtual)
 	if err != nil {
