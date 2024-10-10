@@ -380,8 +380,10 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	//
 	// If no upToHeight is provided, we want to use the max number of leaves in our computation.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
-	prefixHashes := make([]common.Hash, lowCommitmentNumLeaves)
-	for i := uint64(0); i < lowCommitmentNumLeaves; i++ {
+	// The prefix proof may be over a range of leaves that include virtual ones.
+	prefixLen := min(lowCommitmentNumLeaves, uint64(len(leaves)))
+	prefixHashes := make([]common.Hash, prefixLen)
+	for i := uint64(0); i < prefixLen; i++ {
 		prefixHashes[i] = leaves[i]
 	}
 	prefixRoot, err := history.ComputeRoot(prefixHashes, lowCommitmentNumLeaves)
