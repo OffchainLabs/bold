@@ -227,10 +227,6 @@ func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	hashed := h.hashLeaves(leaves)
 	limit := nextPowerOf2(virtual)
 	depth := uint(math.Log2Floor(limit))
-	n := uint(1)
-	if virtual > lvLen {
-		n = uint(math.Log2Ceil(virtual))
-	}
 	nzVirt, err := newNonZero(virtual)
 	if err != nil {
 		return emptyHash, err
@@ -239,6 +235,7 @@ func (h *historyCommitter) ComputeRoot(leaves []common.Hash, virtual uint64) (co
 	if err != nil {
 		return emptyHash, err
 	}
+	n := max(uint(math.Log2Ceil(virtual)), 1)
 	if err := h.populateFillers(&hashed[lvLen-1], n); err != nil {
 		return emptyHash, err
 	}
@@ -271,71 +268,6 @@ func (h *historyCommitter) hashLeaves(leaves []common.Hash) []common.Hash {
 	return hashedLeaves
 }
 
-// completeRoot returns the root hash of a complete tree given leaves and limit.
-//
-// In the case of a complete virtual tree (when len(leaves) < limit)
-// non-allocated leaves are filled with the filler at the corresponding layer
-// in the tree.
-//
-// limit must be a power of two which is higher or equal to len(leaves).
-//
-// The historyCommitter's fillers must be precomputed to the necessary depth.
-//
-// Zero allocations (other than the local copy of the cursor)
-// Computes O(len(leaves)) hashes.
-func (h *historyCommitter) completeRoot(leaves []common.Hash, limit uint64) (common.Hash, error) {
-	lvLen := len(leaves)
-	if lvLen == 0 {
-		return emptyHash, nil
-	}
-	if limit < uint64(lvLen) {
-		return emptyHash, errors.New("limit must be >= len(leaves)")
-	}
-	if limit == 1 {
-		h.handle(leaves[0])
-		return leaves[0], nil
-	}
-	// Save the current cursor state
-	curr := h.cursor.copy()
-	depth := math.Log2Floor(limit)
-	// From the bottom up, the "real" leaves are hashed into their parent
-	// nodes in the next higher layer of the tree.
-	for j := 0; j < depth; j++ {
-		layerIndex := h.cursor.index * 2
-		h.cursor.layer = uint64(j)
-		// If the number of real leaves is even, then this loop will create
-		// all of the hashes needed for calculating the next layer of the tree.
-		// Even if the limit is not reached, it is okay, because the fillers are
-		// precomputed for the non-virtual nodes higher up the tree.
-		for i := 0; i < lvLen/2; i++ {
-			h.cursor.index = layerIndex + uint64(2*i)
-			h.handle(leaves[2*i])
-			h.cursor.index = layerIndex + uint64(2*i+1)
-			h.handle(leaves[2*i+1])
-			h.hashInto(&leaves[i], &leaves[2*i], &leaves[2*i+1])
-		}
-		// If the number of leaves is odd, then the last real leaf needs to be
-		// hashed with the filler at the same depth in the tree.
-		if lvLen&1 == 1 {
-			if j >= len(h.fillers) {
-				return emptyHash, fmt.Errorf("programming error: insufficient fillers, want %d, got %d", j, len(h.fillers))
-			}
-			pIdx := (lvLen - 1) / 2
-			h.cursor.index = layerIndex + uint64(lvLen-1)
-			h.handle(leaves[lvLen-1])
-			h.cursor.index = layerIndex + uint64(lvLen)
-			h.handle(h.fillers[j])
-			h.hashInto(&leaves[pIdx], &leaves[lvLen-1], &h.fillers[j])
-		}
-		lvLen = (lvLen + 1) / 2
-		h.cursor.index = layerIndex * 2
-	}
-	// Restore the cursor to the original state
-	h.cursor = curr
-	h.handle(leaves[0])
-	return leaves[0], nil
-}
-
 // partialRoot returns the merkle root of a possibly partial hashtree where the
 // first layer is passed as leaves, then padded by repeating the last leaf
 // until it reaches virtual and terminated with a single common.Hash{}.
@@ -343,22 +275,23 @@ func (h *historyCommitter) completeRoot(leaves []common.Hash, limit uint64) (com
 // limit is a power of 2 which is greater or equal to virtual, and defines how
 // deep the complete tree analogous to this partial one would be.
 //
-// Implementation note: It is very important that the historyCommitter's
-// fillers member is populated correctly before calling this method. There must
-// be at least Log2FCeil(virtual) filler nodes to properly pad each layer of
-// the tree if it is a partial virtual tree.
+// Implementation note: The historyCommitter's fillers member must be populated
+// correctly before calling this method. There must be at least
+// Log2FCeil(virtual) filler nodes to properly pad each layer of the tree if it
+// is a partial virtual tree.
 //
 // The algorithm is split in three different logical cases:
 //
 //  1. If the virtual length is less than or equal to half the limit (this can
 //     never happen in the first iteration of the algorithm), the left half of
 //     the tree is computed by recursion and the right half is an empty hash.
-//  2. If the leaves all fit in the left half, then the left half can be
-//     optimized as computing a complete virtual tree. This is the most common
-//     starting scenario. The right half is computed by recursion.
-//  3. If the leaves do not fit in the left half, then the left half can be
-//     optimized as computing a complete tree. The right half is computed by
-//     recursion.
+//  2. If the leaves all fit in the left half, then both halves of the tree are
+//     computed by recursion. This is the most common starting scenario.
+//     There is a special case when the virtual length is equal to the limit,
+//     and the right half is a complete virtual tree. In this case, the right
+//     subtree is just a lookup in the precomputed fillers.
+//  3. If the leaves do not fit in the left half, then both halves are computed
+//     by recursion.
 func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZero) (common.Hash, error) {
 	lvLen := uint64(len(leaves))
 	if lvLen == 0 {
@@ -369,6 +302,10 @@ func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZ
 	}
 	if limit < virtual {
 		return emptyHash, fmt.Errorf("limit %d should be >= virtual %d", limit, virtual)
+	}
+	minFillers := math.Log2Ceil(uint64(virtual))
+	if len(h.fillers) < minFillers {
+		return emptyHash, fmt.Errorf("insufficient fillers, want %d, got %d", minFillers, len(h.fillers))
 	}
 	if limit == 1 {
 		h.handle(leaves[0])
@@ -383,63 +320,57 @@ func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZ
 
 	// Deal with the left child first
 	h.cursor.index = curr.index * 2
+	var lLeaves []common.Hash
+	var lVirtual nonZero
 	if virtual > mid {
-		// Case 2 or 3: The virtual size is greater than half the limit
+		// Case 2 or 3: A complete subtree can be computed
+		lVirtual = mid
 		if lvLen > uint64(mid) {
-			// Case 3: A pure complete subtree can be computed
-			left, err = h.completeRoot(leaves[:mid], uint64(mid))
-			if err != nil {
-				return emptyHash, err
-			}
+			// Case 3: A complete pure subtree can be computed
+			lLeaves = leaves[:mid]
 		} else {
-			// Case 2: A virtual complete subtree can be computed
-			left, err = h.completeRoot(leaves, uint64(mid))
-			if err != nil {
-				return emptyHash, err
-			}
+			// Case 2: A complete virtual subtree can be computed
+			lLeaves = leaves
 		}
 	} else {
-		// Case 1: The virtual size is less than half the limit
-		left, err = h.partialRoot(leaves, virtual, mid)
-		if err != nil {
-			return emptyHash, err
-		}
+		// Case 1: A partial virtual tree can be computed
+		lLeaves = leaves
+		lVirtual = virtual
+	}
+	left, err = h.partialRoot(lLeaves, lVirtual, mid)
+	if err != nil {
+		return emptyHash, err
 	}
 
 	// Deal with the right child
 	h.cursor.index = curr.index*2 + 1
 	if virtual > mid {
 		// Case 2 or 3: The virtual size is greater than half the limit
-		if lvLen > uint64(mid) {
-			// Case 3: The leaves do not fit in the first half
-			right, err = h.partialRoot(leaves[mid:], virtual-mid, mid)
+		if lvLen <= uint64(mid) && virtual == limit {
+			// This is a special case of 2 where the entire right subtree is
+			// made purely of virtual nodes, and it is a complete tree.
+			// So, the root of the subtree will be the precomputed filler
+			// at the current layer.
+			right = h.fillers[math.Log2Floor(uint64(mid))]
+			h.handle(right)
+		} else {
+			var rLeaves []common.Hash
+			if lvLen > uint64(mid) {
+				// Case 3: The leaves do not fit in the first half
+				rLeaves = leaves[mid:]
+			} else {
+				// Case 2: The leaves fit in the first half
+				rLeaves = []common.Hash{h.fillers[0]}
+			}
+			right, err = h.partialRoot(rLeaves, virtual-mid, mid)
 			if err != nil {
 				return emptyHash, err
-			}
-		} else {
-			// Case 2: The leaves fit in the first half
-			layer := math.Log2Floor(uint64(mid))
-			if len(h.fillers) <= layer {
-				return emptyHash, fmt.Errorf("programming error: insufficient fillers, want %d, got %d", layer, len(h.fillers))
-			}
-			if virtual == limit {
-				// This is a special case where the entire right subtree is
-				// made purely of virtual nodes, and it is a complete tree.
-				// So, the root of the subtree will be the precomputed filler
-				// at the current layer.
-				right = h.fillers[layer]
-				h.handle(right)
-			} else {
-				right, err = h.partialRoot([]common.Hash{h.fillers[0]}, virtual-mid, mid)
-				if err != nil {
-					return emptyHash, err
-				}
 			}
 		}
 	} else {
 		// Case 1: The virtual size is less than half the limit
-		h.handle(emptyHash)
 		right = emptyHash
+		h.handle(right)
 	}
 
 	// Restore the cursor to the state for this level of recursion
@@ -464,7 +395,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		limit = nextPowerOf2(virtual)
 	}
 	if limit == virtual {
-		left, err2 := h.completeRoot(leaves, limit)
+		left, err2 := h.partialRoot(leaves, nonZero(limit), nonZero(limit))
 		if err2 != nil {
 			return nil, err2
 		}
@@ -477,7 +408,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 	}
 	mid := limit / 2
 	if lvLen > mid {
-		left, err2 := h.completeRoot(leaves[:mid], mid)
+		left, err2 := h.partialRoot(leaves[:mid], nonZero(mid), nonZero(mid))
 		if err2 != nil {
 			return nil, err2
 		}
@@ -488,7 +419,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		return append(proof, left), nil
 	}
 	if virtual >= mid {
-		left, err2 := h.completeRoot(leaves, mid)
+		left, err2 := h.partialRoot(leaves, nonZero(mid), nonZero(mid))
 		if err2 != nil {
 			return nil, err2
 		}
