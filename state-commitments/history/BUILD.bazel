@@ -14,7 +14,7 @@ go_library(
 
 go_test(
     name = "history_test",
-    size = "medium",
+    size = "small",
     srcs = ["history_commitment_test.go"],
     embed = [":history"],
     deps = [
