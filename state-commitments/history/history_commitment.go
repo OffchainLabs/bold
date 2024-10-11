@@ -75,10 +75,6 @@ type treePosition struct {
 	index uint64
 }
 
-func (c *treePosition) copy() treePosition {
-	return treePosition{layer: c.layer, index: c.index}
-}
-
 type historyCommitter struct {
 	fillers        []common.Hash
 	keccak         crypto.KeccakState
@@ -323,15 +319,14 @@ func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZ
 		h.handle(leaves[0])
 		return leaves[0], nil
 	}
-	// Save the current cursor state
-	curr := h.cursor.copy()
+
 	h.cursor.layer--
 	var left, right common.Hash
 	var err error
 	mid := limit / 2
 
 	// Deal with the left child first
-	h.cursor.index = curr.index * 2
+	h.cursor.index *= 2
 	var lLeaves []common.Hash
 	var lVirtual nonZero
 	if virtual > mid {
@@ -355,7 +350,7 @@ func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZ
 	}
 
 	// Deal with the right child
-	h.cursor.index = curr.index*2 + 1
+	h.cursor.index++
 	if virtual > mid {
 		// Case 2 or 3: The virtual size is greater than half the limit
 		if lvLen <= uint64(mid) && virtual == limit {
@@ -385,10 +380,13 @@ func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZ
 		h.handle(right)
 	}
 
-	// Restore the cursor to the state for this level of recursion
-	h.cursor = curr
 	h.hashInto(&leaves[0], &left, &right)
+
+	// Restore the cursor layer to the state for this level of recursion
+	h.cursor.index /= 2
+	h.cursor.layer++
 	h.handle(leaves[0])
+
 	return leaves[0], nil
 }
 

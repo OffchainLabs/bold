@@ -305,10 +305,9 @@ func BenchmarkMaximumDepthHistoryCommitment(b *testing.B) {
 	hashedLeaves := []common.Hash{
 		simpleHash,
 	}
-	committer := newCommitter()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := committer.computeRoot(hashedLeaves, 1<<26)
+		_, err := ComputeRoot(hashedLeaves, 1<<26)
 		_ = err
 	}
 }
