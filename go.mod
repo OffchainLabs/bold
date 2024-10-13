@@ -4,6 +4,8 @@ go 1.21.8
 
 replace github.com/ethereum/go-ethereum => github.com/OffchainLabs/go-ethereum v1.13.4-0.20240509192846-9874ec397a5b
 
+replace github.com/fjl/memsize => github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5
+
 require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/gorilla/mux v1.8.0
