@@ -1,6 +1,6 @@
 module github.com/OffchainLabs/bold
 
-go 1.21
+go 1.21.8
 
 replace github.com/ethereum/go-ethereum => github.com/OffchainLabs/go-ethereum v1.13.4-0.20240509192846-9874ec397a5b
 
@@ -99,7 +99,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-// Fix for nogo. See https://github.com/bazelbuild/rules_go/issues/3230
-// DO NOT REMOVE
-replace golang.org/x/tools => golang.org/x/tools v0.1.12

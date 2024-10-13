@@ -8,7 +8,8 @@ bazel_dep(name = "gazelle", version = "0.39.1", repo_name = "bazel_gazelle")
 bazel_dep(name = "protobuf", version = "28.2")
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.22.8")
+go_sdk.download(version = "1.21.8")
+go_sdk.nogo(nogo = "@//:nogo")
 
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
@@ -19,6 +20,7 @@ go_deps.module_override(
     ],
     path = "github.com/ethereum/go-ethereum",
 )
+
 use_repo(
     go_deps,
     "com_github_ethereum_go_ethereum",
