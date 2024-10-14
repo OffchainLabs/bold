@@ -20,6 +20,7 @@ go_deps.module_override(
     ],
     path = "github.com/ethereum/go-ethereum",
 )
+
 # TODO: Remove when https://github.com/bazelbuild/rules_go/issues/4084 is resolved
 go_deps.module(
     path = "golang.org/x/tools",
