@@ -1,4 +1,4 @@
-// Package history provides functions for computing merkele tree roots
+// Package history provides functions for computing merkle tree roots
 // and proofs needed for the BoLD protocol's history commitments.
 //
 // Throughout this package, the following terms are used:
@@ -67,7 +67,7 @@ func newNonZero(n uint64) (nonZero, error) {
 	return nonZero(n), nil
 }
 
-// treePosition tracks the current position in the merkele tree.
+// treePosition tracks the current position in the merkle tree.
 type treePosition struct {
 	// layer is the layer of the tree.
 	layer uint64
@@ -136,7 +136,7 @@ func (p *lastLeafProver) handle(hash common.Hash, pos treePosition) {
 // handle is called each time a hash is computed in the merkle tree.
 //
 // The cursor is kept in sync with tree traversal. The implementation of
-// handle can therefore assume that the currsor is pointing to the node which
+// handle can therefore assume that the cursor is pointing to the node which
 // has the value of the hash.
 func (h *historyCommitter) handle(hash common.Hash) {
 	if h.lastLeafProver != nil {
@@ -206,6 +206,8 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	}
 	lastLeafProof := comm.lastLeafProof()
 	return History{
+		// Height is the relative height of the history commitment.
+		// It's the index of the last leaf in the tree.
 		Height:        virtual - 1,
 		Merkle:        root,
 		FirstLeaf:     firstLeaf,
@@ -262,8 +264,8 @@ func (h *historyCommitter) generatePrefixProof(prefixIndex uint64, leaves []comm
 	if err != nil {
 		return nil, nil, err
 	}
-	prefixExpansion = trimTrailingZeroHashes(prefixExpansion)
-	proof = trimZeroes(proof)
+	prefixExpansion = trimTrailingEmptyHashes(prefixExpansion)
+	proof = filterEmptyHashes(proof)
 	return prefixExpansion, proof, nil
 }
 
@@ -600,7 +602,7 @@ func nextPowerOf2(n uint64) uint64 {
 	return n + 1 // Increment n to get the next power of 2
 }
 
-func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {
+func trimTrailingEmptyHashes(hashes []common.Hash) []common.Hash {
 	// Start from the end of the slice
 	for i := len(hashes) - 1; i >= 0; i-- {
 		if hashes[i] != emptyHash {
@@ -611,7 +613,7 @@ func trimTrailingZeroHashes(hashes []common.Hash) []common.Hash {
 	return []common.Hash{}
 }
 
-func trimZeroes(hashes []common.Hash) []common.Hash {
+func filterEmptyHashes(hashes []common.Hash) []common.Hash {
 	newHashes := make([]common.Hash, 0, len(hashes))
 	for _, h := range hashes {
 		if h == emptyHash {

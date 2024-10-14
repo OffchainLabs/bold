@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"strconv"
 	"time"
 
@@ -136,6 +137,30 @@ func (p *HistoryCommitmentProvider) UpdateAPIDatabase(apiDB db.Database) {
 	p.apiDB = apiDB
 }
 
+// virtualFrom computes the virtual value for a history commitment
+//
+// I the optional h value is None, then based on the challenge level, and given
+// slice of challenge origin heights (coh) determine the maximum number of
+// leaves for that level and return it as virtual.
+func (p *HistoryCommitmentProvider) virtualFrom(h option.Option[Height], coh []Height) (uint64, error) {
+	var virtual uint64
+	if h.IsNone() {
+		validatedHeights, err := p.validateOriginHeights(coh)
+		if err != nil {
+			return 0, err
+		}
+		if len(validatedHeights) == 0 {
+			virtual = uint64(p.challengeLeafHeights[0]) + 1
+		} else {
+			lvl := deepestRequestedChallengeLevel(validatedHeights)
+			virtual = uint64(p.challengeLeafHeights[lvl]) + 1
+		}
+	} else {
+		virtual = uint64(h.Unwrap()) + 1
+	}
+	return virtual, nil
+}
+
 // HistoryCommitment computes a Merklelized commitment over a set of hashes
 // at specified challenge levels. For block challenges, for example, this is a set
 // of machine hashes corresponding each message in a range N to M.
@@ -147,22 +172,9 @@ func (p *HistoryCommitmentProvider) HistoryCommitment(
 	if err != nil {
 		return history.History{}, err
 	}
-	// If upToHeight is none, then based on the challenge level, determine the required max leaf height
-	// for that level and use that as the virtual value below. Otherwise, useUpToHeight as virtual.
-	var virtual uint64
-	if req.UpToHeight.IsNone() {
-		validatedHeights, err := p.validateOriginHeights(req.UpperChallengeOriginHeights)
-		if err != nil {
-			return history.History{}, err
-		}
-		if len(validatedHeights) == 0 {
-			virtual = uint64(p.challengeLeafHeights[0]) + 1
-		} else {
-			lvl := deepestRequestedChallengeLevel(validatedHeights)
-			virtual = uint64(p.challengeLeafHeights[lvl]) + 1
-		}
-	} else {
-		virtual = uint64(req.UpToHeight.Unwrap()) + 1
+	virtual, err := p.virtualFrom(req.UpToHeight, req.UpperChallengeOriginHeights)
+	if err != nil {
+		return history.History{}, err
 	}
 	return history.NewCommitment(hashes, virtual)
 }
@@ -360,40 +372,20 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 	if err != nil {
 		return nil, err
 	}
-	// If upToHeight is none, then based on the challenge level, determine the required max leaf height
-	// for that level and use that as the virtual value below. Otherwise, useUpToHeight as virtual.
-	var virtual uint64
-	if req.UpToHeight.IsNone() {
-		validatedHeights, err2 := p.validateOriginHeights(req.UpperChallengeOriginHeights)
-		if err2 != nil {
-			return nil, err2
-		}
-		if len(validatedHeights) == 0 {
-			virtual = uint64(p.challengeLeafHeights[0]) + 1
-		} else {
-			lvl := deepestRequestedChallengeLevel(validatedHeights)
-			virtual = uint64(p.challengeLeafHeights[lvl]) + 1
-		}
-	} else {
-		virtual = uint64(req.UpToHeight.Unwrap()) + 1
+	virtual, err := p.virtualFrom(req.UpToHeight, req.UpperChallengeOriginHeights)
+	if err != nil {
+		return nil, err
 	}
-	//
 	// If no upToHeight is provided, we want to use the max number of leaves in our computation.
 	lowCommitmentNumLeaves := uint64(prefixHeight + 1)
 	// The prefix proof may be over a range of leaves that include virtual ones.
 	prefixLen := min(lowCommitmentNumLeaves, uint64(len(leaves)))
-	prefixHashes := make([]common.Hash, prefixLen)
-	for i := uint64(0); i < prefixLen; i++ {
-		prefixHashes[i] = leaves[i]
-	}
+	prefixHashes := slices.Clone(leaves[:prefixLen])
 	prefixRoot, err := history.ComputeRoot(prefixHashes, lowCommitmentNumLeaves)
 	if err != nil {
 		return nil, err
 	}
-	fullTreeHashes := make([]common.Hash, len(leaves))
-	for i := uint64(0); i < uint64(len(leaves)); i++ {
-		fullTreeHashes[i] = leaves[i]
-	}
+	fullTreeHashes := slices.Clone(leaves)
 	fullTreeRoot, err := history.ComputeRoot(fullTreeHashes, virtual)
 	if err != nil {
 		return nil, err
