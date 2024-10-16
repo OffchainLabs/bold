@@ -347,7 +347,7 @@ func TestHashInto(t *testing.T) {
 func TestLastLeafProofPositions(t *testing.T) {
 	tests := []struct {
 		name    string
-		virtual nonZero
+		virtual uint64
 		want    []treePosition
 	}{
 		{"virtual 1", 1, []treePosition{}},
@@ -361,7 +361,8 @@ func TestLastLeafProofPositions(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := lastLeafProofPositions(tc.virtual)
+			got, err := lastLeafProofPositions(tc.virtual)
+			require.NoError(t, err)
 			require.Equal(t, tc.want, got)
 		})
 	}

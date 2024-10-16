@@ -58,15 +58,6 @@ type History struct {
 	LastLeafProof []common.Hash
 }
 
-type nonZero uint64
-
-func newNonZero(n uint64) (nonZero, error) {
-	if n == 0 {
-		return 0, errors.New("zero is not a valid non-zero value")
-	}
-	return nonZero(n), nil
-}
-
 // treePosition tracks the current position in the merkle tree.
 type treePosition struct {
 	// layer is the layer of the tree.
@@ -110,8 +101,11 @@ type lastLeafProver struct {
 	proof     []common.Hash
 }
 
-func newLastLeafProver(virtual nonZero) *lastLeafProver {
-	positions := lastLeafProofPositions(virtual)
+func newLastLeafProver(virtual uint64) (*lastLeafProver, error) {
+	positions, err := lastLeafProofPositions(virtual)
+	if err != nil {
+		return nil, err
+	}
 	posMap := make(map[treePosition]*soughtHash, len(positions))
 	proof := make([]common.Hash, len(positions))
 	for i, pos := range positions {
@@ -120,7 +114,7 @@ func newLastLeafProver(virtual nonZero) *lastLeafProver {
 	return &lastLeafProver{
 		positions: posMap,
 		proof:     proof,
-	}
+	}, nil
 }
 
 // handle filters the hashes found while computing the merkle root looking for
@@ -195,11 +189,11 @@ func NewCommitment(leaves []common.Hash, virtual uint64) (History, error) {
 	comm := newCommitter()
 	firstLeaf := leaves[0]
 	lastLeaf := leaves[len(leaves)-1]
-	nzVirtual, err := newNonZero(virtual)
+	prover, err := newLastLeafProver(virtual)
 	if err != nil {
 		return emptyHistory, err
 	}
-	comm.lastLeafProver = newLastLeafProver(nzVirtual)
+	comm.lastLeafProver = prover
 	root, err := comm.computeRoot(leaves, virtual)
 	if err != nil {
 		return emptyHistory, err
@@ -237,20 +231,12 @@ func (h *historyCommitter) computeRoot(leaves []common.Hash, virtual uint64) (co
 	hashed := h.hashLeaves(leaves)
 	limit := nextPowerOf2(virtual)
 	depth := uint(math.Log2Floor(limit))
-	nzVirt, err := newNonZero(virtual)
-	if err != nil {
-		return emptyHash, err
-	}
-	nzLimit, err := newNonZero(limit)
-	if err != nil {
-		return emptyHash, err
-	}
 	n := max(uint(math.Log2Ceil(virtual)), 1)
 	if err := h.populateFillers(&hashed[lvLen-1], n); err != nil {
 		return emptyHash, err
 	}
 	h.cursor = treePosition{layer: uint64(depth), index: 0}
-	return h.partialRoot(hashed, nzVirt, nzLimit)
+	return h.partialRoot(hashed, virtual, limit)
 }
 
 // generatePrefixProof generates a prefix proof for a given prefix index.
@@ -302,7 +288,7 @@ func (h *historyCommitter) hashLeaves(leaves []common.Hash) []common.Hash {
 //     subtree is just a lookup in the precomputed fillers.
 //  3. If the leaves do not fit in the left half, then both halves are computed
 //     by recursion.
-func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZero) (common.Hash, error) {
+func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit uint64) (common.Hash, error) {
 	lvLen := uint64(len(leaves))
 	if lvLen == 0 {
 		return emptyHash, errors.New("nil leaves")
@@ -330,7 +316,7 @@ func (h *historyCommitter) partialRoot(leaves []common.Hash, virtual, limit nonZ
 	// Deal with the left child first
 	h.cursor.index *= 2
 	var lLeaves []common.Hash
-	var lVirtual nonZero
+	var lVirtual uint64
 	if virtual > mid {
 		// Case 2 or 3: A complete subtree can be computed
 		lVirtual = mid
@@ -407,7 +393,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		limit = nextPowerOf2(virtual)
 	}
 	if limit == virtual {
-		left, err2 := h.partialRoot(leaves, nonZero(limit), nonZero(limit))
+		left, err2 := h.partialRoot(leaves, limit, limit)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -420,7 +406,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 	}
 	mid := limit / 2
 	if lvLen > mid {
-		left, err2 := h.partialRoot(leaves[:mid], nonZero(mid), nonZero(mid))
+		left, err2 := h.partialRoot(leaves[:mid], mid, mid)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -431,7 +417,7 @@ func (h *historyCommitter) subtreeExpansion(leaves []common.Hash, virtual, limit
 		return append(proof, left), nil
 	}
 	if virtual >= mid {
-		left, err2 := h.partialRoot(leaves, nonZero(mid), nonZero(mid))
+		left, err2 := h.partialRoot(leaves, mid, mid)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -563,9 +549,12 @@ func (h *historyCommitter) populateFillers(leaf *common.Hash, n uint) error {
 // lastLeafProofPositions returns the positions in a virtual merkle tree
 // of the sibling nodes that need to be hashed with the last leaf at each
 // layer to compute the root of the tree.
-func lastLeafProofPositions(virtual nonZero) []treePosition {
+func lastLeafProofPositions(virtual uint64) ([]treePosition, error) {
+	if virtual == 0 {
+		return nil, errors.New("virtual size cannot be zero")
+	}
 	if virtual == 1 {
-		return []treePosition{}
+		return []treePosition{}, nil
 	}
 	limit := nextPowerOf2(uint64(virtual))
 	depth := math.Log2Floor(limit)
@@ -575,7 +564,7 @@ func lastLeafProofPositions(virtual nonZero) []treePosition {
 		positions[l] = sibling(idx, uint64(l))
 		idx = parent(idx)
 	}
-	return positions
+	return positions, nil
 }
 
 // sibling returns the position of the sibling of the node at the given layer
