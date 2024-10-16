@@ -11,6 +11,7 @@ import (
 	"github.com/OffchainLabs/bold/challenge-manager/types"
 	"github.com/OffchainLabs/bold/containers/option"
 	retry "github.com/OffchainLabs/bold/runtime"
+	utillog "github.com/OffchainLabs/bold/util/log"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -55,6 +56,10 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		log.Error("Could not get prev assertion creation info", "err", err)
 		return
 	}
+
+	backoffLogLevel := time.Second
+	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
+
 	ticker := time.NewTicker(m.confirmationAttemptInterval)
 	defer ticker.Stop()
 	for {
@@ -83,11 +88,24 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.averageTimeForBlockCreation, option.None[protocol.EdgeId]())
 			if err != nil {
 				if !strings.Contains(err.Error(), "PREV_NOT_LATEST_CONFIRMED") {
-					log.Error("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
+					backoffLogLevel *= 2
+					logLevel := log.Error
+					if backoffLogLevel > time.Minute {
+						backoffLogLevel = time.Minute
+					} else {
+						logLevel = log.Warn
+					}
+					logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+					logLevel("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
 					errorConfirmingAssertionByTimeCounter.Inc(1)
 				}
 				continue
 			}
+
+			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			backoffLogLevel = time.Second
+
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				log.Info("Confirmed assertion by time", "assertionHash", creationInfo.AssertionHash)
