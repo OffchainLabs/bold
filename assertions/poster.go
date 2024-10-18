@@ -16,7 +16,7 @@ import (
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	utillog "github.com/offchainlabs/bold/util/log"
+	"github.com/offchainlabs/bold/logs/ephemeral"
 	"github.com/pkg/errors"
 )
 
@@ -33,7 +33,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	}
 
 	backoffLogLevel := time.Second
-	exceedsMaxMempoolSizeEphemeralErrorHandler := utillog.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	exceedsMaxMempoolSizeEphemeralErrorHandler := ephemeral.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
 
 	log.Info("Ready to post")
 	if _, err := m.PostAssertion(ctx); err != nil {
