@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"testing"
 
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
@@ -150,11 +151,15 @@ func computeLegacyPrefixProof(t *testing.T, ctx context.Context, numHashes uint6
 	startMessageNumber := l2stateprovider.Height(0)
 	fromMessageNumber := l2stateprovider.Height(prefixIndex)
 	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		FromBatch:                   0,
-		ToBatch:                     10,
+		AssertionMetadata: &l2stateprovider.AssociatedAssertionMetadata{
+			WasmModuleRoot: wasmModuleRoot,
+			FromState: protocol.GoGlobalState{
+				Batch:      0,
+				PosInBatch: uint64(startMessageNumber),
+			},
+			BatchLimit: 10,
+		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  startMessageNumber,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)

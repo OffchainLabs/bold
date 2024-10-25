@@ -293,24 +293,26 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
+		assertionMetadata := &l2stateprovider.AssociatedAssertionMetadata{
+			WasmModuleRoot: common.Hash{},
+			FromState: protocol.GoGlobalState{
+				Batch:      0,
+				PosInBatch: 0,
+			},
+			BatchLimit: 1,
+		}
 		startCommit, startErr := stateManager.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              common.Hash{},
-				FromBatch:                   0,
-				ToBatch:                     1,
+				AssertionMetadata:           assertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
 		require.NoError(t, startErr)
 		req := &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              common.Hash{},
-			FromBatch:                   0,
-			ToBatch:                     1,
+			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		endCommit, endErr := stateManager.HistoryCommitment(
@@ -430,24 +432,26 @@ func TestIsChallengeComplete(t *testing.T) {
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
+		assertionMetadata := &l2stateprovider.AssociatedAssertionMetadata{
+			WasmModuleRoot: common.Hash{},
+			FromState: protocol.GoGlobalState{
+				Batch:      0,
+				PosInBatch: 0,
+			},
+			BatchLimit: 1,
+		}
 		startCommit, startErr := stateManager.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              common.Hash{},
-				FromBatch:                   0,
-				ToBatch:                     1,
+				AssertionMetadata:           assertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
 		require.NoError(t, startErr)
 		req := &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              common.Hash{},
-			FromBatch:                   0,
-			ToBatch:                     1,
+			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		endCommit, endErr := stateManager.HistoryCommitment(

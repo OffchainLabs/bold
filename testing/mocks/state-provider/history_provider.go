@@ -62,13 +62,12 @@ func (s *L2StateBackend) L2MessageStatesUpTo(
 	batchLimit l2stateprovider.Batch,
 	toHeight option.Option[l2stateprovider.Height],
 ) ([]common.Hash, error) {
-	panic("TODO: implement this mock")
-	/*var to l2stateprovider.Height
-	if !upTo.IsNone() {
-		to = upTo.Unwrap()
+	var to l2stateprovider.Height
+	if !toHeight.IsNone() {
+		to = toHeight.Unwrap()
 	} else {
 		blockChallengeLeafHeight := s.challengeLeafHeights[0]
 		to = l2stateprovider.Height(blockChallengeLeafHeight)
 	}
-	return s.statesUpTo(uint64(from), uint64(to), uint64(fromBatch), uint64(toBatch))*/
+	return s.statesUpTo(uint64(fromState.PosInBatch), uint64(to), uint64(fromState.Batch), uint64(batchLimit))
 }

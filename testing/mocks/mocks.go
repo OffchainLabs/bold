@@ -115,14 +115,11 @@ func (m *MockStateManager) ExecutionStateAfterPreviousState(ctx context.Context,
 
 func (m *MockStateManager) OneStepProofData(
 	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	fromBatch,
-	toBatch l2stateprovider.Batch,
+	assertionMetadata *l2stateprovider.AssociatedAssertionMetadata,
 	startHeights []l2stateprovider.Height,
-	fromHeight,
 	upToHeight l2stateprovider.Height,
 ) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error) {
-	args := m.Called(ctx, wasmModuleRoot, startHeights, fromHeight, upToHeight)
+	args := m.Called(ctx, assertionMetadata.WasmModuleRoot, startHeights, assertionMetadata.FromState.PosInBatch, upToHeight)
 	return args.Get(0).(*protocol.OneStepData), args.Get(1).([]common.Hash), args.Get(2).([]common.Hash), args.Error(3)
 }
 

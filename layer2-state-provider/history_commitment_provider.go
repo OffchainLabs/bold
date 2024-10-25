@@ -209,9 +209,11 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// Computes the desired challenge level this history commitment is for.
 	desiredChallengeLevel := deepestRequestedChallengeLevel(validatedHeights)
 
+	fromHeight := Height(req.AssertionMetadata.FromState.PosInBatch)
+
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
-	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights)
+	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights, fromHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +225,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Compute how many machine hashes we need to collect at the desired challenge level.
-	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.UpToHeight)
+	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, fromHeight, req.UpToHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -251,11 +253,9 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 				rawStepHeights += ","
 			}
 		}
-		panic("TODO: JsonCollectMachineHashes FromState")
-		var zero uint64
 		collectMachineHashes := api.JsonCollectMachineHashes{
 			WasmModuleRoot:       cfg.WasmModuleRoot,
-			FromBatch:            1 / zero,
+			FromBatch:            cfg.FromState.Batch,
 			BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
 			RawStepHeights:       rawStepHeights,
 			NumDesiredHashes:     cfg.NumDesiredHashes,
@@ -441,7 +441,7 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
-	machineIndex, err := p.computeMachineStartIndex(startHeights)
+	machineIndex, err := p.computeMachineStartIndex(startHeights, Height(assertionMetadata.FromState.PosInBatch))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -467,6 +467,7 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 // from there.
 func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 	challengeLevel uint64,
+	fromHeight Height,
 	upToHeight option.Option[Height],
 ) (uint64, error) {
 	maxHeightForLevel, err := p.leafHeightAtChallengeLevel(challengeLevel)
@@ -493,8 +494,12 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 			)
 		}
 	}
-	// The number of hashes is the number of steps plus one for the start hash.
-	return uint64(end + 1), nil
+	if end < fromHeight {
+		return 0, fmt.Errorf("invalid range: end %d was < start %d", end, fromHeight)
+	}
+	// The number of hashes is the difference between the start and end
+	// requested heights, plus 1.
+	return uint64(end-fromHeight) + 1, nil
 }
 
 // Figures out the actual opcode index we should move the machine to
@@ -528,6 +533,7 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 // This means we need to start executing our machine exactly at opcode index 4,199,434.
 func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	upperChallengeOriginHeights validatedStartHeights,
+	fromHeight Height,
 ) (OpcodeIndex, error) {
 	// For the block challenge level, the machine start opcode index is always 0.
 	if len(upperChallengeOriginHeights) == 0 {
@@ -537,6 +543,7 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	// ranges of L2 messages and not over individual opcodes. We ignore this level and start at the
 	// next level when it comes to dealing with machines.
 	heights := upperChallengeOriginHeights[1:]
+	heights = append(heights, fromHeight)
 	leafHeights := p.challengeLeafHeights[1:]
 
 	// Next, we compute the opcode index. We use big ints to make sure we do not overflow uint64

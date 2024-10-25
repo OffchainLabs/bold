@@ -116,8 +116,8 @@ func Test_getEdgeTrackers(t *testing.T) {
 	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
 	require.NoError(t, err)
 
-	require.Equal(t, l2stateprovider.Batch(1), trk.AssertionInfo().FromBatch)
-	require.Equal(t, l2stateprovider.Batch(100), trk.AssertionInfo().ToBatch)
+	require.Equal(t, l2stateprovider.Batch(1), l2stateprovider.Batch(trk.AssertionInfo().FromState.Batch))
+	require.Equal(t, l2stateprovider.Batch(100), trk.AssertionInfo().BatchLimit)
 }
 
 func setupEdgeTrackersForBisection(
@@ -177,9 +177,9 @@ func setupEdgeTrackersForBisection(
 	honestWatcher, err := watcher.New(honestValidator.chain, honestValidator, honestValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil, honestValidator.assertionConfirmingInterval, honestValidator.averageTimeForBlockCreation, nil)
 	require.NoError(t, err)
 	honestValidator.watcher = honestWatcher
-	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
-		FromBatch:      0,
-		ToBatch:        1,
+	assertionInfo := &l2stateprovider.AssociatedAssertionMetadata{
+		FromState:      protocol.GoGlobalState{Batch: 0, PosInBatch: 0},
+		BatchLimit:     1,
 		WasmModuleRoot: common.Hash{},
 	}
 	tracker1, err := edgetracker.New(

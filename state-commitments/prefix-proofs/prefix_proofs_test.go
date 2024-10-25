@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"testing"
 
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
@@ -97,11 +98,15 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 	fromMessageNumber := l2stateprovider.Height(3)
 	toMessageNumber := l2stateprovider.Height(7)
 	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		FromBatch:                   0,
-		ToBatch:                     10,
+		AssertionMetadata: &l2stateprovider.AssociatedAssertionMetadata{
+			WasmModuleRoot: wasmModuleRoot,
+			FromState: protocol.GoGlobalState{
+				Batch:      0,
+				PosInBatch: uint64(startMessageNumber),
+			},
+			BatchLimit: 10,
+		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  startMessageNumber,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
@@ -167,11 +172,15 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 	fromMessageNumber := l2stateprovider.Height(3)
 	toMessageNumber := l2stateprovider.Height(6)
 	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		FromBatch:                   0,
-		ToBatch:                     10,
+		AssertionMetadata: &l2stateprovider.AssociatedAssertionMetadata{
+			WasmModuleRoot: wasmModuleRoot,
+			FromState: protocol.GoGlobalState{
+				Batch:      0,
+				PosInBatch: uint64(startMessageNumber),
+			},
+			BatchLimit: 10,
+		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  startMessageNumber,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
@@ -245,23 +254,27 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 	wasmModuleRoot := common.Hash{}
 	batch := l2stateprovider.Batch(1)
 	req := &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              wasmModuleRoot,
-		FromBatch:                   0,
-		ToBatch:                     batch,
+		AssertionMetadata: &l2stateprovider.AssociatedAssertionMetadata{
+			WasmModuleRoot: wasmModuleRoot,
+			FromState: protocol.GoGlobalState{
+				Batch:      0,
+				PosInBatch: 3,
+			},
+			BatchLimit: batch,
+		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  3,
 		UpToHeight:                  option.None[l2stateprovider.Height](),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
 	require.NoError(f, err)
-	req.FromHeight = 7
+	req.AssertionMetadata.FromState.PosInBatch = 7
 	hiCommit, err := manager.HistoryCommitment(ctx, req)
 	require.NoError(f, err)
 
 	fromMessageNumber := l2stateprovider.Height(3)
 	toMessageNumber := l2stateprovider.Height(7)
 
-	req.FromHeight = 0
+	req.AssertionMetadata.FromState.PosInBatch = 0
 	req.UpToHeight = option.Some(toMessageNumber)
 	packedProof, err := manager.PrefixProof(ctx, req, fromMessageNumber)
 	require.NoError(f, err)

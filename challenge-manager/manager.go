@@ -374,13 +374,11 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		if prevCreationErr != nil {
 			return nil, prevCreationErr
 		}
-		if !prevCreationInfo.InboxMaxCount.IsUint64() {
-			return nil, fmt.Errorf("inbox max count is not a uint64: %v", prevCreationInfo.InboxMaxCount)
-		}
 		fromState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState)
+		batchLimit := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
 		edgeTrackerAssertionInfo = l2stateprovider.AssociatedAssertionMetadata{
 			FromState:            fromState,
-			BatchLimit:           l2stateprovider.Batch(prevCreationInfo.InboxMaxCount.Uint64()),
+			BatchLimit:           l2stateprovider.Batch(batchLimit),
 			WasmModuleRoot:       prevCreationInfo.WasmModuleRoot,
 			ClaimedAssertionHash: common.Hash(claimedAssertionId),
 		}

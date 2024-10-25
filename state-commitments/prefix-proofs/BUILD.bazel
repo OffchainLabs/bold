@@ -36,6 +36,7 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":prefix-proofs"],
     deps = [
+        "//chain-abstraction:protocol",
         "//containers/option",
         "//layer2-state-provider",
         "//solgen/go/mocksgen",
