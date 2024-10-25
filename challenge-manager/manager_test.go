@@ -5,9 +5,12 @@ package challengemanager
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -19,8 +22,6 @@ import (
 	"github.com/offchainlabs/bold/testing/mocks"
 	"github.com/offchainlabs/bold/testing/setup"
 	customTime "github.com/offchainlabs/bold/time"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,6 +91,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 	edge.On("MutualId").Return(protocol.MutualId{})
 	edge.On("OriginId").Return(protocol.OriginId{})
 	edge.On("CreatedAtBlock").Return(uint64(1), nil)
+	parentAssertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("par"))}
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))}
 	edge.On("ClaimId").Return(option.Some(protocol.ClaimId(assertionHash.Hash)))
 	edge.On("AssertionHash", ctx).Return(assertionHash, nil)
@@ -107,8 +109,11 @@ func Test_getEdgeTrackers(t *testing.T) {
 				U64Vals: [2]uint64{100, 0},
 			},
 		},
+		ParentAssertionHash: parentAssertionHash.Hash,
 	}, nil)
-	m.On("ReadAssertionCreationInfo", ctx, protocol.AssertionHash{}).Return(&protocol.AssertionCreatedInfo{}, nil)
+	m.On("ReadAssertionCreationInfo", ctx, parentAssertionHash).Return(&protocol.AssertionCreatedInfo{
+		InboxMaxCount: big.NewInt(100),
+	}, nil)
 	s.On("ExecutionStateMsgCount", ctx, &protocol.ExecutionState{}).Return(uint64(1), nil)
 
 	require.NoError(t, v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge}))

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -126,6 +126,9 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 	parentCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
 		return nil, err
+	}
+	if parentCreationInfo.InboxMaxCount == nil {
+		return nil, errors.New("parentCreationInfo.InboxMaxCount is nil")
 	}
 	if !parentCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, fmt.Errorf("inbox max count is not a uint64: %v", parentCreationInfo.InboxMaxCount)

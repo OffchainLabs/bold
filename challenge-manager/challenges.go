@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/offchainlabs/bold/containers/option"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/offchainlabs/bold/containers/option"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -105,6 +105,9 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	if err != nil {
 		return nil, false, nil, false, errors.Wrap(err, "could not get assertion creation info")
+	}
+	if prevCreationInfo.InboxMaxCount == nil {
+		return nil, false, nil, false, errors.New("prevCreationInfo.InboxMaxCount is nil")
 	}
 	if !prevCreationInfo.InboxMaxCount.IsUint64() {
 		return nil, false, nil, false, fmt.Errorf("inbox max count is not a uint64: %v", prevCreationInfo.InboxMaxCount)

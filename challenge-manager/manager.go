@@ -10,6 +10,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	apibackend "github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/api/server"
@@ -27,11 +32,7 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	utilTime "github.com/offchainlabs/bold/time"
 	"github.com/offchainlabs/bold/util/stopwaiter"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 )
 
 type Opt = func(val *Manager)
@@ -374,11 +375,16 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		if prevCreationErr != nil {
 			return nil, prevCreationErr
 		}
+		if prevCreationInfo.InboxMaxCount == nil {
+			return nil, errors.New("prevCreationInfo.InboxMaxCount is nil")
+		}
+		if !prevCreationInfo.InboxMaxCount.IsUint64() {
+			return nil, fmt.Errorf("inbox max count is not a uint64: %v", prevCreationInfo.InboxMaxCount)
+		}
 		fromState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState)
-		batchLimit := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
 		edgeTrackerAssertionInfo = l2stateprovider.AssociatedAssertionMetadata{
 			FromState:            fromState,
-			BatchLimit:           l2stateprovider.Batch(batchLimit),
+			BatchLimit:           l2stateprovider.Batch(prevCreationInfo.InboxMaxCount.Uint64()),
 			WasmModuleRoot:       prevCreationInfo.WasmModuleRoot,
 			ClaimedAssertionHash: common.Hash(claimedAssertionId),
 		}
