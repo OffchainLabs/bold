@@ -63,14 +63,20 @@ type ExecutionProvider interface {
 	ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error)
 }
 
+// AssociatedAssertionMetadata for the tracked edge.
+type AssociatedAssertionMetadata struct {
+	FromState protocol.GoGlobalState
+	// This assertion may not read this batch.
+	// Unless it hits the block limit, its last state will be with this batch and position in batch 0.
+	BatchLimit           Batch
+	WasmModuleRoot       common.Hash
+	ClaimedAssertionHash common.Hash
+}
+
 type HistoryCommitmentRequest struct {
-	// The WasmModuleRoot for the execution of machines. This is a global parameter
-	// that is specified in the Rollup contracts.
-	WasmModuleRoot common.Hash
-	// The batch sequence number at which we want to start computing this history commitment.
-	FromBatch Batch
-	// The batch sequence number at which we want to end computing this history commitment.
-	ToBatch Batch
+	// Miscellaneous metadata for assertion the commitment is being made for.
+	// Includes the WasmModuleRoot and the start and end states.
+	AssertionMetadata *AssociatedAssertionMetadata
 	// A slice of heights that tells the backend where the subchallenges for the requested
 	// history commitment originated from.
 	// Each index corresponds to a challenge level. For example,
@@ -78,13 +84,9 @@ type HistoryCommitmentRequest struct {
 	// []Height{12, 3} tells us that that the top-level subchallenge originated at height 12
 	// then the next subchallenge originated at height 3 below that.
 	UpperChallengeOriginHeights []Height
-	// The height at which to start the history commitment.
-	FromHeight Height
 	// An optional height at which to end the history commitment. If none, the request
 	// will commit to all the leaves at the specified challenge level.
 	UpToHeight option.Option[Height]
-	// ClaimId for the request.
-	ClaimId common.Hash
 }
 
 type GeneralHistoryCommitter interface {
@@ -105,11 +107,8 @@ type GeneralPrefixProver interface {
 type OneStepProofProvider interface {
 	OneStepProofData(
 		ctx context.Context,
-		wasmModuleRoot common.Hash,
-		fromBatch,
-		toBatch Batch,
+		assertionMetadata *AssociatedAssertionMetadata,
 		upperChallengeOriginHeights []Height,
-		fromHeight,
 		upToHeight Height,
 	) (data *protocol.OneStepData, startLeafInclusionProof, endLeafInclusionProof []common.Hash, err error)
 }

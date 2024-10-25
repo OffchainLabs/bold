@@ -3,6 +3,7 @@ package stateprovider
 import (
 	"context"
 
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,8 +37,8 @@ func (s *L2StateBackend) CollectMachineHashes(
 // CollectProof Collects osp of at a message number and OpcodeIndex .
 func (s *L2StateBackend) CollectProof(
 	ctx context.Context,
+	previousState protocol.GoGlobalState,
 	wasmModuleRoot common.Hash,
-	fromBatch l2stateprovider.Batch,
 	blockChallengeHeight l2stateprovider.Height,
 	machineIndex l2stateprovider.OpcodeIndex,
 ) ([]byte, error) {
@@ -57,17 +58,17 @@ func (s *L2StateBackend) CollectProof(
 // at each message number.
 func (s *L2StateBackend) L2MessageStatesUpTo(
 	ctx context.Context,
-	from l2stateprovider.Height,
-	upTo option.Option[l2stateprovider.Height],
-	fromBatch,
-	toBatch l2stateprovider.Batch,
+	fromState protocol.GoGlobalState,
+	batchLimit l2stateprovider.Batch,
+	toHeight option.Option[l2stateprovider.Height],
 ) ([]common.Hash, error) {
-	var to l2stateprovider.Height
+	panic("TODO: implement this mock")
+	/*var to l2stateprovider.Height
 	if !upTo.IsNone() {
 		to = upTo.Unwrap()
 	} else {
 		blockChallengeLeafHeight := s.challengeLeafHeights[0]
 		to = l2stateprovider.Height(blockChallengeLeafHeight)
 	}
-	return s.statesUpTo(uint64(from), uint64(to), uint64(fromBatch), uint64(toBatch))
+	return s.statesUpTo(uint64(from), uint64(to), uint64(fromBatch), uint64(toBatch))*/
 }

@@ -225,7 +225,7 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 		if previousGlobalState != nil && st.GlobalState.Equals(*previousGlobalState) {
 			blocksSincePrevious = 0
 		}
-		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious) >= maxNumberOfBlocks) {
+		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious+1) >= maxNumberOfBlocks) {
 			if blocksSincePrevious < 0 && previousGlobalState != nil {
 				return nil, fmt.Errorf("missing previous global state %+v", previousGlobalState)
 			}

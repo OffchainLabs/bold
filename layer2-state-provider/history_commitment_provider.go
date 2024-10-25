@@ -34,8 +34,8 @@ type MachineHashCollector interface {
 type ProofCollector interface {
 	CollectProof(
 		ctx context.Context,
+		fromState protocol.GoGlobalState,
 		wasmModuleRoot common.Hash,
-		fromBatch Batch,
 		blockChallengeHeight Height,
 		machineIndex OpcodeIndex,
 	) ([]byte, error)
@@ -48,7 +48,7 @@ type HashCollectorConfig struct {
 	// The WASM module root the machines should be a part of.
 	WasmModuleRoot common.Hash
 	// The batch at which to start computation.
-	FromBatch Batch
+	FromState protocol.GoGlobalState
 	// The block challenge height for hash collection.
 	BlockChallengeHeight Height
 	// Defines the heights at which we want to collect machine hashes for each challenge level.
@@ -61,15 +61,15 @@ type HashCollectorConfig struct {
 	MachineStartIndex OpcodeIndex
 	// The step size for stepping through the machine in order to collect its hashes.
 	StepSize StepSize
-	// ClaimId for the subchallenge
-	ClaimId common.Hash
 }
 
 func (h *HashCollectorConfig) String() string {
 	str := ""
 	str += h.WasmModuleRoot.String()
 	str += "/"
-	str += fmt.Sprintf("%d", h.FromBatch)
+	str += fmt.Sprintf("%d", h.FromState.Batch)
+	str += "/"
+	str += fmt.Sprintf("%d", h.FromState.PosInBatch)
 	str += "/"
 	str += fmt.Sprintf("%d", h.BlockChallengeHeight)
 	str += "/"
@@ -86,14 +86,14 @@ func (h *HashCollectorConfig) String() string {
 }
 
 // L2MessageStateCollector defines an interface which can obtain the machine hashes at each L2
-// message in a specified message range for a given batch index on Arbitrum.
+// message from fromState to batchLimit, ending at batch=batchLimit posInBatch=0 unless
+// toHeight+1 states are produced first in which case it ends there.
 type L2MessageStateCollector interface {
 	L2MessageStatesUpTo(
 		ctx context.Context,
-		fromHeight Height,
+		fromState protocol.GoGlobalState,
+		batchLimit Batch,
 		toHeight option.Option[Height],
-		fromBatch,
-		toBatch Batch,
 	) ([]common.Hash, error)
 }
 
@@ -194,10 +194,9 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	if len(validatedHeights) == 0 {
 		hashes, hashesErr := p.l2MessageStateCollector.L2MessageStatesUpTo(
 			ctx,
-			req.FromHeight,
+			req.AssertionMetadata.FromState,
+			req.AssertionMetadata.BatchLimit,
 			req.UpToHeight,
-			req.FromBatch,
-			req.ToBatch,
 		)
 		if hashesErr != nil {
 			return nil, hashesErr
@@ -212,7 +211,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
-	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights, req.FromHeight)
+	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights)
 	if err != nil {
 		return nil, err
 	}
@@ -224,15 +223,15 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	}
 
 	// Compute how many machine hashes we need to collect at the desired challenge level.
-	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.FromHeight, req.UpToHeight)
+	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.UpToHeight)
 	if err != nil {
 		return nil, err
 	}
 
 	// Collect the machine hashes at the specified challenge level based on the values we computed.
 	cfg := &HashCollectorConfig{
-		WasmModuleRoot:       req.WasmModuleRoot,
-		FromBatch:            req.FromBatch,
+		WasmModuleRoot:       req.AssertionMetadata.WasmModuleRoot,
+		FromState:            req.AssertionMetadata.FromState,
 		BlockChallengeHeight: fromBlockChallengeHeight,
 		// We drop the first index of the validated heights, because the first index is for the
 		// block challenge level, which is over blocks and not over individual machine WASM opcodes.
@@ -242,7 +241,6 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 		NumDesiredHashes:  numHashes,
 		MachineStartIndex: machineStartIndex,
 		StepSize:          stepSize,
-		ClaimId:           req.ClaimId,
 	}
 	// Requests collecting machine hashes for the specified config.
 	if !api.IsNil(p.apiDB) {
@@ -253,9 +251,11 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 				rawStepHeights += ","
 			}
 		}
+		panic("TODO: JsonCollectMachineHashes FromState")
+		var zero uint64
 		collectMachineHashes := api.JsonCollectMachineHashes{
 			WasmModuleRoot:       cfg.WasmModuleRoot,
-			FromBatch:            uint64(cfg.FromBatch),
+			FromBatch:            1 / zero,
 			BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
 			RawStepHeights:       rawStepHeights,
 			NumDesiredHashes:     cfg.NumDesiredHashes,
@@ -302,12 +302,9 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 		localCommit, err = p.HistoryCommitment(
 			ctx,
 			&HistoryCommitmentRequest{
-				WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
-				FromBatch:                   historyCommitMetadata.FromBatch,
-				ToBatch:                     historyCommitMetadata.ToBatch,
+				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: []Height{},
-				FromHeight:                  historyCommitMetadata.FromHeight,
-				UpToHeight:                  option.Some[Height](historyCommitMetadata.FromHeight + Height(commit.Height)),
+				UpToHeight:                  option.Some[Height](Height(commit.Height)),
 			},
 		)
 		if err != nil {
@@ -317,11 +314,8 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 		localCommit, err = p.HistoryCommitment(
 			ctx,
 			&HistoryCommitmentRequest{
-				WasmModuleRoot:              historyCommitMetadata.WasmModuleRoot,
-				FromBatch:                   historyCommitMetadata.FromBatch,
-				ToBatch:                     historyCommitMetadata.ToBatch,
+				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: historyCommitMetadata.UpperChallengeOriginHeights,
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(Height(commit.Height)),
 			},
 		)
@@ -414,11 +408,8 @@ func (p *HistoryCommitmentProvider) PrefixProof(
 
 func (p *HistoryCommitmentProvider) OneStepProofData(
 	ctx context.Context,
-	wasmModuleRoot common.Hash,
-	fromBatch,
-	toBatch Batch,
+	assertionMetadata *AssociatedAssertionMetadata,
 	startHeights []Height,
-	fromHeight,
 	upToHeight Height,
 ) (*protocol.OneStepData, []common.Hash, []common.Hash, error) {
 	// Start heights must reflect at least two challenge levels to produce one step proofs.
@@ -428,11 +419,8 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 	endCommit, err := p.HistoryCommitment(
 		ctx,
 		&HistoryCommitmentRequest{
-			WasmModuleRoot:              wasmModuleRoot,
-			FromBatch:                   fromBatch,
-			ToBatch:                     toBatch,
+			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: startHeights,
-			FromHeight:                  fromHeight,
 			UpToHeight:                  option.Some(upToHeight + 1),
 		},
 	)
@@ -442,11 +430,8 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 	startCommit, err := p.HistoryCommitment(
 		ctx,
 		&HistoryCommitmentRequest{
-			WasmModuleRoot:              wasmModuleRoot,
-			FromBatch:                   fromBatch,
-			ToBatch:                     toBatch,
+			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: startHeights,
-			FromHeight:                  fromHeight,
 			UpToHeight:                  option.Some(upToHeight),
 		},
 	)
@@ -456,13 +441,13 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need to do so.
-	machineIndex, err := p.computeMachineStartIndex(startHeights, fromHeight)
+	machineIndex, err := p.computeMachineStartIndex(startHeights)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	machineIndex += OpcodeIndex(upToHeight)
 
-	osp, err := p.proofCollector.CollectProof(ctx, wasmModuleRoot, fromBatch, startHeights[0], machineIndex)
+	osp, err := p.proofCollector.CollectProof(ctx, assertionMetadata.FromState, assertionMetadata.WasmModuleRoot, startHeights[0], machineIndex)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -482,7 +467,6 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 // from there.
 func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 	challengeLevel uint64,
-	fromHeight Height,
 	upToHeight option.Option[Height],
 ) (uint64, error) {
 	maxHeightForLevel, err := p.leafHeightAtChallengeLevel(challengeLevel)
@@ -509,12 +493,8 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 			)
 		}
 	}
-	if end < fromHeight {
-		return 0, fmt.Errorf("invalid range: end %d was < start %d", end, fromHeight)
-	}
-	// The number of hashes is the difference between the start and end
-	// requested heights, plus 1.
-	return uint64(end-fromHeight) + 1, nil
+	// The number of hashes is the number of steps plus one for the start hash.
+	return uint64(end + 1), nil
 }
 
 // Figures out the actual opcode index we should move the machine to
@@ -548,7 +528,6 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 // This means we need to start executing our machine exactly at opcode index 4,199,434.
 func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	upperChallengeOriginHeights validatedStartHeights,
-	fromHeight Height,
 ) (OpcodeIndex, error) {
 	// For the block challenge level, the machine start opcode index is always 0.
 	if len(upperChallengeOriginHeights) == 0 {
@@ -558,7 +537,6 @@ func (p *HistoryCommitmentProvider) computeMachineStartIndex(
 	// ranges of L2 messages and not over individual opcodes. We ignore this level and start at the
 	// next level when it comes to dealing with machines.
 	heights := upperChallengeOriginHeights[1:]
-	heights = append(heights, fromHeight)
 	leafHeights := p.challengeLeafHeights[1:]
 
 	// Next, we compute the opcode index. We use big ints to make sure we do not overflow uint64

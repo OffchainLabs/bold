@@ -2,6 +2,7 @@ package challengetree
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
@@ -122,9 +123,21 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 	if err != nil {
 		return nil, err
 	}
+	parentCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	if err != nil {
+		return nil, err
+	}
+	if !parentCreationInfo.InboxMaxCount.IsUint64() {
+		return nil, fmt.Errorf("inbox max count is not a uint64: %v", parentCreationInfo.InboxMaxCount)
+	}
 	challengeLevel := eg.GetChallengeLevel()
-	fromBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.BeforeState.GlobalState).Batch)
-	toBatch := l2stateprovider.Batch(protocol.GoGlobalStateFromSolidity(creationInfo.AfterState.GlobalState).Batch)
+	fromState := protocol.GoGlobalStateFromSolidity(creationInfo.BeforeState.GlobalState)
+	assertionMetadata := &l2stateprovider.AssociatedAssertionMetadata{
+		FromState:            fromState,
+		BatchLimit:           l2stateprovider.Batch(parentCreationInfo.InboxMaxCount.Uint64()),
+		WasmModuleRoot:       parentCreationInfo.WasmModuleRoot,
+		ClaimedAssertionHash: creationInfo.AssertionHash,
+	}
 	endHeight, _ := eg.EndCommitment()
 	heights, err := ht.metadataReader.TopLevelClaimHeights(ctx, eg.Id())
 	if err != nil {
@@ -136,10 +149,7 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 	}
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
 		return &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              creationInfo.WasmModuleRoot,
-			FromBatch:                   fromBatch,
-			ToBatch:                     toBatch,
-			FromHeight:                  0,
+			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: make([]l2stateprovider.Height, 0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		}, nil
@@ -149,10 +159,7 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 		return nil, errors.New("start height cannot be zero")
 	}
 	return &l2stateprovider.HistoryCommitmentRequest{
-		WasmModuleRoot:              creationInfo.WasmModuleRoot,
-		FromBatch:                   fromBatch,
-		ToBatch:                     toBatch,
-		FromHeight:                  l2stateprovider.Height(0),
+		AssertionMetadata:           assertionMetadata,
 		UpperChallengeOriginHeights: startHeights,
 		UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 	}, nil

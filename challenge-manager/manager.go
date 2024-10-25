@@ -55,7 +55,7 @@ type Manager struct {
 	chainWatcherInterval        time.Duration
 	watcher                     *watcher.Watcher
 	trackedEdgeIds              *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
-	batchIndexForAssertionCache *threadsafe.LruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
+	batchIndexForAssertionCache *threadsafe.LruMap[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]
 	newBlockNotifier            *events.Producer[*gethtypes.Header]
 	notifyOnNumberOfBlocks      uint64
 	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
@@ -184,8 +184,8 @@ func New(
 		timeRef:                      utilTime.NewRealTimeReference(),
 		rollupAddr:                   rollupAddr,
 		chainWatcherInterval:         time.Millisecond * 500,
-		trackedEdgeIds:               threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
-		batchIndexForAssertionCache:  threadsafe.NewLruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
+		trackedEdgeIds:               threadsafe.NewMap(threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
+		batchIndexForAssertionCache:  threadsafe.NewLruMap(1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		notifyOnNumberOfBlocks:       1,
 		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
 		assertionPostingInterval:     time.Hour,
@@ -360,7 +360,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	// Smart caching to avoid querying the same assertion number and creation info multiple times.
 	// Edges in the same challenge should have the same creation info.
 	cachedHeightAndInboxMsgCount, ok := m.batchIndexForAssertionCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
-	var edgeTrackerAssertionInfo edgetracker.AssociatedAssertionMetadata
+	var edgeTrackerAssertionInfo l2stateprovider.AssociatedAssertionMetadata
 	if !ok {
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
@@ -374,11 +374,13 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		if prevCreationErr != nil {
 			return nil, prevCreationErr
 		}
-		fromBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState).Batch
-		toBatch := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.AfterState.GlobalState).Batch
-		edgeTrackerAssertionInfo = edgetracker.AssociatedAssertionMetadata{
-			FromBatch:            l2stateprovider.Batch(fromBatch),
-			ToBatch:              l2stateprovider.Batch(toBatch),
+		if !prevCreationInfo.InboxMaxCount.IsUint64() {
+			return nil, fmt.Errorf("inbox max count is not a uint64: %v", prevCreationInfo.InboxMaxCount)
+		}
+		fromState := protocol.GoGlobalStateFromSolidity(assertionCreationInfo.BeforeState.GlobalState)
+		edgeTrackerAssertionInfo = l2stateprovider.AssociatedAssertionMetadata{
+			FromState:            fromState,
+			BatchLimit:           l2stateprovider.Batch(prevCreationInfo.InboxMaxCount.Uint64()),
 			WasmModuleRoot:       prevCreationInfo.WasmModuleRoot,
 			ClaimedAssertionHash: common.Hash(claimedAssertionId),
 		}

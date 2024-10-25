@@ -59,14 +59,6 @@ type ChallengeTracker interface {
 	NewBlockSubscriber() *events.Producer[*gethtypes.Header]
 }
 
-// AssociatedAssertionMetadata for the tracked edge.
-type AssociatedAssertionMetadata struct {
-	FromBatch            l2stateprovider.Batch
-	ToBatch              l2stateprovider.Batch
-	WasmModuleRoot       common.Hash
-	ClaimedAssertionHash common.Hash
-}
-
 type Opt func(et *Tracker)
 
 // WithTimeReference allows setting the timer used by the tracker to determine that time
@@ -104,7 +96,7 @@ type Tracker struct {
 	stateProvider               l2stateprovider.Provider
 	chainWatcher                RoyalChallengeWriter
 	challengeManager            ChallengeTracker
-	associatedAssertionMetadata *AssociatedAssertionMetadata
+	associatedAssertionMetadata *l2stateprovider.AssociatedAssertionMetadata
 	challengeConfirmer          *challengeConfirmer
 }
 
@@ -115,7 +107,7 @@ func New(
 	stateProvider l2stateprovider.Provider,
 	chainWatcher RoyalChallengeWriter,
 	challengeManager ChallengeTracker,
-	assertionCreationInfo *AssociatedAssertionMetadata,
+	assertionCreationInfo *l2stateprovider.AssociatedAssertionMetadata,
 	opts ...Opt,
 ) (*Tracker, error) {
 	tr := &Tracker{
@@ -148,7 +140,7 @@ func New(
 	return tr, nil
 }
 
-func (et *Tracker) AssertionInfo() *AssociatedAssertionMetadata {
+func (et *Tracker) AssertionInfo() *l2stateprovider.AssociatedAssertionMetadata {
 	return et.associatedAssertionMetadata
 }
 
@@ -364,8 +356,9 @@ func (et *Tracker) uniqueTrackerLogFields() []any {
 	chalLevel := et.edge.GetChallengeLevel()
 	return []any{
 		"id", fmt.Sprintf("%#x", et.edge.Id().Hash.Bytes()[:4]),
-		"fromBatch", et.associatedAssertionMetadata.FromBatch,
-		"toBatch", et.associatedAssertionMetadata.ToBatch,
+		"fromBatch", et.associatedAssertionMetadata.FromState.Batch,
+		"fromPosInBatch", et.associatedAssertionMetadata.FromState.PosInBatch,
+		"batchLimit", et.associatedAssertionMetadata.BatchLimit,
 		"claimedAssertionHash", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
 		"startHeight", startHeight,
 		"startCommit", fmt.Sprintf("%#x", startCommit[:4]),
@@ -420,8 +413,9 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		"confirmableAfter", chalPeriod,
 		"edgeId", fmt.Sprintf("%#x", et.edge.Id().Bytes()[:4]),
 		"took", end,
-		"fromBatch", et.associatedAssertionMetadata.FromBatch,
-		"toBatch", et.associatedAssertionMetadata.ToBatch,
+		"fromBatch", et.associatedAssertionMetadata.FromState.Batch,
+		"fromPosInBatch", et.associatedAssertionMetadata.FromState.PosInBatch,
+		"batchLimit", et.associatedAssertionMetadata.BatchLimit,
 		"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
 	}
 	log.Info("Updated edge timer", localFields...)
@@ -483,11 +477,8 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		historyCommit, commitErr := et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
 			},
 		)
@@ -497,11 +488,8 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		proof, proofErr := et.stateProvider.PrefixProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.Height(bisectTo),
@@ -528,11 +516,8 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	historyCommit, commitErr = et.stateProvider.HistoryCommitment(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: challengeOriginHeights,
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
 		},
 	)
@@ -542,11 +527,8 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 	proof, proofErr = et.stateProvider.PrefixProof(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: challengeOriginHeights,
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		},
 		l2stateprovider.Height(bisectTo),
@@ -612,11 +594,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		endHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{fromBlockChallengeHeight},
-				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.None[l2stateprovider.Height](),
 			},
 		)
@@ -626,11 +605,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		startEndPrefixProof, err = et.stateProvider.PrefixProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{fromBlockChallengeHeight},
-				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
 			},
 			l2stateprovider.Height(0),
@@ -641,11 +617,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		startHistory, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{fromBlockChallengeHeight},
-				FromHeight:                  l2stateprovider.Height(0),
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
@@ -655,11 +628,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		endParentCommitment, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(fromBlockChallengeHeight + 1),
 			},
 		)
@@ -669,11 +639,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		startParentCommitment, err = et.stateProvider.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
-				WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-				FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-				ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+				AssertionMetadata:           et.associatedAssertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(fromBlockChallengeHeight),
 			},
 		)
@@ -687,11 +654,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		}
 		heights = append(heights, l2stateprovider.Height(startHeight))
 		request := &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: heights,
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.None[l2stateprovider.Height](),
 		}
 		endHistory, err = et.stateProvider.HistoryCommitment(
@@ -702,11 +666,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return errors.Wrapf(err, "could not compute child commitment with request %+v", request)
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: heights,
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
 		}
 		startEndPrefixProof, err = et.stateProvider.PrefixProof(
@@ -718,11 +679,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return errors.Wrapf(err, "could not compute prefix proof for child with request %+v, up to height %d", request, endHistory.Height)
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: heights,
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startHistory, err = et.stateProvider.HistoryCommitment(
@@ -733,11 +691,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return errors.Wrapf(err, "could not compute start history commitment with request %+v", request)
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: heights[:len(heights)-1],
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		}
 		endParentCommitment, err = et.stateProvider.HistoryCommitment(
@@ -748,11 +703,8 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			return errors.Wrapf(err, "could not compute end parent commitment with request %+v, end height %d", request, endHeight)
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
-			WasmModuleRoot:              et.associatedAssertionMetadata.WasmModuleRoot,
-			FromBatch:                   et.associatedAssertionMetadata.FromBatch,
-			ToBatch:                     et.associatedAssertionMetadata.ToBatch,
+			AssertionMetadata:           et.associatedAssertionMetadata,
 			UpperChallengeOriginHeights: heights[:len(heights)-1],
-			FromHeight:                  l2stateprovider.Height(0),
 			UpToHeight:                  option.Some(l2stateprovider.Height(startHeight)),
 		}
 		startParentCommitment, err = et.stateProvider.HistoryCommitment(
@@ -766,7 +718,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	fields = append(
 		fields,
 		"firstLeaf", containers.Trunc(startHistory.FirstLeaf.Bytes()),
-		"lastLeaf", containers.Trunc(startHistory.LastLeaf.Bytes()),
+		"lastLeaf", containers.Trunc(endHistory.LastLeaf.Bytes()),
 		"parentFirstLeaf", containers.Trunc(startParentCommitment.LastLeaf.Bytes()),
 		"parentLastLeaf", containers.Trunc(endParentCommitment.LastLeaf.Bytes()),
 		"parentStartHeight", startParentCommitment.Height,
@@ -830,25 +782,14 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	}
 	pc, _ := et.edge.StartCommitment()
 
-	assertionHash, err := et.edge.AssertionHash(ctx)
-	if err != nil {
-		return err
-	}
-	parentAssertionCreationInfo, err := et.chain.ReadAssertionCreationInfo(ctx, assertionHash)
-	if err != nil {
-		return err
-	}
 	challengeOriginHeights := make([]l2stateprovider.Height, len(originHeights.ChallengeOriginHeights))
 	for index, height := range originHeights.ChallengeOriginHeights {
 		challengeOriginHeights[index] = l2stateprovider.Height(height)
 	}
 	data, beforeStateInclusionProof, afterStateInclusionProof, err := et.stateProvider.OneStepProofData(
 		ctx,
-		parentAssertionCreationInfo.WasmModuleRoot,
-		et.associatedAssertionMetadata.FromBatch,
-		et.associatedAssertionMetadata.ToBatch,
+		et.associatedAssertionMetadata,
 		challengeOriginHeights,
-		0,
 		l2stateprovider.Height(pc),
 	)
 	if err != nil {
