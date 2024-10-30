@@ -79,6 +79,22 @@ type AssociatedAssertionMetadata struct {
 	ClaimedAssertionHash common.Hash
 }
 
+// HistoryCommitmentRequest for a BoLD history commitment.
+//
+// The request specifies the metadata for the assertion which is being
+// challenged in the block level challenge, and the heights at which the
+// challenges at higher challenge levels originated.
+//
+// HistorryCommitment requestors can also specify an optional height at which
+// to end the history commitment. If none, the request will commit to all the
+// leaves at the current challenge level.
+//
+// NOTE: It is NOT possible to request a history commitment which starts at
+// some height other than 0 for the current challenge level. This is because
+// the edge tracker only needs to be able to provide history committments for
+// all machine state hases at the current challenge level, or sets of leaves
+// which are prefixes to that full set of leaves. In all cases, the first leaf
+// is the one in relative position 0 for the challenge level.
 type HistoryCommitmentRequest struct {
 	// Miscellaneous metadata for assertion the commitment is being made for.
 	// Includes the WasmModuleRoot and the start and end states.
@@ -91,18 +107,14 @@ type HistoryCommitmentRequest struct {
 	// originated at height 12 then the next subchallenge originated at height
 	// 3 below that.
 	UpperChallengeOriginHeights []Height
-	// The height into the current challenge level's range of leaves from which
-	// to start the commitment.
-	// This will be 0 for the history commitment for the first challenge edge's
-	// history commitment in each challenge level, but is useful for edges
-	// created through bisection.
-	FromHeight Height
 	// An optional height at which to end the history commitment. If none, the
 	// request will commit to all the leaves at the specified challenge level.
 	UpToHeight option.Option[Height]
 }
 
 type GeneralHistoryCommitter interface {
+	// Request a history commitment for the machine state hashes at the current
+	// challenge level. See the HistoryCommitmentRequest struct for details.
 	HistoryCommitment(
 		ctx context.Context,
 		req *HistoryCommitmentRequest,

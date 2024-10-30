@@ -109,7 +109,6 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 			BatchLimit: 10,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
@@ -184,7 +183,6 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 			BatchLimit: 10,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
@@ -267,7 +265,6 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 			BatchLimit: batch,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.None[l2stateprovider.Height](),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)

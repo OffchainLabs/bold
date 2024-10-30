@@ -48,7 +48,6 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
@@ -102,7 +101,6 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(bisectHeight)),
 		}
 		honestBisectCommit, err := createdData.HonestStateManager.HistoryCommitment(ctx, req)
@@ -110,7 +108,6 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 		req = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		honestProof, err := createdData.HonestStateManager.PrefixProof(ctx, req, l2stateprovider.Height(bisectHeight))
@@ -158,7 +155,6 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 			req := &l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(height / 2)),
 			}
 			honestBisectCommit, err := honestStateManager.HistoryCommitment(ctx, req)
@@ -166,7 +162,6 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 			prefixCommitReq := &l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(height)),
 			}
 			honestProof, err := honestStateManager.PrefixProof(
@@ -209,7 +204,6 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           simpleAssertionMetadata(),
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 	}
 	start, err := createdData.HonestStateManager.HistoryCommitment(ctx, req)
@@ -239,7 +233,6 @@ func TestEdgeChallengeManager_Bisect(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight / 2)),
 		}
 		honestBisectCommit, err := honestStateManager.HistoryCommitment(ctx, req)
@@ -292,7 +285,6 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(bisectTo),
 		}
 		honestBisectCommit, honestErr := honestStateManager.HistoryCommitment(ctx, req)
@@ -325,7 +317,6 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           simpleAssertionMetadata(),
 		UpperChallengeOriginHeights: []l2stateprovider.Height{0},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 	}
 	startCommit, startErr := honestStateManager.HistoryCommitment(ctx, req)
@@ -338,7 +329,6 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 	req = &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           simpleAssertionMetadata(),
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 	}
 	startParentCommitment, parentErr := honestStateManager.HistoryCommitment(ctx, req)
@@ -350,7 +340,6 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 	req = &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           simpleAssertionMetadata(),
 		UpperChallengeOriginHeights: []l2stateprovider.Height{0},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(endCommit.Height)),
 	}
 	startEndPrefixProof, proofErr := honestStateManager.PrefixProof(ctx, req, 0)
@@ -452,7 +441,6 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           simpleAssertionMetadata(),
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(bisectTo),
 	}
 	honestBisectCommit, err := honestStateManager.HistoryCommitment(ctx, req)
@@ -503,7 +491,6 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
@@ -684,7 +671,6 @@ func setupBisectionScenario(
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
@@ -774,7 +760,6 @@ func setupOneStepProofScenario(
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(bisectTo),
 		}
 		honestBisectCommit, honestErr := honestStateManager.HistoryCommitment(ctx, req)
@@ -809,7 +794,6 @@ func setupOneStepProofScenario(
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
@@ -822,7 +806,6 @@ func setupOneStepProofScenario(
 		req = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startParentCommitment, parentErr := stateManager.HistoryCommitment(ctx, req)
@@ -834,7 +817,6 @@ func setupOneStepProofScenario(
 		req = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endCommit.Height)),
 		}
 		startEndPrefixProof, proofErr := stateManager.PrefixProof(ctx, req, 0)
@@ -874,7 +856,6 @@ func setupOneStepProofScenario(
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(bisectTo),
 		}
 		honestBisectCommit, bisectErr := honestStateManager.HistoryCommitment(ctx, req)
@@ -922,7 +903,6 @@ func setupOneStepProofScenario(
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0, 0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startCommit, startErr := stateManager.HistoryCommitment(ctx, req)
@@ -935,7 +915,6 @@ func setupOneStepProofScenario(
 		req = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
 		startParentCommitment, parentErr := stateManager.HistoryCommitment(ctx, req)
@@ -948,7 +927,6 @@ func setupOneStepProofScenario(
 		req = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0, 0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endCommit.Height)),
 		}
 		startEndPrefixProof, prefixErr := stateManager.PrefixProof(ctx, req, 0)
@@ -1010,7 +988,6 @@ func setupOneStepProofScenario(
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{0, 0},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(bisectTo),
 		}
 

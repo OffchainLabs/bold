@@ -87,7 +87,6 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
 			},
 			l2stateprovider.History{
@@ -102,7 +101,6 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
 			},
 			l2stateprovider.History{
@@ -129,7 +127,6 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{
@@ -170,7 +167,6 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{
@@ -185,7 +181,6 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{
@@ -228,7 +223,6 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{

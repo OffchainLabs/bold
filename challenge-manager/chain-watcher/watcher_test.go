@@ -195,7 +195,6 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
 		},
 		l2stateprovider.History{
@@ -210,7 +209,6 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
 		},
 		l2stateprovider.History{

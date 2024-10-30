@@ -154,7 +154,6 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 		return &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: make([]l2stateprovider.Height, 0),
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		}, nil
 	}
@@ -165,7 +164,6 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 	return &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           assertionMetadata,
 		UpperChallengeOriginHeights: startHeights,
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 	}, nil
 }

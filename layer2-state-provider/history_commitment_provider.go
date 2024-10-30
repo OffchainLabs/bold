@@ -238,10 +238,15 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// Computes the desired challenge level this history commitment is for.
 	desiredChallengeLevel := deepestRequestedChallengeLevel(validatedHeights)
 
+	// At each challenge level, the history commitment always starts from the
+	// state just before the first opcode within the range of opcodes to which
+	// the challenge has been narrowed.
+	startIdx := Height(0)
+
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need
 	// to do so.
-	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights, req.FromHeight)
+	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights, startIdx)
 	if err != nil {
 		return nil, err
 	}
@@ -253,9 +258,9 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 		return nil, err
 	}
 
-	// Compute how many machine hashes we need to collect at the desired
-	// challenge level.
-	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.FromHeight, req.UpToHeight)
+	// Compute the maximum number of machine hashes we need to collect at the
+	// desired challenge level.
+	maxHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.UpToHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +277,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 		// we are now dealing with challenges over ranges of opcodes which are
 		// what we care about for our implementation of machine hash collection.
 		StepHeights:       validatedHeights[1:],
-		NumDesiredHashes:  numHashes,
+		NumDesiredHashes:  maxHashes,
 		MachineStartIndex: machineStartIndex,
 		StepSize:          stepSize,
 	}
@@ -339,7 +344,6 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			&HistoryCommitmentRequest{
 				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: []Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some[Height](Height(commit.Height)),
 			},
 		)
@@ -352,7 +356,6 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			&HistoryCommitmentRequest{
 				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: historyCommitMetadata.UpperChallengeOriginHeights,
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(Height(commit.Height)),
 			},
 		)
@@ -464,7 +467,6 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		&HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: startHeights,
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(upToHeight + 1),
 		},
 	)
@@ -476,7 +478,6 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		&HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: startHeights,
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(upToHeight),
 		},
 	)
@@ -512,7 +513,6 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 // total from there.
 func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 	challengeLevel uint64,
-	fromHeight Height,
 	upToHeight option.Option[Height],
 ) (uint64, error) {
 	maxHeightForLevel, err := p.leafHeightAtChallengeLevel(challengeLevel)
@@ -520,8 +520,8 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 		return 0, err
 	}
 
-	// Get the requested history commitment height we need at our
-	// desired challenge level.
+	// Get the requested history commitment height we need at our desired
+	// challenge level.
 	var end Height
 	if upToHeight.IsNone() {
 		end = maxHeightForLevel
@@ -539,12 +539,10 @@ func (p *HistoryCommitmentProvider) computeRequiredNumberOfHashes(
 			)
 		}
 	}
-	if end < fromHeight {
-		return 0, fmt.Errorf("invalid range: end %d was < start %d", end, fromHeight)
-	}
 	// The number of hashes is the difference between the start and end
-	// requested heights, plus 1.
-	return uint64(end-fromHeight) + 1, nil
+	// requested heights, plus 1. But, since we always start at 0, it's just
+	// the end height + 1.
+	return uint64(end) + 1, nil
 }
 
 // Figures out the actual opcode index we should move the machine to

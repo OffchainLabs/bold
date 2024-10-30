@@ -162,7 +162,6 @@ func computeLegacyPrefixProof(t *testing.T, ctx context.Context, numHashes uint6
 			BatchLimit: 10,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
-		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)

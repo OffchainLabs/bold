@@ -480,7 +480,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
 			},
@@ -492,7 +491,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 			},
@@ -521,7 +519,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: challengeOriginHeights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(bisectTo)),
 		},
@@ -533,7 +530,6 @@ func (et *Tracker) DetermineBisectionHistoryWithProof(
 		ctx,
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: challengeOriginHeights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		},
@@ -601,7 +597,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{fromBlockChallengeHeight},
 				UpToHeight:                  option.None[l2stateprovider.Height](),
 			},
@@ -613,7 +608,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{fromBlockChallengeHeight},
 				UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
 			},
@@ -626,7 +620,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{fromBlockChallengeHeight},
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
@@ -638,7 +631,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				UpToHeight:                  option.Some(fromBlockChallengeHeight + 1),
 			},
@@ -650,7 +642,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           et.associatedAssertionMetadata,
-				FromHeight:                  0,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
 				UpToHeight:                  option.Some(fromBlockChallengeHeight),
 			},
@@ -666,7 +657,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		heights = append(heights, l2stateprovider.Height(startHeight))
 		request := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: heights,
 			UpToHeight:                  option.None[l2stateprovider.Height](),
 		}
@@ -679,7 +669,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: heights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHistory.Height)),
 		}
@@ -693,7 +682,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: heights,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		}
@@ -706,7 +694,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: heights[:len(heights)-1],
 			UpToHeight:                  option.Some(l2stateprovider.Height(endHeight)),
 		}
@@ -719,7 +706,6 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 		}
 		request = &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           et.associatedAssertionMetadata,
-			FromHeight:                  0,
 			UpperChallengeOriginHeights: heights[:len(heights)-1],
 			UpToHeight:                  option.Some(l2stateprovider.Height(startHeight)),
 		}

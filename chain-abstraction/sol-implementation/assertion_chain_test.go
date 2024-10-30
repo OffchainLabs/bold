@@ -308,7 +308,6 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           assertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
@@ -316,7 +315,6 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		endCommit, endErr := stateManager.HistoryCommitment(
@@ -449,7 +447,6 @@ func TestIsChallengeComplete(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           assertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
-				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
@@ -457,7 +454,6 @@ func TestIsChallengeComplete(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
-			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		endCommit, endErr := stateManager.HistoryCommitment(
