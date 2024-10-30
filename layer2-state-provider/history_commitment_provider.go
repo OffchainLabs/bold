@@ -293,6 +293,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 		collectMachineHashes := api.JsonCollectMachineHashes{
 			WasmModuleRoot:       cfg.WasmModuleRoot,
 			FromBatch:            cfg.FromState.Batch,
+			PositionInBatch:      cfg.FromState.PosInBatch,
 			BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
 			RawStepHeights:       rawStepHeights,
 			NumDesiredHashes:     cfg.NumDesiredHashes,

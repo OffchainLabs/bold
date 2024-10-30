@@ -110,6 +110,7 @@ ALTER TABLE Edges ADD COLUMN InheritedTimer INTEGER NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS CollectMachineHashes (
     WasmModuleRoot TEXT NOT NULL,
     FromBatch INTEGER NOT NULL,
+    PositionInBatch INTEGER NOT NULL,
     BlockChallengeHeight INTEGER NOT NULL,
     RawStepHeights TEXT NOT NULL,
     NumDesiredHashes INTEGER NOT NULL,

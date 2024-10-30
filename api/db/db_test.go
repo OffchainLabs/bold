@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/offchainlabs/bold/api"
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/offchainlabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/offchainlabs/bold/api"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/state-commitments/history"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +26,7 @@ func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
 	machineHashes := &api.JsonCollectMachineHashes{
 		WasmModuleRoot:       common.BytesToHash([]byte("foo")),
 		FromBatch:            1,
+		PositionInBatch:      0,
 		BlockChallengeHeight: 2,
 		RawStepHeights:       "3, 4, 5, 6",
 		NumDesiredHashes:     4,
