@@ -10,12 +10,6 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/offchainlabs/bold/containers/option"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/offchainlabs/bold/solgen/go/mocksgen"
-	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
-	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -23,6 +17,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
+
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
+	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 )
 
 func TestAppendCompleteSubTree(t *testing.T) {
@@ -107,6 +109,7 @@ func TestVerifyPrefixProof_GoSolidityEquivalence(t *testing.T) {
 			BatchLimit: 10,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
+		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
@@ -181,6 +184,7 @@ func TestVerifyPrefixProofWithHeight7_GoSolidityEquivalence1(t *testing.T) {
 			BatchLimit: 10,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
+		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)
@@ -263,6 +267,7 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 			BatchLimit: batch,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
+		FromHeight:                  0,
 		UpToHeight:                  option.None[l2stateprovider.Height](),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)

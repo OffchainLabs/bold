@@ -7,19 +7,21 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/offchainlabs/bold/containers/option"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/offchainlabs/bold/solgen/go/mocksgen"
-	"github.com/offchainlabs/bold/state-commitments/history"
-	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
-	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
+
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/state-commitments/history"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
+	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 )
 
 func TestPrefixProofGeneration(t *testing.T) {
@@ -160,6 +162,7 @@ func computeLegacyPrefixProof(t *testing.T, ctx context.Context, numHashes uint6
 			BatchLimit: 10,
 		},
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
+		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(fromMessageNumber)),
 	}
 	loCommit, err := manager.HistoryCommitment(ctx, req)

@@ -9,18 +9,20 @@ import (
 	"strings"
 	"testing"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
-	"github.com/offchainlabs/bold/containers/option"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/offchainlabs/bold/solgen/go/bridgegen"
-	"github.com/offchainlabs/bold/solgen/go/mocksgen"
-	challenge_testing "github.com/offchainlabs/bold/testing"
-	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/solgen/go/bridgegen"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/testing/setup"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	challenge_testing "github.com/offchainlabs/bold/testing"
 )
 
 func TestNewStakeOnNewAssertion(t *testing.T) {
@@ -306,6 +308,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           assertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
@@ -313,6 +316,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		endCommit, endErr := stateManager.HistoryCommitment(
@@ -445,6 +449,7 @@ func TestIsChallengeComplete(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           assertionMetadata,
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 			},
 		)
@@ -452,6 +457,7 @@ func TestIsChallengeComplete(t *testing.T) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(challenge_testing.LevelZeroBlockEdgeHeight)),
 		}
 		endCommit, endErr := stateManager.HistoryCommitment(

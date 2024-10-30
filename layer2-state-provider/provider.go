@@ -11,10 +11,12 @@ import (
 	"errors"
 	"math/big"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/state-commitments/history"
-	"github.com/ethereum/go-ethereum/common"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 var ErrChainCatchingUp = errors.New("chain is catching up to the execution state")
@@ -46,8 +48,8 @@ type History struct {
 	MerkleRoot common.Hash
 }
 
-// Provider defines an L2 state backend that can provide history commitments, execution
-// states, prefix proofs, and more for the BOLD protocol.
+// Provider defines an L2 state backend that can provide history commitments,
+// execution states, prefix proofs, and more for the BoLD protocol.
 type Provider interface {
 	ExecutionProvider
 	GeneralHistoryCommitter
@@ -57,9 +59,12 @@ type Provider interface {
 }
 
 type ExecutionProvider interface {
-	// Produces the L2 execution state to assert to after the previous assertion state.
-	// Returns either the state at the batch count maxInboxCount or the state maxNumberOfBlocks after previousGlobalState,
-	// whichever is an earlier state. If previousGlobalState is nil, this function simply returns the state at maxInboxCount batches.
+	// Produces the L2 execution state to assert to after the previous assertion
+	// state.
+	// Returns either the state at the batch count maxInboxCount (PosInBatch=0)
+	// or the state maxNumberOfBlocks after previousGlobalState, whichever is an
+	// earlier state. If previousGlobalState is nil, this function simply
+	// returns the state at maxInboxCount batches (PosInBatch=0).
 	ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error)
 }
 
@@ -67,7 +72,8 @@ type ExecutionProvider interface {
 type AssociatedAssertionMetadata struct {
 	FromState protocol.GoGlobalState
 	// This assertion may not read this batch.
-	// Unless it hits the block limit, its last state will be with this batch and position in batch 0.
+	// Unless it hits the block limit, its last state will be with this batch
+	// and position in batch 0.
 	BatchLimit           Batch
 	WasmModuleRoot       common.Hash
 	ClaimedAssertionHash common.Hash
@@ -77,15 +83,22 @@ type HistoryCommitmentRequest struct {
 	// Miscellaneous metadata for assertion the commitment is being made for.
 	// Includes the WasmModuleRoot and the start and end states.
 	AssertionMetadata *AssociatedAssertionMetadata
-	// A slice of heights that tells the backend where the subchallenges for the requested
-	// history commitment originated from.
+	// A slice of heights that tells the backend where the subchallenges for the
+	// requested history commitment originated from.
 	// Each index corresponds to a challenge level. For example,
-	// if we have three levels, where lvl 0 is the block challenge level, an input of
-	// []Height{12, 3} tells us that that the top-level subchallenge originated at height 12
-	// then the next subchallenge originated at height 3 below that.
+	// if we have three levels, where lvl 0 is the block challenge level, an
+	// input of []Height{12, 3} tells us that that the top-level subchallenge
+	// originated at height 12 then the next subchallenge originated at height
+	// 3 below that.
 	UpperChallengeOriginHeights []Height
-	// An optional height at which to end the history commitment. If none, the request
-	// will commit to all the leaves at the specified challenge level.
+	// The height into the current challenge level's range of leaves from which
+	// to start the commitment.
+	// This will be 0 for the history commitment for the first challenge edge's
+	// history commitment in each challenge level, but is useful for edges
+	// created through bisection.
+	FromHeight Height
+	// An optional height at which to end the history commitment. If none, the
+	// request will commit to all the leaves at the specified challenge level.
 	UpToHeight option.Option[Height]
 }
 

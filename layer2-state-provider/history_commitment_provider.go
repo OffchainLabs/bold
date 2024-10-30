@@ -238,12 +238,10 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// Computes the desired challenge level this history commitment is for.
 	desiredChallengeLevel := deepestRequestedChallengeLevel(validatedHeights)
 
-	fromHeight := Height(req.AssertionMetadata.FromState.PosInBatch)
-
 	// Compute the exact start point of where we need to execute
 	// the machine from the inputs, and figure out, in what increments, we need
 	// to do so.
-	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights, fromHeight)
+	machineStartIndex, err := p.computeMachineStartIndex(validatedHeights, req.FromHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +255,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 
 	// Compute how many machine hashes we need to collect at the desired
 	// challenge level.
-	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, fromHeight, req.UpToHeight)
+	numHashes, err := p.computeRequiredNumberOfHashes(desiredChallengeLevel, req.FromHeight, req.UpToHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -341,6 +339,7 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			&HistoryCommitmentRequest{
 				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: []Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[Height](Height(commit.Height)),
 			},
 		)
@@ -353,6 +352,7 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			&HistoryCommitmentRequest{
 				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: historyCommitMetadata.UpperChallengeOriginHeights,
+				FromHeight:                  0,
 				UpToHeight:                  option.Some(Height(commit.Height)),
 			},
 		)
@@ -464,6 +464,7 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		&HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: startHeights,
+			FromHeight:                  0,
 			UpToHeight:                  option.Some(upToHeight + 1),
 		},
 	)
@@ -475,6 +476,7 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		&HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: startHeights,
+			FromHeight:                  0,
 			UpToHeight:                  option.Some(upToHeight),
 		},
 	)
@@ -482,10 +484,9 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 		return nil, nil, nil, err
 	}
 
-	// Compute the exact start point of where we need to execute
-	// the machine from the inputs, and figure out, in what increments, we need
-	// to do so.
-	machineIndex, err := p.computeMachineStartIndex(startHeights, Height(assertionMetadata.FromState.PosInBatch))
+	// Compute the exact start point of where we need to execute the machine
+	// from the inputs, and figure out, in what increments, we need to do so.
+	machineIndex, err := p.computeMachineStartIndex(startHeights, upToHeight)
 	if err != nil {
 		return nil, nil, nil, err
 	}

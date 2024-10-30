@@ -8,14 +8,16 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/offchainlabs/bold/containers/option"
-	"github.com/offchainlabs/bold/containers/threadsafe"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
-	"github.com/offchainlabs/bold/testing/mocks"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
+	"github.com/offchainlabs/bold/testing/mocks"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 )
 
 func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
@@ -193,6 +195,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
 		},
 		l2stateprovider.History{
@@ -207,6 +210,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           simpleAssertionMetadata(),
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 			UpToHeight:                  option.Some[l2stateprovider.Height](4),
 		},
 		l2stateprovider.History{

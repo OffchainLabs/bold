@@ -11,14 +11,16 @@ import (
 	"strings"
 	"testing"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/offchainlabs/bold/challenge-manager/challenge-tree/mock"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/testing/mocks"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 )
 
 func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
@@ -85,6 +87,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
 			},
 			l2stateprovider.History{
@@ -99,6 +102,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(end)),
 			},
 			l2stateprovider.History{
@@ -125,6 +129,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{
@@ -165,6 +170,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{
@@ -179,6 +185,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{
@@ -221,6 +228,7 @@ func TestAddEdge(t *testing.T) {
 			&l2stateprovider.HistoryCommitmentRequest{
 				AssertionMetadata:           simpleAssertionMetadata(),
 				UpperChallengeOriginHeights: []l2stateprovider.Height{},
+				FromHeight:                  0,
 				UpToHeight:                  option.Some[l2stateprovider.Height](l2stateprovider.Height(endHeight)),
 			},
 			l2stateprovider.History{

@@ -125,6 +125,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		&l2stateprovider.HistoryCommitmentRequest{
 			AssertionMetadata:           assertionMetadata,
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
+			FromHeight:                  0,
 			UpToHeight:                  option.Some(l2stateprovider.Height(0)),
 		},
 	)
@@ -142,6 +143,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           assertionMetadata,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},
+		FromHeight:                  0,
 		UpToHeight:                  option.Some(l2stateprovider.Height(layerZeroHeights.BlockChallengeHeight)),
 	}
 	endCommit, err := m.stateManager.HistoryCommitment(
