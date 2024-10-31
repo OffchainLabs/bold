@@ -495,6 +495,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 		"endHeight", end,
 		"startCommit", fmt.Sprintf("%#x", startRoot[:4]),
 		"endCommit", fmt.Sprintf("%#x", endRoot[:4]),
+		"validatorName", w.validatorName,
 		"isHonestEdge", true,
 	}
 	log.Info("Observed honest edge", fields...)
@@ -611,6 +612,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		"endHeight", end,
 		"startCommit", fmt.Sprintf("%#x", startRoot[:4]),
 		"endCommit", fmt.Sprintf("%#x", endRoot[:4]),
+		"validatorName", w.validatorName,
 		"isHonestEdge", isRoyalEdge,
 	}
 	if isRoyalEdge {
