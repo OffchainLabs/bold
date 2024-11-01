@@ -217,9 +217,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 			et.fsm.MarkError(err)
 			return et.fsm.Do(edgeBackToStart{})
 		}
-		if canOsp {
-			return et.fsm.Do(edgeHandleOneStepProof{})
-		}
 		wasConfirmed, err := et.tryToConfirmEdge(ctx)
 		if err != nil {
 			log.Error("Could not check if edge can be confirmed", fields, "err", err)
@@ -236,6 +233,9 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		if !hasRival {
 			return et.fsm.Do(edgeBackToStart{})
+		}
+		if canOsp { // Implicitly, the edge has a rival.
+			return et.fsm.Do(edgeHandleOneStepProof{})
 		}
 		atOneStepFork, err := et.edge.HasLengthOneRival(ctx)
 		if err != nil {
