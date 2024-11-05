@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -38,7 +38,6 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	m.assertionChainData.latestAgreedAssertion = latestConfirmed.Id()
 	m.assertionChainData.canonicalAssertions[latestConfirmed.Id()] = latestConfirmedInfo
 	if !m.disablePosting {
-		m.startPostingSignal <- struct{}{}
 		close(m.startPostingSignal)
 	}
 	m.assertionChainData.Unlock()
