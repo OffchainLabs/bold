@@ -454,7 +454,9 @@ func (m *Manager) StopAndWait() {
 	m.StopWaiter.StopAndWait()
 	m.assertionManager.StopAndWait()
 	m.watcher.StopAndWait()
-	m.api.StopAndWait()
+	if m.api != nil {
+		m.api.StopAndWait()
+	}
 }
 
 func (m *Manager) listenForBlockEvents(ctx context.Context) {
