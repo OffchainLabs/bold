@@ -3,10 +3,10 @@ package stateprovider
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // Collects a list of machine hashes at a message number based on some configuration parameters.
@@ -37,8 +37,7 @@ func (s *L2StateBackend) CollectMachineHashes(
 // CollectProof Collects osp of at a message number and OpcodeIndex .
 func (s *L2StateBackend) CollectProof(
 	ctx context.Context,
-	previousState protocol.GoGlobalState,
-	wasmModuleRoot common.Hash,
+	assertionMetadata *l2stateprovider.AssociatedAssertionMetadata,
 	blockChallengeHeight l2stateprovider.Height,
 	machineIndex l2stateprovider.OpcodeIndex,
 ) ([]byte, error) {

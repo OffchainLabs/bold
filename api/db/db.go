@@ -866,9 +866,27 @@ func (d *SqliteDatabase) InsertCollectMachineHash(h *api.JsonCollectMachineHashe
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	query := `INSERT INTO CollectMachineHashes (
-        WasmModuleRoot, FromBatch, PositionInBatch, BlockChallengeHeight, RawStepHeights, NumDesiredHashes, MachineStartIndex, StepSize, StartTime
+        WasmModuleRoot,
+        FromBatch,
+        PositionInBatch,
+        BatchLimit,
+        BlockChallengeHeight,
+        RawStepHeights,
+        NumDesiredHashes,
+        MachineStartIndex,
+        StepSize,
+        StartTime
     ) VALUES (
-        :WasmModuleRoot, :FromBatch, :PositionInBatch, :BlockChallengeHeight, :RawStepHeights, :NumDesiredHashes, :MachineStartIndex, :StepSize, :StartTime
+        :WasmModuleRoot,
+        :FromBatch,
+        :PositionInBatch,
+        :BatchLimit,
+        :BlockChallengeHeight,
+        :RawStepHeights,
+        :NumDesiredHashes,
+        :MachineStartIndex,
+        :StepSize,
+        :StartTime
     )`
 	_, err := d.sqlDB.NamedExec(query, h)
 	if err != nil {
@@ -885,6 +903,7 @@ func (d *SqliteDatabase) UpdateCollectMachineHash(h *api.JsonCollectMachineHashe
 				 WHERE WasmModuleRoot = :WasmModuleRoot
 				   AND FromBatch = :FromBatch
 				   AND PositionInBatch = :PositionInBatch
+           AND BatchLimit = :BatchLimit
 				   AND BlockChallengeHeight = :BlockChallengeHeight
 				   AND RawStepHeights = :RawStepHeights
 				   AND NumDesiredHashes = :NumDesiredHashes

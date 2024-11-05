@@ -27,6 +27,7 @@ func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
 		WasmModuleRoot:       common.BytesToHash([]byte("foo")),
 		FromBatch:            1,
 		PositionInBatch:      0,
+		BatchLimit:           7,
 		BlockChallengeHeight: 2,
 		RawStepHeights:       "3, 4, 5, 6",
 		NumDesiredHashes:     4,

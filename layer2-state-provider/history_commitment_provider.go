@@ -35,8 +35,7 @@ type MachineHashCollector interface {
 type ProofCollector interface {
 	CollectProof(
 		ctx context.Context,
-		fromState protocol.GoGlobalState,
-		wasmModuleRoot common.Hash,
+		assertionMetadata *AssociatedAssertionMetadata,
 		blockChallengeHeight Height,
 		machineIndex OpcodeIndex,
 	) ([]byte, error)
@@ -62,18 +61,22 @@ type ProofCollector interface {
 // `BlockChallengeHeight` (which is a relative index within the range of blocks
 // to which the rival assertions are committing where they first diverge.)
 //
+// The collector also needs to know the `BatchLimit` to deal with scenarios
+// where the `BlockChallengeHeight` is greater than the number of blocks in the
+// assertion.
+//
+// Most of this infomation is configured using an `AssociatedAssertionMetadata`
+// instance.
+//
 // The collector then starts collecting hashes at a specific `MachineStartIndex`
 // which is an opcode index within the execution the block which corresponds to
 // the first machine state hash to be returned. It then steps through the
 // Arbitrator machine in increments of `StepSize` until it has collected the
 // `NumDesiredHashes` machine hashes.
 type HashCollectorConfig struct {
-	// The WASM module root the machines should be a part of.
-	WasmModuleRoot common.Hash
-	// The global state from which the rivaled assertion began.
-	// The pertinent information is the batch and position within that batch
-	// of the first message of the assertion.
-	FromState protocol.GoGlobalState
+	// Miscellaneous metadata for assertion the commitment is being made for.
+	// Includes the WasmModuleRoot and the start and end states.
+	AssertionMetadata *AssociatedAssertionMetadata
 	// The block challenge height is the height of the block at which the rival
 	// assertions diverge.
 	BlockChallengeHeight Height
@@ -92,11 +95,11 @@ type HashCollectorConfig struct {
 
 func (h *HashCollectorConfig) String() string {
 	str := ""
-	str += h.WasmModuleRoot.String()
+	str += h.AssertionMetadata.WasmModuleRoot.String()
 	str += "/"
-	str += fmt.Sprintf("%d", h.FromState.Batch)
+	str += fmt.Sprintf("%d", h.AssertionMetadata.FromState.Batch)
 	str += "/"
-	str += fmt.Sprintf("%d", h.FromState.PosInBatch)
+	str += fmt.Sprintf("%d", h.AssertionMetadata.FromState.PosInBatch)
 	str += "/"
 	str += fmt.Sprintf("%d", h.BlockChallengeHeight)
 	str += "/"
@@ -268,8 +271,7 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	// Collect the machine hashes at the specified challenge level based on the
 	// values we computed.
 	cfg := &HashCollectorConfig{
-		WasmModuleRoot:       req.AssertionMetadata.WasmModuleRoot,
-		FromState:            req.AssertionMetadata.FromState,
+		AssertionMetadata:    req.AssertionMetadata,
 		BlockChallengeHeight: fromBlockChallengeHeight,
 		// We drop the first index of the validated heights, because the first
 		// index is for the block challenge level, which is over blocks and not
@@ -291,9 +293,10 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 			}
 		}
 		collectMachineHashes := api.JsonCollectMachineHashes{
-			WasmModuleRoot:       cfg.WasmModuleRoot,
-			FromBatch:            cfg.FromState.Batch,
-			PositionInBatch:      cfg.FromState.PosInBatch,
+			WasmModuleRoot:       cfg.AssertionMetadata.WasmModuleRoot,
+			FromBatch:            cfg.AssertionMetadata.FromState.Batch,
+			PositionInBatch:      cfg.AssertionMetadata.FromState.PosInBatch,
+			BatchLimit:           uint64(cfg.AssertionMetadata.BatchLimit),
 			BlockChallengeHeight: uint64(cfg.BlockChallengeHeight),
 			RawStepHeights:       rawStepHeights,
 			NumDesiredHashes:     cfg.NumDesiredHashes,
@@ -345,7 +348,7 @@ func (p *HistoryCommitmentProvider) AgreesWithHistoryCommitment(
 			&HistoryCommitmentRequest{
 				AssertionMetadata:           historyCommitMetadata.AssertionMetadata,
 				UpperChallengeOriginHeights: []Height{},
-				UpToHeight:                  option.Some[Height](Height(commit.Height)),
+				UpToHeight:                  option.Some(Height(commit.Height)),
 			},
 		)
 		if err != nil {
@@ -494,7 +497,7 @@ func (p *HistoryCommitmentProvider) OneStepProofData(
 	}
 	machineIndex += OpcodeIndex(upToHeight)
 
-	osp, err := p.proofCollector.CollectProof(ctx, assertionMetadata.FromState, assertionMetadata.WasmModuleRoot, startHeights[0], machineIndex)
+	osp, err := p.proofCollector.CollectProof(ctx, assertionMetadata, startHeights[0], machineIndex)
 	if err != nil {
 		return nil, nil, nil, err
 	}

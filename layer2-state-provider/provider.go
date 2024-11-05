@@ -72,8 +72,7 @@ type ExecutionProvider interface {
 type AssociatedAssertionMetadata struct {
 	FromState protocol.GoGlobalState
 	// This assertion may not read this batch.
-	// Unless it hits the block limit, its last state will be with this batch
-	// and position in batch 0.
+	// Unless it hits the block limit, its last state in position 0 of this batch.
 	BatchLimit           Batch
 	WasmModuleRoot       common.Hash
 	ClaimedAssertionHash common.Hash

@@ -106,6 +106,7 @@ type JsonCollectMachineHashes struct {
 	WasmModuleRoot       common.Hash `json:"wasmModuleRoot" db:"WasmModuleRoot"`
 	FromBatch            uint64      `json:"fromBatch" db:"FromBatch"`
 	PositionInBatch      uint64      `json:"positionInBatch" db:"PositionInBatch"`
+	BatchLimit           uint64      `json:"batchLimit" db:"BatchLimit"`
 	BlockChallengeHeight uint64      `json:"blockChallengeHeight" db:"BlockChallengeHeight"`
 	StepHeights          []uint64    `json:"stepHeights"`
 	RawStepHeights       string      `json:"-" db:"RawStepHeights"`
