@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "sol-implementation",
@@ -11,7 +11,7 @@ go_library(
         "transact.go",
         "types.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation",
+    importpath = "github.com/offchainlabs/bold/chain-abstraction/sol-implementation",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
@@ -20,12 +20,13 @@ go_library(
         "//containers",
         "//containers/option",
         "//containers/threadsafe",
+        "//runtime",
         "//solgen/go/bridgegen",
         "//solgen/go/challengeV2gen",
+        "//solgen/go/contractsgen",
         "//solgen/go/ospgen",
         "//solgen/go/rollupgen",
         "//state-commitments/history",
-        "//util",
         "@com_github_ethereum_go_ethereum//:go-ethereum",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
@@ -34,12 +35,14 @@ go_library(
         "@com_github_ethereum_go_ethereum//crypto",
         "@com_github_ethereum_go_ethereum//log",
         "@com_github_ethereum_go_ethereum//metrics",
+        "@com_github_ethereum_go_ethereum//rpc",
         "@com_github_pkg_errors//:errors",
     ],
 )
 
 go_test(
     name = "sol-implementation_test",
+    size = "small",
     srcs = [
         "assertion_chain_helper_test.go",
         "assertion_chain_test.go",
@@ -60,11 +63,9 @@ go_test(
         "//testing",
         "//testing/mocks/state-provider",
         "//testing/setup:setup_lib",
-        "//util",
         "@com_github_ethereum_go_ethereum//:go-ethereum",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
-        "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_stretchr_testify//require",

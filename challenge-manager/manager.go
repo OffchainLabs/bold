@@ -7,41 +7,32 @@ package challengemanager
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
-	"os"
 	"time"
 
-	apibackend "github.com/OffchainLabs/bold/api/backend"
-	"github.com/OffchainLabs/bold/api/db"
-	"github.com/OffchainLabs/bold/api/server"
-	"github.com/OffchainLabs/bold/assertions"
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	watcher "github.com/OffchainLabs/bold/challenge-manager/chain-watcher"
-	edgetracker "github.com/OffchainLabs/bold/challenge-manager/edge-tracker"
-	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	retry "github.com/OffchainLabs/bold/runtime"
-	"github.com/OffchainLabs/bold/solgen/go/challengeV2gen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	utilTime "github.com/OffchainLabs/bold/time"
-	"github.com/OffchainLabs/bold/util/stopwaiter"
+	apibackend "github.com/offchainlabs/bold/api/backend"
+	"github.com/offchainlabs/bold/api/db"
+	"github.com/offchainlabs/bold/api/server"
+	"github.com/offchainlabs/bold/assertions"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
+	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
+	"github.com/offchainlabs/bold/challenge-manager/types"
+	"github.com/offchainlabs/bold/containers/events"
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	retry "github.com/offchainlabs/bold/runtime"
+	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	utilTime "github.com/offchainlabs/bold/time"
+	"github.com/offchainlabs/bold/util/stopwaiter"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 )
-
-var (
-	srvlog = log.New("service", "challenge-manager")
-)
-
-func init() {
-	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
-}
 
 type Opt = func(val *Manager)
 
@@ -61,20 +52,25 @@ type Manager struct {
 	address                     common.Address
 	name                        string
 	timeRef                     utilTime.Reference
-	edgeTrackerWakeInterval     time.Duration
 	chainWatcherInterval        time.Duration
 	watcher                     *watcher.Watcher
 	trackedEdgeIds              *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
 	batchIndexForAssertionCache *threadsafe.LruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]
-	assertionManager            *assertions.Manager
-	assertionPostingInterval    time.Duration
-	assertionScanningInterval   time.Duration
-	assertionConfirmingInterval time.Duration
-	averageTimeForBlockCreation time.Duration
-	mode                        types.Mode
-	maxDelaySeconds             int
-
-	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
+	newBlockNotifier            *events.Producer[*gethtypes.Header]
+	notifyOnNumberOfBlocks      uint64
+	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
+	// all challenges will be tracked.
+	trackChallengeParentAssertionHashes []protocol.AssertionHash
+	assertionManager                    *assertions.Manager
+	assertionPostingInterval            time.Duration
+	assertionScanningInterval           time.Duration
+	assertionConfirmingInterval         time.Duration
+	averageTimeForBlockCreation         time.Duration
+	mode                                types.Mode
+	maxDelaySeconds                     int
+	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
+	enableFastConfirmation              bool
+	headBlockSubscriptions              bool
 	// API
 	apiAddr   string
 	apiDBPath string
@@ -89,18 +85,17 @@ func WithName(name string) Opt {
 	}
 }
 
+// WithFastConfirmation enables fast confirmation of challenges.
+func WithFastConfirmation() Opt {
+	return func(val *Manager) {
+		val.enableFastConfirmation = true
+	}
+}
+
 // WithAddress gives a staker address to the validator.
 func WithAddress(addr common.Address) Opt {
 	return func(val *Manager) {
 		val.address = addr
-	}
-}
-
-// WithEdgeTrackerWakeInterval specifies how often each edge tracker goroutine will
-// act on its responsibilities.
-func WithEdgeTrackerWakeInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.edgeTrackerWakeInterval = d
 	}
 }
 
@@ -128,6 +123,14 @@ func WithAvgBlockCreationTime(d time.Duration) Opt {
 	}
 }
 
+// Edges tick on every block received from the parent chain of the rollup, by default. Alternatively,
+// they can be configured to tick every N blocks.
+func WithTickEdgesOnNumberOfBlocks(n uint64) Opt {
+	return func(val *Manager) {
+		val.notifyOnNumberOfBlocks = n
+	}
+}
+
 // WithMode specifies the mode of the challenge manager.
 func WithMode(m types.Mode) Opt {
 	return func(val *Manager) {
@@ -146,6 +149,21 @@ func WithAPIEnabled(addr string, dbPath string) Opt {
 func WithRPCClient(client *rpc.Client) Opt {
 	return func(val *Manager) {
 		val.client = client
+	}
+}
+
+func WithTrackChallengeParentAssertionHashes(trackChallengeParentAssertionHashes []string) Opt {
+	return func(val *Manager) {
+		val.trackChallengeParentAssertionHashes = make([]protocol.AssertionHash, len(trackChallengeParentAssertionHashes))
+		for i, hash := range trackChallengeParentAssertionHashes {
+			val.trackChallengeParentAssertionHashes[i] = protocol.AssertionHash{Hash: common.HexToHash(hash)}
+		}
+	}
+}
+
+func WithHeadBlockSubscriptions() Opt {
+	return func(val *Manager) {
+		val.headBlockSubscriptions = true
 	}
 }
 
@@ -168,26 +186,18 @@ func New(
 		chainWatcherInterval:         time.Millisecond * 500,
 		trackedEdgeIds:               threadsafe.NewMap[protocol.EdgeId, *edgetracker.Tracker](threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache:  threadsafe.NewLruMap[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata](1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, edgetracker.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
+		notifyOnNumberOfBlocks:       1,
+		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
 		assertionPostingInterval:     time.Hour,
 		assertionScanningInterval:    time.Minute,
 		assertionConfirmingInterval:  time.Second * 10,
 		averageTimeForBlockCreation:  time.Second * 12,
+		headBlockSubscriptions:       false,
 		claimedAssertionsInChallenge: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
 	}
 	for _, o := range opts {
 		o(m)
 	}
-
-	if m.edgeTrackerWakeInterval == 0 {
-		// Generating a random integer between 0 and 60 second to wake up the edge tracker.
-		// This is to avoid all edge trackers waking up at the same time across participants.
-		n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(60))
-		if err != nil {
-			return nil, err
-		}
-		m.edgeTrackerWakeInterval = time.Second * time.Duration(n.Uint64())
-	}
-
 	chalManager, err := m.chain.SpecChallengeManager(ctx)
 	if err != nil {
 		return nil, err
@@ -223,7 +233,7 @@ func New(
 		m.apiDB = apiDB
 	}
 
-	watcher, err := watcher.New(m.chain, m, m.stateManager, m.backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB, m.assertionConfirmingInterval, m.averageTimeForBlockCreation)
+	watcher, err := watcher.New(m.chain, m, m.stateManager, m.backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB, m.assertionConfirmingInterval, m.averageTimeForBlockCreation, m.trackChallengeParentAssertionHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +247,10 @@ func New(
 		}
 		m.api = srv
 	}
-
+	assertionsOpts := make([]assertions.Opt, 0)
+	if m.enableFastConfirmation {
+		assertionsOpts = append(assertionsOpts, assertions.WithFastConfirmation())
+	}
 	assertionManager, err := assertions.NewManager(
 		m.chain,
 		m.stateManager,
@@ -252,6 +265,7 @@ func New(
 		m.assertionPostingInterval,
 		m.averageTimeForBlockCreation,
 		m.apiDB,
+		assertionsOpts...,
 	)
 	if err != nil {
 		return nil, err
@@ -381,7 +395,6 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			m.watcher,
 			m,
 			&edgeTrackerAssertionInfo,
-			edgetracker.WithActInterval(m.edgeTrackerWakeInterval),
 			edgetracker.WithTimeReference(m.timeRef),
 			edgetracker.WithValidatorName(m.name),
 		)
@@ -395,11 +408,15 @@ func (m *Manager) ChallengeManager() *challengeV2gen.EdgeChallengeManagerFiltere
 	return m.chalManager
 }
 
+func (m *Manager) NewBlockSubscriber() *events.Producer[*gethtypes.Header] {
+	return m.newBlockNotifier
+}
+
 func (m *Manager) Start(ctx context.Context) {
 	m.StopWaiter.Start(ctx, m)
-	srvlog.Info("Started challenge manager", log.Ctx{
-		"validatorAddress": m.address.Hex(),
-	})
+	log.Info("Started challenge manager",
+		"validatorAddress", m.address.Hex(),
+	)
 
 	// Start the assertion manager.
 	m.LaunchThread(m.assertionManager.Start)
@@ -409,16 +426,19 @@ func (m *Manager) Start(ctx context.Context) {
 		return
 	}
 
+	// Start watching for parent chain block events in the background.
+	m.LaunchThread(m.listenForBlockEvents)
+
 	// Start watching for ongoing chain events in the background.
 	m.LaunchThread(m.watcher.Start)
 
 	if m.api != nil {
 		m.LaunchThread(func(ctx context.Context) {
 			if err := m.api.Start(ctx); err != nil {
-				srvlog.Error("Could not start API server", log.Ctx{
-					"address": m.apiAddr,
-					"err":     err,
-				})
+				log.Error("Could not start API server",
+					"address", m.apiAddr,
+					"err", err,
+				)
 			}
 		})
 	}
@@ -429,4 +449,95 @@ func (m *Manager) StopAndWait() {
 	m.assertionManager.StopAndWait()
 	m.watcher.StopAndWait()
 	m.api.StopAndWait()
+}
+
+func (m *Manager) listenForBlockEvents(ctx context.Context) {
+	// If the chain watcher has not yet scraped and caught up all BOLD
+	// events up to the latest head, then we fire "block notification" events
+	// every second. This will help the tracked edges act fast if we are
+	// just starting up the validator or catching up to a challenge.
+	m.fastTickWhileCatchingUp(ctx)
+
+	// Then, once the watcher has reached the latest head, we
+	// fire off a block notifications events normally.
+	if m.headBlockSubscriptions {
+		m.tickOnHeadBlockSubscriptions(ctx)
+	} else {
+		m.tickAtInterval(ctx)
+	}
+}
+
+func (m *Manager) tickOnHeadBlockSubscriptions(ctx context.Context) {
+	ch := make(chan *gethtypes.Header, 100)
+	sub, err := m.chain.Backend().SubscribeNewHead(ctx, ch)
+	if err != nil {
+		panic(err)
+	}
+	defer sub.Unsubscribe()
+	numBlocksReceived := uint64(0)
+	for {
+		select {
+		case header := <-ch:
+			numBlocksReceived += 1
+			// Only broadcast every N blocks received. This is important for Orbit chains
+			// that have parent chains with very fast block times, such as Arbitrum One, as broadcasting
+			// every 250ms would otherwise be too frequent.
+			if numBlocksReceived%m.notifyOnNumberOfBlocks == 0 {
+				m.newBlockNotifier.Broadcast(ctx, header)
+			}
+		case <-sub.Err():
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (m *Manager) tickAtInterval(ctx context.Context) {
+	ticker := time.NewTicker(time.Second * 12)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+			m.newBlockNotifier.Broadcast(ctx, nil)
+		}
+	}
+}
+
+func (m *Manager) fastTickWhileCatchingUp(ctx context.Context) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+			m.newBlockNotifier.Broadcast(ctx, nil)
+			if m.watcher.IsSynced() {
+				return
+			}
+		}
+	}
+}
+
+func (m *Manager) LatestConfirmedState(ctx context.Context) (protocol.GoGlobalState, error) {
+	latestConfirmed, err := m.chain.LatestConfirmed(ctx, m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return protocol.GoGlobalState{}, err
+	}
+	info, err := m.chain.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+	if err != nil {
+		return protocol.GoGlobalState{}, err
+	}
+	return protocol.GoExecutionStateFromSolidity(info.AfterState).GlobalState, nil
+}
+
+func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState, error) {
+	latestAgreedAssertion := m.assertionManager.LatestAgreedAssertion()
+	info, err := m.chain.ReadAssertionCreationInfo(ctx, latestAgreedAssertion)
+	if err != nil {
+		return protocol.GoGlobalState{}, err
+	}
+	return protocol.GoExecutionStateFromSolidity(info.AfterState).GlobalState, nil
 }

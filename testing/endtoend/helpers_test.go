@@ -7,12 +7,11 @@ import (
 	"math/rand"
 	"testing"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
-	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	"github.com/OffchainLabs/bold/util"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
+	challengemanager "github.com/offchainlabs/bold/challenge-manager"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +27,6 @@ func setupChallengeManager(
 	rollup common.Address,
 	sm l2stateprovider.Provider,
 	txOpts *bind.TransactOpts,
-	name string,
 	opts ...challengemanager.Opt,
 ) *challengemanager.Manager {
 	assertionChainBinding, err := rollupgen.NewRollupUserLogic(
@@ -36,7 +34,7 @@ func setupChallengeManager(
 	)
 	require.NoError(t, err)
 	challengeManagerAddr, err := assertionChainBinding.RollupUserLogicCaller.ChallengeManager(
-		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
+		&bind.CallOpts{Context: ctx},
 	)
 	require.NoError(t, err)
 	chain, err := solimpl.NewAssertionChain(

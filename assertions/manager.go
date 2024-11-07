@@ -10,19 +10,17 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
-	"os"
 	"sync"
 	"time"
 
-	"github.com/OffchainLabs/bold/util/stopwaiter"
+	"github.com/offchainlabs/bold/util/stopwaiter"
 	"github.com/ethereum/go-ethereum/metrics"
 
-	"github.com/OffchainLabs/bold/api/db"
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/util"
+	"github.com/offchainlabs/bold/api/db"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/challenge-manager/types"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -30,19 +28,13 @@ import (
 )
 
 var (
-	srvlog                                = log.New("service", "assertions")
 	evilAssertionCounter                  = metrics.NewRegisteredCounter("arb/validator/scanner/evil_assertion", nil)
 	challengeSubmittedCounter             = metrics.NewRegisteredCounter("arb/validator/scanner/challenge_submitted", nil)
 	assertionConfirmedCounter             = metrics.GetOrRegisterCounter("arb/validator/scanner/assertion_confirmed", nil)
 	errorConfirmingAssertionByTimeCounter = metrics.NewRegisteredCounter("arb/validator/scanner/error_confirming_assertion_by_time", nil)
 	latestConfirmedAssertionGauge         = metrics.NewRegisteredGauge("arb/validator/scanner/latest_confirmed_assertion_block_number", nil)
-	evilAssertionConfirmedCounter         = metrics.GetOrRegisterCounter("arb/validator/scanner/evil_assertion_confirmed", nil)
 	safeBlockDelayCounter                 = metrics.GetOrRegisterCounter("arb/validator/scanner/safe_block_delay", nil)
 )
-
-func init() {
-	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
-}
 
 // The Manager struct is responsible for several tasks related to the assertion chain:
 // 1. It continuously polls the assertion chain to check for posted, on-chain assertions starting from the latest confirmed assertion up to the newest one.
@@ -77,6 +69,7 @@ type Manager struct {
 	startPostingSignal          chan struct{}
 	layerZeroHeightsCache       *protocol.LayerZeroHeights
 	layerZeroHeightsCacheLock   sync.RWMutex
+	enableFastConfirmation      bool
 }
 
 type assertionChainData struct {
@@ -90,6 +83,12 @@ type Opt func(*Manager)
 func WithPostingDisabled() Opt {
 	return func(m *Manager) {
 		m.disablePosting = true
+	}
+}
+
+func WithFastConfirmation() Opt {
+	return func(m *Manager) {
+		m.enableFastConfirmation = true
 	}
 }
 
@@ -162,37 +161,37 @@ func (m *Manager) Start(ctx context.Context) {
 	m.LaunchThread(m.updateLatestConfirmedMetrics)
 	m.LaunchThread(m.syncAssertions)
 	m.LaunchThread(m.queueCanonicalAssertionsForConfirmation)
-	m.LaunchThread(m.checkLatestSafeBlock)
+	m.LaunchThread(m.checkLatestDesiredBlock)
 }
 
-func (m *Manager) checkLatestSafeBlock(ctx context.Context) {
+func (m *Manager) checkLatestDesiredBlock(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Minute):
-			latestSafeBlock, err := m.backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
+			latestSafeBlock, err := m.backend.HeaderByNumber(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
 			if err != nil {
-				srvlog.Error("Error getting latest safe block", "err", err)
+				log.Error("Error getting latest safe block", "err", err)
 				continue
 			}
 			if !latestSafeBlock.Number.IsUint64() {
-				srvlog.Error("Latest safe block number not a uint64")
+				log.Error("Latest safe block number not a uint64")
 				continue
 			}
 
 			latestBlock, err := m.backend.HeaderByNumber(ctx, nil)
 			if err != nil {
-				srvlog.Error("Error getting latest block", "err", err)
+				log.Error("Error getting latest block", "err", err)
 				continue
 			}
 			if !latestBlock.Number.IsUint64() {
-				srvlog.Error("Latest block number not a uint64")
+				log.Error("Latest block number not a uint64")
 				continue
 			}
 			safeBlockDelayInSeconds := (latestBlock.Number.Uint64() - latestSafeBlock.Number.Uint64()) * uint64(m.averageTimeForBlockCreation.Seconds())
 			if safeBlockDelayInSeconds > 1200 {
-				srvlog.Warn("Latest safe block is delayed by more that 20 minutes", "latestSafeBlock", latestSafeBlock.Number.Uint64(), "latestBlock", latestBlock.Number.Uint64())
+				log.Warn("Latest safe block is delayed by more that 20 minutes", "latestSafeBlock", latestSafeBlock.Number.Uint64(), "latestBlock", latestBlock.Number.Uint64())
 				safeBlockDelayCounter.Inc(1)
 			}
 		}
@@ -274,12 +273,12 @@ func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	srvlog.Info("Opening challenge with the following configuration", log.Ctx{
-		"address":               cm.Address(),
-		"bigStepNumber":         bigStepNum,
-		"challengePeriodBlocks": challengePeriodBlocks,
-		"layerZeroHeights":      layerZeroHeights,
-	})
+	log.Info("Opening challenge with the following configuration",
+		"address", cm.Address(),
+		"bigStepNumber", bigStepNum,
+		"challengePeriodBlocks", challengePeriodBlocks,
+		"layerZeroHeights", layerZeroHeights,
+	)
 	return nil
 }
 
@@ -300,4 +299,10 @@ func randUint64(max uint64) (uint64, error) {
 		return 0, errors.New("not a uint64")
 	}
 	return n.Uint64(), nil
+}
+
+func (m *Manager) LatestAgreedAssertion() protocol.AssertionHash {
+	m.assertionChainData.RLock()
+	defer m.assertionChainData.RUnlock()
+	return m.assertionChainData.latestAgreedAssertion
 }

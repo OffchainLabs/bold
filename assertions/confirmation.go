@@ -2,14 +2,16 @@ package assertions
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	solimpl "github.com/OffchainLabs/bold/chain-abstraction/sol-implementation"
-	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/containers/option"
-	retry "github.com/OffchainLabs/bold/runtime"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
+	"github.com/offchainlabs/bold/challenge-manager/types"
+	"github.com/offchainlabs/bold/containers/option"
+	retry "github.com/offchainlabs/bold/runtime"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -33,14 +35,24 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		return m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	})
 	if err != nil {
-		log.Error("Could not get assertion creation info", log.Ctx{"error": err})
+		log.Error("Could not get assertion creation info", "err", err)
+		return
+	}
+	if m.enableFastConfirmation {
+		err = m.chain.FastConfirmAssertion(ctx, creationInfo)
+		if err != nil {
+			log.Error("Could not fast confirm latest assertion", "err", err)
+			return
+		}
+		assertionConfirmedCounter.Inc(1)
+		log.Info("Fast Confirmed assertion", "assertionHash", creationInfo.AssertionHash)
 		return
 	}
 	prevCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 		return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
 	})
 	if err != nil {
-		log.Error("Could not get prev assertion creation info", log.Ctx{"error": err})
+		log.Error("Could not get prev assertion creation info", "err", err)
 		return
 	}
 	ticker := time.NewTicker(m.confirmationAttemptInterval)
@@ -50,14 +62,18 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			parentAssertion, err := m.chain.GetAssertion(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+			parentAssertion, err := m.chain.GetAssertion(
+				ctx,
+				m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
+				protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash},
+			)
 			if err != nil {
-				log.Error("Could not get parent assertion", log.Ctx{"error": err})
+				log.Error("Could not get parent assertion", "err", err)
 				continue
 			}
 			parentAssertionHasSecondChild, err := parentAssertion.HasSecondChild()
 			if err != nil {
-				log.Error("Could not confirm if parent assertion has second child", log.Ctx{"error": err})
+				log.Error("Could not confirm if parent assertion has second child", "err", err)
 				continue
 			}
 			// Assertions that have a rival assertion cannot be confirmed by time.
@@ -67,14 +83,14 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.averageTimeForBlockCreation, option.None[protocol.EdgeId]())
 			if err != nil {
 				if !strings.Contains(err.Error(), "PREV_NOT_LATEST_CONFIRMED") {
-					srvlog.Error("Could not confirm assertion", log.Ctx{"err": err, "assertionHash": assertionHash.Hash})
+					log.Error("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
 					errorConfirmingAssertionByTimeCounter.Inc(1)
 				}
 				continue
 			}
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
-				srvlog.Info("Confirmed assertion by time", log.Ctx{"assertionHash": creationInfo.AssertionHash})
+				log.Info("Confirmed assertion by time", "assertionHash", creationInfo.AssertionHash)
 				return
 			}
 		}
@@ -87,15 +103,20 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			latestConfirmed, err := m.chain.LatestConfirmed(ctx)
+			latestConfirmed, err := m.chain.LatestConfirmed(ctx, m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 			if err != nil {
-				srvlog.Debug("Could not fetch latest confirmed assertion", log.Ctx{"error": err})
+				log.Debug("Could not fetch latest confirmed assertion", "err", err)
 				continue
 			}
-			if _, ok := m.assertionChainData.canonicalAssertions[latestConfirmed.Id()]; !ok {
-				srvlog.Warn("Evil assertion was possibly confirmed", log.Ctx{"assertionHash": latestConfirmed.Id().Hash})
-				evilAssertionConfirmedCounter.Inc(1)
+			info, err := m.chain.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+			if err != nil {
+				log.Debug("Could not fetch latest confirmed assertion", "err", err)
+				continue
 			}
+			afterState := protocol.GoExecutionStateFromSolidity(info.AfterState)
+			log.Info("Latest confirmed assertion", "assertionAfterState", fmt.Sprintf("%+v", afterState))
+
+			// TODO: Check if the latest assertion that was confirmed is one we agree with.
 			latestConfirmedAssertionGauge.Update(int64(latestConfirmed.CreatedAtBlock()))
 		case <-ctx.Done():
 			return

@@ -10,20 +10,26 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	"github.com/offchainlabs/bold/state-commitments/history"
 )
+
+// ErrCachedTimeSufficient is an error received from the challenge manager smart contract
+// when attempting to update an edge's onchain cached timer to a value less than what it already has.
+var ErrCachedTimeSufficient = "CachedTimeSufficient"
 
 // ChainBackend to interact with the underlying blockchain.
 type ChainBackend interface {
 	bind.ContractBackend
 	ReceiptFetcher
 	TxFetcher
+	HeadSubscriber
 }
 
 // ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.
@@ -34,6 +40,11 @@ type ReceiptFetcher interface {
 // ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.
 type TxFetcher interface {
 	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
+}
+
+// ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.
+type HeadSubscriber interface {
+	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 }
 
 // LayerZeroHeights for edges configured as parameters in the challenge manager contract.
@@ -120,19 +131,19 @@ type AssertionChain interface {
 	// Read-only methods.
 	IsStaked(ctx context.Context) (bool, error)
 	RollupUserLogic() *rollupgen.RollupUserLogic
-	GetAssertion(ctx context.Context, id AssertionHash) (Assertion, error)
+	GetAssertion(ctx context.Context, opts *bind.CallOpts, id AssertionHash) (Assertion, error)
 	IsChallengeComplete(ctx context.Context, challengeParentAssertionHash AssertionHash) (bool, error)
 	Backend() ChainBackend
 	AssertionStatus(
 		ctx context.Context,
 		assertionHash AssertionHash,
 	) (AssertionStatus, error)
-	LatestConfirmed(ctx context.Context) (Assertion, error)
-	LatestCreatedAssertion(ctx context.Context) (Assertion, error)
-	LatestCreatedAssertionHashes(ctx context.Context) ([]AssertionHash, error)
+	LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (Assertion, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
+	GetCallOptsWithDesiredRpcHeadBlockNumber(opts *bind.CallOpts) *bind.CallOpts
+	GetDesiredRpcHeadBlockNumber() *big.Int
 
 	MinAssertionPeriodBlocks(ctx context.Context) (uint64, error)
 	AssertionUnrivaledBlocks(ctx context.Context, assertionHash AssertionHash) (uint64, error)
@@ -150,6 +161,10 @@ type AssertionChain interface {
 		assertionCreationInfo *AssertionCreatedInfo,
 		postState *ExecutionState,
 	) (Assertion, error)
+	FastConfirmAssertion(
+		ctx context.Context,
+		assertionCreationInfo *AssertionCreatedInfo,
+	) error
 	ConfirmAssertionByTime(
 		ctx context.Context,
 		assertionHash AssertionHash,
@@ -257,6 +272,7 @@ type SpecChallengeManager interface {
 	MultiUpdateInheritedTimers(
 		ctx context.Context,
 		challengeBranch []ReadOnlyEdge,
+		desiredNewTimerForLastEdge uint64,
 	) (*types.Transaction, error)
 	// Calculates an edge id for an edge.
 	CalculateEdgeId(
@@ -273,7 +289,7 @@ type SpecChallengeManager interface {
 		ctx context.Context,
 		assertion Assertion,
 		startCommit,
-		endCommit commitments.History,
+		endCommit history.History,
 		startEndPrefixProof []byte,
 	) (VerifiedRoyalEdge, error)
 	// Adds a level-zero edge to subchallenge given a source edge and history commitments.
@@ -281,7 +297,7 @@ type SpecChallengeManager interface {
 		ctx context.Context,
 		challengedEdge SpecEdge,
 		startCommit,
-		endCommit commitments.History,
+		endCommit history.History,
 		startParentInclusionProof []common.Hash,
 		endParentInclusionProof []common.Hash,
 		startEndPrefixProof []byte,

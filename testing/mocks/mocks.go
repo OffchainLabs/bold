@@ -6,12 +6,15 @@ package mocks
 
 import (
 	"context"
+	"math/big"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers/option"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/option"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	"github.com/offchainlabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
@@ -81,9 +84,9 @@ type MockStateManager struct {
 func (m *MockStateManager) HistoryCommitment(
 	ctx context.Context,
 	req *l2stateprovider.HistoryCommitmentRequest,
-) (commitments.History, error) {
+) (history.History, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(commitments.History), args.Error(1)
+	return args.Get(0).(history.History), args.Error(1)
 }
 
 func (m *MockStateManager) PrefixProof(
@@ -166,8 +169,8 @@ func (m *MockSpecChallengeManager) ChallengePeriodBlocks(ctx context.Context) (u
 	args := m.Called(ctx)
 	return args.Get(0).(uint64), args.Error(1)
 }
-func (m *MockSpecChallengeManager) MultiUpdateInheritedTimers(ctx context.Context, branch []protocol.ReadOnlyEdge) (*types.Transaction, error) {
-	args := m.Called(ctx, branch)
+func (m *MockSpecChallengeManager) MultiUpdateInheritedTimers(ctx context.Context, branch []protocol.ReadOnlyEdge, desiredTimerForLastEdge uint64) (*types.Transaction, error) {
+	args := m.Called(ctx, branch, desiredTimerForLastEdge)
 	return args.Get(0).(*types.Transaction), args.Error(1)
 }
 func (m *MockSpecChallengeManager) GetEdge(
@@ -207,7 +210,7 @@ func (m *MockSpecChallengeManager) AddBlockChallengeLevelZeroEdge(
 	ctx context.Context,
 	assertion protocol.Assertion,
 	startCommit,
-	endCommit commitments.History,
+	endCommit history.History,
 	startEndPrefixProof []byte,
 ) (protocol.VerifiedRoyalEdge, error) {
 	args := m.Called(ctx, assertion, startCommit, endCommit, startEndPrefixProof)
@@ -218,7 +221,7 @@ func (m *MockSpecChallengeManager) AddSubChallengeLevelZeroEdge(
 	ctx context.Context,
 	challengedEdge protocol.SpecEdge,
 	startCommit,
-	endCommit commitments.History,
+	endCommit history.History,
 	startParentInclusionProof []common.Hash,
 	endParentInclusionProof []common.Hash,
 	startEndPrefixProof []byte,
@@ -377,6 +380,17 @@ type MockProtocol struct {
 	mock.Mock
 }
 
+func (m *MockProtocol) GetCallOptsWithDesiredRpcHeadBlockNumber(opts *bind.CallOpts) *bind.CallOpts {
+	if opts == nil {
+		opts = &bind.CallOpts{}
+	}
+	return opts
+}
+
+func (m *MockProtocol) GetDesiredRpcHeadBlockNumber() *big.Int {
+	return nil
+}
+
 // Read-only methods.
 func (m *MockProtocol) Backend() protocol.ChainBackend {
 	args := m.Called()
@@ -400,8 +414,8 @@ func (m *MockProtocol) MinAssertionPeriodBlocks(ctx context.Context) (uint64, er
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *MockProtocol) GetAssertion(ctx context.Context, id protocol.AssertionHash) (protocol.Assertion, error) {
-	args := m.Called(ctx, id)
+func (m *MockProtocol) GetAssertion(ctx context.Context, opts *bind.CallOpts, id protocol.AssertionHash) (protocol.Assertion, error) {
+	args := m.Called(ctx, opts, id)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 func (m *MockProtocol) AssertionStatus(ctx context.Context, id protocol.AssertionHash) (protocol.AssertionStatus, error) {
@@ -429,8 +443,8 @@ func (m *MockProtocol) LatestCreatedAssertion(ctx context.Context) (protocol.Ass
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	args := m.Called(ctx)
+func (m *MockProtocol) LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (protocol.Assertion, error) {
+	args := m.Called(ctx, opts)
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
@@ -460,6 +474,14 @@ func (m *MockProtocol) ConfirmAssertionByChallengeWinner(
 	winningEdgeId protocol.EdgeId,
 ) error {
 	args := m.Called(ctx, assertionHash, winningEdgeId)
+	return args.Error(0)
+}
+
+func (m *MockProtocol) FastConfirmAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) error {
+	args := m.Called(ctx, assertionCreationInfo)
 	return args.Error(0)
 }
 

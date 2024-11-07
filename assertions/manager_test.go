@@ -10,19 +10,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OffchainLabs/bold/assertions"
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
-	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
-	"github.com/OffchainLabs/bold/testing/setup"
-	"github.com/OffchainLabs/bold/util"
+	"github.com/offchainlabs/bold/assertions"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	challengemanager "github.com/offchainlabs/bold/challenge-manager"
+	"github.com/offchainlabs/bold/challenge-manager/types"
+	retry "github.com/offchainlabs/bold/runtime"
+	"github.com/offchainlabs/bold/solgen/go/bridgegen"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +44,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
 
-	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
+	msgCount, err := bridgeBindings.SequencerMessageCount(setup.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), msgCount.Uint64())
 
@@ -98,7 +98,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		aliceStateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.DefensiveMode),
-		challengemanager.WithEdgeTrackerWakeInterval(time.Hour),
 	)
 	require.NoError(t, err)
 	aliceChalManager.Start(ctx)
@@ -187,7 +186,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
 
-	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
+	msgCount, err := bridgeBindings.SequencerMessageCount(setup.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), msgCount.Uint64())
 
@@ -297,7 +296,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		charlieStateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.DefensiveMode),
-		challengemanager.WithEdgeTrackerWakeInterval(time.Hour),
 	)
 	require.NoError(t, err)
 	chalManager.Start(ctx)
@@ -341,6 +339,212 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	require.NotEqual(t, charliePostState.GlobalState.BlockHash, alicePostState.GlobalState.BlockHash)
 }
 
+func TestFastConfirmation(t *testing.T) {
+	ctx := context.Background()
+	setup, err := setup.ChainsWithEdgeChallengeManager(
+		setup.WithMockOneStepProver(),
+		setup.WithChallengeTestingOpts(
+			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
+				BlockChallengeHeight:     64,
+				BigStepChallengeHeight:   32,
+				SmallStepChallengeHeight: 32,
+			}),
+		),
+		setup.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+
+	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
+	require.NoError(t, err)
+
+	msgCount, err := bridgeBindings.SequencerMessageCount(setup.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), msgCount.Uint64())
+
+	aliceChain := setup.Chains[0]
+
+	stateManagerOpts := setup.StateManagerOpts
+	stateManagerOpts = append(
+		stateManagerOpts,
+		statemanager.WithNumBatchesRead(5),
+	)
+	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	require.NoError(t, err)
+
+	chalManager, err := challengemanager.New(
+		ctx,
+		aliceChain,
+		stateManager,
+		setup.Addrs.Rollup,
+		challengemanager.WithMode(types.ResolveMode),
+		challengemanager.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+	chalManager.Start(ctx)
+
+	preState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1<<26)
+	require.NoError(t, err)
+	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1<<26)
+	require.NoError(t, err)
+
+	assertionManager, err := assertions.NewManager(
+		aliceChain,
+		stateManager,
+		setup.Backend,
+		chalManager,
+		aliceChain.RollupAddress(),
+		chalManager.ChallengeManagerAddress(),
+		"alice",
+		time.Millisecond*200, // poll interval for assertions
+		time.Hour,            // confirmation attempt interval
+		stateManager,
+		time.Millisecond*100, // poll interval
+		time.Second*1,
+		nil,
+		assertions.WithDangerousReadyToPost(),
+		assertions.WithPostingDisabled(),
+		assertions.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+
+	go assertionManager.Start(ctx)
+
+	time.Sleep(time.Second)
+
+	posted, err := assertionManager.PostAssertion(ctx)
+	require.NoError(t, err)
+	require.Equal(t, true, posted.IsSome())
+	require.Equal(t, postState, protocol.GoExecutionStateFromSolidity(posted.Unwrap().AfterState))
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	expectAssertionConfirmed(t, ctx, setup.Backend, aliceChain.RollupAddress())
+}
+
+func TestFastConfirmationWithSafe(t *testing.T) {
+	ctx := context.Background()
+	setup, err := setup.ChainsWithEdgeChallengeManager(
+		// setup.WithMockBridge(),
+		setup.WithMockOneStepProver(),
+		setup.WithChallengeTestingOpts(
+			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
+				BlockChallengeHeight:     64,
+				BigStepChallengeHeight:   32,
+				SmallStepChallengeHeight: 32,
+			}),
+		),
+		setup.WithSafeFastConfirmation(),
+	)
+	require.NoError(t, err)
+
+	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
+	require.NoError(t, err)
+
+	msgCount, err := bridgeBindings.SequencerMessageCount(setup.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), msgCount.Uint64())
+
+	aliceChain := setup.Chains[0]
+	bobChain := setup.Chains[1]
+
+	stateManagerOpts := setup.StateManagerOpts
+	stateManagerOpts = append(
+		stateManagerOpts,
+		statemanager.WithNumBatchesRead(5),
+	)
+	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	require.NoError(t, err)
+
+	chalManagerAlice, err := challengemanager.New(
+		ctx,
+		aliceChain,
+		stateManager,
+		setup.Addrs.Rollup,
+		challengemanager.WithMode(types.ResolveMode),
+		challengemanager.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+	chalManagerAlice.Start(ctx)
+
+	preState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1<<26)
+	require.NoError(t, err)
+	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1<<26)
+	require.NoError(t, err)
+
+	assertionManagerAlice, err := assertions.NewManager(
+		aliceChain,
+		stateManager,
+		setup.Backend,
+		chalManagerAlice,
+		aliceChain.RollupAddress(),
+		chalManagerAlice.ChallengeManagerAddress(),
+		"alice",
+		time.Millisecond*200, // poll interval for assertions
+		time.Hour,            // confirmation attempt interval
+		stateManager,
+		time.Millisecond*100, // poll interval
+		time.Second*1,
+		nil,
+		assertions.WithDangerousReadyToPost(),
+		assertions.WithPostingDisabled(),
+		assertions.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+
+	go assertionManagerAlice.Start(ctx)
+
+	time.Sleep(time.Second)
+
+	posted, err := assertionManagerAlice.PostAssertion(ctx)
+	require.NoError(t, err)
+	require.Equal(t, true, posted.IsSome())
+	require.Equal(t, postState, protocol.GoExecutionStateFromSolidity(posted.Unwrap().AfterState))
+
+	<-time.After(time.Second)
+	status, err := aliceChain.AssertionStatus(ctx, protocol.AssertionHash{Hash: posted.Unwrap().AssertionHash})
+	require.NoError(t, err)
+	// Just one fast confirmation is not enough to confirm the assertion.
+	require.Equal(t, protocol.AssertionPending, status)
+
+	chalManagerBob, err := challengemanager.New(
+		ctx,
+		bobChain,
+		stateManager,
+		setup.Addrs.Rollup,
+		challengemanager.WithMode(types.ResolveMode),
+		challengemanager.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+	chalManagerBob.Start(ctx)
+
+	assertionManagerBob, err := assertions.NewManager(
+		bobChain,
+		stateManager,
+		setup.Backend,
+		chalManagerBob,
+		bobChain.RollupAddress(),
+		chalManagerBob.ChallengeManagerAddress(),
+		"bob",
+		time.Millisecond*200, // poll interval for assertions
+		time.Hour,            // confirmation attempt interval
+		stateManager,
+		time.Millisecond*100, // poll interval
+		time.Second*1,
+		nil,
+		assertions.WithDangerousReadyToPost(),
+		assertions.WithPostingDisabled(),
+		assertions.WithFastConfirmation(),
+	)
+	require.NoError(t, err)
+
+	assertionManagerBob.Start(ctx)
+
+	// Only after both Alice and Bob confirm the assertion, it should be confirmed.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	expectAssertionConfirmed(t, ctx, setup.Backend, aliceChain.RollupAddress())
+}
+
 type seqMessage struct {
 	dataHash                 common.Hash
 	afterDelayedMessagesRead *big.Int
@@ -352,7 +556,7 @@ func enqueueSequencerMessageAsExecutor(
 	t *testing.T,
 	opts *bind.TransactOpts,
 	executor common.Address,
-	backend *backends.SimulatedBackend,
+	backend *setup.SimulatedBackendWrapper,
 	bridge common.Address,
 	msg seqMessage,
 ) {
@@ -377,4 +581,37 @@ func enqueueSequencerMessageAsExecutor(
 	_, err = execBindings.ExecuteCall(opts, bridge, data)
 	require.NoError(t, err)
 	backend.Commit()
+}
+
+func expectAssertionConfirmed(
+	t *testing.T,
+	ctx context.Context,
+	backend protocol.ChainBackend,
+	rollupAddr common.Address,
+) {
+	rc, err := rollupgen.NewRollupCore(rollupAddr, backend)
+	require.NoError(t, err)
+	var confirmed bool
+	for ctx.Err() == nil && !confirmed {
+		i, err := retry.UntilSucceeds(ctx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
+			return rc.FilterAssertionConfirmed(nil, nil)
+		})
+		require.NoError(t, err)
+		for i.Next() {
+			assertionNode, err := retry.UntilSucceeds(ctx, func() (rollupgen.AssertionNode, error) {
+				return rc.GetAssertion(&bind.CallOpts{Context: ctx}, i.Event.AssertionHash)
+			})
+			require.NoError(t, err)
+			if assertionNode.Status != uint8(protocol.AssertionConfirmed) {
+				t.Fatal("Confirmed assertion with unfinished state")
+			}
+			confirmed = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	if !confirmed {
+		t.Fatal("assertion was not confirmed")
+	}
 }

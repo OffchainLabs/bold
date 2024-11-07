@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "edge-tracker",
@@ -8,11 +8,13 @@ go_library(
         "tracker.go",
         "transition_table.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/challenge-manager/edge-tracker",
+    importpath = "github.com/offchainlabs/bold/challenge-manager/edge-tracker",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
+        "//challenge-manager/challenge-tree",
         "//containers",
+        "//containers/events",
         "//containers/fsm",
         "//containers/option",
         "//layer2-state-provider",
@@ -20,7 +22,6 @@ go_library(
         "//runtime",
         "//state-commitments/history",
         "//time",
-        "//util",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",

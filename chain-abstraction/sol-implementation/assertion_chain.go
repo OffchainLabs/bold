@@ -8,25 +8,28 @@ package solimpl
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"math/big"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers"
-	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/containers/threadsafe"
-	"github.com/OffchainLabs/bold/solgen/go/bridgegen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	"github.com/OffchainLabs/bold/util"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers"
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	retry "github.com/offchainlabs/bold/runtime"
+	"github.com/offchainlabs/bold/solgen/go/bridgegen"
+	"github.com/offchainlabs/bold/solgen/go/contractsgen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 )
 
@@ -36,10 +39,12 @@ var (
 	ErrAlreadyExists    = errors.New("item already exists on-chain")
 	ErrPrevDoesNotExist = errors.New("assertion predecessor does not exist")
 	ErrTooLate          = errors.New("too late to create assertion sibling")
-	srvlog              = log.New("service", "contract-bindings")
 )
 
 var assertionCreatedId common.Hash
+var fastConfirmAssertionMethod abi.Method
+
+var defaultBaseGas = int64(500000)
 
 func init() {
 	rollupAbi, err := rollupgen.RollupCoreMetaData.GetAbi()
@@ -51,7 +56,15 @@ func init() {
 		panic("RollupCore ABI missing AssertionCreated event")
 	}
 	assertionCreatedId = assertionCreatedEvent.ID
-	srvlog.SetHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+
+	rollupUserLogicAbi, err := rollupgen.RollupUserLogicMetaData.GetAbi()
+	if err != nil {
+		panic(err)
+	}
+	fastConfirmAssertionMethod, ok = rollupUserLogicAbi.Methods["fastConfirmAssertion"]
+	if !ok {
+		panic("RollupUserLogic ABI missing fastConfirmAssertion method")
+	}
 }
 
 // ChainBackend to interact with the underlying blockchain.
@@ -140,6 +153,15 @@ type AssertionChain struct {
 	specChallengeManager                     protocol.SpecChallengeManager
 	averageTimeForBlockCreation              time.Duration
 	transactor                               Transactor
+	fastConfirmSafeAddress                   common.Address
+	fastConfirmSafe                          *contractsgen.Safe
+	fastConfirmSafeOwners                    []common.Address
+	fastConfirmSafeApprovedHashesOwners      map[common.Hash]map[common.Address]bool
+	fastConfirmSafeThreshold                 uint64
+	// rpcHeadBlockNumber is the block number of the latest block on the chain.
+	// It is set to rpc.FinalizedBlockNumber by default.
+	// WithRpcHeadBlockNumber can be used to set a different block number.
+	rpcHeadBlockNumber rpc.BlockNumber
 }
 
 type Opt func(*AssertionChain)
@@ -153,6 +175,18 @@ func WithTrackedContractBackend() Opt {
 func WithMetricsContractBackend() Opt {
 	return func(a *AssertionChain) {
 		a.backend = NewMetricsContractBackend(a.backend)
+	}
+}
+
+func WithRpcHeadBlockNumber(rpcHeadBlockNumber rpc.BlockNumber) Opt {
+	return func(a *AssertionChain) {
+		a.rpcHeadBlockNumber = rpcHeadBlockNumber
+	}
+}
+
+func WithFastConfirmSafeAddress(fastConfirmSafeAddress common.Address) Opt {
+	return func(a *AssertionChain) {
+		a.fastConfirmSafeAddress = fastConfirmSafeAddress
 	}
 }
 
@@ -178,6 +212,7 @@ func NewAssertionChain(
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
+		rpcHeadBlockNumber:                       rpc.FinalizedBlockNumber,
 	}
 	for _, opt := range opts {
 		opt(chain)
@@ -207,6 +242,33 @@ func NewAssertionChain(
 		return nil, err
 	}
 	chain.specChallengeManager = specChallengeManager
+	if chain.fastConfirmSafeAddress != (common.Address{}) {
+		safe, err := contractsgen.NewSafe(chain.fastConfirmSafeAddress, chain.backend)
+		if err != nil {
+			return nil, err
+		}
+		chain.fastConfirmSafe = safe
+		owners, err := retry.UntilSucceeds(ctx, func() ([]common.Address, error) {
+			return safe.GetOwners(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// This is needed because safe contract needs owners to be sorted.
+		sort.Slice(owners, func(i, j int) bool {
+			return owners[i].Cmp(owners[j]) < 0
+		})
+		chain.fastConfirmSafeOwners = owners
+		threshold, err := retry.UntilSucceeds(ctx, func() (*big.Int, error) {
+			return safe.GetThreshold(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+		})
+		if err != nil {
+			return nil, err
+		}
+		chain.fastConfirmSafeThreshold = threshold.Uint64()
+		chain.fastConfirmSafeApprovedHashesOwners = make(map[common.Hash]map[common.Address]bool)
+	}
 	return chain, nil
 }
 
@@ -214,14 +276,18 @@ func (a *AssertionChain) RollupUserLogic() *rollupgen.RollupUserLogic {
 	return a.userLogic
 }
 
+func (a *AssertionChain) RollupCore() *rollupgen.RollupCore {
+	return a.rollup
+}
+
 func (a *AssertionChain) Backend() protocol.ChainBackend {
 	return a.backend
 }
 
-func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
+func (a *AssertionChain) GetAssertion(ctx context.Context, opts *bind.CallOpts, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	res, err := a.userLogic.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
+	res, err := a.userLogic.GetAssertion(opts, b)
 	if err != nil {
 		return nil, err
 	}
@@ -240,24 +306,24 @@ func (a *AssertionChain) GetAssertion(ctx context.Context, assertionHash protoco
 }
 
 func (a *AssertionChain) AssertionStatus(ctx context.Context, assertionHash protocol.AssertionHash) (protocol.AssertionStatus, error) {
-	res, err := a.rollup.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), assertionHash.Hash)
+	res, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, assertionHash.Hash)
 	if err != nil {
 		return protocol.NoAssertion, err
 	}
 	return protocol.AssertionStatus(res.Status), nil
 }
 
-func (a *AssertionChain) LatestConfirmed(ctx context.Context) (protocol.Assertion, error) {
-	res, err := a.rollup.LatestConfirmed(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+func (a *AssertionChain) LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (protocol.Assertion, error) {
+	res, err := a.rollup.LatestConfirmed(opts)
 	if err != nil {
 		return nil, err
 	}
-	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: res})
+	return a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: res})
 }
 
 // Returns true if the staker's address is currently staked in the assertion chain.
 func (a *AssertionChain) IsStaked(ctx context.Context) (bool, error) {
-	return a.rollup.IsStaked(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), a.txOpts.From)
+	return a.rollup.IsStaked(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), a.txOpts.From)
 }
 
 // RollupAddress for the assertion chain.
@@ -283,7 +349,7 @@ func (a *AssertionChain) IsChallengeComplete(
 	if !parentIsConfirmed {
 		return false, nil
 	}
-	latestConfirmed, err := a.LatestConfirmed(ctx)
+	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return false, err
 	}
@@ -308,7 +374,7 @@ func (a *AssertionChain) NewStakeOnNewAssertion(
 		ctx,
 		parentAssertionCreationInfo,
 		postState,
-		a.userLogic.RollupUserLogicTransactor.NewStakeOnNewAssertion,
+		a.userLogic.RollupUserLogicTransactor.NewStakeOnNewAssertion7300201c,
 	)
 }
 
@@ -347,7 +413,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if postState.GlobalState.Batch == 0 {
 		return nil, errors.New("assertion post state cannot have a batch count of 0, as only genesis can")
 	}
-	bridgeAddr, err := a.userLogic.Bridge(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	bridgeAddr, err := a.userLogic.Bridge(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not retrieve bridge address for user rollup logic contract")
 	}
@@ -356,14 +422,14 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 		return nil, errors.Wrapf(err, "could not initialize bridge at address %#x", bridgeAddr)
 	}
 	inboxBatchAcc, err := bridge.SequencerInboxAccs(
-		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
+		a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		new(big.Int).SetUint64(postState.GlobalState.Batch-1),
 	)
 	if err != nil {
 		return nil, ErrBatchNotYetFound
 	}
 	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
-		util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}),
+		a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		parentAssertionCreationInfo.AssertionHash,
 		postState.AsSolidityStruct(),
 		inboxBatchAcc,
@@ -371,7 +437,8 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if err != nil {
 		return nil, errors.Wrap(err, "could not compute assertion hash")
 	}
-	existingAssertion, err := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+	// Check if the assertion already exists based on latest head, which means we should not make a mutating call.
+	existingAssertion, err := a.GetAssertion(ctx, &bind.CallOpts{Context: ctx}, protocol.AssertionHash{Hash: computedHash})
 	switch {
 	case err == nil:
 		return existingAssertion, nil
@@ -401,9 +468,10 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 			computedHash,
 		)
 	})
+	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
 	if createErr := handleCreateAssertionError(err, postState.GlobalState.BlockHash); createErr != nil {
 		if strings.Contains(err.Error(), "already exists") {
-			assertionItem, err2 := a.GetAssertion(ctx, protocol.AssertionHash{Hash: computedHash})
+			assertionItem, err2 := a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: computedHash})
 			if err2 != nil {
 				return nil, err2
 			}
@@ -427,15 +495,15 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	if !found {
 		return nil, errors.New("could not find assertion created event in logs")
 	}
-	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
+	return a.GetAssertion(ctx, opts, protocol.AssertionHash{Hash: assertionCreated.AssertionHash})
 }
 
 func (a *AssertionChain) GenesisAssertionHash(ctx context.Context) (common.Hash, error) {
-	return a.userLogic.GenesisAssertionHash(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	return a.userLogic.GenesisAssertionHash(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 }
 
 func (a *AssertionChain) MinAssertionPeriodBlocks(ctx context.Context) (uint64, error) {
-	minPeriod, err := a.rollup.MinimumAssertionPeriod(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+	minPeriod, err := a.rollup.MinimumAssertionPeriod(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return 0, err
 	}
@@ -465,7 +533,7 @@ func TryConfirmingAssertion(
 	}
 	for {
 		var latestHeader *types.Header
-		latestHeader, err = chain.Backend().HeaderByNumber(ctx, util.GetSafeBlockNumber())
+		latestHeader, err = chain.Backend().HeaderByNumber(ctx, chain.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return false, err
 		}
@@ -478,7 +546,7 @@ func TryConfirmingAssertion(
 		if !confirmable {
 			blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
 			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
-			srvlog.Info(
+			log.Info(
 				fmt.Sprintf(
 					"Assertion with hash %s needs at least %d blocks before being confirmable, waiting for %s",
 					containers.Trunc(assertionHash.Bytes()),
@@ -532,7 +600,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 ) error {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	node, err := a.userLogic.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
+	node, err := a.userLogic.GetAssertion(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return err
 	}
@@ -551,7 +619,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if err != nil {
 		return err
 	}
-	latestConfirmed, err := a.LatestConfirmed(ctx)
+	latestConfirmed, err := a.LatestConfirmed(ctx, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
 	}
@@ -591,6 +659,151 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	return nil
 }
 
+// FastConfirmAssertion attempts to fast confirm an assertion onchain.
+func (a *AssertionChain) FastConfirmAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) error {
+	if a.fastConfirmSafe != nil {
+		return a.fastConfirmSafeAssertion(ctx, assertionCreationInfo)
+	}
+	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return a.userLogic.RollupUserLogicTransactor.FastConfirmAssertion(
+			opts,
+			assertionCreationInfo.AssertionHash,
+			assertionCreationInfo.ParentAssertionHash,
+			assertionCreationInfo.AfterState,
+			assertionCreationInfo.AfterInboxBatchAcc,
+		)
+	})
+	if err != nil {
+		return err
+	}
+	if len(receipt.Logs) == 0 {
+		return errors.New("no logs observed from assertion confirmation")
+	}
+	return nil
+}
+
+func (a *AssertionChain) fastConfirmSafeAssertion(
+	ctx context.Context,
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) error {
+	fastConfirmCallData, err := a.createFastConfirmCalldata(assertionCreationInfo)
+	if err != nil {
+		return err
+	}
+
+	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+
+	// Current nonce of the safe.
+	nonce, err := a.fastConfirmSafe.Nonce(callOpts)
+	if err != nil {
+		return err
+	}
+	// Hash of the safe transaction.
+	safeTxHash, err := a.fastConfirmSafe.GetTransactionHash(
+		callOpts,
+		a.rollupAddr,
+		big.NewInt(0),
+		fastConfirmCallData,
+		0,
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
+		common.Address{},
+		common.Address{},
+		nonce,
+	)
+	if err != nil {
+		return err
+	}
+	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return a.fastConfirmSafe.ApproveHash(opts, safeTxHash)
+	})
+	if err != nil {
+		return err
+	}
+	if len(receipt.Logs) == 0 {
+		return errors.New("no logs observed from hash approval")
+	}
+	if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash]; !ok {
+		a.fastConfirmSafeApprovedHashesOwners[safeTxHash] = make(map[common.Address]bool)
+	}
+	a.fastConfirmSafeApprovedHashesOwners[safeTxHash][a.txOpts.From] = true
+	return a.checkApprovedHashAndExecTransaction(ctx, fastConfirmCallData, safeTxHash)
+}
+
+func (a *AssertionChain) createFastConfirmCalldata(
+	assertionCreationInfo *protocol.AssertionCreatedInfo,
+) ([]byte, error) {
+	calldata, err := fastConfirmAssertionMethod.Inputs.Pack(
+		assertionCreationInfo.AssertionHash,
+		assertionCreationInfo.ParentAssertionHash,
+		assertionCreationInfo.AfterState,
+		assertionCreationInfo.AfterInboxBatchAcc,
+	)
+	if err != nil {
+		return nil, err
+	}
+	fullCalldata := append([]byte{}, fastConfirmAssertionMethod.ID...)
+	fullCalldata = append(fullCalldata, calldata...)
+	return fullCalldata, nil
+}
+
+func (a *AssertionChain) checkApprovedHashAndExecTransaction(ctx context.Context, fastConfirmCallData []byte, safeTxHash [32]byte) error {
+	var signatures []byte
+	for _, owner := range a.fastConfirmSafeOwners {
+		if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner]; !ok {
+			iter, err := a.fastConfirmSafe.FilterApproveHash(&bind.FilterOpts{Context: ctx}, [][32]byte{safeTxHash}, []common.Address{owner})
+			if err != nil {
+				return err
+			}
+			for iter.Next() {
+				a.fastConfirmSafeApprovedHashesOwners[iter.Event.ApprovedHash][iter.Event.Owner] = true
+			}
+		}
+		// If the owner has approved the hash, we add the signature to the transaction.
+		// We add the signature in the format r, s, v.
+		// We set v to 1, as it is the only possible value for a approved hash.
+		// We set r to the owner's address.
+		// We set s to the empty hash.
+		// Refer to the Safe contract for more information.
+		if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner]; ok {
+			v := uint8(1)
+			r := common.BytesToHash(owner.Bytes())
+			s := common.Hash{}
+			signatures = append(signatures, r.Bytes()...)
+			signatures = append(signatures, s.Bytes()...)
+			signatures = append(signatures, v)
+		}
+	}
+	if uint64(len(a.fastConfirmSafeApprovedHashesOwners[safeTxHash])) >= a.fastConfirmSafeThreshold {
+		receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return a.fastConfirmSafe.ExecTransaction(
+				opts,
+				a.rollupAddr,
+				big.NewInt(0),
+				fastConfirmCallData,
+				0,
+				big.NewInt(0),
+				big.NewInt(0),
+				big.NewInt(0),
+				common.Address{},
+				common.Address{},
+				signatures,
+			)
+		})
+		if err != nil {
+			return err
+		}
+		if len(receipt.Logs) == 0 {
+			return errors.New("no logs observed from transaction execution")
+		}
+	}
+	return nil
+}
+
 // SpecChallengeManager creates a new spec challenge manager
 func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
 	return a.specChallengeManager, nil
@@ -602,7 +815,7 @@ func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.Spe
 func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error) {
 	var b [32]byte
 	copy(b[:], assertionHash.Bytes())
-	wantNode, err := a.rollup.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
+	wantNode, err := a.rollup.GetAssertion(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return 0, err
 	}
@@ -627,7 +840,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 		return 0, err
 	}
 	copy(b[:], prevId.Bytes())
-	prevNode, err := a.rollup.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
+	prevNode, err := a.rollup.GetAssertion(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), b)
 	if err != nil {
 		return 0, err
 	}
@@ -641,7 +854,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		latestHeader, err := a.backend.HeaderByNumber(ctx, util.GetSafeBlockNumber())
+		latestHeader, err := a.backend.HeaderByNumber(ctx, a.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return 0, err
 		}
@@ -704,97 +917,6 @@ func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protoc
 	return edge.TopLevelClaimHeight(ctx)
 }
 
-// LatestCreatedAssertion retrieves the latest assertion from the rollup contract by reading the
-// latest confirmed assertion and then querying the contract log events for all assertions created
-// since that block and returning the most recent one.
-func (a *AssertionChain) LatestCreatedAssertion(ctx context.Context) (protocol.Assertion, error) {
-	latestConfirmed, err := a.LatestConfirmed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	createdAtBlock := latestConfirmed.CreatedAtBlock()
-	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(createdAtBlock),
-		ToBlock:   util.GetSafeBlockNumber(),
-		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}},
-	}
-	logs, err := a.backend.FilterLogs(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	// The logs are likely sorted by blockNumber, index, but we find the latest one, just in case,
-	// while ignoring any removed logs from a reorged event.
-	var latestBlockNumber uint64
-	var latestLogIndex uint
-	var latestLog *types.Log
-	for _, log := range logs {
-		l := log
-		if l.Removed {
-			continue
-		}
-		if l.BlockNumber > latestBlockNumber ||
-			(l.BlockNumber == latestBlockNumber && l.Index >= latestLogIndex) {
-			latestBlockNumber = l.BlockNumber
-			latestLogIndex = l.Index
-			latestLog = &l
-		}
-	}
-
-	if latestLog == nil {
-		return nil, errors.New("no assertion creation events found")
-	}
-
-	creationEvent, err := a.rollup.ParseAssertionCreated(*latestLog)
-	if err != nil {
-		return nil, err
-	}
-	return a.GetAssertion(ctx, protocol.AssertionHash{Hash: creationEvent.AssertionHash})
-}
-
-// LatestCreatedAssertionHashes retrieves the latest assertion hashes posted to the rollup contract
-// since the last confirmed assertion block. The results are ordered in ascending order by block
-// number, log index.
-func (a *AssertionChain) LatestCreatedAssertionHashes(ctx context.Context) ([]protocol.AssertionHash, error) {
-	latestConfirmed, err := a.LatestConfirmed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	createdAtBlock := latestConfirmed.CreatedAtBlock()
-	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(createdAtBlock),
-		ToBlock:   util.GetSafeBlockNumber(),
-		Addresses: []common.Address{a.rollupAddr},
-		Topics:    [][]common.Hash{{assertionCreatedId}},
-	}
-	logs, err := a.backend.FilterLogs(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(logs, func(i, j int) bool {
-		if logs[i].BlockNumber == logs[j].BlockNumber {
-			return logs[i].Index < logs[j].Index
-		}
-		return logs[i].BlockNumber < logs[j].BlockNumber
-	})
-
-	var assertionHashes []protocol.AssertionHash
-	for _, l := range logs {
-		if len(l.Topics) < 2 {
-			continue // Should never happen.
-		}
-		if l.Removed {
-			continue
-		}
-		// The first topic is the event id, the second is the indexed assertion hash.
-		assertionHashes = append(assertionHashes, protocol.AssertionHash{Hash: l.Topics[1]})
-	}
-
-	return assertionHashes, nil
-}
-
 // ReadAssertionCreationInfo for an assertion sequence number by looking up its creation
 // event from the rollup contracts.
 func (a *AssertionChain) ReadAssertionCreationInfo(
@@ -803,7 +925,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	var creationBlock uint64
 	var topics [][]common.Hash
 	if id == (protocol.AssertionHash{}) {
-		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}))
+		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return nil, err
 		}
@@ -815,7 +937,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	} else {
 		var b [32]byte
 		copy(b[:], id.Bytes())
-		node, err := a.rollup.GetAssertion(util.GetSafeCallOpts(&bind.CallOpts{Context: ctx}), b)
+		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
 		if err != nil {
 			return nil, err
 		}
@@ -891,4 +1013,26 @@ func handleCreateAssertionError(err error, blockHash common.Hash) error {
 	default:
 		return err
 	}
+}
+
+func (a *AssertionChain) GetCallOptsWithDesiredRpcHeadBlockNumber(opts *bind.CallOpts) *bind.CallOpts {
+	if opts == nil {
+		opts = &bind.CallOpts{}
+	}
+	// If we are running tests, we want to use the latest block number since
+	// simulated backends only support the latest block number.
+	if flag.Lookup("test.v") != nil {
+		return opts
+	}
+	opts.BlockNumber = big.NewInt(int64(a.rpcHeadBlockNumber))
+	return opts
+}
+
+func (a *AssertionChain) GetDesiredRpcHeadBlockNumber() *big.Int {
+	// If we are running tests, we want to use the latest block number since
+	// simulated backends only support the latest block number.
+	if flag.Lookup("test.v") != nil {
+		return nil
+	}
+	return big.NewInt(int64(a.rpcHeadBlockNumber))
 }

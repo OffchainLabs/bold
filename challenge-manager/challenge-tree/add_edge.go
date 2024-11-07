@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers/option"
-	"github.com/OffchainLabs/bold/containers/threadsafe"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
@@ -94,7 +94,7 @@ func (ht *RoyalChallengeTree) checkAssertionHash(ctx context.Context, id protoco
 	return nil
 }
 
-func (ht *RoyalChallengeTree) claimedAssertionHash(ctx context.Context, eg protocol.SpecEdge) (protocol.AssertionHash, error) {
+func (ht *RoyalChallengeTree) claimedAssertionHash(_ context.Context, eg protocol.SpecEdge) (protocol.AssertionHash, error) {
 	challengeLevel := eg.GetChallengeLevel()
 	// If this is a root challege level zero edge.
 	if challengeLevel == protocol.NewBlockChallengeLevel() && !eg.ClaimId().IsNone() {

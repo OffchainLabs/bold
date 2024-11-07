@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "challenge-manager",
@@ -6,7 +6,7 @@ go_library(
         "challenges.go",
         "manager.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/challenge-manager",
+    importpath = "github.com/offchainlabs/bold/challenge-manager",
     visibility = ["//visibility:public"],
     deps = [
         "//api/backend",
@@ -18,6 +18,7 @@ go_library(
         "//challenge-manager/edge-tracker",
         "//challenge-manager/types",
         "//containers",
+        "//containers/events",
         "//containers/option",
         "//containers/threadsafe",
         "//layer2-state-provider",
@@ -28,6 +29,7 @@ go_library(
         "//util/stopwaiter",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//log",
         "@com_github_ethereum_go_ethereum//rpc",
         "@com_github_pkg_errors//:errors",
@@ -36,6 +38,7 @@ go_library(
 
 go_test(
     name = "challenge-manager_test",
+    size = "small",
     srcs = ["manager_test.go"],
     embed = [":challenge-manager"],
     deps = [
@@ -50,7 +53,6 @@ go_test(
         "//testing/mocks",
         "//testing/setup:setup_lib",
         "//time",
-        "//util",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_stretchr_testify//require",

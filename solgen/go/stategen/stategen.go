@@ -32,7 +32,7 @@ var (
 // DeserializeMetaData contains all meta data concerning the Deserialize contract.
 var DeserializeMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122069e1712ec42668bc2f5693362f9cd23756dc8ced8778475190b4cbc61177c48764736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220845c13e523c4ccf7b84511a0efa921c048812a93d35b50a8221db6f59d44412264736f6c63430008110033",
 }
 
 // DeserializeABI is the input ABI used to generate the binding from.
@@ -205,7 +205,7 @@ func (_Deserialize *DeserializeTransactorRaw) Transact(opts *bind.TransactOpts, 
 // GlobalStateLibMetaData contains all meta data concerning the GlobalStateLib contract.
 var GlobalStateLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220d98fed73ef0a1f84db8e72e67fc1d858690396e7564a4490c47cda1449b533d064736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122053e21b954fa8462167f06bfb0e3d8fb48d06c9cf72fecb2048498954589a4fa564736f6c63430008110033",
 }
 
 // GlobalStateLibABI is the input ABI used to generate the binding from.
@@ -378,7 +378,7 @@ func (_GlobalStateLib *GlobalStateLibTransactorRaw) Transact(opts *bind.Transact
 // InstructionsMetaData contains all meta data concerning the Instructions contract.
 var InstructionsMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212207567c902b1841b1dd6bc9a2bcb05f8fa87785974d1e17dd1898e05756f89f71564736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212202d7999708447cca3c56e156ec0e040155b9ad22b5861451138642fbb167ab46964736f6c63430008110033",
 }
 
 // InstructionsABI is the input ABI used to generate the binding from.
@@ -551,7 +551,7 @@ func (_Instructions *InstructionsTransactorRaw) Transact(opts *bind.TransactOpts
 // MachineLibMetaData contains all meta data concerning the MachineLib contract.
 var MachineLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220429587a60fc965d36c300d315187eb48508f715a5eb82a168d7cc9ab2a07bbcf64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212205f55fdd35d31db80aa237c4e9046afce55f996655021d0011981b4a8e57b421264736f6c63430008110033",
 }
 
 // MachineLibABI is the input ABI used to generate the binding from.
@@ -724,7 +724,7 @@ func (_MachineLib *MachineLibTransactorRaw) Transact(opts *bind.TransactOpts, me
 // MerkleProofLibMetaData contains all meta data concerning the MerkleProofLib contract.
 var MerkleProofLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220a4efd863927f057cb645f9177078336a5024c0b8662f55aa56a0f2516715098864736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212207d28912605f19d8473768f0d81bf6043a89f4184e97b76ffcc691f51c4db6c9264736f6c63430008110033",
 }
 
 // MerkleProofLibABI is the input ABI used to generate the binding from.
@@ -897,7 +897,7 @@ func (_MerkleProofLib *MerkleProofLibTransactorRaw) Transact(opts *bind.Transact
 // ModuleLibMetaData contains all meta data concerning the ModuleLib contract.
 var ModuleLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212209618a9cee94d64889e5b3796adb0f066f1efa46e0c2801e8f865ea8b07d250eb64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220ff15e0cab874c394ea70e04f536573d1cea22b8ff7a2fae1ee3a954c2068c70f64736f6c63430008110033",
 }
 
 // ModuleLibABI is the input ABI used to generate the binding from.
@@ -1070,7 +1070,7 @@ func (_ModuleLib *ModuleLibTransactorRaw) Transact(opts *bind.TransactOpts, meth
 // ModuleMemoryCompactLibMetaData contains all meta data concerning the ModuleMemoryCompactLib contract.
 var ModuleMemoryCompactLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212209b3f783462018ab63c3cf93540eab2692b1748a4a0ad3515dd3a13481d4a105464736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122023e20d2f0efefe94079e56849bbc6c6054137ec90e5de9d49fbec16c2df7553f64736f6c63430008110033",
 }
 
 // ModuleMemoryCompactLibABI is the input ABI used to generate the binding from.
@@ -1243,7 +1243,7 @@ func (_ModuleMemoryCompactLib *ModuleMemoryCompactLibTransactorRaw) Transact(opt
 // ModuleMemoryLibMetaData contains all meta data concerning the ModuleMemoryLib contract.
 var ModuleMemoryLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea264697066735822122053e030ed925a5a6b1a1570cf60b03f7cd499b1efdcc5ff48cb205ca3883edd9864736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220d9004bd9a73b6d10fbab3f72b1a4fca315fc36f1bd740b43c69aca068203e01064736f6c63430008110033",
 }
 
 // ModuleMemoryLibABI is the input ABI used to generate the binding from.
@@ -1413,10 +1413,183 @@ func (_ModuleMemoryLib *ModuleMemoryLibTransactorRaw) Transact(opts *bind.Transa
 	return _ModuleMemoryLib.Contract.contract.Transact(opts, method, params...)
 }
 
+// MultiStackLibMetaData contains all meta data concerning the MultiStackLib contract.
+var MultiStackLibMetaData = &bind.MetaData{
+	ABI: "[]",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212207c598a5d6248952b0e1350576617370f48c692f217477aeada98439be945362164736f6c63430008110033",
+}
+
+// MultiStackLibABI is the input ABI used to generate the binding from.
+// Deprecated: Use MultiStackLibMetaData.ABI instead.
+var MultiStackLibABI = MultiStackLibMetaData.ABI
+
+// MultiStackLibBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use MultiStackLibMetaData.Bin instead.
+var MultiStackLibBin = MultiStackLibMetaData.Bin
+
+// DeployMultiStackLib deploys a new Ethereum contract, binding an instance of MultiStackLib to it.
+func DeployMultiStackLib(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *MultiStackLib, error) {
+	parsed, err := MultiStackLibMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(MultiStackLibBin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &MultiStackLib{MultiStackLibCaller: MultiStackLibCaller{contract: contract}, MultiStackLibTransactor: MultiStackLibTransactor{contract: contract}, MultiStackLibFilterer: MultiStackLibFilterer{contract: contract}}, nil
+}
+
+// MultiStackLib is an auto generated Go binding around an Ethereum contract.
+type MultiStackLib struct {
+	MultiStackLibCaller     // Read-only binding to the contract
+	MultiStackLibTransactor // Write-only binding to the contract
+	MultiStackLibFilterer   // Log filterer for contract events
+}
+
+// MultiStackLibCaller is an auto generated read-only Go binding around an Ethereum contract.
+type MultiStackLibCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// MultiStackLibTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type MultiStackLibTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// MultiStackLibFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type MultiStackLibFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// MultiStackLibSession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type MultiStackLibSession struct {
+	Contract     *MultiStackLib    // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+}
+
+// MultiStackLibCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type MultiStackLibCallerSession struct {
+	Contract *MultiStackLibCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts        // Call options to use throughout this session
+}
+
+// MultiStackLibTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type MultiStackLibTransactorSession struct {
+	Contract     *MultiStackLibTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts        // Transaction auth options to use throughout this session
+}
+
+// MultiStackLibRaw is an auto generated low-level Go binding around an Ethereum contract.
+type MultiStackLibRaw struct {
+	Contract *MultiStackLib // Generic contract binding to access the raw methods on
+}
+
+// MultiStackLibCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type MultiStackLibCallerRaw struct {
+	Contract *MultiStackLibCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// MultiStackLibTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type MultiStackLibTransactorRaw struct {
+	Contract *MultiStackLibTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewMultiStackLib creates a new instance of MultiStackLib, bound to a specific deployed contract.
+func NewMultiStackLib(address common.Address, backend bind.ContractBackend) (*MultiStackLib, error) {
+	contract, err := bindMultiStackLib(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &MultiStackLib{MultiStackLibCaller: MultiStackLibCaller{contract: contract}, MultiStackLibTransactor: MultiStackLibTransactor{contract: contract}, MultiStackLibFilterer: MultiStackLibFilterer{contract: contract}}, nil
+}
+
+// NewMultiStackLibCaller creates a new read-only instance of MultiStackLib, bound to a specific deployed contract.
+func NewMultiStackLibCaller(address common.Address, caller bind.ContractCaller) (*MultiStackLibCaller, error) {
+	contract, err := bindMultiStackLib(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &MultiStackLibCaller{contract: contract}, nil
+}
+
+// NewMultiStackLibTransactor creates a new write-only instance of MultiStackLib, bound to a specific deployed contract.
+func NewMultiStackLibTransactor(address common.Address, transactor bind.ContractTransactor) (*MultiStackLibTransactor, error) {
+	contract, err := bindMultiStackLib(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &MultiStackLibTransactor{contract: contract}, nil
+}
+
+// NewMultiStackLibFilterer creates a new log filterer instance of MultiStackLib, bound to a specific deployed contract.
+func NewMultiStackLibFilterer(address common.Address, filterer bind.ContractFilterer) (*MultiStackLibFilterer, error) {
+	contract, err := bindMultiStackLib(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &MultiStackLibFilterer{contract: contract}, nil
+}
+
+// bindMultiStackLib binds a generic wrapper to an already deployed contract.
+func bindMultiStackLib(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := MultiStackLibMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_MultiStackLib *MultiStackLibRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _MultiStackLib.Contract.MultiStackLibCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_MultiStackLib *MultiStackLibRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _MultiStackLib.Contract.MultiStackLibTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_MultiStackLib *MultiStackLibRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _MultiStackLib.Contract.MultiStackLibTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_MultiStackLib *MultiStackLibCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _MultiStackLib.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_MultiStackLib *MultiStackLibTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _MultiStackLib.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_MultiStackLib *MultiStackLibTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _MultiStackLib.Contract.contract.Transact(opts, method, params...)
+}
+
 // PcArrayLibMetaData contains all meta data concerning the PcArrayLib contract.
 var PcArrayLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220e3dc270b6b90bfde6651dcd425c63985ef40e8fd37e14a5c513d95ce2d8d927364736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220c9a81e74a60a0c24ef0ed6b49a4c54da77e37cd526a4f48b57d4672f0761e9cd64736f6c63430008110033",
 }
 
 // PcArrayLibABI is the input ABI used to generate the binding from.
@@ -1589,7 +1762,7 @@ func (_PcArrayLib *PcArrayLibTransactorRaw) Transact(opts *bind.TransactOpts, me
 // StackFrameLibMetaData contains all meta data concerning the StackFrameLib contract.
 var StackFrameLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212203f8ac855c4ae365d29df964a3a703385c0c248f080c216ecb832ab774b4f9dce64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212208aecf4063fca3ed8ba4d1c65a430a0a164e50d3a292135ad5d777acbce27323364736f6c63430008110033",
 }
 
 // StackFrameLibABI is the input ABI used to generate the binding from.
@@ -1762,7 +1935,7 @@ func (_StackFrameLib *StackFrameLibTransactorRaw) Transact(opts *bind.TransactOp
 // ValueArrayLibMetaData contains all meta data concerning the ValueArrayLib contract.
 var ValueArrayLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220937b82a9610181a406abb82ca46d06598397cc7cdb7573f47f9f7e9a6d06143364736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212208a9a7d7d4ce822016f3c8850b7427066d374399a32a2ba6aaed289ac68d150f764736f6c63430008110033",
 }
 
 // ValueArrayLibABI is the input ABI used to generate the binding from.
@@ -1935,7 +2108,7 @@ func (_ValueArrayLib *ValueArrayLibTransactorRaw) Transact(opts *bind.TransactOp
 // ValueLibMetaData contains all meta data concerning the ValueLib contract.
 var ValueLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212208baecf25203fd437c2b3ce2fc1c4cf2981086079bce4c89f4ebeb347fc166f9964736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220520588fd7a7a93fa50e4d4f7e404d424a288319cc5dd852e3e548388593d863c64736f6c63430008110033",
 }
 
 // ValueLibABI is the input ABI used to generate the binding from.
@@ -2108,7 +2281,7 @@ func (_ValueLib *ValueLibTransactorRaw) Transact(opts *bind.TransactOpts, method
 // ValueStackLibMetaData contains all meta data concerning the ValueStackLib contract.
 var ValueStackLibMetaData = &bind.MetaData{
 	ABI: "[]",
-	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220efba79b01bb02009583feecb889b2944a415c5e4fd1da85150fe7f497b0f9d2e64736f6c63430008110033",
+	Bin: "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220fed3257be83635f8f8724e24d342986ec895236894f946294fb12b150da6c6ff64736f6c63430008110033",
 }
 
 // ValueStackLibABI is the input ABI used to generate the binding from.

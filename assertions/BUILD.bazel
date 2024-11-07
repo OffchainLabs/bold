@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "assertions",
@@ -8,7 +8,7 @@ go_library(
         "poster.go",
         "sync.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/assertions",
+    importpath = "github.com/offchainlabs/bold/assertions",
     visibility = ["//visibility:public"],
     deps = [
         "//api",
@@ -22,7 +22,6 @@ go_library(
         "//layer2-state-provider",
         "//runtime",
         "//solgen/go/rollupgen",
-        "//util",
         "//util/stopwaiter",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
@@ -35,6 +34,7 @@ go_library(
 
 go_test(
     name = "assertions_test",
+    size = "small",
     srcs = [
         "manager_test.go",
         "poster_test.go",
@@ -46,16 +46,15 @@ go_test(
         "//challenge-manager",
         "//challenge-manager/types",
         "//containers/threadsafe",
+        "//runtime",
         "//solgen/go/bridgegen",
         "//solgen/go/mocksgen",
         "//solgen/go/rollupgen",
         "//testing",
         "//testing/mocks/state-provider",
         "//testing/setup:setup_lib",
-        "//util",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
-        "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_stretchr_testify//require",
     ],

@@ -1,4 +1,15 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+package_group(
+    name = "friends",
+    packages = [
+        "//layer2-state-provider",
+        "//state-commitments/history",
+        "//state-commitments/inclusion-proofs",
+        "//state-commitments/legacy",
+        "//testing/integration",
+    ],
+)
 
 go_library(
     name = "prefix-proofs",
@@ -6,8 +17,8 @@ go_library(
         "merkle_expansions.go",
         "prefix_proofs.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/state-commitments/prefix-proofs",
-    visibility = ["//visibility:public"],
+    importpath = "github.com/offchainlabs/bold/state-commitments/prefix-proofs",
+    visibility = [":friends"],
     deps = [
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//crypto",
@@ -17,6 +28,7 @@ go_library(
 
 go_test(
     name = "prefix-proofs_test",
+    size = "small",
     srcs = [
         "merkle_expansions_test.go",
         "prefix_proofs_test.go",
@@ -28,13 +40,12 @@ go_test(
         "//layer2-state-provider",
         "//solgen/go/mocksgen",
         "//testing/mocks/state-provider",
-        "//util",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
-        "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//common/hexutil",
-        "@com_github_ethereum_go_ethereum//core",
+        "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//crypto",
+        "@com_github_ethereum_go_ethereum//ethclient/simulated",
         "@com_github_stretchr_testify//require",
     ],
 )

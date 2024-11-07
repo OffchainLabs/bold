@@ -8,15 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OffchainLabs/bold/assertions"
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	challengemanager "github.com/OffchainLabs/bold/challenge-manager"
-	"github.com/OffchainLabs/bold/challenge-manager/types"
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
-	"github.com/OffchainLabs/bold/testing/setup"
-	"github.com/OffchainLabs/bold/util"
+	"github.com/offchainlabs/bold/assertions"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	challengemanager "github.com/offchainlabs/bold/challenge-manager"
+	"github.com/offchainlabs/bold/challenge-manager/types"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 )
@@ -39,7 +38,7 @@ func TestPostAssertion(t *testing.T) {
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
 
-	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
+	msgCount, err := bridgeBindings.SequencerMessageCount(setup.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), msgCount.Uint64())
 
@@ -59,7 +58,6 @@ func TestPostAssertion(t *testing.T) {
 		stateManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.DefensiveMode),
-		challengemanager.WithEdgeTrackerWakeInterval(time.Hour),
 	)
 	require.NoError(t, err)
 	chalManager.Start(ctx)

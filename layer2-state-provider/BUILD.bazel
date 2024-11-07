@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "layer2-state-provider",
@@ -6,13 +6,12 @@ go_library(
         "history_commitment_provider.go",
         "provider.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/layer2-state-provider",
+    importpath = "github.com/offchainlabs/bold/layer2-state-provider",
     visibility = ["//visibility:public"],
     deps = [
         "//api",
         "//api/db",
         "//chain-abstraction:protocol",
-        "//containers/in-progress-cache",
         "//containers/option",
         "//state-commitments/history",
         "//state-commitments/prefix-proofs",
@@ -24,6 +23,7 @@ go_library(
 
 go_test(
     name = "layer2-state-provider_test",
+    size = "small",
     srcs = ["history_commitment_provider_test.go"],
     embed = [":layer2-state-provider"],
     deps = [

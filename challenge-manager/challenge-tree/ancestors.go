@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers"
-	"github.com/OffchainLabs/bold/containers/threadsafe"
-	bisection "github.com/OffchainLabs/bold/math"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	bisection "github.com/offchainlabs/bold/math"
 	"github.com/pkg/errors"
 )
 
@@ -97,6 +97,38 @@ func (ht *RoyalChallengeTree) ComputeAncestors(
 		ancestry = append(ancestry, nextLevelClaimedEdge)
 	}
 	return ancestry, nil
+}
+
+// ClosestEssentialAncestor of a child edge. If the edge is a block challenge edge, this is the root of
+// the block challenge. Otherwise, it is the root of the subchallenge the edge is in.
+func (ht *RoyalChallengeTree) ClosestEssentialAncestor(
+	ctx context.Context, child protocol.ReadOnlyEdge,
+) (protocol.ReadOnlyEdge, error) {
+	// If the edge is already essential, return itself.
+	if child.ClaimId().IsSome() {
+		return child, nil
+	}
+	if child.GetChallengeLevel().IsBlockChallengeLevel() {
+		return ht.RoyalBlockChallengeRootEdge()
+	}
+	childOrigin := child.OriginId()
+	var claimedEdge protocol.SpecEdge
+	var ok bool
+	_ = ht.edges.ForEach(func(_ protocol.EdgeId, edge protocol.SpecEdge) error {
+		if edge.MutualId() == protocol.MutualId(childOrigin) {
+			claimedEdge = edge
+			ok = true
+		}
+		return nil
+	})
+	if !ok {
+		return nil, errors.New("no edge corresponding to origin id found")
+	}
+	isClaimedEdge, claimingEdge := ht.isClaimedEdge(ctx, claimedEdge)
+	if !isClaimedEdge {
+		return nil, errors.New("edge is not claimed")
+	}
+	return claimingEdge, nil
 }
 
 // Computes the list of ancestors in a challenge level from a root edge down

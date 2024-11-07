@@ -6,14 +6,13 @@ import (
 	"math/big"
 	"testing"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers/threadsafe"
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	statemanager "github.com/OffchainLabs/bold/testing/mocks/state-provider"
-	"github.com/OffchainLabs/bold/testing/setup"
-	"github.com/OffchainLabs/bold/util"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/threadsafe"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -42,11 +41,12 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
+	_ = setup
 
 	bridgeBindings, err := mocksgen.NewBridgeStub(setup.Addrs.Bridge, setup.Backend)
 	require.NoError(t, err)
 
-	msgCount, err := bridgeBindings.SequencerMessageCount(util.GetSafeCallOpts(&bind.CallOpts{}))
+	msgCount, err := bridgeBindings.SequencerMessageCount(setup.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), msgCount.Uint64())
 

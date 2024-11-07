@@ -8,19 +8,17 @@ import (
 	"strings"
 	"testing"
 
-	protocol "github.com/OffchainLabs/bold/chain-abstraction"
-	"github.com/OffchainLabs/bold/containers/option"
-	l2stateprovider "github.com/OffchainLabs/bold/layer2-state-provider"
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	commitments "github.com/OffchainLabs/bold/state-commitments/history"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	stateprovider "github.com/OffchainLabs/bold/testing/mocks/state-provider"
-	"github.com/OffchainLabs/bold/testing/setup"
-	"github.com/OffchainLabs/bold/util"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/option"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	"github.com/offchainlabs/bold/state-commitments/history"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	stateprovider "github.com/offchainlabs/bold/testing/mocks/state-provider"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -491,15 +489,11 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 		bisectionScenario.topLevelFork.Backend.Commit()
 	}
 
+	expectedNewTimer := uint64(200)
 	chalManager, err := bisectionScenario.topLevelFork.Chains[0].SpecChallengeManager(ctx)
 	require.NoError(t, err)
-	_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren1})
+	_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren1, honestChildren2, honestEdge}, expectedNewTimer)
 	require.NoError(t, err)
-	_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren2})
-	require.NoError(t, err)
-	_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge})
-	require.NoError(t, err)
-
 	_, err = honestEdge.ConfirmByTimer(ctx)
 	require.NoError(t, err)
 	s0, err := honestEdge.Status(ctx)
@@ -563,7 +557,8 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	t.Run("confirmed by timer", func(t *testing.T) {
 		chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
 		require.NoError(t, err)
-		_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge})
+		expectedNewTimer := uint64(200)
+		_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge}, expectedNewTimer)
 		require.NoError(t, err)
 
 		_, err = honestEdge.ConfirmByTimer(ctx)
@@ -585,7 +580,7 @@ func upgradeWasmModuleRoot(
 	t *testing.T,
 	opts *bind.TransactOpts,
 	executor common.Address,
-	backend *backends.SimulatedBackend,
+	backend *setup.SimulatedBackendWrapper,
 	rollup common.Address,
 	wasmModuleRoot common.Hash,
 ) {
@@ -643,7 +638,7 @@ func TestUpgradingConfigMidChallenge(t *testing.T) {
 
 	// We check the config snapshot used for the one step proof is different than what
 	// is now onchain, as these values changed mid-challenge.
-	gotWasmModuleRoot, err := adminLogic.WasmModuleRoot(util.GetSafeCallOpts(&bind.CallOpts{}))
+	gotWasmModuleRoot, err := adminLogic.WasmModuleRoot(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{}))
 	require.NoError(t, err)
 	require.Equal(t, newWasmModuleRoot[:], gotWasmModuleRoot[:])
 	require.NotEqual(t, parentAssertionCreationInfo.WasmModuleRoot[:], gotWasmModuleRoot)
@@ -686,8 +681,8 @@ type bisectionScenario struct {
 	evilStateManager    l2stateprovider.Provider
 	honestLevelZeroEdge protocol.SpecEdge
 	evilLevelZeroEdge   protocol.SpecEdge
-	honestStartCommit   commitments.History
-	evilStartCommit     commitments.History
+	honestStartCommit   history.History
+	evilStartCommit     history.History
 }
 
 func setupBisectionScenario(
@@ -704,7 +699,7 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) (commitments.History, protocol.SpecEdge) {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) (history.History, protocol.SpecEdge) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,

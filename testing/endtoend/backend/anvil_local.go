@@ -12,11 +12,11 @@ import (
 	"path"
 	"time"
 
-	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
-	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	"github.com/OffchainLabs/bold/testing/setup"
-	"github.com/OffchainLabs/bold/util"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -152,7 +152,7 @@ func (a *AnvilLocal) Start(ctx context.Context) error {
 }
 
 // Client returns the ethclient associated with the backend.
-func (a *AnvilLocal) Client() setup.Backend {
+func (a *AnvilLocal) Client() protocol.ChainBackend {
 	return a.client
 }
 
@@ -168,7 +168,7 @@ func (a *AnvilLocal) DeployRollup(ctx context.Context, opts ...challenge_testing
 	prod := false
 	wasmModuleRoot := common.Hash{}
 	rollupOwner := a.accounts[0].From
-	loserStakeEscrow := common.Address{}
+	loserStakeEscrow := rollupOwner
 	anyTrustFastConfirmer := common.Address{}
 	genesisExecutionState := rollupgen.AssertionState{
 		GlobalState:   rollupgen.GlobalState{},
@@ -250,7 +250,7 @@ func (a *AnvilLocal) DeployRollup(ctx context.Context, opts ...challenge_testing
 	if err != nil {
 		return nil, err
 	}
-	chalManagerAddr, err := rollupCaller.ChallengeManager(util.GetSafeCallOpts(&bind.CallOpts{}))
+	chalManagerAddr, err := rollupCaller.ChallengeManager(&bind.CallOpts{})
 	if err != nil {
 		return nil, err
 	}

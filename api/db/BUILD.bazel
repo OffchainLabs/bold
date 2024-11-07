@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "db",
@@ -6,7 +6,7 @@ go_library(
         "db.go",
         "schema.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/api/db",
+    importpath = "github.com/offchainlabs/bold/api/db",
     visibility = ["//visibility:public"],
     deps = [
         "//api",
@@ -21,6 +21,7 @@ go_library(
 
 go_test(
     name = "db_test",
+    size = "small",
     srcs = ["db_test.go"],
     embed = [":db"],
     deps = [

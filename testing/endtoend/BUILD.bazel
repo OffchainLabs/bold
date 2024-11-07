@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 test_suite(
     name = "endtoend_suite",
@@ -35,7 +35,6 @@ go_test(
         "//testing/endtoend/backend",
         "//testing/mocks/state-provider",
         "//testing/setup:setup_lib",
-        "//util",
         "@com_github_ethereum_go_ethereum//:go-ethereum",
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
@@ -51,14 +50,13 @@ go_library(
     name = "endtoend",
     testonly = 1,
     srcs = ["expectations.go"],
-    importpath = "github.com/OffchainLabs/bold/testing/endtoend",
+    importpath = "github.com/offchainlabs/bold/testing/endtoend",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
         "//runtime",
         "//solgen/go/rollupgen",
         "//testing/setup:setup_lib",
-        "//util",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_stretchr_testify//require",
     ],

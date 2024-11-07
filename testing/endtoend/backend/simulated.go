@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	"github.com/OffchainLabs/bold/testing/setup"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -38,7 +39,7 @@ func (l *LocalSimulatedBackend) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (l *LocalSimulatedBackend) Client() setup.Backend {
+func (l *LocalSimulatedBackend) Client() protocol.ChainBackend {
 	return l.setup.Backend
 }
 

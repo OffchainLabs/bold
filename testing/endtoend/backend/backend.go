@@ -6,8 +6,9 @@ package backend
 import (
 	"context"
 
-	challenge_testing "github.com/OffchainLabs/bold/testing"
-	"github.com/OffchainLabs/bold/testing/setup"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -16,7 +17,7 @@ type Backend interface {
 	// Start sets up the backend and waits until the process is in a ready state.
 	Start(ctx context.Context) error
 	// Client returns the backend's client.
-	Client() setup.Backend
+	Client() protocol.ChainBackend
 	// Accounts managed by the backend.
 	Accounts() []*bind.TransactOpts
 	// DeployRollup contract, if not already deployed.

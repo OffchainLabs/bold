@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "testing",
@@ -7,13 +7,12 @@ go_library(
         "rollup_config.go",
         "tx.go",
     ],
-    importpath = "github.com/OffchainLabs/bold/testing",
+    importpath = "github.com/offchainlabs/bold/testing",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
         "//solgen/go/rollupgen",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
-        "@com_github_ethereum_go_ethereum//accounts/abi/bind/backends",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_pkg_errors//:errors",
