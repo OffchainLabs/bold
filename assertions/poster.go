@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
 )
 
@@ -26,7 +26,7 @@ var (
 )
 
 func (m *Manager) postAssertionRoutine(ctx context.Context) {
-	if m.challengeReader.Mode() < types.MakeMode {
+	if m.mode < types.MakeMode {
 		log.Warn("Staker strategy not configured to stake on latest assertions")
 		return
 	}
@@ -37,7 +37,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 			errorPostingAssertionCounter.Inc(1)
 		}
 	}
-	ticker := time.NewTicker(m.postInterval)
+	ticker := time.NewTicker(m.times.postInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -209,7 +209,7 @@ func (m *Manager) waitToPostIfNeeded(
 	// If we cannot post just yet, we can wait.
 	if !canPostNow {
 		blocksLeftForConfirmation := minPeriodBlocks - blocksSinceLast
-		timeToWait := m.averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
+		timeToWait := m.times.avgBlockTime * time.Duration(blocksLeftForConfirmation)
 		log.Info(
 			fmt.Sprintf(
 				"Need to wait %d blocks before posting next assertion, waiting for %v",

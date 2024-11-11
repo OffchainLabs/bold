@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -85,7 +85,7 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 		fromBlock = toBlock
 	}
 
-	ticker := time.NewTicker(m.pollInterval)
+	ticker := time.NewTicker(m.times.pollInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -425,31 +425,15 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		return nil, nil
 	}
 
-	// Generating a random integer between 0 and max delay second to wait before challenging.
-	// This is to avoid all validators challenging at the same time.
-	mds := 1 // default max delay seconds to 1 to avoid panic
-	if m.challengeReader.MaxDelaySeconds() > 1 {
-		mds = m.challengeReader.MaxDelaySeconds()
-	}
-	randSecs, err := randUint64(uint64(mds))
-	if err != nil {
-		return nil, err
-	}
-	time.Sleep(time.Duration(randSecs) * time.Second)
 	correctClaimedAssertionHash := protocol.AssertionHash{
 		Hash: correctRivalAssertion.Unwrap().AssertionHash,
 	}
-	challengeSubmitted, err := m.challengeCreator.ChallengeAssertion(ctx, correctClaimedAssertionHash)
+	if m.rivalHandler == nil {
+		return nil, errors.New("rival handler not set")
+	}
+	err = m.rivalHandler.HandleCorrectRival(ctx, correctClaimedAssertionHash)
 	if err != nil {
 		return nil, err
-	}
-	if challengeSubmitted {
-		challengeSubmittedCounter.Inc(1)
-		m.challengesSubmittedCount++
-	}
-
-	if err := m.logChallengeConfigs(ctx); err != nil {
-		log.Error("Could not log challenge configs", "err", err)
 	}
 	return postedRival, nil
 }

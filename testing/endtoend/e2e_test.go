@@ -8,7 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/api"
+	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengemanager "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
@@ -19,9 +23,6 @@ import (
 	"github.com/offchainlabs/bold/testing/endtoend/backend"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
@@ -267,10 +268,15 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 
 	baseChallengeManagerOpts := []challengemanager.Opt{
 		challengemanager.WithMode(types.MakeMode),
-		challengemanager.WithAssertionPostingInterval(cfg.timings.assertionPostingInterval),
-		challengemanager.WithAssertionScanningInterval(cfg.timings.assertionScanningInterval),
 		challengemanager.WithAssertionConfirmingInterval(cfg.timings.assertionConfirmationAttemptInterval),
 		challengemanager.WithHeadBlockSubscriptions(),
+	}
+
+	baseAssertionManagerOpts := []assertions.Opt{
+		assertions.WithPostingInterval(cfg.timings.assertionPostingInterval),
+		assertions.WithPollingInterval(cfg.timings.assertionScanningInterval),
+		assertions.WithAverageBlockCreationTime(cfg.timings.blockTime),
+		assertions.WithConfirmationInterval(cfg.timings.assertionConfirmationAttemptInterval),
 	}
 
 	name := "honest"
@@ -281,8 +287,19 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		challengemanager.WithAddress(txOpts.From),
 		challengemanager.WithName(name),
 	)
+	honestChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
+	honestAssertionManager, err := assertions.NewManager(
+		honestChain,
+		honestStateManager,
+		bk.Client(),
+		rollupAddr.Rollup,
+		name,
+		nil, // TODO(eljobe): Figure out the database situation.
+		types.MakeMode,
+		baseAssertionManagerOpts...,
+	)
 	honestManager := setupChallengeManager(
-		t, ctx, bk.Client(), rollupAddr.Rollup, honestStateManager, txOpts, honestOpts...,
+		t, ctx, rollupAddr.Rollup, honestChain, honestStateManager, honestAssertionManager, honestOpts...,
 	)
 	if !api.IsNil(honestManager.Database()) {
 		honestStateManager.UpdateAPIDatabase(honestManager.Database())
@@ -317,8 +334,19 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 			challengemanager.WithAddress(txOpts.From),
 			challengemanager.WithName(name),
 		)
+		evilChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
+		evilAssertionManager, err := assertions.NewManager(
+			evilChain,
+			evilStateManager,
+			bk.Client(),
+			rollupAddr.Rollup,
+			name,
+			nil, // TODO(eljobe): Figure out the database situation.
+			types.MakeMode,
+			baseAssertionManagerOpts...,
+		)
 		evilManager := setupChallengeManager(
-			t, ctx, bk.Client(), rollupAddr.Rollup, evilStateManager, txOpts, evilOpts...,
+			t, ctx, rollupAddr.Rollup, evilChain, evilStateManager, evilAssertionManager, evilOpts...,
 		)
 		evilChallengeManagers[i] = evilManager
 	}

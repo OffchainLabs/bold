@@ -11,6 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/offchainlabs/bold/api/db"
+	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -25,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var _ = types.ChallengeManager(&Manager{})
+var _ = types.RivalHandler(&Manager{})
 
 func TestEdgeTracker_Act(t *testing.T) {
 	ctx := context.Background()
@@ -125,26 +127,77 @@ func Test_getEdgeTrackers(t *testing.T) {
 	require.Equal(t, l2stateprovider.Batch(100), trk.AssertionInfo().BatchLimit)
 }
 
+type assertionManagerConfig struct {
+	c          protocol.AssertionChain
+	ep         l2stateprovider.ExecutionProvider
+	b          *setup.SimulatedBackendWrapper
+	rollupAddr common.Address
+	name       string
+	mode       types.Mode
+}
+
+func setupDefaultAssertionManager(conf assertionManagerConfig, t *testing.T) (assertionManager, error) {
+	t.Helper()
+	apiDB := db.Database(nil)
+
+	m, err := assertions.NewManager(
+		conf.c,
+		conf.ep,
+		conf.b,
+		conf.rollupAddr,
+		conf.name,
+		apiDB,
+		conf.mode,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func setupEdgeTrackersForBisection(
 	t *testing.T,
 	ctx context.Context,
 	createdData *setup.CreatedValidatorFork,
 	delayEvilRootEdgeCreationByBlocks option.Option[uint64],
 ) (*edgetracker.Tracker, *edgetracker.Tracker) {
+	t.Helper()
+	honestAsserter, err := setupDefaultAssertionManager(
+		assertionManagerConfig{
+			c:          createdData.Chains[0],
+			ep:         createdData.HonestStateManager,
+			b:          createdData.Backend,
+			rollupAddr: createdData.Addrs.Rollup,
+			name:       "alice",
+			mode:       types.MakeMode,
+		}, t)
+	require.NoError(t, err)
 	honestValidator, err := New(
 		ctx,
 		createdData.Chains[0],
 		createdData.HonestStateManager,
+		honestAsserter,
 		createdData.Addrs.Rollup,
 		WithName("alice"),
 		WithMode(types.MakeMode),
 	)
 	require.NoError(t, err)
 
+	evilAsserter, err := setupDefaultAssertionManager(
+		assertionManagerConfig{
+			c:          createdData.Chains[1],
+			ep:         createdData.EvilStateManager,
+			b:          createdData.Backend,
+			rollupAddr: createdData.Addrs.Rollup,
+			name:       "bob",
+			mode:       types.MakeMode,
+		}, t)
+	require.NoError(t, err)
 	evilValidator, err := New(
 		ctx,
 		createdData.Chains[1],
 		createdData.EvilStateManager,
+		evilAsserter,
 		createdData.Addrs.Rollup,
 		WithName("bob"),
 		WithMode(types.MakeMode),
@@ -238,7 +291,16 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
 	p.On("Backend").Return(cfg.Backend, nil)
-	v, err := New(context.Background(), p, s, cfg.Addrs.Rollup, WithMode(types.MakeMode))
+	a, err := setupDefaultAssertionManager(
+		assertionManagerConfig{
+			c:          cfg.Chains[0],
+			ep:         s,
+			b:          cfg.Backend,
+			rollupAddr: cfg.Addrs.Rollup,
+			name:       "alice",
+			mode:       types.MakeMode,
+		}, t)
+	v, err := New(context.Background(), p, s, a, cfg.Addrs.Rollup, WithMode(types.MakeMode))
 	require.NoError(t, err)
 	return v, p, s
 }

@@ -14,11 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rpc"
 	apibackend "github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/api/server"
-	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -35,7 +35,20 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	challengeSubmittedCounter = metrics.NewRegisteredCounter("arb/validator/scanner/challenge_submitted", nil)
+)
+
 type Opt = func(val *Manager)
+
+type assertionManager interface {
+	Start(context.Context)
+	StopAndWait()
+	LatestAgreedAssertion() protocol.AssertionHash
+	LayerZeroHeights(context.Context) (*protocol.LayerZeroHeights, error)
+	SetRivalHandler(types.RivalHandler)
+	SetChallengeManagerAddress(common.Address)
+}
 
 // Manager defines an offchain, challenge manager, which will be
 // an active participant in interacting with the on-chain contracts.
@@ -48,6 +61,7 @@ type Manager struct {
 	rollupFilterer              *rollupgen.RollupCoreFilterer
 	chalManager                 *challengeV2gen.EdgeChallengeManagerFilterer
 	backend                     bind.ContractBackend
+	assertionManager            assertionManager
 	client                      *rpc.Client
 	stateManager                l2stateprovider.Provider
 	address                     common.Address
@@ -62,15 +76,12 @@ type Manager struct {
 	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
 	// all challenges will be tracked.
 	trackChallengeParentAssertionHashes []protocol.AssertionHash
-	assertionManager                    *assertions.Manager
-	assertionPostingInterval            time.Duration
 	assertionScanningInterval           time.Duration
 	assertionConfirmingInterval         time.Duration
 	averageTimeForBlockCreation         time.Duration
 	mode                                types.Mode
 	maxDelaySeconds                     int
 	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
-	enableFastConfirmation              bool
 	headBlockSubscriptions              bool
 	// API
 	apiAddr   string
@@ -86,29 +97,10 @@ func WithName(name string) Opt {
 	}
 }
 
-// WithFastConfirmation enables fast confirmation of challenges.
-func WithFastConfirmation() Opt {
-	return func(val *Manager) {
-		val.enableFastConfirmation = true
-	}
-}
-
 // WithAddress gives a staker address to the validator.
 func WithAddress(addr common.Address) Opt {
 	return func(val *Manager) {
 		val.address = addr
-	}
-}
-
-func WithAssertionPostingInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.assertionPostingInterval = d
-	}
-}
-
-func WithAssertionScanningInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.assertionScanningInterval = d
 	}
 }
 
@@ -173,6 +165,7 @@ func New(
 	ctx context.Context,
 	chain protocol.Protocol,
 	stateManager l2stateprovider.Provider,
+	assertionManager assertionManager,
 	rollupAddr common.Address,
 	opts ...Opt,
 ) (*Manager, error) {
@@ -181,6 +174,7 @@ func New(
 		backend:                      chain.Backend(),
 		chain:                        chain,
 		stateManager:                 stateManager,
+		assertionManager:             assertionManager,
 		address:                      common.Address{},
 		timeRef:                      utilTime.NewRealTimeReference(),
 		rollupAddr:                   rollupAddr,
@@ -189,8 +183,6 @@ func New(
 		batchIndexForAssertionCache:  threadsafe.NewLruMap(1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		notifyOnNumberOfBlocks:       1,
 		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
-		assertionPostingInterval:     time.Hour,
-		assertionScanningInterval:    time.Minute,
 		assertionConfirmingInterval:  time.Second * 10,
 		averageTimeForBlockCreation:  time.Second * 12,
 		headBlockSubscriptions:       false,
@@ -234,7 +226,18 @@ func New(
 		m.apiDB = apiDB
 	}
 
-	watcher, err := watcher.New(m.chain, m, m.stateManager, m.backend, m.chainWatcherInterval, numBigStepLevels, m.name, m.apiDB, m.assertionConfirmingInterval, m.averageTimeForBlockCreation, m.trackChallengeParentAssertionHashes)
+	watcher, err := watcher.New(
+		m.chain,
+		m,
+		m.stateManager,
+		m.backend,
+		m.chainWatcherInterval,
+		numBigStepLevels,
+		m.name,
+		m.apiDB,
+		m.assertionConfirmingInterval,
+		m.averageTimeForBlockCreation,
+		m.trackChallengeParentAssertionHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -248,30 +251,9 @@ func New(
 		}
 		m.api = srv
 	}
-	assertionsOpts := make([]assertions.Opt, 0)
-	if m.enableFastConfirmation {
-		assertionsOpts = append(assertionsOpts, assertions.WithFastConfirmation())
-	}
-	assertionManager, err := assertions.NewManager(
-		m.chain,
-		m.stateManager,
-		m.backend,
-		m,
-		m.rollupAddr,
-		m.chalManagerAddr,
-		m.name,
-		m.assertionScanningInterval,
-		m.assertionConfirmingInterval,
-		m.stateManager,
-		m.assertionPostingInterval,
-		m.averageTimeForBlockCreation,
-		m.apiDB,
-		assertionsOpts...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	m.assertionManager = assertionManager
+	m.assertionManager.SetRivalHandler(m)
+	m.assertionManager.SetChallengeManagerAddress(m.chalManagerAddr)
+	log.Info("Setting up challenge manager", "name", m.name, "addreess", m.address, "rollup", m.rollupAddr)
 	return m, nil
 }
 
@@ -406,6 +388,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		)
 	})
 }
+
 func (m *Manager) Watcher() *watcher.Watcher {
 	return m.watcher
 }
@@ -546,4 +529,30 @@ func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState
 		return protocol.GoGlobalState{}, err
 	}
 	return protocol.GoExecutionStateFromSolidity(info.AfterState).GlobalState, nil
+}
+
+func (m *Manager) logChallengeConfigs(ctx context.Context) error {
+	cm, err := m.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return err
+	}
+	bigStepNum, err := cm.NumBigSteps(ctx)
+	if err != nil {
+		return err
+	}
+	challengePeriodBlocks, err := cm.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		return err
+	}
+	layerZeroHeights, err := m.assertionManager.LayerZeroHeights(ctx)
+	if err != nil {
+		return err
+	}
+	log.Info("Opening challenge with the following configuration",
+		"address", cm.Address(),
+		"bigStepNumber", bigStepNum,
+		"challengePeriodBlocks", challengePeriodBlocks,
+		"layerZeroHeights", layerZeroHeights,
+	)
+	return nil
 }

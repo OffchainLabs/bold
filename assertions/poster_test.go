@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengemanager "github.com/offchainlabs/bold/challenge-manager"
@@ -16,7 +17,6 @@ import (
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,10 +52,24 @@ func TestPostAssertion(t *testing.T) {
 	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
 
+	assertionManager, err := assertions.NewManager(
+		aliceChain,
+		stateManager,
+		setup.Backend,
+		aliceChain.RollupAddress(),
+		"alice",
+		nil,
+		types.DefensiveMode,
+		assertions.WithPollingInterval(time.Millisecond*200),
+		assertions.WithAverageBlockCreationTime(time.Second),
+	)
+	require.NoError(t, err)
+
 	chalManager, err := challengemanager.New(
 		ctx,
 		aliceChain,
 		stateManager,
+		assertionManager,
 		setup.Addrs.Rollup,
 		challengemanager.WithMode(types.DefensiveMode),
 	)
@@ -66,27 +80,6 @@ func TestPostAssertion(t *testing.T) {
 	require.NoError(t, err)
 	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1<<26)
 	require.NoError(t, err)
-
-	assertionManager, err := assertions.NewManager(
-		aliceChain,
-		stateManager,
-		setup.Backend,
-		chalManager,
-		aliceChain.RollupAddress(),
-		chalManager.ChallengeManagerAddress(),
-		"alice",
-		time.Millisecond*200, // poll interval for assertions
-		time.Hour,            // confirmation attempt interval
-		stateManager,
-		time.Millisecond*100, // poll interval
-		time.Second*1,
-		nil,
-		assertions.WithDangerousReadyToPost(),
-		assertions.WithPostingDisabled(),
-	)
-	require.NoError(t, err)
-
-	go assertionManager.Start(ctx)
 
 	time.Sleep(time.Second)
 

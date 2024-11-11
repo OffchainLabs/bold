@@ -5,7 +5,10 @@ package challengemanager
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
@@ -18,10 +21,43 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ChallengeAssertion initiates a challenge on an assertion added to the protocol by finding its parent assertion
-// and starting a challenge transaction. If the challenge creation is successful, we add a leaf
-// with an associated history commitment to it and spawn a challenge tracker in the background.
-// id is the id of the competing assertion that we agree with.
+// HandleCorrectRival is called when the assertion manager has posted a correct
+// rival assertion on the chain and the chllenge manager needs to create a
+// challenge committing to the correct assertion to rival one or more incorrect
+// assertions.
+func (m *Manager) HandleCorrectRival(ctx context.Context, riv protocol.AssertionHash) error {
+	// Generate a random integer between 0 and max delay seconds to wait before
+	// challenging.
+	// This is to avoid all validators challenging at the same time.
+	mds := 1 // default max delay seconds to 1 to avoid panic
+	if m.MaxDelaySeconds() > 1 {
+		mds = m.MaxDelaySeconds()
+	}
+	randSecs, err := randUint64(uint64(mds))
+	if err != nil {
+		return err
+	}
+	time.Sleep(time.Duration(randSecs) * time.Second)
+	challengeSubmitted, err := m.ChallengeAssertion(ctx, riv)
+	if err != nil {
+		return err
+	}
+	if challengeSubmitted {
+		challengeSubmittedCounter.Inc(1)
+	}
+	if err := m.logChallengeConfigs(ctx); err != nil {
+		log.Error("Could not log challenge configs", "err", err)
+	}
+	return nil
+}
+
+// ChallengeAssertion initiates a challenge committing to an assertion added to
+// the protocol by finding its parent assertion and starting a challenge
+// transaction. If the challenge creation is successful, the challenge manager
+// adds a leaf with an associated history commitment to it and spawns a
+// challenge tracker in the background.
+//
+// id is the id of the assertion that this validator agrees with.
 func (m *Manager) ChallengeAssertion(ctx context.Context, id protocol.AssertionHash) (bool, error) {
 	assertion, err := m.chain.GetAssertion(ctx, &bind.CallOpts{Context: ctx}, id)
 	if err != nil {
@@ -194,4 +230,15 @@ func (m *Manager) allowTrackingEdgeWithChallengeParentAssertionHash(challengePar
 		}
 	}
 	return false
+}
+
+func randUint64(max uint64) (uint64, error) {
+	n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(max))
+	if err != nil {
+		return 0, err
+	}
+	if !n.IsUint64() {
+		return 0, errors.New("not a uint64")
+	}
+	return n.Uint64(), nil
 }

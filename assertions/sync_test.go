@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
@@ -13,8 +15,6 @@ import (
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -114,7 +114,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 		agreesWith: agreesWithIds,
 	}
 	manager := &Manager{
-		stateProvider:               provider,
+		execProvider:                provider,
 		observedCanonicalAssertions: make(chan protocol.AssertionHash),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),

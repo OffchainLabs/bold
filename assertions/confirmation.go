@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/log"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers/option"
 	retry "github.com/offchainlabs/bold/runtime"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 func (m *Manager) queueCanonicalAssertionsForConfirmation(ctx context.Context) {
@@ -28,7 +28,7 @@ func (m *Manager) queueCanonicalAssertionsForConfirmation(ctx context.Context) {
 
 func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertionHash protocol.AssertionHash) {
 	// Only resolve mode strategies or higher should be confirming assertions.
-	if m.challengeReader.Mode() < types.ResolveMode {
+	if m.mode < types.ResolveMode {
 		return
 	}
 	creationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
@@ -55,7 +55,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		log.Error("Could not get prev assertion creation info", "err", err)
 		return
 	}
-	ticker := time.NewTicker(m.confirmationAttemptInterval)
+	ticker := time.NewTicker(m.times.confInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -80,7 +80,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			if parentAssertionHasSecondChild {
 				return
 			}
-			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.averageTimeForBlockCreation, option.None[protocol.EdgeId]())
+			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.times.avgBlockTime, option.None[protocol.EdgeId]())
 			if err != nil {
 				if !strings.Contains(err.Error(), "PREV_NOT_LATEST_CONFIRMED") {
 					log.Error("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
@@ -98,7 +98,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 }
 
 func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
-	ticker := time.NewTicker(m.confirmationAttemptInterval)
+	ticker := time.NewTicker(m.times.confInterval)
 	defer ticker.Stop()
 	for {
 		select {

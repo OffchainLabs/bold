@@ -7,22 +7,15 @@ import (
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
-// ChallengeManager defines an offchain, challenge manager, which will be
-// an active participant in interacting with the on-chain contracts.
-type ChallengeManager interface {
-	ChallengeCreator
-	ChallengeReader
-}
-
-// ChallengeCreator defines a struct which can initiate a challenge on an assertion hash
-// by creating a level zero, block challenge edge onchain.
-type ChallengeCreator interface {
-	ChallengeAssertion(ctx context.Context, id protocol.AssertionHash) (bool, error)
-}
-
-// ChallengeReader defines a struct which can read the challenge of a challenge manager.
-type ChallengeReader interface {
-	Mode() Mode
-	MaxDelaySeconds() int
-	IsClaimedByChallenge(assertionHash protocol.AssertionHash) bool
+// RivalHandler is the interface between the challenge manager and the assertion
+// manager.
+//
+// The challenge manager implements the interface promising to handle opening
+// challenges on correct rival assertions, and the assertion manager is
+// responsible for posting correct rival assertions, and notifying the rival
+// handler of the existence of the correct rival assertion.
+type RivalHandler interface {
+	// HandleCorrectRival is called when the assertion manager has posted a correct
+	// rival assertion on the chain.
+	HandleCorrectRival(context.Context, protocol.AssertionHash) error
 }

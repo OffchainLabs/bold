@@ -23,6 +23,7 @@ go_test(
     ],
     deps = [
         "//api",
+        "//assertions",
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
         "//challenge-manager",
