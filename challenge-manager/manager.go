@@ -76,7 +76,6 @@ type Manager struct {
 	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
 	// all challenges will be tracked.
 	trackChallengeParentAssertionHashes []protocol.AssertionHash
-	assertionScanningInterval           time.Duration
 	assertionConfirmingInterval         time.Duration
 	averageTimeForBlockCreation         time.Duration
 	mode                                types.Mode

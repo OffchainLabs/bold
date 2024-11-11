@@ -298,6 +298,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		types.MakeMode,
 		baseAssertionManagerOpts...,
 	)
+	require.NoError(t, err)
 	honestManager := setupChallengeManager(
 		t, ctx, rollupAddr.Rollup, honestChain, honestStateManager, honestAssertionManager, honestOpts...,
 	)
@@ -345,6 +346,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 			types.MakeMode,
 			baseAssertionManagerOpts...,
 		)
+		require.NoError(t, err)
 		evilManager := setupChallengeManager(
 			t, ctx, rollupAddr.Rollup, evilChain, evilStateManager, evilAssertionManager, evilOpts...,
 		)

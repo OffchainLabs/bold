@@ -300,6 +300,7 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 			name:       "alice",
 			mode:       types.MakeMode,
 		}, t)
+	require.NoError(t, err)
 	v, err := New(context.Background(), p, s, a, cfg.Addrs.Rollup, WithMode(types.MakeMode))
 	require.NoError(t, err)
 	return v, p, s
