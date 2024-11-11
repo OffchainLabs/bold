@@ -38,7 +38,6 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	m.assertionChainData.latestAgreedAssertion = latestConfirmed.Id()
 	m.assertionChainData.canonicalAssertions[latestConfirmed.Id()] = latestConfirmedInfo
 	if !m.disablePosting {
-		m.startPostingSignal <- struct{}{}
 		close(m.startPostingSignal)
 	}
 	m.assertionChainData.Unlock()

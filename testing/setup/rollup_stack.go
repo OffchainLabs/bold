@@ -571,7 +571,7 @@ func DeployFullRollupStack(
 	}
 	// if a zero sequencer address is specified, don't authorize any sequencers
 	if sequencer != (common.Address{}) {
-		setIsBatchPoster, err2 := seqInboxABI.Pack("setIsBatchPoster", deployAuth.From, true)
+		setIsBatchPoster, err2 := seqInboxABI.Pack("setIsBatchPoster", sequencer, true)
 		if err2 != nil {
 			return nil, err2
 		}

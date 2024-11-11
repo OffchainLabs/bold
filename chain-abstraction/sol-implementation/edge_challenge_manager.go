@@ -9,6 +9,12 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/metrics"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengetree "github.com/offchainlabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -18,12 +24,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/ospgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/state-commitments/history"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
 )
 
@@ -789,11 +789,10 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"could not pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
+			"could not pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x",
 			machineStep,
 			oneStepData.BeforeHash,
 			oneStepData.AfterHash,
-			result,
 		)
 	}
 	if _, err = cm.assertionChain.transact(
