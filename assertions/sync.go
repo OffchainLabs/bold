@@ -413,7 +413,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		return postedRival, nil
 	}
 
-	if args.canonicalParent.ChallengeManager != m.challengeManagerAddr {
+	if args.canonicalParent.ChallengeManager != m.chain.SpecChallengeManager().Address() {
 		log.Warn("Posted rival assertion, but could not challenge as challenge manager address did not match, "+
 			"start a new server with the right challenge manager address",
 			"correctAssertion", postedRival.AssertionHash,

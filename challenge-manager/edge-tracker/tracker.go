@@ -25,7 +25,6 @@ import (
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	retry "github.com/offchainlabs/bold/runtime"
 	utilTime "github.com/offchainlabs/bold/time"
 )
 
@@ -124,12 +123,7 @@ func New(
 	for _, o := range opts {
 		o(tr)
 	}
-	chalManager, err := retry.UntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
-		return chain.SpecChallengeManager(ctx)
-	})
-	if err != nil {
-		return nil, err
-	}
+	chalManager := chain.SpecChallengeManager()
 	tr.challengeConfirmer = newChallengeConfirmer(chainWatcher, chalManager, chain.Backend(), challengeManager.BlockTimes(), tr.validatorName, chain)
 	fsm, err := newEdgeTrackerFsm(
 		EdgeStarted,
@@ -401,10 +395,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
 	}
-	manager, err := et.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "could not get challenge manager")
-	}
+	manager := et.chain.SpecChallengeManager()
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
@@ -729,10 +720,7 @@ func (et *Tracker) openSubchallengeLeaf(ctx context.Context) error {
 	log.Info("Identified single point of disagreement within a challenge level, now opening subchallenge", fields...)
 	log.Info("Making subchallenge creation move on edge", fields...)
 
-	manager, err := et.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return err
-	}
+	manager := et.chain.SpecChallengeManager()
 	addedLeaf, err := manager.AddSubChallengeLevelZeroEdge(
 		ctx,
 		et.edge,
@@ -797,10 +785,7 @@ func (et *Tracker) submitOneStepProof(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(errBadOneStepProof, "could not get one step data: %v", err)
 	}
-	manager, err := et.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return err
-	}
+	manager := et.chain.SpecChallengeManager()
 	if err = manager.ConfirmEdgeByOneStepProof(
 		ctx,
 		et.edge.Id(),

@@ -252,7 +252,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 	defer cancel()
 	manager := &Manager{
 		observedCanonicalAssertions: make(chan protocol.AssertionHash),
-		submittedAssertions:         threadsafe.NewLruSet[common.Hash](1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		submittedAssertions:         threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),

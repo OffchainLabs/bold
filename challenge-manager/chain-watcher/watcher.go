@@ -104,7 +104,7 @@ func New(
 		chain:                               chain,
 		edgeManager:                         edgeManager,
 		pollEventsInterval:                  interval,
-		challenges:                          threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](threadsafe.MapWithMetric[protocol.AssertionHash, *trackedChallenge]("challenges")),
+		challenges:                          threadsafe.NewMap(threadsafe.MapWithMetric[protocol.AssertionHash, *trackedChallenge]("challenges")),
 		backend:                             backend,
 		histChecker:                         histChecker,
 		numBigStepLevels:                    numBigStepLevels,
@@ -112,7 +112,7 @@ func New(
 		apiDB:                               apiDB,
 		assertionConfirmingInterval:         assertionConfirmingInterval,
 		averageTimeForBlockCreation:         averageTimeForBlockCreation,
-		evilEdgesByLevel:                    threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]](threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
+		evilEdgesByLevel:                    threadsafe.NewMap(threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
 		trackChallengeParentAssertionHashes: trackChallengeParentAssertionHashes,
 	}, nil
 }
@@ -156,10 +156,7 @@ func (w *Watcher) SafeHeadInheritedTimer(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) (protocol.InheritedTimer, error) {
-	chalManager, err := w.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return 0, err
-	}
+	chalManager := w.chain.SpecChallengeManager()
 	edgeOpt, err := chalManager.GetEdge(ctx, edgeId)
 	if err != nil {
 		return 0, err
@@ -190,13 +187,7 @@ func (w *Watcher) Start(ctx context.Context) {
 	toBlock := scanRange.endBlockNum
 
 	// Get a challenge manager instance and filterer.
-	challengeManager, err := retry.UntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
-		return w.chain.SpecChallengeManager(ctx)
-	})
-	if err != nil {
-		log.Error("Could not get spec challenge manager", "err", err)
-		return
-	}
+	challengeManager := w.chain.SpecChallengeManager()
 	filterer, err := retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 		return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 	})
@@ -254,13 +245,7 @@ func (w *Watcher) Start(ctx context.Context) {
 				continue
 			}
 			// Get a challenge manager instance and filterer.
-			challengeManager, err := retry.UntilSucceeds(ctx, func() (protocol.SpecChallengeManager, error) {
-				return w.chain.SpecChallengeManager(ctx)
-			})
-			if err != nil {
-				log.Error("Could not get spec challenge manager", "err", err)
-				return
-			}
+			challengeManager := w.chain.SpecChallengeManager()
 			filterer, err = retry.UntilSucceeds(ctx, func() (*challengeV2gen.EdgeChallengeManagerFilterer, error) {
 				return challengeV2gen.NewEdgeChallengeManagerFilterer(challengeManager.Address(), w.backend)
 			})
@@ -479,7 +464,7 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 		)
 		chal = &trackedChallenge{
 			honestEdgeTree:                 tree,
-			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](threadsafe.MapWithMetric[protocol.ClaimId, protocol.EdgeId]("confirmedLevelZeroEdgeClaimIds")),
+			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap(threadsafe.MapWithMetric[protocol.ClaimId, protocol.EdgeId]("confirmedLevelZeroEdgeClaimIds")),
 		}
 		w.challenges.Put(assertionHash, chal)
 	}
@@ -584,7 +569,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		)
 		chal = &trackedChallenge{
 			honestEdgeTree:                 tree,
-			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap[protocol.ClaimId, protocol.EdgeId](threadsafe.MapWithMetric[protocol.ClaimId, protocol.EdgeId]("confirmedLevelZeroEdgeClaimIds")),
+			confirmedLevelZeroEdgeClaimIds: threadsafe.NewMap(threadsafe.MapWithMetric[protocol.ClaimId, protocol.EdgeId]("confirmedLevelZeroEdgeClaimIds")),
 		}
 		w.challenges.Put(challengeParentAssertionHash, chal)
 	}
@@ -621,7 +606,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		if edge.ClaimId().IsSome() {
 			evilEdges, ok := w.evilEdgesByLevel.TryGet(edge.GetChallengeLevel())
 			if !ok {
-				evilEdges = threadsafe.NewSet[protocol.EdgeId](threadsafe.SetWithMetric[protocol.EdgeId]("evilEdges"))
+				evilEdges = threadsafe.NewSet(threadsafe.SetWithMetric[protocol.EdgeId]("evilEdges"))
 				w.evilEdgesByLevel.Put(edge.GetChallengeLevel(), evilEdges)
 			}
 			if evilEdges.NumItems() < 5 {
@@ -653,10 +638,7 @@ func (w *Watcher) processEdgeAddedEvent(
 	ctx context.Context,
 	event *challengeV2gen.EdgeChallengeManagerEdgeAdded,
 ) (bool, error) {
-	challengeManager, err := w.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return false, err
-	}
+	challengeManager := w.chain.SpecChallengeManager()
 	edgeOpt, err := challengeManager.GetEdge(ctx, protocol.EdgeId{Hash: event.EdgeId})
 	if err != nil {
 		return false, err
@@ -770,10 +752,7 @@ func (w *Watcher) processEdgeConfirmation(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
 ) error {
-	challengeManager, err := w.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return err
-	}
+	challengeManager := w.chain.SpecChallengeManager()
 	edgeOpt, err := challengeManager.GetEdge(ctx, edgeId)
 	if err != nil {
 		return err

@@ -21,7 +21,7 @@ type MetadataReader interface {
 	AssertionUnrivaledBlocks(ctx context.Context, assertionHash protocol.AssertionHash) (uint64, error)
 	TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error)
 	TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (protocol.OriginHeights, error)
-	SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error)
+	SpecChallengeManager() protocol.SpecChallengeManager
 	ReadAssertionCreationInfo(
 		ctx context.Context, id protocol.AssertionHash,
 	) (*protocol.AssertionCreatedInfo, error)

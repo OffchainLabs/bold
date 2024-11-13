@@ -55,8 +55,6 @@ func TestPostAssertion(t *testing.T) {
 	assertionManager, err := assertions.NewManager(
 		aliceChain,
 		stateManager,
-		setup.Backend,
-		aliceChain.RollupAddress(),
 		"alice",
 		nil,
 		types.DefensiveMode,
@@ -70,7 +68,7 @@ func TestPostAssertion(t *testing.T) {
 		aliceChain,
 		stateManager,
 		assertionManager,
-		setup.Addrs.Rollup,
+		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.DefensiveMode),
 	)
 	require.NoError(t, err)

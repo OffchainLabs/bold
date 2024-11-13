@@ -544,9 +544,9 @@ func (m *MockProtocol) StakeOnNewAssertion(
 	return args.Get(0).(protocol.Assertion), args.Error(1)
 }
 
-func (m *MockProtocol) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(protocol.SpecChallengeManager), args.Error(1)
+func (m *MockProtocol) SpecChallengeManager() protocol.SpecChallengeManager {
+	args := m.Called()
+	return args.Get(0).(protocol.SpecChallengeManager)
 }
 
 func (m *MockProtocol) Confirm(ctx context.Context, blockHash, sendRoot common.Hash) error {

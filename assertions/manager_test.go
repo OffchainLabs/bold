@@ -94,8 +94,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	aliceAssertionManager, err := assertions.NewManager(
 		aliceChain,
 		aliceStateManager,
-		testData.Backend,
-		aliceChain.RollupAddress(),
 		"alice",
 		nil,
 		types.DefensiveMode,
@@ -109,7 +107,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		aliceChain,
 		aliceStateManager,
 		aliceAssertionManager,
-		testData.Addrs.Rollup,
+		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.DefensiveMode),
 	)
 	require.NoError(t, err)
@@ -120,8 +118,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	charlieAssertionManager, err := assertions.NewManager(
 		aliceChain,
 		aliceStateManager,
-		testData.Backend,
-		aliceChain.RollupAddress(),
 		"charlie",
 		nil,
 		types.DefensiveMode,
@@ -307,8 +303,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	charlieAssertionManager, err := assertions.NewManager(
 		charlieChain,
 		charlieStateManager,
-		testData.Backend,
-		charlieChain.RollupAddress(),
 		"charlie",
 		nil,
 		types.DefensiveMode,
@@ -323,7 +317,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		charlieChain,
 		charlieStateManager,
 		charlieAssertionManager,
-		testData.Addrs.Rollup,
+		charlieChain.RollupAddress(),
 		challengemanager.WithMode(types.DefensiveMode),
 	)
 	require.NoError(t, err)
@@ -381,8 +375,6 @@ func TestFastConfirmation(t *testing.T) {
 	assertionManager, err := assertions.NewManager(
 		aliceChain,
 		stateManager,
-		testData.Backend,
-		aliceChain.RollupAddress(),
 		"alice",
 		nil,
 		types.ResolveMode,
@@ -397,7 +389,7 @@ func TestFastConfirmation(t *testing.T) {
 		aliceChain,
 		stateManager,
 		assertionManager,
-		testData.Addrs.Rollup,
+		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.ResolveMode),
 	)
 	require.NoError(t, err)
@@ -417,7 +409,7 @@ func TestFastConfirmation(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	expectAssertionConfirmed(t, ctx, testData.Backend, aliceChain.RollupAddress())
+	expectAssertionConfirmed(t, ctx, aliceChain.Backend(), aliceChain.RollupAddress())
 }
 
 func TestFastConfirmationWithSafe(t *testing.T) {
@@ -457,8 +449,6 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	assertionManagerAlice, err := assertions.NewManager(
 		aliceChain,
 		stateManager,
-		testData.Backend,
-		aliceChain.RollupAddress(),
 		"alice",
 		nil,
 		types.ResolveMode,
@@ -475,7 +465,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		aliceChain,
 		stateManager,
 		assertionManagerAlice,
-		testData.Addrs.Rollup,
+		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.ResolveMode),
 	)
 	require.NoError(t, err)
@@ -502,8 +492,6 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	assertionManagerBob, err := assertions.NewManager(
 		bobChain,
 		stateManager,
-		testData.Backend,
-		bobChain.RollupAddress(),
 		"bob",
 		nil,
 		types.ResolveMode,
@@ -520,7 +508,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		bobChain,
 		stateManager,
 		assertionManagerBob,
-		testData.Addrs.Rollup,
+		bobChain.RollupAddress(),
 		challengemanager.WithMode(types.ResolveMode),
 	)
 	require.NoError(t, err)
@@ -529,7 +517,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	// Only after both Alice and Bob confirm the assertion, it should be confirmed.
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	expectAssertionConfirmed(t, ctx, testData.Backend, aliceChain.RollupAddress())
+	expectAssertionConfirmed(t, ctx, aliceChain.Backend(), aliceChain.RollupAddress())
 }
 
 type seqMessage struct {

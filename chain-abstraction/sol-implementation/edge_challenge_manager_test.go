@@ -40,8 +40,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := createdData.Chains[0].SpecChallengeManager()
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
@@ -198,8 +197,7 @@ func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	require.NoError(t, err)
 
 	chain1 := createdData.Chains[0]
-	challengeManager, err := chain1.SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := chain1.SpecChallengeManager()
 
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           simpleAssertionMetadata(),
@@ -275,8 +273,7 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 	evilEdge := bisectionScenario.evilLevelZeroEdge
 
-	challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager()
 
 	// Perform bisections all the way down to a one step fork.
 	var blockHeight uint64 = challenge_testing.LevelZeroBlockEdgeHeight
@@ -287,6 +284,7 @@ func TestEdgeChallengeManager_AddSubchallengeLeaf(t *testing.T) {
 			UpperChallengeOriginHeights: []l2stateprovider.Height{},
 			UpToHeight:                  option.Some(bisectTo),
 		}
+		var err error
 		honestBisectCommit, honestErr := honestStateManager.HistoryCommitment(ctx, req)
 		require.NoError(t, honestErr)
 		req.UpToHeight = option.Some(l2stateprovider.Height(blockHeight))
@@ -364,9 +362,8 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 	ctx := context.Background()
 	t.Run("edge does not exist", func(t *testing.T) {
 		bisectionScenario := setupBisectionScenario(t)
-		challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-		require.NoError(t, err)
-		err = challengeManager.ConfirmEdgeByOneStepProof(
+		challengeManager := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager()
+		err := challengeManager.ConfirmEdgeByOneStepProof(
 			ctx,
 			protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))},
 			&protocol.OneStepData{
@@ -383,8 +380,7 @@ func TestEdgeChallengeManager_ConfirmByOneStepProof(t *testing.T) {
 		honestEdge := scenario.smallStepHonestEdge
 
 		chain := scenario.topLevelFork.Chains[0]
-		challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-		require.NoError(t, err)
+		challengeManager := scenario.topLevelFork.Chains[1].SpecChallengeManager()
 
 		honestStateManager := scenario.honestStateManager
 		fromBlockChallengeHeight := uint64(0)
@@ -464,8 +460,7 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 	}
 
 	expectedNewTimer := uint64(200)
-	chalManager, err := bisectionScenario.topLevelFork.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	chalManager := bisectionScenario.topLevelFork.Chains[0].SpecChallengeManager()
 	_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren1, honestChildren2, honestEdge}, expectedNewTimer)
 	require.NoError(t, err)
 	_, err = honestEdge.ConfirmByTimer(ctx)
@@ -483,8 +478,7 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := createdData.Chains[0].SpecChallengeManager()
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
@@ -526,8 +520,7 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	}
 
 	t.Run("confirmed by timer", func(t *testing.T) {
-		chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-		require.NoError(t, err)
+		chalManager := createdData.Chains[0].SpecChallengeManager()
 		expectedNewTimer := uint64(200)
 		_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge}, expectedNewTimer)
 		require.NoError(t, err)
@@ -594,8 +587,7 @@ func TestUpgradingConfigMidChallenge(t *testing.T) {
 	// We confirm the edge by one-step-proof.
 	honestEdge := scenario.smallStepHonestEdge
 	chain := scenario.topLevelFork.Chains[0]
-	challengeManager, err := scenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := scenario.topLevelFork.Chains[1].SpecChallengeManager()
 
 	honestStateManager := scenario.honestStateManager
 	fromBlockChallengeHeight := uint64(0)
@@ -663,8 +655,7 @@ func setupBisectionScenario(
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, opts...)
 	require.NoError(t, err)
 
-	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := createdData.Chains[0].SpecChallengeManager()
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) (history.History, protocol.SpecEdge) {
@@ -751,8 +742,7 @@ func setupOneStepProofScenario(
 	honestEdge := bisectionScenario.honestLevelZeroEdge
 	evilEdge := bisectionScenario.evilLevelZeroEdge
 
-	challengeManager, err := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := bisectionScenario.topLevelFork.Chains[1].SpecChallengeManager()
 
 	var blockHeight uint64 = challenge_testing.LevelZeroBlockEdgeHeight
 	for blockHeight > 1 {
@@ -767,6 +757,7 @@ func setupOneStepProofScenario(
 		req.UpToHeight = option.Some(l2stateprovider.Height(blockHeight))
 		honestProof, honestProofErr := honestStateManager.PrefixProof(ctx, req, bisectTo)
 		require.NoError(t, honestProofErr)
+		var err error
 		honestEdge, _, err = honestEdge.Bisect(ctx, honestBisectCommit.Merkle, honestProof)
 		require.NoError(t, err)
 

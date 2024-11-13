@@ -190,10 +190,7 @@ func New(
 	for _, o := range opts {
 		o(m)
 	}
-	chalManager, err := m.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return nil, err
-	}
+	chalManager := m.chain.SpecChallengeManager()
 	chalManagerAddr := chalManager.Address()
 
 	rollup, err := rollupgen.NewRollupCore(rollupAddr, m.backend)
@@ -533,10 +530,7 @@ func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState
 }
 
 func (m *Manager) logChallengeConfigs(ctx context.Context) error {
-	cm, err := m.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return err
-	}
+	cm := m.chain.SpecChallengeManager()
 	bigStepNum, err := cm.NumBigSteps(ctx)
 	if err != nil {
 		return err

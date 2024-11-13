@@ -290,8 +290,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := createdData.Chains[0].SpecChallengeManager()
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
@@ -413,9 +412,7 @@ func TestChallengePeriodBlocks(t *testing.T) {
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
 
-	manager, err := chain.SpecChallengeManager(ctx)
-	require.NoError(t, err)
-
+	manager := chain.SpecChallengeManager()
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	require.NoError(t, err)
 	require.Equal(t, cfg.RollupConfig.ConfirmPeriodBlocks, chalPeriod)
@@ -429,8 +426,7 @@ func TestIsChallengeComplete(t *testing.T) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	challengeManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	challengeManager := createdData.Chains[0].SpecChallengeManager()
 
 	// Honest assertion being added.
 	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {

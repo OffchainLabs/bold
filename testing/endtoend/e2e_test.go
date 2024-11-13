@@ -291,8 +291,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	honestAssertionManager, err := assertions.NewManager(
 		honestChain,
 		honestStateManager,
-		bk.Client(),
-		rollupAddr.Rollup,
 		name,
 		nil, // TODO(eljobe): Figure out the database situation.
 		types.MakeMode,
@@ -339,8 +337,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		evilAssertionManager, err := assertions.NewManager(
 			evilChain,
 			evilStateManager,
-			bk.Client(),
-			rollupAddr.Rollup,
 			name,
 			nil, // TODO(eljobe): Figure out the database situation.
 			types.MakeMode,

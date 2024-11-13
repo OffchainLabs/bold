@@ -167,10 +167,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, false, nil, false, err
 	}
-	manager, err := m.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return nil, false, nil, false, err
-	}
+	manager := m.chain.SpecChallengeManager()
 	layerZeroHeights, err := manager.LayerZeroHeights(ctx)
 	if err != nil {
 		return nil, false, nil, false, err

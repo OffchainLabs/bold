@@ -15,6 +15,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
@@ -23,13 +30,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
 	"github.com/offchainlabs/bold/solgen/go/contractsgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 )
 
@@ -804,9 +804,9 @@ func (a *AssertionChain) checkApprovedHashAndExecTransaction(ctx context.Context
 	return nil
 }
 
-// SpecChallengeManager creates a new spec challenge manager
-func (a *AssertionChain) SpecChallengeManager(ctx context.Context) (protocol.SpecChallengeManager, error) {
-	return a.specChallengeManager, nil
+// SpecChallengeManager returns the assertions chain's spec challenge manager.
+func (a *AssertionChain) SpecChallengeManager() protocol.SpecChallengeManager {
+	return a.specChallengeManager
 }
 
 // AssertionUnrivaledBlocks gets the number of blocks an assertion was unrivaled. That is, it looks up the
@@ -887,10 +887,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 }
 
 func (a *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error) {
-	cm, err := a.SpecChallengeManager(ctx)
-	if err != nil {
-		return protocol.AssertionHash{}, err
-	}
+	cm := a.SpecChallengeManager()
 	edgeOpt, err := cm.GetEdge(ctx, edgeId)
 	if err != nil {
 		return protocol.AssertionHash{}, err
@@ -902,10 +899,7 @@ func (a *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.
 }
 
 func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protocol.EdgeId) (protocol.OriginHeights, error) {
-	cm, err := a.SpecChallengeManager(ctx)
-	if err != nil {
-		return protocol.OriginHeights{}, err
-	}
+	cm := a.SpecChallengeManager()
 	edgeOpt, err := cm.GetEdge(ctx, edgeId)
 	if err != nil {
 		return protocol.OriginHeights{}, err

@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/api"
 	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
 	"github.com/offchainlabs/bold/containers/option"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type BusinessLogicProvider interface {
@@ -137,10 +137,7 @@ func (b *Backend) GetEdges(ctx context.Context, opts ...db.EdgeOption) ([]*api.J
 		return nil, err
 	}
 	if query.ShouldForceUpdate() {
-		chalManager, err := b.chainDataFetcher.SpecChallengeManager(ctx)
-		if err != nil {
-			return nil, err
-		}
+		chalManager := b.chainDataFetcher.SpecChallengeManager()
 		for _, e := range edges {
 			edgeOpt, err := chalManager.GetEdge(ctx, protocol.EdgeId{Hash: e.Id})
 			if err != nil {

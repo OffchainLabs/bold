@@ -53,8 +53,7 @@ func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	chalManager := createdData.Chains[0].SpecChallengeManager()
 	chalPeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
 	require.NoError(t, err)
 
@@ -143,8 +142,6 @@ func setupDefaultAssertionManager(conf assertionManagerConfig, t *testing.T) (as
 	m, err := assertions.NewManager(
 		conf.c,
 		conf.ep,
-		conf.b,
-		conf.rollupAddr,
 		conf.name,
 		apiDB,
 		conf.mode,
@@ -224,8 +221,7 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 	require.Equal(t, false, !hasRival)
 
-	chalManager, err := createdData.Chains[0].SpecChallengeManager(ctx)
-	require.NoError(t, err)
+	chalManager := createdData.Chains[0].SpecChallengeManager()
 	managerBindings, err := challengeV2gen.NewEdgeChallengeManagerCaller(chalManager.Address(), createdData.Backend)
 	require.NoError(t, err)
 	numBigStepLevelsRaw, err := managerBindings.NUMBIGSTEPLEVEL(createdData.Chains[0].GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
@@ -285,7 +281,7 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	ctx := context.Background()
 	cm := &mocks.MockSpecChallengeManager{}
 	p.On("CurrentChallengeManager", ctx).Return(cm, nil)
-	p.On("SpecChallengeManager", ctx).Return(cm, nil)
+	p.On("SpecChallengeManager").Return(cm)
 	cm.On("NumBigSteps", ctx).Return(uint8(1), nil)
 	s := &mocks.MockStateManager{}
 	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())

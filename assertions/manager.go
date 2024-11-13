@@ -163,8 +163,6 @@ func WithAverageBlockCreationTime(t time.Duration) Opt {
 func NewManager(
 	chain protocol.AssertionChain,
 	execProvider l2stateprovider.ExecutionProvider,
-	backend bind.ContractBackend,
-	rollupAddr common.Address,
 	validatorName string,
 	apiDB db.Database,
 	mode types.Mode,
@@ -173,15 +171,15 @@ func NewManager(
 	m := &Manager{
 		chain:                    chain,
 		apiDB:                    apiDB,
-		backend:                  backend,
+		backend:                  chain.Backend(),
 		execProvider:             execProvider,
-		rollupAddr:               rollupAddr,
+		rollupAddr:               chain.RollupAddress(),
 		challengeManagerAddr:     common.Address{}, // Must be set after construction
 		validatorName:            validatorName,
 		times:                    defaultTimings,
 		forksDetectedCount:       0,
 		assertionsProcessedCount: 0,
-		submittedAssertions:      threadsafe.NewLruSet[common.Hash](1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		submittedAssertions:      threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: protocol.AssertionHash{},
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
@@ -270,10 +268,7 @@ func (m *Manager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeig
 
 	m.layerZeroHeightsCacheLock.Lock()
 	defer m.layerZeroHeightsCacheLock.Unlock()
-	cm, err := m.chain.SpecChallengeManager(ctx)
-	if err != nil {
-		return nil, err
-	}
+	cm := m.chain.SpecChallengeManager()
 	layerZeroHeights, err := cm.LayerZeroHeights(ctx)
 	if err != nil {
 		return nil, err

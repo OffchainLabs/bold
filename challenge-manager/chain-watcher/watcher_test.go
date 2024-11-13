@@ -66,7 +66,6 @@ func TestWatcher_processEdgeConfirmation(t *testing.T) {
 	mockChallengeManager := &mocks.MockSpecChallengeManager{}
 	mockChain.On(
 		"SpecChallengeManager",
-		ctx,
 	).Return(mockChallengeManager, nil)
 
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
@@ -113,7 +112,6 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	mockChallengeManager := &mocks.MockSpecChallengeManager{}
 	mockChain.On(
 		"SpecChallengeManager",
-		ctx,
 	).Return(mockChallengeManager, nil)
 
 	assertionHash := protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}

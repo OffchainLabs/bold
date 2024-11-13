@@ -177,7 +177,7 @@ type AssertionChain interface {
 	) error
 
 	// Spec-based implementation methods.
-	SpecChallengeManager(ctx context.Context) (SpecChallengeManager, error)
+	SpecChallengeManager() SpecChallengeManager
 }
 
 // InheritedTimer for an edge from its children or claiming edges.
