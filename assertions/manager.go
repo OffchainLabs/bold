@@ -60,7 +60,7 @@ var defaultTimings = timings{
 // 4. The Manager frequently posts new assertions to the assertion chain at
 // specific intervals.
 // 5. When posting assertions, it relies on the most recent execution state
-// available in its local state manager.
+// available in its local execution provider.
 type Manager struct {
 	stopwaiter.StopWaiter
 	chain                       protocol.AssertionChain

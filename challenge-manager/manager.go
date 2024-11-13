@@ -185,7 +185,7 @@ func New(
 		assertionConfirmingInterval:  time.Second * 10,
 		averageTimeForBlockCreation:  time.Second * 12,
 		headBlockSubscriptions:       false,
-		claimedAssertionsInChallenge: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
+		claimedAssertionsInChallenge: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
 	}
 	for _, o := range opts {
 		o(m)
