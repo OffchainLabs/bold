@@ -47,7 +47,6 @@ type assertionManager interface {
 	LatestAgreedAssertion() protocol.AssertionHash
 	LayerZeroHeights(context.Context) (*protocol.LayerZeroHeights, error)
 	SetRivalHandler(types.RivalHandler)
-	SetChallengeManagerAddress(common.Address)
 }
 
 // Manager defines an offchain, challenge manager, which will be
@@ -248,7 +247,6 @@ func New(
 		m.api = srv
 	}
 	m.assertionManager.SetRivalHandler(m)
-	m.assertionManager.SetChallengeManagerAddress(m.chalManagerAddr)
 	log.Info("Setting up challenge manager", "name", m.name, "addreess", m.address, "rollup", m.rollupAddr)
 	return m, nil
 }

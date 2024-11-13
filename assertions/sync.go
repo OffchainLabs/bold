@@ -419,7 +419,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 			"correctAssertion", postedRival.AssertionHash,
 			"evilAssertion", args.invalidAssertion.AssertionHash,
 			"expectedChallengeManagerAddress", args.canonicalParent.ChallengeManager,
-			"configuredChallengeManagerAddress", m.challengeManagerAddr,
+			"configuredChallengeManagerAddress", m.chain.SpecChallengeManager().Address(),
 		)
 		return nil, nil
 	}

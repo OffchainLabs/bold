@@ -68,7 +68,6 @@ type Manager struct {
 	execProvider                l2stateprovider.ExecutionProvider
 	times                       timings
 	rollupAddr                  common.Address
-	challengeManagerAddr        common.Address
 	validatorName               string
 	forksDetectedCount          uint64
 	assertionsProcessedCount    uint64
@@ -174,7 +173,6 @@ func NewManager(
 		backend:                  chain.Backend(),
 		execProvider:             execProvider,
 		rollupAddr:               chain.RollupAddress(),
-		challengeManagerAddr:     common.Address{}, // Must be set after construction
 		validatorName:            validatorName,
 		times:                    defaultTimings,
 		forksDetectedCount:       0,
@@ -205,12 +203,6 @@ func NewManager(
 // SetRivalHandler sets the rival handler for the assertion manager.
 func (m *Manager) SetRivalHandler(handler types.RivalHandler) {
 	m.rivalHandler = handler
-}
-
-// SetChallengeManagerAddress sets the on-chain address of the challenge
-// manager.
-func (m *Manager) SetChallengeManagerAddress(addr common.Address) {
-	m.challengeManagerAddr = addr
 }
 
 func (m *Manager) Start(ctx context.Context) {

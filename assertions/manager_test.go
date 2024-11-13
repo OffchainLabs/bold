@@ -127,7 +127,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	)
 	require.NoError(t, err)
 	charlieAssertionManager.SetRivalHandler(aliceChalManager)
-	charlieAssertionManager.SetChallengeManagerAddress(aliceChalManager.ChallengeManagerAddress())
 
 	charlieAssertionManager.Start(ctx)
 
