@@ -344,7 +344,7 @@ func (m *Manager) respondToAnyInvalidAssertions(
 					invalidAssertion: assertion,
 				})
 				if innerErr != nil {
-					log.Error("Could not post rival assertion and/or challenge", "err", innerErr)
+					innerErr = errors.Wrapf(innerErr, "validator=%s could not post rival assertion and/or challenge", m.validatorName)
 					return nil, innerErr
 				}
 				return posted, nil
@@ -474,6 +474,7 @@ func (m *Manager) maybePostRivalAssertion(
 			"parentAssertionHash", canonicalParent.AssertionHash,
 			"correctRivalAssertionHash", creationInfo.AssertionHash,
 			"transactionHash", creationInfo.TransactionHash,
+			"name", m.validatorName,
 			"postedAssertionState", fmt.Sprintf("%+v", creationInfo.AfterState),
 		)
 		go func() {

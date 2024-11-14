@@ -50,6 +50,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 
 	aliceChain := testData.Chains[0]
 	bobChain := testData.Chains[1]
+	charlieChain := testData.Chains[2]
 
 	ctx := context.Background()
 	genesisHash, err := testData.Chains[1].GenesisAssertionHash(ctx)
@@ -76,7 +77,26 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	bobStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
 	require.NoError(t, err)
 
+	aliceChalManager, err := cm.NewChallengeStack(
+		aliceChain,
+		aliceStateManager,
+		cm.StackWithMode(types.DefensiveMode),
+		cm.StackWithName("alice"),
+	)
+	require.NoError(t, err)
+	aliceChalManager.Start(ctx)
+
 	// We have bob post an assertion at batch 1.
+	//
+	// It is important that this assertion is posted after alice's challenge
+	// manager is started, and before Charlie's assertion manager is started. If
+	// this happens before alice's challenge manager then, alice and charlie will
+	// race to post the rival assertion to the one from bob. Even though, alice's
+	// polling interval is a minute, the very first time she poll's, she'll
+	// already see bob's rival assertion and attempt to post the rival. Only one
+	// rival assertion can be posted with identical content, so, if alice wins,
+	// charlie's attempt below will fail because the rival assertion he is trying
+	// to post already exists.
 	genesisGlobalState := protocol.GoGlobalStateFromSolidity(genesisCreationInfo.AfterState.GlobalState)
 	bobPostState, err := bobStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesisGlobalState, 1<<26)
 	require.NoError(t, err)
@@ -90,19 +110,10 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	bobAssertionInfo, err := bobChain.ReadAssertionCreationInfo(ctx, bobAssertion.Id())
 	require.NoError(t, err)
 
-	aliceChalManager, err := cm.NewChallengeStack(
-		aliceChain,
-		aliceStateManager,
-		cm.StackWithMode(types.DefensiveMode),
-		cm.StackWithName("alice"),
-	)
-	require.NoError(t, err)
-	aliceChalManager.Start(ctx)
-
 	// Setup an assertion manager for Charlie, and have it process Alice's
 	// assertion creation event at batch 1.
 	charlieAssertionManager, err := assertions.NewManager(
-		aliceChain,
+		charlieChain,
 		aliceStateManager,
 		"charlie",
 		types.DefensiveMode,
