@@ -90,8 +90,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	bobAssertionInfo, err := bobChain.ReadAssertionCreationInfo(ctx, bobAssertion.Id())
 	require.NoError(t, err)
 
-	aliceChalManager, err := cm.NewDefaultChallengeManager(
-		ctx,
+	aliceChalManager, err := cm.NewChallengeStack(
 		aliceChain,
 		aliceStateManager,
 		cm.StackWithMode(types.DefensiveMode),
@@ -296,8 +295,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManager, err := cm.NewDefaultChallengeManager(
-		ctx,
+	chalManager, err := cm.NewChallengeStack(
 		charlieChain,
 		charlieStateManager,
 		cm.OverrideAssertionManager(charlieAssertionManager),
@@ -367,8 +365,7 @@ func TestFastConfirmation(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManager, err := cm.NewDefaultChallengeManager(
-		ctx,
+	chalManager, err := cm.NewChallengeStack(
 		aliceChain,
 		stateManager,
 		cm.OverrideAssertionManager(assertionManager),
@@ -442,8 +439,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManagerAlice, err := cm.NewDefaultChallengeManager(
-		ctx,
+	chalManagerAlice, err := cm.NewChallengeStack(
 		aliceChain,
 		stateManager,
 		cm.OverrideAssertionManager(assertionManagerAlice),
@@ -484,8 +480,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManagerBob, err := cm.NewDefaultChallengeManager(
-		ctx,
+	chalManagerBob, err := cm.NewChallengeStack(
 		bobChain,
 		stateManager,
 		cm.OverrideAssertionManager(assertionManagerBob),

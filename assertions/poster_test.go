@@ -62,8 +62,7 @@ func TestPostAssertion(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManager, err := cm.NewDefaultChallengeManager(
-		ctx,
+	chalManager, err := cm.NewChallengeStack(
 		aliceChain,
 		stateManager,
 		cm.StackWithMode(types.DefensiveMode),

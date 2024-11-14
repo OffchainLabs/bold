@@ -283,7 +283,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		cm.StackWithName(name),
 	)
 	honestChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
-	honestManager, err := cm.NewDefaultChallengeManager(ctx, honestChain, honestStateManager, honestOpts...)
+	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
 	if !api.IsNil(honestManager.Database()) {
 		honestStateManager.UpdateAPIDatabase(honestManager.Database())
@@ -319,7 +319,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 			cm.StackWithName(name),
 		)
 		evilChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
-		evilManager, err := cm.NewDefaultChallengeManager(ctx, evilChain, evilStateManager, evilOpts...)
+		evilManager, err := cm.NewChallengeStack(evilChain, evilStateManager, evilOpts...)
 		require.NoError(t, err)
 		evilChallengeManagers[i] = evilManager
 	}

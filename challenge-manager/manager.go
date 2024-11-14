@@ -145,7 +145,6 @@ func WithHeadBlockSubscriptions() Opt {
 
 // New sets up a challenge manager instance provided a protocol, state manager, and additional options.
 func New(
-	ctx context.Context,
 	chain protocol.Protocol,
 	stateManager l2stateprovider.Provider,
 	watcher *watcher.Watcher,

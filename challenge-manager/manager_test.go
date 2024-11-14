@@ -133,8 +133,7 @@ func setupEdgeTrackersForBisection(
 		StackWithMode(types.MakeMode),
 		StackWithName("alice"),
 	}
-	honestValidator, err := NewDefaultChallengeManager(
-		ctx,
+	honestValidator, err := NewChallengeStack(
 		createdData.Chains[0],
 		createdData.HonestStateManager,
 		honestOpts...,
@@ -145,8 +144,7 @@ func setupEdgeTrackersForBisection(
 		StackWithMode(types.MakeMode),
 		StackWithName("bob"),
 	}
-	evilValidator, err := NewDefaultChallengeManager(
-		ctx,
+	evilValidator, err := NewChallengeStack(
 		createdData.Chains[1],
 		createdData.EvilStateManager,
 		evilOpts...,
@@ -252,8 +250,7 @@ func setupValidator(ctx context.Context, t *testing.T) (*Manager, *mocks.MockPro
 	require.NoError(t, err)
 	p.On("Backend").Return(cfg.Backend, nil)
 	p.On("RollupAddress").Return(cfg.Addrs.Rollup)
-	v, err := NewDefaultChallengeManager(
-		ctx,
+	v, err := NewChallengeStack(
 		p,
 		s,
 		StackWithMode(types.MakeMode),

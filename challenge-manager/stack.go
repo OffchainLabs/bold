@@ -1,7 +1,6 @@
 package challengemanager
 
 import (
-	"context"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -135,10 +134,9 @@ func OverrideAssertionManager(asm *assertions.Manager) StackOpt {
 	}
 }
 
-// NewDefaultChallengeManager creates a new ChallengeManager and
-// all of the dependencies wiring them together.
-func NewDefaultChallengeManager(
-	ctx context.Context,
+// NewChallengeStack creates a new ChallengeManager and all of the dependencies
+// wiring them together.
+func NewChallengeStack(
 	chain protocol.AssertionChain,
 	provider l2stateprovider.Provider,
 	opts ...StackOpt,
@@ -234,5 +232,5 @@ func NewDefaultChallengeManager(
 	if params.apiAddr != "" {
 		cmOpts = append(cmOpts, WithAPIEnabled(params.apiAddr, apiDB))
 	}
-	return New(ctx, chain, provider, watcher, asm, cmOpts...)
+	return New(chain, provider, watcher, asm, cmOpts...)
 }
