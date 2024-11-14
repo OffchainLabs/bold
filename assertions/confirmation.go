@@ -12,6 +12,7 @@ import (
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/logs/ephemeral"
 	retry "github.com/offchainlabs/bold/runtime"
 )
 
@@ -55,6 +56,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		log.Error("Could not get prev assertion creation info", "err", err)
 		return
 	}
+	exceedsMaxMempoolSizeEphemeralErrorHandler := ephemeral.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
 	ticker := time.NewTicker(m.times.confInterval)
 	defer ticker.Stop()
 	for {
@@ -83,11 +85,17 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.times.avgBlockTime, option.None[protocol.EdgeId]())
 			if err != nil {
 				if !strings.Contains(err.Error(), "PREV_NOT_LATEST_CONFIRMED") {
-					log.Error("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
+					logLevel := log.Error
+					logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+
+					logLevel("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
 					errorConfirmingAssertionByTimeCounter.Inc(1)
 				}
 				continue
 			}
+
+			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				log.Info("Confirmed assertion by time", "assertionHash", creationInfo.AssertionHash)
