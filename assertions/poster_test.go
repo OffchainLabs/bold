@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	challengemanager "github.com/offchainlabs/bold/challenge-manager"
+	cm "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
@@ -62,12 +62,13 @@ func TestPostAssertion(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManager, err := challengemanager.New(
+	chalManager, err := cm.NewDefaultChallengeManager(
 		ctx,
 		aliceChain,
 		stateManager,
-		assertionManager,
-		challengemanager.WithMode(types.DefensiveMode),
+		cm.StackWithMode(types.DefensiveMode),
+		cm.StackWithName("alice"),
+		cm.OverrideAssertionManager(assertionManager),
 	)
 	require.NoError(t, err)
 	chalManager.Start(ctx)

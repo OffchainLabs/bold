@@ -13,8 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	challengemanager "github.com/offchainlabs/bold/challenge-manager"
-	"github.com/offchainlabs/bold/challenge-manager/stack"
+	cm "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
@@ -267,13 +266,13 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	honestStateManager, err := statemanager.NewForSimpleMachine(baseStateManagerOpts...)
 	require.NoError(t, err)
 
-	baseStackOpts := []stack.Opt{
-		stack.WithMode(types.MakeMode),
-		stack.WithPollingInterval(cfg.timings.assertionScanningInterval),
-		stack.WithPostingInterval(cfg.timings.assertionPostingInterval),
-		stack.WithAverageBlockCreationTime(cfg.timings.blockTime),
-		stack.WithConfirmationInterval(cfg.timings.assertionConfirmationAttemptInterval),
-		stack.WithHeadBlockSubscriptionsEnabled(),
+	baseStackOpts := []cm.StackOpt{
+		cm.StackWithMode(types.MakeMode),
+		cm.StackWithPollingInterval(cfg.timings.assertionScanningInterval),
+		cm.StackWithPostingInterval(cfg.timings.assertionPostingInterval),
+		cm.StackWithAverageBlockCreationTime(cfg.timings.blockTime),
+		cm.StackWithConfirmationInterval(cfg.timings.assertionConfirmationAttemptInterval),
+		cm.StackWithHeadBlockSubscriptionsEnabled(),
 	}
 
 	name := "honest"
@@ -281,10 +280,10 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	//nolint:gocritic
 	honestOpts := append(
 		baseStackOpts,
-		stack.WithName(name),
+		cm.StackWithName(name),
 	)
 	honestChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
-	honestManager, err := stack.NewDefaultChallengeManager(ctx, honestChain, honestStateManager, honestOpts...)
+	honestManager, err := cm.NewDefaultChallengeManager(ctx, honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
 	if !api.IsNil(honestManager.Database()) {
 		honestStateManager.UpdateAPIDatabase(honestManager.Database())
@@ -297,7 +296,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	assertionDivergenceHeight := uint64(1)
 	assertionBlockHeightDifference := int64(1)
 
-	evilChallengeManagers := make([]*challengemanager.Manager, cfg.actors.numEvilValidators)
+	evilChallengeManagers := make([]*cm.Manager, cfg.actors.numEvilValidators)
 	for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
 		machineDivergenceStep := randUint64(totalOpcodes)
 		//nolint:gocritic
@@ -317,10 +316,10 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		//nolint:gocritic
 		evilOpts := append(
 			baseStackOpts,
-			stack.WithName(name),
+			cm.StackWithName(name),
 		)
 		evilChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
-		evilManager, err := stack.NewDefaultChallengeManager(ctx, evilChain, evilStateManager, evilOpts...)
+		evilManager, err := cm.NewDefaultChallengeManager(ctx, evilChain, evilStateManager, evilOpts...)
 		require.NoError(t, err)
 		evilChallengeManagers[i] = evilManager
 	}

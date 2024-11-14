@@ -265,7 +265,7 @@ type SpecChallengeManager interface {
 	// Layer zero edge heights defined the challenge manager contract.
 	LayerZeroHeights(ctx context.Context) (*LayerZeroHeights, error)
 	// Number of big step challenge levels defined in the challenge manager contract.
-	NumBigSteps(ctx context.Context) (uint8, error)
+	NumBigSteps() uint8
 	// Duration of the challenge period in blocks.
 	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
 	// Gets an edge by its id.

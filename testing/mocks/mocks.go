@@ -156,9 +156,9 @@ func (m *MockSpecChallengeManager) Address() common.Address {
 	return m.MockAddr
 }
 
-func (m *MockSpecChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(uint8), args.Error(1)
+func (m *MockSpecChallengeManager) NumBigSteps() uint8 {
+	args := m.Called()
+	return args.Get(0).(uint8)
 }
 
 func (m *MockSpecChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {

@@ -2,8 +2,9 @@
 // For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 
 // Package watcher implements the main monitoring logic for protocol validators.
-// The challenge watcher is a singleton service available to all spawned edge trackers
-// and it tracks common information such as the edges' ancestors and an edge's time unrivaled.
+// The challenge watcher is a singleton service available to all spawned edge
+// trackers and it tracks common information such as the edges' ancestors and an
+// edge's time unrivaled.
 //
 // See: [github.com/offchainlabs/bold/challenge-manager/edge-tracker]
 package watcher
@@ -47,50 +48,50 @@ type EdgeManager interface {
 	TrackEdge(ctx context.Context, edge protocol.SpecEdge) error
 }
 
-// Represents a set of honest edges being tracked in a top-level challenge and all the
-// associated subchallenge honest edges along with some more metadata used for
-// computing information needed for confirmations. Each time an edge is created onchain,
-// the challenge watcher service will add it to its respective "trackedChallenge"
-// namespaced under the top-level assertion hash the edge belongs to.
+// Represents a set of honest edges being tracked in a top-level challenge and
+// all the associated subchallenge honest edges along with some more metadata
+// used for computing information needed for confirmations. Each time an edge is
+// created onchain, the challenge watcher service will add it to its respective
+// "trackedChallenge" namespaced under the top-level assertion hash the edge
+// belongs to.
 type trackedChallenge struct {
 	honestEdgeTree                 *challengetree.RoyalChallengeTree
 	confirmedLevelZeroEdgeClaimIds *threadsafe.Map[protocol.ClaimId, protocol.EdgeId]
 }
 
-// The Watcher implements a service in the validator runtime
-// that is in charge of scanning through all edge creation events via a polling
-// mechanism. It will keep track of edges the validator's state provider agrees with
-// within trackedChallenge instances. The challenge watcher provides two useful
-// methods: (a) the ability to compute the honest path timer of an edge, and
-// (b) the ability to check if an edge with a certain claim id has been confirmed. Both
-// are used during the confirmation process in edge tracker goroutines.
+// The Watcher implements a service in the validator runtime that is in charge
+// of scanning through all edge creation events via a polling mechanism. It will
+// keep track of edges the validator's state provider agrees with within
+// trackedChallenge instances. The challenge watcher provides two useful
+// methods: (a) the ability to compute the honest path timer of an edge, and (b)
+// the ability to check if an edge with a certain claim id has been confirmed.
+// Both are used during the confirmation process in edge tracker goroutines.
 type Watcher struct {
 	stopwaiter.StopWaiter
-	histChecker                         l2stateprovider.HistoryChecker
-	chain                               protocol.AssertionChain
-	edgeManager                         EdgeManager
-	pollEventsInterval                  time.Duration
-	challenges                          *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
-	backend                             bind.ContractBackend
-	validatorName                       string
-	numBigStepLevels                    uint8
-	initialSyncCompleted                atomic.Bool
-	apiDB                               db.Database
-	assertionConfirmingInterval         time.Duration
-	averageTimeForBlockCreation         time.Duration
-	evilEdgesByLevel                    *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]
-	trackChallengeParentAssertionHashes []protocol.AssertionHash // Only track challenges for these parent assertion hashes. Track all if empty / nil.
+	histChecker                 l2stateprovider.HistoryChecker
+	chain                       protocol.AssertionChain
+	edgeManager                 EdgeManager
+	pollEventsInterval          time.Duration
+	challenges                  *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
+	backend                     bind.ContractBackend
+	validatorName               string
+	numBigStepLevels            uint8
+	initialSyncCompleted        atomic.Bool
+	apiDB                       db.Database
+	assertionConfirmingInterval time.Duration
+	averageTimeForBlockCreation time.Duration
+	evilEdgesByLevel            *threadsafe.Map[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]
+	// Only track challenges for these parent assertion hashes.
+	// Track all if empty / nil.
+	trackChallengeParentAssertionHashes []protocol.AssertionHash
 }
 
 // New initializes a watcher service for frequently scanning the chain
 // for edge creations and confirmations.
 func New(
 	chain protocol.AssertionChain,
-	edgeManager EdgeManager,
 	histChecker l2stateprovider.HistoryChecker,
-	backend bind.ContractBackend,
 	interval time.Duration,
-	numBigStepLevels uint8,
 	validatorName string,
 	apiDB db.Database,
 	assertionConfirmingInterval time.Duration,
@@ -102,12 +103,12 @@ func New(
 	}
 	return &Watcher{
 		chain:                               chain,
-		edgeManager:                         edgeManager,
+		edgeManager:                         nil, // Must be set after construction.
 		pollEventsInterval:                  interval,
 		challenges:                          threadsafe.NewMap(threadsafe.MapWithMetric[protocol.AssertionHash, *trackedChallenge]("challenges")),
-		backend:                             backend,
+		backend:                             chain.Backend(),
 		histChecker:                         histChecker,
-		numBigStepLevels:                    numBigStepLevels,
+		numBigStepLevels:                    chain.SpecChallengeManager().NumBigSteps(),
 		validatorName:                       validatorName,
 		apiDB:                               apiDB,
 		assertionConfirmingInterval:         assertionConfirmingInterval,
@@ -117,8 +118,13 @@ func New(
 	}, nil
 }
 
-// HonestBlockChallengeRootEdge gets the honest block challenge root edge for a given challenge
-// by challenged assertion id if it exists.
+// SetEdgeManager sets the EdgeManager that will track the royal edges.
+func (w *Watcher) SetEdgeManager(em EdgeManager) {
+	w.edgeManager = em
+}
+
+// HonestBlockChallengeRootEdge gets the honest block challenge root edge for a
+// given challenge by challenged assertion id if it exists.
 func (w *Watcher) HonestBlockChallengeRootEdge(
 	ctx context.Context,
 	assertionHash protocol.AssertionHash,
@@ -130,9 +136,10 @@ func (w *Watcher) HonestBlockChallengeRootEdge(
 	return chal.honestEdgeTree.RoyalBlockChallengeRootEdge()
 }
 
-// ConfirmedEdgeWithClaimExists checks if a confirmed, level zero edge exists that claims a particular
-// edge id for a tracked challenge. This is used during the confirmation process of edges
-// within edge tracker goroutines. Returns the claiming edge id.
+// ConfirmedEdgeWithClaimExists checks if a confirmed, level zero edge exists
+// that claims a particular edge id for a tracked challenge. This is used during
+// the confirmation process of edges within edge tracker goroutines. Returns the
+// claiming edge id.
 func (w *Watcher) ConfirmedEdgeWithClaimExists(
 	topLevelAssertionHash protocol.AssertionHash,
 	claimId protocol.ClaimId,
@@ -172,8 +179,9 @@ func (w *Watcher) IsSynced() bool {
 	return w.initialSyncCompleted.Load()
 }
 
-// Start watching the chain via a polling mechanism for all edge added and confirmation events
-// in order to process some of this data into internal representations for confirmation purposes.
+// Start watching the chain via a polling mechanism for all edge added and
+// confirmation events in order to process some of this data into internal
+// representations for confirmation purposes.
 func (w *Watcher) Start(ctx context.Context) {
 	w.StopWaiter.Start(ctx, w)
 	scanRange, err := retry.UntilSucceeds(ctx, func() (filterRange, error) {
@@ -277,7 +285,8 @@ func (w *Watcher) Start(ctx context.Context) {
 	}
 }
 
-// GetRoyalEdges returns all royal, tracked edges in the watcher by assertion hash.
+// GetRoyalEdges returns all royal, tracked edges in the watcher by assertion
+// hash.
 func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge, error) {
 	header, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
@@ -443,16 +452,29 @@ func (w *Watcher) ComputeRootInheritedTimer(
 	return chal.honestEdgeTree.ComputeRootInheritedTimer(ctx, challengedAssertionHash, blockHeader.Number.Uint64())
 }
 
-// AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's internally
-// tracked challenge trees and spawns an edge tracker for it. Should be called after the challenge
-// manager creates a new edge, or bisects an edge and produces two children from that move.
+func (w *Watcher) AllowTrackingEdgeWithParentHash(parentHash protocol.AssertionHash) bool {
+	if len(w.trackChallengeParentAssertionHashes) == 0 {
+		return true
+	}
+	for _, hash := range w.trackChallengeParentAssertionHashes {
+		if hash == parentHash {
+			return true
+		}
+	}
+	return false
+}
+
+// AddVerifiedHonestEdge adds an edge known to be honest to the chain watcher's
+// internally tracked challenge trees and spawns an edge tracker for it. Should
+// be called after the challenge manager creates a new edge, or bisects an edge
+// and produces two children from that move.
 func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.VerifiedRoyalEdge) error {
 	assertionHash, err := edge.AssertionHash(ctx)
 	if err != nil {
 		return err
 	}
-	// If a challenge is not yet being tracked locally by the watcher
-	// for the edge's assertion hash, it adds an entry to the map.
+	// If a challenge is not yet being tracked locally by the watcher for the
+	// edge's assertion hash, it adds an entry to the map.
 	chal, ok := w.challenges.TryGet(assertionHash)
 	if !ok {
 		tree := challengetree.New(
@@ -468,8 +490,8 @@ func (w *Watcher) AddVerifiedHonestEdge(ctx context.Context, edge protocol.Verif
 		}
 		w.challenges.Put(assertionHash, chal)
 	}
-	// Add the edge to a local challenge tree of honest edges and, if needed,
-	// we also spawn a tracker for the edge.
+	// Add the edge to a local challenge tree of honest edges and, if needed, we
+	// also spawn a tracker for the edge.
 	start, startRoot := edge.StartCommitment()
 	end, endRoot := edge.EndCommitment()
 	fields := []any{
@@ -633,7 +655,8 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 	return true, nil
 }
 
-// Processes an edge added event by adding it to the honest challenge tree if it is honest.
+// Processes an edge added event by adding it to the honest challenge tree if it
+// is honest.
 func (w *Watcher) processEdgeAddedEvent(
 	ctx context.Context,
 	event *challengeV2gen.EdgeChallengeManagerEdgeAdded,
@@ -669,8 +692,8 @@ func (w *Watcher) allowTrackingEdgeWithChallengeParentAssertionHash(challengePar
 	return false
 }
 
-// Filters for edge confirmed by one step proof events within a range.
-// and processes any events found.
+// Filters for edge confirmed by one step proof events within a range and
+// processes any events found.
 func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -707,8 +730,8 @@ func (w *Watcher) checkForEdgeConfirmedByOneStepProof(
 	return nil
 }
 
-// Filters for edge confirmed by time within a range.
-// and processes any events found.
+// Filters for edge confirmed by time within a range and processes any events
+// found.
 func (w *Watcher) checkForEdgeConfirmedByTime(
 	ctx context.Context,
 	filterer *challengeV2gen.EdgeChallengeManagerFilterer,
@@ -745,9 +768,9 @@ func (w *Watcher) checkForEdgeConfirmedByTime(
 	return nil
 }
 
-// Processes an edge confirmation event by checking if it claims an edge. If so, we add
-// the claim id to the confirmed, level zero edge claim ids map for the associated
-// assertion-level challenge the edge is a part of.
+// Processes an edge confirmation event by checking if it claims an edge. If so,
+// we add the claim id to the confirmed, level zero edge claim ids map for the
+// associated assertion-level challenge the edge is a part of.
 func (w *Watcher) processEdgeConfirmation(
 	ctx context.Context,
 	edgeId protocol.EdgeId,
@@ -770,8 +793,9 @@ func (w *Watcher) processEdgeConfirmation(
 		return nil
 	}
 
-	// If an edge does not have a claim ID, it is not a level zero edge, and thus we can return early,
-	// as the following operations only operate on level zero edges.
+	// If an edge does not have a claim ID, it is not a level zero edge, and thus
+	// we can return early, as the following operations only operate on level zero
+	// edges.
 	if edge.ClaimId().IsNone() {
 		return nil
 	}
@@ -847,8 +871,8 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		challengeGracePeriodBlocks,
 	)
 
-	// Compute the number of blocks until we reach the assertion's
-	// deadline for confirmation.
+	// Compute the number of blocks until we reach the assertion's deadline for
+	// confirmation.
 	ticker := time.NewTicker(w.assertionConfirmingInterval)
 	defer ticker.Stop()
 	for {
@@ -897,8 +921,8 @@ type filterRange struct {
 	endBlockNum   uint64
 }
 
-// Gets the start and end block numbers for our filter queries, starting from the
-// latest confirmed assertion's block number up to the latest block number.
+// Gets the start and end block numbers for our filter queries, starting from
+// the latest confirmed assertion's block number up to the latest block number.
 func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) {
 	latestConfirmed, err := w.chain.LatestConfirmed(ctx, w.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {

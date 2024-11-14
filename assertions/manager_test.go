@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	challengemanager "github.com/offchainlabs/bold/challenge-manager"
+	cm "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
@@ -90,23 +90,12 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 	bobAssertionInfo, err := bobChain.ReadAssertionCreationInfo(ctx, bobAssertion.Id())
 	require.NoError(t, err)
 
-	// Setup an assertion manager for alice.
-	aliceAssertionManager, err := assertions.NewManager(
-		aliceChain,
-		aliceStateManager,
-		"alice",
-		types.DefensiveMode,
-	)
-	require.NoError(t, err)
-
-	// We have Alice process the assertion and post a rival, honest assertion to the one
-	// at batch 1.
-	aliceChalManager, err := challengemanager.New(
+	aliceChalManager, err := cm.NewDefaultChallengeManager(
 		ctx,
 		aliceChain,
 		aliceStateManager,
-		aliceAssertionManager,
-		challengemanager.WithMode(types.DefensiveMode),
+		cm.StackWithMode(types.DefensiveMode),
+		cm.StackWithName("alice"),
 	)
 	require.NoError(t, err)
 	aliceChalManager.Start(ctx)
@@ -307,12 +296,13 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManager, err := challengemanager.New(
+	chalManager, err := cm.NewDefaultChallengeManager(
 		ctx,
 		charlieChain,
 		charlieStateManager,
-		charlieAssertionManager,
-		challengemanager.WithMode(types.DefensiveMode),
+		cm.OverrideAssertionManager(charlieAssertionManager),
+		cm.StackWithMode(types.DefensiveMode),
+		cm.StackWithName("charlie"),
 	)
 	require.NoError(t, err)
 	chalManager.Start(ctx)
@@ -377,12 +367,13 @@ func TestFastConfirmation(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManager, err := challengemanager.New(
+	chalManager, err := cm.NewDefaultChallengeManager(
 		ctx,
 		aliceChain,
 		stateManager,
-		assertionManager,
-		challengemanager.WithMode(types.ResolveMode),
+		cm.OverrideAssertionManager(assertionManager),
+		cm.StackWithMode(types.ResolveMode),
+		cm.StackWithName("alice"),
 	)
 	require.NoError(t, err)
 	chalManager.Start(ctx)
@@ -451,12 +442,13 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManagerAlice, err := challengemanager.New(
+	chalManagerAlice, err := cm.NewDefaultChallengeManager(
 		ctx,
 		aliceChain,
 		stateManager,
-		assertionManagerAlice,
-		challengemanager.WithMode(types.ResolveMode),
+		cm.OverrideAssertionManager(assertionManagerAlice),
+		cm.StackWithMode(types.ResolveMode),
+		cm.StackWithName("alice"),
 	)
 	require.NoError(t, err)
 	chalManagerAlice.Start(ctx)
@@ -492,12 +484,13 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chalManagerBob, err := challengemanager.New(
+	chalManagerBob, err := cm.NewDefaultChallengeManager(
 		ctx,
 		bobChain,
 		stateManager,
-		assertionManagerBob,
-		challengemanager.WithMode(types.ResolveMode),
+		cm.OverrideAssertionManager(assertionManagerBob),
+		cm.StackWithMode(types.ResolveMode),
+		cm.StackWithName("bob"),
 	)
 	require.NoError(t, err)
 	chalManagerBob.Start(ctx)

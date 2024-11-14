@@ -458,8 +458,8 @@ func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol
 	}, nil
 }
 
-func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) {
-	return cm.numBigStepLevel, nil
+func (cm *specChallengeManager) NumBigSteps() uint8 {
+	return cm.numBigStepLevel
 }
 
 func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
@@ -534,10 +534,6 @@ func (cm *specChallengeManager) GetEdge(
 	if !edge.EndHeight.IsUint64() {
 		return option.None[protocol.SpecEdge](), errors.New("end height not a uint64")
 	}
-	numbigsteplevel, err := cm.NumBigSteps(ctx)
-	if err != nil {
-		return option.Option[protocol.SpecEdge]{}, err
-	}
 	assertionHash, err := cm.caller.GetPrevAssertionHash(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), edgeId.Hash)
 	if err != nil {
 		return option.Option[protocol.SpecEdge]{}, err
@@ -550,7 +546,7 @@ func (cm *specChallengeManager) GetEdge(
 		startHeight:          edge.StartHeight.Uint64(),
 		endHeight:            edge.EndHeight.Uint64(),
 		miniStaker:           miniStaker,
-		totalChallengeLevels: numbigsteplevel + 2,
+		totalChallengeLevels: cm.NumBigSteps() + 2,
 		assertionHash:        protocol.AssertionHash{Hash: common.Hash(assertionHash)},
 	})), nil
 }

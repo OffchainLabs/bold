@@ -135,7 +135,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, false, nil, false, errors.Wrap(err, "could not get assertion creation info")
 	}
-	if !m.allowTrackingEdgeWithChallengeParentAssertionHash(protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash}) {
+	if !m.watcher.AllowTrackingEdgeWithParentHash(protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash}) {
 		return nil, false, nil, false, nil
 	}
 	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
@@ -215,18 +215,6 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, false, nil, false, errors.Wrap(err, "could not post block challenge root edge")
 	}
 	return edge, true, assertionMetadata, false, nil
-}
-
-func (m *Manager) allowTrackingEdgeWithChallengeParentAssertionHash(challengeParentAssertionHash protocol.AssertionHash) bool {
-	if len(m.trackChallengeParentAssertionHashes) == 0 {
-		return true
-	}
-	for _, hash := range m.trackChallengeParentAssertionHashes {
-		if hash == challengeParentAssertionHash {
-			return true
-		}
-	}
-	return false
 }
 
 func randUint64(max uint64) (uint64, error) {

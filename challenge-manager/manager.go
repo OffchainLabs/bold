@@ -53,33 +53,29 @@ type assertionManager interface {
 // an active participant in interacting with the on-chain contracts.
 type Manager struct {
 	stopwaiter.StopWaiter
-	chain                       protocol.Protocol
-	chalManagerAddr             common.Address
-	rollup                      *rollupgen.RollupCore
-	rollupFilterer              *rollupgen.RollupCoreFilterer
-	chalManager                 *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                     bind.ContractBackend
-	assertionManager            assertionManager
-	client                      *rpc.Client
-	stateManager                l2stateprovider.Provider
-	address                     common.Address
-	name                        string
-	timeRef                     utilTime.Reference
-	chainWatcherInterval        time.Duration
-	watcher                     *watcher.Watcher
-	trackedEdgeIds              *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
-	batchIndexForAssertionCache *threadsafe.LruMap[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]
-	newBlockNotifier            *events.Producer[*gethtypes.Header]
-	notifyOnNumberOfBlocks      uint64
-	// Optional list of challenges to track, keyed by challenged parent assertion hash. If nil,
-	// all challenges will be tracked.
-	trackChallengeParentAssertionHashes []protocol.AssertionHash
-	assertionConfirmingInterval         time.Duration
-	averageTimeForBlockCreation         time.Duration
-	mode                                types.Mode
-	maxDelaySeconds                     int
-	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
-	headBlockSubscriptions              bool
+	chain                        protocol.Protocol
+	chalManagerAddr              common.Address
+	rollup                       *rollupgen.RollupCore
+	rollupFilterer               *rollupgen.RollupCoreFilterer
+	chalManager                  *challengeV2gen.EdgeChallengeManagerFilterer
+	backend                      bind.ContractBackend
+	assertionManager             assertionManager
+	watcher                      *watcher.Watcher
+	client                       *rpc.Client
+	stateManager                 l2stateprovider.Provider
+	address                      common.Address
+	name                         string
+	timeRef                      utilTime.Reference
+	trackedEdgeIds               *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
+	batchIndexForAssertionCache  *threadsafe.LruMap[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]
+	newBlockNotifier             *events.Producer[*gethtypes.Header]
+	notifyOnNumberOfBlocks       uint64
+	assertionConfirmingInterval  time.Duration
+	averageTimeForBlockCreation  time.Duration
+	mode                         types.Mode
+	maxDelaySeconds              int
+	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
+	headBlockSubscriptions       bool
 	// API
 	apiAddr string
 	api     *server.Server
@@ -141,15 +137,6 @@ func WithRPCClient(client *rpc.Client) Opt {
 	}
 }
 
-func WithTrackChallengeParentAssertionHashes(trackChallengeParentAssertionHashes []string) Opt {
-	return func(val *Manager) {
-		val.trackChallengeParentAssertionHashes = make([]protocol.AssertionHash, len(trackChallengeParentAssertionHashes))
-		for i, hash := range trackChallengeParentAssertionHashes {
-			val.trackChallengeParentAssertionHashes[i] = protocol.AssertionHash{Hash: common.HexToHash(hash)}
-		}
-	}
-}
-
 func WithHeadBlockSubscriptions() Opt {
 	return func(val *Manager) {
 		val.headBlockSubscriptions = true
@@ -161,18 +148,18 @@ func New(
 	ctx context.Context,
 	chain protocol.Protocol,
 	stateManager l2stateprovider.Provider,
+	watcher *watcher.Watcher,
 	assertionManager assertionManager,
 	opts ...Opt,
 ) (*Manager, error) {
-
 	m := &Manager{
 		backend:                      chain.Backend(),
 		chain:                        chain,
 		stateManager:                 stateManager,
 		assertionManager:             assertionManager,
+		watcher:                      watcher,
 		address:                      common.Address{},
 		timeRef:                      utilTime.NewRealTimeReference(),
-		chainWatcherInterval:         time.Millisecond * 500,
 		trackedEdgeIds:               threadsafe.NewMap(threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache:  threadsafe.NewLruMap(1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		notifyOnNumberOfBlocks:       1,
@@ -201,31 +188,11 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	numBigStepLevels, err := chalManager.NumBigSteps(ctx)
-	if err != nil {
-		return nil, err
-	}
 	m.rollup = rollup
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-
-	watcher, err := watcher.New(
-		m.chain,
-		m,
-		m.stateManager,
-		m.backend,
-		m.chainWatcherInterval,
-		numBigStepLevels,
-		m.name,
-		m.apiDB,
-		m.assertionConfirmingInterval,
-		m.averageTimeForBlockCreation,
-		m.trackChallengeParentAssertionHashes)
-	if err != nil {
-		return nil, err
-	}
-	m.watcher = watcher
+	m.watcher.SetEdgeManager(m)
 
 	if m.apiAddr != "" {
 		bknd := apibackend.NewBackend(m.apiDB, m.chain, m.watcher, m)
@@ -518,10 +485,7 @@ func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState
 
 func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	cm := m.chain.SpecChallengeManager()
-	bigStepNum, err := cm.NumBigSteps(ctx)
-	if err != nil {
-		return err
-	}
+	bigStepNum := cm.NumBigSteps()
 	challengePeriodBlocks, err := cm.ChallengePeriodBlocks(ctx)
 	if err != nil {
 		return err

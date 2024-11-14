@@ -1,13 +1,14 @@
-package stack
+package challengemanager
 
 import (
 	"context"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	cm "github.com/offchainlabs/bold/challenge-manager"
+	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 )
@@ -19,37 +20,41 @@ type stackParams struct {
 	postInterval                        time.Duration
 	confInterval                        time.Duration
 	avgBlockTime                        time.Duration
-	trackChallengeParentAssertionHashes []string
-	enableHeadBlockSubscriptions        bool
+	trackChallengeParentAssertionHashes []protocol.AssertionHash
 	apiAddr                             string
 	apiDBPath                           string
+	enableHeadBlockSubscriptions        bool
+	enableFastConfirmation              bool
+	assertionManagerOverride            *assertions.Manager
 }
 
 var defaultStackParams = stackParams{
 	mode:                                types.MakeMode,
 	name:                                "unnamed-challenge-manager",
 	pollInterval:                        time.Minute,
-	confInterval:                        time.Second * 10,
 	postInterval:                        time.Hour,
+	confInterval:                        time.Second * 10,
 	avgBlockTime:                        time.Second * 12,
 	trackChallengeParentAssertionHashes: nil,
-	enableHeadBlockSubscriptions:        false,
 	apiAddr:                             "",
 	apiDBPath:                           "",
+	enableHeadBlockSubscriptions:        false,
+	enableFastConfirmation:              false,
+	assertionManagerOverride:            nil,
 }
 
 // Opt is a functional option for configuring the default challenge manager.
-type Opt func(*stackParams)
+type StackOpt func(*stackParams)
 
 // WithMode sets the mode of the default challenge manager.
-func WithMode(mode types.Mode) Opt {
+func StackWithMode(mode types.Mode) StackOpt {
 	return func(p *stackParams) {
 		p.mode = mode
 	}
 }
 
 // WithName sets the name of the default challenge manager.
-func WithName(name string) Opt {
+func StackWithName(name string) StackOpt {
 	return func(p *stackParams) {
 		p.name = name
 	}
@@ -57,7 +62,7 @@ func WithName(name string) Opt {
 
 // WithPollingInterval sets the polling interval of the default challenge
 // manager.
-func WithPollingInterval(interval time.Duration) Opt {
+func StackWithPollingInterval(interval time.Duration) StackOpt {
 	return func(p *stackParams) {
 		p.pollInterval = interval
 	}
@@ -65,7 +70,7 @@ func WithPollingInterval(interval time.Duration) Opt {
 
 // WithPostingInterval sets the posting interval of the default challenge
 // manager.
-func WithPostingInterval(interval time.Duration) Opt {
+func StackWithPostingInterval(interval time.Duration) StackOpt {
 	return func(p *stackParams) {
 		p.postInterval = interval
 	}
@@ -73,7 +78,7 @@ func WithPostingInterval(interval time.Duration) Opt {
 
 // WithConfirmationInterval sets the confirmation interval of the default
 // challenge manager.
-func WithConfirmationInterval(interval time.Duration) Opt {
+func StackWithConfirmationInterval(interval time.Duration) StackOpt {
 	return func(p *stackParams) {
 		p.confInterval = interval
 	}
@@ -81,7 +86,7 @@ func WithConfirmationInterval(interval time.Duration) Opt {
 
 // WithAverageBlockCreationTime sets the average block creation time of the
 // default challenge manager.
-func WithAverageBlockCreationTime(interval time.Duration) Opt {
+func StackWithAverageBlockCreationTime(interval time.Duration) StackOpt {
 	return func(p *stackParams) {
 		p.avgBlockTime = interval
 	}
@@ -89,15 +94,18 @@ func WithAverageBlockCreationTime(interval time.Duration) Opt {
 
 // WithTrackChallengeParentAssertionHashes sets the track challenge parent
 // assertion hashes of the default challenge manager.
-func WithTrackChallengeParentAssertionHashes(hashes []string) Opt {
+func StackWithTrackChallengeParentAssertionHashes(hashes []string) StackOpt {
 	return func(p *stackParams) {
-		p.trackChallengeParentAssertionHashes = hashes
+		p.trackChallengeParentAssertionHashes = make([]protocol.AssertionHash, len(hashes))
+		for i, h := range hashes {
+			p.trackChallengeParentAssertionHashes[i] = protocol.AssertionHash{Hash: common.HexToHash(h)}
+		}
 	}
 }
 
 // WithAPIEnabled sets the API address and database path of the default
 // challenge manager.
-func WithAPIEnabled(apiAddr, apiDBPath string) Opt {
+func StackWithAPIEnabled(apiAddr, apiDBPath string) StackOpt {
 	return func(p *stackParams) {
 		p.apiAddr = apiAddr
 		p.apiDBPath = apiDBPath
@@ -106,9 +114,24 @@ func WithAPIEnabled(apiAddr, apiDBPath string) Opt {
 
 // WithHeadBlockSubscriptionsEnabled sets the enable head block subscriptions of
 // the default challenge manager.
-func WithHeadBlockSubscriptionsEnabled() Opt {
+func StackWithHeadBlockSubscriptionsEnabled() StackOpt {
 	return func(p *stackParams) {
 		p.enableHeadBlockSubscriptions = true
+	}
+}
+
+// WithFastConfirmationEnabled
+func StackWithFastConfirmationEnabled() StackOpt {
+	return func(p *stackParams) {
+		p.enableFastConfirmation = true
+	}
+}
+
+// OverrideAssertionManger can be used in tests to override the default
+// assertion manager.
+func OverrideAssertionManager(asm *assertions.Manager) StackOpt {
+	return func(p *stackParams) {
+		p.assertionManagerOverride = asm
 	}
 }
 
@@ -118,8 +141,8 @@ func NewDefaultChallengeManager(
 	ctx context.Context,
 	chain protocol.AssertionChain,
 	provider l2stateprovider.Provider,
-	opts ...Opt,
-) (*cm.Manager, error) {
+	opts ...StackOpt,
+) (*Manager, error) {
 	params := defaultStackParams
 	for _, o := range opts {
 		o(&params)
@@ -141,7 +164,7 @@ func NewDefaultChallengeManager(
 	// - cm.Manger : protocol.AssertionChain, l2stateprovider.Provider, assertions.Manager,
 	//               rollupAddress, mode, trackChallengeParentAssertionHashes, name, apiAddr
 
-	// Create the database.
+	// Create the api database.
 	var apiDB db.Database
 	if params.apiDBPath != "" {
 		adb, err := db.NewDatabase(params.apiDBPath)
@@ -151,38 +174,65 @@ func NewDefaultChallengeManager(
 		apiDB = adb
 	}
 
-	// Create the assertions manager.
-	amOpts := []assertions.Opt{
-		assertions.WithAverageBlockCreationTime(params.avgBlockTime),
-		assertions.WithConfirmationInterval(params.confInterval),
-		assertions.WithPollingInterval(params.pollInterval),
-		assertions.WithPostingInterval(params.postInterval),
-	}
-	if apiDB != nil {
-		amOpts = append(amOpts, assertions.WithAPIDB(apiDB))
-	}
-	asm, err := assertions.NewManager(
+	// NOTE: This is effectively a costant that was being set unconditionally
+	//       in the challenge manager's construtor. Now, I'm not sure what to
+	//       do with it. It is sometimes overridden in tests.
+	chainWatcherInterval := time.Millisecond * 500
+	// Create the chain watcher.
+	watcher, err := watcher.New(
 		chain,
 		provider,
+		chainWatcherInterval,
 		params.name,
-		types.MakeMode,
-		amOpts...,
+		apiDB,
+		params.confInterval,
+		params.avgBlockTime,
+		params.trackChallengeParentAssertionHashes,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	// Create the assertions manager.
+	var asm *assertions.Manager
+	if params.assertionManagerOverride == nil {
+		// Create the assertions manager.
+		amOpts := []assertions.Opt{
+			assertions.WithAverageBlockCreationTime(params.avgBlockTime),
+			assertions.WithConfirmationInterval(params.confInterval),
+			assertions.WithPollingInterval(params.pollInterval),
+			assertions.WithPostingInterval(params.postInterval),
+		}
+		if apiDB != nil {
+			amOpts = append(amOpts, assertions.WithAPIDB(apiDB))
+		}
+		if params.enableFastConfirmation {
+			amOpts = append(amOpts, assertions.WithFastConfirmation())
+		}
+		asm, err = assertions.NewManager(
+			chain,
+			provider,
+			params.name,
+			params.mode,
+			amOpts...,
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		asm = params.assertionManagerOverride
+	}
+
 	// Create the challenge manager.
-	cmOpts := []cm.Opt{
-		cm.WithMode(params.mode),
-		cm.WithTrackChallengeParentAssertionHashes(params.trackChallengeParentAssertionHashes),
-		cm.WithName(params.name),
+	cmOpts := []Opt{
+		WithMode(params.mode),
+		WithName(params.name),
 	}
 	if params.enableHeadBlockSubscriptions {
-		cmOpts = append(cmOpts, cm.WithHeadBlockSubscriptions())
+		cmOpts = append(cmOpts, WithHeadBlockSubscriptions())
 	}
 	if params.apiAddr != "" {
-		cmOpts = append(cmOpts, cm.WithAPIEnabled(params.apiAddr, apiDB))
+		cmOpts = append(cmOpts, WithAPIEnabled(params.apiAddr, apiDB))
 	}
-	return cm.New(ctx, chain, provider, asm, cmOpts...)
+	return New(ctx, chain, provider, watcher, asm, cmOpts...)
 }

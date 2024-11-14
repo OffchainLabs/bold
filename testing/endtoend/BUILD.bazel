@@ -26,7 +26,6 @@ go_test(
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
         "//challenge-manager",
-        "//challenge-manager/stack",
         "//challenge-manager/types",
         "//solgen/go/bridgegen",
         "//solgen/go/mocksgen",
