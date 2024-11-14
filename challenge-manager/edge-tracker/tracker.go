@@ -424,6 +424,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
+	start := time.Now()
 	isConfirmable, _, computedTimer, err := et.chainWatcher.IsConfirmableEssentialNode(
 		ctx,
 		assertionHash,
@@ -434,7 +435,18 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		log.Error("Could not check if essential node is confirmable")
 		return false, errors.Wrap(err, "not check if essential node is confirmable")
 	}
+	end := time.Since(start)
 	if isConfirmable {
+		localFields := []any{
+			"localTimer", computedTimer,
+			"confirmableAfter", chalPeriod,
+			"edgeId", fmt.Sprintf("%#x", et.edge.Id().Bytes()[:4]),
+			"took", end,
+			"fromBatch", et.associatedAssertionMetadata.FromBatch,
+			"toBatch", et.associatedAssertionMetadata.ToBatch,
+			"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+		}
+		log.Info("Local computed timer big enough to confirm edge", localFields...)
 		if err := et.challengeConfirmer.beginConfirmationJob(
 			ctx,
 			assertionHash,
@@ -447,6 +459,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 				"could not complete confirmation job for royal, block challenge edge",
 			)
 		}
+		// The edge is now confirmed.
 		return true, nil
 	}
 	return false, nil
