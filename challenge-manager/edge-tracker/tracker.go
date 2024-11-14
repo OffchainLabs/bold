@@ -356,7 +356,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 }
 
 // ShouldDespawn checks if an edge tracker should despawn and no longer act.
-// This is true an essential edge is confirmed and edge's claimed assertion is confirmed.
+// This is true an edge is confirmed or a non-essential edge's claimed assertion is confirmed.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	fields := et.uniqueTrackerLogFields()
 	status, err := et.edge.Status(ctx)
@@ -367,30 +367,21 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if status == protocol.EdgeConfirmed {
 		return true
 	}
-	claimedAssertion, err := et.chain.AssertionStatus(
-		ctx,
-		protocol.AssertionHash{
-			Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
-		},
-	)
-	// An edge is essential if it has a claim id.
-	if et.edge.ClaimId().IsSome() {
-		var edgeStatus protocol.EdgeStatus
-		edgeStatus, err = et.edge.Status(ctx)
+	if et.edge.ClaimId().IsNone() {
+		claimedAssertion, err := et.chain.AssertionStatus(
+			ctx,
+			protocol.AssertionHash{
+				Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
+			},
+		)
 		if err != nil {
+			log.Error("Could not get claimed assertion status", append(fields, "err", err)...)
 			return false
 		}
-		if edgeStatus != protocol.EdgeConfirmed {
-			return false
+		if claimedAssertion == protocol.AssertionConfirmed {
+			log.Info("Claimed assertion by edge confirmed, can now despawn edge", fields...)
+			return true
 		}
-	}
-	if err != nil {
-		log.Error("Could not get claimed assertion status", append(fields, "err", err)...)
-		return false
-	}
-	if claimedAssertion == protocol.AssertionConfirmed {
-		log.Info("Claimed assertion by edge confirmed, can now despawn edge", fields...)
-		return true
 	}
 	return false
 }
