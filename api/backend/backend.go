@@ -44,14 +44,21 @@ func NewBackend(
 	db db.ReadUpdateDatabase,
 	chainDataFetcher protocol.AssertionChain,
 	chainWatcher *watcher.Watcher,
-	trackerFetcher EdgeTrackerFetcher,
 ) *Backend {
 	return &Backend{
 		db:               db,
 		chainDataFetcher: chainDataFetcher,
 		chainWatcher:     chainWatcher,
-		trackerFetcher:   trackerFetcher,
+		trackerFetcher:   nil, // Must be set after construction.
 	}
+}
+
+// SetEdgeTrackerFetcher sets the edge tracker fetcher for the backend.
+//
+// This method must be called to inject this dependency before starting the
+// backend.
+func (b *Backend) SetEdgeTrackerFetcher(fetcher EdgeTrackerFetcher) {
+	b.trackerFetcher = fetcher
 }
 
 func (b *Backend) GetAssertions(ctx context.Context, opts ...db.AssertionOption) ([]*api.JsonAssertion, error) {

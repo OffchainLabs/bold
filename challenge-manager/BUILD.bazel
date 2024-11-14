@@ -24,8 +24,6 @@ go_library(
         "//containers/threadsafe",
         "//layer2-state-provider",
         "//runtime",
-        "//solgen/go/challengeV2gen",
-        "//solgen/go/rollupgen",
         "//time",
         "//util/stopwaiter",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
@@ -33,7 +31,6 @@ go_library(
         "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//log",
         "@com_github_ethereum_go_ethereum//metrics",
-        "@com_github_ethereum_go_ethereum//rpc",
         "@com_github_pkg_errors//:errors",
     ],
 )

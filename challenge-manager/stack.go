@@ -4,7 +4,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	apibackend "github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/api/db"
+	"github.com/offchainlabs/bold/api/server"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
@@ -169,6 +171,7 @@ func NewChallengeStack(
 		if err != nil {
 			return nil, err
 		}
+		provider.UpdateAPIDatabase(adb)
 		apiDB = adb
 	}
 
@@ -189,6 +192,16 @@ func NewChallengeStack(
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// Create the api backend server.
+	var api *server.Server
+	if params.apiAddr != "" {
+		bknd := apibackend.NewBackend(apiDB, chain, watcher)
+		api, err = server.New(params.apiAddr, bknd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Create the assertions manager.
@@ -230,7 +243,7 @@ func NewChallengeStack(
 		cmOpts = append(cmOpts, WithHeadBlockSubscriptions())
 	}
 	if params.apiAddr != "" {
-		cmOpts = append(cmOpts, WithAPIEnabled(params.apiAddr, apiDB))
+		cmOpts = append(cmOpts, WithAPIServer(api))
 	}
 	return New(chain, provider, watcher, asm, cmOpts...)
 }

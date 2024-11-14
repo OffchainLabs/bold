@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/util/stopwaiter"
-	"github.com/gorilla/mux"
 )
 
 var apiVersion = "/api/v1"
@@ -53,6 +53,10 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) Stop(ctx context.Context) error {
 	return s.srv.Shutdown(ctx)
+}
+
+func (s *Server) Addr() string {
+	return s.srv.Addr
 }
 
 func (s *Server) registerMethods() error {

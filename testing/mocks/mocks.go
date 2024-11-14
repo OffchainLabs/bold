@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
@@ -91,6 +92,10 @@ func (m *MockStateManager) HistoryCommitment(
 ) (history.History, error) {
 	args := m.Called(ctx, req)
 	return args.Get(0).(history.History), args.Error(1)
+}
+
+func (m *MockStateManager) UpdateAPIDatabase(apiDB db.Database) {
+	m.Called(apiDB)
 }
 
 func (m *MockStateManager) PrefixProof(

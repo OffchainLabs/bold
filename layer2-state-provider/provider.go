@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/state-commitments/history"
 
@@ -118,6 +119,7 @@ type GeneralHistoryCommitter interface {
 		ctx context.Context,
 		req *HistoryCommitmentRequest,
 	) (history.History, error)
+	UpdateAPIDatabase(db.Database)
 }
 
 type GeneralPrefixProver interface {

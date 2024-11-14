@@ -15,8 +15,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	apibackend "github.com/offchainlabs/bold/api/backend"
-	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/api/server"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
@@ -67,9 +65,7 @@ type Manager struct {
 	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
 	headBlockSubscriptions       bool
 	// API
-	apiAddr string
-	api     *server.Server
-	apiDB   db.Database
+	api *server.Server
 }
 
 // WithName is a human-readable identifier for this challenge manager for
@@ -95,12 +91,10 @@ func WithMode(m types.Mode) Opt {
 	}
 }
 
-// WithAPIEnabled specifies whether or not to enable the API and the address to
-// listen on.
-func WithAPIEnabled(addr string, db db.Database) Opt {
+// WithAPIServer(*server.Server) sets the API server for the challenge manager.
+func WithAPIServer(api *server.Server) Opt {
 	return func(val *Manager) {
-		val.apiAddr = addr
-		val.apiDB = db
+		val.api = api
 	}
 }
 
@@ -131,21 +125,12 @@ func New(
 		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
 		headBlockSubscriptions:       false,
 		claimedAssertionsInChallenge: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
+		api:                          nil,
 	}
 	for _, o := range opts {
 		o(m)
 	}
 	m.watcher.SetEdgeManager(m)
-
-	if m.apiAddr != "" {
-		bknd := apibackend.NewBackend(m.apiDB, m.chain, m.watcher, m)
-		srv, err2 := server.New(m.apiAddr, bknd)
-		if err2 != nil {
-			return nil, err2
-		}
-		m.api = srv
-	}
-
 	m.assertionManager.SetRivalHandler(m)
 	log.Info("Setting up challenge manager",
 		"name", m.name,
@@ -165,10 +150,6 @@ func (m *Manager) GetEdgeTracker(edgeId protocol.EdgeId) option.Option[*edgetrac
 // as an edge tracker goroutine.
 func (m *Manager) IsTrackingEdge(edgeId protocol.EdgeId) bool {
 	return m.trackedEdgeIds.Has(edgeId)
-}
-
-func (m *Manager) Database() db.Database {
-	return m.apiDB
 }
 
 // MarkTrackedEdge marks an edge id as being tracked by our challenge manager.
@@ -314,7 +295,7 @@ func (m *Manager) Start(ctx context.Context) {
 		m.LaunchThread(func(ctx context.Context) {
 			if err := m.api.Start(ctx); err != nil {
 				log.Error("Could not start API server",
-					"address", m.apiAddr,
+					"address", m.api.Addr(),
 					"err", err,
 				)
 			}

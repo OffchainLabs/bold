@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	cm "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
@@ -285,9 +284,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	honestChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
 	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
-	if !api.IsNil(honestManager.Database()) {
-		honestStateManager.UpdateAPIDatabase(honestManager.Database())
-	}
 
 	// Diverge exactly at the last opcode within the block.
 	totalOpcodes := totalWasmOpcodes(&cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels)
