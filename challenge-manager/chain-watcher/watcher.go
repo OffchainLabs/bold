@@ -123,6 +123,11 @@ func (w *Watcher) SetEdgeManager(em EdgeManager) {
 	w.edgeManager = em
 }
 
+// AvgBlockTime returns the average time for block creation.
+func (w *Watcher) AvgBlockTime() time.Duration {
+	return w.averageTimeForBlockCreation
+}
+
 // HonestBlockChallengeRootEdge gets the honest block challenge root edge for a
 // given challenge by challenged assertion id if it exists.
 func (w *Watcher) HonestBlockChallengeRootEdge(

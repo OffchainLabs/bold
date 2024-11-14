@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/pkg/errors"
 )
 
@@ -56,23 +56,22 @@ type RoyalChallengeReader interface {
 		challengedAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
 	) ([]protocol.ReadOnlyEdge, error)
+	AvgBlockTime() time.Duration
 }
 
 func newChallengeConfirmer(
 	challengeReader RoyalChallengeReader,
 	chainWriter ChainWriter,
 	backend protocol.ChainBackend,
-	averageTimeForBlockCreation time.Duration,
 	validatorName string,
 	chain protocol.Protocol,
 ) *challengeConfirmer {
 	return &challengeConfirmer{
-		reader:                      challengeReader,
-		writer:                      chainWriter,
-		validatorName:               validatorName,
-		averageTimeForBlockCreation: averageTimeForBlockCreation,
-		backend:                     backend,
-		chain:                       chain,
+		reader:        challengeReader,
+		writer:        chainWriter,
+		validatorName: validatorName,
+		backend:       backend,
+		chain:         chain,
 	}
 }
 

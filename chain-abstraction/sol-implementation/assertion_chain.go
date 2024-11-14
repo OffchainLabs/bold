@@ -323,12 +323,17 @@ func (a *AssertionChain) LatestConfirmed(ctx context.Context, opts *bind.CallOpt
 
 // Returns true if the staker's address is currently staked in the assertion chain.
 func (a *AssertionChain) IsStaked(ctx context.Context) (bool, error) {
-	return a.rollup.IsStaked(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), a.txOpts.From)
+	return a.rollup.IsStaked(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), a.StakerAddress())
 }
 
 // RollupAddress for the assertion chain.
 func (a *AssertionChain) RollupAddress() common.Address {
 	return a.rollupAddr
+}
+
+// StakerAddress for the staker which initialized this chain interface.
+func (a *AssertionChain) StakerAddress() common.Address {
+	return a.txOpts.From
 }
 
 // IsChallengeComplete checks if a challenge is complete by using the challenge's parent assertion hash.
@@ -730,7 +735,7 @@ func (a *AssertionChain) fastConfirmSafeAssertion(
 	if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash]; !ok {
 		a.fastConfirmSafeApprovedHashesOwners[safeTxHash] = make(map[common.Address]bool)
 	}
-	a.fastConfirmSafeApprovedHashesOwners[safeTxHash][a.txOpts.From] = true
+	a.fastConfirmSafeApprovedHashesOwners[safeTxHash][a.StakerAddress()] = true
 	return a.checkApprovedHashAndExecTransaction(ctx, fastConfirmCallData, safeTxHash)
 }
 

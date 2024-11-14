@@ -428,6 +428,11 @@ func (m *MockProtocol) RollupAddress() common.Address {
 	return args.Get(0).(common.Address)
 }
 
+func (m *MockProtocol) StakerAddress() common.Address {
+	args := m.Called()
+	return args.Get(0).(common.Address)
+}
+
 func (m *MockProtocol) RollupUserLogic() *rollupgen.RollupUserLogic {
 	args := m.Called()
 	return args.Get(0).(*rollupgen.RollupUserLogic)

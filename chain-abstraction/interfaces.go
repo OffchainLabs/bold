@@ -135,6 +135,7 @@ type AssertionChain interface {
 	IsChallengeComplete(ctx context.Context, challengeParentAssertionHash AssertionHash) (bool, error)
 	Backend() ChainBackend
 	RollupAddress() common.Address
+	StakerAddress() common.Address
 	AssertionStatus(
 		ctx context.Context,
 		assertionHash AssertionHash,

@@ -129,9 +129,13 @@ func setupEdgeTrackersForBisection(
 	delayEvilRootEdgeCreationByBlocks option.Option[uint64],
 ) (*edgetracker.Tracker, *edgetracker.Tracker) {
 	t.Helper()
+	confInterval := time.Second * 10
+	avgBlockTime := time.Second * 12
 	honestOpts := []StackOpt{
 		StackWithMode(types.MakeMode),
 		StackWithName("alice"),
+		StackWithConfirmationInterval(confInterval),
+		StackWithAverageBlockCreationTime(avgBlockTime),
 	}
 	honestValidator, err := NewChallengeStack(
 		createdData.Chains[0],
@@ -140,10 +144,7 @@ func setupEdgeTrackersForBisection(
 	)
 	require.NoError(t, err)
 
-	evilOpts := []StackOpt{
-		StackWithMode(types.MakeMode),
-		StackWithName("bob"),
-	}
+	evilOpts := append(honestOpts, StackWithName("bob"))
 	evilValidator, err := NewChallengeStack(
 		createdData.Chains[1],
 		createdData.EvilStateManager,
@@ -177,8 +178,8 @@ func setupEdgeTrackersForBisection(
 		time.Second,
 		"alice",
 		nil,
-		honestValidator.assertionConfirmingInterval,
-		honestValidator.averageTimeForBlockCreation,
+		confInterval,
+		avgBlockTime,
 		nil,
 	)
 	require.NoError(t, err)
@@ -208,8 +209,8 @@ func setupEdgeTrackersForBisection(
 		time.Second,
 		"bob",
 		nil,
-		evilValidator.assertionConfirmingInterval,
-		evilValidator.averageTimeForBlockCreation,
+		confInterval,
+		avgBlockTime,
 		nil,
 	)
 	require.NoError(t, err)
@@ -250,6 +251,7 @@ func setupValidator(ctx context.Context, t *testing.T) (*Manager, *mocks.MockPro
 	require.NoError(t, err)
 	p.On("Backend").Return(cfg.Backend, nil)
 	p.On("RollupAddress").Return(cfg.Addrs.Rollup)
+	p.On("StakerAddress").Return(cfg.Chains[0].StakerAddress())
 	v, err := NewChallengeStack(
 		p,
 		s,

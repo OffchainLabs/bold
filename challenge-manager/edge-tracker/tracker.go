@@ -36,11 +36,11 @@ var (
 	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/validator/tracker/layer_zero_leaves", nil)
 )
 
-// ConfirmationMetadataChecker defines a struct which can retrieve information about
-// an edge to determine if it can be confirmed via different means. For example,
-// checking if a confirmed edge exists that claims a specified edge id as its claim id,
-// or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
-// This information is used in order to confirm edges onchain.
+// RoyalChallengeWriter can retrieve information about an edge to determine if
+// it can be confirmed via different means. For example, checking if a confirmed
+// edge exists that claims a specified edge id as its claim id, or retrieving
+// the cumulative, honest path timer for an edge and its honest ancestors. This
+// information is used in order to confirm edges onchain.
 type RoyalChallengeWriter interface {
 	RoyalChallengeReader
 	AddVerifiedHonestEdge(
@@ -56,7 +56,6 @@ type ChallengeTracker interface {
 	IsTrackingEdge(protocol.EdgeId) bool
 	MarkTrackedEdge(protocol.EdgeId, *Tracker)
 	RemovedTrackedEdge(protocol.EdgeId)
-	BlockTimes() time.Duration
 	NewBlockSubscriber() *events.Producer[*types.Header]
 }
 
@@ -124,7 +123,7 @@ func New(
 		o(tr)
 	}
 	chalManager := chain.SpecChallengeManager()
-	tr.challengeConfirmer = newChallengeConfirmer(chainWatcher, chalManager, chain.Backend(), challengeManager.BlockTimes(), tr.validatorName, chain)
+	tr.challengeConfirmer = newChallengeConfirmer(chainWatcher, chalManager, chain.Backend(), tr.validatorName, chain)
 	fsm, err := newEdgeTrackerFsm(
 		EdgeStarted,
 		tr.fsmOpts...,

@@ -1,4 +1,4 @@
-// Package challengemanager includes the main entrypoint for setting up a BOLD
+// Package challengemanager includes the main entrypoint for setting up a BoLD
 // challenge manager instance and challenging assertions onchain.
 //
 // Copyright 2023, Offchain Labs, Inc.
@@ -15,7 +15,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/rpc"
 	apibackend "github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/api/server"
@@ -28,8 +27,6 @@ import (
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	retry "github.com/offchainlabs/bold/runtime"
-	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
-	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	utilTime "github.com/offchainlabs/bold/time"
 	"github.com/offchainlabs/bold/util/stopwaiter"
 	"github.com/pkg/errors"
@@ -41,7 +38,9 @@ var (
 
 type Opt = func(val *Manager)
 
-type assertionManager interface {
+// AssertionManager works with the challenge manager suppplying information
+// about assertions.
+type AssertionManager interface {
 	Start(context.Context)
 	StopAndWait()
 	LatestAgreedAssertion() protocol.AssertionHash
@@ -54,24 +53,15 @@ type assertionManager interface {
 type Manager struct {
 	stopwaiter.StopWaiter
 	chain                        protocol.Protocol
-	chalManagerAddr              common.Address
-	rollup                       *rollupgen.RollupCore
-	rollupFilterer               *rollupgen.RollupCoreFilterer
-	chalManager                  *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                      bind.ContractBackend
-	assertionManager             assertionManager
+	assertionManager             AssertionManager
 	watcher                      *watcher.Watcher
-	client                       *rpc.Client
 	stateManager                 l2stateprovider.Provider
-	address                      common.Address
 	name                         string
 	timeRef                      utilTime.Reference
 	trackedEdgeIds               *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
 	batchIndexForAssertionCache  *threadsafe.LruMap[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]
 	newBlockNotifier             *events.Producer[*gethtypes.Header]
 	notifyOnNumberOfBlocks       uint64
-	assertionConfirmingInterval  time.Duration
-	averageTimeForBlockCreation  time.Duration
 	mode                         types.Mode
 	maxDelaySeconds              int
 	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
@@ -82,34 +72,16 @@ type Manager struct {
 	apiDB   db.Database
 }
 
-// WithName is a human-readable identifier for this challenge manager for logging purposes.
+// WithName is a human-readable identifier for this challenge manager for
+// logging purposes.
 func WithName(name string) Opt {
 	return func(val *Manager) {
 		val.name = name
 	}
 }
 
-// WithAddress gives a staker address to the validator.
-func WithAddress(addr common.Address) Opt {
-	return func(val *Manager) {
-		val.address = addr
-	}
-}
-
-func WithAssertionConfirmingInterval(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.assertionConfirmingInterval = d
-	}
-}
-
-func WithAvgBlockCreationTime(d time.Duration) Opt {
-	return func(val *Manager) {
-		val.averageTimeForBlockCreation = d
-	}
-}
-
-// Edges tick on every block received from the parent chain of the rollup, by default. Alternatively,
-// they can be configured to tick every N blocks.
+// Edges tick on every block received from the parent chain of the rollup, by
+// default. Alternatively, they can be configured to tick every N blocks.
 func WithTickEdgesOnNumberOfBlocks(n uint64) Opt {
 	return func(val *Manager) {
 		val.notifyOnNumberOfBlocks = n
@@ -123,17 +95,12 @@ func WithMode(m types.Mode) Opt {
 	}
 }
 
-// WithAPIEnabled specifies whether or not to enable the API and the address to listen on.
+// WithAPIEnabled specifies whether or not to enable the API and the address to
+// listen on.
 func WithAPIEnabled(addr string, db db.Database) Opt {
 	return func(val *Manager) {
 		val.apiAddr = addr
 		val.apiDB = db
-	}
-}
-
-func WithRPCClient(client *rpc.Client) Opt {
-	return func(val *Manager) {
-		val.client = client
 	}
 }
 
@@ -143,54 +110,31 @@ func WithHeadBlockSubscriptions() Opt {
 	}
 }
 
-// New sets up a challenge manager instance provided a protocol, state manager, and additional options.
+// New sets up a challenge manager instance provided a protocol, state manager,
+// chain watcher, assertion manager, and additional options.
 func New(
 	chain protocol.Protocol,
 	stateManager l2stateprovider.Provider,
 	watcher *watcher.Watcher,
-	assertionManager assertionManager,
+	assertionManager AssertionManager,
 	opts ...Opt,
 ) (*Manager, error) {
 	m := &Manager{
-		backend:                      chain.Backend(),
 		chain:                        chain,
 		stateManager:                 stateManager,
 		assertionManager:             assertionManager,
 		watcher:                      watcher,
-		address:                      common.Address{},
 		timeRef:                      utilTime.NewRealTimeReference(),
 		trackedEdgeIds:               threadsafe.NewMap(threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache:  threadsafe.NewLruMap(1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		notifyOnNumberOfBlocks:       1,
 		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
-		assertionConfirmingInterval:  time.Second * 10,
-		averageTimeForBlockCreation:  time.Second * 12,
 		headBlockSubscriptions:       false,
 		claimedAssertionsInChallenge: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
 	}
 	for _, o := range opts {
 		o(m)
 	}
-	chalManager := m.chain.SpecChallengeManager()
-	chalManagerAddr := chalManager.Address()
-	rollupAddr := m.chain.RollupAddress()
-
-	rollup, err := rollupgen.NewRollupCore(rollupAddr, m.backend)
-	if err != nil {
-		return nil, err
-	}
-	rollupFilterer, err := rollupgen.NewRollupCoreFilterer(rollupAddr, m.backend)
-	if err != nil {
-		return nil, err
-	}
-	chalManagerFilterer, err := challengeV2gen.NewEdgeChallengeManagerFilterer(chalManagerAddr, m.backend)
-	if err != nil {
-		return nil, err
-	}
-	m.rollup = rollup
-	m.rollupFilterer = rollupFilterer
-	m.chalManagerAddr = chalManagerAddr
-	m.chalManager = chalManagerFilterer
 	m.watcher.SetEdgeManager(m)
 
 	if m.apiAddr != "" {
@@ -201,8 +145,12 @@ func New(
 		}
 		m.api = srv
 	}
+
 	m.assertionManager.SetRivalHandler(m)
-	log.Info("Setting up challenge manager", "name", m.name, "addreess", m.address, "rollup", rollupAddr)
+	log.Info("Setting up challenge manager",
+		"name", m.name,
+		"addreess", m.chain.StakerAddress(),
+		"rollup", m.chain.RollupAddress())
 	return m, nil
 }
 
@@ -213,21 +161,14 @@ func (m *Manager) GetEdgeTracker(edgeId protocol.EdgeId) option.Option[*edgetrac
 	return option.None[*edgetracker.Tracker]()
 }
 
-// IsTrackingEdge returns true if we are currently tracking a specified edge id as an edge tracker goroutine.
+// IsTrackingEdge returns true if we are currently tracking a specified edge id
+// as an edge tracker goroutine.
 func (m *Manager) IsTrackingEdge(edgeId protocol.EdgeId) bool {
 	return m.trackedEdgeIds.Has(edgeId)
 }
 
 func (m *Manager) Database() db.Database {
 	return m.apiDB
-}
-
-func (m *Manager) ChallengeManagerAddress() common.Address {
-	return m.chalManagerAddr
-}
-
-func (m *Manager) BlockTimes() time.Duration {
-	return m.averageTimeForBlockCreation
 }
 
 // MarkTrackedEdge marks an edge id as being tracked by our challenge manager.
@@ -244,17 +185,20 @@ func (m *Manager) Mode() types.Mode {
 	return m.mode
 }
 
-// IsChallengedAssertion checks if an assertion with a given hash has a challenge.
+// IsChallengedAssertion checks if an assertion with a given hash has a
+// challenge.
 func (m *Manager) IsClaimedByChallenge(assertionHash protocol.AssertionHash) bool {
 	return m.claimedAssertionsInChallenge.Has(assertionHash)
 }
 
-// MaxDelaySeconds returns the maximum number of seconds that the challenge manager will wait open a challenge.
+// MaxDelaySeconds returns the maximum number of seconds that the challenge
+// manager will wait open a challenge.
 func (m *Manager) MaxDelaySeconds() int {
 	return m.maxDelaySeconds
 }
 
-// TrackEdge spawns an edge tracker for an edge if it is not currently being tracked.
+// TrackEdge spawns an edge tracker for an edge if it is not currently being
+// tracked.
 func (m *Manager) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	if m.trackedEdgeIds.Has(edge.Id()) {
 		return nil
@@ -267,7 +211,8 @@ func (m *Manager) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
 	return nil
 }
 
-// Gets an edge tracker for an edge by retrieving its associated assertion creation info.
+// Gets an edge tracker for an edge by retrieving its associated assertion
+// creation info.
 func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge) (*edgetracker.Tracker, error) {
 	// Retry until you get the previous assertion Hash.
 	assertionHash, err := retry.UntilSucceeds(ctx, func() (protocol.AssertionHash, error) {
@@ -289,8 +234,9 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	}
 	claimedAssertionId := blockChallengeRootEdge.ClaimId().Unwrap()
 
-	// Smart caching to avoid querying the same assertion number and creation info multiple times.
-	// Edges in the same challenge should have the same creation info.
+	// Smart caching to avoid querying the same assertion number and creation info
+	// multiple times. Edges in the same challenge should have the same creation
+	// info.
 	cachedHeightAndInboxMsgCount, ok := m.batchIndexForAssertionCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
 	var edgeTrackerAssertionInfo l2stateprovider.AssociatedAssertionMetadata
 	if !ok {
@@ -342,19 +288,13 @@ func (m *Manager) Watcher() *watcher.Watcher {
 	return m.watcher
 }
 
-func (m *Manager) ChallengeManager() *challengeV2gen.EdgeChallengeManagerFilterer {
-	return m.chalManager
-}
-
 func (m *Manager) NewBlockSubscriber() *events.Producer[*gethtypes.Header] {
 	return m.newBlockNotifier
 }
 
 func (m *Manager) Start(ctx context.Context) {
 	m.StopWaiter.Start(ctx, m)
-	log.Info("Started challenge manager",
-		"validatorAddress", m.address.Hex(),
-	)
+	log.Info("Started challenge manager", "stakerAddress", m.chain.StakerAddress().Hex())
 
 	// Start the assertion manager.
 	m.LaunchThread(m.assertionManager.Start)
@@ -392,7 +332,7 @@ func (m *Manager) StopAndWait() {
 }
 
 func (m *Manager) listenForBlockEvents(ctx context.Context) {
-	// If the chain watcher has not yet scraped and caught up all BOLD
+	// If the chain watcher has not yet scraped and caught up all BoLD
 	// events up to the latest head, then we fire "block notification" events
 	// every second. This will help the tracked edges act fast if we are
 	// just starting up the validator or catching up to a challenge.
@@ -419,9 +359,10 @@ func (m *Manager) tickOnHeadBlockSubscriptions(ctx context.Context) {
 		select {
 		case header := <-ch:
 			numBlocksReceived += 1
-			// Only broadcast every N blocks received. This is important for Orbit chains
-			// that have parent chains with very fast block times, such as Arbitrum One, as broadcasting
-			// every 250ms would otherwise be too frequent.
+			// Only broadcast every N blocks received. This is important for Orbit
+			// chains that have parent chains with very fast block times, such as
+			// Arbitrum One, as broadcasting every 250ms would otherwise be too
+			// frequent.
 			if numBlocksReceived%m.notifyOnNumberOfBlocks == 0 {
 				m.newBlockNotifier.Broadcast(ctx, header)
 			}
