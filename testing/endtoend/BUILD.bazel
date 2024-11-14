@@ -23,12 +23,11 @@ go_test(
     ],
     deps = [
         "//api",
-        "//assertions",
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
         "//challenge-manager",
+        "//challenge-manager/stack",
         "//challenge-manager/types",
-        "//layer2-state-provider",
         "//solgen/go/bridgegen",
         "//solgen/go/mocksgen",
         "//solgen/go/rollupgen",

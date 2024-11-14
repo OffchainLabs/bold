@@ -106,7 +106,6 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		aliceChain,
 		aliceStateManager,
 		aliceAssertionManager,
-		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.DefensiveMode),
 	)
 	require.NoError(t, err)
@@ -313,7 +312,6 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		charlieChain,
 		charlieStateManager,
 		charlieAssertionManager,
-		charlieChain.RollupAddress(),
 		challengemanager.WithMode(types.DefensiveMode),
 	)
 	require.NoError(t, err)
@@ -384,7 +382,6 @@ func TestFastConfirmation(t *testing.T) {
 		aliceChain,
 		stateManager,
 		assertionManager,
-		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.ResolveMode),
 	)
 	require.NoError(t, err)
@@ -459,7 +456,6 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		aliceChain,
 		stateManager,
 		assertionManagerAlice,
-		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.ResolveMode),
 	)
 	require.NoError(t, err)
@@ -501,7 +497,6 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		bobChain,
 		stateManager,
 		assertionManagerBob,
-		bobChain.RollupAddress(),
 		challengemanager.WithMode(types.ResolveMode),
 	)
 	require.NoError(t, err)

@@ -67,7 +67,6 @@ func TestPostAssertion(t *testing.T) {
 		aliceChain,
 		stateManager,
 		assertionManager,
-		aliceChain.RollupAddress(),
 		challengemanager.WithMode(types.DefensiveMode),
 	)
 	require.NoError(t, err)

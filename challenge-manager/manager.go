@@ -55,7 +55,6 @@ type Manager struct {
 	stopwaiter.StopWaiter
 	chain                       protocol.Protocol
 	chalManagerAddr             common.Address
-	rollupAddr                  common.Address
 	rollup                      *rollupgen.RollupCore
 	rollupFilterer              *rollupgen.RollupCoreFilterer
 	chalManager                 *challengeV2gen.EdgeChallengeManagerFilterer
@@ -163,7 +162,6 @@ func New(
 	chain protocol.Protocol,
 	stateManager l2stateprovider.Provider,
 	assertionManager assertionManager,
-	rollupAddr common.Address,
 	opts ...Opt,
 ) (*Manager, error) {
 
@@ -174,7 +172,6 @@ func New(
 		assertionManager:             assertionManager,
 		address:                      common.Address{},
 		timeRef:                      utilTime.NewRealTimeReference(),
-		rollupAddr:                   rollupAddr,
 		chainWatcherInterval:         time.Millisecond * 500,
 		trackedEdgeIds:               threadsafe.NewMap(threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
 		batchIndexForAssertionCache:  threadsafe.NewLruMap(1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
@@ -190,6 +187,7 @@ func New(
 	}
 	chalManager := m.chain.SpecChallengeManager()
 	chalManagerAddr := chalManager.Address()
+	rollupAddr := m.chain.RollupAddress()
 
 	rollup, err := rollupgen.NewRollupCore(rollupAddr, m.backend)
 	if err != nil {
@@ -238,7 +236,7 @@ func New(
 		m.api = srv
 	}
 	m.assertionManager.SetRivalHandler(m)
-	log.Info("Setting up challenge manager", "name", m.name, "addreess", m.address, "rollup", m.rollupAddr)
+	log.Info("Setting up challenge manager", "name", m.name, "addreess", m.address, "rollup", rollupAddr)
 	return m, nil
 }
 

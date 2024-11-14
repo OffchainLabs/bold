@@ -171,7 +171,6 @@ func setupEdgeTrackersForBisection(
 		createdData.Chains[0],
 		createdData.HonestStateManager,
 		honestAsserter,
-		createdData.Addrs.Rollup,
 		WithName("alice"),
 		WithMode(types.MakeMode),
 	)
@@ -192,7 +191,6 @@ func setupEdgeTrackersForBisection(
 		createdData.Chains[1],
 		createdData.EvilStateManager,
 		evilAsserter,
-		createdData.Addrs.Rollup,
 		WithName("bob"),
 		WithMode(types.MakeMode),
 	)
@@ -284,6 +282,7 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 	cfg, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
 	p.On("Backend").Return(cfg.Backend, nil)
+	p.On("RollupAddress").Return(cfg.Addrs.Rollup)
 	a, err := setupDefaultAssertionManager(
 		assertionManagerConfig{
 			c:          cfg.Chains[0],
@@ -294,7 +293,7 @@ func setupValidator(t *testing.T) (*Manager, *mocks.MockProtocol, *mocks.MockSta
 			mode:       types.MakeMode,
 		}, t)
 	require.NoError(t, err)
-	v, err := New(context.Background(), p, s, a, cfg.Addrs.Rollup, WithMode(types.MakeMode))
+	v, err := New(context.Background(), p, s, a, WithMode(types.MakeMode))
 	require.NoError(t, err)
 	return v, p, s
 }

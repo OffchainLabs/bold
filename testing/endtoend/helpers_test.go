@@ -12,11 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
-	challengemanager "github.com/offchainlabs/bold/challenge-manager"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/stretchr/testify/require"
 )
@@ -47,27 +44,6 @@ func setupAssertionChain(
 	)
 	require.NoError(t, err)
 	return chain
-}
-
-func setupChallengeManager(
-	t *testing.T,
-	ctx context.Context,
-	rollup common.Address,
-	chain *solimpl.AssertionChain,
-	sm l2stateprovider.Provider,
-	am *assertions.Manager,
-	opts ...challengemanager.Opt,
-) *challengemanager.Manager {
-	manager, err := challengemanager.New(
-		ctx,
-		chain,
-		sm,
-		am,
-		rollup,
-		opts...,
-	)
-	require.NoError(t, err)
-	return manager
 }
 
 func totalWasmOpcodes(heights *protocol.LayerZeroHeights, numBigSteps uint8) uint64 {

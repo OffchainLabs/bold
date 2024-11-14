@@ -184,5 +184,5 @@ func NewDefaultChallengeManager(
 	if params.apiAddr != "" {
 		cmOpts = append(cmOpts, cm.WithAPIEnabled(params.apiAddr, apiDB))
 	}
-	return cm.New(ctx, chain, provider, asm, chain.RollupAddress(), cmOpts...)
+	return cm.New(ctx, chain, provider, asm, cmOpts...)
 }

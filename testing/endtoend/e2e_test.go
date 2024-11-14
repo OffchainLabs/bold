@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/api"
-	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengemanager "github.com/offchainlabs/bold/challenge-manager"
+	"github.com/offchainlabs/bold/challenge-manager/stack"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
@@ -83,8 +83,8 @@ func defaultTimeParams() timeParams {
 	}
 }
 
-// Configures info about the state of the Arbitrum Inbox
-// when a test runs, useful to set up things such as the number of batches posted.
+// Configures info about the state of the Arbitrum Inbox when a test runs,
+// useful to set up things such as the number of batches posted.
 type inboxParams struct {
 	numBatchesPosted uint64
 }
@@ -208,7 +208,8 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Validators include a chain admin, a single honest validators, and any number of evil entities.
+	// Validators include a chain admin, a single honest validator, and any
+	// number of evil entities.
 	totalValidators := cfg.actors.numEvilValidators + 2
 
 	challengeTestingOpts := []challenge_testing.Opt{
@@ -266,39 +267,25 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	honestStateManager, err := statemanager.NewForSimpleMachine(baseStateManagerOpts...)
 	require.NoError(t, err)
 
-	baseChallengeManagerOpts := []challengemanager.Opt{
-		challengemanager.WithMode(types.MakeMode),
-		challengemanager.WithAssertionConfirmingInterval(cfg.timings.assertionConfirmationAttemptInterval),
-		challengemanager.WithHeadBlockSubscriptions(),
-	}
-
-	baseAssertionManagerOpts := []assertions.Opt{
-		assertions.WithPostingInterval(cfg.timings.assertionPostingInterval),
-		assertions.WithPollingInterval(cfg.timings.assertionScanningInterval),
-		assertions.WithAverageBlockCreationTime(cfg.timings.blockTime),
-		assertions.WithConfirmationInterval(cfg.timings.assertionConfirmationAttemptInterval),
+	baseStackOpts := []stack.Opt{
+		stack.WithMode(types.MakeMode),
+		stack.WithPollingInterval(cfg.timings.assertionScanningInterval),
+		stack.WithPostingInterval(cfg.timings.assertionPostingInterval),
+		stack.WithAverageBlockCreationTime(cfg.timings.blockTime),
+		stack.WithConfirmationInterval(cfg.timings.assertionConfirmationAttemptInterval),
+		stack.WithHeadBlockSubscriptionsEnabled(),
 	}
 
 	name := "honest"
 	txOpts := accounts[1]
 	//nolint:gocritic
 	honestOpts := append(
-		baseChallengeManagerOpts,
-		challengemanager.WithAddress(txOpts.From),
-		challengemanager.WithName(name),
+		baseStackOpts,
+		stack.WithName(name),
 	)
 	honestChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
-	honestAssertionManager, err := assertions.NewManager(
-		honestChain,
-		honestStateManager,
-		name,
-		types.MakeMode,
-		baseAssertionManagerOpts...,
-	)
+	honestManager, err := stack.NewDefaultChallengeManager(ctx, honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
-	honestManager := setupChallengeManager(
-		t, ctx, rollupAddr.Rollup, honestChain, honestStateManager, honestAssertionManager, honestOpts...,
-	)
 	if !api.IsNil(honestManager.Database()) {
 		honestStateManager.UpdateAPIDatabase(honestManager.Database())
 	}
@@ -323,27 +310,18 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		evilStateManager, err := statemanager.NewForSimpleMachine(evilStateManagerOpts...)
 		require.NoError(t, err)
 
-		// Honest validator has index 1 in the accounts slice, as 0 is admin, so evil ones should start at 2.
+		// Honest validator has index 1 in the accounts slice, as 0 is admin, so
+		// evil ones should start at 2.
 		txOpts = accounts[2+i]
 		name = fmt.Sprintf("evil-%d", i)
 		//nolint:gocritic
 		evilOpts := append(
-			baseChallengeManagerOpts,
-			challengemanager.WithAddress(txOpts.From),
-			challengemanager.WithName(name),
+			baseStackOpts,
+			stack.WithName(name),
 		)
 		evilChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
-		evilAssertionManager, err := assertions.NewManager(
-			evilChain,
-			evilStateManager,
-			name,
-			types.MakeMode,
-			baseAssertionManagerOpts...,
-		)
+		evilManager, err := stack.NewDefaultChallengeManager(ctx, evilChain, evilStateManager, evilOpts...)
 		require.NoError(t, err)
-		evilManager := setupChallengeManager(
-			t, ctx, rollupAddr.Rollup, evilChain, evilStateManager, evilAssertionManager, evilOpts...,
-		)
 		evilChallengeManagers[i] = evilManager
 	}
 
