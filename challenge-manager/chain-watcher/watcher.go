@@ -410,29 +410,23 @@ func (w *Watcher) IsConfirmableEssentialNode(
 	challengedAssertionHash protocol.AssertionHash,
 	essentialNodeId protocol.EdgeId,
 	confirmationThreshold uint64,
-) (confirmable bool, essentialPaths []challengetree.EssentialPath, timer uint64, err error) {
+) (bool, []challengetree.EssentialPath, uint64, error) {
 	chal, ok := w.challenges.TryGet(challengedAssertionHash)
 	if !ok {
-		err = fmt.Errorf(
-			"could not get challenge for top level assertion %#x",
-			challengedAssertionHash,
-		)
-		return
+		return false, nil, 0, fmt.Errorf("could not get challenge for top level assertion %#x", challengedAssertionHash)
 	}
 	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
-		return
+		return false, nil, 0, err
 	}
 	if !blockHeader.Number.IsUint64() {
-		err = errors.New("block number is not uint64")
-		return
+		return false, nil, 0, errors.New("block number is not uint64")
 	}
 	essentialNode, ok := chal.honestEdgeTree.GetEdge(essentialNodeId)
 	if !ok {
-		err = fmt.Errorf("could not get essential node with id %#x", essentialNodeId.Hash)
-		return
+		return false, nil, 0, fmt.Errorf("could not get essential node with id %#x", essentialNodeId.Hash)
 	}
-	confirmable, essentialPaths, timer, err = chal.honestEdgeTree.IsConfirmableEssentialNode(
+	confirmable, essentialPaths, timer, err := chal.honestEdgeTree.IsConfirmableEssentialNode(
 		ctx,
 		challengetree.IsConfirmableArgs{
 			EssentialNode:         essentialNode.Id(),
@@ -440,7 +434,7 @@ func (w *Watcher) IsConfirmableEssentialNode(
 			ConfirmationThreshold: confirmationThreshold,
 		},
 	)
-	return
+	return confirmable, essentialPaths, timer, err
 }
 
 func (w *Watcher) PathWeightToClosestEssentialAncestor(
