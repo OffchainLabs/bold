@@ -367,21 +367,22 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	if status == protocol.EdgeConfirmed {
 		return true
 	}
-	if et.edge.ClaimId().IsNone() {
-		claimedAssertion, err := et.chain.AssertionStatus(
-			ctx,
-			protocol.AssertionHash{
-				Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
-			},
-		)
-		if err != nil {
-			log.Error("Could not get claimed assertion status", append(fields, "err", err)...)
-			return false
-		}
-		if claimedAssertion == protocol.AssertionConfirmed {
-			log.Info("Claimed assertion by edge confirmed, can now despawn edge", fields...)
-			return true
-		}
+	if et.edge.ClaimId().IsSome() {
+		return false
+	}
+	claimedAssertion, err := et.chain.AssertionStatus(
+		ctx,
+		protocol.AssertionHash{
+			Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
+		},
+	)
+	if err != nil {
+		log.Error("Could not get claimed assertion status", append(fields, "err", err)...)
+		return false
+	}
+	if claimedAssertion == protocol.AssertionConfirmed {
+		log.Info("Claimed assertion by edge confirmed, can now despawn edge", fields...)
+		return true
 	}
 	return false
 }
