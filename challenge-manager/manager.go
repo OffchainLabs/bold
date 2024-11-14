@@ -82,10 +82,9 @@ type Manager struct {
 	claimedAssertionsInChallenge        *threadsafe.LruSet[protocol.AssertionHash]
 	headBlockSubscriptions              bool
 	// API
-	apiAddr   string
-	apiDBPath string
-	api       *server.Server
-	apiDB     db.Database
+	apiAddr string
+	api     *server.Server
+	apiDB   db.Database
 }
 
 // WithName is a human-readable identifier for this challenge manager for logging purposes.
@@ -130,10 +129,10 @@ func WithMode(m types.Mode) Opt {
 }
 
 // WithAPIEnabled specifies whether or not to enable the API and the address to listen on.
-func WithAPIEnabled(addr string, dbPath string) Opt {
+func WithAPIEnabled(addr string, db db.Database) Opt {
 	return func(val *Manager) {
 		val.apiAddr = addr
-		val.apiDBPath = dbPath
+		val.apiDB = db
 	}
 }
 
@@ -212,14 +211,6 @@ func New(
 	m.rollupFilterer = rollupFilterer
 	m.chalManagerAddr = chalManagerAddr
 	m.chalManager = chalManagerFilterer
-
-	if m.apiDBPath != "" {
-		apiDB, err2 := db.NewDatabase(m.apiDBPath)
-		if err2 != nil {
-			return nil, err2
-		}
-		m.apiDB = apiDB
-	}
 
 	watcher, err := watcher.New(
 		m.chain,

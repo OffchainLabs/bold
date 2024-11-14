@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
@@ -137,13 +136,11 @@ type assertionManagerConfig struct {
 
 func setupDefaultAssertionManager(conf assertionManagerConfig, t *testing.T) (assertionManager, error) {
 	t.Helper()
-	apiDB := db.Database(nil)
 
 	m, err := assertions.NewManager(
 		conf.c,
 		conf.ep,
 		conf.name,
-		apiDB,
 		conf.mode,
 	)
 	if err != nil {

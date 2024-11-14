@@ -56,7 +56,6 @@ func TestPostAssertion(t *testing.T) {
 		aliceChain,
 		stateManager,
 		"alice",
-		nil,
 		types.DefensiveMode,
 		assertions.WithPollingInterval(time.Millisecond*200),
 		assertions.WithAverageBlockCreationTime(time.Second),

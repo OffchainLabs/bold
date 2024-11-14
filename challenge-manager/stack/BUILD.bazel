@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "stack",
+    srcs = ["stack.go"],
+    importpath = "github.com/offchainlabs/bold/challenge-manager/stack",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//api/db",
+        "//assertions",
+        "//chain-abstraction:protocol",
+        "//challenge-manager",
+        "//challenge-manager/types",
+        "//layer2-state-provider",
+    ],
+)

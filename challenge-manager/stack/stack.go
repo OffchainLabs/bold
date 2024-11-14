@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	cm "github.com/offchainlabs/bold/challenge-manager"
@@ -19,6 +20,7 @@ type stackParams struct {
 	confInterval                        time.Duration
 	avgBlockTime                        time.Duration
 	trackChallengeParentAssertionHashes []string
+	enableHeadBlockSubscriptions        bool
 	apiAddr                             string
 	apiDBPath                           string
 }
@@ -31,6 +33,7 @@ var defaultStackParams = stackParams{
 	postInterval:                        time.Hour,
 	avgBlockTime:                        time.Second * 12,
 	trackChallengeParentAssertionHashes: nil,
+	enableHeadBlockSubscriptions:        false,
 	apiAddr:                             "",
 	apiDBPath:                           "",
 }
@@ -101,6 +104,14 @@ func WithAPIEnabled(apiAddr, apiDBPath string) Opt {
 	}
 }
 
+// WithHeadBlockSubscriptionsEnabled sets the enable head block subscriptions of
+// the default challenge manager.
+func WithHeadBlockSubscriptionsEnabled() Opt {
+	return func(p *stackParams) {
+		p.enableHeadBlockSubscriptions = true
+	}
+}
+
 // NewDefaultChallengeManager creates a new ChallengeManager and
 // all of the dependencies wiring them together.
 func NewDefaultChallengeManager(
@@ -123,25 +134,37 @@ func NewDefaultChallengeManager(
 	//                     numBigSteps, db.Database, confInterval, avgBlockTime,
 	//                     trackChallengeParentAssertionHashes
 	// - apibackend.Backend : db.Database, protocol.AssertionChain, watcher.Watcher, cm.Manager!
-	// - api/server.Server : apiAddr, apibackend.Backend
+	// - api/server.Server : apbmaiAddr, apibackend.Backend
 	// - assertions.Manager : protocol.AssertionChain, l2stateprovider.Provider, name,
 	//                        db.Database, mode, avgBlockTime, confInterval, pollInterval,
-	//	                      postInterval, rivalHandler!, cmAddress!
+	//	                      postInterval, rivalHandler!
 	// - cm.Manger : protocol.AssertionChain, l2stateprovider.Provider, assertions.Manager,
 	//               rollupAddress, mode, trackChallengeParentAssertionHashes, name, apiAddr
 
-	var amOpts []assertions.Opt
-	amOpts = append(amOpts, assertions.WithAverageBlockCreationTime(params.avgBlockTime))
-	amOpts = append(amOpts, assertions.WithConfirmationInterval(params.confInterval))
-	amOpts = append(amOpts, assertions.WithPollingInterval(params.pollInterval))
-	amOpts = append(amOpts, assertions.WithPostingInterval(params.postInterval))
+	// Create the database.
+	var apiDB db.Database
+	if params.apiDBPath != "" {
+		adb, err := db.NewDatabase(params.apiDBPath)
+		if err != nil {
+			return nil, err
+		}
+		apiDB = adb
+	}
+
+	// Create the assertions manager.
+	amOpts := []assertions.Opt{
+		assertions.WithAverageBlockCreationTime(params.avgBlockTime),
+		assertions.WithConfirmationInterval(params.confInterval),
+		assertions.WithPollingInterval(params.pollInterval),
+		assertions.WithPostingInterval(params.postInterval),
+	}
+	if apiDB != nil {
+		amOpts = append(amOpts, assertions.WithAPIDB(apiDB))
+	}
 	asm, err := assertions.NewManager(
 		chain,
 		provider,
-		chain.Backend(),
-		chain.RollupAddress(),
 		params.name,
-		nil,
 		types.MakeMode,
 		amOpts...,
 	)
@@ -149,12 +172,17 @@ func NewDefaultChallengeManager(
 		return nil, err
 	}
 
-	var cmOpts []cm.Opt
-	cmOpts = append(cmOpts, cm.WithMode(params.mode))
-	cmOpts = append(cmOpts, cm.WithTrackChallengeParentAssertionHashes(params.trackChallengeParentAssertionHashes))
-	cmOpts = append(cmOpts, cm.WithName(params.name))
+	// Create the challenge manager.
+	cmOpts := []cm.Opt{
+		cm.WithMode(params.mode),
+		cm.WithTrackChallengeParentAssertionHashes(params.trackChallengeParentAssertionHashes),
+		cm.WithName(params.name),
+	}
+	if params.enableHeadBlockSubscriptions {
+		cmOpts = append(cmOpts, cm.WithHeadBlockSubscriptions())
+	}
 	if params.apiAddr != "" {
-		cmOpts = append(cmOpts, cm.WithAPIEnabled(params.apiAddr, params.apiDBPath))
+		cmOpts = append(cmOpts, cm.WithAPIEnabled(params.apiAddr, apiDB))
 	}
 	return cm.New(ctx, chain, provider, asm, chain.RollupAddress(), cmOpts...)
 }

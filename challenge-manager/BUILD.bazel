@@ -42,7 +42,6 @@ go_test(
     srcs = ["manager_test.go"],
     embed = [":challenge-manager"],
     deps = [
-        "//api/db",
         "//assertions",
         "//chain-abstraction:protocol",
         "//challenge-manager/chain-watcher",

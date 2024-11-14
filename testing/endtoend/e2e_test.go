@@ -292,7 +292,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		honestChain,
 		honestStateManager,
 		name,
-		nil, // TODO(eljobe): Figure out the database situation.
 		types.MakeMode,
 		baseAssertionManagerOpts...,
 	)
@@ -338,7 +337,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 			evilChain,
 			evilStateManager,
 			name,
-			nil, // TODO(eljobe): Figure out the database situation.
 			types.MakeMode,
 			baseAssertionManagerOpts...,
 		)

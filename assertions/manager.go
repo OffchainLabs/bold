@@ -112,6 +112,13 @@ func WithDangerousReadyToPost() Opt {
 	}
 }
 
+// WithAPIDB sets the database to use for the assertion manager.
+func WithAPIDB(db db.Database) Opt {
+	return func(m *Manager) {
+		m.apiDB = db
+	}
+}
+
 // WithPostingInterval overrides the default posting interval.
 //
 // This interval is the amount of time the assertsion manager will wait between
@@ -163,13 +170,12 @@ func NewManager(
 	chain protocol.AssertionChain,
 	execProvider l2stateprovider.ExecutionProvider,
 	validatorName string,
-	apiDB db.Database,
 	mode types.Mode,
 	opts ...Opt,
 ) (*Manager, error) {
 	m := &Manager{
 		chain:                    chain,
-		apiDB:                    apiDB,
+		apiDB:                    nil,
 		backend:                  chain.Backend(),
 		execProvider:             execProvider,
 		rollupAddr:               chain.RollupAddress(),
