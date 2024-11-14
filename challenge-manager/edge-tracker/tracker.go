@@ -257,6 +257,14 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case EdgeAtOneStepProof:
+		wasConfirmed, err := et.tryToConfirmEdge(ctx)
+		if err != nil {
+			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			et.fsm.MarkError(err)
+		}
+		if wasConfirmed {
+			return et.fsm.Do(edgeAwaitChallengeCompletion{})
+		}
 		if err := et.submitOneStepProof(ctx); err != nil {
 			log.Trace("Could not submit one step proof", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
@@ -265,6 +273,14 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitChallengeCompletion{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case EdgeAddingSubchallengeLeaf:
+		wasConfirmed, err := et.tryToConfirmEdge(ctx)
+		if err != nil {
+			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			et.fsm.MarkError(err)
+		}
+		if wasConfirmed {
+			return et.fsm.Do(edgeAwaitChallengeCompletion{})
+		}
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
 			log.Error("Could not open subchallenge leaf", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
@@ -274,6 +290,14 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitChallengeCompletion{})
 	// Edge should bisect.
 	case EdgeBisecting:
+		wasConfirmed, err := et.tryToConfirmEdge(ctx)
+		if err != nil {
+			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			et.fsm.MarkError(err)
+		}
+		if wasConfirmed {
+			return et.fsm.Do(edgeAwaitChallengeCompletion{})
+		}
 		lowerChild, upperChild, err := et.bisect(ctx)
 		if err != nil {
 			log.Error("Could not bisect", append(fields, "err", err)...)
@@ -381,10 +405,6 @@ func (et *Tracker) uniqueTrackerLogFields() []any {
 }
 
 func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
-	// If the edge is not a root, block challenge edge, we have nothing to do here.
-	if !IsRootBlockChallengeEdge(et.edge) {
-		return false, nil
-	}
 	status, err := et.edge.Status(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge status")
@@ -404,8 +424,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
-	start := time.Now()
-	isConfirmable, essentialPaths, timer, err := et.chainWatcher.IsConfirmableEssentialNode(
+	isConfirmable, _, computedTimer, err := et.chainWatcher.IsConfirmableEssentialNode(
 		ctx,
 		assertionHash,
 		et.edge.Id(),
@@ -415,11 +434,19 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		log.Error("Could not check if essential node is confirmable")
 		return false, errors.Wrap(err, "not check if essential node is confirmable")
 	}
-	end := time.Since(start)
-	_ = end
-	_ = essentialPaths
-	_ = timer
 	if isConfirmable {
+		if err := et.challengeConfirmer.beginConfirmationJob(
+			ctx,
+			assertionHash,
+			computedTimer,
+			et.edge,
+			chalPeriod,
+		); err != nil {
+			return false, errors.Wrap(
+				err,
+				"could not complete confirmation job for royal, block challenge edge",
+			)
+		}
 		return true, nil
 	}
 	return false, nil

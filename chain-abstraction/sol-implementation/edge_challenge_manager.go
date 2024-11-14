@@ -556,7 +556,7 @@ func (cm *specChallengeManager) GetEdge(
 }
 
 func (e *specEdge) SafeHeadInheritedTimer(ctx context.Context) (protocol.InheritedTimer, error) {
-	edge, err := e.manager.caller.GetEdge(e.manager.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), e.id)
+	edge, err := e.manager.caller.GetEdge(e.manager.assertionChain.GetCallOptsWithSafeBlockNumber(&bind.CallOpts{Context: ctx}), e.id)
 	if err != nil {
 		return 0, err
 	}

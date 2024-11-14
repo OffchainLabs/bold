@@ -1,10 +1,10 @@
 package challengetree
 
 import (
-	"container/heap"
 	"container/list"
 	"context"
 	"fmt"
+	"math"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
@@ -80,9 +80,8 @@ type IsConfirmableArgs struct {
 // or non-essential.
 //
 // After the paths are computed, we then compute the path weight of each
-// and insert each weight into a min-heap. If the min element of this heap
-// has a weight >= the confirmation threshold, the
-// essential node is then confirmable.
+// and if the min element of this list has a weight >= the confirmation threshold,
+// the essential node is then confirmable.
 //
 // Note: the specified argument essential node must indeed be essential, otherwise,
 // this function will error.
@@ -110,21 +109,18 @@ func (ht *RoyalChallengeTree) IsConfirmableEssentialNode(
 	}
 	// An essential node is confirmable if all of its essential paths
 	// down the tree have a path weight >= the confirmation threshold.
-	// To do this, we compute the path weight of each path and insert
-	// into a min heap. Then, it is sufficient to check that the minimum
-	// element of the heap is >= the confirmation threshold.
-	pathWeights := newPathWeightMinHeap()
+	// To do this, we compute the path weight of each path and find the minimum.
+	// Then, it is sufficient to check that the minimum is >= the confirmation threshold.
+	minWeight := uint64(math.MaxUint64)
 	for _, timers := range essentialTimers {
 		pathWeight := uint64(0)
 		for _, timer := range timers {
 			pathWeight += timer
 		}
-		pathWeights.Push(pathWeight)
+		if pathWeight < minWeight {
+			minWeight = pathWeight
+		}
 	}
-	if pathWeights.items.Len() == 0 {
-		return false, nil, 0, fmt.Errorf("no path weights computed")
-	}
-	minWeight := pathWeights.Pop()
 	allEssentialPathsConfirmable := minWeight >= args.ConfirmationThreshold
 	return allEssentialPathsConfirmable, essentialPaths, minWeight, nil
 }
@@ -262,56 +258,6 @@ func (ht *RoyalChallengeTree) isClaimedEdge(ctx context.Context, edge protocol.R
 func isProofNode(ctx context.Context, edge protocol.ReadOnlyEdge) bool {
 	isSmallStep := edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1)
 	return isSmallStep && hasLengthOne(edge)
-}
-
-type uint64Heap []uint64
-
-func (h uint64Heap) Len() int           { return len(h) }
-func (h uint64Heap) Less(i, j int) bool { return h[i] < h[j] }
-func (h uint64Heap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-func (h uint64Heap) Peek() uint64 {
-	return h[0]
-}
-
-func (h *uint64Heap) Push(x any) {
-	*h = append(*h, x.(uint64))
-}
-
-func (h *uint64Heap) Pop() any {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
-}
-
-type pathWeightMinHeap struct {
-	items *uint64Heap
-}
-
-func newPathWeightMinHeap() *pathWeightMinHeap {
-	items := &uint64Heap{}
-	heap.Init(items)
-	return &pathWeightMinHeap{items}
-}
-
-func (h *pathWeightMinHeap) Len() int {
-	return h.items.Len()
-}
-
-func (h *pathWeightMinHeap) Push(item uint64) {
-	heap.Push(h.items, item)
-}
-
-func (h *pathWeightMinHeap) Pop() uint64 {
-	return heap.Pop(h.items).(uint64)
-}
-
-func (h *pathWeightMinHeap) Peek() option.Option[uint64] {
-	if h.items.Len() == 0 {
-		return option.None[uint64]()
-	}
-	return option.Some(h.items.Peek())
 }
 
 type stack[T any] struct {

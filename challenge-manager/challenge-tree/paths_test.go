@@ -121,20 +121,6 @@ func Test_findEssentialPaths(t *testing.T) {
 	require.Equal(t, wantCTimers, pathLocalTimers[2])
 }
 
-func Test_pathWeightMinHeap(t *testing.T) {
-	h := newPathWeightMinHeap()
-	require.Equal(t, 0, h.Len())
-	h.Push(uint64(3))
-	h.Push(uint64(1))
-	h.Push(uint64(2))
-	require.Equal(t, uint64(1), h.Peek().Unwrap())
-	require.Equal(t, uint64(1), h.Pop())
-	require.Equal(t, uint64(2), h.Pop())
-	require.Equal(t, uint64(3), h.Pop())
-	require.Equal(t, 0, h.Len())
-	require.True(t, h.Peek().IsNone())
-}
-
 func Test_stack(t *testing.T) {
 	s := newStack[int]()
 	require.Equal(t, 0, s.len())

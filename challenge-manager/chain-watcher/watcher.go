@@ -422,14 +422,10 @@ func (w *Watcher) IsConfirmableEssentialNode(
 	if !blockHeader.Number.IsUint64() {
 		return false, nil, 0, errors.New("block number is not uint64")
 	}
-	essentialNode, ok := chal.honestEdgeTree.GetEdge(essentialNodeId)
-	if !ok {
-		return false, nil, 0, fmt.Errorf("could not get essential node with id %#x", essentialNodeId.Hash)
-	}
 	confirmable, essentialPaths, timer, err := chal.honestEdgeTree.IsConfirmableEssentialNode(
 		ctx,
 		challengetree.IsConfirmableArgs{
-			EssentialNode:         essentialNode.Id(),
+			EssentialNode:         essentialNodeId,
 			BlockNum:              blockHeader.Number.Uint64(),
 			ConfirmationThreshold: confirmationThreshold,
 		},
