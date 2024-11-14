@@ -375,7 +375,8 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	)
 	// An edge is essential if it has a claim id.
 	if et.edge.ClaimId().IsSome() {
-		edgeStatus, err := et.edge.Status(ctx)
+		var edgeStatus protocol.EdgeStatus
+		edgeStatus, err = et.edge.Status(ctx)
 		if err != nil {
 			return false
 		}
