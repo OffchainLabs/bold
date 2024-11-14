@@ -175,7 +175,6 @@ func setupEdgeTrackersForBisection(
 	honestWatcher, err := watcher.New(
 		honestValidator.chain,
 		honestValidator.stateManager,
-		time.Second,
 		"alice",
 		nil,
 		confInterval,
@@ -206,7 +205,6 @@ func setupEdgeTrackersForBisection(
 	evilWatcher, err := watcher.New(
 		evilValidator.chain,
 		evilValidator.stateManager,
-		time.Second,
 		"bob",
 		nil,
 		confInterval,

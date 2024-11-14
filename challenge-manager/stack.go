@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	apibackend "github.com/offchainlabs/bold/api/backend"
+
+	"github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/api/server"
 	"github.com/offchainlabs/bold/assertions"
@@ -44,7 +45,7 @@ var defaultStackParams = stackParams{
 	assertionManagerOverride:            nil,
 }
 
-// Opt is a functional option for configuring the default challenge manager.
+// StackOpt is a functional option to configure the stack.
 type StackOpt func(*stackParams)
 
 // WithMode sets the mode of the default challenge manager.
@@ -148,42 +149,21 @@ func NewChallengeStack(
 		o(&params)
 	}
 
-	// TODO(eljobe): Remove this comment once it's wired together correctly.
-	// The dependencies are like this:
-	// - protocol.AssertionChain : No Deps
-	// - l2stateprovider.Provider : No Deps
-	// - db.Database : apiDBPath
-	// - watcher.Watcher : protocol.AssertionChain, cm.Manager, watcherInterval,
-	//                     numBigSteps, db.Database, confInterval, avgBlockTime,
-	//                     trackChallengeParentAssertionHashes
-	// - apibackend.Backend : db.Database, protocol.AssertionChain, watcher.Watcher, cm.Manager!
-	// - api/server.Server : apbmaiAddr, apibackend.Backend
-	// - assertions.Manager : protocol.AssertionChain, l2stateprovider.Provider, name,
-	//                        db.Database, mode, avgBlockTime, confInterval, pollInterval,
-	//	                      postInterval, rivalHandler!
-	// - cm.Manger : protocol.AssertionChain, l2stateprovider.Provider, assertions.Manager,
-	//               rollupAddress, mode, trackChallengeParentAssertionHashes, name, apiAddr
-
+	var err error
 	// Create the api database.
 	var apiDB db.Database
 	if params.apiDBPath != "" {
-		adb, err := db.NewDatabase(params.apiDBPath)
+		apiDB, err = db.NewDatabase(params.apiDBPath)
 		if err != nil {
 			return nil, err
 		}
-		provider.UpdateAPIDatabase(adb)
-		apiDB = adb
+		provider.UpdateAPIDatabase(apiDB)
 	}
 
-	// NOTE: This is effectively a costant that was being set unconditionally
-	//       in the challenge manager's construtor. Now, I'm not sure what to
-	//       do with it. It is sometimes overridden in tests.
-	chainWatcherInterval := time.Millisecond * 500
 	// Create the chain watcher.
 	watcher, err := watcher.New(
 		chain,
 		provider,
-		chainWatcherInterval,
 		params.name,
 		apiDB,
 		params.confInterval,
@@ -197,7 +177,7 @@ func NewChallengeStack(
 	// Create the api backend server.
 	var api *server.Server
 	if params.apiAddr != "" {
-		bknd := apibackend.NewBackend(apiDB, chain, watcher)
+		bknd := backend.NewBackend(apiDB, chain, watcher)
 		api, err = server.New(params.apiAddr, bknd)
 		if err != nil {
 			return nil, err

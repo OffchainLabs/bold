@@ -91,20 +91,16 @@ type Watcher struct {
 func New(
 	chain protocol.AssertionChain,
 	histChecker l2stateprovider.HistoryChecker,
-	interval time.Duration,
 	validatorName string,
 	apiDB db.Database,
 	assertionConfirmingInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	trackChallengeParentAssertionHashes []protocol.AssertionHash,
 ) (*Watcher, error) {
-	if interval == 0 {
-		return nil, errors.New("chain watcher polling interval must be greater than 0")
-	}
 	return &Watcher{
 		chain:                               chain,
 		edgeManager:                         nil, // Must be set after construction.
-		pollEventsInterval:                  interval,
+		pollEventsInterval:                  time.Millisecond * 500,
 		challenges:                          threadsafe.NewMap(threadsafe.MapWithMetric[protocol.AssertionHash, *trackedChallenge]("challenges")),
 		backend:                             chain.Backend(),
 		histChecker:                         histChecker,
