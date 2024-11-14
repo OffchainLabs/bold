@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type EssentialPath []protocol.EdgeId
 type ComputePathWeightArgs struct {
 	Child    protocol.EdgeId
 	Ancestor protocol.EdgeId
@@ -64,6 +63,8 @@ func (ht *RoyalChallengeTree) ComputePathWeight(
 	}
 	return pathWeight, nil
 }
+
+type EssentialPath []protocol.EdgeId
 
 type IsConfirmableArgs struct {
 	EssentialNode         protocol.EdgeId
