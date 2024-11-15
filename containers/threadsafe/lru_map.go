@@ -4,9 +4,9 @@
 package threadsafe
 
 import (
-	"github.com/ethereum/go-ethereum/common/lru"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/ethereum/go-ethereum/metrics"
 )
 

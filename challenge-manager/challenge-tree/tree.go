@@ -10,10 +10,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/pkg/errors"
 )
 
 // MetadataReader can read certain information about edges from the backend.

@@ -6,8 +6,9 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 type Machine interface {

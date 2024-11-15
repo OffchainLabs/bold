@@ -5,9 +5,11 @@ package stateprovider
 import (
 	"testing"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 func TestExecutionEngine(t *testing.T) {

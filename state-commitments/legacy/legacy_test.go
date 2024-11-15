@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"testing"
 
-	inclusionproofs "github.com/offchainlabs/bold/state-commitments/inclusion-proofs"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	inclusionproofs "github.com/offchainlabs/bold/state-commitments/inclusion-proofs"
 )
 
 func TestHistoryCommitment_LeafProofs(t *testing.T) {

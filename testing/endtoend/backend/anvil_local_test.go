@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/stretchr/testify/require"
+
+	retry "github.com/offchainlabs/bold/runtime"
 )
 
 func TestLocalAnvilLoadAccounts(t *testing.T) {

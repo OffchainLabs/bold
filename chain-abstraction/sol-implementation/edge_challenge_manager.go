@@ -9,12 +9,15 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/metrics"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengetree "github.com/offchainlabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -24,7 +27,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/ospgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/state-commitments/history"
-	"github.com/pkg/errors"
 )
 
 var (

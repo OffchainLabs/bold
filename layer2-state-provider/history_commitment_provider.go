@@ -14,10 +14,9 @@ import (
 
 	"github.com/offchainlabs/bold/api"
 	"github.com/offchainlabs/bold/api/db"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/state-commitments/history"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
 )
 

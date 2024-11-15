@@ -6,10 +6,11 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/offchainlabs/bold/solgen/go/challengegen"
-	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/offchainlabs/bold/solgen/go/challengegen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 )
 
 type GoGlobalState struct {

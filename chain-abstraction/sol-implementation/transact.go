@@ -8,12 +8,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/offchainlabs/bold/containers"
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+
+	"github.com/offchainlabs/bold/containers"
 )
 
 // ChainCommitter defines a type of chain backend that supports

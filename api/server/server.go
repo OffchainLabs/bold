@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+
 	"github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/util/stopwaiter"
 )

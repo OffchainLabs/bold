@@ -6,9 +6,10 @@ package challenge_testing
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 const (

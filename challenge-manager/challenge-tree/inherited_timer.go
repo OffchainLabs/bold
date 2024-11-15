@@ -4,8 +4,9 @@ import (
 	"context"
 	"math"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 func (ht *RoyalChallengeTree) ComputeRootInheritedTimer(

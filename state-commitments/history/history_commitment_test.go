@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/offchainlabs/bold/state-commitments/legacy"
-	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/stretchr/testify/require"
+
+	"github.com/offchainlabs/bold/state-commitments/legacy"
+	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
 )
 
 func FuzzHistoryCommitter(f *testing.F) {

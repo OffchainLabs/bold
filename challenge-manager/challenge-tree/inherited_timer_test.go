@@ -5,9 +5,10 @@ import (
 	"math"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/threadsafe"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_recursiveInheritedTimerCompute(t *testing.T) {

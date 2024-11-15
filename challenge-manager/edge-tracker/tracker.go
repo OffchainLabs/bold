@@ -10,21 +10,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/pkg/errors"
 
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/events"
 	"github.com/offchainlabs/bold/containers/fsm"
 	"github.com/offchainlabs/bold/containers/option"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/math"
 	"github.com/offchainlabs/bold/state-commitments/history"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	utilTime "github.com/offchainlabs/bold/time"
 )
 

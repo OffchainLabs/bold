@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/offchainlabs/bold/containers/option"
 	"github.com/stretchr/testify/require"
+
+	"github.com/offchainlabs/bold/containers/option"
 )
 
 func Test_computeRequiredNumberOfHashes(t *testing.T) {

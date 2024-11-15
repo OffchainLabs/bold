@@ -10,11 +10,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+
 	"github.com/offchainlabs/bold/api/server"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
@@ -27,7 +30,6 @@ import (
 	retry "github.com/offchainlabs/bold/runtime"
 	utilTime "github.com/offchainlabs/bold/time"
 	"github.com/offchainlabs/bold/util/stopwaiter"
-	"github.com/pkg/errors"
 )
 
 var (

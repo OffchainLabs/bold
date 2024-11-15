@@ -10,15 +10,16 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/offchainlabs/bold/containers/option"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
 	"github.com/offchainlabs/bold/containers"
-	"github.com/pkg/errors"
+	"github.com/offchainlabs/bold/containers/option"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 )
 
 // HandleCorrectRival is called when the assertion manager has posted a correct
