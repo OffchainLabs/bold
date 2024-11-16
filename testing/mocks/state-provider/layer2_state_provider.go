@@ -174,7 +174,7 @@ func NewForSimpleMachine(
 		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	maxBatchesRead := big.NewInt(casttest.ToInt64(s.numBatches, t))
+	maxBatchesRead := big.NewInt(casttest.ToInt64(t, s.numBatches))
 	for block := uint64(0); ; block++ {
 		machine := NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
@@ -185,7 +185,7 @@ func NewForSimpleMachine(
 		if s.blockDivergenceHeight > 0 {
 			if block == s.blockDivergenceHeight {
 				// Note: blockHeightOffset might be negative, but two's complement subtraction works regardless
-				state.GlobalState.PosInBatch -= casttest.ToUint64(s.posInBatchDivergence, t)
+				state.GlobalState.PosInBatch -= casttest.ToUint64(t, s.posInBatchDivergence)
 			}
 			if block >= s.blockDivergenceHeight {
 				state.GlobalState.BlockHash[s.maliciousMachineIndex] = 1
@@ -206,7 +206,7 @@ func NewForSimpleMachine(
 	}
 	s.machineAtBlock = func(_ context.Context, block uint64) (Machine, error) {
 		if block >= uint64(len(s.executionStates)) {
-			block = casttest.ToUint64(len(s.executionStates)-1, t)
+			block = casttest.ToUint64(t, len(s.executionStates)-1)
 		}
 		return NewSimpleMachine(s.executionStates[block], maxBatchesRead), nil
 	}

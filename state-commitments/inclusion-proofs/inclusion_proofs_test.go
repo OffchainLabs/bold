@@ -50,7 +50,7 @@ func TestInclusionProof(t *testing.T) {
 		require.Equal(t, root, computedRoot)
 	})
 	t.Run("last leaf proof", func(t *testing.T) {
-		index = casttest.ToUint64(len(leaves)-1, t)
+		index = casttest.ToUint64(t, len(leaves)-1)
 		proof, err = GenerateInclusionProof(leaves, index)
 		require.NoError(t, err)
 		require.Equal(t, true, len(proof) > 0)

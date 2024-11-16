@@ -392,9 +392,9 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 		solErr := merkleTreeContract.VerifyPrefixProof(
 			opts,
 			cfg.PreRoot,
-			big.NewInt(casttest.ToInt64(cfg.PreSize, t)),
+			big.NewInt(casttest.ToInt64(t, cfg.PreSize)),
 			cfg.PostRoot,
-			big.NewInt(casttest.ToInt64(cfg.PostSize, t)),
+			big.NewInt(casttest.ToInt64(t, cfg.PostSize)),
 			preArray,
 			proofArray,
 		)
@@ -433,8 +433,8 @@ func FuzzPrefixProof_MaximumAppendBetween_GoSolidityEquivalence(f *testing.F) {
 	opts := &bind.CallOpts{}
 	f.Fuzz(func(t *testing.T, pre, post uint64) {
 		gotGo, err1 := prefixproofs.MaximumAppendBetween(pre, post)
-		preBig := big.NewInt(casttest.ToInt64(pre, t))
-		postBig := big.NewInt(casttest.ToInt64(post, t))
+		preBig := big.NewInt(casttest.ToInt64(t, pre))
+		postBig := big.NewInt(casttest.ToInt64(t, post))
 		gotSol, err2 := merkleTreeContract.MaximumAppendBetween(opts, preBig, postBig)
 		if err1 == nil && err2 == nil {
 			if !gotSol.IsUint64() {
@@ -467,7 +467,7 @@ func FuzzPrefixProof_BitUtils_GoSolidityEquivalence(f *testing.F) {
 	merkleTreeContract, _ := setupMerkleTreeContract(f)
 	opts := &bind.CallOpts{}
 	f.Fuzz(func(t *testing.T, x uint64) {
-		lsbSol, _ := merkleTreeContract.LeastSignificantBit(opts, big.NewInt(casttest.ToInt64(x, t)))
+		lsbSol, _ := merkleTreeContract.LeastSignificantBit(opts, big.NewInt(casttest.ToInt64(t, x)))
 		lsbGo, _ := prefixproofs.LeastSignificantBit(x)
 		if lsbSol != nil {
 			if !lsbSol.IsUint64() {
@@ -477,7 +477,7 @@ func FuzzPrefixProof_BitUtils_GoSolidityEquivalence(f *testing.F) {
 				t.Errorf("Mismatch lsb sol=%d, go=%d", lsbSol, lsbGo)
 			}
 		}
-		msbSol, _ := merkleTreeContract.MostSignificantBit(opts, big.NewInt(casttest.ToInt64(x, t)))
+		msbSol, _ := merkleTreeContract.MostSignificantBit(opts, big.NewInt(casttest.ToInt64(t, x)))
 		msbGo, _ := prefixproofs.MostSignificantBit(x)
 		if msbSol != nil {
 			if !msbSol.IsUint64() {
@@ -523,7 +523,7 @@ func runBitEquivalenceTest(
 		{num: 1<<32 - 1},
 		{num: 10231920391293},
 	} {
-		lsbSol, err := solFunc(opts, big.NewInt(casttest.ToInt64(tt.num, t)))
+		lsbSol, err := solFunc(opts, big.NewInt(casttest.ToInt64(t, tt.num)))
 		if tt.wantSolErr {
 			require.NotNil(t, err)
 			require.ErrorContains(t, err, tt.solErr)

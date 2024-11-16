@@ -270,10 +270,10 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		prevInfo, err2 := aliceChain.ReadAssertionCreationInfo(ctx, aliceAssertion.Id())
 		require.NoError(t, err2)
 		prevGlobalState := protocol.GoGlobalStateFromSolidity(prevInfo.AfterState.GlobalState)
-		preState, err2 := aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(batch-1, t), &prevGlobalState, 1<<26)
+		preState, err2 := aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(t, batch-1), &prevGlobalState, 1<<26)
 		require.NoError(t, err2)
 		require.NoError(t, err2)
-		alicePostState, err2 = aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(batch, t), &preState.GlobalState, 1<<26)
+		alicePostState, err2 = aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(t, batch), &preState.GlobalState, 1<<26)
 		require.NoError(t, err2)
 		t.Logf("Moving stake from alice at post state %+v\n", alicePostState)
 		aliceAssertion, err = aliceChain.StakeOnNewAssertion(

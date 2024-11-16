@@ -49,7 +49,7 @@ func BenchmarkPrefixProofGeneration_Legacy(b *testing.B) {
 		prefixExpansion, err := prefixproofs.ExpansionFromLeaves(hashes[:lowCommitmentNumLeaves])
 		require.NoError(b, err)
 		_, err = prefixproofs.GeneratePrefixProof(
-			casttest.ToUint64(lowCommitmentNumLeaves, b),
+			casttest.ToUint64(b, lowCommitmentNumLeaves),
 			prefixExpansion,
 			hashes[lowCommitmentNumLeaves:hiCommitmentNumLeaves],
 			prefixproofs.RootFetcherFromExpansion,
@@ -213,7 +213,7 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 				inputLeaves[i] = simpleHash
 			}
 			committer := newCommitter()
-			computedRoot, err := committer.computeRoot(inputLeaves, casttest.ToUint64(tt.virtualLength, t))
+			computedRoot, err := committer.computeRoot(inputLeaves, casttest.ToUint64(t, tt.virtualLength))
 			require.NoError(t, err)
 
 			leaves := make([]common.Hash, tt.virtualLength)

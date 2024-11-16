@@ -206,7 +206,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 	require.Equal(t, numToAssertionHash(6), manager.assertionChainData.latestAgreedAssertion)
 	wanted := make(map[protocol.AssertionHash]bool)
 	for id := range agreesWithIds {
-		wanted[numToAssertionHash(casttest.ToInt(id, t))] = true
+		wanted[numToAssertionHash(casttest.ToInt(t, id))] = true
 	}
 	for assertionHash := range manager.assertionChainData.canonicalAssertions {
 		require.Equal(t, true, wanted[assertionHash])
@@ -224,7 +224,7 @@ func numToHash(i int) common.Hash {
 func numToState(i int, t *testing.T) rollupgen.AssertionState {
 	return rollupgen.AssertionState{
 		GlobalState: rollupgen.GlobalState{
-			U64Vals: [2]uint64{casttest.ToUint64(i, t), uint64(0)},
+			U64Vals: [2]uint64{casttest.ToUint64(t, i), uint64(0)},
 		},
 	}
 }

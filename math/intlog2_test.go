@@ -64,7 +64,7 @@ func FuzzUnsingedIntegerLog2Floor(f *testing.F) {
 func BenchmarkUnsingedIntegerLog2Floor(b *testing.B) {
 	var r int
 	for i := 1; i < b.N; i++ {
-		r = Log2Floor(casttest.ToUint64(i, b))
+		r = Log2Floor(casttest.ToUint64(b, i))
 	}
 	benchResult = r
 }
@@ -126,7 +126,7 @@ func FuzzUnsingedIntegerLog2Ceil(f *testing.F) {
 func BenchmarkUnsingedIntegerLog2Ceil(b *testing.B) {
 	var r int
 	for i := 1; i < b.N; i++ {
-		r = Log2Ceil(casttest.ToUint64(i, b))
+		r = Log2Ceil(casttest.ToUint64(b, i))
 	}
 	benchResult = r
 }

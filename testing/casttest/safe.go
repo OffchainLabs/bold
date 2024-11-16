@@ -13,7 +13,7 @@ import (
 )
 
 // ToUint wraps safecast.ToUint with a test assertion.
-func ToUint[T safecast.Type](i T, t testing.TB) uint {
+func ToUint[T safecast.Type](t testing.TB, i T) uint {
 	t.Helper()
 	u, err := safecast.ToUint(i)
 	require.NoError(t, err)
@@ -21,7 +21,7 @@ func ToUint[T safecast.Type](i T, t testing.TB) uint {
 }
 
 // ToUint8 wraps safecast.ToUint8 with a test assertion.
-func ToUint8[T safecast.Type](i T, t testing.TB) uint8 {
+func ToUint8[T safecast.Type](t testing.TB, i T) uint8 {
 	t.Helper()
 	u, err := safecast.ToUint8(i)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func ToUint8[T safecast.Type](i T, t testing.TB) uint8 {
 }
 
 // ToUint64 wraps safecast.ToUint64 with a test assertion.
-func ToUint64[T safecast.Type](i T, t testing.TB) uint64 {
+func ToUint64[T safecast.Type](t testing.TB, i T) uint64 {
 	t.Helper()
 	u, err := safecast.ToUint64(i)
 	require.NoError(t, err)
@@ -37,7 +37,7 @@ func ToUint64[T safecast.Type](i T, t testing.TB) uint64 {
 }
 
 // ToInt wraps safecast.ToInt with a test assertion.
-func ToInt[T safecast.Type](i T, t testing.TB) int {
+func ToInt[T safecast.Type](t testing.TB, i T) int {
 	t.Helper()
 	u, err := safecast.ToInt(i)
 	require.NoError(t, err)
@@ -45,7 +45,7 @@ func ToInt[T safecast.Type](i T, t testing.TB) int {
 }
 
 // ToInt64 wraps safecast.ToInt64 with a test assertion.
-func ToInt64[T safecast.Type](i T, t testing.TB) int64 {
+func ToInt64[T safecast.Type](t testing.TB, i T) int64 {
 	t.Helper()
 	u, err := safecast.ToInt64(i)
 	require.NoError(t, err)
