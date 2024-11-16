@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -621,13 +622,21 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	endHeight protocol.Height,
 	endHistoryRoot common.Hash,
 ) (protocol.EdgeId, error) {
+	startInt64, err := safecast.ToInt64(startHeight)
+	if err != nil {
+		return protocol.EdgeId{}, err
+	}
+	endInt64, err := safecast.ToInt64(endHeight)
+	if err != nil {
+		return protocol.EdgeId{}, err
+	}
 	id, err := cm.caller.CalculateEdgeId(
 		cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		challengeLevel.Uint8(),
 		originId,
-		big.NewInt(int64(startHeight)),
+		big.NewInt(startInt64),
 		startHistoryRoot,
-		big.NewInt(int64(endHeight)),
+		big.NewInt(endInt64),
 		endHistoryRoot,
 	)
 	return protocol.EdgeId{Hash: id}, err
@@ -777,10 +786,14 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 		Bridge:                bridgeAddr,
 		InitialWasmModuleRoot: creationInfo.WasmModuleRoot,
 	}
+	machStepInt64, err := safecast.ToInt64(machineStep)
+	if err != nil {
+		return err
+	}
 	result, err := ospBindings.ProveOneStep(
 		cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		execCtx,
-		big.NewInt(int64(machineStep)),
+		big.NewInt(machStepInt64),
 		oneStepData.BeforeHash,
 		oneStepData.Proof,
 	)
@@ -975,10 +988,14 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err == nil && !someLevelZeroEdge.IsNone() {
 		return &honestEdge{someLevelZeroEdge.Unwrap()}, nil
 	}
+	endCommitInt64, err := safecast.ToInt64(endCommit.Height)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not convert end commit height to int64")
+	}
 	args := challengeV2gen.CreateEdgeArgs{
 		Level:          protocol.NewBlockChallengeLevel().Uint8(),
 		EndHistoryRoot: endCommit.Merkle,
-		EndHeight:      big.NewInt(int64(endCommit.Height)),
+		EndHeight:      big.NewInt(endCommitInt64),
 		ClaimId:        assertionCreation.AssertionHash,
 		PrefixProof:    startEndPrefixProof,
 		Proof:          blockEdgeProof,
@@ -1088,13 +1105,17 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+	endCommitInt64, err := safecast.ToInt64(endCommit.Height)
+	if err != nil {
+		return nil, err
+	}
 	_, err = cm.assertionChain.transact(ctx, cm.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			opts,
 			challengeV2gen.CreateEdgeArgs{
 				Level:          subChalTyp.Uint8(),
 				EndHistoryRoot: endCommit.Merkle,
-				EndHeight:      big.NewInt(int64(endCommit.Height)),
+				EndHeight:      big.NewInt(endCommitInt64),
 				ClaimId:        challengedEdge.Id().Hash,
 				PrefixProof:    startEndPrefixProof,
 				Proof:          subchallengeEdgeProof,

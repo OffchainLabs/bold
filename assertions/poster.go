@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -222,7 +223,15 @@ func (m *Manager) waitToPostIfNeeded(
 
 	// If we cannot post just yet, we can wait.
 	if !canPostNow {
-		blocksLeftForConfirmation := minPeriodBlocks - blocksSinceLast
+		var blocksLeftForConfirmation int64
+		if minPeriodBlocks > blocksSinceLast {
+			blocksLeftForConfirmation = 0
+		} else {
+			blocksLeftForConfirmation, err = safecast.ToInt64(minPeriodBlocks - blocksSinceLast)
+			if err != nil {
+				return errors.Wrap(err, "could not convert blocks left for confirmation to int64")
+			}
+		}
 		timeToWait := m.times.avgBlockTime * time.Duration(blocksLeftForConfirmation)
 		log.Info(
 			fmt.Sprintf(

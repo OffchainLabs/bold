@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -34,7 +35,7 @@ func (m *Manager) HandleCorrectRival(ctx context.Context, riv protocol.Assertion
 	if m.MaxDelaySeconds() > 1 {
 		mds = m.MaxDelaySeconds()
 	}
-	randSecs, err := randUint64(uint64(mds))
+	randSecs, err := randInt64(mds)
 	if err != nil {
 		return err
 	}
@@ -218,13 +219,17 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	return edge, true, assertionMetadata, false, nil
 }
 
-func randUint64(max uint64) (uint64, error) {
-	n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(max))
+func randInt64(max int) (int64, error) {
+	max64, err := safecast.ToInt64(max)
 	if err != nil {
 		return 0, err
 	}
-	if !n.IsUint64() {
-		return 0, errors.New("not a uint64")
+	n, err := rand.Int(rand.Reader, new(big.Int).SetInt64(max64))
+	if err != nil {
+		return 0, err
 	}
-	return n.Uint64(), nil
+	if !n.IsInt64() {
+		return 0, errors.New("not a int64")
+	}
+	return n.Int64(), nil
 }

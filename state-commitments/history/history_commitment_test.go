@@ -11,6 +11,7 @@ import (
 
 	"github.com/offchainlabs/bold/state-commitments/legacy"
 	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
+	"github.com/offchainlabs/bold/testing/casttest"
 )
 
 func FuzzHistoryCommitter(f *testing.F) {
@@ -48,7 +49,7 @@ func BenchmarkPrefixProofGeneration_Legacy(b *testing.B) {
 		prefixExpansion, err := prefixproofs.ExpansionFromLeaves(hashes[:lowCommitmentNumLeaves])
 		require.NoError(b, err)
 		_, err = prefixproofs.GeneratePrefixProof(
-			uint64(lowCommitmentNumLeaves),
+			casttest.ToUint64(lowCommitmentNumLeaves, b),
 			prefixExpansion,
 			hashes[lowCommitmentNumLeaves:hiCommitmentNumLeaves],
 			prefixproofs.RootFetcherFromExpansion,
@@ -212,7 +213,7 @@ func TestLegacyVsOptimizedEdgeCases(t *testing.T) {
 				inputLeaves[i] = simpleHash
 			}
 			committer := newCommitter()
-			computedRoot, err := committer.computeRoot(inputLeaves, uint64(tt.virtualLength))
+			computedRoot, err := committer.computeRoot(inputLeaves, casttest.ToUint64(tt.virtualLength, t))
 			require.NoError(t, err)
 
 			leaves := make([]common.Hash, tt.virtualLength)

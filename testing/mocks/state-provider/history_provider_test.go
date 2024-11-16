@@ -32,9 +32,9 @@ func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
 func TestHistoryCommitment(t *testing.T) {
 	ctx := context.Background()
 	challengeLeafHeights := []l2stateprovider.Height{
-		5,  // 2^2 + 1
-		9,  // 2^3 + 1
-		17, // 2^4 + 1
+		1 << 2,
+		1 << 3,
+		1 << 4,
 	}
 	numStates := uint64(10)
 	states, _ := setupStates(t, numStates, 0 /* honest */)

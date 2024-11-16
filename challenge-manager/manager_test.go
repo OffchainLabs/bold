@@ -29,7 +29,7 @@ var _ = types.RivalHandler(&Manager{})
 
 func TestEdgeTracker_Act(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	tkr, _ := setupEdgeTrackersForBisection(t, ctx, createdData, option.None[uint64]())
@@ -48,7 +48,7 @@ func TestEdgeTracker_Act(t *testing.T) {
 
 func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	chalManager := createdData.Chains[0].SpecChallengeManager()

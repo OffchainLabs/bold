@@ -54,10 +54,10 @@ func (s *LruMap[K, V]) Has(k K) bool {
 	return s.items.Contains(k)
 }
 
-func (s *LruMap[K, V]) NumItems() uint64 {
+func (s *LruMap[K, V]) NumItems() int {
 	s.RLock()
 	defer s.RUnlock()
-	return uint64(s.items.Len())
+	return s.items.Len()
 }
 
 func (s *LruMap[K, V]) TryGet(k K) (V, bool) {

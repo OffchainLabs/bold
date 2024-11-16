@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum"
@@ -211,7 +212,7 @@ func NewAssertionChain(
 		txOpts:                                   copiedOpts,
 		rollupAddr:                               rollupAddr,
 		chalManagerAddr:                          chalManagerAddr,
-		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
+		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
 		rpcHeadBlockNumber:                       rpc.FinalizedBlockNumber,
@@ -551,7 +552,15 @@ func TryConfirmingAssertion(
 
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
-			blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
+			var blocksLeftForConfirmation int64
+			if confirmableAfterBlock > latestHeader.Number.Uint64() {
+				blocksLeftForConfirmation = 0
+			} else {
+				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestHeader.Number.Uint64())
+				if err != nil {
+					return false, errors.Wrap(err, "could not convert blocks left for confirmation to int64")
+				}
+			}
 			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
 			log.Info(
 				fmt.Sprintf(

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -124,7 +126,10 @@ func (b *Backend) GetCollectMachineHashes(ctx context.Context, opts ...db.Collec
 				if err != nil {
 					return nil, fmt.Errorf("could not parse step height %s: %w", stepHeightStr, err)
 				}
-				stepHeights[i] = uint64(stepHeight)
+				stepHeights[i], err = safecast.ToUint64(stepHeight)
+				if err != nil {
+					return nil, fmt.Errorf("could not cast step height %d to uint64: %w", stepHeight, err)
+				}
 			}
 			cmh.StepHeights = stepHeights
 		}

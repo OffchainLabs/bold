@@ -52,8 +52,6 @@ linters-settings:
   gosec:
     excludes:
       - G404  # checks that random numbers are securely generated
-      # Temorarily disabled while figuring out an approach.
-      - G115  # checks for possible under/over flow in conversions
 
   govet:
     enable-all: true

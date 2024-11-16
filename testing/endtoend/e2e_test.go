@@ -264,7 +264,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		statemanager.WithNumBatchesRead(cfg.inbox.numBatchesPosted),
 		statemanager.WithLayerZeroHeights(&cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels),
 	}
-	honestStateManager, err := statemanager.NewForSimpleMachine(baseStateManagerOpts...)
+	honestStateManager, err := statemanager.NewForSimpleMachine(t, baseStateManagerOpts...)
 	require.NoError(t, err)
 
 	baseStackOpts := []cm.StackOpt{
@@ -304,7 +304,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 			statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
 			statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
 		)
-		evilStateManager, err := statemanager.NewForSimpleMachine(evilStateManagerOpts...)
+		evilStateManager, err := statemanager.NewForSimpleMachine(t, evilStateManagerOpts...)
 		require.NoError(t, err)
 
 		// Honest validator has index 1 in the accounts slice, as 0 is admin, so

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
+	"github.com/offchainlabs/bold/testing/casttest"
 )
 
 func TestInclusionProof(t *testing.T) {
@@ -49,7 +50,7 @@ func TestInclusionProof(t *testing.T) {
 		require.Equal(t, root, computedRoot)
 	})
 	t.Run("last leaf proof", func(t *testing.T) {
-		index = uint64(len(leaves) - 1)
+		index = casttest.ToUint64(len(leaves)-1, t)
 		proof, err = GenerateInclusionProof(leaves, index)
 		require.NoError(t, err)
 		require.Equal(t, true, len(proof) > 0)

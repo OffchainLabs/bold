@@ -25,6 +25,7 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/casttest"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
 )
@@ -65,7 +66,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	aliceStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Bob diverges from Alice at batch 1.
@@ -76,7 +77,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		statemanager.WithBlockDivergenceHeight(1),
 		statemanager.WithMachineDivergenceStep(1),
 	)
-	bobStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	bobStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	aliceChalManager, err := cm.NewChallengeStack(
@@ -209,7 +210,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	aliceStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Bob diverges from Alice at batch 1.
@@ -220,7 +221,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		statemanager.WithBlockDivergenceHeight(1),
 		statemanager.WithMachineDivergenceStep(1),
 	)
-	bobStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	bobStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	genesisState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1<<26)
@@ -269,10 +270,10 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		prevInfo, err2 := aliceChain.ReadAssertionCreationInfo(ctx, aliceAssertion.Id())
 		require.NoError(t, err2)
 		prevGlobalState := protocol.GoGlobalStateFromSolidity(prevInfo.AfterState.GlobalState)
-		preState, err2 := aliceStateManager.ExecutionStateAfterPreviousState(ctx, uint64(batch-1), &prevGlobalState, 1<<26)
+		preState, err2 := aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(batch-1, t), &prevGlobalState, 1<<26)
 		require.NoError(t, err2)
 		require.NoError(t, err2)
-		alicePostState, err2 = aliceStateManager.ExecutionStateAfterPreviousState(ctx, uint64(batch), &preState.GlobalState, 1<<26)
+		alicePostState, err2 = aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(batch, t), &preState.GlobalState, 1<<26)
 		require.NoError(t, err2)
 		t.Logf("Moving stake from alice at post state %+v\n", alicePostState)
 		aliceAssertion, err = aliceChain.StakeOnNewAssertion(
@@ -292,7 +293,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		statemanager.WithBlockDivergenceHeight(36), // TODO: Make this more intuitive. This translates to batch 4 due to how our mock works.
 		statemanager.WithMachineDivergenceStep(1),
 	}
-	charlieStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	charlieStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Setup an assertion manager for Charlie, and have it process Alice's
@@ -364,7 +365,7 @@ func TestFastConfirmation(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	stateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	assertionManager, err := assertions.NewManager(
@@ -436,7 +437,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	stateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	assertionManagerAlice, err := assertions.NewManager(

@@ -24,6 +24,7 @@ import (
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
+	"github.com/offchainlabs/bold/testing/casttest"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 )
 
@@ -391,9 +392,9 @@ func FuzzPrefixProof_Verify(f *testing.F) {
 		solErr := merkleTreeContract.VerifyPrefixProof(
 			opts,
 			cfg.PreRoot,
-			big.NewInt(int64(cfg.PreSize)),
+			big.NewInt(casttest.ToInt64(cfg.PreSize, t)),
 			cfg.PostRoot,
-			big.NewInt(int64(cfg.PostSize)),
+			big.NewInt(casttest.ToInt64(cfg.PostSize, t)),
 			preArray,
 			proofArray,
 		)
@@ -432,7 +433,9 @@ func FuzzPrefixProof_MaximumAppendBetween_GoSolidityEquivalence(f *testing.F) {
 	opts := &bind.CallOpts{}
 	f.Fuzz(func(t *testing.T, pre, post uint64) {
 		gotGo, err1 := prefixproofs.MaximumAppendBetween(pre, post)
-		gotSol, err2 := merkleTreeContract.MaximumAppendBetween(opts, big.NewInt(int64(pre)), big.NewInt(int64(post)))
+		preBig := big.NewInt(casttest.ToInt64(pre, t))
+		postBig := big.NewInt(casttest.ToInt64(post, t))
+		gotSol, err2 := merkleTreeContract.MaximumAppendBetween(opts, preBig, postBig)
 		if err1 == nil && err2 == nil {
 			if !gotSol.IsUint64() {
 				t.Fatal("sol result was not a uint64")
@@ -464,7 +467,7 @@ func FuzzPrefixProof_BitUtils_GoSolidityEquivalence(f *testing.F) {
 	merkleTreeContract, _ := setupMerkleTreeContract(f)
 	opts := &bind.CallOpts{}
 	f.Fuzz(func(t *testing.T, x uint64) {
-		lsbSol, _ := merkleTreeContract.LeastSignificantBit(opts, big.NewInt(int64(x)))
+		lsbSol, _ := merkleTreeContract.LeastSignificantBit(opts, big.NewInt(casttest.ToInt64(x, t)))
 		lsbGo, _ := prefixproofs.LeastSignificantBit(x)
 		if lsbSol != nil {
 			if !lsbSol.IsUint64() {
@@ -474,7 +477,7 @@ func FuzzPrefixProof_BitUtils_GoSolidityEquivalence(f *testing.F) {
 				t.Errorf("Mismatch lsb sol=%d, go=%d", lsbSol, lsbGo)
 			}
 		}
-		msbSol, _ := merkleTreeContract.MostSignificantBit(opts, big.NewInt(int64(x)))
+		msbSol, _ := merkleTreeContract.MostSignificantBit(opts, big.NewInt(casttest.ToInt64(x, t)))
 		msbGo, _ := prefixproofs.MostSignificantBit(x)
 		if msbSol != nil {
 			if !msbSol.IsUint64() {
@@ -520,7 +523,7 @@ func runBitEquivalenceTest(
 		{num: 1<<32 - 1},
 		{num: 10231920391293},
 	} {
-		lsbSol, err := solFunc(opts, big.NewInt(int64(tt.num)))
+		lsbSol, err := solFunc(opts, big.NewInt(casttest.ToInt64(tt.num, t)))
 		if tt.wantSolErr {
 			require.NotNil(t, err)
 			require.ErrorContains(t, err, tt.solErr)

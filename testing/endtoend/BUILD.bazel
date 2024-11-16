@@ -22,7 +22,6 @@ go_test(
         "manual",
     ],
     deps = [
-        "//api",
         "//chain-abstraction:protocol",
         "//chain-abstraction/sol-implementation",
         "//challenge-manager",

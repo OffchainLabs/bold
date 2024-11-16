@@ -10,6 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"testing"
+
+	"github.com/ccoveille/go-safecast"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +22,7 @@ import (
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/state-commitments/history"
 	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/casttest"
 )
 
 // Defines the ABI encoding structure for submission of prefix proofs to the protocol contracts
@@ -138,6 +142,7 @@ func WithNumBatchesRead(n uint64) Opt {
 }
 
 func NewForSimpleMachine(
+	t testing.TB,
 	opts ...Opt,
 ) (*L2StateBackend, error) {
 	s := &L2StateBackend{
@@ -169,7 +174,7 @@ func NewForSimpleMachine(
 		GlobalState:   protocol.GoGlobalState{},
 		MachineStatus: protocol.MachineStatusFinished,
 	}
-	maxBatchesRead := big.NewInt(int64(s.numBatches))
+	maxBatchesRead := big.NewInt(casttest.ToInt64(s.numBatches, t))
 	for block := uint64(0); ; block++ {
 		machine := NewSimpleMachine(nextMachineState, maxBatchesRead)
 		state := machine.GetExecutionState()
@@ -180,7 +185,7 @@ func NewForSimpleMachine(
 		if s.blockDivergenceHeight > 0 {
 			if block == s.blockDivergenceHeight {
 				// Note: blockHeightOffset might be negative, but two's complement subtraction works regardless
-				state.GlobalState.PosInBatch -= uint64(s.posInBatchDivergence)
+				state.GlobalState.PosInBatch -= casttest.ToUint64(s.posInBatchDivergence, t)
 			}
 			if block >= s.blockDivergenceHeight {
 				state.GlobalState.BlockHash[s.maliciousMachineIndex] = 1
@@ -201,7 +206,7 @@ func NewForSimpleMachine(
 	}
 	s.machineAtBlock = func(_ context.Context, block uint64) (Machine, error) {
 		if block >= uint64(len(s.executionStates)) {
-			block = uint64(len(s.executionStates) - 1)
+			block = casttest.ToUint64(len(s.executionStates)-1, t)
 		}
 		return NewSimpleMachine(s.executionStates[block], maxBatchesRead), nil
 	}
@@ -226,7 +231,11 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 		if previousGlobalState != nil && st.GlobalState.Equals(*previousGlobalState) {
 			blocksSincePrevious = 0
 		}
-		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious+1) >= maxNumberOfBlocks) {
+		bsp64, err := safecast.ToUint64(blocksSincePrevious + 1)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert blocksSincePrevious to uint64: %w", err)
+		}
+		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && bsp64 >= maxNumberOfBlocks) {
 			if blocksSincePrevious < 0 && previousGlobalState != nil {
 				return nil, fmt.Errorf("missing previous global state %+v", previousGlobalState)
 			}
@@ -257,10 +266,14 @@ func (s *L2StateBackend) statesUpTo(blockStart, blockEnd, fromBatch, toBatch uin
 	if blockEnd < blockStart {
 		return nil, fmt.Errorf("end block %v is less than start block %v", blockEnd, blockStart)
 	}
+	var err error
 	var startIndex uint64
 	for i, st := range s.executionStates {
 		if st.GlobalState.Batch == fromBatch {
-			startIndex = uint64(i)
+			startIndex, err = safecast.ToUint64(i)
+			if err != nil {
+				return nil, fmt.Errorf("could not convert start index to uint64: %w", err)
+			}
 			break
 		}
 	}

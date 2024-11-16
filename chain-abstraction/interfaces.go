@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -222,7 +224,11 @@ func ChallengeLevelFromString(s string) (ChallengeLevel, error) {
 		if err != nil {
 			return 0, err
 		}
-		return ChallengeLevel(challengeLevel), nil
+		clu8, err := safecast.ToUint8(challengeLevel)
+		if err != nil {
+			return 0, err
+		}
+		return ChallengeLevel(clu8), nil
 	}
 }
 

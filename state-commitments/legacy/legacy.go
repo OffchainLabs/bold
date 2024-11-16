@@ -9,6 +9,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	inclusionproofs "github.com/offchainlabs/bold/state-commitments/inclusion-proofs"
@@ -80,10 +82,14 @@ func NewLegacy(leaves []common.Hash) (LegacyHistory, error) {
 	if err3 != nil {
 		return emptyCommit, err3
 	}
+	hU64, err := safecast.ToUint64(len(leaves) - 1)
+	if err != nil {
+		return emptyCommit, err
+	}
 
 	return LegacyHistory{
 		Merkle:         root,
-		Height:         uint64(len(leaves) - 1),
+		Height:         hU64,
 		FirstLeaf:      leaves[0],
 		LastLeaf:       leaves[len(leaves)-1],
 		FirstLeafProof: firstLeafProof,

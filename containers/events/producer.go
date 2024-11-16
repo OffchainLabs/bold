@@ -104,7 +104,7 @@ func (ep *Producer[T]) Broadcast(ctx context.Context, event T) {
 	}
 }
 
-type subId uint64
+type subId int
 
 // Subscription defines a generic handle to a subscription of
 // events from a producer.

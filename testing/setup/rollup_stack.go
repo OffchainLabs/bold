@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"testing"
 
 	"github.com/pkg/errors"
 
@@ -67,9 +68,11 @@ type CreateForkConfig struct {
 
 func CreateTwoValidatorFork(
 	ctx context.Context,
+	t testing.TB,
 	cfg *CreateForkConfig,
 	opts ...Opt,
 ) (*CreatedValidatorFork, error) {
+	t.Helper()
 	setup, err := ChainsWithEdgeChallengeManager(opts...)
 	if err != nil {
 		return nil, err
@@ -90,7 +93,7 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	honestStateManager, err := statemanager.NewForSimpleMachine(setup.StateManagerOpts...)
+	honestStateManager, err := statemanager.NewForSimpleMachine(t, setup.StateManagerOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +116,7 @@ func CreateTwoValidatorFork(
 		statemanager.WithDivergentBlockHeightOffset(cfg.BlockHeightDifference),
 		statemanager.WithMachineDivergenceStep(cfg.DivergeMachineHeight),
 	)
-	evilStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	evilStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	if err != nil {
 		return nil, err
 	}

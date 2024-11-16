@@ -39,7 +39,7 @@ func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
 func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()
@@ -195,7 +195,7 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 
 func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	chain1 := createdData.Chains[0]
@@ -477,7 +477,7 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()
@@ -651,10 +651,11 @@ func setupBisectionScenario(
 	t *testing.T,
 	opts ...setup.Opt,
 ) *bisectionScenario {
+	t.Helper()
 	ctx := context.Background()
 
 	opts = append(opts, setup.WithMockOneStepProver())
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, opts...)
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, opts...)
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()

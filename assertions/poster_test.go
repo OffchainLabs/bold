@@ -51,7 +51,7 @@ func TestPostAssertion(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	stateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	assertionManager, err := assertions.NewManager(

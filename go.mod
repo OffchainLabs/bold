@@ -3,6 +3,7 @@ module github.com/offchainlabs/bold
 go 1.23
 
 require (
+    github.com/ccoveille/go-safecast v1.1.0
 	github.com/ethereum/go-ethereum v1.13.15
 	github.com/gorilla/mux v1.8.0
 	github.com/jmoiron/sqlx v1.3.5

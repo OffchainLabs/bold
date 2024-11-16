@@ -14,6 +14,7 @@ import (
 	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/state-commitments/history"
+	"github.com/offchainlabs/bold/testing/casttest"
 )
 
 func TestSqliteDatabase_CollectMachineHashes(t *testing.T) {
@@ -110,7 +111,7 @@ func TestSqliteDatabase_Updates(t *testing.T) {
 	for i := 0; i < numAssertions; i++ {
 		base := baseAssertion()
 		base.Hash = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
-		base.CreationBlock = uint64(i)
+		base.CreationBlock = casttest.ToUint64(i, t)
 		assertionsToCreate[i] = base
 	}
 	require.NoError(t, db.InsertAssertions(assertionsToCreate))
@@ -173,7 +174,7 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 	for i := 0; i < numAssertions; i++ {
 		base := baseAssertion()
 		base.Hash = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
-		base.CreationBlock = uint64(i)
+		base.CreationBlock = casttest.ToUint64(i, t)
 		if i == 1 {
 			base.ConfirmPeriodBlocks = 20
 			base.BeforeStateBlockHash = common.BytesToHash([]byte("block"))
@@ -202,7 +203,7 @@ func TestSqliteDatabase_Assertions(t *testing.T) {
 			base.AfterStatePosInBatch = 2
 			base.IsFirstChild = true
 		}
-		base.CreationBlock = uint64(i)
+		base.CreationBlock = casttest.ToUint64(i, t)
 		assertionsToCreate[i] = base
 	}
 	require.NoError(t, db.InsertAssertions(assertionsToCreate))
@@ -339,7 +340,7 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 	for i := 0; i < numAssertions; i++ {
 		base := baseAssertion()
 		base.Hash = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
-		base.CreationBlock = uint64(i)
+		base.CreationBlock = casttest.ToUint64(i, t)
 		assertionsToCreate[i] = base
 	}
 	require.NoError(t, db.InsertAssertions(assertionsToCreate))
@@ -351,7 +352,7 @@ func TestSqliteDatabase_Edges(t *testing.T) {
 		base := baseEdge()
 		base.Id = common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
 		base.AssertionHash = common.BytesToHash([]byte("1"))
-		base.CreatedAtBlock = uint64(i)
+		base.CreatedAtBlock = casttest.ToUint64(i, t)
 		base.EndHeight = endHeight
 		if i == 0 {
 			base.OriginId = common.BytesToHash([]byte("foo"))
