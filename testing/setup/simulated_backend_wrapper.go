@@ -38,7 +38,7 @@ func (s *SimulatedBackendWrapper) ChainID(ctx context.Context) (*big.Int, error)
 }
 
 func (s *SimulatedBackendWrapper) Close() {
-	s.Backend.Close()
+	s.Backend.Close() // #nosec G104
 }
 
 func (s *SimulatedBackendWrapper) Client() rpc.ClientInterface {
