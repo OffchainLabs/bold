@@ -169,23 +169,14 @@ func (m *Manager) checkLatestDesiredBlock(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Minute):
-			latestSafeBlock, err := m.backend.HeaderByNumber(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
+			latestSafeBlock, err := m.backend.HeaderByNumberIsUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
 			if err != nil {
 				log.Error("Error getting latest safe block", "err", err)
 				continue
 			}
-			if !latestSafeBlock.Number.IsUint64() {
-				log.Error("Latest safe block number not a uint64")
-				continue
-			}
-
-			latestBlock, err := m.backend.HeaderByNumber(ctx, nil)
+			latestBlock, err := m.backend.HeaderByNumberIsUint64(ctx, nil)
 			if err != nil {
 				log.Error("Error getting latest block", "err", err)
-				continue
-			}
-			if !latestBlock.Number.IsUint64() {
-				log.Error("Latest block number not a uint64")
 				continue
 			}
 			safeBlockDelayInSeconds := (latestBlock.Number.Uint64() - latestSafeBlock.Number.Uint64()) * uint64(m.averageTimeForBlockCreation.Seconds())

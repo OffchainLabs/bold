@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -53,14 +53,10 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 		return
 	}
 	latestBlock, err := retry.UntilSucceeds(ctx, func() (*gethtypes.Header, error) {
-		return m.backend.HeaderByNumber(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
+		return m.backend.HeaderByNumberIsUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
 	})
 	if err != nil {
 		log.Error("Could not get header by number", "err", err)
-		return
-	}
-	if !latestBlock.Number.IsUint64() {
-		log.Error("Latest block number was not a uint64")
 		return
 	}
 	toBlock := latestBlock.Number.Uint64()
@@ -90,13 +86,9 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			latestBlock, err := m.backend.HeaderByNumber(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
+			latestBlock, err := m.backend.HeaderByNumberIsUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
 			if err != nil {
 				log.Error("Could not get header by number", "err", err)
-				continue
-			}
-			if !latestBlock.Number.IsUint64() {
-				log.Error("Latest block number was not a uint64")
 				continue
 			}
 			toBlock := latestBlock.Number.Uint64()

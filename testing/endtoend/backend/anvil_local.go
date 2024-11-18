@@ -24,6 +24,7 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	"github.com/offchainlabs/bold/testing/setup"
+	"github.com/offchainlabs/bold/util"
 	"github.com/pkg/errors"
 )
 
@@ -52,7 +53,7 @@ func NewAnvilLocal(ctx context.Context) (*AnvilLocal, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.client = ethclient.NewClient(c)
+	a.client = util.NewBackendWrapper(ethclient.NewClient(c))
 	return a, nil
 }
 

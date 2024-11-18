@@ -76,6 +76,10 @@ func Test_median(t *testing.T) {
 
 type MockContractBackend struct{}
 
+func (m *MockContractBackend) HeaderByNumberIsUint64(ctx context.Context, number *big.Int) (*types.Header, error) {
+	return nil, nil
+}
+
 func (m *MockContractBackend) ChainID(ctx context.Context) (*big.Int, error) {
 	return nil, nil
 }

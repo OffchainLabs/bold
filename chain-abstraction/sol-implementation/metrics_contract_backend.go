@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"math/big"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/metrics"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 type MetricsContractBackend struct {
@@ -41,7 +41,7 @@ func (t *MetricsContractBackend) CodeAt(ctx context.Context, contract common.Add
 
 func (t *MetricsContractBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
 	metrics.GetOrRegisterCounter("arb/backend/header_by_number/count", nil).Inc(1)
-	return t.ChainBackend.HeaderByNumber(ctx, number)
+	return t.ChainBackend.HeaderByNumberIsUint64(ctx, number)
 }
 
 func (t *MetricsContractBackend) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {

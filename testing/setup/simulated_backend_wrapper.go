@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 
@@ -19,6 +20,17 @@ var (
 
 type SimulatedBackendWrapper struct {
 	*simulated.Backend
+}
+
+func (s *SimulatedBackendWrapper) HeaderByNumberIsUint64(ctx context.Context, number *big.Int) (*types.Header, error) {
+	header, err := s.Backend.Client().HeaderByNumber(ctx, number)
+	if err != nil {
+		return nil, err
+	}
+	if !header.Number.IsUint64() {
+		return nil, errors.New("block number is not uint64")
+	}
+	return header, nil
 }
 
 func (s *SimulatedBackendWrapper) ChainID(ctx context.Context) (*big.Int, error) {

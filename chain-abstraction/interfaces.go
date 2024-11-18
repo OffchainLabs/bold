@@ -34,6 +34,10 @@ type ChainBackend interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	Close()
 	Client() rpc.ClientInterface
+	// HeaderByNumberIsUint64 returns a block header from the current canonical chain. If
+	// number is nil, the latest known header is returned.
+	// Is header number is not a uint64, an error is returned.
+	HeaderByNumberIsUint64(ctx context.Context, number *big.Int) (*types.Header, error)
 }
 
 // ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.

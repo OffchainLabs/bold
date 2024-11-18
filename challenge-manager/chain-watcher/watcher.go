@@ -240,13 +240,9 @@ func (w *Watcher) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			latestBlock, err := w.backend.HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+			latestBlock, err := w.backend.HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 			if err != nil {
 				log.Error("Could not get latest header", "err", err)
-				continue
-			}
-			if !latestBlock.Number.IsUint64() {
-				log.Error("latest block header number is not a uint64")
 				continue
 			}
 			toBlock := latestBlock.Number.Uint64()
@@ -295,12 +291,9 @@ func (w *Watcher) Start(ctx context.Context) {
 
 // GetRoyalEdges returns all royal, tracked edges in the watcher by assertion hash.
 func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge, error) {
-	header, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	header, err := w.chain.Backend().HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
 		return nil, err
-	}
-	if !header.Number.IsUint64() {
-		return nil, errors.New("block header is not a uint64")
 	}
 	blockNum := header.Number.Uint64()
 	response := make(map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge)
@@ -395,12 +388,9 @@ func (w *Watcher) ComputeAncestors(
 			challengedAssertionHash,
 		)
 	}
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeader, err := w.chain.Backend().HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
 		return nil, err
-	}
-	if !blockHeader.Number.IsUint64() {
-		return nil, errors.New("block number is not uint64")
 	}
 	return chal.honestEdgeTree.ComputeAncestors(ctx, edgeId, blockHeader.Number.Uint64())
 }
@@ -415,12 +405,9 @@ func (w *Watcher) IsConfirmableEssentialNode(
 	if !ok {
 		return false, nil, 0, fmt.Errorf("could not get challenge for top level assertion %#x", challengedAssertionHash)
 	}
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeader, err := w.chain.Backend().HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
 		return false, nil, 0, err
-	}
-	if !blockHeader.Number.IsUint64() {
-		return false, nil, 0, errors.New("block number is not uint64")
 	}
 	confirmable, essentialPaths, timer, err := chal.honestEdgeTree.IsConfirmableEssentialNode(
 		ctx,
@@ -445,12 +432,9 @@ func (w *Watcher) PathWeightToClosestEssentialAncestor(
 			challengedAssertionHash,
 		)
 	}
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeader, err := w.chain.Backend().HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
 		return 0, err
-	}
-	if !blockHeader.Number.IsUint64() {
-		return 0, errors.New("block number is not uint64")
 	}
 	if !chal.honestEdgeTree.HasRoyalEdge(edge.Id()) {
 		return 0, fmt.Errorf("edge with id %#x is not yet tracked locally", edge.Id().Hash)
@@ -477,12 +461,9 @@ func (w *Watcher) ComputeRootInheritedTimer(
 			challengedAssertionHash,
 		)
 	}
-	blockHeader, err := w.chain.Backend().HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeader, err := w.chain.Backend().HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
 		return 0, err
-	}
-	if !blockHeader.Number.IsUint64() {
-		return 0, errors.New("block number is not uint64")
 	}
 	return chal.honestEdgeTree.ComputeRootInheritedTimer(ctx, challengedAssertionHash, blockHeader.Number.Uint64())
 }
@@ -962,12 +943,9 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	}
 	firstBlock := latestConfirmed.CreatedAtBlock()
 	startBlock := firstBlock
-	header, err := w.backend.HeaderByNumber(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	header, err := w.backend.HeaderByNumberIsUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
 	if err != nil {
 		return filterRange{}, err
-	}
-	if !header.Number.IsUint64() {
-		return filterRange{}, errors.New("header number is not a uint64")
 	}
 	return filterRange{
 		startBlockNum: startBlock,

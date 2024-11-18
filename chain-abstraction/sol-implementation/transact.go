@@ -135,12 +135,9 @@ func (a *AssertionChain) waitForTxToBeSafe(
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		latestSafeHeader, err := backend.HeaderByNumber(ctx, a.GetDesiredRpcHeadBlockNumber())
+		latestSafeHeader, err := backend.HeaderByNumberIsUint64(ctx, a.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return nil, err
-		}
-		if !latestSafeHeader.Number.IsUint64() {
-			return nil, errors.New("latest block number is not a uint64")
 		}
 		txSafe := latestSafeHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
 

@@ -6,13 +6,12 @@ import (
 	"strings"
 	"time"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/pkg/errors"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	retry "github.com/offchainlabs/bold/runtime"
 )
 
 var onchainTimerDifferAfterConfirmationJobCounter = metrics.NewRegisteredCounter("arb/validator/tracker/onchain_timer_differed_after_confirmation_job", nil)
@@ -301,12 +300,9 @@ func (cc *challengeConfirmer) waitForTxToBeSafe(
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		latestSafeHeader, err := backend.HeaderByNumber(ctx, cc.chain.GetDesiredRpcHeadBlockNumber())
+		latestSafeHeader, err := backend.HeaderByNumberIsUint64(ctx, cc.chain.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return err
-		}
-		if !latestSafeHeader.Number.IsUint64() {
-			return errors.New("latest block number is not a uint64")
 		}
 		txSafe := latestSafeHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
 

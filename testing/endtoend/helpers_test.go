@@ -96,6 +96,10 @@ func TestTotalWasmOpcodes(t *testing.T) {
 	})
 }
 
+var (
+	_ protocol.ChainBackend = &FlakyEthClient{}
+)
+
 type FlakyEthClient struct {
 	protocol.ChainBackend
 }
@@ -134,6 +138,13 @@ func (f *FlakyEthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*
 		return nil, err
 	}
 	return f.ChainBackend.HeaderByNumber(ctx, number)
+}
+
+func (f *FlakyEthClient) HeaderByNumberIsUint64(ctx context.Context, number *big.Int) (*types.Header, error) {
+	if err := f.flaky(); err != nil {
+		return nil, err
+	}
+	return f.ChainBackend.HeaderByNumberIsUint64(ctx, number)
 }
 
 func (f *FlakyEthClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
