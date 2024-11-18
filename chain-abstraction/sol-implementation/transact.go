@@ -5,14 +5,15 @@ package solimpl
 
 import (
 	"context"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"math/big"
 	"time"
 
-	"github.com/offchainlabs/bold/containers"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/offchainlabs/bold/containers"
 	"github.com/pkg/errors"
 )
 
@@ -43,7 +44,7 @@ func withoutSafeWait() transactOpt {
 // errored directly.
 func (a *AssertionChain) transact(
 	ctx context.Context,
-	backend ChainBackend,
+	backend protocol.ChainBackend,
 	fn func(opts *bind.TransactOpts) (*types.Transaction, error),
 	configOpts ...transactOpt,
 ) (*types.Receipt, error) {
@@ -126,7 +127,7 @@ func (a *AssertionChain) transact(
 // waitForTxToBeSafe waits for the transaction to be mined in a block that is safe.
 func (a *AssertionChain) waitForTxToBeSafe(
 	ctx context.Context,
-	backend ChainBackend,
+	backend protocol.ChainBackend,
 	tx *types.Transaction,
 	receipt *types.Receipt,
 ) (*types.Receipt, error) {

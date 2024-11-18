@@ -12,11 +12,6 @@ import (
 	"path"
 	"time"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/offchainlabs/bold/solgen/go/mocksgen"
-	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	challenge_testing "github.com/offchainlabs/bold/testing"
-	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -24,14 +19,18 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/setup"
 	"github.com/pkg/errors"
 )
 
 var _ Backend = &AnvilLocal{}
 
 type AnvilLocal struct {
-	client    *ethclient.Client
-	rpc       *rpc.Client
+	client    protocol.ChainBackend
 	cmd       *exec.Cmd
 	addresses *setup.RollupAddresses
 	accounts  []*bind.TransactOpts
@@ -53,7 +52,6 @@ func NewAnvilLocal(ctx context.Context) (*AnvilLocal, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.rpc = c
 	a.client = ethclient.NewClient(c)
 	return a, nil
 }
@@ -142,7 +140,7 @@ func (a *AnvilLocal) Start(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		a.rpc.Close()
+		a.client.Close()
 		if err := a.cmd.Process.Kill(); err != nil {
 			fmt.Printf("Could not kill anvil process: %v\n", err)
 		}
@@ -310,7 +308,7 @@ func (a *AnvilLocal) DeployRollup(ctx context.Context, opts ...challenge_testing
 
 // MineBlocks will call anvil to instantly mine n blocks.
 func (a *AnvilLocal) MineBlocks(ctx context.Context, n uint64) error {
-	return a.rpc.CallContext(ctx, nil, "anvil_mine", hexutil.EncodeUint64(n))
+	return a.client.Client().CallContext(ctx, nil, "anvil_mine", hexutil.EncodeUint64(n))
 }
 
 func (a *AnvilLocal) ContractAddresses() *setup.RollupAddresses {

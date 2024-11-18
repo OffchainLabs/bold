@@ -10,14 +10,15 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/offchainlabs/bold/containers/option"
-	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/offchainlabs/bold/state-commitments/history"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/offchainlabs/bold/containers/option"
+	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	"github.com/offchainlabs/bold/state-commitments/history"
 )
 
 // ErrCachedTimeSufficient is an error received from the challenge manager smart contract
@@ -30,6 +31,9 @@ type ChainBackend interface {
 	ReceiptFetcher
 	TxFetcher
 	HeadSubscriber
+	ChainID(ctx context.Context) (*big.Int, error)
+	Close()
+	Client() rpc.ClientInterface
 }
 
 // ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.

@@ -72,7 +72,7 @@ type Watcher struct {
 	edgeManager                         EdgeManager
 	pollEventsInterval                  time.Duration
 	challenges                          *threadsafe.Map[protocol.AssertionHash, *trackedChallenge]
-	backend                             bind.ContractBackend
+	backend                             protocol.ChainBackend
 	validatorName                       string
 	numBigStepLevels                    uint8
 	initialSyncCompleted                atomic.Bool
@@ -89,7 +89,7 @@ func New(
 	chain protocol.AssertionChain,
 	edgeManager EdgeManager,
 	histChecker l2stateprovider.HistoryChecker,
-	backend bind.ContractBackend,
+	backend protocol.ChainBackend,
 	interval time.Duration,
 	numBigStepLevels uint8,
 	validatorName string,

@@ -3,6 +3,7 @@ package solimpl
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"testing"
 
@@ -74,6 +75,16 @@ func Test_median(t *testing.T) {
 }
 
 type MockContractBackend struct{}
+
+func (m *MockContractBackend) ChainID(ctx context.Context) (*big.Int, error) {
+	return nil, nil
+}
+
+func (m *MockContractBackend) Close() {}
+
+func (m *MockContractBackend) Client() rpc.ClientInterface {
+	return nil
+}
 
 func (m *MockContractBackend) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
 	return nil, nil

@@ -7,16 +7,15 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	challengemanager "github.com/offchainlabs/bold/challenge-manager"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,7 +97,7 @@ func TestTotalWasmOpcodes(t *testing.T) {
 }
 
 type FlakyEthClient struct {
-	*ethclient.Client
+	protocol.ChainBackend
 }
 
 func (f *FlakyEthClient) flaky() error {
@@ -113,81 +112,81 @@ func (f *FlakyEthClient) TransactionReceipt(ctx context.Context, txHash common.H
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.TransactionReceipt(ctx, txHash)
+	return f.ChainBackend.TransactionReceipt(ctx, txHash)
 }
 
 func (f *FlakyEthClient) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.CodeAt(ctx, contract, blockNumber)
+	return f.ChainBackend.CodeAt(ctx, contract, blockNumber)
 }
 
 func (f *FlakyEthClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.CallContract(ctx, call, blockNumber)
+	return f.ChainBackend.CallContract(ctx, call, blockNumber)
 }
 
 func (f *FlakyEthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.HeaderByNumber(ctx, number)
+	return f.ChainBackend.HeaderByNumber(ctx, number)
 }
 
 func (f *FlakyEthClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.PendingCodeAt(ctx, account)
+	return f.ChainBackend.PendingCodeAt(ctx, account)
 }
 
 func (f *FlakyEthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	if err := f.flaky(); err != nil {
 		return 0, err
 	}
-	return f.Client.PendingNonceAt(ctx, account)
+	return f.ChainBackend.PendingNonceAt(ctx, account)
 }
 
 func (f *FlakyEthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.SuggestGasPrice(ctx)
+	return f.ChainBackend.SuggestGasPrice(ctx)
 }
 
 func (f *FlakyEthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.SuggestGasTipCap(ctx)
+	return f.ChainBackend.SuggestGasTipCap(ctx)
 }
 
 func (f *FlakyEthClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
 	if err := f.flaky(); err != nil {
 		return 0, err
 	}
-	return f.Client.EstimateGas(ctx, call)
+	return f.ChainBackend.EstimateGas(ctx, call)
 }
 
 func (f *FlakyEthClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	if err := f.flaky(); err != nil {
 		return err
 	}
-	return f.Client.SendTransaction(ctx, tx)
+	return f.ChainBackend.SendTransaction(ctx, tx)
 }
 
 func (f *FlakyEthClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.FilterLogs(ctx, query)
+	return f.ChainBackend.FilterLogs(ctx, query)
 }
 func (f *FlakyEthClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	if err := f.flaky(); err != nil {
 		return nil, err
 	}
-	return f.Client.SubscribeFilterLogs(ctx, query, ch)
+	return f.ChainBackend.SubscribeFilterLogs(ctx, query, ch)
 }

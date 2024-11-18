@@ -10,6 +10,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	apibackend "github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/api/db"
 	"github.com/offchainlabs/bold/api/server"
@@ -27,11 +31,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	utilTime "github.com/offchainlabs/bold/time"
 	"github.com/offchainlabs/bold/util/stopwaiter"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type Opt = func(val *Manager)
@@ -46,8 +45,7 @@ type Manager struct {
 	rollup                      *rollupgen.RollupCore
 	rollupFilterer              *rollupgen.RollupCoreFilterer
 	chalManager                 *challengeV2gen.EdgeChallengeManagerFilterer
-	backend                     bind.ContractBackend
-	client                      *rpc.Client
+	backend                     protocol.ChainBackend
 	stateManager                l2stateprovider.Provider
 	address                     common.Address
 	name                        string
@@ -143,12 +141,6 @@ func WithAPIEnabled(addr string, dbPath string) Opt {
 	return func(val *Manager) {
 		val.apiAddr = addr
 		val.apiDBPath = dbPath
-	}
-}
-
-func WithRPCClient(client *rpc.Client) Opt {
-	return func(val *Manager) {
-		val.client = client
 	}
 }
 

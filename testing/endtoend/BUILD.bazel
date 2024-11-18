@@ -40,7 +40,6 @@ go_test(
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
         "@com_github_ethereum_go_ethereum//core/types",
-        "@com_github_ethereum_go_ethereum//ethclient",
         "@com_github_stretchr_testify//require",
         "@org_golang_x_sync//errgroup",
     ],

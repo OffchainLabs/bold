@@ -13,17 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/offchainlabs/bold/util/stopwaiter"
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/offchainlabs/bold/util/stopwaiter"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -45,7 +44,7 @@ var (
 type Manager struct {
 	stopwaiter.StopWaiter
 	chain                       protocol.AssertionChain
-	backend                     bind.ContractBackend
+	backend                     protocol.ChainBackend
 	challengeCreator            types.ChallengeCreator
 	challengeReader             types.ChallengeReader
 	stateProvider               l2stateprovider.ExecutionProvider
@@ -102,7 +101,7 @@ func WithDangerousReadyToPost() Opt {
 func NewManager(
 	chain protocol.AssertionChain,
 	stateProvider l2stateprovider.Provider,
-	backend bind.ContractBackend,
+	backend protocol.ChainBackend,
 	challengeManager types.ChallengeManager,
 	rollupAddr common.Address,
 	challengeManagerAddr common.Address,
