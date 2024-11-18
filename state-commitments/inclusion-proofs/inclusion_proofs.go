@@ -1,8 +1,9 @@
-// Package inclusionproofs defines a series of utilities for generating and verifying
-// traditional Merkle proofs of data.
-//
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
+// Package inclusionproofs defines a series of utilities for generating and
+// verifying traditional Merkle proofs of data.
 package inclusionproofs
 
 import (
