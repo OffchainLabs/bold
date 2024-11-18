@@ -526,16 +526,16 @@ func TryConfirmingAssertion(
 		return true, nil
 	}
 	for {
-		var latestHeader *types.Header
-		latestHeader, err = chain.Backend().HeaderByNumberIsUint64(ctx, chain.GetDesiredRpcHeadBlockNumber())
+		var latestHeaderNumber uint64
+		latestHeaderNumber, err = chain.Backend().HeaderNumberUint64(ctx, chain.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return false, err
 		}
-		confirmable := latestHeader.Number.Uint64() >= confirmableAfterBlock
+		confirmable := latestHeaderNumber >= confirmableAfterBlock
 
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
-			blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
+			blocksLeftForConfirmation := confirmableAfterBlock - latestHeaderNumber
 			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
 			log.Info(
 				fmt.Sprintf(
@@ -845,11 +845,10 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		latestHeader, err := a.backend.HeaderByNumberIsUint64(ctx, a.GetDesiredRpcHeadBlockNumber())
+		num, err := a.backend.HeaderNumberUint64(ctx, a.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return 0, err
 		}
-		num := latestHeader.Number.Uint64()
 
 		// Should never happen.
 		if wantNode.CreatedAtBlock > num {

@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"math/big"
@@ -22,13 +21,13 @@ func NewBackendWrapper(client *ethclient.Client) *BackendWrapper {
 	return &BackendWrapper{client}
 }
 
-func (b BackendWrapper) HeaderByNumberIsUint64(ctx context.Context, number *big.Int) (*types.Header, error) {
+func (b BackendWrapper) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
 	header, err := b.ethClient.HeaderByNumber(ctx, number)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	if !header.Number.IsUint64() {
-		return nil, errors.New("block number is not uint64")
+		return 0, errors.New("block number is not uint64")
 	}
-	return header, nil
+	return header.Number.Uint64(), nil
 }

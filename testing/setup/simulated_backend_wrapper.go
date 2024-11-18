@@ -22,15 +22,15 @@ type SimulatedBackendWrapper struct {
 	*simulated.Backend
 }
 
-func (s *SimulatedBackendWrapper) HeaderByNumberIsUint64(ctx context.Context, number *big.Int) (*types.Header, error) {
+func (s *SimulatedBackendWrapper) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
 	header, err := s.Backend.Client().HeaderByNumber(ctx, number)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	if !header.Number.IsUint64() {
-		return nil, errors.New("block number is not uint64")
+		return 0, errors.New("block number is not uint64")
 	}
-	return header, nil
+	return header.Number.Uint64(), nil
 }
 
 func (s *SimulatedBackendWrapper) ChainID(ctx context.Context) (*big.Int, error) {

@@ -45,11 +45,11 @@ func TestLocalAnvilStarts(t *testing.T) {
 	require.NoError(t, err)
 
 	// There should be at least 100 blocks
-	bn, err2 := a.Client().HeaderByNumberIsUint64(ctx, nil)
+	bn, err2 := a.Client().HeaderNumberUint64(ctx, nil)
 	if err2 != nil {
 		t.Fatal(err2)
 	}
-	if bn.Number.Uint64() < 100 {
+	if bn < 100 {
 		t.Errorf("Expected at least 100 blocks at start, but got only %d", bn)
 	}
 }

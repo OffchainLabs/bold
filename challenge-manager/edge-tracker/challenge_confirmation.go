@@ -300,15 +300,15 @@ func (cc *challengeConfirmer) waitForTxToBeSafe(
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		latestSafeHeader, err := backend.HeaderByNumberIsUint64(ctx, cc.chain.GetDesiredRpcHeadBlockNumber())
+		latestSafeHeaderNumber, err := backend.HeaderNumberUint64(ctx, cc.chain.GetDesiredRpcHeadBlockNumber())
 		if err != nil {
 			return err
 		}
-		txSafe := latestSafeHeader.Number.Uint64() >= receipt.BlockNumber.Uint64()
+		txSafe := latestSafeHeaderNumber >= receipt.BlockNumber.Uint64()
 
 		// If the tx is not yet safe, we can simply wait.
 		if !txSafe {
-			blocksLeftForTxToBeSafe := receipt.BlockNumber.Uint64() - latestSafeHeader.Number.Uint64()
+			blocksLeftForTxToBeSafe := receipt.BlockNumber.Uint64() - latestSafeHeaderNumber
 			timeToWait := cc.averageTimeForBlockCreation * time.Duration(blocksLeftForTxToBeSafe)
 			<-time.After(timeToWait)
 		} else {
