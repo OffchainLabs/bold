@@ -932,7 +932,6 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
-				w.challenges.Delete(challengeParentAssertionHash)
 				log.Info("Confirmed assertion by challenge win", "assertionHash", common.Hash(claimId))
 				return
 			}

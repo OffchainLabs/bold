@@ -124,11 +124,8 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
-			// Expect one assertion is confirmed by challenge win.
 			expectAssertionConfirmedByChallengeWin,
-			// Other ideas:
-			// All validators are staked at top-level
-			// All subchallenges have mini-stakes
+			expectAllHonestEssentialEdgesConfirmed,
 		},
 	})
 }
@@ -309,16 +306,16 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		require.NoError(t, err)
 
 		// Honest validator has index 1 in the accounts slice, as 0 is admin, so evil ones should start at 2.
-		txOpts = accounts[2+i]
+		evilTxOpts := accounts[2+i]
 		name = fmt.Sprintf("evil-%d", i)
 		//nolint:gocritic
 		evilOpts := append(
 			baseChallengeManagerOpts,
-			challengemanager.WithAddress(txOpts.From),
+			challengemanager.WithAddress(evilTxOpts.From),
 			challengemanager.WithName(name),
 		)
 		evilManager := setupChallengeManager(
-			t, ctx, bk.Client(), rollupAddr.Rollup, evilStateManager, txOpts, evilOpts...,
+			t, ctx, bk.Client(), rollupAddr.Rollup, evilStateManager, evilTxOpts, evilOpts...,
 		)
 		evilChallengeManagers[i] = evilManager
 	}
@@ -333,7 +330,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	for _, e := range cfg.expectations {
 		fn := e // loop closure
 		g.Go(func() error {
-			return fn(t, ctx, bk.ContractAddresses(), bk.Client())
+			return fn(t, ctx, bk.ContractAddresses(), bk.Client(), txOpts.From)
 		})
 	}
 	require.NoError(t, g.Wait())

@@ -8,13 +8,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
 	"github.com/offchainlabs/bold/testing/mocks"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -211,7 +211,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 	).Return(true, nil)
 
 	mockManager := &mocks.MockEdgeTracker{}
-	mockManager.On("TrackEdge", ctx, edge).Return(nil)
+	mockManager.On("TrackEdge", ctx, &honestEdge{edge}).Return(nil)
 
 	watcher := &Watcher{
 		challenges:       threadsafe.NewMap[protocol.AssertionHash, *trackedChallenge](),
