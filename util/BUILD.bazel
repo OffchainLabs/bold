@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
-        "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_ethereum_go_ethereum//ethclient",
     ],
 )

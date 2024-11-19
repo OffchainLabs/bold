@@ -50,6 +50,11 @@ type HonestChallengeTreeReader interface {
 		challengedAssertionHash protocol.AssertionHash,
 		edgeId protocol.EdgeId,
 	) ([]protocol.ReadOnlyEdge, error)
+	ClosestEssentialAncestor(
+		ctx context.Context,
+		challengedAssertionHash protocol.AssertionHash,
+		edge protocol.VerifiedRoyalEdge,
+	) (protocol.ReadOnlyEdge, error)
 	IsEssentialAncestorConfirmable(
 		ctx context.Context,
 		edge protocol.SpecEdge,
@@ -373,42 +378,51 @@ func (et *Tracker) Act(ctx context.Context) error {
 	}
 }
 
-// ShouldDespawn checks if an edge tracker should despawn and no longer act.
-// This is true an edge is confirmed or a non-essential edge's claimed assertion is confirmed.
+// ShouldDespawn checks if an edge tracker should despawn and no longer act. Every edge tracker
+// needs to have a despawn condition to ensure goroutines are cleaned up.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
-	// Every edge should despawn at some point...
-	// If the edge is essential => despawn once it is confirmed.
-	// else if not essential =>
-	//   if edge is small step, and length one => confirm by OSP and exit
-	//   else: despawn if the closest essential ancestor is confirmed.
-
-	// fields := et.uniqueTrackerLogFields()
-	// status, err := et.edge.Status(ctx)
-	// if err != nil {
-	// 	log.Error("Could not get edge status", append(fields, "err", err)...)
-	// 	return false
-	// }
-	// if status == protocol.EdgeConfirmed {
-	// 	return true
-	// }
-	// if et.edge.ClaimId().IsSome() {
-	// 	return false
-	// }
-	// claimedAssertion, err := et.chain.AssertionStatus(
-	// 	ctx,
-	// 	protocol.AssertionHash{
-	// 		Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
-	// 	},
-	// )
-	// if err != nil {
-	// 	log.Error("Could not get claimed assertion status", append(fields, "err", err)...)
-	// 	return false
-	// }
-	// if claimedAssertion == protocol.AssertionConfirmed {
-	// 	log.Info("Claimed assertion by edge confirmed, can now despawn edge", fields...)
-	// 	return true
-	// }
-	return false
+	// If the edge is an essential root, it should despawn once it is confirmed.
+	fields := et.uniqueTrackerLogFields()
+	if et.edge.ClaimId().IsSome() {
+		status, err := et.edge.Status(ctx)
+		if err != nil {
+			log.Error("Could not get edge status", append(fields, "err", err)...)
+			return false
+		}
+		return status == protocol.EdgeConfirmed
+	}
+	// Else if the edge is a NON-essential root:
+	canOsp, err := canOneStepProve(ctx, et.edge)
+	if err != nil {
+		log.Error("Could not check if edge can be one step proven", append(fields, "err", err)...)
+		return false
+	}
+	// If the edge is a small step edge of length one, exit once it is confirmed by OSP.
+	if canOsp {
+		status, err2 := et.edge.Status(ctx)
+		if err2 != nil {
+			log.Error("Could not get edge status", append(fields, "err", err2)...)
+			return false
+		}
+		return status == protocol.EdgeConfirmed
+	}
+	// Otherwise, despawn if the closest essential ancestor to the edge is confirmed.
+	assertionHash, err := et.edge.AssertionHash(ctx)
+	if err != nil {
+		log.Error("Could not get edge assertion hash", append(fields, "err", err)...)
+		return false
+	}
+	closestEssential, err := et.chainWatcher.ClosestEssentialAncestor(ctx, assertionHash, et.edge)
+	if err != nil {
+		log.Error("Could not get edge closest essential ancestor", append(fields, "err", err)...)
+		return false
+	}
+	status, err := closestEssential.Status(ctx)
+	if err != nil {
+		log.Error("Could not get closest essential ancestor status", append(fields, "err", err)...)
+		return false
+	}
+	return status == protocol.EdgeConfirmed
 }
 
 func (et *Tracker) uniqueTrackerLogFields() []any {
@@ -432,7 +446,7 @@ func (et *Tracker) uniqueTrackerLogFields() []any {
 }
 
 func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
-	// If the edge is not a root, we have nothing to do here.
+	// If the edge is not a root of a challenge or subchallenge, we have nothing to do here.
 	if et.edge.ClaimId().IsNone() {
 		return false, nil
 	}
@@ -496,6 +510,9 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Checks if the closest essential ancestor of an edge is confirmable. This method is used by the edge
+// tracker to determine if it needs to open a subchallenge or bisect. The honest strategy
+// aims to avoid unnecessary moves if it can determine they are unnecessary.
 func (et *Tracker) isEssentialAncestorConfirmable(ctx context.Context) (bool, error) {
 	assertionHash, err := et.edge.AssertionHash(ctx)
 	if err != nil {

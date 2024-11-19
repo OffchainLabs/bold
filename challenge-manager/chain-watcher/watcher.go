@@ -399,6 +399,21 @@ func (w *Watcher) ComputeAncestors(
 	return chal.honestEdgeTree.ComputeAncestors(ctx, edgeId, blockHeaderNumber)
 }
 
+func (w *Watcher) ClosestEssentialAncestor(
+	ctx context.Context,
+	challengedAssertionHash protocol.AssertionHash,
+	edge protocol.VerifiedRoyalEdge,
+) (protocol.ReadOnlyEdge, error) {
+	chal, ok := w.challenges.TryGet(challengedAssertionHash)
+	if !ok {
+		return nil, fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			challengedAssertionHash,
+		)
+	}
+	return chal.honestEdgeTree.ClosestEssentialAncestor(ctx, edge)
+}
+
 func (w *Watcher) IsEssentialAncestorConfirmable(
 	ctx context.Context,
 	edge protocol.SpecEdge,
