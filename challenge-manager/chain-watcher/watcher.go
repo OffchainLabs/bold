@@ -43,9 +43,15 @@ var (
 	assertionConfirmedCounter               = metrics.GetOrRegisterCounter("arb/validator/scanner/assertion_confirmed", nil)
 )
 
+type honestEdge struct {
+	protocol.SpecEdge
+}
+
+func (h *honestEdge) Honest() {}
+
 // EdgeManager provides a method to track edges, via edge tracker goroutines.
 type EdgeManager interface {
-	TrackEdge(ctx context.Context, edge protocol.SpecEdge) error
+	TrackEdge(ctx context.Context, edge protocol.VerifiedRoyalEdge) error
 }
 
 // Represents a set of honest edges being tracked in a top-level challenge and all the
@@ -393,6 +399,41 @@ func (w *Watcher) ComputeAncestors(
 	return chal.honestEdgeTree.ComputeAncestors(ctx, edgeId, blockHeaderNumber)
 }
 
+func (w *Watcher) IsEssentialAncestorConfirmable(
+	ctx context.Context,
+	edge protocol.SpecEdge,
+	challengedAssertionHash protocol.AssertionHash,
+	confirmationThreshold uint64,
+) (bool, error) {
+	chal, ok := w.challenges.TryGet(challengedAssertionHash)
+	if !ok {
+		return false, fmt.Errorf(
+			"could not get challenge for top level assertion %#x",
+			challengedAssertionHash,
+		)
+	}
+	blockHeaderNumber, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	if err != nil {
+		return false, err
+	}
+	if !chal.honestEdgeTree.HasRoyalEdge(edge.Id()) {
+		return false, fmt.Errorf("edge with id %#x is not yet tracked locally", edge.Id().Hash)
+	}
+	essentialAncestor, err := chal.honestEdgeTree.ClosestEssentialAncestor(ctx, edge)
+	if err != nil {
+		return false, err
+	}
+	pathWeight, err := chal.honestEdgeTree.ComputePathWeight(ctx, challengetree.ComputePathWeightArgs{
+		Child:    edge.Id(),
+		Ancestor: essentialAncestor.Id(),
+		BlockNum: blockHeaderNumber,
+	})
+	if err != nil {
+		return false, err
+	}
+	return pathWeight >= confirmationThreshold, nil
+}
+
 func (w *Watcher) IsConfirmableEssentialNode(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
@@ -416,36 +457,6 @@ func (w *Watcher) IsConfirmableEssentialNode(
 		},
 	)
 	return confirmable, essentialPaths, timer, err
-}
-
-func (w *Watcher) PathWeightToClosestEssentialAncestor(
-	ctx context.Context,
-	challengedAssertionHash protocol.AssertionHash,
-	edge protocol.ReadOnlyEdge,
-) (uint64, error) {
-	chal, ok := w.challenges.TryGet(challengedAssertionHash)
-	if !ok {
-		return 0, fmt.Errorf(
-			"could not get challenge for top level assertion %#x",
-			challengedAssertionHash,
-		)
-	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
-	if err != nil {
-		return 0, err
-	}
-	if !chal.honestEdgeTree.HasRoyalEdge(edge.Id()) {
-		return 0, fmt.Errorf("edge with id %#x is not yet tracked locally", edge.Id().Hash)
-	}
-	essentialAncestor, err := chal.honestEdgeTree.ClosestEssentialAncestor(ctx, edge)
-	if err != nil {
-		return 0, err
-	}
-	return chal.honestEdgeTree.ComputePathWeight(ctx, challengetree.ComputePathWeightArgs{
-		Child:    edge.Id(),
-		Ancestor: essentialAncestor.Id(),
-		BlockNum: blockHeaderNumber,
-	})
 }
 
 func (w *Watcher) ComputeRootInheritedTimer(
@@ -606,7 +617,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		return false, nil
 	}
 	if isRoyalEdge {
-		err = w.edgeManager.TrackEdge(ctx, edge)
+		err = w.edgeManager.TrackEdge(ctx, &honestEdge{edge})
 		if err != nil {
 			return false, err
 		}

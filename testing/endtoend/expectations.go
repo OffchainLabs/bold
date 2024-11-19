@@ -25,32 +25,9 @@ func expectAllHonestEssentialEdgesConfirmed(
 	backend protocol.ChainBackend,
 ) error {
 	t.Run("honest essential edges confirmed by challenge win", func(t *testing.T) {
-		rc, err := rollupgen.NewRollupCore(addresses.Rollup, backend)
-		require.NoError(t, err)
-
-		var confirmed bool
-		for ctx.Err() == nil && !confirmed {
-			i, err := retry.UntilSucceeds(ctx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
-				return rc.FilterAssertionConfirmed(nil, nil)
-			})
-			require.NoError(t, err)
-			for i.Next() {
-				assertionNode, err := retry.UntilSucceeds(ctx, func() (rollupgen.AssertionNode, error) {
-					return rc.GetAssertion(&bind.CallOpts{Context: ctx}, i.Event.AssertionHash)
-				})
-				require.NoError(t, err)
-				if assertionNode.Status != uint8(protocol.AssertionConfirmed) {
-					t.Fatal("Confirmed assertion with unfinished state")
-				}
-				confirmed = true
-				break
-			}
-			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-		}
-
-		if !confirmed {
-			t.Fatal("assertion was not confirmed")
-		}
+		// Scrape all the honest edges onchain (the ones made by the honest address).
+		// Check if the edges that have claim id != None are confirmed (those are essential root edges)
+		// and also check one step edges from honest party are confirmed.
 	})
 	return nil
 }

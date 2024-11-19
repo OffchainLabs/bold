@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -19,12 +21,16 @@ import (
 	"github.com/offchainlabs/bold/testing/mocks"
 	"github.com/offchainlabs/bold/testing/setup"
 	customTime "github.com/offchainlabs/bold/time"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 var _ = types.ChallengeManager(&Manager{})
+
+type honestEdge struct {
+	protocol.SpecEdge
+}
+
+func (h *honestEdge) Honest() {}
 
 func TestEdgeTracker_Act(t *testing.T) {
 	ctx := context.Background()
@@ -113,7 +119,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 
 	require.NoError(t, v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge}))
 
-	trk, err := v.getTrackerForEdge(ctx, protocol.SpecEdge(edge))
+	trk, err := v.getTrackerForEdge(ctx, &honestEdge{edge})
 	require.NoError(t, err)
 
 	require.Equal(t, l2stateprovider.Batch(1), trk.AssertionInfo().FromBatch)

@@ -315,7 +315,7 @@ func (m *Manager) MaxDelaySeconds() int {
 }
 
 // TrackEdge spawns an edge tracker for an edge if it is not currently being tracked.
-func (m *Manager) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
+func (m *Manager) TrackEdge(ctx context.Context, edge protocol.VerifiedRoyalEdge) error {
 	if m.trackedEdgeIds.Has(edge.Id()) {
 		return nil
 	}
@@ -328,7 +328,7 @@ func (m *Manager) TrackEdge(ctx context.Context, edge protocol.SpecEdge) error {
 }
 
 // Gets an edge tracker for an edge by retrieving its associated assertion creation info.
-func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge) (*edgetracker.Tracker, error) {
+func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.VerifiedRoyalEdge) (*edgetracker.Tracker, error) {
 	// Retry until you get the previous assertion Hash.
 	assertionHash, err := retry.UntilSucceeds(ctx, func() (protocol.AssertionHash, error) {
 		return edge.AssertionHash(ctx)

@@ -22,7 +22,7 @@ var onchainTimerDifferAfterConfirmationJobCounter = metrics.NewRegisteredCounter
 // it ensures to confirm that edge. If this is not the case, it will return an error
 // and write data to disk to help with debugging the issue.
 type challengeConfirmer struct {
-	reader                      RoyalChallengeReader
+	reader                      HonestChallengeTreeReader
 	writer                      ChainWriter
 	backend                     protocol.ChainBackend
 	validatorName               string
@@ -41,24 +41,8 @@ type ChainWriter interface {
 	) (*types.Transaction, error)
 }
 
-type RoyalChallengeReader interface {
-	BlockChallengeRootEdge(
-		ctx context.Context,
-		challengedAssertionHash protocol.AssertionHash,
-	) (protocol.SpecEdge, error)
-	LowerMostRoyalEdges(
-		ctx context.Context,
-		challengedAssertionHash protocol.AssertionHash,
-	) ([]protocol.SpecEdge, error)
-	ComputeAncestors(
-		ctx context.Context,
-		challengedAssertionHash protocol.AssertionHash,
-		edgeId protocol.EdgeId,
-	) ([]protocol.ReadOnlyEdge, error)
-}
-
 func newChallengeConfirmer(
-	challengeReader RoyalChallengeReader,
+	challengeReader HonestChallengeTreeReader,
 	chainWriter ChainWriter,
 	backend protocol.ChainBackend,
 	averageTimeForBlockCreation time.Duration,
