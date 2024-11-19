@@ -153,7 +153,7 @@ func WithConfirmationInterval(t time.Duration) Opt {
 	}
 }
 
-// WithAverageBlockCreationTime overrids the default average block creation
+// WithAverageBlockCreationTime overrides the default average block creation
 // time.
 //
 // The average block cretion time is used by the assertion manager to emit
@@ -183,7 +183,7 @@ func NewManager(
 		times:                    defaultTimings,
 		forksDetectedCount:       0,
 		assertionsProcessedCount: 0,
-		submittedAssertions:      threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		submittedAssertions:      threadsafe.NewLruSet(1500, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: protocol.AssertionHash{},
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
@@ -305,15 +305,6 @@ func (m *Manager) AssertionsSubmittedInProcess() []common.Hash {
 		hashes = append(hashes, elem)
 	})
 	return hashes
-}
-
-// Returns true if the manager can respond to an assertion with a challenge.
-func (m *Manager) canPostRivalAssertion() bool {
-	return m.mode >= types.DefensiveMode
-}
-
-func (m *Manager) canPostChallenge() bool {
-	return m.mode > types.DefensiveMode
 }
 
 func (m *Manager) LatestAgreedAssertion() protocol.AssertionHash {

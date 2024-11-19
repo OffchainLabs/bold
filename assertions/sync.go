@@ -385,7 +385,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		"detectedAssertionHash", args.invalidAssertion.AssertionHash,
 		"batchCount", batchCount,
 	}
-	if !m.canPostRivalAssertion() {
+	if !m.mode.SupportsPostingRivals() {
 		log.Warn("Detected invalid assertion, but not configured to post a rival stake", logFields...)
 		evilAssertionCounter.Inc(1)
 		return nil, nil
@@ -408,7 +408,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
-	if !m.canPostChallenge() {
+	if !m.mode.SupportsPostingChallenges() {
 		log.Warn("Posted rival assertion and stake, but not configured to initiate a challenge", logFields...)
 		return postedRival, nil
 	}

@@ -85,8 +85,8 @@ type AssociatedAssertionMetadata struct {
 // challenged in the block level challenge, and the heights at which the
 // challenges at higher challenge levels originated.
 //
-// HistorryCommitment requestors can also specify an optional height at which
-// to end the history commitment. If none, the request will commit to all the
+// HistoryCommitment requestors can also specify an optional height at which to
+// end the history commitment. If none, the request will commit to all the
 // leaves at the current challenge level.
 //
 // NOTE: It is NOT possible to request a history commitment which starts at

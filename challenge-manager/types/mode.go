@@ -13,3 +13,20 @@ const (
 	// Make nodes: continually create new nodes, challenging bad assertions
 	MakeMode
 )
+
+// SupportsStaking returns true if the mode supports staking
+func (m Mode) SupportsStaking() bool {
+	return m >= MakeMode
+}
+
+// SupportsPostingRivals returns true if the mode supports posting rival
+// assertions.
+func (m Mode) SupportsPostingRivals() bool {
+	return m >= DefensiveMode
+}
+
+// SupportsPostingChallenges returns true if the mode supports posting
+// challenging edges.
+func (m Mode) SupportsPostingChallenges() bool {
+	return m > DefensiveMode
+}
