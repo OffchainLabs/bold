@@ -257,12 +257,12 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeBisect{})
 	// Edge is at a one-step-proof in a small-step challenge.
 	case EdgeAtOneStepProof:
-		wasConfirmed, err := et.tryToConfirmEdge(ctx)
+		isConfirmable, err := et.isConfirmable(ctx)
 		if err != nil {
-			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			log.Error("Could not check if edge is confirmable", fields, "err", err)
 			et.fsm.MarkError(err)
 		}
-		if wasConfirmed {
+		if isConfirmable {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
 		}
 		if err := et.submitOneStepProof(ctx); err != nil {
@@ -273,12 +273,12 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitChallengeCompletion{})
 	// Edge tracker should add a subchallenge level zero leaf.
 	case EdgeAddingSubchallengeLeaf:
-		wasConfirmed, err := et.tryToConfirmEdge(ctx)
+		isConfirmable, err := et.isConfirmable(ctx)
 		if err != nil {
-			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			log.Error("Could not check if edge is confirmable", fields, "err", err)
 			et.fsm.MarkError(err)
 		}
-		if wasConfirmed {
+		if isConfirmable {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
 		}
 		if err := et.openSubchallengeLeaf(ctx); err != nil {
@@ -290,12 +290,12 @@ func (et *Tracker) Act(ctx context.Context) error {
 		return et.fsm.Do(edgeAwaitChallengeCompletion{})
 	// Edge should bisect.
 	case EdgeBisecting:
-		wasConfirmed, err := et.tryToConfirmEdge(ctx)
+		isConfirmable, err := et.isConfirmable(ctx)
 		if err != nil {
-			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			log.Error("Could not check if edge is confirmable", fields, "err", err)
 			et.fsm.MarkError(err)
 		}
-		if wasConfirmed {
+		if isConfirmable {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
 		}
 		lowerChild, upperChild, err := et.bisect(ctx)
@@ -408,6 +408,10 @@ func (et *Tracker) uniqueTrackerLogFields() []any {
 }
 
 func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
+	// If the edge is not a root, we have nothing to do here.
+	if et.edge.ClaimId().IsNone() {
+		return false, nil
+	}
 	status, err := et.edge.Status(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "could not get edge status")
@@ -466,6 +470,31 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (et *Tracker) isConfirmable(ctx context.Context) (bool, error) {
+	assertionHash, err := et.edge.AssertionHash(ctx)
+	if err != nil {
+		return false, err
+	}
+	manager, err := et.chain.SpecChallengeManager(ctx)
+	if err != nil {
+		return false, errors.Wrap(err, "could not get challenge manager")
+	}
+	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
+	if err != nil {
+		return false, errors.Wrap(err, "could not check the challenge period length")
+	}
+	isConfirmable, _, _, err := et.chainWatcher.IsConfirmableEssentialNode(
+		ctx,
+		assertionHash,
+		et.edge.Id(),
+		chalPeriod,
+	)
+	if err != nil {
+		return false, errors.Wrap(err, "could not check if essential node is confirmable")
+	}
+	return isConfirmable, nil
 }
 
 // Determines the bisection point from parentHeight to toHeight and returns a history
