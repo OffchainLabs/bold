@@ -91,6 +91,18 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 }
 
 func Test_findCanonicalAssertionBranch(t *testing.T) {
+	setup, err := setup.ChainsWithEdgeChallengeManager(
+		setup.WithMockOneStepProver(),
+		setup.WithChallengeTestingOpts(
+			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
+				BlockChallengeHeight:     32,
+				BigStepChallengeHeight:   32,
+				SmallStepChallengeHeight: 32,
+			}),
+		),
+	)
+	require.NoError(t, err)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	agreesWithIds := map[uint64]*protocol.AssertionCreatedInfo{
@@ -115,15 +127,11 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 	}
 	manager := &Manager{
 		execProvider:                provider,
+		chain:                       setup.Chains[0],
 		observedCanonicalAssertions: make(chan protocol.AssertionHash),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
-		},
-		layerZeroHeightsCache: &protocol.LayerZeroHeights{
-			BlockChallengeHeight:     32,
-			BigStepChallengeHeight:   32,
-			SmallStepChallengeHeight: 32,
 		},
 	}
 	go func() {
@@ -256,11 +264,6 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
-		},
-		layerZeroHeightsCache: &protocol.LayerZeroHeights{
-			BlockChallengeHeight:     32,
-			BigStepChallengeHeight:   32,
-			SmallStepChallengeHeight: 32,
 		},
 	}
 	go func() {

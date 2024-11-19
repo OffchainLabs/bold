@@ -166,14 +166,14 @@ func (m *MockSpecChallengeManager) NumBigSteps() uint8 {
 	return args.Get(0).(uint8)
 }
 
-func (m *MockSpecChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(*protocol.LayerZeroHeights), args.Error(1)
+func (m *MockSpecChallengeManager) LayerZeroHeights() protocol.LayerZeroHeights {
+	args := m.Called()
+	return args.Get(0).(protocol.LayerZeroHeights)
 }
 
-func (m *MockSpecChallengeManager) ChallengePeriodBlocks(ctx context.Context) (uint64, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(uint64), args.Error(1)
+func (m *MockSpecChallengeManager) ChallengePeriodBlocks() uint64 {
+	args := m.Called()
+	return args.Get(0).(uint64)
 }
 
 func (m *MockSpecChallengeManager) MultiUpdateInheritedTimers(ctx context.Context, branch []protocol.ReadOnlyEdge, desiredTimerForLastEdge uint64) (*types.Transaction, error) {

@@ -168,10 +168,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, false, nil, false, err
 	}
 	manager := m.chain.SpecChallengeManager()
-	layerZeroHeights, err := manager.LayerZeroHeights(ctx)
-	if err != nil {
-		return nil, false, nil, false, err
-	}
+	layerZeroHeights := manager.LayerZeroHeights()
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           assertionMetadata,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},

@@ -42,7 +42,6 @@ type AssertionManager interface {
 	Start(context.Context)
 	StopAndWait()
 	LatestAgreedAssertion() protocol.AssertionHash
-	LayerZeroHeights(context.Context) (*protocol.LayerZeroHeights, error)
 	SetRivalHandler(types.RivalHandler)
 }
 
@@ -407,14 +406,8 @@ func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState
 func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 	cm := m.chain.SpecChallengeManager()
 	bigStepNum := cm.NumBigSteps()
-	challengePeriodBlocks, err := cm.ChallengePeriodBlocks(ctx)
-	if err != nil {
-		return err
-	}
-	layerZeroHeights, err := m.assertionManager.LayerZeroHeights(ctx)
-	if err != nil {
-		return err
-	}
+	challengePeriodBlocks := cm.ChallengePeriodBlocks()
+	layerZeroHeights := cm.LayerZeroHeights()
 	log.Info("Opening challenge with the following configuration",
 		"address", cm.Address(),
 		"bigStepNumber", bigStepNum,

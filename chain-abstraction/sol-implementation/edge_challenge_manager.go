@@ -387,6 +387,7 @@ type specChallengeManager struct {
 	caller                *challengeV2gen.EdgeChallengeManagerCaller
 	writer                *challengeV2gen.EdgeChallengeManagerTransactor
 	filterer              *challengeV2gen.EdgeChallengeManagerFilterer
+	layerZeroHeights      *protocol.LayerZeroHeights
 	challengePeriodBlocks uint64
 	numBigStepLevel       uint8
 }
@@ -404,11 +405,16 @@ func NewSpecChallengeManager(
 	if err != nil {
 		return nil, err
 	}
-	numBigStepLevel, err := managerBinding.EdgeChallengeManagerCaller.NUMBIGSTEPLEVEL(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	caller := managerBinding.EdgeChallengeManagerCaller
+	numBigStepLevel, err := caller.NUMBIGSTEPLEVEL(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
-	challengePeriodBlocks, err := managerBinding.EdgeChallengeManagerCaller.ChallengePeriodBlocks(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	challengePeriodBlocks, err := caller.ChallengePeriodBlocks(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return nil, err
+	}
+	lzh, err := lookupLayerZeroHeights(ctx, assertionChain, caller)
 	if err != nil {
 		return nil, err
 	}
@@ -420,8 +426,9 @@ func NewSpecChallengeManager(
 		caller:                &managerBinding.EdgeChallengeManagerCaller,
 		writer:                &managerBinding.EdgeChallengeManagerTransactor,
 		filterer:              &managerBinding.EdgeChallengeManagerFilterer,
-		numBigStepLevel:       numBigStepLevel,
+		layerZeroHeights:      lzh,
 		challengePeriodBlocks: challengePeriodBlocks,
+		numBigStepLevel:       numBigStepLevel,
 	}, nil
 }
 
@@ -429,22 +436,26 @@ func (cm *specChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
-func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
-	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+func (cm *specChallengeManager) LayerZeroHeights() protocol.LayerZeroHeights {
+	return *cm.layerZeroHeights
+}
+
+func lookupLayerZeroHeights(ctx context.Context, chain *AssertionChain, caller challengeV2gen.EdgeChallengeManagerCaller) (*protocol.LayerZeroHeights, error) {
+	h, err := caller.LAYERZEROBLOCKEDGEHEIGHT(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
 	if !h.IsUint64() {
 		return nil, errors.New("layer zero block edge height was not a uint64")
 	}
-	bs, err := cm.caller.LAYERZEROBIGSTEPEDGEHEIGHT(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	bs, err := caller.LAYERZEROBIGSTEPEDGEHEIGHT(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
 	if !bs.IsUint64() {
 		return nil, errors.New("layer zero big step edge height was not a uint64")
 	}
-	ss, err := cm.caller.LAYERZEROSMALLSTEPEDGEHEIGHT(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	ss, err := caller.LAYERZEROSMALLSTEPEDGEHEIGHT(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
@@ -452,9 +463,9 @@ func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol
 		return nil, errors.New("layer zero small step height was not a uint64")
 	}
 	return &protocol.LayerZeroHeights{
-		BlockChallengeHeight:     h.Uint64(),
-		BigStepChallengeHeight:   bs.Uint64(),
-		SmallStepChallengeHeight: ss.Uint64(),
+		BlockChallengeHeight:     protocol.Height(h.Uint64()),
+		BigStepChallengeHeight:   protocol.Height(bs.Uint64()),
+		SmallStepChallengeHeight: protocol.Height(ss.Uint64()),
 	}, nil
 }
 
@@ -474,10 +485,8 @@ func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (u
 }
 
 // ChallengePeriodBlocks is the duration of the challenge period in blocks.
-func (cm *specChallengeManager) ChallengePeriodBlocks(
-	ctx context.Context,
-) (uint64, error) {
-	return cm.challengePeriodBlocks, nil
+func (cm *specChallengeManager) ChallengePeriodBlocks() uint64 {
+	return cm.challengePeriodBlocks
 }
 
 var uint8Type = newStaticType("uint8", "", nil)
