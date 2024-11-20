@@ -37,12 +37,14 @@ func expectAllHonestEssentialEdgesConfirmed(
 		// Wait until a challenged assertion is confirmed by time.
 		var confirmed bool
 		for ctx.Err() == nil && !confirmed {
-			i, err := retry.UntilSucceeds(ctx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
+			var i *rollupgen.RollupCoreAssertionConfirmedIterator
+			i, err = retry.UntilSucceeds(ctx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
 				return rc.FilterAssertionConfirmed(nil, nil)
 			})
 			require.NoError(t, err)
 			for i.Next() {
-				assertionNode, err := retry.UntilSucceeds(ctx, func() (rollupgen.AssertionNode, error) {
+				var assertionNode rollupgen.AssertionNode
+				assertionNode, err = retry.UntilSucceeds(ctx, func() (rollupgen.AssertionNode, error) {
 					return rc.GetAssertion(&bind.CallOpts{Context: ctx}, i.Event.AssertionHash)
 				})
 				require.NoError(t, err)
