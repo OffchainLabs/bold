@@ -156,7 +156,7 @@ func (ht *RoyalChallengeTree) findHonestAncestorsWithinChallengeLevel(
 		}
 		// We expand the ancestry and timers' slices using the cursor edge.
 		ancestry = append(ancestry, cursor)
-		timer, err := ht.LocalTimer(cursor, blockNumber)
+		timer, err := ht.LocalTimer(ctx, cursor, blockNumber)
 		if err != nil {
 			return nil, nil, err
 		}
