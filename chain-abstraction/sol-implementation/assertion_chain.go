@@ -1031,8 +1031,9 @@ func (a *AssertionChain) GetCallOptsWithSafeBlockNumber(opts *bind.CallOpts) *bi
 func (a *AssertionChain) GetDesiredRpcHeadBlockNumber() *big.Int {
 	// If we are running tests, we want to use the latest block number since
 	// simulated backends only support the latest block number.
-	if flag.Lookup("test.v") != nil {
-		return nil
-	}
-	return big.NewInt(int64(a.rpcHeadBlockNumber))
+	// if flag.Lookup("test.v") != nil {
+	// 	return nil
+	// }
+	// return big.NewInt(int64(a.rpcHeadBlockNumber))
+	return nil
 }

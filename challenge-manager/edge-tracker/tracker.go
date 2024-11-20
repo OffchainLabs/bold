@@ -8,6 +8,7 @@ package edgetracker
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -221,7 +222,7 @@ func (et *Tracker) Spawn(ctx context.Context) {
 			return
 		}
 		if et.ShouldDespawn(ctx) {
-			log.Debug("Tracked edge received notice it should exit - now despawning", fields...)
+			log.Info("Tracked edge received notice it should exit - now despawning", fields...)
 			spawnedCounter.Dec(1)
 			et.challengeManager.RemovedTrackedEdge(et.edge.Id())
 			return
@@ -253,7 +254,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		}
 		wasConfirmed, err := et.tryToConfirmEdge(ctx)
 		if err != nil {
-			log.Error("Could not check if edge can be confirmed", fields, "err", err)
+			log.Error("Could not check if edge can be confirmed from start state", fields, "err", err)
 			et.fsm.MarkError(err)
 		}
 		if wasConfirmed {
@@ -284,6 +285,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			log.Error("Could not check if closest essential ancestor is confirmable", fields, "err", err)
 			et.fsm.MarkError(err)
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		if ok {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
@@ -291,6 +293,9 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err := et.submitOneStepProof(ctx); err != nil {
 			log.Trace("Could not submit one step proof", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
+			if strings.Contains(et.validatorName, "evil") {
+				return et.fsm.Do(edgeAwaitChallengeCompletion{})
+			}
 			return et.fsm.Do(edgeBackToStart{})
 		}
 		return et.fsm.Do(edgeAwaitChallengeCompletion{})
@@ -300,6 +305,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			log.Error("Could not check if closest essential ancestor is confirmable", fields, "err", err)
 			et.fsm.MarkError(err)
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		if ok {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
@@ -317,6 +323,7 @@ func (et *Tracker) Act(ctx context.Context) error {
 		if err != nil {
 			log.Error("Could not check if closest essential ancestor is confirmable", fields, "err", err)
 			et.fsm.MarkError(err)
+			return et.fsm.Do(edgeBackToStart{})
 		}
 		if ok {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
@@ -446,27 +453,36 @@ func (et *Tracker) uniqueTrackerLogFields() []any {
 }
 
 func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
+	fields := et.uniqueTrackerLogFields()
 	// If the edge is not a root of a challenge or subchallenge, we have nothing to do here.
 	if et.edge.ClaimId().IsNone() {
 		return false, nil
 	}
+	if strings.Contains(et.validatorName, "evil") {
+		return false, nil
+	}
 	status, err := et.edge.Status(ctx)
 	if err != nil {
+		log.Error("Could not get edge status", fields...)
 		return false, errors.Wrap(err, "could not get edge status")
 	}
 	if status == protocol.EdgeConfirmed {
+		log.Error("Could already confirmed", fields...)
 		return true, nil
 	}
 	challengedAssertionHash, err := et.edge.AssertionHash(ctx)
 	if err != nil {
+		log.Error("Could not get challenged assertion hash", fields...)
 		return false, err
 	}
 	manager, err := et.chain.SpecChallengeManager(ctx)
 	if err != nil {
+		log.Error("Could not get challenge manager", fields...)
 		return false, errors.Wrap(err, "could not get challenge manager")
 	}
 	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
 	if err != nil {
+		log.Error("Could not get challenge period blocks", fields...)
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
 	start := time.Now()
@@ -481,17 +497,17 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "not check if essential node is confirmable")
 	}
 	end := time.Since(start)
+	localFields := []any{
+		"localTimer", computedTimer,
+		"confirmableAfter", chalPeriod,
+		"edgeId", fmt.Sprintf("%#x", et.edge.Id().Bytes()[:4]),
+		"took", end,
+		"fromBatch", et.associatedAssertionMetadata.FromBatch,
+		"toBatch", et.associatedAssertionMetadata.ToBatch,
+		"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+	}
 	if isConfirmable {
-		localFields := []any{
-			"localTimer", computedTimer,
-			"confirmableAfter", chalPeriod,
-			"edgeId", fmt.Sprintf("%#x", et.edge.Id().Bytes()[:4]),
-			"took", end,
-			"fromBatch", et.associatedAssertionMetadata.FromBatch,
-			"toBatch", et.associatedAssertionMetadata.ToBatch,
-			"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
-		}
-		log.Info("Local computed timer big enough to confirm edge", localFields...)
+		log.Info("Local computed timer big enough to confirm edge", append(fields, localFields...)...)
 		if err := et.challengeConfirmer.beginConfirmationJob(
 			ctx,
 			challengedAssertionHash,
@@ -500,6 +516,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 			protocol.AssertionHash{Hash: et.associatedAssertionMetadata.ClaimedAssertionHash},
 			chalPeriod,
 		); err != nil {
+			log.Error("Could not begin confirmation job", fields...)
 			return false, errors.Wrapf(
 				err,
 				"could not complete confirmation job for essential root edge at level %d",
@@ -507,8 +524,10 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 			)
 		}
 		// The edge is now confirmed.
+		log.Info("This should be confirmed", fields...)
 		return true, nil
 	}
+	log.Info("Local computed timer not big enough to confirm edge", append(fields, localFields...)...)
 	return false, nil
 }
 

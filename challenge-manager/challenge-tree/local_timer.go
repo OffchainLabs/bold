@@ -4,7 +4,9 @@
 package challengetree
 
 import (
+	"context"
 	"fmt"
+	"math"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
@@ -20,6 +22,13 @@ func (ht *RoyalChallengeTree) LocalTimer(e protocol.ReadOnlyEdge, blockNum uint6
 	}
 	if blockNum <= createdAtBlock {
 		return 0, nil
+	}
+	status, err := e.Status(context.TODO())
+	if err != nil {
+		return 0, err
+	}
+	if status == protocol.EdgeConfirmed {
+		return math.MaxUint64, nil
 	}
 	// If no rival at a block num, then the local timer is defined
 	// as t - t_creation(e).

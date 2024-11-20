@@ -82,7 +82,8 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	fields := []any{
 		"validatorName", cc.validatorName,
 		"challengedAssertion", fmt.Sprintf("%#x", challengedAssertionHash.Hash[:4]),
-		"royalRootBlockChallengeEdge", fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
+		"essentialEdgeId", fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
+		"challengeLevel", royalRootEdge.GetChallengeLevel(),
 	}
 	log.Info("Starting challenge confirmation job", fields...)
 	// Find the bottom-most royal edges that exist in our local challenge tree, each one

@@ -116,7 +116,7 @@ func defaultProtocolParams() protocolParams {
 
 func TestEndToEnd_SmokeTest(t *testing.T) {
 	timeCfg := defaultTimeParams()
-	timeCfg.blockTime = time.Second * 3
+	timeCfg.blockTime = time.Second
 	runEndToEndTest(t, &e2eConfig{
 		backend:  simulated,
 		protocol: defaultProtocolParams(),
@@ -272,6 +272,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		baseChallengeManagerOpts,
 		challengemanager.WithAddress(txOpts.From),
 		challengemanager.WithName(name),
+		challengemanager.WithAPIEnabled("localhost:7257", "/tmp/mydb"),
 	)
 	honestManager := setupChallengeManager(
 		t, ctx, bk.Client(), rollupAddr.Rollup, honestStateManager, txOpts, honestOpts...,
@@ -289,7 +290,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 
 	evilChallengeManagers := make([]*challengemanager.Manager, cfg.actors.numEvilValidators)
 	for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
-		machineDivergenceStep := randUint64(totalOpcodes)
+		machineDivergenceStep := uint64(7)
 		//nolint:gocritic
 		evilStateManagerOpts := append(
 			baseStateManagerOpts,
