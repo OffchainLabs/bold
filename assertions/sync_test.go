@@ -86,7 +86,7 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, true, opt.IsSome())
-		require.Equal(t, assertion.Id().Hash, opt.Unwrap().AssertionHash)
+		require.Equal(t, assertion.Id(), opt.Unwrap().AssertionHash)
 	})
 }
 
@@ -222,8 +222,8 @@ func numToAssertionHash(i int) protocol.AssertionHash {
 	return protocol.AssertionHash{Hash: common.BytesToHash([]byte(fmt.Sprintf("%d", i)))}
 }
 
-func numToHash(i int) common.Hash {
-	return common.BytesToHash([]byte(fmt.Sprintf("%d", i)))
+func numToHash(i int) protocol.AssertionHash {
+	return protocol.AssertionHash{Hash: common.BytesToHash([]byte(fmt.Sprintf("%d", i)))}
 }
 
 func numToState(i int) rollupgen.AssertionState {
@@ -259,7 +259,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 	defer cancel()
 	manager := &Manager{
 		observedCanonicalAssertions: make(chan protocol.AssertionHash),
-		submittedAssertions:         threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		submittedAssertions:         threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("submittedAssertions")),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),

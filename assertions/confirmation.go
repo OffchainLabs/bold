@@ -50,7 +50,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		return
 	}
 	prevCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-		return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+		return m.chain.ReadAssertionCreationInfo(ctx, creationInfo.ParentAssertionHash)
 	})
 	if err != nil {
 		log.Error("Could not get prev assertion creation info", "err", err)
@@ -67,7 +67,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			parentAssertion, err := m.chain.GetAssertion(
 				ctx,
 				m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
-				protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash},
+				creationInfo.ParentAssertionHash,
 			)
 			if err != nil {
 				log.Error("Could not get parent assertion", "err", err)

@@ -6,12 +6,12 @@ package solimpl
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -46,7 +46,7 @@ func (a *Assertion) PrevId(ctx context.Context) (protocol.AssertionHash, error) 
 	if err != nil {
 		return protocol.AssertionHash{}, err
 	}
-	a.prevId = option.Some(protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	a.prevId = option.Some(creationInfo.ParentAssertionHash)
 	return a.prevId.Unwrap(), nil
 }
 

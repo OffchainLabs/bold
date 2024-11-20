@@ -136,7 +136,7 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 
 	info := &protocol.AssertionCreatedInfo{
 		InboxMaxCount:       big.NewInt(1),
-		ParentAssertionHash: parentAssertionHash.Hash,
+		ParentAssertionHash: parentAssertionHash,
 	}
 	mockChain.On(
 		"ReadAssertionCreationInfo",

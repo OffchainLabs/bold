@@ -823,8 +823,9 @@ func (w *Watcher) processEdgeConfirmation(
 	// Check if we should confirm the assertion by challenge winner.
 	challengeLevel := edge.GetChallengeLevel()
 	if challengeLevel == protocol.NewBlockChallengeLevel() {
+		claimedAssertion := protocol.AssertionHash{Hash: common.Hash(claimId)}
 		w.LaunchThread(func(ctx context.Context) {
-			w.confirmAssertionByChallengeWinner(ctx, edge, claimId, challengeParentAssertionHash)
+			w.confirmAssertionByChallengeWinner(ctx, edge, claimedAssertion, challengeParentAssertionHash)
 		})
 	}
 
@@ -833,7 +834,7 @@ func (w *Watcher) processEdgeConfirmation(
 	return nil
 }
 
-func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge protocol.SpecEdge, claimId protocol.ClaimId, challengeParentAssertionHash protocol.AssertionHash) {
+func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge protocol.SpecEdge, claimedAssertion protocol.AssertionHash, challengeParentAssertionHash protocol.AssertionHash) {
 	edgeConfirmedAtBlock, err := retry.UntilSucceeds(ctx, func() (uint64, error) {
 		return edge.ConfirmedAtBlock(ctx)
 	})
@@ -849,9 +850,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		return
 	}
 	assertionCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-		return w.chain.ReadAssertionCreationInfo(
-			ctx, protocol.AssertionHash{Hash: common.Hash(claimId)},
-		)
+		return w.chain.ReadAssertionCreationInfo(ctx, claimedAssertion)
 	})
 	if err != nil {
 		log.Error("Could not get assertion creation info", "err", err)
@@ -859,7 +858,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 	}
 	parentCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
 		return w.chain.ReadAssertionCreationInfo(
-			ctx, protocol.AssertionHash{Hash: assertionCreationInfo.ParentAssertionHash},
+			ctx, assertionCreationInfo.ParentAssertionHash,
 		)
 	})
 	if err != nil {
@@ -886,7 +885,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 		case <-ticker.C:
 			confirmed, err := solimpl.TryConfirmingAssertion(
 				ctx,
-				common.Hash(claimId),
+				claimedAssertion,
 				confirmableAtBlock,
 				w.chain,
 				w.averageTimeForBlockCreation,
@@ -896,7 +895,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 				logLevel := log.Error
 				logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
 
-				logLevel("Could not confirm assertion", "err", err, "assertionHash", common.Hash(claimId))
+				logLevel("Could not confirm assertion", "err", err, "assertionHash", claimedAssertion)
 				errorConfirmingAssertionByWinnerCounter.Inc(1)
 				continue
 			}
@@ -906,7 +905,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
 				w.challenges.Delete(challengeParentAssertionHash)
-				log.Info("Confirmed assertion by challenge win", "assertionHash", common.Hash(claimId))
+				log.Info("Confirmed assertion by challenge win", "assertionHash", claimedAssertion)
 				return
 			}
 		}

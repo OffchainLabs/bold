@@ -150,7 +150,7 @@ func (m *Manager) processAllAssertionsInRange(
 
 	// Extract all assertion creation events from the log filter iterator.
 	assertions := make([]assertionAndParentCreationInfo, 0)
-	assertionsByHash := make(map[common.Hash]*protocol.AssertionCreatedInfo)
+	assertionsByHash := make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo)
 	for it.Next() {
 		if it.Error() != nil {
 			return errors.Wrapf(
@@ -180,7 +180,7 @@ func (m *Manager) processAllAssertionsInRange(
 			}
 			if fullInfo.parent == nil {
 				parentInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-					return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+					return m.chain.ReadAssertionCreationInfo(ctx, creationInfo.ParentAssertionHash)
 				})
 				if err != nil {
 					return errors.Wrapf(err, "could not read assertion creation info for %#x (parent of %#x)", creationInfo.ParentAssertionHash, creationInfo.AssertionHash)
@@ -253,7 +253,7 @@ func (m *Manager) extractAssertionFromEvent(
 	if err != nil {
 		return none, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
 	}
-	if creationInfo.ParentAssertionHash == (common.Hash{}) {
+	if creationInfo.ParentAssertionHash.Hash == (common.Hash{}) {
 		return none, nil
 	}
 	return option.Some(creationInfo), nil
@@ -273,7 +273,7 @@ func (m *Manager) findCanonicalAssertionBranch(
 
 	for _, fullInfo := range assertions {
 		assertion := fullInfo.assertion
-		if assertion.ParentAssertionHash == cursor.Hash {
+		if assertion.ParentAssertionHash == cursor {
 			agreedWithAssertion, err := retry.UntilSucceeds(ctx, func() (bool, error) {
 				expectedState, err := m.ExecutionStateAfterParent(ctx, fullInfo.parent)
 				switch {
@@ -294,7 +294,7 @@ func (m *Manager) findCanonicalAssertionBranch(
 				return errors.New("could not check for assertion agreements")
 			}
 			if agreedWithAssertion {
-				cursor = protocol.AssertionHash{Hash: assertion.AssertionHash}
+				cursor = assertion.AssertionHash
 				m.assertionChainData.latestAgreedAssertion = cursor
 				m.assertionChainData.canonicalAssertions[cursor] = assertion
 				m.observedCanonicalAssertions <- cursor
@@ -328,12 +328,8 @@ func (m *Manager) respondToAnyInvalidAssertions(
 ) error {
 	for _, fullInfo := range assertions {
 		assertion := fullInfo.assertion
-		canonicalParent, hasCanonicalParent := m.assertionChainData.canonicalAssertions[protocol.AssertionHash{
-			Hash: assertion.ParentAssertionHash,
-		}]
-		_, isCanonical := m.assertionChainData.canonicalAssertions[protocol.AssertionHash{
-			Hash: assertion.AssertionHash,
-		}]
+		canonicalParent, hasCanonicalParent := m.assertionChainData.canonicalAssertions[assertion.ParentAssertionHash]
+		_, isCanonical := m.assertionChainData.canonicalAssertions[assertion.AssertionHash]
 		// If an assertion has a canonical parent but is not canonical itself,
 		// then we should challenge the assertion if we are configured to do so,
 		// or raise an alarm if we are only a watchtower validator.
@@ -353,10 +349,10 @@ func (m *Manager) respondToAnyInvalidAssertions(
 				return err
 			}
 			if postedRival != nil {
-				postedAssertionHash := protocol.AssertionHash{Hash: postedRival.AssertionHash}
+				postedAssertionHash := postedRival.AssertionHash
 				if _, ok := m.assertionChainData.canonicalAssertions[postedAssertionHash]; !ok {
 					m.assertionChainData.canonicalAssertions[postedAssertionHash] = postedRival
-					m.submittedAssertions.Insert(postedAssertionHash.Hash)
+					m.submittedAssertions.Insert(postedAssertionHash)
 					m.submittedRivalsCount++
 					m.observedCanonicalAssertions <- postedAssertionHash
 				}
@@ -403,7 +399,7 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		log.Warn(fmt.Sprintf("Expected to post a rival assertion to %#x, but did not post anything", args.invalidAssertion.AssertionHash))
 		return nil, nil
 	}
-	assertionHash := protocol.AssertionHash{Hash: correctRivalAssertion.Unwrap().AssertionHash}
+	assertionHash := correctRivalAssertion.Unwrap().AssertionHash
 	postedRival, err := m.chain.ReadAssertionCreationInfo(ctx, assertionHash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read assertion creation info for %#x", assertionHash.Hash)
@@ -424,13 +420,10 @@ func (m *Manager) maybePostRivalAssertionAndChallenge(
 		return nil, nil
 	}
 
-	correctClaimedAssertionHash := protocol.AssertionHash{
-		Hash: correctRivalAssertion.Unwrap().AssertionHash,
-	}
 	if m.rivalHandler == nil {
 		return nil, errors.New("rival handler not set")
 	}
-	err = m.rivalHandler.HandleCorrectRival(ctx, correctClaimedAssertionHash)
+	err = m.rivalHandler.HandleCorrectRival(ctx, postedRival.AssertionHash)
 	if err != nil {
 		return nil, err
 	}
@@ -499,7 +492,7 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, creationInfo *protocol.
 	}
 	beforeState := protocol.GoExecutionStateFromSolidity(creationInfo.BeforeState)
 	afterState := protocol.GoExecutionStateFromSolidity(creationInfo.AfterState)
-	assertionHash := protocol.AssertionHash{Hash: creationInfo.AssertionHash}
+	assertionHash := creationInfo.AssertionHash
 	status, err := m.chain.AssertionStatus(ctx, assertionHash)
 	if err != nil {
 		return err
@@ -524,7 +517,7 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, creationInfo *protocol.
 		Hash:                     assertionHash.Hash,
 		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
 		RequiredStake:            creationInfo.RequiredStake.String(),
-		ParentAssertionHash:      creationInfo.ParentAssertionHash,
+		ParentAssertionHash:      creationInfo.ParentAssertionHash.Hash,
 		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
 		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
 		WasmModuleRoot:           creationInfo.WasmModuleRoot,

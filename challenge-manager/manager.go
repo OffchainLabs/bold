@@ -206,21 +206,22 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 		)
 	}
 	claimedAssertionId := blockChallengeRootEdge.ClaimId().Unwrap()
+	claimedHash := protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}
 
 	// Smart caching to avoid querying the same assertion number and creation info
 	// multiple times. Edges in the same challenge should have the same creation
 	// info.
-	cachedHeightAndInboxMsgCount, ok := m.assertionMetadataCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
+	cachedHeightAndInboxMsgCount, ok := m.assertionMetadataCache.TryGet(claimedHash)
 	var edgeTrackerAssertionInfo l2stateprovider.AssociatedAssertionMetadata
 	if !ok {
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
+			return m.chain.ReadAssertionCreationInfo(ctx, claimedHash)
 		})
 		if creationErr != nil {
 			return nil, creationErr
 		}
 		prevCreationInfo, prevCreationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
-			return m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: assertionCreationInfo.ParentAssertionHash})
+			return m.chain.ReadAssertionCreationInfo(ctx, assertionCreationInfo.ParentAssertionHash)
 		})
 		if prevCreationErr != nil {
 			return nil, prevCreationErr
@@ -236,9 +237,9 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			FromState:            fromState,
 			BatchLimit:           l2stateprovider.Batch(prevCreationInfo.InboxMaxCount.Uint64()),
 			WasmModuleRoot:       prevCreationInfo.WasmModuleRoot,
-			ClaimedAssertionHash: common.Hash(claimedAssertionId),
+			ClaimedAssertionHash: claimedHash,
 		}
-		m.assertionMetadataCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgeTrackerAssertionInfo)
+		m.assertionMetadataCache.Put(claimedHash, edgeTrackerAssertionInfo)
 	} else {
 		edgeTrackerAssertionInfo = cachedHeightAndInboxMsgCount
 	}

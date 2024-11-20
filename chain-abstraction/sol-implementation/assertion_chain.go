@@ -435,7 +435,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	}
 	computedHash, err := a.userLogic.RollupUserLogicCaller.ComputeAssertionHash(
 		a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
-		parentAssertionCreationInfo.AssertionHash,
+		parentAssertionCreationInfo.AssertionHash.Hash,
 		postState.AsSolidityStruct(),
 		inboxBatchAcc,
 	)
@@ -457,7 +457,7 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 			parentAssertionCreationInfo.RequiredStake,
 			rollupgen.AssertionInputs{
 				BeforeStateData: rollupgen.BeforeStateData{
-					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash,
+					PrevPrevAssertionHash: parentAssertionCreationInfo.ParentAssertionHash.Hash,
 					SequencerBatchAcc:     parentAssertionCreationInfo.AfterInboxBatchAcc,
 					ConfigData: rollupgen.ConfigData{
 						RequiredStake:       parentAssertionCreationInfo.RequiredStake,
@@ -520,13 +520,13 @@ func (a *AssertionChain) MinAssertionPeriodBlocks(ctx context.Context) (uint64, 
 
 func TryConfirmingAssertion(
 	ctx context.Context,
-	assertionHash common.Hash,
+	assertionHash protocol.AssertionHash,
 	confirmableAfterBlock uint64,
 	chain protocol.AssertionChain,
 	averageTimeForBlockCreation time.Duration,
 	winningEdgeId option.Option[protocol.EdgeId],
 ) (bool, error) {
-	status, err := chain.AssertionStatus(ctx, protocol.AssertionHash{Hash: assertionHash})
+	status, err := chain.AssertionStatus(ctx, assertionHash)
 	if err != nil {
 		return false, fmt.Errorf("could not get assertion by hash: %#x: %w", assertionHash, err)
 	}
@@ -566,7 +566,7 @@ func TryConfirmingAssertion(
 	}
 
 	if winningEdgeId.IsSome() {
-		err = chain.ConfirmAssertionByChallengeWinner(ctx, protocol.AssertionHash{Hash: assertionHash}, winningEdgeId.Unwrap())
+		err = chain.ConfirmAssertionByChallengeWinner(ctx, assertionHash, winningEdgeId.Unwrap())
 		if err != nil {
 			if strings.Contains(err.Error(), protocol.ChallengeGracePeriodNotPassedAssertionConfirmationError) {
 				return false, nil
@@ -578,7 +578,7 @@ func TryConfirmingAssertion(
 
 		}
 	} else {
-		err = chain.ConfirmAssertionByTime(ctx, protocol.AssertionHash{Hash: assertionHash})
+		err = chain.ConfirmAssertionByTime(ctx, assertionHash)
 		if err != nil {
 			if strings.Contains(err.Error(), protocol.BeforeDeadlineAssertionConfirmationError) {
 				return false, nil
@@ -617,10 +617,10 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 		return err
 	}
 	// If the assertion is genesis, return nil.
-	if creationInfo.ParentAssertionHash == [32]byte{} {
+	if creationInfo.ParentAssertionHash.Hash == [32]byte{} {
 		return nil
 	}
-	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	prevCreationInfo, err := a.ReadAssertionCreationInfo(ctx, creationInfo.ParentAssertionHash)
 	if err != nil {
 		return err
 	}
@@ -628,7 +628,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 	if err != nil {
 		return err
 	}
-	if creationInfo.ParentAssertionHash != latestConfirmed.Id().Hash {
+	if creationInfo.ParentAssertionHash != latestConfirmed.Id() {
 		return fmt.Errorf(
 			"parent id %#x is not the latest confirmed assertion %#x",
 			creationInfo.ParentAssertionHash,
@@ -642,7 +642,7 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 		return a.userLogic.RollupUserLogicTransactor.ConfirmAssertion(
 			opts,
 			b,
-			creationInfo.ParentAssertionHash,
+			creationInfo.ParentAssertionHash.Hash,
 			creationInfo.AfterState,
 			winningEdgeId.Hash,
 			rollupgen.ConfigData{
@@ -675,8 +675,8 @@ func (a *AssertionChain) FastConfirmAssertion(
 	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return a.userLogic.RollupUserLogicTransactor.FastConfirmAssertion(
 			opts,
-			assertionCreationInfo.AssertionHash,
-			assertionCreationInfo.ParentAssertionHash,
+			assertionCreationInfo.AssertionHash.Hash,
+			assertionCreationInfo.ParentAssertionHash.Hash,
 			assertionCreationInfo.AfterState,
 			assertionCreationInfo.AfterInboxBatchAcc,
 		)
@@ -743,8 +743,8 @@ func (a *AssertionChain) createFastConfirmCalldata(
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
 ) ([]byte, error) {
 	calldata, err := fastConfirmAssertionMethod.Inputs.Pack(
-		assertionCreationInfo.AssertionHash,
-		assertionCreationInfo.ParentAssertionHash,
+		assertionCreationInfo.AssertionHash.Hash,
+		assertionCreationInfo.ParentAssertionHash.Hash,
 		assertionCreationInfo.AfterState,
 		assertionCreationInfo.AfterInboxBatchAcc,
 	)
@@ -968,12 +968,12 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 	return &protocol.AssertionCreatedInfo{
 		ConfirmPeriodBlocks: parsedLog.ConfirmPeriodBlocks,
 		RequiredStake:       parsedLog.RequiredStake,
-		ParentAssertionHash: parsedLog.ParentAssertionHash,
+		ParentAssertionHash: protocol.AssertionHash{Hash: parsedLog.ParentAssertionHash},
 		BeforeState:         parsedLog.Assertion.BeforeState,
 		AfterState:          afterState,
 		InboxMaxCount:       parsedLog.InboxMaxCount,
 		AfterInboxBatchAcc:  parsedLog.AfterInboxBatchAcc,
-		AssertionHash:       parsedLog.AssertionHash,
+		AssertionHash:       protocol.AssertionHash{Hash: parsedLog.AssertionHash},
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 		ChallengeManager:    parsedLog.ChallengeManager,
 		TransactionHash:     ethLog.TxHash,
