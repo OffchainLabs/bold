@@ -70,7 +70,7 @@ func expectChallengeWinWithAllHonestEssentialEdgesConfirmed(
 		// Scrape all the honest edges onchain (the ones made by the honest address).
 		// Check if the edges that have claim id != None are confirmed (those are essential root edges)
 		// and also check one step edges from honest party are confirmed.
-		honestEssentialRootIds := make([]common.Hash, 0)
+		honestEssentialRootIds := make(map[common.Hash]bool, 0)
 		chainId, err := backend.ChainID(ctx)
 		require.NoError(t, err)
 		it, err := cm.FilterEdgeAdded(nil, nil, nil, nil)
@@ -88,18 +88,19 @@ func expectChallengeWinWithAllHonestEssentialEdgesConfirmed(
 			if it.Event.ClaimId == (common.Hash{}) {
 				continue
 			}
-			honestEssentialRootIds = append(honestEssentialRootIds, it.Event.EdgeId)
+			honestEssentialRootIds[it.Event.EdgeId] = false
 		}
 
 		t.Logf("Found %d honest essential root edges", len(honestEssentialRootIds))
 		// Wait until all of the honest essential root ids are confirmed.
 		confirmedCount := 0
 		for ctx.Err() == nil && confirmedCount != len(honestEssentialRootIds) {
-			for _, id := range honestEssentialRootIds {
-				edge, err := cm.GetEdge(&bind.CallOpts{}, id)
+			for k, markedConfirmed := range honestEssentialRootIds {
+				edge, err := cm.GetEdge(&bind.CallOpts{}, k)
 				require.NoError(t, err)
-				if edge.Status == 1 {
+				if edge.Status == 1 && !markedConfirmed {
 					confirmedCount += 1
+					honestEssentialRootIds[k] = true
 					t.Logf("Confirmed %d honest essential edges", confirmedCount)
 				}
 			}
