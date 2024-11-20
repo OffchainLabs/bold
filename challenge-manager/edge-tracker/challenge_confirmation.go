@@ -237,7 +237,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 				return nil, nil
 			}
 			fields = append(fields, "err", innerErr)
-			log.Error("Could not transact multi-update inherited timers", fields)
+			log.Error("Could not transact multi-update inherited timers", fields...)
 			return nil, innerErr
 		}
 		return tx, nil
@@ -251,7 +251,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 		timer, innerErr := royalRootEdge.LatestInheritedTimer(ctx)
 		if innerErr != nil {
 			fields = append(fields, "err", innerErr)
-			log.Error("Could not get inherited timer for edge", fields)
+			log.Error("Could not get inherited timer for edge", fields...)
 			return 0, innerErr
 		}
 		return timer, nil
@@ -273,7 +273,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 		innerTx, innerErr := royalRootEdge.ConfirmByTimer(ctx, claimedAssertionHash)
 		if innerErr != nil {
 			fields = append(fields, "err", innerErr)
-			log.Error("Could not confirm edge by timer early with confirmable branch", fields)
+			log.Error("Could not confirm edge by timer early with confirmable branch", fields...)
 			return nil, innerErr
 		}
 		return innerTx, nil

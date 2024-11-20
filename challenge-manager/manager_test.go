@@ -184,9 +184,10 @@ func setupEdgeTrackersForBisection(
 	require.NoError(t, err)
 	honestValidator.watcher = honestWatcher
 	assertionInfo := &edgetracker.AssociatedAssertionMetadata{
-		FromBatch:      0,
-		ToBatch:        1,
-		WasmModuleRoot: common.Hash{},
+		FromBatch:            0,
+		ToBatch:              1,
+		WasmModuleRoot:       common.Hash{},
+		ClaimedAssertionHash: createdData.Leaf1.Id().Hash,
 	}
 	tracker1, err := edgetracker.New(
 		ctx,
@@ -204,6 +205,12 @@ func setupEdgeTrackersForBisection(
 	evilWatcher, err := watcher.New(evilValidator.chain, evilValidator, evilValidator.stateManager, createdData.Backend, time.Second, numBigStepLevels, "alice", nil, evilValidator.assertionConfirmingInterval, evilValidator.averageTimeForBlockCreation, nil)
 	require.NoError(t, err)
 	evilValidator.watcher = evilWatcher
+	assertionInfo = &edgetracker.AssociatedAssertionMetadata{
+		FromBatch:            0,
+		ToBatch:              1,
+		WasmModuleRoot:       common.Hash{},
+		ClaimedAssertionHash: createdData.Leaf2.Id().Hash,
+	}
 	tracker2, err := edgetracker.New(
 		ctx,
 		evilEdge,
