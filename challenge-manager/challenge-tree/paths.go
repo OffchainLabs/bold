@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/ethereum/go-ethereum/log"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
@@ -112,16 +111,6 @@ func (ht *RoyalChallengeTree) IsConfirmableEssentialNode(
 	// down the tree have a path weight >= the confirmation threshold.
 	// To do this, we compute the path weight of each path and find the minimum.
 	// Then, it is sufficient to check that the minimum is >= the confirmation threshold.
-	losPaths := make([][]string, 0)
-	for _, p := range essentialPaths {
-		path := make([]string, 0)
-		for _, edge := range p {
-			path = append(path, edge.Hex())
-		}
-		losPaths = append(losPaths, path)
-	}
-	log.Info("Essential timers", "edgeId", args.EssentialNode.Hash, "timers", essentialTimers)
-	log.Info("Essential path ids", "edgeId", args.EssentialNode.Hash, "paths", losPaths)
 	minWeight := uint64(math.MaxUint64)
 	for _, timers := range essentialTimers {
 		pathWeight := uint64(0)
@@ -210,10 +199,10 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			if err != nil {
 				return nil, nil, err
 			}
-			lowerPath := append(path, lowerChildId)
-			upperPath := append(path, upperChildId)
-			lowerTimers := append(currentTimers, lowerTimer)
-			upperTimers := append(currentTimers, upperTimer)
+			lowerPath := append(append(EssentialPath{}, path...), lowerChildId)
+			upperPath := append(append(EssentialPath{}, path...), upperChildId)
+			lowerTimers := append(append(essentialLocalTimers{}, currentTimers...), lowerTimer)
+			upperTimers := append(append(essentialLocalTimers{}, currentTimers...), upperTimer)
 			stack.push(&visited{
 				essentialNode: lowerChild,
 				path:          lowerPath,
@@ -232,8 +221,8 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			if err != nil {
 				return nil, nil, err
 			}
-			claimingPath := append(path, claimingEdge.Id())
-			claimingTimers := append(currentTimers, claimingEdgeTimer)
+			claimingPath := append(append(EssentialPath{}, path...), claimingEdge.Id())
+			claimingTimers := append(append(essentialLocalTimers{}, currentTimers...), claimingEdgeTimer)
 			stack.push(&visited{
 				essentialNode: claimingEdge,
 				path:          claimingPath,

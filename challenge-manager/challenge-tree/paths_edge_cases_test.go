@@ -23,18 +23,8 @@ func Test_findEssentialPaths_edgeCases(t *testing.T) {
 		blockNum,
 	)
 	require.NoError(t, err)
-	_ = paths
-	_ = pathLocalTimers
-	for _, p := range paths {
-		t.Log("[")
-		for _, e := range p {
-			t.Logf("%s", e)
-		}
-		t.Log("]")
-	}
 	t.Log(paths)
 	t.Log(pathLocalTimers)
-	t.Fatal(1)
 }
 
 func setupEdgeCaseTest(t *testing.T) (*RoyalChallengeTree, map[mock.EdgeId]*mock.Edge) {
