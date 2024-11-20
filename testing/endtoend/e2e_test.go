@@ -291,6 +291,9 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	evilChallengeManagers := make([]*challengemanager.Manager, cfg.actors.numEvilValidators)
 	for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
 		machineDivergenceStep := randUint64(i)
+		if machineDivergenceStep == 0 {
+			machineDivergenceStep = 1
+		}
 		//nolint:gocritic
 		evilStateManagerOpts := append(
 			baseStateManagerOpts,
