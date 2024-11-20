@@ -4,8 +4,8 @@ import (
 	"context"
 	"math"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/ethereum/go-ethereum/common"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 func (ht *RoyalChallengeTree) ComputeRootInheritedTimer(
@@ -49,7 +49,7 @@ func (ht *RoyalChallengeTree) recursiveInheritedTimerCompute(
 	if isOneStepProven(ctx, edge, status) {
 		return math.MaxUint64, nil
 	}
-	localTimer, err := ht.LocalTimer(edge, blockNum)
+	localTimer, err := ht.LocalTimer(ctx, edge, blockNum)
 	if err != nil {
 		return 0, err
 	}

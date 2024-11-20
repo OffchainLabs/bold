@@ -314,7 +314,7 @@ func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash
 				return err2
 			}
 			hasRival := !unrivaled
-			timeUnrivaled, err2 := t.honestEdgeTree.TimeUnrivaled(edge, blockNum)
+			timeUnrivaled, err2 := t.honestEdgeTree.TimeUnrivaled(ctx, edge, blockNum)
 			if err2 != nil {
 				return err2
 			}

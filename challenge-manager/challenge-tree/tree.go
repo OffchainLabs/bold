@@ -114,8 +114,8 @@ func (ht *RoyalChallengeTree) IsUnrivaledAtBlockNum(edge protocol.ReadOnlyEdge, 
 	return ht.UnrivaledAtBlockNum(edge, blockNum)
 }
 
-func (ht *RoyalChallengeTree) TimeUnrivaled(edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
-	return ht.LocalTimer(edge, blockNum)
+func (ht *RoyalChallengeTree) TimeUnrivaled(ctx context.Context, edge protocol.ReadOnlyEdge, blockNum uint64) (uint64, error) {
+	return ht.LocalTimer(ctx, edge, blockNum)
 }
 
 // Obtains the lowermost edges across all subchallenges that are royal.

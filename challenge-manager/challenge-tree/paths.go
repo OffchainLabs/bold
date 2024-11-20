@@ -34,7 +34,7 @@ func (ht *RoyalChallengeTree) ComputePathWeight(
 	if !ht.edges.Has(args.Ancestor) {
 		return 0, fmt.Errorf("ancestor not yet tracked %#x", args.Ancestor.Hash)
 	}
-	localTimer, err := ht.LocalTimer(child, args.BlockNum)
+	localTimer, err := ht.LocalTimer(ctx, child, args.BlockNum)
 	if err != nil {
 		return 0, err
 	}
@@ -48,7 +48,7 @@ func (ht *RoyalChallengeTree) ComputePathWeight(
 	pathWeight := localTimer
 	found := false
 	for _, an := range ancestors {
-		localTimer, err := ht.LocalTimer(an, args.BlockNum)
+		localTimer, err := ht.LocalTimer(ctx, an, args.BlockNum)
 		if err != nil {
 			return 0, err
 		}
@@ -153,7 +153,7 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 	}
 	stack := newStack[*visited]()
 
-	localTimer, err := ht.LocalTimer(essentialNode, blockNum)
+	localTimer, err := ht.LocalTimer(ctx, essentialNode, blockNum)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -191,11 +191,11 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			if !ok {
 				return nil, nil, fmt.Errorf("upper child not yet tracked")
 			}
-			lowerTimer, err := ht.LocalTimer(lowerChild, blockNum)
+			lowerTimer, err := ht.LocalTimer(ctx, lowerChild, blockNum)
 			if err != nil {
 				return nil, nil, err
 			}
-			upperTimer, err := ht.LocalTimer(upperChild, blockNum)
+			upperTimer, err := ht.LocalTimer(ctx, upperChild, blockNum)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -217,7 +217,7 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 		} else if isClaimedEdge {
 			// Figure out if the node is a terminal node that has a refinement, in which
 			// case we need to continue the search down the next challenge level,
-			claimingEdgeTimer, err := ht.LocalTimer(claimingEdge, blockNum)
+			claimingEdgeTimer, err := ht.LocalTimer(ctx, claimingEdge, blockNum)
 			if err != nil {
 				return nil, nil, err
 			}
