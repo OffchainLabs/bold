@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package challengetree
 
 import (
@@ -5,12 +9,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/pkg/errors"
 )
 
 // AddRoyalEdge known to be honest, such as those created by the local validator.

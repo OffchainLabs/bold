@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package solimpl_test
 
@@ -9,20 +10,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-
-	"github.com/offchainlabs/bold/containers/option"
-	"github.com/offchainlabs/bold/solgen/go/bridgegen"
-	"github.com/offchainlabs/bold/solgen/go/mocksgen"
-	"github.com/offchainlabs/bold/testing/setup"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
+	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	"github.com/offchainlabs/bold/solgen/go/bridgegen"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/setup"
 )
 
 func TestNewStakeOnNewAssertion(t *testing.T) {
@@ -287,7 +288,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 	_, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()
@@ -421,7 +422,7 @@ func TestIsChallengeComplete(t *testing.T) {
 	_, err := setup.ChainsWithEdgeChallengeManager(setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()

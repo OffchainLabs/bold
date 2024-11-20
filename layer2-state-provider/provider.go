@@ -1,9 +1,10 @@
-// Package l2stateprovider defines a dependency which provides L2 states and proofs
-// needed for the challenge manager to interact with Arbitrum chains' rollup and challenge
-// contracts.
-//
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
+// Package l2stateprovider defines a dependency which provides L2 states and
+// proofs needed for the challenge manager to interact with an Arbitrum chain's
+// rollup and challenge contracts.
 package l2stateprovider
 
 import (
@@ -14,10 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/offchainlabs/bold/api/db"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/state-commitments/history"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 var ErrChainCatchingUp = errors.New("chain is catching up to the execution state")

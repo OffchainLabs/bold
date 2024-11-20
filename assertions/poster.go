@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package assertions
 
@@ -8,15 +9,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/logs/ephemeral"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -219,7 +223,15 @@ func (m *Manager) waitToPostIfNeeded(
 
 	// If we cannot post just yet, we can wait.
 	if !canPostNow {
-		blocksLeftForConfirmation := minPeriodBlocks - blocksSinceLast
+		var blocksLeftForConfirmation int64
+		if minPeriodBlocks > blocksSinceLast {
+			blocksLeftForConfirmation = 0
+		} else {
+			blocksLeftForConfirmation, err = safecast.ToInt64(minPeriodBlocks - blocksSinceLast)
+			if err != nil {
+				return errors.Wrap(err, "could not convert blocks left for confirmation to int64")
+			}
+		}
 		timeToWait := m.times.avgBlockTime * time.Duration(blocksLeftForConfirmation)
 		log.Info(
 			fmt.Sprintf(

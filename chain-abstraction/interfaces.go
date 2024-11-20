@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package protocol
 
@@ -10,11 +11,14 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/state-commitments/history"
@@ -221,7 +225,11 @@ func ChallengeLevelFromString(s string) (ChallengeLevel, error) {
 		if err != nil {
 			return 0, err
 		}
-		return ChallengeLevel(challengeLevel), nil
+		clu8, err := safecast.ToUint8(challengeLevel)
+		if err != nil {
+			return 0, err
+		}
+		return ChallengeLevel(clu8), nil
 	}
 }
 

@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 // Package server defines the client-facing API methods for fetching data
 // related to BOLD challenges. It handles HTTP methods with their requests and responses.
 package server
@@ -9,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+
 	"github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/util/stopwaiter"
 )

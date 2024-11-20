@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package assertions_test
 
@@ -10,9 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	cm "github.com/offchainlabs/bold/challenge-manager"
@@ -22,9 +26,9 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/casttest"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
@@ -63,7 +67,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	aliceStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Bob diverges from Alice at batch 1.
@@ -74,7 +78,7 @@ func TestSkipsProcessingAssertionFromEvilFork(t *testing.T) {
 		statemanager.WithBlockDivergenceHeight(1),
 		statemanager.WithMachineDivergenceStep(1),
 	)
-	bobStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	bobStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	aliceChalManager, err := cm.NewChallengeStack(
@@ -207,7 +211,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	aliceStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Bob diverges from Alice at batch 1.
@@ -218,7 +222,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		statemanager.WithBlockDivergenceHeight(1),
 		statemanager.WithMachineDivergenceStep(1),
 	)
-	bobStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	bobStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	genesisState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil)
@@ -267,10 +271,9 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		prevInfo, err2 := aliceChain.ReadAssertionCreationInfo(ctx, aliceAssertion.Id())
 		require.NoError(t, err2)
 		prevGlobalState := protocol.GoGlobalStateFromSolidity(prevInfo.AfterState.GlobalState)
-		preState, err2 := aliceStateManager.ExecutionStateAfterPreviousState(ctx, uint64(batch-1), &prevGlobalState)
+		preState, err2 := aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(t, batch-1), &prevGlobalState)
 		require.NoError(t, err2)
-		require.NoError(t, err2)
-		alicePostState, err2 = aliceStateManager.ExecutionStateAfterPreviousState(ctx, uint64(batch), &preState.GlobalState)
+		alicePostState, err2 = aliceStateManager.ExecutionStateAfterPreviousState(ctx, casttest.ToUint64(t, batch), &preState.GlobalState)
 		require.NoError(t, err2)
 		t.Logf("Moving stake from alice at post state %+v\n", alicePostState)
 		aliceAssertion, err = aliceChain.StakeOnNewAssertion(
@@ -290,7 +293,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 		statemanager.WithBlockDivergenceHeight(36), // TODO: Make this more intuitive. This translates to batch 4 due to how our mock works.
 		statemanager.WithMachineDivergenceStep(1),
 	}
-	charlieStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	charlieStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	// Setup an assertion manager for Charlie, and have it process Alice's
@@ -362,7 +365,7 @@ func TestFastConfirmation(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	stateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	assertionManager, err := assertions.NewManager(
@@ -434,7 +437,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 		stateManagerOpts,
 		statemanager.WithNumBatchesRead(5),
 	)
-	stateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	stateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	assertionManagerAlice, err := assertions.NewManager(

@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package assertions
 
 import (
@@ -6,8 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/challenge-manager/types"
@@ -125,7 +132,12 @@ func (m *Manager) updateLatestConfirmedMetrics(ctx context.Context) {
 			log.Info("Latest confirmed assertion", "assertionAfterState", fmt.Sprintf("%+v", afterState))
 
 			// TODO: Check if the latest assertion that was confirmed is one we agree with.
-			latestConfirmedAssertionGauge.Update(int64(latestConfirmed.CreatedAtBlock()))
+			latestConfirmedBlockNum, err := safecast.ToInt64(latestConfirmed.CreatedAtBlock())
+			if err != nil {
+				log.Error("Could not convert latest confirmed block number to int64", "err", err)
+				continue
+			}
+			latestConfirmedAssertionGauge.Update(latestConfirmedBlockNum)
 		case <-ctx.Done():
 			return
 		}

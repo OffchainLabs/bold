@@ -1,15 +1,19 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package stateprovider
 
 import (
 	"context"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/offchainlabs/bold/containers/option"
+	"github.com/ethereum/go-ethereum/common"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 )
 
@@ -32,9 +36,9 @@ func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
 func TestHistoryCommitment(t *testing.T) {
 	ctx := context.Background()
 	challengeLeafHeights := []l2stateprovider.Height{
-		5,  // 2^2 + 1
-		9,  // 2^3 + 1
-		17, // 2^4 + 1
+		1 << 2,
+		1 << 3,
+		1 << 4,
 	}
 	numStates := uint64(10)
 	states, _ := setupStates(t, numStates, 0 /* honest */)

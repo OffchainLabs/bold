@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package assertions
 
 import (
@@ -6,16 +10,19 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
+	"github.com/offchainlabs/bold/testing/casttest"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_extractAssertionFromEvent(t *testing.T) {
@@ -57,7 +64,7 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	stateManagerOpts := setup.StateManagerOpts
-	aliceStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	aliceStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
 	preState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil)
@@ -109,17 +116,17 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 		2: {
 			ParentAssertionHash: numToHash(1),
 			AssertionHash:       numToHash(2),
-			AfterState:          numToState(2),
+			AfterState:          numToState(2, t),
 		},
 		4: {
 			ParentAssertionHash: numToHash(2),
 			AssertionHash:       numToHash(4),
-			AfterState:          numToState(4),
+			AfterState:          numToState(4, t),
 		},
 		6: {
 			ParentAssertionHash: numToHash(4),
 			AssertionHash:       numToHash(6),
-			AfterState:          numToState(6),
+			AfterState:          numToState(6, t),
 		},
 	}
 	provider := &mockStateProvider{
@@ -153,7 +160,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 				assertion: &protocol.AssertionCreatedInfo{
 					ParentAssertionHash: numToHash(1),
 					AssertionHash:       numToHash(2),
-					AfterState:          numToState(2),
+					AfterState:          numToState(2, t),
 				},
 			},
 			{
@@ -163,7 +170,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 				assertion: &protocol.AssertionCreatedInfo{
 					ParentAssertionHash: numToHash(1),
 					AssertionHash:       numToHash(3),
-					AfterState:          numToState(3),
+					AfterState:          numToState(3, t),
 				},
 			},
 			{
@@ -173,7 +180,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 				assertion: &protocol.AssertionCreatedInfo{
 					ParentAssertionHash: numToHash(2),
 					AssertionHash:       numToHash(4),
-					AfterState:          numToState(4),
+					AfterState:          numToState(4, t),
 				},
 			},
 			{
@@ -183,7 +190,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 				assertion: &protocol.AssertionCreatedInfo{
 					ParentAssertionHash: numToHash(2),
 					AssertionHash:       numToHash(5),
-					AfterState:          numToState(5),
+					AfterState:          numToState(5, t),
 				},
 			},
 			{
@@ -193,7 +200,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 				assertion: &protocol.AssertionCreatedInfo{
 					ParentAssertionHash: numToHash(4),
 					AssertionHash:       numToHash(6),
-					AfterState:          numToState(6),
+					AfterState:          numToState(6, t),
 				},
 			},
 			{
@@ -203,7 +210,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 				assertion: &protocol.AssertionCreatedInfo{
 					ParentAssertionHash: numToHash(4),
 					AssertionHash:       numToHash(7),
-					AfterState:          numToState(7),
+					AfterState:          numToState(7, t),
 				},
 			},
 		},
@@ -211,7 +218,7 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 	require.Equal(t, numToAssertionHash(6), manager.assertionChainData.latestAgreedAssertion)
 	wanted := make(map[protocol.AssertionHash]bool)
 	for id := range agreesWithIds {
-		wanted[numToAssertionHash(int(id))] = true
+		wanted[numToAssertionHash(casttest.ToInt(t, id))] = true
 	}
 	for assertionHash := range manager.assertionChainData.canonicalAssertions {
 		require.Equal(t, true, wanted[assertionHash])
@@ -226,10 +233,10 @@ func numToHash(i int) protocol.AssertionHash {
 	return protocol.AssertionHash{Hash: common.BytesToHash([]byte(fmt.Sprintf("%d", i)))}
 }
 
-func numToState(i int) rollupgen.AssertionState {
+func numToState(i int, t *testing.T) rollupgen.AssertionState {
 	return rollupgen.AssertionState{
 		GlobalState: rollupgen.GlobalState{
-			U64Vals: [2]uint64{uint64(i), uint64(0)},
+			U64Vals: [2]uint64{casttest.ToUint64(t, i), uint64(0)},
 		},
 	}
 }
@@ -296,7 +303,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 					assertion: &protocol.AssertionCreatedInfo{
 						ParentAssertionHash: numToHash(2),
 						AssertionHash:       numToHash(4),
-						AfterState:          numToState(4),
+						AfterState:          numToState(4, t),
 					},
 				},
 				{
@@ -304,7 +311,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 					assertion: &protocol.AssertionCreatedInfo{
 						ParentAssertionHash: numToHash(4),
 						AssertionHash:       numToHash(6),
-						AfterState:          numToState(6),
+						AfterState:          numToState(6, t),
 					},
 				},
 			},
@@ -322,7 +329,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 					assertion: &protocol.AssertionCreatedInfo{
 						ParentAssertionHash: numToHash(200),
 						AssertionHash:       numToHash(400),
-						AfterState:          numToState(400),
+						AfterState:          numToState(400, t),
 					},
 				},
 				{
@@ -330,7 +337,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 					assertion: &protocol.AssertionCreatedInfo{
 						ParentAssertionHash: numToHash(400),
 						AssertionHash:       numToHash(600),
-						AfterState:          numToState(600),
+						AfterState:          numToState(600, t),
 					},
 				},
 			},
@@ -349,7 +356,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 					assertion: &protocol.AssertionCreatedInfo{
 						ParentAssertionHash: numToHash(2),
 						AssertionHash:       numToHash(3),
-						AfterState:          numToState(3),
+						AfterState:          numToState(3, t),
 					},
 				},
 				{
@@ -357,7 +364,7 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 					assertion: &protocol.AssertionCreatedInfo{
 						ParentAssertionHash: numToHash(4),
 						AssertionHash:       numToHash(5),
-						AfterState:          numToState(5),
+						AfterState:          numToState(5, t),
 					},
 				},
 			},

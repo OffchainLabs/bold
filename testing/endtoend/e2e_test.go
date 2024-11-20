@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package endtoend
 
 import (
@@ -8,9 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	cm "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
@@ -21,8 +29,6 @@ import (
 	"github.com/offchainlabs/bold/testing/endtoend/backend"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 )
 
 type backendKind uint8
@@ -262,7 +268,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		statemanager.WithNumBatchesRead(cfg.inbox.numBatchesPosted),
 		statemanager.WithLayerZeroHeights(&cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels),
 	}
-	honestStateManager, err := statemanager.NewForSimpleMachine(baseStateManagerOpts...)
+	honestStateManager, err := statemanager.NewForSimpleMachine(t, baseStateManagerOpts...)
 	require.NoError(t, err)
 
 	baseStackOpts := []cm.StackOpt{
@@ -302,7 +308,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 			statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
 			statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
 		)
-		evilStateManager, err := statemanager.NewForSimpleMachine(evilStateManagerOpts...)
+		evilStateManager, err := statemanager.NewForSimpleMachine(t, evilStateManagerOpts...)
 		require.NoError(t, err)
 
 		// Honest validator has index 1 in the accounts slice, as 0 is admin, so

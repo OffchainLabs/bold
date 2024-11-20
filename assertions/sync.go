@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package assertions
 
 import (
@@ -5,17 +9,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/offchainlabs/bold/api"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/pkg/errors"
 )
 
 func (m *Manager) syncAssertions(ctx context.Context) {

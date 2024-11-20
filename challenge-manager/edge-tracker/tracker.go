@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 // Package edgetracker contains the logic for tracking an edge in the challenge manager. It keeps
 // track of edges created and their own state transitions until an eventual confirmation.
@@ -10,21 +11,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/pkg/errors"
 
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/events"
 	"github.com/offchainlabs/bold/containers/fsm"
 	"github.com/offchainlabs/bold/containers/option"
+	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/math"
 	"github.com/offchainlabs/bold/state-commitments/history"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	utilTime "github.com/offchainlabs/bold/time"
 )
 

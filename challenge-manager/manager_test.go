@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package challengemanager
 
@@ -9,7 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	watcher "github.com/offchainlabs/bold/challenge-manager/chain-watcher"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -20,14 +24,13 @@ import (
 	"github.com/offchainlabs/bold/testing/mocks"
 	"github.com/offchainlabs/bold/testing/setup"
 	customTime "github.com/offchainlabs/bold/time"
-	"github.com/stretchr/testify/require"
 )
 
 var _ = types.RivalHandler(&Manager{})
 
 func TestEdgeTracker_Act(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	tkr, _ := setupEdgeTrackersForBisection(t, ctx, createdData, option.None[uint64]())
@@ -46,7 +49,7 @@ func TestEdgeTracker_Act(t *testing.T) {
 
 func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	chalManager := createdData.Chains[0].SpecChallengeManager()
@@ -143,7 +146,8 @@ func setupEdgeTrackersForBisection(
 	)
 	require.NoError(t, err)
 
-	evilOpts := append(honestOpts, StackWithName("bob"))
+	evilOpts := honestOpts
+	evilOpts = append(evilOpts, StackWithName("bob"))
 	evilValidator, err := NewChallengeStack(
 		createdData.Chains[1],
 		createdData.EvilStateManager,

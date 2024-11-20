@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package l2stateprovider
 
 import (
@@ -8,16 +12,17 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/metrics"
 
 	"github.com/offchainlabs/bold/api"
 	"github.com/offchainlabs/bold/api/db"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/state-commitments/history"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
 )
 
@@ -287,7 +292,11 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 	if !api.IsNil(p.apiDB) {
 		var rawStepHeights string
 		for i, stepHeight := range cfg.StepHeights {
-			rawStepHeights += strconv.Itoa(int(stepHeight))
+			hInt, err := safecast.ToInt(stepHeight)
+			if err != nil {
+				return nil, err
+			}
+			rawStepHeights += strconv.Itoa(hInt)
 			if i != len(rawStepHeights)-1 {
 				rawStepHeights += ","
 			}
@@ -323,7 +332,11 @@ func (p *HistoryCommitmentProvider) historyCommitmentImpl(
 		// NewBoundedHistogramSample(), once offchainlabs geth is merged in
 		// bold.
 		// Eg https://github.com/offchainlabs/nitro/blob/ab6790a9e33884c3b4e81de2a97dae5bf904266e/das/restful_server.go#L30
-		metrics.GetOrRegisterHistogram("arb/state_provider/collect_machine_hashes/step_size_"+strconv.Itoa(int(stepSize))+"/duration", nil, metrics.NewUniformSample(100)).Update(time.Since(startTime).Nanoseconds())
+		sizeInt, err := safecast.ToInt(stepSize)
+		if err != nil {
+			return
+		}
+		metrics.GetOrRegisterHistogram("arb/state_provider/collect_machine_hashes/step_size_"+strconv.Itoa(sizeInt)+"/duration", nil, metrics.NewUniformSample(100)).Update(time.Since(startTime).Nanoseconds())
 	}()
 	return p.machineHashCollector.CollectMachineHashes(ctx, cfg)
 }

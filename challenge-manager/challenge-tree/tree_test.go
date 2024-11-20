@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package challengetree
 
@@ -11,16 +12,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/challenge-manager/challenge-tree/mock"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
-	"github.com/offchainlabs/bold/testing/mocks"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	"github.com/offchainlabs/bold/testing/mocks"
 )
 
 func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {

@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package solimpl_test
 
@@ -8,9 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
@@ -20,7 +24,6 @@ import (
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	stateprovider "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/stretchr/testify/require"
 )
 
 func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
@@ -37,7 +40,7 @@ func simpleAssertionMetadata() *l2stateprovider.AssociatedAssertionMetadata {
 func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()
@@ -193,7 +196,7 @@ func TestEdgeChallengeManager_HasLengthOneRival(t *testing.T) {
 
 func TestEdgeChallengeManager_BlockChallengeAddLevelZeroEdge(t *testing.T) {
 	ctx := context.Background()
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	chain1 := createdData.Chains[0]
@@ -475,7 +478,7 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	ctx := context.Background()
 
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()
@@ -649,10 +652,11 @@ func setupBisectionScenario(
 	t *testing.T,
 	opts ...setup.Opt,
 ) *bisectionScenario {
+	t.Helper()
 	ctx := context.Background()
 
 	opts = append(opts, setup.WithMockOneStepProver())
-	createdData, err := setup.CreateTwoValidatorFork(ctx, &setup.CreateForkConfig{}, opts...)
+	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, opts...)
 	require.NoError(t, err)
 
 	challengeManager := createdData.Chains[0].SpecChallengeManager()

@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 // Package backend handles the business logic for API data fetching
 // for BOLD challenge information. It is meant to be fairly abstract and
 // well-tested.
@@ -10,8 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/offchainlabs/bold/api"
 	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
@@ -123,7 +130,10 @@ func (b *Backend) GetCollectMachineHashes(ctx context.Context, opts ...db.Collec
 				if err != nil {
 					return nil, fmt.Errorf("could not parse step height %s: %w", stepHeightStr, err)
 				}
-				stepHeights[i] = uint64(stepHeight)
+				stepHeights[i], err = safecast.ToUint64(stepHeight)
+				if err != nil {
+					return nil, fmt.Errorf("could not cast step height %d to uint64: %w", stepHeight, err)
+				}
 			}
 			cmh.StepHeights = stepHeights
 		}

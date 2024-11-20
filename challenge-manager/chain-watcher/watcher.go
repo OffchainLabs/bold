@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 // Package watcher implements the main monitoring logic for protocol validators.
 // The challenge watcher is a singleton service available to all spawned edge
@@ -16,6 +17,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
+
 	"github.com/offchainlabs/bold/api"
 	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
@@ -28,12 +36,6 @@ import (
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
 	"github.com/offchainlabs/bold/util/stopwaiter"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/pkg/errors"
 )
 
 var (

@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 // Package solimpl includes an easy-to-use abstraction
 // around the challenge protocol contracts using their Go
@@ -15,6 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
@@ -30,7 +35,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
 	"github.com/offchainlabs/bold/solgen/go/contractsgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -209,7 +213,7 @@ func NewAssertionChain(
 		txOpts:                                   copiedOpts,
 		rollupAddr:                               rollupAddr,
 		chalManagerAddr:                          chalManagerAddr,
-		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet[protocol.AssertionHash](1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
+		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
 		rpcHeadBlockNumber:                       rpc.FinalizedBlockNumber,
@@ -549,7 +553,15 @@ func TryConfirmingAssertion(
 
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
-			blocksLeftForConfirmation := confirmableAfterBlock - latestHeader.Number.Uint64()
+			var blocksLeftForConfirmation int64
+			if confirmableAfterBlock > latestHeader.Number.Uint64() {
+				blocksLeftForConfirmation = 0
+			} else {
+				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestHeader.Number.Uint64())
+				if err != nil {
+					return false, errors.Wrap(err, "could not convert blocks left for confirmation to int64")
+				}
+			}
 			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
 			log.Info(
 				fmt.Sprintf(

@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package prefixproofs
 
 import (
@@ -7,19 +11,19 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/stretchr/testify/require"
-
-	"github.com/offchainlabs/bold/containers/option"
-	"github.com/offchainlabs/bold/solgen/go/mocksgen"
-	"github.com/offchainlabs/bold/state-commitments/history"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
+	"github.com/offchainlabs/bold/state-commitments/history"
 	prefixproofs "github.com/offchainlabs/bold/state-commitments/prefix-proofs"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 )

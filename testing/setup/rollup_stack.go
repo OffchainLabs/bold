@@ -1,7 +1,8 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 // Package setup prepares a simulated backend for testing.
-//
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package setup
 
 import (
@@ -10,6 +11,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/log"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
@@ -32,7 +37,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/yulgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
-	"github.com/pkg/errors"
 )
 
 type Backend interface {
@@ -65,9 +69,11 @@ type CreateForkConfig struct {
 
 func CreateTwoValidatorFork(
 	ctx context.Context,
+	t testing.TB,
 	cfg *CreateForkConfig,
 	opts ...Opt,
 ) (*CreatedValidatorFork, error) {
+	t.Helper()
 	setup, err := ChainsWithEdgeChallengeManager(opts...)
 	if err != nil {
 		return nil, err
@@ -88,7 +94,7 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	honestStateManager, err := statemanager.NewForSimpleMachine(setup.StateManagerOpts...)
+	honestStateManager, err := statemanager.NewForSimpleMachine(t, setup.StateManagerOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +117,7 @@ func CreateTwoValidatorFork(
 		statemanager.WithDivergentBlockHeightOffset(cfg.BlockHeightDifference),
 		statemanager.WithMachineDivergenceStep(cfg.DivergeMachineHeight),
 	)
-	evilStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	evilStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	if err != nil {
 		return nil, err
 	}
