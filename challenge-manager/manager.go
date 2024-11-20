@@ -403,7 +403,7 @@ func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState
 	return protocol.GoExecutionStateFromSolidity(info.AfterState).GlobalState, nil
 }
 
-func (m *Manager) logChallengeConfigs(ctx context.Context) error {
+func (m *Manager) logChallengeConfigs() {
 	cm := m.chain.SpecChallengeManager()
 	bigStepNum := cm.NumBigSteps()
 	challengePeriodBlocks := cm.ChallengePeriodBlocks()
@@ -414,5 +414,4 @@ func (m *Manager) logChallengeConfigs(ctx context.Context) error {
 		"challengePeriodBlocks", challengePeriodBlocks,
 		"layerZeroHeights", layerZeroHeights,
 	)
-	return nil
 }

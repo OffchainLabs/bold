@@ -45,9 +45,7 @@ func (m *Manager) HandleCorrectRival(ctx context.Context, riv protocol.Assertion
 	if challengeSubmitted {
 		challengeSubmittedCounter.Inc(1)
 	}
-	if err := m.logChallengeConfigs(ctx); err != nil {
-		log.Error("Could not log challenge configs", "err", err)
-	}
+	m.logChallengeConfigs()
 	return nil
 }
 
