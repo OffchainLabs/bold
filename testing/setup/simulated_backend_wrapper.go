@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
+	"sync"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 
@@ -19,6 +20,7 @@ var (
 )
 
 type SimulatedBackendWrapper struct {
+	lock sync.Mutex
 	*simulated.Backend
 }
 
@@ -45,8 +47,14 @@ func (s *SimulatedBackendWrapper) Client() rpc.ClientInterface {
 	return s.Backend.Client().(rpc.ClientInterface)
 }
 
+func (s *SimulatedBackendWrapper) Commit() common.Hash {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.Backend.Commit()
+}
+
 func NewSimulatedBackendWrapper(bk *simulated.Backend) *SimulatedBackendWrapper {
-	return &SimulatedBackendWrapper{bk}
+	return &SimulatedBackendWrapper{Backend: bk}
 }
 
 func (s *SimulatedBackendWrapper) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
