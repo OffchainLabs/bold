@@ -138,8 +138,8 @@ func expectAssertionConfirmedByChallengeWin(
 				if isChallengeParent && assertionNode.Status != uint8(protocol.AssertionConfirmed) {
 					t.Fatal("Confirmed assertion with unfinished state")
 				}
-				// confirmed = true
-				// break
+				confirmed = true
+				break
 			}
 			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
 		}
