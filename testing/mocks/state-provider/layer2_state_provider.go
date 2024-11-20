@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/state-commitments/history"
 	challenge_testing "github.com/offchainlabs/bold/testing"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // Defines the ABI encoding structure for submission of prefix proofs to the protocol contracts
@@ -213,7 +213,7 @@ func (s *L2StateBackend) UpdateAPIDatabase(database db.Database) {
 }
 
 // ExecutionStateAfterPreviousState produces the l2 state to assert at the message number specified.
-func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error) {
+func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState) (*protocol.ExecutionState, error) {
 	if len(s.executionStates) == 0 {
 		return nil, errors.New("no execution states")
 	}
@@ -225,7 +225,7 @@ func (s *L2StateBackend) ExecutionStateAfterPreviousState(ctx context.Context, m
 		if previousGlobalState != nil && st.GlobalState.Equals(*previousGlobalState) {
 			blocksSincePrevious = 0
 		}
-		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious+1) >= maxNumberOfBlocks) {
+		if st.GlobalState.Batch == maxInboxCount || (blocksSincePrevious >= 0 && uint64(blocksSincePrevious+1) >= uint64(s.challengeLeafHeights[0])) {
 			if blocksSincePrevious < 0 && previousGlobalState != nil {
 				return nil, fmt.Errorf("missing previous global state %+v", previousGlobalState)
 			}

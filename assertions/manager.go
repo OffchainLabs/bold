@@ -255,12 +255,8 @@ func (m *Manager) checkLatestDesiredBlock(ctx context.Context) {
 }
 
 func (m *Manager) ExecutionStateAfterParent(ctx context.Context, parentInfo *protocol.AssertionCreatedInfo) (*protocol.ExecutionState, error) {
-	layerZeroHeights := m.chain.SpecChallengeManager().LayerZeroHeights()
-	if layerZeroHeights.BlockChallengeHeight == 0 {
-		return nil, errors.New("block challenge height is zero")
-	}
 	goGlobalState := protocol.GoGlobalStateFromSolidity(parentInfo.AfterState.GlobalState)
-	return m.execProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), &goGlobalState, layerZeroHeights.BlockChallengeHeight.Uint64())
+	return m.execProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), &goGlobalState)
 }
 
 func (m *Manager) ForksDetected() uint64 {

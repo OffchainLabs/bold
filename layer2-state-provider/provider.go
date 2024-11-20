@@ -62,11 +62,12 @@ type Provider interface {
 type ExecutionProvider interface {
 	// Produces the L2 execution state to assert to after the previous assertion
 	// state.
-	// Returns either the state at the batch count maxInboxCount (PosInBatch=0)
-	// or the state maxNumberOfBlocks after previousGlobalState, whichever is an
-	// earlier state. If previousGlobalState is nil, this function simply
-	// returns the state at maxInboxCount batches (PosInBatch=0).
-	ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState, maxNumberOfBlocks uint64) (*protocol.ExecutionState, error)
+	// Returns either the state at the batch count maxInboxCount (PosInBatch=0) or
+	// the state LayerZeroHeights.BlockChallengeHeight blokcs after
+	// previousGlobalState, whichever is an earlier state. If previousGlobalState
+	// is nil, this function simply returns the state at maxInboxCount batches
+	// (PosInBatch=0).
+	ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState) (*protocol.ExecutionState, error)
 }
 
 // AssociatedAssertionMetadata for the tracked edge.
