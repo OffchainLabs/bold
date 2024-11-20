@@ -72,7 +72,11 @@ func randUint64(n uint64) uint64 {
 	if n == 0 {
 		return 0
 	}
-	return rand.Uint64() % n
+	result := rand.Uint64() % n
+	if result == 0 {
+		return 1
+	}
+	return result
 }
 
 func TestTotalWasmOpcodes(t *testing.T) {

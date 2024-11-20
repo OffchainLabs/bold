@@ -130,10 +130,9 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 }
 
 func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
-	t.Skip("Flakey simulated backend")
 	protocolCfg := defaultProtocolParams()
 	protocolCfg.numBigStepLevels = 2
-	protocolCfg.challengePeriodBlocks = 50
+	protocolCfg.challengePeriodBlocks = 300
 	// A block can take a max of 2^42 wavm opcodes to validate.
 	protocolCfg.layerZeroHeights = protocol.LayerZeroHeights{
 		BlockChallengeHeight:     1 << 6,
@@ -155,9 +154,8 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 }
 
 func TestEndToEnd_TwoEvilValidators(t *testing.T) {
-	t.Skip("Flakey simulated backend")
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 50
+	protocolCfg.challengePeriodBlocks = 100
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Millisecond * 500
 	timeCfg.assertionPostingInterval = time.Hour
@@ -176,7 +174,6 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 }
 
 func TestEndToEnd_ManyEvilValidators(t *testing.T) {
-	t.Skip("Flakey simulated backend")
 	protocolCfg := defaultProtocolParams()
 	protocolCfg.challengePeriodBlocks = 100
 	timeCfg := defaultTimeParams()
@@ -187,7 +184,7 @@ func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 		protocol: protocolCfg,
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
-			numEvilValidators: 3,
+			numEvilValidators: 5,
 		},
 		timings: timeCfg,
 		expectations: []expect{
