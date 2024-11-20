@@ -198,14 +198,3 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	}
 	return edge, true, assertionMetadata, false, nil
 }
-
-func randUint64(max uint64) (uint64, error) {
-	n, err := rand.Int(rand.Reader, new(big.Int).SetUint64(max))
-	if err != nil {
-		return 0, err
-	}
-	if !n.IsUint64() {
-		return 0, errors.New("not a uint64")
-	}
-	return n.Uint64(), nil
-}
