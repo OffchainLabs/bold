@@ -63,7 +63,6 @@ type Manager struct {
 	newBlockNotifier             *events.Producer[*gethtypes.Header]
 	notifyOnNumberOfBlocks       uint64
 	mode                         types.Mode
-	maxDelaySeconds              int
 	claimedAssertionsInChallenge *threadsafe.LruSet[protocol.AssertionHash]
 	headBlockSubscriptions       bool
 	// API
@@ -172,12 +171,6 @@ func (m *Manager) Mode() types.Mode {
 // challenge.
 func (m *Manager) IsClaimedByChallenge(assertionHash protocol.AssertionHash) bool {
 	return m.claimedAssertionsInChallenge.Has(assertionHash)
-}
-
-// MaxDelaySeconds returns the maximum number of seconds that the challenge
-// manager will wait open a challenge.
-func (m *Manager) MaxDelaySeconds() int {
-	return m.maxDelaySeconds
 }
 
 // TrackEdge spawns an edge tracker for an edge if it is not currently being

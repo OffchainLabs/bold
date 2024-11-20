@@ -6,12 +6,8 @@ package challengemanager
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
-	"time"
 
-	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -29,18 +25,6 @@ import (
 // challenge committing to the correct assertion to rival one or more incorrect
 // assertions.
 func (m *Manager) HandleCorrectRival(ctx context.Context, riv protocol.AssertionHash) error {
-	// Generate a random integer between 0 and max delay seconds to wait before
-	// challenging.
-	// This is to avoid all validators challenging at the same time.
-	mds := 1 // default max delay seconds to 1 to avoid panic
-	if m.MaxDelaySeconds() > 1 {
-		mds = m.MaxDelaySeconds()
-	}
-	randSecs, err := randInt64(mds)
-	if err != nil {
-		return err
-	}
-	time.Sleep(time.Duration(randSecs) * time.Second)
 	challengeSubmitted, err := m.ChallengeAssertion(ctx, riv)
 	if err != nil {
 		return err
@@ -213,19 +197,4 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, false, nil, false, errors.Wrap(err, "could not post block challenge root edge")
 	}
 	return edge, true, assertionMetadata, false, nil
-}
-
-func randInt64(max int) (int64, error) {
-	max64, err := safecast.ToInt64(max)
-	if err != nil {
-		return 0, err
-	}
-	n, err := rand.Int(rand.Reader, new(big.Int).SetInt64(max64))
-	if err != nil {
-		return 0, err
-	}
-	if !n.IsInt64() {
-		return 0, errors.New("not a int64")
-	}
-	return n.Int64(), nil
 }
