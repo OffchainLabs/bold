@@ -9,6 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	"github.com/offchainlabs/bold/containers/option"
@@ -17,9 +20,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -363,7 +363,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 		require.ErrorContains(t, err, "EDGE_NOT_CONFIRMED")
 	})
 	t.Run("level zero block edge confirmed allows assertion confirmation", func(t *testing.T) {
-		_, err = honestEdge.ConfirmByTimer(ctx)
+		_, err = honestEdge.ConfirmByTimer(ctx, createdData.Leaf1.Id())
 		require.NoError(t, err)
 
 		// Adjust beyond the grace period.
@@ -486,7 +486,7 @@ func TestIsChallengeComplete(t *testing.T) {
 		createdData.Backend.Commit()
 	}
 
-	_, err = honestEdge.ConfirmByTimer(ctx)
+	_, err = honestEdge.ConfirmByTimer(ctx, createdData.Leaf1.Id())
 	require.NoError(t, err)
 
 	// Adjust beyond the grace period.
