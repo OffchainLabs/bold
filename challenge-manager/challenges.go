@@ -120,10 +120,10 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, false, nil, false, errors.Wrap(err, "could not get assertion creation info")
 	}
-	if !m.watcher.AllowTrackingEdgeWithParentHash(protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash}) {
+	if !m.watcher.AllowTrackingEdgeWithParentHash(creationInfo.ParentAssertionHash) {
 		return nil, false, nil, false, nil
 	}
-	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	prevCreationInfo, err := m.chain.ReadAssertionCreationInfo(ctx, creationInfo.ParentAssertionHash)
 	if err != nil {
 		return nil, false, nil, false, errors.Wrap(err, "could not get assertion creation info")
 	}
@@ -169,7 +169,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 	precomputedEdgeId, err := manager.CalculateEdgeId(
 		ctx,
 		protocol.NewBlockChallengeLevel(),
-		protocol.OriginId(creationInfo.ParentAssertionHash),
+		protocol.OriginId(creationInfo.ParentAssertionHash.Hash),
 		protocol.Height(startCommit.Height),
 		startCommit.Merkle,
 		protocol.Height(endCommit.Height),

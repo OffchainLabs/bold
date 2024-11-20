@@ -129,7 +129,7 @@ func (ht *RoyalChallengeTree) prepareHistoryCommitmentRequest(
 	if err != nil {
 		return nil, err
 	}
-	parentCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	parentCreationInfo, err := ht.metadataReader.ReadAssertionCreationInfo(ctx, creationInfo.ParentAssertionHash)
 	if err != nil {
 		return nil, err
 	}

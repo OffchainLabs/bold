@@ -77,7 +77,7 @@ type AssociatedAssertionMetadata struct {
 	// Unless it hits the block limit, its last state in position 0 of this batch.
 	BatchLimit           Batch
 	WasmModuleRoot       common.Hash
-	ClaimedAssertionHash common.Hash
+	ClaimedAssertionHash protocol.AssertionHash
 }
 
 // HistoryCommitmentRequest for a BoLD history commitment.

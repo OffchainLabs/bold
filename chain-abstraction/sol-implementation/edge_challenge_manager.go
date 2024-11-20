@@ -319,7 +319,7 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) (*types.Transaction, erro
 				MachineStatus:  assertionCreation.AfterState.MachineStatus,
 				EndHistoryRoot: assertionCreation.AfterState.EndHistoryRoot,
 			},
-			PrevAssertionHash: assertionCreation.ParentAssertionHash,
+			PrevAssertionHash: assertionCreation.ParentAssertionHash.Hash,
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		})
 	})
@@ -969,12 +969,12 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		endCommit.LastLeafProof,
 		AssertionStateData{
 			AssertionState:    parentAssertionCreation.AfterState,
-			PrevAssertionHash: parentAssertionCreation.ParentAssertionHash,
+			PrevAssertionHash: parentAssertionCreation.ParentAssertionHash.Hash,
 			InboxAcc:          parentAssertionCreation.AfterInboxBatchAcc,
 		},
 		AssertionStateData{
 			AssertionState:    assertionCreation.AfterState,
-			PrevAssertionHash: assertionCreation.ParentAssertionHash,
+			PrevAssertionHash: assertionCreation.ParentAssertionHash.Hash,
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		},
 	)
@@ -985,7 +985,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	edgeId, err := cm.CalculateEdgeId(
 		ctx,
 		protocol.NewBlockChallengeLevel(),
-		protocol.OriginId(assertionCreation.ParentAssertionHash),
+		protocol.OriginId(assertionCreation.ParentAssertionHash.Hash),
 		protocol.Height(startCommit.Height),
 		startCommit.Merkle,
 		protocol.Height(endCommit.Height),
@@ -1006,7 +1006,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		Level:          protocol.NewBlockChallengeLevel().Uint8(),
 		EndHistoryRoot: endCommit.Merkle,
 		EndHeight:      big.NewInt(endCommitInt64),
-		ClaimId:        assertionCreation.AssertionHash,
+		ClaimId:        assertionCreation.AssertionHash.Hash,
 		PrefixProof:    startEndPrefixProof,
 		Proof:          blockEdgeProof,
 	}

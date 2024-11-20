@@ -108,7 +108,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 				U64Vals: [2]uint64{100, 0},
 			},
 		},
-		ParentAssertionHash: parentAssertionHash.Hash,
+		ParentAssertionHash: parentAssertionHash,
 	}, nil)
 	m.On("ReadAssertionCreationInfo", ctx, parentAssertionHash).Return(&protocol.AssertionCreatedInfo{
 		InboxMaxCount: big.NewInt(100),

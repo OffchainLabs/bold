@@ -331,9 +331,7 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	}
 	claimedAssertion, err := et.chain.AssertionStatus(
 		ctx,
-		protocol.AssertionHash{
-			Hash: et.associatedAssertionMetadata.ClaimedAssertionHash,
-		},
+		et.associatedAssertionMetadata.ClaimedAssertionHash,
 	)
 	if err != nil {
 		log.Error("Could not get claimed assertion status", append(fields, "err", err)...)
@@ -355,7 +353,7 @@ func (et *Tracker) uniqueTrackerLogFields() []any {
 		"fromBatch", et.associatedAssertionMetadata.FromState.Batch,
 		"fromPosInBatch", et.associatedAssertionMetadata.FromState.PosInBatch,
 		"batchLimit", et.associatedAssertionMetadata.BatchLimit,
-		"claimedAssertionHash", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+		"claimedAssertionHash", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash.Hash[:4]),
 		"startHeight", startHeight,
 		"startCommit", fmt.Sprintf("%#x", startCommit[:4]),
 		"endHeight", endHeight,
@@ -406,7 +404,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		"fromBatch", et.associatedAssertionMetadata.FromState.Batch,
 		"fromPosInBatch", et.associatedAssertionMetadata.FromState.PosInBatch,
 		"batchLimit", et.associatedAssertionMetadata.BatchLimit,
-		"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+		"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash.Hash[:4]),
 	}
 	log.Info("Updated edge timer", localFields...)
 	// Short circuit early if the edge is confirmable.

@@ -49,7 +49,7 @@ func (a *Assertion) PrevId(ctx context.Context) (protocol.AssertionHash, error) 
 	if err != nil {
 		return protocol.AssertionHash{}, err
 	}
-	a.prevId = option.Some(protocol.AssertionHash{Hash: creationInfo.ParentAssertionHash})
+	a.prevId = option.Some(creationInfo.ParentAssertionHash)
 	return a.prevId.Unwrap(), nil
 }
 

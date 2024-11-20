@@ -74,7 +74,7 @@ type Manager struct {
 	forksDetectedCount          uint64
 	assertionsProcessedCount    uint64
 	submittedRivalsCount        uint64
-	submittedAssertions         *threadsafe.LruSet[common.Hash]
+	submittedAssertions         *threadsafe.LruSet[protocol.AssertionHash]
 	apiDB                       db.Database
 	assertionChainData          *assertionChainData
 	observedCanonicalAssertions chan protocol.AssertionHash
@@ -183,7 +183,7 @@ func NewManager(
 		times:                    defaultTimings,
 		forksDetectedCount:       0,
 		assertionsProcessedCount: 0,
-		submittedAssertions:      threadsafe.NewLruSet(1500, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		submittedAssertions:      threadsafe.NewLruSet(1500, threadsafe.LruSetWithMetric[protocol.AssertionHash]("submittedAssertions")),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: protocol.AssertionHash{},
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
@@ -273,9 +273,9 @@ func (m *Manager) SubmittedRivals() uint64 {
 	return m.submittedRivalsCount
 }
 
-func (m *Manager) AssertionsSubmittedInProcess() []common.Hash {
-	hashes := make([]common.Hash, 0)
-	m.submittedAssertions.ForEach(func(elem common.Hash) {
+func (m *Manager) AssertionsSubmittedInProcess() []protocol.AssertionHash {
+	hashes := make([]protocol.AssertionHash, 0)
+	m.submittedAssertions.ForEach(func(elem protocol.AssertionHash) {
 		hashes = append(hashes, elem)
 	})
 	return hashes

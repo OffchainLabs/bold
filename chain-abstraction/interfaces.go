@@ -111,12 +111,12 @@ type Assertion interface {
 type AssertionCreatedInfo struct {
 	ConfirmPeriodBlocks uint64
 	RequiredStake       *big.Int
-	ParentAssertionHash common.Hash
+	ParentAssertionHash AssertionHash
 	BeforeState         rollupgen.AssertionState
 	AfterState          rollupgen.AssertionState
 	InboxMaxCount       *big.Int
 	AfterInboxBatchAcc  common.Hash
-	AssertionHash       common.Hash
+	AssertionHash       AssertionHash
 	WasmModuleRoot      common.Hash
 	ChallengeManager    common.Address
 	TransactionHash     common.Hash

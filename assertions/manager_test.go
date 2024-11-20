@@ -324,7 +324,7 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 	// Assert that Charlie posted the rival assertion at batch 4.
 	charlieSubmitted := charlieAssertionManager.AssertionsSubmittedInProcess()
 	charlieAssertion := charlieSubmitted[0]
-	charlieAssertionInfo, err := charlieChain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: charlieAssertion})
+	charlieAssertionInfo, err := charlieChain.ReadAssertionCreationInfo(ctx, charlieAssertion)
 	require.NoError(t, err)
 	charliePostState := protocol.GoExecutionStateFromSolidity(charlieAssertionInfo.AfterState)
 
@@ -476,7 +476,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	require.Equal(t, postState, protocol.GoExecutionStateFromSolidity(posted.Unwrap().AfterState))
 
 	<-time.After(time.Second)
-	status, err := aliceChain.AssertionStatus(ctx, protocol.AssertionHash{Hash: posted.Unwrap().AssertionHash})
+	status, err := aliceChain.AssertionStatus(ctx, posted.Unwrap().AssertionHash)
 	require.NoError(t, err)
 	// Just one fast confirmation is not enough to confirm the assertion.
 	require.Equal(t, protocol.AssertionPending, status)

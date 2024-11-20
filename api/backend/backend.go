@@ -324,7 +324,7 @@ func (b *Backend) LatestConfirmedAssertion(ctx context.Context) (*api.JsonAssert
 		Hash:                     hash.Hash,
 		ConfirmPeriodBlocks:      creationInfo.ConfirmPeriodBlocks,
 		RequiredStake:            creationInfo.RequiredStake.String(),
-		ParentAssertionHash:      creationInfo.ParentAssertionHash,
+		ParentAssertionHash:      creationInfo.ParentAssertionHash.Hash,
 		InboxMaxCount:            creationInfo.InboxMaxCount.String(),
 		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
 		WasmModuleRoot:           creationInfo.WasmModuleRoot,
