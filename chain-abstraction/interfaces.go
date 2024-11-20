@@ -53,9 +53,9 @@ type HeadSubscriber interface {
 
 // LayerZeroHeights for edges configured as parameters in the challenge manager contract.
 type LayerZeroHeights struct {
-	BlockChallengeHeight     uint64
-	BigStepChallengeHeight   uint64
-	SmallStepChallengeHeight uint64
+	BlockChallengeHeight     Height
+	BigStepChallengeHeight   Height
+	SmallStepChallengeHeight Height
 }
 
 // AssertionHash represents a unique identifier for an assertion
@@ -272,11 +272,11 @@ type SpecChallengeManager interface {
 	// Address of the challenge manager contract.
 	Address() common.Address
 	// Layer zero edge heights defined the challenge manager contract.
-	LayerZeroHeights(ctx context.Context) (*LayerZeroHeights, error)
+	LayerZeroHeights() LayerZeroHeights
 	// Number of big step challenge levels defined in the challenge manager contract.
 	NumBigSteps() uint8
 	// Duration of the challenge period in blocks.
-	ChallengePeriodBlocks(ctx context.Context) (uint64, error)
+	ChallengePeriodBlocks() uint64
 	// Gets an edge by its id.
 	GetEdge(ctx context.Context, edgeId EdgeId) (option.Option[SpecEdge], error)
 	MultiUpdateInheritedTimers(
@@ -324,6 +324,10 @@ type SpecChallengeManager interface {
 // Height if defined as the height of a history commitment in the specification.
 // Heights are 0-indexed.
 type Height uint64
+
+func (h Height) Uint64() uint64 {
+	return uint64(h)
+}
 
 // EdgeStatus of an edge in the protocol.
 type EdgeStatus uint8

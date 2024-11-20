@@ -55,9 +55,9 @@ func setupAssertionChain(
 func totalWasmOpcodes(heights *protocol.LayerZeroHeights, numBigSteps uint8) uint64 {
 	totalWasmOpcodes := uint64(1)
 	for i := uint8(0); i < numBigSteps; i++ {
-		totalWasmOpcodes *= heights.BigStepChallengeHeight
+		totalWasmOpcodes *= heights.BigStepChallengeHeight.Uint64()
 	}
-	totalWasmOpcodes *= heights.SmallStepChallengeHeight
+	totalWasmOpcodes *= heights.SmallStepChallengeHeight.Uint64()
 	return totalWasmOpcodes
 }
 

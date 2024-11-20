@@ -408,14 +408,12 @@ func TestAssertionBySequenceNum(t *testing.T) {
 }
 
 func TestChallengePeriodBlocks(t *testing.T) {
-	ctx := context.Background()
 	cfg, err := setup.ChainsWithEdgeChallengeManager()
 	require.NoError(t, err)
 	chain := cfg.Chains[0]
 
 	manager := chain.SpecChallengeManager()
-	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
-	require.NoError(t, err)
+	chalPeriod := manager.ChallengePeriodBlocks()
 	require.Equal(t, cfg.RollupConfig.ConfirmPeriodBlocks, chalPeriod)
 }
 

@@ -396,10 +396,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not get edge onchain inherited timer")
 	}
 	manager := et.chain.SpecChallengeManager()
-	chalPeriod, err := manager.ChallengePeriodBlocks(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "could not check the challenge period length")
-	}
+	chalPeriod := manager.ChallengePeriodBlocks()
 	localFields := []any{
 		"localTimer", computedTimer,
 		"onchainTimer", onchainTimer,

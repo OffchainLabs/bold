@@ -17,7 +17,6 @@ import (
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
-	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
@@ -31,7 +30,7 @@ var (
 )
 
 func (m *Manager) postAssertionRoutine(ctx context.Context) {
-	if m.mode < types.MakeMode {
+	if !m.mode.SupportsStaking() {
 		log.Warn("Staker strategy not configured to stake on latest assertions")
 		return
 	}

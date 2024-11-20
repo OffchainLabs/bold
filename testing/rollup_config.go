@@ -30,9 +30,9 @@ func WithNumBigStepLevels(num uint8) Opt {
 
 func WithLayerZeroHeights(h *protocol.LayerZeroHeights) Opt {
 	return func(c *rollupgen.Config) {
-		c.LayerZeroBlockEdgeHeight = new(big.Int).SetUint64(h.BlockChallengeHeight)
-		c.LayerZeroBigStepEdgeHeight = new(big.Int).SetUint64(h.BigStepChallengeHeight)
-		c.LayerZeroSmallStepEdgeHeight = new(big.Int).SetUint64(h.SmallStepChallengeHeight)
+		c.LayerZeroBlockEdgeHeight = new(big.Int).SetUint64(h.BlockChallengeHeight.Uint64())
+		c.LayerZeroBigStepEdgeHeight = new(big.Int).SetUint64(h.BigStepChallengeHeight.Uint64())
+		c.LayerZeroSmallStepEdgeHeight = new(big.Int).SetUint64(h.SmallStepChallengeHeight.Uint64())
 	}
 }
 

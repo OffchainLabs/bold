@@ -53,8 +53,7 @@ func TestEdgeTracker_Act_ConfirmedByTime(t *testing.T) {
 	require.NoError(t, err)
 
 	chalManager := createdData.Chains[0].SpecChallengeManager()
-	chalPeriodBlocks, err := chalManager.ChallengePeriodBlocks(ctx)
-	require.NoError(t, err)
+	chalPeriodBlocks := chalManager.ChallengePeriodBlocks()
 
 	// Delay the evil root edge creation by a challenge period.
 	delayEvilRootEdgeCreation := option.Some(chalPeriodBlocks)

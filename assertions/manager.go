@@ -81,8 +81,6 @@ type Manager struct {
 	isReadyToPost               bool
 	disablePosting              bool
 	startPostingSignal          chan struct{}
-	layerZeroHeightsCache       *protocol.LayerZeroHeights
-	layerZeroHeightsCacheLock   sync.RWMutex
 	enableFastConfirmation      bool
 	mode                        types.Mode
 	rivalHandler                types.RivalHandler
@@ -155,7 +153,7 @@ func WithConfirmationInterval(t time.Duration) Opt {
 	}
 }
 
-// WithAverageBlockCreationTime overrids the default average block creation
+// WithAverageBlockCreationTime overrides the default average block creation
 // time.
 //
 // The average block cretion time is used by the assertion manager to emit
@@ -185,7 +183,7 @@ func NewManager(
 		times:                    defaultTimings,
 		forksDetectedCount:       0,
 		assertionsProcessedCount: 0,
-		submittedAssertions:      threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
+		submittedAssertions:      threadsafe.NewLruSet(1500, threadsafe.LruSetWithMetric[common.Hash]("submittedAssertions")),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: protocol.AssertionHash{},
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
@@ -258,35 +256,9 @@ func (m *Manager) checkLatestDesiredBlock(ctx context.Context) {
 	}
 }
 
-func (m *Manager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
-	m.layerZeroHeightsCacheLock.RLock()
-	cachedValue := m.layerZeroHeightsCache
-	m.layerZeroHeightsCacheLock.RUnlock()
-	if cachedValue != nil {
-		return cachedValue, nil
-	}
-
-	m.layerZeroHeightsCacheLock.Lock()
-	defer m.layerZeroHeightsCacheLock.Unlock()
-	cm := m.chain.SpecChallengeManager()
-	layerZeroHeights, err := cm.LayerZeroHeights(ctx)
-	if err != nil {
-		return nil, err
-	}
-	m.layerZeroHeightsCache = layerZeroHeights
-	return layerZeroHeights, nil
-}
-
 func (m *Manager) ExecutionStateAfterParent(ctx context.Context, parentInfo *protocol.AssertionCreatedInfo) (*protocol.ExecutionState, error) {
-	layerZeroHeights, err := m.LayerZeroHeights(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if layerZeroHeights.BlockChallengeHeight == 0 {
-		return nil, errors.New("block challenge height is zero")
-	}
 	goGlobalState := protocol.GoGlobalStateFromSolidity(parentInfo.AfterState.GlobalState)
-	return m.execProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), &goGlobalState, layerZeroHeights.BlockChallengeHeight)
+	return m.execProvider.ExecutionStateAfterPreviousState(ctx, parentInfo.InboxMaxCount.Uint64(), &goGlobalState)
 }
 
 func (m *Manager) ForksDetected() uint64 {
@@ -307,15 +279,6 @@ func (m *Manager) AssertionsSubmittedInProcess() []common.Hash {
 		hashes = append(hashes, elem)
 	})
 	return hashes
-}
-
-// Returns true if the manager can respond to an assertion with a challenge.
-func (m *Manager) canPostRivalAssertion() bool {
-	return m.mode >= types.DefensiveMode
-}
-
-func (m *Manager) canPostChallenge() bool {
-	return m.mode > types.DefensiveMode
 }
 
 func (m *Manager) LatestAgreedAssertion() protocol.AssertionHash {

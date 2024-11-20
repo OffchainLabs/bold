@@ -48,9 +48,7 @@ func (m *Manager) HandleCorrectRival(ctx context.Context, riv protocol.Assertion
 	if challengeSubmitted {
 		challengeSubmittedCounter.Inc(1)
 	}
-	if err := m.logChallengeConfigs(ctx); err != nil {
-		log.Error("Could not log challenge configs", "err", err)
-	}
+	m.logChallengeConfigs()
 	return nil
 }
 
@@ -171,10 +169,7 @@ func (m *Manager) addBlockChallengeLevelZeroEdge(
 		return nil, false, nil, false, err
 	}
 	manager := m.chain.SpecChallengeManager()
-	layerZeroHeights, err := manager.LayerZeroHeights(ctx)
-	if err != nil {
-		return nil, false, nil, false, err
-	}
+	layerZeroHeights := manager.LayerZeroHeights()
 	req := &l2stateprovider.HistoryCommitmentRequest{
 		AssertionMetadata:           assertionMetadata,
 		UpperChallengeOriginHeights: []l2stateprovider.Height{},

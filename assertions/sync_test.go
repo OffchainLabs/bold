@@ -67,9 +67,9 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 	aliceStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	require.NoError(t, err)
 
-	preState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, 1<<26)
+	preState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil)
 	require.NoError(t, err)
-	postState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState, 1<<26)
+	postState, err := aliceStateManager.ExecutionStateAfterPreviousState(ctx, 1, &preState.GlobalState)
 	require.NoError(t, err)
 	assertion, err := aliceChain.NewStakeOnNewAssertion(
 		ctx,
@@ -98,6 +98,18 @@ func Test_extractAssertionFromEvent(t *testing.T) {
 }
 
 func Test_findCanonicalAssertionBranch(t *testing.T) {
+	setup, err := setup.ChainsWithEdgeChallengeManager(
+		setup.WithMockOneStepProver(),
+		setup.WithChallengeTestingOpts(
+			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
+				BlockChallengeHeight:     32,
+				BigStepChallengeHeight:   32,
+				SmallStepChallengeHeight: 32,
+			}),
+		),
+	)
+	require.NoError(t, err)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	agreesWithIds := map[uint64]*protocol.AssertionCreatedInfo{
@@ -122,15 +134,11 @@ func Test_findCanonicalAssertionBranch(t *testing.T) {
 	}
 	manager := &Manager{
 		execProvider:                provider,
+		chain:                       setup.Chains[0],
 		observedCanonicalAssertions: make(chan protocol.AssertionHash),
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
-		},
-		layerZeroHeightsCache: &protocol.LayerZeroHeights{
-			BlockChallengeHeight:     32,
-			BigStepChallengeHeight:   32,
-			SmallStepChallengeHeight: 32,
 		},
 	}
 	go func() {
@@ -241,7 +249,6 @@ func (m *mockStateProvider) ExecutionStateAfterPreviousState(
 	ctx context.Context,
 	maxInboxCount uint64,
 	previousGlobalState *protocol.GoGlobalState,
-	maxNumberOfBlocks uint64,
 ) (*protocol.ExecutionState, error) {
 	agreement, ok := m.agreesWith[maxInboxCount]
 	if !ok {
@@ -263,11 +270,6 @@ func Test_respondToAnyInvalidAssertions(t *testing.T) {
 		assertionChainData: &assertionChainData{
 			latestAgreedAssertion: numToAssertionHash(1),
 			canonicalAssertions:   make(map[protocol.AssertionHash]*protocol.AssertionCreatedInfo),
-		},
-		layerZeroHeightsCache: &protocol.LayerZeroHeights{
-			BlockChallengeHeight:     32,
-			BigStepChallengeHeight:   32,
-			SmallStepChallengeHeight: 32,
 		},
 	}
 	go func() {

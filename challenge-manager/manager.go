@@ -45,7 +45,6 @@ type AssertionManager interface {
 	Start(context.Context)
 	StopAndWait()
 	LatestAgreedAssertion() protocol.AssertionHash
-	LayerZeroHeights(context.Context) (*protocol.LayerZeroHeights, error)
 	SetRivalHandler(types.RivalHandler)
 }
 
@@ -60,7 +59,7 @@ type Manager struct {
 	name                         string
 	timeRef                      utilTime.Reference
 	trackedEdgeIds               *threadsafe.Map[protocol.EdgeId, *edgetracker.Tracker]
-	batchIndexForAssertionCache  *threadsafe.LruMap[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]
+	assertionMetadataCache       *threadsafe.LruMap[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]
 	newBlockNotifier             *events.Producer[*gethtypes.Header]
 	notifyOnNumberOfBlocks       uint64
 	mode                         types.Mode
@@ -123,11 +122,11 @@ func New(
 		watcher:                      watcher,
 		timeRef:                      utilTime.NewRealTimeReference(),
 		trackedEdgeIds:               threadsafe.NewMap(threadsafe.MapWithMetric[protocol.EdgeId, *edgetracker.Tracker]("trackedEdgeIds")),
-		batchIndexForAssertionCache:  threadsafe.NewLruMap(1000, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
+		assertionMetadataCache:       threadsafe.NewLruMap(1500, threadsafe.LruMapWithMetric[protocol.AssertionHash, l2stateprovider.AssociatedAssertionMetadata]("batchIndexForAssertionCache")),
 		notifyOnNumberOfBlocks:       1,
 		newBlockNotifier:             events.NewProducer[*gethtypes.Header](),
 		headBlockSubscriptions:       false,
-		claimedAssertionsInChallenge: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
+		claimedAssertionsInChallenge: threadsafe.NewLruSet(1500, threadsafe.LruSetWithMetric[protocol.AssertionHash]("claimedAssertionsInChallenge")),
 		api:                          nil,
 	}
 	for _, o := range opts {
@@ -221,7 +220,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 	// Smart caching to avoid querying the same assertion number and creation info
 	// multiple times. Edges in the same challenge should have the same creation
 	// info.
-	cachedHeightAndInboxMsgCount, ok := m.batchIndexForAssertionCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
+	cachedHeightAndInboxMsgCount, ok := m.assertionMetadataCache.TryGet(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)})
 	var edgeTrackerAssertionInfo l2stateprovider.AssociatedAssertionMetadata
 	if !ok {
 		assertionCreationInfo, creationErr := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
@@ -249,7 +248,7 @@ func (m *Manager) getTrackerForEdge(ctx context.Context, edge protocol.SpecEdge)
 			WasmModuleRoot:       prevCreationInfo.WasmModuleRoot,
 			ClaimedAssertionHash: common.Hash(claimedAssertionId),
 		}
-		m.batchIndexForAssertionCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgeTrackerAssertionInfo)
+		m.assertionMetadataCache.Put(protocol.AssertionHash{Hash: common.Hash(claimedAssertionId)}, edgeTrackerAssertionInfo)
 	} else {
 		edgeTrackerAssertionInfo = cachedHeightAndInboxMsgCount
 	}
@@ -407,22 +406,15 @@ func (m *Manager) LatestAgreedState(ctx context.Context) (protocol.GoGlobalState
 	return protocol.GoExecutionStateFromSolidity(info.AfterState).GlobalState, nil
 }
 
-func (m *Manager) logChallengeConfigs(ctx context.Context) error {
+func (m *Manager) logChallengeConfigs() {
 	cm := m.chain.SpecChallengeManager()
 	bigStepNum := cm.NumBigSteps()
-	challengePeriodBlocks, err := cm.ChallengePeriodBlocks(ctx)
-	if err != nil {
-		return err
-	}
-	layerZeroHeights, err := m.assertionManager.LayerZeroHeights(ctx)
-	if err != nil {
-		return err
-	}
+	challengePeriodBlocks := cm.ChallengePeriodBlocks()
+	layerZeroHeights := cm.LayerZeroHeights()
 	log.Info("Opening challenge with the following configuration",
 		"address", cm.Address(),
 		"bigStepNumber", bigStepNum,
 		"challengePeriodBlocks", challengePeriodBlocks,
 		"layerZeroHeights", layerZeroHeights,
 	)
-	return nil
 }
