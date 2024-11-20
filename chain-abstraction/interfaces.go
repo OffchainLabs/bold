@@ -423,5 +423,5 @@ type SpecEdge interface {
 		prefixProof []byte,
 	) (VerifiedRoyalEdge, VerifiedRoyalEdge, error)
 	// Confirms an edge for having a total timer >= one challenge period.
-	ConfirmByTimer(ctx context.Context) (*types.Transaction, error)
+	ConfirmByTimer(ctx context.Context, claimedAssertion AssertionHash) (*types.Transaction, error)
 }

@@ -346,8 +346,8 @@ func (m *MockSpecEdge) Bisect(
 	args := m.Called(ctx, prefixHistoryRoot, prefixProof)
 	return args.Get(0).(protocol.VerifiedRoyalEdge), args.Get(1).(protocol.VerifiedRoyalEdge), args.Error(2)
 }
-func (m *MockSpecEdge) ConfirmByTimer(ctx context.Context) (*types.Transaction, error) {
-	args := m.Called(ctx)
+func (m *MockSpecEdge) ConfirmByTimer(ctx context.Context, assertionHash protocol.AssertionHash) (*types.Transaction, error) {
+	args := m.Called(ctx, assertionHash)
 	return args.Get(0).(*types.Transaction), args.Error(1)
 }
 func (m *MockSpecEdge) ConfirmByClaim(ctx context.Context, claimId protocol.ClaimId) error {

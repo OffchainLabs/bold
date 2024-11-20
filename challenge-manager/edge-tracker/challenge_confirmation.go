@@ -76,6 +76,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	challengedAssertionHash protocol.AssertionHash,
 	computedTimer uint64,
 	royalRootEdge protocol.SpecEdge,
+	claimedAssertionHash protocol.AssertionHash,
 	challengePeriodBlocks uint64,
 ) error {
 	fields := []any{
@@ -89,7 +90,8 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	royalTreeLeaves, err := retry.UntilSucceeds(ctx, func() ([]protocol.SpecEdge, error) {
 		edges, innerErr := cc.reader.LowerMostRoyalEdges(ctx, challengedAssertionHash)
 		if innerErr != nil {
-			log.Error("Could not fetch lower-most royal edges", fields, "err", innerErr)
+			fields = append(fields, "err", innerErr)
+			log.Error("Could not fetch lower-most royal edges", fields)
 			return nil, innerErr
 		}
 		return edges, nil
@@ -110,7 +112,8 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 				ctx, challengedAssertionHash, edge.Id(),
 			)
 			if innerErr != nil {
-				log.Error("Could not compute ancestors for edge", fields, "err", innerErr)
+				fields = append(fields, "err", innerErr)
+				log.Error("Could not compute ancestors for edge", fields)
 				return nil, innerErr
 			}
 			return resp, nil
@@ -136,6 +139,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 			len(royalBranches),
 			branch,
 			challengePeriodBlocks,
+			claimedAssertionHash,
 		)
 		if innerErr != nil {
 			return innerErr
@@ -158,7 +162,8 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	onchainInheritedTimer, err := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {
 		timer, innerErr := royalRootEdge.SafeHeadInheritedTimer(ctx)
 		if innerErr != nil {
-			log.Error("Could not get inherited timer for edge", fields, "err", innerErr)
+			fields = append(fields, "err", innerErr)
+			log.Error("Could not get inherited timer for edge", fields)
 			return 0, innerErr
 		}
 		return timer, nil
@@ -185,8 +190,9 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	}
 	log.Info("Confirming edge by time", fields...)
 	if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		if _, innerErr := royalRootEdge.ConfirmByTimer(ctx); innerErr != nil {
-			log.Error("Could not confirm edge by timer", fields, "err", innerErr)
+		if _, innerErr := royalRootEdge.ConfirmByTimer(ctx, claimedAssertionHash); innerErr != nil {
+			fields = append(fields, "err", innerErr)
+			log.Error("Could not confirm edge by timer", fields)
 			return false, innerErr
 		}
 		return false, nil
@@ -201,17 +207,19 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	ctx context.Context,
 	royalRootEdge protocol.SpecEdge,
 	computedLocalTimer uint64,
-	claimedAssertionHash protocol.AssertionHash,
+	challengedAssertionHash protocol.AssertionHash,
 	branchIdx,
 	totalBranches int,
 	branch []protocol.ReadOnlyEdge,
 	challengePeriodBlocks uint64,
+	claimedAssertionHash protocol.AssertionHash,
 ) (*types.Transaction, error) {
 	if len(branch) == 0 {
 		return nil, nil
 	}
 	fields := []any{
 		"validatorName", cc.validatorName,
+		"challengedAssertionHash", fmt.Sprintf("%#x", challengedAssertionHash.Hash[:4]),
 		"claimedAssertionHash", fmt.Sprintf("%#x", claimedAssertionHash.Hash[:4]),
 		"royalRootBlockChallengeEdge", fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
 		"branch", fmt.Sprintf("%d/%d", branchIdx, totalBranches-1),
@@ -240,7 +248,8 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	rootTimer, err := retry.UntilSucceeds(ctx, func() (protocol.InheritedTimer, error) {
 		timer, innerErr := royalRootEdge.LatestInheritedTimer(ctx)
 		if innerErr != nil {
-			log.Error("Could not get inherited timer for edge", fields, "err", innerErr)
+			fields = append(fields, "err", innerErr)
+			log.Error("Could not get inherited timer for edge", fields)
 			return 0, innerErr
 		}
 		return timer, nil
@@ -259,9 +268,10 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	// If yes, we confirm the root edge and finish early, we do so.
 	log.Info("Branch was confirmable by time", fields...)
 	tx, err = retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
-		innerTx, innerErr := royalRootEdge.ConfirmByTimer(ctx)
+		innerTx, innerErr := royalRootEdge.ConfirmByTimer(ctx, claimedAssertionHash)
 		if innerErr != nil {
-			log.Error("Could not confirm edge by timer", fields, "err", innerErr)
+			fields = append(fields, "err", innerErr)
+			log.Error("Could not confirm edge by timer early with confirmable branch", fields)
 			return nil, innerErr
 		}
 		return innerTx, nil

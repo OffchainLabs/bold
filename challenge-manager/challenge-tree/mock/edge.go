@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-	"github.com/offchainlabs/bold/containers/option"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	"github.com/offchainlabs/bold/containers/option"
 )
 
 var _ = protocol.ReadOnlyEdge(&Edge{})
@@ -166,7 +166,7 @@ func (*Edge) Bisect(
 	return nil, nil, errors.New("unimplemented")
 }
 
-func (*Edge) ConfirmByTimer(_ context.Context) (*types.Transaction, error) {
+func (*Edge) ConfirmByTimer(_ context.Context, _ protocol.AssertionHash) (*types.Transaction, error) {
 	return nil, errors.New("unimplemented")
 }
 

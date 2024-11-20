@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
@@ -17,9 +20,6 @@ import (
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	stateprovider "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -494,12 +494,12 @@ func TestEdgeChallengeManager_ConfirmByTime(t *testing.T) {
 	require.NoError(t, err)
 	_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestChildren1, honestChildren2, honestEdge}, expectedNewTimer)
 	require.NoError(t, err)
-	_, err = honestEdge.ConfirmByTimer(ctx)
+	_, err = honestEdge.ConfirmByTimer(ctx, bisectionScenario.topLevelFork.Leaf1.Id())
 	require.NoError(t, err)
 	s0, err := honestEdge.Status(ctx)
 	require.NoError(t, err)
 	require.Equal(t, protocol.EdgeConfirmed, s0)
-	_, err = honestEdge.ConfirmByTimer(ctx)
+	_, err = honestEdge.ConfirmByTimer(ctx, bisectionScenario.topLevelFork.Leaf1.Id())
 	require.NoError(t, err)
 }
 
@@ -561,7 +561,7 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 		_, err = chalManager.MultiUpdateInheritedTimers(ctx, []protocol.ReadOnlyEdge{honestEdge}, expectedNewTimer)
 		require.NoError(t, err)
 
-		_, err = honestEdge.ConfirmByTimer(ctx)
+		_, err = honestEdge.ConfirmByTimer(ctx, createdData.Leaf1.Id())
 		require.NoError(t, err)
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
@@ -571,7 +571,7 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 		status, err := honestEdge.Status(ctx)
 		require.NoError(t, err)
 		require.Equal(t, protocol.EdgeConfirmed, status)
-		_, err = honestEdge.ConfirmByTimer(ctx)
+		_, err = honestEdge.ConfirmByTimer(ctx, createdData.Leaf1.Id())
 		require.NoError(t, err)
 	})
 }

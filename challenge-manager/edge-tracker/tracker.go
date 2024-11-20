@@ -457,7 +457,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	if status == protocol.EdgeConfirmed {
 		return true, nil
 	}
-	assertionHash, err := et.edge.AssertionHash(ctx)
+	challengedAssertionHash, err := et.edge.AssertionHash(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -472,7 +472,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	start := time.Now()
 	isConfirmable, _, computedTimer, err := et.chainWatcher.IsConfirmableEssentialNode(
 		ctx,
-		assertionHash,
+		challengedAssertionHash,
 		et.edge.Id(),
 		chalPeriod,
 	)
@@ -494,9 +494,10 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		log.Info("Local computed timer big enough to confirm edge", localFields...)
 		if err := et.challengeConfirmer.beginConfirmationJob(
 			ctx,
-			assertionHash,
+			challengedAssertionHash,
 			computedTimer,
 			et.edge,
+			protocol.AssertionHash{Hash: et.associatedAssertionMetadata.ClaimedAssertionHash},
 			chalPeriod,
 		); err != nil {
 			return false, errors.Wrap(

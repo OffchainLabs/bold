@@ -9,6 +9,12 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/metrics"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengetree "github.com/offchainlabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
@@ -18,12 +24,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/ospgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/state-commitments/history"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/pkg/errors"
 )
 
@@ -285,7 +285,7 @@ func (e *specEdge) Bisect(
 	return lower, upper, nil
 }
 
-func (e *specEdge) ConfirmByTimer(ctx context.Context) (*types.Transaction, error) {
+func (e *specEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
 	s, err := e.Status(ctx)
 	if err != nil {
 		return nil, err
@@ -293,16 +293,7 @@ func (e *specEdge) ConfirmByTimer(ctx context.Context) (*types.Transaction, erro
 	if s == protocol.EdgeConfirmed {
 		return nil, nil
 	}
-	if e.GetChallengeLevel() != protocol.NewBlockChallengeLevel() {
-		return nil, errors.New("only block challenge edges can be confirmed by time")
-	}
-	if e.ClaimId().IsNone() {
-		return nil, errors.New("only root edges can be confirmed by time")
-	}
-	assertionHash := protocol.AssertionHash{
-		Hash: e.inner.ClaimId,
-	}
-	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, assertionHash)
+	assertionCreation, err := e.manager.assertionChain.ReadAssertionCreationInfo(ctx, claimedAssertion)
 	if err != nil {
 		return nil, err
 	}
