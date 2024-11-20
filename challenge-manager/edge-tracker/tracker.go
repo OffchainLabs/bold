@@ -500,9 +500,10 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 			protocol.AssertionHash{Hash: et.associatedAssertionMetadata.ClaimedAssertionHash},
 			chalPeriod,
 		); err != nil {
-			return false, errors.Wrap(
+			return false, errors.Wrapf(
 				err,
-				"could not complete confirmation job for royal, block challenge edge",
+				"could not complete confirmation job for essential root edge at level %d",
+				et.edge.GetChallengeLevel(),
 			)
 		}
 		// The edge is now confirmed.

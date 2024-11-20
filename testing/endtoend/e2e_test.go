@@ -115,6 +115,8 @@ func defaultProtocolParams() protocolParams {
 }
 
 func TestEndToEnd_SmokeTest(t *testing.T) {
+	timeCfg := defaultTimeParams()
+	timeCfg.blockTime = time.Second * 3
 	runEndToEndTest(t, &e2eConfig{
 		backend:  simulated,
 		protocol: defaultProtocolParams(),
@@ -122,7 +124,7 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 		actors: actorParams{
 			numEvilValidators: 1,
 		},
-		timings: defaultTimeParams(),
+		timings: timeCfg,
 		expectations: []expect{
 			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
 		},

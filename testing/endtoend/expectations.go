@@ -94,20 +94,17 @@ func expectChallengeWinWithAllHonestEssentialEdgesConfirmed(
 		t.Logf("Found %d honest essential root edges", len(honestEssentialRootIds))
 		// Wait until all of the honest essential root ids are confirmed.
 		confirmedCount := 0
-		for ctx.Err() == nil && confirmedCount != len(honestEssentialRootIds) {
+		for confirmedCount < len(honestEssentialRootIds) {
 			for k, markedConfirmed := range honestEssentialRootIds {
 				edge, err := cm.GetEdge(&bind.CallOpts{}, k)
 				require.NoError(t, err)
 				if edge.Status == 1 && !markedConfirmed {
 					confirmedCount += 1
 					honestEssentialRootIds[k] = true
-					t.Logf("Confirmed %d honest essential edges", confirmedCount)
+					t.Logf("Confirmed %d honest essential edges, got edge at level %d", confirmedCount, edge.Level)
 				}
 			}
 			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-		}
-		if confirmedCount != len(honestEssentialRootIds) {
-			t.Fatalf("Wanted to confirm %d honest essential root edges, but only found %d confirmed", len(honestEssentialRootIds), confirmedCount)
 		}
 	})
 	return nil

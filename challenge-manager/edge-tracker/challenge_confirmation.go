@@ -180,7 +180,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 		onchainTimerDifferAfterConfirmationJobCounter.Inc(1)
 		log.Error(
 			fmt.Sprintf("Onchain timer %d was not >= %d after confirmation job", onchainInheritedTimer, challengePeriodBlocks),
-			fields,
+			fields...,
 		)
 		return fmt.Errorf(
 			"onchain timer %d after confirmation job was executed < challenge period %d",
@@ -233,7 +233,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 			// This means we can finish early as the onchain timer is already sufficient,
 			// and our transaction reverted. We can gracefully continue if so.
 			if strings.Contains(innerErr.Error(), protocol.ErrCachedTimeSufficient) {
-				log.Info("Onchain, cached timer for branch is already sufficient, so no need to transact", fields)
+				log.Info("Onchain, cached timer for branch is already sufficient, so no need to transact", fields...)
 				return nil, nil
 			}
 			fields = append(fields, "err", innerErr)
