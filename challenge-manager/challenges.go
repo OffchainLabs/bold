@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
@@ -26,18 +25,6 @@ import (
 // challenge committing to the correct assertion to rival one or more incorrect
 // assertions.
 func (m *Manager) HandleCorrectRival(ctx context.Context, riv protocol.AssertionHash) error {
-	// Generate a random integer between 0 and max delay seconds to wait before
-	// challenging.
-	// This is to avoid all validators challenging at the same time.
-	mds := 1 // default max delay seconds to 1 to avoid panic
-	if m.MaxDelaySeconds() > 1 {
-		mds = m.MaxDelaySeconds()
-	}
-	randSecs, err := randUint64(uint64(mds))
-	if err != nil {
-		return err
-	}
-	time.Sleep(time.Duration(randSecs) * time.Second)
 	challengeSubmitted, err := m.ChallengeAssertion(ctx, riv)
 	if err != nil {
 		return err
