@@ -188,7 +188,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 			challengePeriodBlocks,
 		)
 	}
-	log.Info("Confirming edge by time", fields...)
+	log.Info("Confirming essential root edge by timer", fields...)
 	if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
 		if _, innerErr := royalRootEdge.ConfirmByTimer(ctx, claimedAssertionHash); innerErr != nil {
 			fields = append(fields, "err", innerErr)
@@ -199,7 +199,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	}); err != nil {
 		return err
 	}
-	log.Info("Challenge root edge confirmed, assertion can now be confirmed to finish challenge", fields...)
+	log.Info("Essential root edge confirmed by timer", fields...)
 	return nil
 }
 
@@ -221,8 +221,9 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 		"validatorName", cc.validatorName,
 		"challengedAssertionHash", fmt.Sprintf("%#x", challengedAssertionHash.Hash[:4]),
 		"claimedAssertionHash", fmt.Sprintf("%#x", claimedAssertionHash.Hash[:4]),
-		"royalRootBlockChallengeEdge", fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
+		"royalRootBlockChallengeEdge", fmt.Sprintf("%#x", royalRootEdge.Id().Bytes()[:4]),
 		"branch", fmt.Sprintf("%d/%d", branchIdx, totalBranches-1),
+		"challengeLevel", fmt.Sprintf("%d", royalRootEdge.GetChallengeLevel()),
 	}
 	tx, err := retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		tx, innerErr := cc.writer.MultiUpdateInheritedTimers(ctx, branch, computedLocalTimer)
@@ -235,7 +236,8 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 				log.Info("Onchain, cached timer for branch is already sufficient, so no need to transact", fields)
 				return nil, nil
 			}
-			log.Error("Could not transact multi-update inherited timers", fields, "err", innerErr)
+			fields = append(fields, "err", innerErr)
+			log.Error("Could not transact multi-update inherited timers", fields)
 			return nil, innerErr
 		}
 		return tx, nil
@@ -266,7 +268,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	}
 
 	// If yes, we confirm the root edge and finish early, we do so.
-	log.Info("Branch was confirmable by time", fields...)
+	log.Info("Branch was confirmable by timer", fields...)
 	tx, err = retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		innerTx, innerErr := royalRootEdge.ConfirmByTimer(ctx, claimedAssertionHash)
 		if innerErr != nil {
@@ -279,7 +281,7 @@ func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Challenge root edge confirmed, assertion can now be confirmed to finish challenge", fields...)
+	log.Info("Essential root edge confirmed by timer", fields...)
 	return tx, nil
 }
 

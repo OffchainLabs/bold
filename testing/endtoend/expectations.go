@@ -21,7 +21,7 @@ import (
 type expect func(t *testing.T, ctx context.Context, addresses *setup.RollupAddresses, be protocol.ChainBackend, honestValidatorAddress common.Address) error
 
 // Expects that an assertion is confirmed by challenge win.
-func expectAllHonestEssentialEdgesConfirmed(
+func expectChallengeWinWithAllHonestEssentialEdgesConfirmed(
 	t *testing.T,
 	ctx context.Context,
 	addresses *setup.RollupAddresses,
@@ -100,52 +100,13 @@ func expectAllHonestEssentialEdgesConfirmed(
 				require.NoError(t, err)
 				if edge.Status == 1 {
 					confirmedCount += 1
+					t.Logf("Confirmed %d honest essential edges", confirmedCount)
 				}
 			}
 			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
 		}
 		if confirmedCount != len(honestEssentialRootIds) {
 			t.Fatalf("Wanted to confirm %d honest essential root edges, but only found %d confirmed", len(honestEssentialRootIds), confirmedCount)
-		}
-	})
-	return nil
-}
-
-// Expects that an assertion is confirmed by challenge win.
-func expectAssertionConfirmedByChallengeWin(
-	t *testing.T,
-	ctx context.Context,
-	addresses *setup.RollupAddresses,
-	backend protocol.ChainBackend,
-	_ common.Address,
-) error {
-	t.Run("assertion confirmed by challenge win", func(t *testing.T) {
-		rc, err := rollupgen.NewRollupCore(addresses.Rollup, backend)
-		require.NoError(t, err)
-
-		var confirmed bool
-		for ctx.Err() == nil && !confirmed {
-			i, err := retry.UntilSucceeds(ctx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
-				return rc.FilterAssertionConfirmed(nil, nil)
-			})
-			require.NoError(t, err)
-			for i.Next() {
-				assertionNode, err := retry.UntilSucceeds(ctx, func() (rollupgen.AssertionNode, error) {
-					return rc.GetAssertion(&bind.CallOpts{Context: ctx}, i.Event.AssertionHash)
-				})
-				require.NoError(t, err)
-				isChallengeParent := assertionNode.FirstChildBlock > 0 && assertionNode.SecondChildBlock > 0
-				if isChallengeParent && assertionNode.Status != uint8(protocol.AssertionConfirmed) {
-					t.Fatal("Confirmed assertion with unfinished state")
-				}
-				confirmed = true
-				break
-			}
-			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-		}
-
-		if !confirmed {
-			t.Fatal("assertion was not confirmed")
 		}
 	})
 	return nil

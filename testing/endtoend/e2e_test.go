@@ -124,8 +124,7 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
-			expectAssertionConfirmedByChallengeWin,
-			// expectAllHonestEssentialEdgesConfirmed,
+			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
 		},
 	})
 }
@@ -150,8 +149,7 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 		},
 		timings: defaultTimeParams(),
 		expectations: []expect{
-			// Expect one assertion is confirmed by challenge win.
-			expectAssertionConfirmedByChallengeWin,
+			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
 		},
 	})
 }
@@ -172,8 +170,7 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 		},
 		timings: timeCfg,
 		expectations: []expect{
-			// Expect one assertion is confirmed by challenge win.
-			expectAssertionConfirmedByChallengeWin,
+			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
 		},
 	})
 }
@@ -194,8 +191,7 @@ func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 		},
 		timings: timeCfg,
 		expectations: []expect{
-			// Expect one assertion is confirmed by challenge win.
-			expectAssertionConfirmedByChallengeWin,
+			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
 		},
 	})
 }
