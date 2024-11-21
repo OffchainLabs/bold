@@ -10,14 +10,13 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/rpc"
-
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/rpc"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 var (
