@@ -109,8 +109,10 @@ func (ht *RoyalChallengeTree) IsConfirmableEssentialEdge(
 	}
 	// An essential edge is confirmable if all of its essential paths
 	// down the tree have a path weight >= the confirmation threshold.
-	// To do this, we compute the path weight of each path and find the minimum.
-	// Then, it is sufficient to check that the minimum is >= the confirmation threshold.
+	// To do this, we compute the path weight of each path
+	// and find the minimum.
+	// Then, it is sufficient to check that the minimum is
+	// greater than or equal to the confirmation threshold.
 	minWeight := uint64(math.MaxUint64)
 	for _, timers := range essentialTimers {
 		pathWeight := uint64(0)
