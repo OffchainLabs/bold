@@ -545,7 +545,7 @@ func TryConfirmingAssertion(
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
 			var blocksLeftForConfirmation int64
-			if confirmableAfterBlock > latestHeaderNumber {
+			if confirmableAfterBlock < latestHeaderNumber {
 				blocksLeftForConfirmation = 0
 			} else {
 				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestHeaderNumber)

@@ -452,16 +452,13 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	}
 	status, err := et.edge.Status(ctx)
 	if err != nil {
-		log.Error("Could not get edge status", fields...)
 		return false, errors.Wrap(err, "could not get edge status")
 	}
 	if status == protocol.EdgeConfirmed {
-		log.Error("Could already confirmed", fields...)
 		return true, nil
 	}
 	challengedAssertionHash, err := et.edge.AssertionHash(ctx)
 	if err != nil {
-		log.Error("Could not get challenged assertion hash", fields...)
 		return false, err
 	}
 	manager := et.chain.SpecChallengeManager()
@@ -474,7 +471,6 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		chalPeriod,
 	)
 	if err != nil {
-		log.Error("Could not check if essential edge is confirmable")
 		return false, errors.Wrap(err, "not check if essential edge is confirmable")
 	}
 	end := time.Since(start)
@@ -504,7 +500,6 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 			)
 		}
 		// The edge is now confirmed.
-		log.Info("This should be confirmed", fields...)
 		return true, nil
 	}
 	log.Info("Local computed timer not big enough to confirm edge", append(fields, localFields...)...)
