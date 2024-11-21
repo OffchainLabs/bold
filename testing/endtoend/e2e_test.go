@@ -136,7 +136,6 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
 	protocolCfg.numBigStepLevels = 2
-	protocolCfg.challengePeriodBlocks = 80
 	// A block can take a max of 2^42 wavm opcodes to validate.
 	protocolCfg.layerZeroHeights = protocol.LayerZeroHeights{
 		BlockChallengeHeight:     1 << 6,
@@ -159,7 +158,6 @@ func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
 
 func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 80
 	timeCfg := defaultTimeParams()
 	timeCfg.assertionPostingInterval = time.Hour
 	runEndToEndTest(t, &e2eConfig{
@@ -178,7 +176,6 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 
 func TestEndToEnd_ManyEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 80
 	timeCfg := defaultTimeParams()
 	timeCfg.assertionPostingInterval = time.Hour
 	runEndToEndTest(t, &e2eConfig{

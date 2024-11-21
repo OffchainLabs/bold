@@ -545,7 +545,7 @@ func TryConfirmingAssertion(
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
 			var blocksLeftForConfirmation int64
-			if confirmableAfterBlock < latestHeaderNumber {
+			if latestHeaderNumber > confirmableAfterBlock {
 				blocksLeftForConfirmation = 0
 			} else {
 				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestHeaderNumber)
@@ -1033,7 +1033,7 @@ func (a *AssertionChain) GetCallOptsWithSafeBlockNumber(opts *bind.CallOpts) *bi
 	// If we are running tests, we want to use the latest block number since
 	// simulated backends only support the latest block number.
 	if flag.Lookup("test.v") != nil {
-		return opts
+		return nil
 	}
 	opts.BlockNumber = big.NewInt(int64(rpc.SafeBlockNumber))
 	return opts
