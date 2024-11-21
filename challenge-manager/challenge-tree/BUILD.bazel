@@ -32,6 +32,7 @@ go_test(
         "compute_ancestors_test.go",
         "inherited_timer_test.go",
         "local_timer_test.go",
+        "paths_edge_cases_test.go",
         "paths_test.go",
         "tree_test.go",
     ],
@@ -44,6 +45,7 @@ go_test(
         "//layer2-state-provider",
         "//testing/mocks",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_stretchr_testify//require",
     ],
 )
