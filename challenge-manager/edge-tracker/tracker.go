@@ -9,7 +9,6 @@ package edgetracker
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -279,9 +278,6 @@ func (et *Tracker) Act(ctx context.Context) error {
 			return et.fsm.Do(edgeAwaitChallengeCompletion{})
 		}
 		if err := et.submitOneStepProof(ctx); err != nil {
-			if strings.Contains(et.validatorName, "evil") {
-				return et.fsm.Do(edgeAwaitChallengeCompletion{})
-			}
 			log.Trace("Could not submit one step proof", append(fields, "err", err)...)
 			et.fsm.MarkError(err)
 			return et.fsm.Do(edgeBackToStart{})
@@ -445,9 +441,6 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 	fields := et.uniqueTrackerLogFields()
 	// If the edge is not a root of a challenge or subchallenge, we have nothing to do here.
 	if et.edge.ClaimId().IsNone() {
-		return false, nil
-	}
-	if strings.Contains(et.validatorName, "evil") {
 		return false, nil
 	}
 	status, err := et.edge.Status(ctx)
