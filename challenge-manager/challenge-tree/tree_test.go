@@ -11,13 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/challenge-manager/challenge-tree/mock"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
 	"github.com/offchainlabs/bold/testing/mocks"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -255,10 +256,20 @@ func TestAddEdge(t *testing.T) {
 }
 
 type mockHonestEdge struct {
-	protocol.SpecEdge
+	*mock.Edge
 }
 
 func (m *mockHonestEdge) Honest() {}
+func (m *mockHonestEdge) Bisect(
+	ctx context.Context,
+	prefixHistoryRoot common.Hash,
+	prefixProof []byte,
+) (protocol.VerifiedRoyalEdge, protocol.VerifiedRoyalEdge, error) {
+	return m.Edge.Bisect(ctx, prefixHistoryRoot, prefixProof)
+}
+func (m *mockHonestEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
+	return m.Edge.ConfirmByTimer(ctx, claimedAssertion)
+}
 
 func TestAddHonestEdge(t *testing.T) {
 	createdAt := uint64(1)

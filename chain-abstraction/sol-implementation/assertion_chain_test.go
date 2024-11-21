@@ -292,7 +292,7 @@ func TestConfirmAssertionByChallengeWinner(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.VerifiedRoyalEdge {
 		startCommit, startErr := stateManager.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{
@@ -429,7 +429,7 @@ func TestIsChallengeComplete(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.VerifiedRoyalEdge {
 		startCommit, startErr := stateManager.HistoryCommitment(
 			ctx,
 			&l2stateprovider.HistoryCommitmentRequest{

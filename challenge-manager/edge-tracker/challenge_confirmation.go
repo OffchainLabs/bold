@@ -75,14 +75,14 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
 	computedTimer uint64,
-	royalRootEdge protocol.SpecEdge,
+	royalRootEdge protocol.VerifiedRoyalEdge,
 	claimedAssertionHash protocol.AssertionHash,
 	challengePeriodBlocks uint64,
 ) error {
 	fields := []any{
 		"validatorName", cc.validatorName,
 		"challengedAssertion", fmt.Sprintf("%#x", challengedAssertionHash.Hash[:4]),
-		"essentialEdgeId", fmt.Sprintf("%#x", royalRootEdge.Id().Hash.Bytes()[:4]),
+		"essentialEdgeId", fmt.Sprintf("%#x", royalRootEdge.Id().Bytes()[:4]),
 		"challengeLevel", royalRootEdge.GetChallengeLevel(),
 	}
 	log.Info("Starting challenge confirmation job", fields...)
@@ -206,7 +206,7 @@ func (cc *challengeConfirmer) beginConfirmationJob(
 
 func (cc *challengeConfirmer) propageTimerUpdateToBranch(
 	ctx context.Context,
-	royalRootEdge protocol.SpecEdge,
+	royalRootEdge protocol.VerifiedRoyalEdge,
 	computedLocalTimer uint64,
 	challengedAssertionHash protocol.AssertionHash,
 	branchIdx,

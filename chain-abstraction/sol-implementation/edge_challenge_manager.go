@@ -214,11 +214,12 @@ func (e *specEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 // Bisect the edge, returning the upper and lower edges.
 // If the upper child exists, both edges will be returned.
 // Lower child may optionally exist so the method will bisect regardless.
-func (e *specEdge) Bisect(
+func (h *honestEdge) Bisect(
 	ctx context.Context,
 	prefixHistoryRoot common.Hash,
 	prefixProof []byte,
 ) (protocol.VerifiedRoyalEdge, protocol.VerifiedRoyalEdge, error) {
+	e := h.specEdge
 	upperId, err := e.UpperChild(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -245,8 +246,8 @@ func (e *specEdge) Bisect(
 		if lowerEdge.IsNone() {
 			return nil, nil, errors.New("could not refresh lower edge after bisecting, got empty result")
 		}
-		lower := &honestEdge{lowerEdge.Unwrap()}
-		upper := &honestEdge{upperEdge.Unwrap()}
+		lower := &honestEdge{lowerEdge.Unwrap().(*specEdge)}
+		upper := &honestEdge{upperEdge.Unwrap().(*specEdge)}
 		return lower, upper, nil
 	}
 
@@ -280,12 +281,13 @@ func (e *specEdge) Bisect(
 	if someLowerChild.IsNone() || someUpperChild.IsNone() {
 		return nil, nil, errors.New("expected edge to have children post-bisection, but has none")
 	}
-	lower := &honestEdge{someLowerChild.Unwrap()}
-	upper := &honestEdge{someUpperChild.Unwrap()}
+	lower := &honestEdge{someLowerChild.Unwrap().(*specEdge)}
+	upper := &honestEdge{someUpperChild.Unwrap().(*specEdge)}
 	return lower, upper, nil
 }
 
-func (e *specEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
+func (h *honestEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
+	e := h.specEdge
 	s, err := e.Status(ctx)
 	if err != nil {
 		return nil, err
@@ -967,7 +969,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	}
 	someLevelZeroEdge, err := cm.GetEdge(ctx, edgeId)
 	if err == nil && !someLevelZeroEdge.IsNone() {
-		return &honestEdge{someLevelZeroEdge.Unwrap()}, nil
+		return &honestEdge{someLevelZeroEdge.Unwrap().(*specEdge)}, nil
 	}
 	args := challengeV2gen.CreateEdgeArgs{
 		Level:          protocol.NewBlockChallengeLevel().Uint8(),
@@ -1012,7 +1014,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if someLevelZeroEdge.IsNone() {
 		return nil, fmt.Errorf("edge with id %#x was not found onchain", edgeAdded.EdgeId)
 	}
-	return &honestEdge{someLevelZeroEdge.Unwrap()}, nil
+	return &honestEdge{someLevelZeroEdge.Unwrap().(*specEdge)}, nil
 }
 
 var subchallengeEdgeProofAbi = abi.Arguments{
@@ -1069,7 +1071,7 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		if e.IsNone() {
 			return nil, errors.New("got empty, newly created level zero edge")
 		}
-		return &honestEdge{e.Unwrap()}, nil
+		return &honestEdge{e.Unwrap().(*specEdge)}, nil
 	}
 
 	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(
@@ -1109,5 +1111,5 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	if e.IsNone() {
 		return nil, errors.New("got empty, newly created level zero edge")
 	}
-	return &honestEdge{e.Unwrap()}, nil
+	return &honestEdge{e.Unwrap().(*specEdge)}, nil
 }

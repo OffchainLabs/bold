@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
@@ -238,10 +239,22 @@ func TestWatcher_processEdgeAddedEvent(t *testing.T) {
 }
 
 type mockHonestEdge struct {
-	protocol.SpecEdge
+	*mocks.MockSpecEdge
 }
 
 func (m *mockHonestEdge) Honest() {}
+
+func (m *mockHonestEdge) Bisect(
+	ctx context.Context,
+	prefixHistoryRoot common.Hash,
+	prefixProof []byte,
+) (protocol.VerifiedRoyalEdge, protocol.VerifiedRoyalEdge, error) {
+	return m.MockSpecEdge.Bisect(ctx, prefixHistoryRoot, prefixProof)
+}
+
+func (m *mockHonestEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
+	return m.MockSpecEdge.ConfirmByTimer(ctx, claimedAssertion)
+}
 
 func TestWatcher_AddVerifiedHonestEdge(t *testing.T) {
 	ctx := context.Background()

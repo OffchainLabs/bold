@@ -6,12 +6,12 @@ package solimpl
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/solgen/go/challengeV2gen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -136,7 +136,7 @@ func (a *Assertion) Status(ctx context.Context) (protocol.AssertionStatus, error
 }
 
 type honestEdge struct {
-	protocol.SpecEdge
+	*specEdge
 }
 
 func (h *honestEdge) Honest() {}

@@ -53,7 +53,7 @@ func NewAnvilLocal(ctx context.Context) (*AnvilLocal, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.client = util.NewBackendWrapper(ethclient.NewClient(c))
+	a.client = util.NewBackendWrapper(ethclient.NewClient(c), rpc.LatestBlockNumber)
 	return a, nil
 }
 

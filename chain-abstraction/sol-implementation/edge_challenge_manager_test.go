@@ -33,7 +33,7 @@ func TestEdgeChallengeManager_IsUnrivaled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.VerifiedRoyalEdge {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
@@ -513,7 +513,7 @@ func TestEdgeChallengeManager_ConfirmByTime_MoreComplexScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.SpecEdge {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) protocol.VerifiedRoyalEdge {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
@@ -679,8 +679,8 @@ type bisectionScenario struct {
 	topLevelFork        *setup.CreatedValidatorFork
 	honestStateManager  l2stateprovider.Provider
 	evilStateManager    l2stateprovider.Provider
-	honestLevelZeroEdge protocol.SpecEdge
-	evilLevelZeroEdge   protocol.SpecEdge
+	honestLevelZeroEdge protocol.VerifiedRoyalEdge
+	evilLevelZeroEdge   protocol.VerifiedRoyalEdge
 	honestStartCommit   history.History
 	evilStartCommit     history.History
 }
@@ -699,7 +699,7 @@ func setupBisectionScenario(
 	require.NoError(t, err)
 
 	// Honest assertion being added.
-	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) (history.History, protocol.SpecEdge) {
+	leafAdder := func(stateManager l2stateprovider.Provider, leaf protocol.Assertion) (history.History, protocol.VerifiedRoyalEdge) {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
@@ -828,7 +828,7 @@ func setupOneStepProofScenario(
 	}
 
 	// Now opening big step level zero leaves at index 0
-	bigStepAdder := func(stateManager l2stateprovider.Provider, sourceEdge protocol.SpecEdge) protocol.SpecEdge {
+	bigStepAdder := func(stateManager l2stateprovider.Provider, sourceEdge protocol.SpecEdge) protocol.VerifiedRoyalEdge {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
@@ -949,7 +949,7 @@ func setupOneStepProofScenario(
 	require.Equal(t, true, isAtOneStepFork)
 
 	// Now opening small step level zero leaves at index 0
-	smallStepAdder := func(stateManager l2stateprovider.Provider, edge protocol.SpecEdge) protocol.SpecEdge {
+	smallStepAdder := func(stateManager l2stateprovider.Provider, edge protocol.SpecEdge) protocol.VerifiedRoyalEdge {
 		req := &l2stateprovider.HistoryCommitmentRequest{
 			WasmModuleRoot:              common.Hash{},
 			FromBatch:                   0,
