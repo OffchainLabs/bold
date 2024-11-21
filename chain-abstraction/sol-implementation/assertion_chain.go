@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum"
@@ -542,11 +543,14 @@ func TryConfirmingAssertion(
 
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
-			var blocksLeftForConfirmation uint64
+			var blocksLeftForConfirmation int64
 			if confirmableAfterBlock > latestHeaderNumber {
 				blocksLeftForConfirmation = 0
 			} else {
-				blocksLeftForConfirmation = confirmableAfterBlock - latestHeaderNumber
+				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestHeaderNumber)
+				if err != nil {
+					return false, err
+				}
 			}
 			timeToWait := averageTimeForBlockCreation * time.Duration(blocksLeftForConfirmation)
 			log.Info(

@@ -1177,5 +1177,9 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	if e.IsNone() {
 		return nil, errors.New("got empty, newly created level zero edge")
 	}
-	return &honestEdge{e.Unwrap().(*specEdge)}, nil
+	someSpecEdge, ok := e.Unwrap().(*specEdge)
+	if !ok {
+		return nil, errors.New("not a *specEdge")
+	}
+	return &honestEdge{someSpecEdge}, nil
 }

@@ -52,7 +52,11 @@ func (s *SimulatedBackendWrapper) Close() {
 }
 
 func (s *SimulatedBackendWrapper) Client() rpc.ClientInterface {
-	return s.Backend.Client().(rpc.ClientInterface)
+	iface, ok := s.Backend.Client().(rpc.ClientInterface)
+	if !ok {
+		panic("simulated backend client does not implement rpc.ClientInterface")
+	}
+	return iface
 }
 
 func (s *SimulatedBackendWrapper) Commit() common.Hash {
