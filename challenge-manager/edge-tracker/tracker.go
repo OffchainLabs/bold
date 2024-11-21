@@ -402,10 +402,7 @@ func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 		}
 		return status == protocol.EdgeConfirmed
 	}
-	claimedAssertion, err := et.chain.AssertionStatus(
-		ctx,
-		et.associatedAssertionMetadata.ClaimedAssertionHash,
-	)
+	assertionHash, err := et.edge.AssertionHash(ctx)
 	if err != nil {
 		log.Error("Could not get edge assertion hash", append(fields, "err", err)...)
 		return false
@@ -486,9 +483,8 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		"confirmableAfter", chalPeriod,
 		"edgeId", fmt.Sprintf("%#x", et.edge.Id().Bytes()[:4]),
 		"took", end,
-		"fromBatch", et.associatedAssertionMetadata.FromBatch,
-		"toBatch", et.associatedAssertionMetadata.ToBatch,
-		"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash[:4]),
+		"batchLimit", et.associatedAssertionMetadata.BatchLimit,
+		"claimedAssertion", fmt.Sprintf("%#x", et.associatedAssertionMetadata.ClaimedAssertionHash.Hash[:4]),
 	}
 	if isConfirmable {
 		log.Info("Local computed timer big enough to confirm edge", append(fields, localFields...)...)
@@ -497,7 +493,7 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 			challengedAssertionHash,
 			computedTimer,
 			et.edge,
-			protocol.AssertionHash{Hash: et.associatedAssertionMetadata.ClaimedAssertionHash},
+			et.associatedAssertionMetadata.ClaimedAssertionHash,
 			chalPeriod,
 		); err != nil {
 			log.Error("Could not begin confirmation job", fields...)

@@ -16,7 +16,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -68,7 +67,7 @@ var defaultTimings = timings{
 type Manager struct {
 	stopwaiter.StopWaiter
 	chain                       protocol.AssertionChain
-	backend                     bind.ContractBackend
+	backend                     protocol.ChainBackend
 	execProvider                l2stateprovider.ExecutionProvider
 	times                       timings
 	rollupAddr                  common.Address
