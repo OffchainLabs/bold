@@ -270,7 +270,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		baseChallengeManagerOpts,
 		challengemanager.WithAddress(txOpts.From),
 		challengemanager.WithName(name),
-		challengemanager.WithAPIEnabled("localhost:7257", "/tmp/mydb"),
 	)
 	honestManager := setupChallengeManager(
 		t, ctx, bk.Client(), rollupAddr.Rollup, honestStateManager, txOpts, honestOpts...,
