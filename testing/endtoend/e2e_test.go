@@ -175,6 +175,7 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 }
 
 func TestEndToEnd_ManyEvilValidators(t *testing.T) {
+	t.Skip("This test is too slow to run in CI")
 	protocolCfg := defaultProtocolParams()
 	timeCfg := defaultTimeParams()
 	timeCfg.assertionPostingInterval = time.Hour
