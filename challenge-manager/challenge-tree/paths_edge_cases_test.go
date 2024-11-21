@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/challenge-manager/challenge-tree/mock"
 	"github.com/offchainlabs/bold/containers/threadsafe"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_findEssentialPaths_edgeCases(t *testing.T) {
