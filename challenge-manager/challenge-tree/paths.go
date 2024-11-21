@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"slices"
 
 	"github.com/pkg/errors"
 
@@ -201,10 +200,10 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			if err != nil {
 				return nil, nil, err
 			}
-			lowerPath := append(slices.Clone(path), lowerChildId)
-			upperPath := append(slices.Clone(path), upperChildId)
-			lowerTimers := append(slices.Clone(currentTimers), lowerTimer)
-			upperTimers := append(slices.Clone(currentTimers), upperTimer)
+			lowerPath := append(append(EssentialPath{}, path...), lowerChildId)
+			upperPath := append(append(EssentialPath{}, path...), upperChildId)
+			lowerTimers := append(append(essentialLocalTimers{}, currentTimers...), lowerTimer)
+			upperTimers := append(append(essentialLocalTimers{}, currentTimers...), upperTimer)
 			stack.push(&visited{
 				essentialEdge: lowerChild,
 				path:          lowerPath,
@@ -223,8 +222,8 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			if err != nil {
 				return nil, nil, err
 			}
-			claimingPath := append(slices.Clone(path), claimingEdge.Id())
-			claimingTimers := append(slices.Clone(currentTimers), claimingEdgeTimer)
+			claimingPath := append(append(EssentialPath{}, path...), claimingEdge.Id())
+			claimingTimers := append(append(essentialLocalTimers{}, currentTimers...), claimingEdgeTimer)
 			stack.push(&visited{
 				essentialEdge: claimingEdge,
 				path:          claimingPath,

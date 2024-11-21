@@ -107,7 +107,7 @@ type protocolParams struct {
 func defaultProtocolParams() protocolParams {
 	return protocolParams{
 		numBigStepLevels:      1,
-		challengePeriodBlocks: 60,
+		challengePeriodBlocks: 40,
 		layerZeroHeights: protocol.LayerZeroHeights{
 			BlockChallengeHeight:     1 << 5,
 			BigStepChallengeHeight:   1 << 5,
@@ -300,14 +300,14 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 
 		// Honest validator has index 1 in the accounts slice, as 0 is admin, so
 		// evil ones should start at 2.
-		txOpts = accounts[2+i]
+		evilTxOpts := accounts[2+i]
 		name = fmt.Sprintf("evil-%d", i)
 		//nolint:gocritic
 		evilOpts := append(
 			baseStackOpts,
 			cm.StackWithName(name),
 		)
-		evilChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, txOpts)
+		evilChain := setupAssertionChain(t, ctx, bk.Client(), rollupAddr.Rollup, evilTxOpts)
 		evilManager, err := cm.NewChallengeStack(evilChain, evilStateManager, evilOpts...)
 		require.NoError(t, err)
 		evilChallengeManagers[i] = evilManager

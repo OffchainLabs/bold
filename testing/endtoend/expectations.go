@@ -96,8 +96,6 @@ func expectChallengeWinWithAllHonestEssentialEdgesConfirmed(
 			}
 			honestEssentialRootIds[it.Event.EdgeId] = false
 		}
-
-		t.Logf("Found %d honest essential root edges", len(honestEssentialRootIds))
 		// Wait until all of the honest essential root ids are confirmed.
 		confirmedCount := 0
 		for confirmedCount < len(honestEssentialRootIds) {
