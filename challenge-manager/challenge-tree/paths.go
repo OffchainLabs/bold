@@ -1,3 +1,7 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 package challengetree
 
 import (
@@ -7,10 +11,11 @@ import (
 	"math"
 	"slices"
 
+	"github.com/pkg/errors"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/offchainlabs/bold/containers/option"
-	"github.com/pkg/errors"
 )
 
 type ComputePathWeightArgs struct {
@@ -286,6 +291,7 @@ func (s *stack[T]) pop() option.Option[T] {
 	tail := s.dll.Back()
 	val := tail.Value
 	s.dll.Remove(tail)
+	// nolint:errcheck
 	return option.Some(val.(T))
 }
 

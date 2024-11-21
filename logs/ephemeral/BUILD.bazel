@@ -10,6 +10,7 @@ go_library(
 
 go_test(
     name = "ephemeral_test",
+    size = "small",
     srcs = ["log_test.go"],
     embed = [":ephemeral"],
     deps = ["@com_github_ethereum_go_ethereum//log"],

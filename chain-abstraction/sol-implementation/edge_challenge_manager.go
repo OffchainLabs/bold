@@ -1,5 +1,6 @@
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
 package solimpl
 
@@ -8,6 +9,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+
+	"github.com/ccoveille/go-safecast"
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -24,7 +28,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/ospgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/state-commitments/history"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -319,7 +322,7 @@ func (h *honestEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protoc
 				MachineStatus:  assertionCreation.AfterState.MachineStatus,
 				EndHistoryRoot: assertionCreation.AfterState.EndHistoryRoot,
 			},
-			PrevAssertionHash: assertionCreation.ParentAssertionHash,
+			PrevAssertionHash: assertionCreation.ParentAssertionHash.Hash,
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		})
 	})
@@ -391,6 +394,7 @@ type specChallengeManager struct {
 	caller                *challengeV2gen.EdgeChallengeManagerCaller
 	writer                *challengeV2gen.EdgeChallengeManagerTransactor
 	filterer              *challengeV2gen.EdgeChallengeManagerFilterer
+	layerZeroHeights      *protocol.LayerZeroHeights
 	challengePeriodBlocks uint64
 	numBigStepLevel       uint8
 }
@@ -408,11 +412,16 @@ func NewSpecChallengeManager(
 	if err != nil {
 		return nil, err
 	}
-	numBigStepLevel, err := managerBinding.EdgeChallengeManagerCaller.NUMBIGSTEPLEVEL(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	caller := managerBinding.EdgeChallengeManagerCaller
+	numBigStepLevel, err := caller.NUMBIGSTEPLEVEL(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
-	challengePeriodBlocks, err := managerBinding.EdgeChallengeManagerCaller.ChallengePeriodBlocks(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	challengePeriodBlocks, err := caller.ChallengePeriodBlocks(assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return nil, err
+	}
+	lzh, err := lookupLayerZeroHeights(ctx, assertionChain, caller)
 	if err != nil {
 		return nil, err
 	}
@@ -424,8 +433,9 @@ func NewSpecChallengeManager(
 		caller:                &managerBinding.EdgeChallengeManagerCaller,
 		writer:                &managerBinding.EdgeChallengeManagerTransactor,
 		filterer:              &managerBinding.EdgeChallengeManagerFilterer,
-		numBigStepLevel:       numBigStepLevel,
+		layerZeroHeights:      lzh,
 		challengePeriodBlocks: challengePeriodBlocks,
+		numBigStepLevel:       numBigStepLevel,
 	}, nil
 }
 
@@ -433,22 +443,26 @@ func (cm *specChallengeManager) Address() common.Address {
 	return cm.addr
 }
 
-func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
-	h, err := cm.caller.LAYERZEROBLOCKEDGEHEIGHT(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+func (cm *specChallengeManager) LayerZeroHeights() protocol.LayerZeroHeights {
+	return *cm.layerZeroHeights
+}
+
+func lookupLayerZeroHeights(ctx context.Context, chain *AssertionChain, caller challengeV2gen.EdgeChallengeManagerCaller) (*protocol.LayerZeroHeights, error) {
+	h, err := caller.LAYERZEROBLOCKEDGEHEIGHT(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
 	if !h.IsUint64() {
 		return nil, errors.New("layer zero block edge height was not a uint64")
 	}
-	bs, err := cm.caller.LAYERZEROBIGSTEPEDGEHEIGHT(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	bs, err := caller.LAYERZEROBIGSTEPEDGEHEIGHT(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
 	if !bs.IsUint64() {
 		return nil, errors.New("layer zero big step edge height was not a uint64")
 	}
-	ss, err := cm.caller.LAYERZEROSMALLSTEPEDGEHEIGHT(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	ss, err := caller.LAYERZEROSMALLSTEPEDGEHEIGHT(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
 	if err != nil {
 		return nil, err
 	}
@@ -456,14 +470,14 @@ func (cm *specChallengeManager) LayerZeroHeights(ctx context.Context) (*protocol
 		return nil, errors.New("layer zero small step height was not a uint64")
 	}
 	return &protocol.LayerZeroHeights{
-		BlockChallengeHeight:     h.Uint64(),
-		BigStepChallengeHeight:   bs.Uint64(),
-		SmallStepChallengeHeight: ss.Uint64(),
+		BlockChallengeHeight:     protocol.Height(h.Uint64()),
+		BigStepChallengeHeight:   protocol.Height(bs.Uint64()),
+		SmallStepChallengeHeight: protocol.Height(ss.Uint64()),
 	}, nil
 }
 
-func (cm *specChallengeManager) NumBigSteps(ctx context.Context) (uint8, error) {
-	return cm.numBigStepLevel, nil
+func (cm *specChallengeManager) NumBigSteps() uint8 {
+	return cm.numBigStepLevel
 }
 
 func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (uint64, error) {
@@ -478,10 +492,8 @@ func (cm *specChallengeManager) LevelZeroBlockEdgeHeight(ctx context.Context) (u
 }
 
 // ChallengePeriodBlocks is the duration of the challenge period in blocks.
-func (cm *specChallengeManager) ChallengePeriodBlocks(
-	ctx context.Context,
-) (uint64, error) {
-	return cm.challengePeriodBlocks, nil
+func (cm *specChallengeManager) ChallengePeriodBlocks() uint64 {
+	return cm.challengePeriodBlocks
 }
 
 var uint8Type = newStaticType("uint8", "", nil)
@@ -538,10 +550,6 @@ func (cm *specChallengeManager) GetEdge(
 	if !edge.EndHeight.IsUint64() {
 		return option.None[protocol.SpecEdge](), errors.New("end height not a uint64")
 	}
-	numbigsteplevel, err := cm.NumBigSteps(ctx)
-	if err != nil {
-		return option.Option[protocol.SpecEdge]{}, err
-	}
 	assertionHash, err := cm.caller.GetPrevAssertionHash(cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), edgeId.Hash)
 	if err != nil {
 		return option.Option[protocol.SpecEdge]{}, err
@@ -554,7 +562,7 @@ func (cm *specChallengeManager) GetEdge(
 		startHeight:          edge.StartHeight.Uint64(),
 		endHeight:            edge.EndHeight.Uint64(),
 		miniStaker:           miniStaker,
-		totalChallengeLevels: numbigsteplevel + 2,
+		totalChallengeLevels: cm.NumBigSteps() + 2,
 		assertionHash:        protocol.AssertionHash{Hash: common.Hash(assertionHash)},
 	})), nil
 }
@@ -627,13 +635,21 @@ func (cm *specChallengeManager) CalculateEdgeId(
 	endHeight protocol.Height,
 	endHistoryRoot common.Hash,
 ) (protocol.EdgeId, error) {
+	startInt64, err := safecast.ToInt64(startHeight)
+	if err != nil {
+		return protocol.EdgeId{}, err
+	}
+	endInt64, err := safecast.ToInt64(endHeight)
+	if err != nil {
+		return protocol.EdgeId{}, err
+	}
 	id, err := cm.caller.CalculateEdgeId(
 		cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		challengeLevel.Uint8(),
 		originId,
-		big.NewInt(int64(startHeight)),
+		big.NewInt(startInt64),
 		startHistoryRoot,
-		big.NewInt(int64(endHeight)),
+		big.NewInt(endInt64),
 		endHistoryRoot,
 	)
 	return protocol.EdgeId{Hash: id}, err
@@ -783,21 +799,24 @@ func (cm *specChallengeManager) ConfirmEdgeByOneStepProof(
 		Bridge:                bridgeAddr,
 		InitialWasmModuleRoot: creationInfo.WasmModuleRoot,
 	}
+	machStepInt64, err := safecast.ToInt64(machineStep)
+	if err != nil {
+		return err
+	}
 	result, err := ospBindings.ProveOneStep(
 		cm.assertionChain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}),
 		execCtx,
-		big.NewInt(int64(machineStep)),
+		big.NewInt(machStepInt64),
 		oneStepData.BeforeHash,
 		oneStepData.Proof,
 	)
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"could not pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x, actual expected after hash %#x",
+			"could not pre-check one step proof at machine step %d: before hash %#x, computed after hash %#x",
 			machineStep,
 			oneStepData.BeforeHash,
 			oneStepData.AfterHash,
-			result,
 		)
 	}
 	if _, err = cm.assertionChain.transact(
@@ -953,12 +972,12 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 		endCommit.LastLeafProof,
 		AssertionStateData{
 			AssertionState:    parentAssertionCreation.AfterState,
-			PrevAssertionHash: parentAssertionCreation.ParentAssertionHash,
+			PrevAssertionHash: parentAssertionCreation.ParentAssertionHash.Hash,
 			InboxAcc:          parentAssertionCreation.AfterInboxBatchAcc,
 		},
 		AssertionStateData{
 			AssertionState:    assertionCreation.AfterState,
-			PrevAssertionHash: assertionCreation.ParentAssertionHash,
+			PrevAssertionHash: assertionCreation.ParentAssertionHash.Hash,
 			InboxAcc:          assertionCreation.AfterInboxBatchAcc,
 		},
 	)
@@ -969,7 +988,7 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	edgeId, err := cm.CalculateEdgeId(
 		ctx,
 		protocol.NewBlockChallengeLevel(),
-		protocol.OriginId(assertionCreation.ParentAssertionHash),
+		protocol.OriginId(assertionCreation.ParentAssertionHash.Hash),
 		protocol.Height(startCommit.Height),
 		startCommit.Merkle,
 		protocol.Height(endCommit.Height),
@@ -982,11 +1001,15 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if err == nil && !someLevelZeroEdge.IsNone() {
 		return &honestEdge{someLevelZeroEdge.Unwrap().(*specEdge)}, nil
 	}
+	endCommitInt64, err := safecast.ToInt64(endCommit.Height)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not convert end commit height to int64")
+	}
 	args := challengeV2gen.CreateEdgeArgs{
 		Level:          protocol.NewBlockChallengeLevel().Uint8(),
 		EndHistoryRoot: endCommit.Merkle,
-		EndHeight:      big.NewInt(int64(endCommit.Height)),
-		ClaimId:        assertionCreation.AssertionHash,
+		EndHeight:      big.NewInt(endCommitInt64),
+		ClaimId:        assertionCreation.AssertionHash.Hash,
 		PrefixProof:    startEndPrefixProof,
 		Proof:          blockEdgeProof,
 	}
@@ -1095,13 +1118,17 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 	if err != nil {
 		return nil, err
 	}
+	endCommitInt64, err := safecast.ToInt64(endCommit.Height)
+	if err != nil {
+		return nil, err
+	}
 	_, err = cm.assertionChain.transact(ctx, cm.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return cm.writer.CreateLayerZeroEdge(
 			opts,
 			challengeV2gen.CreateEdgeArgs{
 				Level:          subChalTyp.Uint8(),
 				EndHistoryRoot: endCommit.Merkle,
-				EndHeight:      big.NewInt(int64(endCommit.Height)),
+				EndHeight:      big.NewInt(endCommitInt64),
 				ClaimId:        challengedEdge.Id().Hash,
 				PrefixProof:    startEndPrefixProof,
 				Proof:          subchallengeEdgeProof,

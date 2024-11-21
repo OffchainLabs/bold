@@ -1,7 +1,8 @@
+// Copyright 2023-2024, Offchain Labs, Inc.
+// For license information, see:
+// https://github.com/offchainlabs/bold/blob/main/LICENSE.md
+
 // Package setup prepares a simulated backend for testing.
-//
-// Copyright 2023, Offchain Labs, Inc.
-// For license information, see https://github.com/offchainlabs/bold/blob/main/LICENSE
 package setup
 
 import (
@@ -10,6 +11,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/ethereum/go-ethereum/rpc"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
@@ -33,7 +38,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/yulgen"
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
-	"github.com/pkg/errors"
 )
 
 type Committer interface {
@@ -60,9 +64,11 @@ type CreateForkConfig struct {
 
 func CreateTwoValidatorFork(
 	ctx context.Context,
+	t testing.TB,
 	cfg *CreateForkConfig,
 	opts ...Opt,
 ) (*CreatedValidatorFork, error) {
+	t.Helper()
 	setup, err := ChainsWithEdgeChallengeManager(opts...)
 	if err != nil {
 		return nil, err
@@ -83,7 +89,7 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	honestStateManager, err := statemanager.NewForSimpleMachine(setup.StateManagerOpts...)
+	honestStateManager, err := statemanager.NewForSimpleMachine(t, setup.StateManagerOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,15 +112,15 @@ func CreateTwoValidatorFork(
 		statemanager.WithDivergentBlockHeightOffset(cfg.BlockHeightDifference),
 		statemanager.WithMachineDivergenceStep(cfg.DivergeMachineHeight),
 	)
-	evilStateManager, err := statemanager.NewForSimpleMachine(stateManagerOpts...)
+	evilStateManager, err := statemanager.NewForSimpleMachine(t, stateManagerOpts...)
 	if err != nil {
 		return nil, err
 	}
-	genesis, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, cfg.BlockChallengeHeight)
+	genesis, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil)
 	if err != nil {
 		return nil, err
 	}
-	honestPostState, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesis.GlobalState, cfg.BlockChallengeHeight)
+	honestPostState, err := honestStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesis.GlobalState)
 	if err != nil {
 		return nil, err
 	}
@@ -127,11 +133,11 @@ func CreateTwoValidatorFork(
 		return nil, err
 	}
 
-	genesis, err = evilStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil, cfg.BlockChallengeHeight)
+	genesis, err = evilStateManager.ExecutionStateAfterPreviousState(ctx, 0, nil)
 	if err != nil {
 		return nil, err
 	}
-	evilPostState, err := evilStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesis.GlobalState, cfg.BlockChallengeHeight)
+	evilPostState, err := evilStateManager.ExecutionStateAfterPreviousState(ctx, 1, &genesis.GlobalState)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +291,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	var safeProxyAddress common.Address
 	if setp.EnableSafeFastConfirmation {
 		var safeAddress common.Address
-		safeAddress, err = retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		safeAddress, err = retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			safeAddress, tx, _, err = contractsgen.DeploySafeL2(accs[0].TxOpts, backend)
 			if err != nil {
 				return common.Address{}, err
@@ -300,7 +306,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 			return nil, err
 		}
 
-		safeProxyAddress, err = retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		safeProxyAddress, err = retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			safeProxyAddress, tx, _, err = proxiesgen.DeploySafeProxy(accs[0].TxOpts, backend, safeAddress)
 			if err != nil {
 				return common.Address{}, err
@@ -409,10 +415,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 		}
 		chains = append(chains, chain)
 	}
-	chalManager, err := chains[1].SpecChallengeManager(ctx)
-	if err != nil {
-		return nil, err
-	}
+	chalManager := chains[1].SpecChallengeManager()
 	chalManagerAddr := chalManager.Address()
 	seed, ok := new(big.Int).SetString("10000", 10)
 	if !ok {
@@ -499,7 +502,7 @@ func DeployFullRollupStack(
 	}
 
 	log.Info("Creating rollup")
-	tx, err := retry.UntilSucceeds[*types.Transaction](ctx, func() (*types.Transaction, error) {
+	tx, err := retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		creationTx, creationErr := rollupCreator.CreateRollup(
 			deployAuth,
 			rollupgen.RollupCreatorRollupDeploymentParams{
@@ -567,7 +570,7 @@ func DeployFullRollupStack(
 	}
 	// if a zero sequencer address is specified, don't authorize any sequencers
 	if sequencer != (common.Address{}) {
-		setIsBatchPoster, err2 := seqInboxABI.Pack("setIsBatchPoster", deployAuth.From, true)
+		setIsBatchPoster, err2 := seqInboxABI.Pack("setIsBatchPoster", sequencer, true)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -626,7 +629,7 @@ func deployBridgeCreator(
 		}
 	} else {
 		log.Info("Deploying bridge template")
-		bridgeTemplate, err = retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		bridgeTemplate, err = retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			bridgeTemplateAddr, tx, _, err2 := bridgegen.DeployBridge(auth, backend)
 			if err2 != nil {
 				return common.Address{}, err2
@@ -660,7 +663,7 @@ func deployBridgeCreator(
 
 	maxDataSize := big.NewInt(challenge_testing.MaxDataSize)
 	log.Info("Deploying seq inbox")
-	seqInboxTemplate, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	seqInboxTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		seqInboxTemplateAddr, tx, _, err2 := bridgegen.DeploySequencerInbox(auth, backend, maxDataSize, datahashesReader, false /* no fee token */, false /* disable delay buffer */)
 		if err2 != nil {
 			return common.Address{}, err2
@@ -676,7 +679,7 @@ func deployBridgeCreator(
 	}
 
 	log.Info("Deploying seq inbox bufferable")
-	seqInboxBufferableTemplate, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	seqInboxBufferableTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		seqInboxTemplateAddr, tx, _, err2 := bridgegen.DeploySequencerInbox(auth, backend, maxDataSize, datahashesReader, false /* no fee token */, true /* enable delay buffer */)
 		if err2 != nil {
 			return common.Address{}, err2
@@ -692,7 +695,7 @@ func deployBridgeCreator(
 	}
 
 	log.Info("Deploying inbox")
-	inboxTemplate, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	inboxTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		inboxTemplateAddr, tx, _, err2 := bridgegen.DeployInbox(auth, backend, maxDataSize)
 		if err2 != nil {
 			return common.Address{}, err2
@@ -708,7 +711,7 @@ func deployBridgeCreator(
 	}
 
 	log.Info("Deploying event bridge")
-	rollupEventBridgeTemplate, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	rollupEventBridgeTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		rollupEventBridgeTemplateAddr, tx, _, err2 := mocksgen.DeployMockRollupEventInbox(auth, backend)
 		if err2 != nil {
 			return common.Address{}, err2
@@ -724,7 +727,7 @@ func deployBridgeCreator(
 	}
 
 	log.Info("Deploying outbox")
-	outboxTemplate, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	outboxTemplate, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		outboxTemplateAddr, tx, _, err2 := bridgegen.DeployOutbox(auth, backend)
 		if err2 != nil {
 			return common.Address{}, err
@@ -795,7 +798,7 @@ func deployBridgeCreator(
 		bridgeCreator     *rollupgen.BridgeCreator
 	}
 	log.Info("Deploying bridge creator itself")
-	result, err := retry.UntilSucceeds[*bridgeCreationResult](ctx, func() (*bridgeCreationResult, error) {
+	result, err := retry.UntilSucceeds(ctx, func() (*bridgeCreationResult, error) {
 		bridgeCreatorAddr, tx, bridgeCreator, err2 := rollupgen.DeployBridgeCreator(auth, backend, ethTemplates, erc20Templates)
 		if err2 != nil {
 			return nil, err2
@@ -814,7 +817,7 @@ func deployBridgeCreator(
 	}
 
 	log.Info("Updating bridge creator templates")
-	_, err = retry.UntilSucceeds[*types.Transaction](ctx, func() (*types.Transaction, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		tx, err2 := result.bridgeCreator.UpdateTemplates(auth, ethTemplates)
 		if err2 != nil {
 			return nil, err2
@@ -828,7 +831,7 @@ func deployBridgeCreator(
 	if err != nil {
 		return common.Address{}, err
 	}
-	_, err = retry.UntilSucceeds[*types.Transaction](ctx, func() (*types.Transaction, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		tx, err2 := result.bridgeCreator.UpdateERC20Templates(auth, erc20Templates)
 		if err2 != nil {
 			return nil, err2
@@ -860,7 +863,7 @@ func deployChallengeFactory(
 		ospEntryAddr = ospEntry
 	} else {
 		log.Info("Deploying osp0")
-		osp0, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		osp0, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			osp0Addr, _, _, err2 := ospgen.DeployOneStepProver0(auth, backend)
 			if err2 != nil {
 				return common.Address{}, err2
@@ -871,7 +874,7 @@ func deployChallengeFactory(
 			return common.Address{}, common.Address{}, err
 		}
 		log.Info("Deploying ospMem")
-		ospMem, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		ospMem, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			ospMemAddr, _, _, err2 := ospgen.DeployOneStepProverMemory(auth, backend)
 			if err2 != nil {
 				return common.Address{}, err2
@@ -882,7 +885,7 @@ func deployChallengeFactory(
 			return common.Address{}, common.Address{}, err
 		}
 		log.Info("Deploying ospMath")
-		ospMath, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		ospMath, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			ospMathAddr, _, _, err2 := ospgen.DeployOneStepProverMath(auth, backend)
 			if err2 != nil {
 				return common.Address{}, err2
@@ -893,7 +896,7 @@ func deployChallengeFactory(
 			return common.Address{}, common.Address{}, err
 		}
 		log.Info("Deploying ospHostIo")
-		ospHostIo, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		ospHostIo, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			ospHostIoAddr, _, _, err2 := ospgen.DeployOneStepProverHostIo(auth, backend)
 			if err2 != nil {
 				return common.Address{}, err2
@@ -904,7 +907,7 @@ func deployChallengeFactory(
 			return common.Address{}, common.Address{}, err
 		}
 		log.Info("Deploying ospEntry")
-		ospEntry, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+		ospEntry, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 			ospEntryAddr2, _, _, err2 := ospgen.DeployOneStepProofEntry(auth, backend, osp0, ospMem, ospMath, ospHostIo)
 			if err2 != nil {
 				return common.Address{}, err2
@@ -917,7 +920,7 @@ func deployChallengeFactory(
 		ospEntryAddr = ospEntry
 	}
 	log.Info("Deploying edge challenge manager")
-	edgeChallengeManagerAddr, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	edgeChallengeManagerAddr, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		edgeChallengeManagerAddr2, _, _, err2 := challengeV2gen.DeployEdgeChallengeManager(
 			auth,
 			backend,
@@ -952,7 +955,7 @@ func deployRollupCreator(
 	}
 
 	log.Info("Deploying admin logic contracts")
-	rollupAdminLogic, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	rollupAdminLogic, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		rollupAdminLogicAddr, tx, _, err2 := rollupgen.DeployRollupAdminLogic(auth, backend)
 		if err2 != nil {
 			return common.Address{}, err2
@@ -968,7 +971,7 @@ func deployRollupCreator(
 	}
 
 	log.Info("Deploying user logic contracts")
-	rollupUserLogic, err := retry.UntilSucceeds[common.Address](ctx, func() (common.Address, error) {
+	rollupUserLogic, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
 		rollupUserLogicAddr, tx, _, err2 := rollupgen.DeployRollupUserLogic(auth, backend)
 		err2 = challenge_testing.TxSucceeded(ctx, tx, rollupUserLogicAddr, backend, err2)
 		if err2 != nil {
@@ -986,7 +989,7 @@ func deployRollupCreator(
 	}
 
 	log.Info("Deploying rollup creator contract")
-	result, err := retry.UntilSucceeds[*creatorResult](ctx, func() (*creatorResult, error) {
+	result, err := retry.UntilSucceeds(ctx, func() (*creatorResult, error) {
 		rollupCreatorAddress, tx, rollupCreator, err2 := rollupgen.DeployRollupCreator(auth, backend)
 		if err2 != nil {
 			return nil, err2
@@ -1034,7 +1037,7 @@ func deployRollupCreator(
 	}
 
 	log.Info("Setting rollup templates")
-	_, err = retry.UntilSucceeds[*types.Transaction](ctx, func() (*types.Transaction, error) {
+	_, err = retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
 		tx, err2 := result.rollupCreator.SetTemplates(
 			auth,
 			bridgeCreator,
