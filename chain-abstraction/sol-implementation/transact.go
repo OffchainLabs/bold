@@ -5,9 +5,10 @@ package solimpl
 
 import (
 	"context"
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"math/big"
 	"time"
+
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -135,7 +136,7 @@ func (a *AssertionChain) waitForTxToBeSafe(
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		latestSafeHeaderNumber, err := backend.HeaderNumberUint64(ctx, a.GetDesiredRpcHeadBlockNumber())
+		latestSafeHeaderNumber, err := backend.HeaderU64(ctx)
 		if err != nil {
 			return nil, err
 		}

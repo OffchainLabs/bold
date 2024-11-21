@@ -201,7 +201,7 @@ func (m *Manager) waitToPostIfNeeded(
 	ctx context.Context,
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 ) error {
-	latestBlockNumber, err := m.backend.HeaderNumberUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
+	latestBlockNumber, err := m.backend.HeaderU64(ctx)
 	if err != nil {
 		return err
 	}

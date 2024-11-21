@@ -52,7 +52,7 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 		return
 	}
 	toBlock, err := retry.UntilSucceeds(ctx, func() (uint64, error) {
-		return m.backend.HeaderNumberUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
+		return m.backend.HeaderU64(ctx)
 	})
 	if err != nil {
 		log.Error("Could not get header by number", "err", err)
@@ -84,7 +84,7 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			toBlock, err := m.backend.HeaderNumberUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
+			toBlock, err := m.backend.HeaderU64(ctx)
 			if err != nil {
 				log.Error("Could not get header by number", "err", err)
 				continue

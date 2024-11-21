@@ -160,32 +160,6 @@ func (m *Manager) Start(ctx context.Context) {
 	m.LaunchThread(m.updateLatestConfirmedMetrics)
 	m.LaunchThread(m.syncAssertions)
 	m.LaunchThread(m.queueCanonicalAssertionsForConfirmation)
-	m.LaunchThread(m.checkLatestDesiredBlock)
-}
-
-func (m *Manager) checkLatestDesiredBlock(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(time.Minute):
-			latestSafeBlockNumber, err := m.backend.HeaderNumberUint64(ctx, m.chain.GetDesiredRpcHeadBlockNumber())
-			if err != nil {
-				log.Error("Error getting latest safe block", "err", err)
-				continue
-			}
-			latestBlock, err := m.backend.HeaderNumberUint64(ctx, nil)
-			if err != nil {
-				log.Error("Error getting latest block", "err", err)
-				continue
-			}
-			safeBlockDelayInSeconds := (latestBlock - latestSafeBlockNumber) * uint64(m.averageTimeForBlockCreation.Seconds())
-			if safeBlockDelayInSeconds > 1200 {
-				log.Warn("Latest safe block is delayed by more that 20 minutes", "latestSafeBlockNumber", latestSafeBlockNumber, "latestBlock", latestBlock)
-				safeBlockDelayCounter.Inc(1)
-			}
-		}
-	}
 }
 
 func (m *Manager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {

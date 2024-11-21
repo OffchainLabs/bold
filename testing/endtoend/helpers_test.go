@@ -140,11 +140,11 @@ func (f *FlakyEthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*
 	return f.ChainBackend.HeaderByNumber(ctx, number)
 }
 
-func (f *FlakyEthClient) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
+func (f *FlakyEthClient) HeaderU64(ctx context.Context) (uint64, error) {
 	if err := f.flaky(); err != nil {
 		return 0, err
 	}
-	return f.ChainBackend.HeaderNumberUint64(ctx, number)
+	return f.ChainBackend.HeaderU64(ctx)
 }
 
 func (f *FlakyEthClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {

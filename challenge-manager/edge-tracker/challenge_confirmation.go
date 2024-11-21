@@ -297,7 +297,7 @@ func (cc *challengeConfirmer) waitForTxToBeSafe(
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		latestSafeHeaderNumber, err := backend.HeaderNumberUint64(ctx, cc.chain.GetDesiredRpcHeadBlockNumber())
+		latestSafeHeaderNumber, err := backend.HeaderU64(ctx)
 		if err != nil {
 			return err
 		}

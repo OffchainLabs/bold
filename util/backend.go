@@ -3,26 +3,31 @@ package util
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/ethclient"
-	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 
 var (
-	_ protocol.ChainBackend = &BackendWrapper{}
+	_ protocol.ChainBackend = &BackendWrapper{
+		desiredBlockNum: rpc.LatestBlockNumber,
+	}
 )
 
 type ethClient = ethclient.Client
 type BackendWrapper struct {
 	*ethClient
+	desiredBlockNum rpc.BlockNumber
 }
 
-func NewBackendWrapper(client *ethclient.Client) *BackendWrapper {
-	return &BackendWrapper{client}
+func NewBackendWrapper(client *ethclient.Client, desiredBlockNum rpc.BlockNumber) *BackendWrapper {
+	return &BackendWrapper{client, desiredBlockNum}
 }
 
-func (b BackendWrapper) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
-	header, err := b.ethClient.HeaderByNumber(ctx, number)
+func (b BackendWrapper) HeaderU64(ctx context.Context) (uint64, error) {
+	header, err := b.ethClient.HeaderByNumber(ctx, big.NewInt(int64(b.desiredBlockNum)))
 	if err != nil {
 		return 0, err
 	}

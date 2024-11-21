@@ -3,9 +3,10 @@ package solimpl
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -76,7 +77,7 @@ func Test_median(t *testing.T) {
 
 type MockContractBackend struct{}
 
-func (m *MockContractBackend) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
+func (m *MockContractBackend) HeaderU64(ctx context.Context) (uint64, error) {
 	return 0, nil
 }
 

@@ -527,7 +527,7 @@ func TryConfirmingAssertion(
 	}
 	for {
 		var latestHeaderNumber uint64
-		latestHeaderNumber, err = chain.Backend().HeaderNumberUint64(ctx, chain.GetDesiredRpcHeadBlockNumber())
+		latestHeaderNumber, err = chain.Backend().HeaderU64(ctx)
 		if err != nil {
 			return false, err
 		}
@@ -845,7 +845,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		num, err := a.backend.HeaderNumberUint64(ctx, a.GetDesiredRpcHeadBlockNumber())
+		num, err := a.backend.HeaderU64(ctx)
 		if err != nil {
 			return 0, err
 		}
@@ -1026,14 +1026,4 @@ func (a *AssertionChain) GetCallOptsWithSafeBlockNumber(opts *bind.CallOpts) *bi
 	}
 	opts.BlockNumber = big.NewInt(int64(rpc.SafeBlockNumber))
 	return opts
-}
-
-func (a *AssertionChain) GetDesiredRpcHeadBlockNumber() *big.Int {
-	// If we are running tests, we want to use the latest block number since
-	// simulated backends only support the latest block number.
-	// if flag.Lookup("test.v") != nil {
-	// 	return nil
-	// }
-	// return big.NewInt(int64(a.rpcHeadBlockNumber))
-	return nil
 }

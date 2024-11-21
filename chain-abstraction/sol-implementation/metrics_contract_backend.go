@@ -46,9 +46,9 @@ func (t *MetricsContractBackend) HeaderByNumber(ctx context.Context, number *big
 	return t.ChainBackend.HeaderByNumber(ctx, number)
 }
 
-func (t *MetricsContractBackend) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
+func (t *MetricsContractBackend) HeaderU64(ctx context.Context) (uint64, error) {
 	metrics.GetOrRegisterCounter("arb/backend/header_by_number/count", nil).Inc(1)
-	return t.ChainBackend.HeaderNumberUint64(ctx, number)
+	return t.ChainBackend.HeaderU64(ctx)
 }
 
 func (t *MetricsContractBackend) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {

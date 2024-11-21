@@ -3,9 +3,10 @@ package setup
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"sync"
+
+	"github.com/ethereum/go-ethereum/rpc"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 
@@ -16,16 +17,19 @@ import (
 )
 
 var (
-	_ protocol.ChainBackend = &SimulatedBackendWrapper{}
+	_ protocol.ChainBackend = &SimulatedBackendWrapper{
+		desiredBlockNum: rpc.LatestBlockNumber,
+	}
 )
 
 type SimulatedBackendWrapper struct {
 	lock sync.Mutex
 	*simulated.Backend
+	desiredBlockNum rpc.BlockNumber
 }
 
-func (s *SimulatedBackendWrapper) HeaderNumberUint64(ctx context.Context, number *big.Int) (uint64, error) {
-	header, err := s.Backend.Client().HeaderByNumber(ctx, number)
+func (s *SimulatedBackendWrapper) HeaderU64(ctx context.Context) (uint64, error) {
+	header, err := s.Backend.Client().HeaderByNumber(ctx, big.NewInt(int64(s.desiredBlockNum)))
 	if err != nil {
 		return 0, err
 	}

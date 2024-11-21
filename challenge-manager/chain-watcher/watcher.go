@@ -246,7 +246,7 @@ func (w *Watcher) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			toBlock, err := w.backend.HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+			toBlock, err := w.backend.HeaderU64(ctx)
 			if err != nil {
 				log.Error("Could not get latest header", "err", err)
 				continue
@@ -296,7 +296,7 @@ func (w *Watcher) Start(ctx context.Context) {
 
 // GetRoyalEdges returns all royal, tracked edges in the watcher by assertion hash.
 func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge, error) {
-	blockNum, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockNum, err := w.chain.Backend().HeaderU64(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +392,7 @@ func (w *Watcher) ComputeAncestors(
 			challengedAssertionHash,
 		)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +427,7 @@ func (w *Watcher) IsEssentialAncestorConfirmable(
 			challengedAssertionHash,
 		)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -459,7 +459,7 @@ func (w *Watcher) IsConfirmableEssentialEdge(
 	if !ok {
 		return false, nil, 0, fmt.Errorf("could not get challenge for top level assertion %#x", challengedAssertionHash)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
 	if err != nil {
 		return false, nil, 0, err
 	}
@@ -485,7 +485,7 @@ func (w *Watcher) ComputeRootInheritedTimer(
 			challengedAssertionHash,
 		)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -966,7 +966,7 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	}
 	firstBlock := latestConfirmed.CreatedAtBlock()
 	startBlock := firstBlock
-	headerNumber, err := w.backend.HeaderNumberUint64(ctx, w.chain.GetDesiredRpcHeadBlockNumber())
+	headerNumber, err := w.backend.HeaderU64(ctx)
 	if err != nil {
 		return filterRange{}, err
 	}
