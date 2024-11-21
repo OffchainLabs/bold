@@ -34,6 +34,7 @@ type Edge struct {
 	UpperChildID         EdgeId
 	CreationBlock        uint64
 	TotalChallengeLevels uint8
+	IsHonest             bool
 }
 
 func (e *Edge) Id() protocol.EdgeId {
@@ -156,6 +157,15 @@ func (*Edge) HasLengthOneRival(_ context.Context) (bool, error) {
 // This is used at subchallenge creation boundaries.
 func (*Edge) TopLevelClaimHeight(_ context.Context) (protocol.OriginHeights, error) {
 	return protocol.OriginHeights{}, nil
+}
+
+// HasLengthOneRival checks if an edge has a length one rival.
+func (e *Edge) MarkAsHonest() {
+	e.IsHonest = true
+}
+
+func (e *Edge) AsVerifiedHonest() (protocol.VerifiedRoyalEdge, bool) {
+	return nil, false
 }
 
 func (*Edge) Bisect(

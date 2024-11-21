@@ -623,16 +623,16 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 	}
 	// Add the edge to a local challenge tree of tracked edges. If it is honest,
 	// we also spawn a tracker for the edge.
-	isRoyalEdge, err := chal.honestEdgeTree.AddEdge(ctx, edge)
-	if err != nil {
+	if err := chal.honestEdgeTree.AddEdge(ctx, edge); err != nil {
 		if !errors.Is(err, challengetree.ErrAlreadyBeingTracked) {
 			return false, errors.Wrap(err, "could not add edge to challenge tree")
 		}
 		// If the error is that we are already tracking the edge, we exit early.
 		return false, nil
 	}
-	if isRoyalEdge {
-		err = w.edgeManager.TrackEdge(ctx, &honestEdge{edge})
+	verifiedRoyal, ok := edge.AsVerifiedHonest()
+	if ok {
+		err = w.edgeManager.TrackEdge(ctx, verifiedRoyal)
 		if err != nil {
 			return false, err
 		}
@@ -645,9 +645,9 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 		"endHeight", end,
 		"startCommit", fmt.Sprintf("%#x", startRoot[:4]),
 		"endCommit", fmt.Sprintf("%#x", endRoot[:4]),
-		"isHonestEdge", isRoyalEdge,
+		"isHonestEdge", ok,
 	}
-	if isRoyalEdge {
+	if ok {
 		log.Info("Observed honest edge", fields...)
 	} else {
 		if edge.ClaimId().IsSome() {
@@ -668,7 +668,7 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 	}
 	go func() {
 		if _, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-			if innerErr := w.saveEdgeToDB(ctx, edge, isRoyalEdge); innerErr != nil {
+			if innerErr := w.saveEdgeToDB(ctx, edge, ok); innerErr != nil {
 				log.Error("Could not save edge to db", "err", innerErr)
 				return false, innerErr
 			}

@@ -118,8 +118,9 @@ func Test_getEdgeTrackers(t *testing.T) {
 	s.On("ExecutionStateMsgCount", ctx, &protocol.ExecutionState{}).Return(uint64(1), nil)
 
 	require.NoError(t, v.watcher.AddVerifiedHonestEdge(ctx, verifiedHonestMock{edge}))
-
-	trk, err := v.getTrackerForEdge(ctx, &honestEdge{edge})
+	edge.MarkAsHonest()
+	verifiedRoyal, _ := edge.AsVerifiedHonest()
+	trk, err := v.getTrackerForEdge(ctx, verifiedRoyal)
 	require.NoError(t, err)
 
 	require.Equal(t, l2stateprovider.Batch(1), trk.AssertionInfo().FromBatch)

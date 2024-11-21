@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/containers/option"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -28,34 +28,34 @@ func (ht *RoyalChallengeTree) AddRoyalEdge(eg protocol.VerifiedRoyalEdge) error 
 
 // AddEdge to the honest challenge tree. Only honest edges are tracked, but we also keep track
 // of rival ids in a mutual ids mapping internally for extra book-keeping.
-func (ht *RoyalChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) (isRoyal bool, err error) {
+func (ht *RoyalChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge) error {
 	edgeId := eg.Id()
 
 	// Check if edge is already being tracked.
 	if _, ok := ht.edges.TryGet(edgeId); ok {
-		return false, ErrAlreadyBeingTracked
+		return ErrAlreadyBeingTracked
 	}
 	// Check if assertion hash is correct.
-	if err = ht.checkAssertionHash(ctx, edgeId); err != nil {
-		return false, errors.Wrapf(err, "could not check if the edge's assertion hash is correct %#x", edgeId)
+	if err := ht.checkAssertionHash(ctx, edgeId); err != nil {
+		return errors.Wrapf(err, "could not check if the edge's assertion hash is correct %#x", edgeId)
 	}
-	if err = ht.keepTrackOfCreationTime(eg); err != nil {
-		return false, errors.Wrapf(err, "could not track mutual id: %#x", edgeId)
+	if err := ht.keepTrackOfCreationTime(eg); err != nil {
+		return errors.Wrapf(err, "could not track mutual id: %#x", edgeId)
 	}
 	hasHonestAncestry, err := ht.hasHonestAncestry(ctx, eg)
 	if err != nil {
-		return false, errors.Wrapf(err, "could not check if edge has honest ancestors: %#x", edgeId)
+		return errors.Wrapf(err, "could not check if edge has honest ancestors: %#x", edgeId)
 	}
 	if !hasHonestAncestry {
-		return false, nil
+		return nil
 	}
 	claimedAssertionHash, err := ht.claimedAssertionHash(ctx, eg)
 	if err != nil {
-		return false, errors.Wrapf(err, "could not fetch claimed assertion hash for edge: %#x", edgeId)
+		return errors.Wrapf(err, "could not fetch claimed assertion hash for edge: %#x", edgeId)
 	}
 	historyCommitRequest, err := ht.prepareHistoryCommitmentRequest(ctx, eg, claimedAssertionHash)
 	if err != nil {
-		return false, errors.Wrapf(err, "could not prepare history commitment request for edge: %#x", edgeId)
+		return errors.Wrapf(err, "could not prepare history commitment request for edge: %#x", edgeId)
 	}
 	endHeight, endCommit := eg.EndCommitment()
 	challengeLevel := eg.GetChallengeLevel()
@@ -70,16 +70,18 @@ func (ht *RoyalChallengeTree) AddEdge(ctx context.Context, eg protocol.SpecEdge)
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "accumulator not found") {
-			return false, errors.New("validator is still syncing the chain, will retry later")
+			return errors.New("validator is still syncing the chain, will retry later")
 		}
-		return false, errors.Wrapf(err, "could not check history commitment agreement for edge: %#x", edgeId)
+		return errors.Wrapf(err, "could not check history commitment agreement for edge: %#x", edgeId)
 	}
 	// Edges are royal if they have an honest ancestry and are also honest from our perspective.
-	isRoyal = hasHonestAncestry && isHonestEdge
+	isRoyal := hasHonestAncestry && isHonestEdge
 	if isRoyal {
-		ht.keepTrackOfHonestEdge(eg)
+		eg.MarkAsHonest()
+		verifiedHonest, _ := eg.AsVerifiedHonest()
+		ht.keepTrackOfHonestEdge(verifiedHonest)
 	}
-	return isRoyal, nil
+	return nil
 }
 
 func (ht *RoyalChallengeTree) checkAssertionHash(ctx context.Context, id protocol.EdgeId) error {
@@ -179,7 +181,7 @@ func (ht *RoyalChallengeTree) keepTrackOfCreationTime(eg protocol.SpecEdge) erro
 
 // If we agree with the edge, we add it to our edges mapping and if it is level zero,
 // we keep track of it specifically in our struct.
-func (ht *RoyalChallengeTree) keepTrackOfHonestEdge(eg protocol.SpecEdge) {
+func (ht *RoyalChallengeTree) keepTrackOfHonestEdge(eg protocol.VerifiedRoyalEdge) {
 	id := eg.Id()
 	ht.edges.Put(id, eg)
 	if eg.ClaimId().IsNone() {

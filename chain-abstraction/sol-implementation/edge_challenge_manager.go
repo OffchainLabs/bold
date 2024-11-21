@@ -211,6 +211,17 @@ func (e *specEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	return ok, nil
 }
 
+func (e *specEdge) MarkAsHonest() {
+	e.verifiedHonest = true
+}
+
+func (e *specEdge) AsVerifiedHonest() (protocol.VerifiedRoyalEdge, bool) {
+	if e.verifiedHonest {
+		return &honestEdge{e}, true
+	}
+	return nil, false
+}
+
 // Bisect the edge, returning the upper and lower edges.
 // If the upper child exists, both edges will be returned.
 // Lower child may optionally exist so the method will bisect regardless.

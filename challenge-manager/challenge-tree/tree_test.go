@@ -37,7 +37,7 @@ func TestAddEdge(t *testing.T) {
 		ht.metadataReader = &mockMetadataReader{
 			assertionErr: errors.New("bad request"),
 		}
-		_, err := ht.AddEdge(ctx, edge)
+		err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not get top level assertion for edge")
 	})
 	t.Run("ignores if disagrees with top level assertion hash of edge", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestAddEdge(t *testing.T) {
 			assertionErr:  nil,
 			assertionHash: protocol.AssertionHash{Hash: common.BytesToHash([]byte("bar"))},
 		}
-		_, err := ht.AddEdge(ctx, edge)
+		err := ht.AddEdge(ctx, edge)
 		require.ErrorIs(t, err, ErrMismatchedChallengeAssertionHash)
 	})
 	t.Run("getting claim heights errored", func(t *testing.T) {
@@ -57,7 +57,7 @@ func TestAddEdge(t *testing.T) {
 		ht.royalRootEdgesByLevel.Put(protocol.ChallengeLevel(2), threadsafe.NewSlice[protocol.SpecEdge]())
 		honestBlockEdges := ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(2))
 		honestBlockEdges.Push(edge)
-		_, err := ht.AddEdge(ctx, edge)
+		err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not get claim heights for edge")
 	})
 	t.Run("checking if agrees with commit errored", func(t *testing.T) {
@@ -103,7 +103,7 @@ func TestAddEdge(t *testing.T) {
 			},
 		).Return(false, errors.New("something went wrong"))
 		ht.histChecker = mockStateManager
-		_, err := ht.AddEdge(ctx, edge)
+		err := ht.AddEdge(ctx, edge)
 		require.ErrorContains(t, err, "could not check history commitment agreement")
 	})
 	t.Run("fully disagrees with edge", func(t *testing.T) {
@@ -132,12 +132,13 @@ func TestAddEdge(t *testing.T) {
 			},
 		).Return(false, nil)
 		ht.histChecker = mockStateManager
-		agreement, err := ht.AddEdge(ctx, badEdge)
+		err := ht.AddEdge(ctx, badEdge)
 		require.NoError(t, err)
-		require.Equal(t, false, agreement)
+		_, ok := badEdge.AsVerifiedHonest()
+		require.Equal(t, false, ok)
 
 		// Check the edge is not kept track of in the honest edge, but we do track its mutual id.
-		_, ok := ht.edges.TryGet(badEdge.Id())
+		_, ok = ht.edges.TryGet(badEdge.Id())
 		require.Equal(t, false, ok)
 		key := buildEdgeCreationTimeKey(protocol.OriginId{}, badEdge.MutualId())
 		_, ok = ht.edgeCreationTimes.TryGet(key)
@@ -192,12 +193,13 @@ func TestAddEdge(t *testing.T) {
 			},
 		).Return(true, nil)
 		ht.histChecker = mockStateManager
-		agreement, err := ht.AddEdge(ctx, edge)
+		err := ht.AddEdge(ctx, edge)
 		require.NoError(t, err)
-		require.Equal(t, false, agreement)
+		_, ok := edge.AsVerifiedHonest()
+		require.Equal(t, false, ok)
 
 		// Not tracked.
-		_, ok := ht.edges.TryGet(edge.Id())
+		_, ok = ht.edges.TryGet(edge.Id())
 		require.Equal(t, false, ok)
 		// However, exists in the mutual ids mapping.
 		key := buildEdgeCreationTimeKey(protocol.OriginId{}, edge.MutualId())
@@ -237,7 +239,7 @@ func TestAddEdge(t *testing.T) {
 			},
 		).Return(true, nil)
 		ht.histChecker = mockStateManager
-		_, err := ht.AddEdge(ctx, edge)
+		err := ht.AddEdge(ctx, edge)
 		require.NoError(t, err)
 
 		// Exists.

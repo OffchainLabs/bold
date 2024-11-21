@@ -405,6 +405,8 @@ type ReadOnlyEdge interface {
 // SpecEdge according to the protocol specification.
 type SpecEdge interface {
 	ReadOnlyEdge
+	MarkAsHonest()
+	AsVerifiedHonest() (VerifiedRoyalEdge, bool)
 }
 
 // VerifiedRoyalEdge marks edges that are known to be royal. For example,

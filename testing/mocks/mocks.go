@@ -366,6 +366,13 @@ func (m *MockSpecEdge) HasLengthOneRival(ctx context.Context) (bool, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(bool), args.Error(1)
 }
+func (m *MockSpecEdge) MarkAsHonest() {
+	m.Called()
+}
+func (m *MockSpecEdge) AsVerifiedHonest() (protocol.VerifiedRoyalEdge, bool) {
+	args := m.Called()
+	return args.Get(0).(protocol.VerifiedRoyalEdge), args.Get(1).(bool)
+}
 
 type MockEdgeTracker struct {
 	mock.Mock
