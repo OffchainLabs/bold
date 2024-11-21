@@ -9,6 +9,7 @@ import (
 	"math"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
 

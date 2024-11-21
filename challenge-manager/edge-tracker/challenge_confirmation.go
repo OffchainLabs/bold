@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	retry "github.com/offchainlabs/bold/runtime"
 )
