@@ -91,6 +91,7 @@ func Test_getEdgeTrackers(t *testing.T) {
 
 	v, m, s := setupValidator(t)
 	edge := &mocks.MockSpecEdge{}
+	honest := &mocks.MockHonestEdge{MockSpecEdge: edge}
 	edge.On("Id").Return(protocol.EdgeId{Hash: common.BytesToHash([]byte("foo"))})
 	edge.On("GetReversedChallengeLevel").Return(protocol.ChallengeLevel(2))
 	edge.On("MutualId").Return(protocol.MutualId{})
@@ -102,6 +103,8 @@ func Test_getEdgeTrackers(t *testing.T) {
 	edge.On("StartCommitment").Return(protocol.Height(0), common.Hash{})
 	edge.On("EndCommitment").Return(protocol.Height(0), common.Hash{})
 	edge.On("GetChallengeLevel").Return(protocol.ChallengeLevel(0))
+	edge.On("MarkAsHonest").Return()
+	edge.On("AsVerifiedHonest").Return(honest, true)
 	m.On("ReadAssertionCreationInfo", ctx, assertionHash).Return(&protocol.AssertionCreatedInfo{
 		BeforeState: rollupgen.AssertionState{
 			GlobalState: rollupgen.GlobalState{
