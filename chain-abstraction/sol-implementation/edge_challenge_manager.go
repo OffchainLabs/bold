@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/metrics"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengetree "github.com/offchainlabs/bold/challenge-manager/challenge-tree"
 	edgetracker "github.com/offchainlabs/bold/challenge-manager/edge-tracker"
