@@ -374,6 +374,12 @@ func (m *MockSpecEdge) AsVerifiedHonest() (protocol.VerifiedRoyalEdge, bool) {
 	return args.Get(0).(protocol.VerifiedRoyalEdge), args.Get(1).(bool)
 }
 
+type MockHonestEdge struct {
+	*MockSpecEdge
+}
+
+func (m *MockHonestEdge) Honest() {}
+
 type MockEdgeTracker struct {
 	mock.Mock
 }

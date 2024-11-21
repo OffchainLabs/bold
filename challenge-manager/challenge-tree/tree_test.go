@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	"github.com/offchainlabs/bold/challenge-manager/challenge-tree/mock"
 	"github.com/offchainlabs/bold/containers/option"
@@ -257,22 +256,6 @@ func TestAddEdge(t *testing.T) {
 	})
 }
 
-type mockHonestEdge struct {
-	*mock.Edge
-}
-
-func (m *mockHonestEdge) Honest() {}
-func (m *mockHonestEdge) Bisect(
-	ctx context.Context,
-	prefixHistoryRoot common.Hash,
-	prefixProof []byte,
-) (protocol.VerifiedRoyalEdge, protocol.VerifiedRoyalEdge, error) {
-	return m.Edge.Bisect(ctx, prefixHistoryRoot, prefixProof)
-}
-func (m *mockHonestEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
-	return m.Edge.ConfirmByTimer(ctx, claimedAssertion)
-}
-
 func TestAddHonestEdge(t *testing.T) {
 	createdAt := uint64(1)
 	edge := newEdge(&newCfg{t: t, edgeId: "big-0.a-32.a", createdAt: createdAt, claimId: "bar"})
@@ -282,9 +265,9 @@ func TestAddHonestEdge(t *testing.T) {
 		royalRootEdgesByLevel: threadsafe.NewMap[protocol.ChallengeLevel, *threadsafe.Slice[protocol.SpecEdge]](),
 	}
 	ht.topLevelAssertionHash = protocol.AssertionHash{Hash: common.BytesToHash([]byte("foo"))}
-	honest := &mockHonestEdge{edge}
-
-	err := ht.AddRoyalEdge(honest)
+	edge.MarkAsHonest()
+	verifiedHonest, _ := edge.AsVerifiedHonest()
+	err := ht.AddRoyalEdge(verifiedHonest)
 	require.NoError(t, err)
 
 	// We now check if the challenge tree has a populated
@@ -301,7 +284,7 @@ func TestAddHonestEdge(t *testing.T) {
 	require.Equal(t, createdAt, uint64(gotCreatedAt))
 
 	// Does not add it again.
-	err = ht.AddRoyalEdge(honest)
+	err = ht.AddRoyalEdge(verifiedHonest)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, ht.royalRootEdgesByLevel.Get(protocol.ChallengeLevel(1)).Len())

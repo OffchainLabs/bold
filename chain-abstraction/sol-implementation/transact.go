@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/offchainlabs/bold/containers"
 	"github.com/pkg/errors"
 )
@@ -99,7 +100,7 @@ func (a *AssertionChain) transact(
 		return nil, err
 	}
 
-	if config.waitForDesiredBlockNum {
+	if config.waitForDesiredBlockNum && a.rpcHeadBlockNumber != rpc.LatestBlockNumber {
 		ctxWaitSafe, cancelWaitSafe := context.WithTimeout(ctx, time.Minute*20)
 		defer cancelWaitSafe()
 		receipt, err = a.waitForTxToBeSafe(ctxWaitSafe, backend, tx, receipt)

@@ -165,6 +165,9 @@ func (e *Edge) MarkAsHonest() {
 }
 
 func (e *Edge) AsVerifiedHonest() (protocol.VerifiedRoyalEdge, bool) {
+	if e.IsHonest {
+		return &MockHonestEdge{e}, true
+	}
 	return nil, false
 }
 
@@ -182,4 +185,22 @@ func (*Edge) ConfirmByTimer(_ context.Context, _ protocol.AssertionHash) (*types
 
 func (*Edge) ConfirmedAtBlock(ctx context.Context) (uint64, error) {
 	return 0, nil
+}
+
+type MockHonestEdge struct {
+	*Edge
+}
+
+func (m *MockHonestEdge) Honest() {}
+
+func (m *MockHonestEdge) Bisect(
+	ctx context.Context,
+	prefixHistoryRoot common.Hash,
+	prefixProof []byte,
+) (protocol.VerifiedRoyalEdge, protocol.VerifiedRoyalEdge, error) {
+	return m.Edge.Bisect(ctx, prefixHistoryRoot, prefixProof)
+}
+
+func (m *MockHonestEdge) ConfirmByTimer(ctx context.Context, claimedAssertion protocol.AssertionHash) (*types.Transaction, error) {
+	return m.Edge.ConfirmByTimer(ctx, claimedAssertion)
 }

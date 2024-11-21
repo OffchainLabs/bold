@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/offchainlabs/bold/assertions"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	challengemanager "github.com/offchainlabs/bold/challenge-manager"
@@ -21,9 +24,6 @@ import (
 	challenge_testing "github.com/offchainlabs/bold/testing"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -322,10 +322,11 @@ func TestComplexAssertionForkScenario(t *testing.T) {
 
 	go charlieAssertionManager.Start(ctx)
 
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 2)
 
 	// Assert that Charlie posted the rival assertion at batch 4.
 	charlieSubmitted := charlieAssertionManager.AssertionsSubmittedInProcess()
+	require.Equal(t, true, len(charlieSubmitted) > 0)
 	charlieAssertion := charlieSubmitted[0]
 	charlieAssertionInfo, err := charlieChain.ReadAssertionCreationInfo(ctx, protocol.AssertionHash{Hash: charlieAssertion})
 	require.NoError(t, err)

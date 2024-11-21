@@ -58,7 +58,7 @@ func (s *SimulatedBackendWrapper) Commit() common.Hash {
 }
 
 func NewSimulatedBackendWrapper(bk *simulated.Backend) *SimulatedBackendWrapper {
-	return &SimulatedBackendWrapper{Backend: bk}
+	return &SimulatedBackendWrapper{Backend: bk, desiredBlockNum: rpc.LatestBlockNumber}
 }
 
 func (s *SimulatedBackendWrapper) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
