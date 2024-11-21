@@ -1015,7 +1015,11 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	}
 	someLevelZeroEdge, err := cm.GetEdge(ctx, edgeId)
 	if err == nil && !someLevelZeroEdge.IsNone() {
-		return &honestEdge{someLevelZeroEdge.Unwrap().(*specEdge)}, nil
+		existingSpecEdge, ok := someLevelZeroEdge.Unwrap().(*specEdge)
+		if !ok {
+			return nil, errors.New("not a *specEdge")
+		}
+		return &honestEdge{existingSpecEdge}, nil
 	}
 	endCommitInt64, err := safecast.ToInt64(endCommit.Height)
 	if err != nil {
@@ -1064,7 +1068,11 @@ func (cm *specChallengeManager) AddBlockChallengeLevelZeroEdge(
 	if someLevelZeroEdge.IsNone() {
 		return nil, fmt.Errorf("edge with id %#x was not found onchain", edgeAdded.EdgeId)
 	}
-	return &honestEdge{someLevelZeroEdge.Unwrap().(*specEdge)}, nil
+	someSpecEdge, ok := someLevelZeroEdge.Unwrap().(*specEdge)
+	if !ok {
+		return nil, errors.New("not a *specEdge")
+	}
+	return &honestEdge{someSpecEdge}, nil
 }
 
 var subchallengeEdgeProofAbi = abi.Arguments{
@@ -1121,7 +1129,11 @@ func (cm *specChallengeManager) AddSubChallengeLevelZeroEdge(
 		if e.IsNone() {
 			return nil, errors.New("got empty, newly created level zero edge")
 		}
-		return &honestEdge{e.Unwrap().(*specEdge)}, nil
+		someSpecEdge, ok := e.Unwrap().(*specEdge)
+		if !ok {
+			return nil, errors.New("not a *specEdge")
+		}
+		return &honestEdge{someSpecEdge}, nil
 	}
 
 	subchallengeEdgeProof, err := subchallengeEdgeProofAbi.Pack(

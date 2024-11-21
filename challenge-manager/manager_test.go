@@ -28,12 +28,6 @@ import (
 
 var _ = types.RivalHandler(&Manager{})
 
-type honestEdge struct {
-	protocol.SpecEdge
-}
-
-func (h *honestEdge) Honest() {}
-
 func TestEdgeTracker_Act(t *testing.T) {
 	ctx := context.Background()
 	createdData, err := setup.CreateTwoValidatorFork(ctx, t, &setup.CreateForkConfig{}, setup.WithMockOneStepProver())
