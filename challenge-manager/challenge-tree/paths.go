@@ -67,38 +67,38 @@ func (ht *RoyalChallengeTree) ComputePathWeight(
 type EssentialPath []protocol.EdgeId
 
 type IsConfirmableArgs struct {
-	EssentialNode         protocol.EdgeId
+	EssentialEdge         protocol.EdgeId
 	ConfirmationThreshold uint64
 	BlockNum              uint64
 }
 
-// Find all the paths down from an essential node, and
+// Find all the paths down from an essential edge, and
 // compute the local timer of each edge along the path. This is
 // a recursive computation that goes down the tree rooted at the essential
-// node and ends once it finds edges that either do not have children,
-// or are terminal nodes that end in children that are incorrectly constructed
+// edge and ends once it finds edges that either do not have children,
+// or are terminal edges that end in children that are incorrectly constructed
 // or non-essential.
 //
 // After the paths are computed, we then compute the path weight of each
 // and if the min element of this list has a weight >= the confirmation threshold,
-// the essential node is then confirmable.
+// the essential edge is then confirmable.
 //
-// Note: the specified argument essential node must indeed be essential, otherwise,
+// Note: the specified argument essential edge must indeed be essential, otherwise,
 // this function will error.
-func (ht *RoyalChallengeTree) IsConfirmableEssentialNode(
+func (ht *RoyalChallengeTree) IsConfirmableEssentialEdge(
 	ctx context.Context,
 	args IsConfirmableArgs,
 ) (bool, []EssentialPath, uint64, error) {
-	essentialNode, ok := ht.edges.TryGet(args.EssentialNode)
+	essentialEdge, ok := ht.edges.TryGet(args.EssentialEdge)
 	if !ok {
-		return false, nil, 0, fmt.Errorf("essential node not found")
+		return false, nil, 0, fmt.Errorf("essential edge not found")
 	}
-	if essentialNode.ClaimId().IsNone() {
-		return false, nil, 0, fmt.Errorf("specified input argument %#x is not essential", args.EssentialNode.Hash)
+	if essentialEdge.ClaimId().IsNone() {
+		return false, nil, 0, fmt.Errorf("specified input argument %#x is not essential", args.EssentialEdge.Hash)
 	}
 	essentialPaths, essentialTimers, err := ht.findEssentialPaths(
 		ctx,
-		essentialNode,
+		essentialEdge,
 		args.BlockNum,
 	)
 	if err != nil {
@@ -107,7 +107,7 @@ func (ht *RoyalChallengeTree) IsConfirmableEssentialNode(
 	if len(essentialPaths) == 0 || len(essentialTimers) == 0 {
 		return false, nil, 0, fmt.Errorf("no essential paths found")
 	}
-	// An essential node is confirmable if all of its essential paths
+	// An essential edge is confirmable if all of its essential paths
 	// down the tree have a path weight >= the confirmation threshold.
 	// To do this, we compute the path weight of each path and find the minimum.
 	// Then, it is sufficient to check that the minimum is >= the confirmation threshold.
@@ -137,48 +137,48 @@ type essentialLocalTimers []uint64
 // essential branches of the protocol graph. We manage our own
 // visitor stack to avoid recursion.
 //
-// Invariant: the input node must be essential.
+// Invariant: the input edge must be essential.
 func (ht *RoyalChallengeTree) findEssentialPaths(
 	ctx context.Context,
-	essentialNode protocol.ReadOnlyEdge,
+	essentialEdge protocol.ReadOnlyEdge,
 	blockNum uint64,
 ) ([]EssentialPath, []essentialLocalTimers, error) {
 	allPaths := make([]EssentialPath, 0)
 	allTimers := make([]essentialLocalTimers, 0)
 
 	type visited struct {
-		essentialNode protocol.ReadOnlyEdge
+		essentialEdge protocol.ReadOnlyEdge
 		path          EssentialPath
 		localTimers   essentialLocalTimers
 	}
 	stack := newStack[*visited]()
 
-	localTimer, err := ht.LocalTimer(ctx, essentialNode, blockNum)
+	localTimer, err := ht.LocalTimer(ctx, essentialEdge, blockNum)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	stack.push(&visited{
-		essentialNode: essentialNode,
-		path:          EssentialPath{essentialNode.Id()},
+		essentialEdge: essentialEdge,
+		path:          EssentialPath{essentialEdge.Id()},
 		localTimers:   essentialLocalTimers{localTimer},
 	})
 
 	for stack.len() > 0 {
 		curr := stack.pop().Unwrap()
-		currentNode, currentTimers, path := curr.essentialNode, curr.localTimers, curr.path
-		isClaimedEdge, claimingEdge := ht.isClaimedEdge(ctx, currentNode)
+		currentEdge, currentTimers, path := curr.essentialEdge, curr.localTimers, curr.path
+		isClaimedEdge, claimingEdge := ht.isClaimedEdge(ctx, currentEdge)
 
-		hasChildren, err := currentNode.HasChildren(ctx)
+		hasChildren, err := currentEdge.HasChildren(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
 		if hasChildren {
-			lowerChildIdOpt, err := currentNode.LowerChild(ctx)
+			lowerChildIdOpt, err := currentEdge.LowerChild(ctx)
 			if err != nil {
 				return nil, nil, err
 			}
-			upperChildIdOpt, err := currentNode.UpperChild(ctx)
+			upperChildIdOpt, err := currentEdge.UpperChild(ctx)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -204,18 +204,18 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			lowerTimers := append(append(essentialLocalTimers{}, currentTimers...), lowerTimer)
 			upperTimers := append(append(essentialLocalTimers{}, currentTimers...), upperTimer)
 			stack.push(&visited{
-				essentialNode: lowerChild,
+				essentialEdge: lowerChild,
 				path:          lowerPath,
 				localTimers:   lowerTimers,
 			})
 			stack.push(&visited{
-				essentialNode: upperChild,
+				essentialEdge: upperChild,
 				path:          upperPath,
 				localTimers:   upperTimers,
 			})
 			continue
 		} else if isClaimedEdge {
-			// Figure out if the node is a terminal node that has a refinement, in which
+			// Figure out if the edge is a terminal edge that has a refinement, in which
 			// case we need to continue the search down the next challenge level,
 			claimingEdgeTimer, err := ht.LocalTimer(ctx, claimingEdge, blockNum)
 			if err != nil {
@@ -224,14 +224,14 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 			claimingPath := append(append(EssentialPath{}, path...), claimingEdge.Id())
 			claimingTimers := append(append(essentialLocalTimers{}, currentTimers...), claimingEdgeTimer)
 			stack.push(&visited{
-				essentialNode: claimingEdge,
+				essentialEdge: claimingEdge,
 				path:          claimingPath,
 				localTimers:   claimingTimers,
 			})
 			continue
 		}
 
-		// Otherwise, the node is a qualified leaf and we can push to the list of paths
+		// Otherwise, the edge is a qualified leaf and we can push to the list of paths
 		// and all the timers of the path.
 		// Onchain actions expect ordered paths from leaf to root, so we
 		// preserve that ordering to make it easier for callers to use this data.
@@ -244,7 +244,7 @@ func (ht *RoyalChallengeTree) findEssentialPaths(
 }
 
 func (ht *RoyalChallengeTree) isClaimedEdge(ctx context.Context, edge protocol.ReadOnlyEdge) (bool, protocol.ReadOnlyEdge) {
-	if isProofNode(ctx, edge) {
+	if isProofEdge(ctx, edge) {
 		return false, nil
 	}
 	if !hasLengthOne(edge) {
@@ -260,8 +260,8 @@ func (ht *RoyalChallengeTree) isClaimedEdge(ctx context.Context, edge protocol.R
 	return true, claimingEdge
 }
 
-// Proof nodes are nodes that have length one at the lowest challenge level.
-func isProofNode(ctx context.Context, edge protocol.ReadOnlyEdge) bool {
+// Proof edges are edges that have length one at the lowest challenge level.
+func isProofEdge(ctx context.Context, edge protocol.ReadOnlyEdge) bool {
 	isSmallStep := edge.GetChallengeLevel() == protocol.ChallengeLevel(edge.GetTotalChallengeLevels(ctx)-1)
 	return isSmallStep && hasLengthOne(edge)
 }

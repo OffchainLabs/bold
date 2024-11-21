@@ -403,25 +403,29 @@ type ReadOnlyEdge interface {
 	TopLevelClaimHeight(ctx context.Context) (OriginHeights, error)
 }
 
+// SpecEdge according to the protocol specification.
+type SpecEdge interface {
+	ReadOnlyEdge
+}
+
 // VerifiedRoyalEdge marks edges that are known to be royal. For example,
 // when a local validator creates an edge, it is known to be royal and several types
 // expensive or duplicate computation can be avoided in methods that take in this type.
 // A sentinel method `Honest()` is used to mark an edge as satisfying this interface.
 type VerifiedRoyalEdge interface {
 	SpecEdge
-	Honest()
-}
-
-// SpecEdge according to the protocol specification.
-type SpecEdge interface {
-	ReadOnlyEdge
-	// Bisection capabilities for an edge. Returns the two child
-	// edges that are created as a result.
+	// Bisect defines a method to bisect an edge into two children.
+	// Returns the two child edges that are created as a result.
+	// Only honest edges should be bisected.
 	Bisect(
 		ctx context.Context,
 		prefixHistoryRoot common.Hash,
 		prefixProof []byte,
 	) (VerifiedRoyalEdge, VerifiedRoyalEdge, error)
-	// Confirms an edge for having a total timer >= one challenge period.
+	// ConfirmByTimer confirms an edge for having a total timer >= one challenge period.
+	// The claimed assertion hash the edge corresponds to is required as part of the onchain
+	// transaction to confirm the edge.
+	// Only honest edges should be confirmed by timer.
 	ConfirmByTimer(ctx context.Context, claimedAssertion AssertionHash) (*types.Transaction, error)
+	Honest()
 }

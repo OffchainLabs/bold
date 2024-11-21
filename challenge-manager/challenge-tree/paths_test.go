@@ -10,31 +10,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsConfirmableEssentialNode(t *testing.T) {
+func TestIsConfirmableEssentialEdge(t *testing.T) {
 	ctx := context.Background()
 	tree, honestEdges := setupEssentialPathsTest(t)
 
 	// Calculate the essential paths starting at the honest root.
 	// See setupEssentialPaths and Test_findEssentialpaths below to
 	// understand the setup of the challenge tree.
-	_, _, _, err := tree.IsConfirmableEssentialNode(
+	_, _, _, err := tree.IsConfirmableEssentialEdge(
 		ctx,
 		IsConfirmableArgs{
-			EssentialNode: protocol.EdgeId{},
+			EssentialEdge: protocol.EdgeId{},
 		},
 	)
-	require.ErrorContains(t, err, "essential node not found")
+	require.ErrorContains(t, err, "essential edge not found")
 
 	// Based on the setup, we expect the minimum path weight at block number 10
 	// to be 6, which at a confirmation threshold of 10 is not enough to confirm
-	// the essential node.
+	// the essential edge.
 	essentialHonestRoot := protocol.SpecEdge(honestEdges["blk-0.a-4.a"])
 	blockNum := uint64(10)
-	isConfirmable, _, minPathWeight, err := tree.IsConfirmableEssentialNode(
+	isConfirmable, _, minPathWeight, err := tree.IsConfirmableEssentialEdge(
 		ctx,
 		IsConfirmableArgs{
 			ConfirmationThreshold: 10,
-			EssentialNode:         essentialHonestRoot.Id(),
+			EssentialEdge:         essentialHonestRoot.Id(),
 			BlockNum:              blockNum,
 		},
 	)
@@ -45,11 +45,11 @@ func TestIsConfirmableEssentialNode(t *testing.T) {
 	// At block number 14, we should exactly meet the confirmation threshold.
 	essentialHonestRoot = protocol.SpecEdge(honestEdges["blk-0.a-4.a"])
 	blockNum = uint64(14)
-	isConfirmable, _, minPathWeight, err = tree.IsConfirmableEssentialNode(
+	isConfirmable, _, minPathWeight, err = tree.IsConfirmableEssentialEdge(
 		ctx,
 		IsConfirmableArgs{
 			ConfirmationThreshold: 10,
-			EssentialNode:         essentialHonestRoot.Id(),
+			EssentialEdge:         essentialHonestRoot.Id(),
 			BlockNum:              blockNum,
 		},
 	)
@@ -73,7 +73,7 @@ func Test_findEssentialPaths(t *testing.T) {
 	require.NoError(t, err)
 
 	// There should be three total essential paths from honest root down
-	// to terminal nodes in this test, as there are three terminal nodes,
+	// to terminal edges in this test, as there are three terminal edges,
 	// namely, path A ending in blk-3.a-4.a, path B ending in big-0.a-4.a, and path C ending in blk-0.a-2.a.
 	//
 	// Path A, at block number 10, should have a total weight of 7 as
@@ -201,7 +201,7 @@ func TestComputePathWeight(t *testing.T) {
 		require.Equal(t, uint64(1), weight)
 
 		// Querying at a future block number should not change the result,
-		// as the terminal node is rivaled.
+		// as the terminal edge is rivaled.
 		weight, err = tree.ComputePathWeight(
 			ctx,
 			ComputePathWeightArgs{
@@ -229,7 +229,7 @@ func TestComputePathWeight(t *testing.T) {
 		require.Equal(t, uint64(2), weight)
 
 		// Querying at a future block number should not change the result,
-		// as the terminal node is rivaled.
+		// as the terminal edge is rivaled.
 		weight, err = tree.ComputePathWeight(
 			ctx,
 			ComputePathWeightArgs{
@@ -303,7 +303,7 @@ func TestComputePathWeight(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(17), weight)
 	})
-	t.Run("path ending in refinement node across challenge level", func(t *testing.T) {
+	t.Run("path ending in refinement edge across challenge level", func(t *testing.T) {
 		child := protocol.SpecEdge(honestEdges["big-0.a-4.a"])
 		ancestor := protocol.SpecEdge(honestEdges["blk-0.a-4.a"])
 		weight, err := tree.ComputePathWeight(
@@ -442,16 +442,16 @@ func setupEssentialPathsTest(t *testing.T) (*RoyalChallengeTree, map[mock.EdgeId
 	return tree, honestEdges
 }
 
-func Test_isProofNode(t *testing.T) {
+func Test_isProofEdge(t *testing.T) {
 	ctx := context.Background()
 	edge := newEdge(&newCfg{t: t, edgeId: "blk-0.a-32.a"})
-	require.Equal(t, false, isProofNode(ctx, edge))
+	require.Equal(t, false, isProofEdge(ctx, edge))
 	edge = newEdge(&newCfg{t: t, edgeId: "blk-0.a-1.a"})
-	require.Equal(t, false, isProofNode(ctx, edge))
+	require.Equal(t, false, isProofEdge(ctx, edge))
 	edge = newEdge(&newCfg{t: t, edgeId: "smol-0.a-2.a"})
-	require.Equal(t, false, isProofNode(ctx, edge))
+	require.Equal(t, false, isProofEdge(ctx, edge))
 	edge = newEdge(&newCfg{t: t, edgeId: "smol-0.a-1.a"})
-	require.Equal(t, true, isProofNode(ctx, edge))
+	require.Equal(t, true, isProofEdge(ctx, edge))
 }
 
 func Test_isClaimedEdge(t *testing.T) {

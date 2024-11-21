@@ -449,10 +449,10 @@ func (w *Watcher) IsEssentialAncestorConfirmable(
 	return pathWeight >= confirmationThreshold, nil
 }
 
-func (w *Watcher) IsConfirmableEssentialNode(
+func (w *Watcher) IsConfirmableEssentialEdge(
 	ctx context.Context,
 	challengedAssertionHash protocol.AssertionHash,
-	essentialNodeId protocol.EdgeId,
+	essentialEdgeId protocol.EdgeId,
 	confirmationThreshold uint64,
 ) (bool, []challengetree.EssentialPath, uint64, error) {
 	chal, ok := w.challenges.TryGet(challengedAssertionHash)
@@ -463,10 +463,10 @@ func (w *Watcher) IsConfirmableEssentialNode(
 	if err != nil {
 		return false, nil, 0, err
 	}
-	confirmable, essentialPaths, timer, err := chal.honestEdgeTree.IsConfirmableEssentialNode(
+	confirmable, essentialPaths, timer, err := chal.honestEdgeTree.IsConfirmableEssentialEdge(
 		ctx,
 		challengetree.IsConfirmableArgs{
-			EssentialNode:         essentialNodeId,
+			EssentialEdge:         essentialEdgeId,
 			BlockNum:              blockHeaderNumber,
 			ConfirmationThreshold: confirmationThreshold,
 		},

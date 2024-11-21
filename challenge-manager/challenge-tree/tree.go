@@ -42,7 +42,7 @@ func buildEdgeCreationTimeKey(originId protocol.OriginId, mutualId protocol.Mutu
 	return key
 }
 
-// RoyalChallengeTree keeps track of royal edges the honest node agrees with in a particular challenge.
+// RoyalChallengeTree keeps track of royal edges the honest validator agrees with in a particular challenge.
 // All edges tracked in this data structure are part of the same, top-level assertion challenge.
 type RoyalChallengeTree struct {
 	edges                 *threadsafe.Map[protocol.EdgeId, protocol.SpecEdge]

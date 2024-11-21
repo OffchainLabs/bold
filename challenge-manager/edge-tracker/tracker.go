@@ -62,10 +62,10 @@ type HonestChallengeTreeReader interface {
 		challengedAssertionHash protocol.AssertionHash,
 		confirmationThreshold uint64,
 	) (bool, error)
-	IsConfirmableEssentialNode(
+	IsConfirmableEssentialEdge(
 		ctx context.Context,
 		challengedAssertionHash protocol.AssertionHash,
-		essentialNodeId protocol.EdgeId,
+		essentialEdgeId protocol.EdgeId,
 		confirmationThreshold uint64,
 	) (confirmable bool, essentialPaths []challengetree.EssentialPath, timer uint64, err error)
 }
@@ -486,15 +486,15 @@ func (et *Tracker) tryToConfirmEdge(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "could not check the challenge period length")
 	}
 	start := time.Now()
-	isConfirmable, _, computedTimer, err := et.chainWatcher.IsConfirmableEssentialNode(
+	isConfirmable, _, computedTimer, err := et.chainWatcher.IsConfirmableEssentialEdge(
 		ctx,
 		challengedAssertionHash,
 		et.edge.Id(),
 		chalPeriod,
 	)
 	if err != nil {
-		log.Error("Could not check if essential node is confirmable")
-		return false, errors.Wrap(err, "not check if essential node is confirmable")
+		log.Error("Could not check if essential edge is confirmable")
+		return false, errors.Wrap(err, "not check if essential edge is confirmable")
 	}
 	end := time.Since(start)
 	localFields := []any{
