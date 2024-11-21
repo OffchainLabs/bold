@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/offchainlabs/bold/util/stopwaiter"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -160,6 +161,41 @@ func (m *Manager) Start(ctx context.Context) {
 	m.LaunchThread(m.updateLatestConfirmedMetrics)
 	m.LaunchThread(m.syncAssertions)
 	m.LaunchThread(m.queueCanonicalAssertionsForConfirmation)
+	m.LaunchThread(m.checkLatestDesiredBlock)
+}
+
+func (m *Manager) checkLatestDesiredBlock(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Minute):
+			latestSafeBlock, err := m.backend.HeaderByNumber(ctx, big.NewInt(int64(rpc.SafeBlockNumber)))
+			if err != nil {
+				log.Error("Error getting latest safe block", "err", err)
+				continue
+			}
+			if !latestSafeBlock.Number.IsUint64() {
+				log.Error("Latest safe block number not a uint64")
+				continue
+			}
+
+			latestBlock, err := m.backend.HeaderByNumber(ctx, nil)
+			if err != nil {
+				log.Error("Error getting latest block", "err", err)
+				continue
+			}
+			if !latestBlock.Number.IsUint64() {
+				log.Error("Latest block number not a uint64")
+				continue
+			}
+			safeBlockDelayInSeconds := (latestBlock.Number.Uint64() - latestSafeBlock.Number.Uint64()) * uint64(m.averageTimeForBlockCreation.Seconds())
+			if safeBlockDelayInSeconds > 1200 {
+				log.Warn("Latest safe block is delayed by more that 20 minutes", "latestSafeBlock", latestSafeBlock.Number.Uint64(), "latestBlock", latestBlock.Number.Uint64())
+				safeBlockDelayCounter.Inc(1)
+			}
+		}
+	}
 }
 
 func (m *Manager) LayerZeroHeights(ctx context.Context) (*protocol.LayerZeroHeights, error) {
