@@ -36,7 +36,7 @@ var (
 	layerZeroLeafCounter = metrics.NewRegisteredCounter("arb/validator/tracker/layer_zero_leaves", nil)
 )
 
-// HonestChallengeTreeReader defines a struct which can retrieve information about
+// HonestChallengeTreeReader defines a type which can retrieve information about
 // an edge to determine if it can be confirmed via different means. For example,
 // checking if a confirmed edge exists that claims a specified edge id as its claim id,
 // or retrieving the cumulative, honest path timer for an edge and its honest ancestors.
@@ -70,7 +70,7 @@ type HonestChallengeTreeReader interface {
 	) (confirmable bool, essentialPaths []challengetree.EssentialPath, timer uint64, err error)
 }
 
-// HonestChallengeTreeWriter defines a struct which can not only read information
+// HonestChallengeTreeWriter defines a type which can not only read information
 // about the honest challenge tree, but also add a verified honest edge to the tree.
 type HonestChallengeTreeWriter interface {
 	HonestChallengeTreeReader
@@ -79,7 +79,7 @@ type HonestChallengeTreeWriter interface {
 	) error
 }
 
-// ChallengeTracker defines a struct which can keep track of edge spawner goroutines
+// ChallengeTracker defines a type which can keep track of edge spawner goroutines
 // and remove them as needed upon confirmation.
 type ChallengeTracker interface {
 	IsTrackingEdge(protocol.EdgeId) bool
@@ -385,8 +385,9 @@ func (et *Tracker) Act(ctx context.Context) error {
 	}
 }
 
-// ShouldDespawn checks if an edge tracker should despawn and no longer act. Every edge tracker
-// needs to have a despawn condition to ensure goroutines are cleaned up.
+// ShouldDespawn checks if an edge tracker should despawn and no longer act.
+// Every edge tracker needs to have a despawn condition
+// to ensure goroutines are cleaned up.
 func (et *Tracker) ShouldDespawn(ctx context.Context) bool {
 	// If the edge is an essential root, it should despawn once it is confirmed.
 	fields := et.uniqueTrackerLogFields()
