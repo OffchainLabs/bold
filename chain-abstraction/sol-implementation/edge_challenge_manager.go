@@ -260,8 +260,16 @@ func (h *honestEdge) Bisect(
 		if lowerEdge.IsNone() {
 			return nil, nil, errors.New("could not refresh lower edge after bisecting, got empty result")
 		}
-		lower := &honestEdge{lowerEdge.Unwrap().(*specEdge)}
-		upper := &honestEdge{upperEdge.Unwrap().(*specEdge)}
+		lowerSpecEdge, ok := lowerEdge.Unwrap().(*specEdge)
+		if !ok {
+			return nil, nil, errors.New("not a *specEdge")
+		}
+		upperSpecEdge, ok := upperEdge.Unwrap().(*specEdge)
+		if !ok {
+			return nil, nil, errors.New("not a *specEdge")
+		}
+		lower := &honestEdge{lowerSpecEdge}
+		upper := &honestEdge{upperSpecEdge}
 		return lower, upper, nil
 	}
 
@@ -295,8 +303,16 @@ func (h *honestEdge) Bisect(
 	if someLowerChild.IsNone() || someUpperChild.IsNone() {
 		return nil, nil, errors.New("expected edge to have children post-bisection, but has none")
 	}
-	lower := &honestEdge{someLowerChild.Unwrap().(*specEdge)}
-	upper := &honestEdge{someUpperChild.Unwrap().(*specEdge)}
+	lowerSpecEdge, ok := someLowerChild.Unwrap().(*specEdge)
+	if !ok {
+		return nil, nil, errors.New("not a *specEdge")
+	}
+	upperSpecEdge, ok := someUpperChild.Unwrap().(*specEdge)
+	if !ok {
+		return nil, nil, errors.New("not a *specEdge")
+	}
+	lower := &honestEdge{lowerSpecEdge}
+	upper := &honestEdge{upperSpecEdge}
 	return lower, upper, nil
 }
 

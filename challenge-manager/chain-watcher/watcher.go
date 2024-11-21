@@ -46,12 +46,6 @@ var (
 	assertionConfirmedCounter               = metrics.GetOrRegisterCounter("arb/validator/scanner/assertion_confirmed", nil)
 )
 
-type honestEdge struct {
-	protocol.SpecEdge
-}
-
-func (h *honestEdge) Honest() {}
-
 // EdgeManager provides a method to track edges, via edge tracker goroutines.
 type EdgeManager interface {
 	TrackEdge(ctx context.Context, edge protocol.VerifiedRoyalEdge) error
