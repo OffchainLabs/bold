@@ -11,7 +11,7 @@ test_suite(
 
 go_test(
     name = "endtoend_test",
-    size = "medium",
+    size = "large",
     srcs = [
         "e2e_test.go",
         "helpers_test.go",
