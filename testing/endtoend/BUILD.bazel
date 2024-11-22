@@ -47,15 +47,21 @@ go_test(
 go_library(
     name = "endtoend",
     testonly = 1,
-    srcs = ["expectations.go"],
+    srcs = [
+        "expectations.go",
+        "headers.go",
+    ],
     importpath = "github.com/offchainlabs/bold/testing/endtoend",
     visibility = ["//visibility:public"],
     deps = [
         "//chain-abstraction:protocol",
         "//runtime",
         "//solgen/go/rollupgen",
+        "//testing/endtoend/backend",
         "//testing/setup:setup_lib",
+        "//util/stopwaiter",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_stretchr_testify//require",
     ],
 )
