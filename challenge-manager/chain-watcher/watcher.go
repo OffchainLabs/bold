@@ -87,6 +87,15 @@ type Watcher struct {
 	// Only track challenges for these parent assertion hashes.
 	// Track all if empty / nil.
 	trackChallengeParentAssertionHashes []protocol.AssertionHash
+	maxLookbackBlocks                   uint64
+}
+
+type WatcherOpt func(w *Watcher)
+
+func WithSyncMaxLookbackBlocks(maxLookback uint64) WatcherOpt {
+	return func(w *Watcher) {
+		w.maxLookbackBlocks = maxLookback
+	}
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -99,8 +108,9 @@ func New(
 	assertionConfirmingInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	trackChallengeParentAssertionHashes []protocol.AssertionHash,
+	opts ...WatcherOpt,
 ) (*Watcher, error) {
-	return &Watcher{
+	w := &Watcher{
 		chain:                               chain,
 		edgeManager:                         nil, // Must be set after construction.
 		pollEventsInterval:                  time.Millisecond * 500,
@@ -114,7 +124,12 @@ func New(
 		averageTimeForBlockCreation:         averageTimeForBlockCreation,
 		evilEdgesByLevel:                    threadsafe.NewMap(threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
 		trackChallengeParentAssertionHashes: trackChallengeParentAssertionHashes,
-	}, nil
+		maxLookbackBlocks:                   daysToBlocks(averageTimeForBlockCreation, 21), // Default to 3 weeks worth of blocks.
+	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w, nil
 }
 
 // SetEdgeManager sets the EdgeManager that will track the royal edges.
@@ -580,19 +595,8 @@ func (w *Watcher) AddEdge(ctx context.Context, edge protocol.SpecEdge) (bool, er
 	if err != nil {
 		return false, err
 	}
-	challengeComplete, err := w.chain.IsChallengeComplete(ctx, challengeParentAssertionHash)
-	if err != nil {
-		return false, errors.Wrapf(
-			err,
-			"could not check if edge with parent assertion hash %#x is part of a completed challenge",
-			challengeParentAssertionHash.Hash,
-		)
-	}
 	start, startRoot := edge.StartCommitment()
 	end, endRoot := edge.EndCommitment()
-	if challengeComplete {
-		return false, nil
-	}
 	chal, ok := w.challenges.TryGet(challengeParentAssertionHash)
 	if !ok {
 		tree := challengetree.New(
@@ -1055,4 +1059,8 @@ func (w *Watcher) saveEdgeToDB(
 		HasRival:            hasRival,
 		HasLengthOneRival:   hasLengthOneRival,
 	})
+}
+
+func daysToBlocks(avgBlockCreationTime time.Duration, days uint64) uint64 {
+	return uint64(math.Round(float64(days) * 24 * 60 * 60 / avgBlockCreationTime.Seconds()))
 }

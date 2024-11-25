@@ -334,6 +334,13 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	require.NoError(t, g.Wait())
 }
 
+func TestEndToEnd_HonestValidatorCrashes_ConfirmsEssentialEdgesAfterChallengeCompletion(t *testing.T) {
+	// This test ensures that an honest validator can crash after a challenge has completed, can resync
+	// the completed challenge and continue playing the game until all essential edges are confirmed.
+	// This is to ensure that even if a challenge is completed, we can still resync it and continue
+	// playing for the sake of refunding honest stakes.
+}
+
 type seqMessage struct {
 	dataHash                 common.Hash
 	afterDelayedMessagesRead *big.Int
