@@ -162,10 +162,10 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 			require.NoError(t, err2)
 			for it.Next() {
 				txHash := it.Event.Raw.TxHash
-				tx, _, err := bk.Client().TransactionByHash(neutralCtx, txHash)
-				require.NoError(t, err)
-				sender, err := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-				require.NoError(t, err)
+				tx, _, err2 := bk.Client().TransactionByHash(neutralCtx, txHash)
+				require.NoError(t, err2)
+				sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+				require.NoError(t, err2)
 				if sender != txOpts.From {
 					continue
 				}
@@ -191,8 +191,8 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 
 		honestManager.Start(honestCtx)
 
-		rc, err := rollupgen.NewRollupCore(rollupAddr.Rollup, bk.Client())
-		require.NoError(t, err)
+		rc, err2 := rollupgen.NewRollupCore(rollupAddr.Rollup, bk.Client())
+		require.NoError(t, err2)
 
 		// Wait until a challenged assertion is confirmed by time.
 		var confirmed bool
@@ -203,8 +203,8 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 			})
 			require.NoError(t, err)
 			for i.Next() {
-				creationInfo, err := evilChain.ReadAssertionCreationInfo(evilCtx, protocol.AssertionHash{Hash: i.Event.AssertionHash})
-				require.NoError(t, err)
+				creationInfo, err2 := evilChain.ReadAssertionCreationInfo(evilCtx, protocol.AssertionHash{Hash: i.Event.AssertionHash})
+				require.NoError(t, err2)
 
 				var parent rollupgen.AssertionNode
 				parent, err = retry.UntilSucceeds(neutralCtx, func() (rollupgen.AssertionNode, error) {
@@ -212,10 +212,10 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				tx, _, err := bk.Client().TransactionByHash(neutralCtx, creationInfo.TransactionHash)
-				require.NoError(t, err)
-				sender, err := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-				require.NoError(t, err)
+				tx, _, err2 := bk.Client().TransactionByHash(neutralCtx, creationInfo.TransactionHash)
+				require.NoError(t, err2)
+				sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+				require.NoError(t, err2)
 				honestConfirmed := sender == txOpts.From
 
 				isChallengeChild := parent.FirstChildBlock > 0 && parent.SecondChildBlock > 0
