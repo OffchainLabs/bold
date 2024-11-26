@@ -5,7 +5,6 @@
 package challengemanager
 
 import (
-	"math"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -49,7 +48,7 @@ var defaultStackParams = stackParams{
 	headerProvider:                      nil,
 	enableFastConfirmation:              false,
 	assertionManagerOverride:            nil,
-	maxLookbackBlocks:                   daysToBlocks(time.Second*12, 21), // Default to 3 weeks worth of blocks.
+	maxLookbackBlocks:                   blocksPerInterval(time.Second*12, 21*24*time.Hour), // Default to 3 weeks worth of blocks.
 }
 
 // StackOpt is a functional option to configure the stack.
@@ -246,6 +245,7 @@ func NewChallengeStack(
 	return New(chain, provider, watcher, asm, cmOpts...)
 }
 
-func daysToBlocks(avgBlockCreationTime time.Duration, days uint64) uint64 {
-	return uint64(math.Round(float64(days) * 24 * 60 * 60 / avgBlockCreationTime.Seconds()))
+func blocksPerInterval(avgBlockTime time.Duration, interval time.Duration) uint64 {
+	// Calculate the number of blocks as an integer division
+	return uint64(interval / avgBlockTime)
 }

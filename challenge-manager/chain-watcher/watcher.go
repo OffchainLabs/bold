@@ -1050,7 +1050,3 @@ func (w *Watcher) saveEdgeToDB(
 		HasLengthOneRival:   hasLengthOneRival,
 	})
 }
-
-func daysToBlocks(avgBlockCreationTime time.Duration, days uint64) uint64 {
-	return uint64(math.Round(float64(days) * 24 * 60 * 60 / avgBlockCreationTime.Seconds()))
-}
