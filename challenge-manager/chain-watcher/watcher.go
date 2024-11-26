@@ -942,6 +942,8 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	startBlock := latestBlock
 	if w.maxLookbackBlocks < startBlock {
 		startBlock = startBlock - w.maxLookbackBlocks
+	} else {
+		startBlock = 0
 	}
 	headerNumber, err := w.backend.HeaderU64(ctx)
 	if err != nil {
