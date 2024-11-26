@@ -334,11 +334,20 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	require.NoError(t, g.Wait())
 }
 
-func TestEndToEnd_HonestValidatorCrashes_ConfirmsEssentialEdgesAfterChallengeCompletion(t *testing.T) {
+func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
+	// This test ensures a challenge can complete even if the honest validator crashes mid-challenge.
+	// We cancel the honest validator's context after it opens the first subchallenge and prove that it
+	// can restart and carry things out to confirm the honest, claimed assertion in the challenge.
+	t.Run("crashes mid-challenge and recovers to complete it", func(t *testing.T) {})
 	// This test ensures that an honest validator can crash after a challenge has completed, can resync
 	// the completed challenge and continue playing the game until all essential edges are confirmed.
 	// This is to ensure that even if a challenge is completed, we can still resync it and continue
 	// playing for the sake of refunding honest stakes.
+	t.Run(
+		"crashes once challenged assertion is confirmed and restarts to confirm essential edges",
+		func(t *testing.T) {
+
+		})
 }
 
 type seqMessage struct {
