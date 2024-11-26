@@ -90,14 +90,6 @@ type Watcher struct {
 	maxLookbackBlocks                   uint64
 }
 
-type WatcherOpt func(w *Watcher)
-
-func WithSyncMaxLookbackBlocks(maxLookback uint64) WatcherOpt {
-	return func(w *Watcher) {
-		w.maxLookbackBlocks = maxLookback
-	}
-}
-
 // New initializes a watcher service for frequently scanning the chain
 // for edge creations and confirmations.
 func New(
@@ -108,9 +100,9 @@ func New(
 	assertionConfirmingInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	trackChallengeParentAssertionHashes []protocol.AssertionHash,
-	opts ...WatcherOpt,
+	maxLookbackBlocks uint64,
 ) (*Watcher, error) {
-	w := &Watcher{
+	return &Watcher{
 		chain:                               chain,
 		edgeManager:                         nil, // Must be set after construction.
 		pollEventsInterval:                  time.Millisecond * 500,
@@ -124,12 +116,8 @@ func New(
 		averageTimeForBlockCreation:         averageTimeForBlockCreation,
 		evilEdgesByLevel:                    threadsafe.NewMap(threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
 		trackChallengeParentAssertionHashes: trackChallengeParentAssertionHashes,
-		maxLookbackBlocks:                   daysToBlocks(averageTimeForBlockCreation, 21), // Default to 3 weeks worth of blocks.
-	}
-	for _, opt := range opts {
-		opt(w)
-	}
-	return w, nil
+		maxLookbackBlocks:                   maxLookbackBlocks,
+	}, nil
 }
 
 // SetEdgeManager sets the EdgeManager that will track the royal edges.
@@ -947,12 +935,14 @@ type filterRange struct {
 // Gets the start and end block numbers for our filter queries, starting from
 // the latest confirmed assertion's block number up to the latest block number.
 func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) {
-	latestConfirmed, err := w.chain.LatestConfirmed(ctx, w.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	latestBlock, err := w.chain.Backend().HeaderU64(ctx)
 	if err != nil {
 		return filterRange{}, err
 	}
-	firstBlock := latestConfirmed.CreatedAtBlock()
-	startBlock := firstBlock
+	startBlock := latestBlock
+	if w.maxLookbackBlocks < startBlock {
+		startBlock = startBlock - w.maxLookbackBlocks
+	}
 	headerNumber, err := w.backend.HeaderU64(ctx)
 	if err != nil {
 		return filterRange{}, err

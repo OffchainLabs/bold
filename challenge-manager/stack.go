@@ -5,6 +5,7 @@
 package challengemanager
 
 import (
+	"math"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,6 +33,7 @@ type stackParams struct {
 	headerProvider                      HeaderProvider
 	enableFastConfirmation              bool
 	assertionManagerOverride            *assertions.Manager
+	maxLookbackBlocks                   uint64
 }
 
 var defaultStackParams = stackParams{
@@ -47,6 +49,7 @@ var defaultStackParams = stackParams{
 	headerProvider:                      nil,
 	enableFastConfirmation:              false,
 	assertionManagerOverride:            nil,
+	maxLookbackBlocks:                   daysToBlocks(time.Second*12, 21), // Default to 3 weeks worth of blocks.
 }
 
 // StackOpt is a functional option to configure the stack.
@@ -130,6 +133,19 @@ func StackWithFastConfirmationEnabled() StackOpt {
 	}
 }
 
+// StackWithSyncMaxLookbackBlocks specifies the number of blocks behind the latest block
+// to start syncing the chain watcher from.
+func StackWithSyncMaxLookbackBlocks(maxLookback uint64) StackOpt {
+	return func(p *stackParams) {
+		p.maxLookbackBlocks = maxLookback
+	}
+}
+func StackWithM() StackOpt {
+	return func(p *stackParams) {
+		p.enableFastConfirmation = true
+	}
+}
+
 // OverrideAssertionManger can be used in tests to override the assertion
 // manager.
 func OverrideAssertionManager(asm *assertions.Manager) StackOpt {
@@ -170,6 +186,7 @@ func NewChallengeStack(
 		params.confInterval,
 		params.avgBlockTime,
 		params.trackChallengeParentAssertionHashes,
+		params.maxLookbackBlocks,
 	)
 	if err != nil {
 		return nil, err
@@ -227,4 +244,8 @@ func NewChallengeStack(
 		cmOpts = append(cmOpts, WithAPIServer(api))
 	}
 	return New(chain, provider, watcher, asm, cmOpts...)
+}
+
+func daysToBlocks(avgBlockCreationTime time.Duration, days uint64) uint64 {
+	return uint64(math.Round(float64(days) * 24 * 60 * 60 / avgBlockCreationTime.Seconds()))
 }

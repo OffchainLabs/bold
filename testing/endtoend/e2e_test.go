@@ -280,7 +280,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
 
-	// Diverge exactly at the last opcode within the block.
 	totalOpcodes := totalWasmOpcodes(&cfg.protocol.layerZeroHeights, cfg.protocol.numBigStepLevels)
 	t.Logf("Total wasm opcodes in test: %d", totalOpcodes)
 
@@ -289,6 +288,7 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 
 	evilChallengeManagers := make([]*cm.Manager, cfg.actors.numEvilValidators)
 	for i := uint64(0); i < cfg.actors.numEvilValidators; i++ {
+		// Diverge at a random opcode within the block.
 		machineDivergenceStep := randUint64(i)
 		if machineDivergenceStep == 0 {
 			machineDivergenceStep = 1
@@ -332,22 +332,6 @@ func runEndToEndTest(t *testing.T, cfg *e2eConfig) {
 		})
 	}
 	require.NoError(t, g.Wait())
-}
-
-func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
-	// This test ensures a challenge can complete even if the honest validator crashes mid-challenge.
-	// We cancel the honest validator's context after it opens the first subchallenge and prove that it
-	// can restart and carry things out to confirm the honest, claimed assertion in the challenge.
-	t.Run("crashes mid-challenge and recovers to complete it", func(t *testing.T) {})
-	// This test ensures that an honest validator can crash after a challenge has completed, can resync
-	// the completed challenge and continue playing the game until all essential edges are confirmed.
-	// This is to ensure that even if a challenge is completed, we can still resync it and continue
-	// playing for the sake of refunding honest stakes.
-	t.Run(
-		"crashes once challenged assertion is confirmed and restarts to confirm essential edges",
-		func(t *testing.T) {
-
-		})
 }
 
 type seqMessage struct {
