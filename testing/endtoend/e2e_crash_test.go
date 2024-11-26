@@ -158,14 +158,14 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 		require.NoError(t, err2)
 		var foundSubchalEdge bool
 		for neutralCtx.Err() == nil && !foundSubchalEdge {
-			it, err2 := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
-			require.NoError(t, err2)
+			it, err3 := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
+			require.NoError(t, err3)
 			for it.Next() {
 				txHash := it.Event.Raw.TxHash
-				tx, _, err2 := bk.Client().TransactionByHash(neutralCtx, txHash)
-				require.NoError(t, err2)
-				sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-				require.NoError(t, err2)
+				tx, _, err3 := bk.Client().TransactionByHash(neutralCtx, txHash)
+				require.NoError(t, err3)
+				sender, err3 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+				require.NoError(t, err3)
 				if sender != txOpts.From {
 					continue
 				}
