@@ -321,10 +321,10 @@ func testContinuesPlayingChallengeAfterAssertionWin(
 	require.NoError(t, err)
 	for it.Next() {
 		txHash := it.Event.Raw.TxHash
-		tx, _, err := bk.Client().TransactionByHash(neutralCtx, txHash)
-		require.NoError(t, err)
-		sender, err := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-		require.NoError(t, err)
+		tx, _, err2 := bk.Client().TransactionByHash(neutralCtx, txHash)
+		require.NoError(t, err2)
+		sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+		require.NoError(t, err2)
 		if sender != honestTxOpts.From {
 			continue
 		}
@@ -342,15 +342,15 @@ func testContinuesPlayingChallengeAfterAssertionWin(
 	totalPeriod := chalPeriodBlocks * uint64(len(honestEssentialRootIds))
 	confirmedCount := 0
 	for confirmedCount < len(honestEssentialRootIds) {
-		latestBlk, err := bk.Client().HeaderU64(neutralCtx)
-		require.NoError(t, err)
+		latestBlk, err2 := bk.Client().HeaderU64(neutralCtx)
+		require.NoError(t, err2)
 		numBlocksElapsed := latestBlk - startBlk
 		if numBlocksElapsed > totalPeriod {
 			t.Fatalf("%d blocks have passed without essential edges being confirmed", numBlocksElapsed)
 		}
 		for k, markedConfirmed := range honestEssentialRootIds {
-			edge, err := cmBindings.GetEdge(&bind.CallOpts{}, k)
-			require.NoError(t, err)
+			edge, err2 := cmBindings.GetEdge(&bind.CallOpts{}, k)
+			require.NoError(t, err2)
 			if edge.Status == 1 && !markedConfirmed {
 				confirmedCount += 1
 				honestEssentialRootIds[k] = true
