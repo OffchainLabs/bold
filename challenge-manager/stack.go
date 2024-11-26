@@ -141,11 +141,6 @@ func StackWithSyncMaxLookbackBlocks(maxLookback uint64) StackOpt {
 		p.maxLookbackBlocks = maxLookback
 	}
 }
-func StackWithM() StackOpt {
-	return func(p *stackParams) {
-		p.enableFastConfirmation = true
-	}
-}
 
 // OverrideAssertionManger can be used in tests to override the assertion
 // manager.
