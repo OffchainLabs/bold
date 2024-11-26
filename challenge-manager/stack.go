@@ -7,6 +7,8 @@ package challengemanager
 import (
 	"time"
 
+	"github.com/ccoveille/go-safecast"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/offchainlabs/bold/api/backend"
@@ -247,5 +249,9 @@ func NewChallengeStack(
 
 func blocksPerInterval(avgBlockTime time.Duration, interval time.Duration) uint64 {
 	// Calculate the number of blocks as an integer division
-	return uint64(interval / avgBlockTime)
+	res, err := safecast.ToUint64(interval / avgBlockTime)
+	if err != nil {
+		panic(err)
+	}
+	return res
 }
