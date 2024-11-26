@@ -154,12 +154,12 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 		// validator and we should expect the honest assertion is still confirmed by time.
 		// No more edges will be added here, so we then scrape all the edges added to the challenge.
 		// We await until all the essential root edges are also confirmed by time.
-		chainId, err := bk.Client().ChainID(neutralCtx)
-		require.NoError(t, err)
+		chainId, err2 := bk.Client().ChainID(neutralCtx)
+		require.NoError(t, err2)
 		var foundSubchalEdge bool
 		for neutralCtx.Err() == nil && !foundSubchalEdge {
-			it, err := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
-			require.NoError(t, err)
+			it, err2 := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
+			require.NoError(t, err2)
 			for it.Next() {
 				txHash := it.Event.Raw.TxHash
 				tx, _, err := bk.Client().TransactionByHash(neutralCtx, txHash)
