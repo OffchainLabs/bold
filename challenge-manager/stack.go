@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ccoveille/go-safecast"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/offchainlabs/bold/api/backend"
@@ -34,7 +33,7 @@ type stackParams struct {
 	headerProvider                      HeaderProvider
 	enableFastConfirmation              bool
 	assertionManagerOverride            *assertions.Manager
-	maxLookbackBlocks                   uint64
+	maxLookbackBlocks                   int64
 }
 
 var defaultStackParams = stackParams{
@@ -136,7 +135,7 @@ func StackWithFastConfirmationEnabled() StackOpt {
 
 // StackWithSyncMaxLookbackBlocks specifies the number of blocks behind the latest block
 // to start syncing the chain watcher from.
-func StackWithSyncMaxLookbackBlocks(maxLookback uint64) StackOpt {
+func StackWithSyncMaxLookbackBlocks(maxLookback int64) StackOpt {
 	return func(p *stackParams) {
 		p.maxLookbackBlocks = maxLookback
 	}
@@ -172,6 +171,10 @@ func NewChallengeStack(
 		}
 		provider.UpdateAPIDatabase(apiDB)
 	}
+	maxLookbackBlocks, err := safecast.ToUint64(params.maxLookbackBlocks)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create the chain watcher.
 	watcher, err := watcher.New(
@@ -182,7 +185,7 @@ func NewChallengeStack(
 		params.confInterval,
 		params.avgBlockTime,
 		params.trackChallengeParentAssertionHashes,
-		params.maxLookbackBlocks,
+		maxLookbackBlocks,
 	)
 	if err != nil {
 		return nil, err
@@ -242,11 +245,7 @@ func NewChallengeStack(
 	return New(chain, provider, watcher, asm, cmOpts...)
 }
 
-func blocksPerInterval(avgBlockTime time.Duration, interval time.Duration) uint64 {
+func blocksPerInterval(avgBlockTime time.Duration, interval time.Duration) int64 {
 	// Calculate the number of blocks as an integer division
-	res, err := safecast.ToUint64(interval / avgBlockTime)
-	if err != nil {
-		panic(err)
-	}
-	return res
+	return int64(interval / avgBlockTime)
 }

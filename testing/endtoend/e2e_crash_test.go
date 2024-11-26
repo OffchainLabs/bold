@@ -17,6 +17,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
+	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	cm "github.com/offchainlabs/bold/challenge-manager"
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	retry "github.com/offchainlabs/bold/runtime"
@@ -154,87 +155,20 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 		// validator and we should expect the honest assertion is still confirmed by time.
 		// No more edges will be added here, so we then scrape all the edges added to the challenge.
 		// We await until all the essential root edges are also confirmed by time.
-		chainId, err2 := bk.Client().ChainID(neutralCtx)
-		require.NoError(t, err2)
-		var foundSubchalEdge bool
-		for neutralCtx.Err() == nil && !foundSubchalEdge {
-			it, err3 := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
-			require.NoError(t, err3)
-			for it.Next() {
-				txHash := it.Event.Raw.TxHash
-				tx, _, err3 := bk.Client().TransactionByHash(neutralCtx, txHash)
-				require.NoError(t, err3)
-				sender, err3 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-				require.NoError(t, err3)
-				if sender != txOpts.From {
-					continue
-				}
-				if it.Event.Level > 0 {
-					foundSubchalEdge = true
-					t.Log("Honest validator made a subchallenge")
-					break // The honest validator made a subchallenge.
-				}
-			}
-			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-		}
-		// Cancel the honest context.
-		honestCancel()
-		t.Log("Honest context has been canceled")
+		testCrashesMidChallengeAndRecovers(
+			t,
+			neutralCtx,
+			honestCancel,
+			bk,
+			txOpts,
+			evilCtx,
+			cmBindings,
+			evilChain,
+			rollupAddr.Rollup,
+			honestStateManager,
+			honestOpts,
+		)
 
-		// We then restart the honest validator after a few seconds of wait time.
-		time.Sleep(time.Second * 3)
-
-		honestCtx, honestCancel = context.WithCancel(context.Background())
-		honestChain = setupAssertionChain(t, honestCtx, bk.Client(), rollupAddr.Rollup, txOpts)
-		honestManager, err = cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
-		require.NoError(t, err)
-
-		honestManager.Start(honestCtx)
-
-		rc, err2 := rollupgen.NewRollupCore(rollupAddr.Rollup, bk.Client())
-		require.NoError(t, err2)
-
-		// Wait until a challenged assertion is confirmed by time.
-		var confirmed bool
-		for neutralCtx.Err() == nil && !confirmed {
-			var i *rollupgen.RollupCoreAssertionConfirmedIterator
-			i, err = retry.UntilSucceeds(neutralCtx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
-				return rc.FilterAssertionConfirmed(nil, nil)
-			})
-			require.NoError(t, err)
-			for i.Next() {
-				creationInfo, err2 := evilChain.ReadAssertionCreationInfo(evilCtx, protocol.AssertionHash{Hash: i.Event.AssertionHash})
-				require.NoError(t, err2)
-
-				var parent rollupgen.AssertionNode
-				parent, err = retry.UntilSucceeds(neutralCtx, func() (rollupgen.AssertionNode, error) {
-					return rc.GetAssertion(&bind.CallOpts{Context: neutralCtx}, creationInfo.ParentAssertionHash.Hash)
-				})
-				require.NoError(t, err)
-
-				tx, _, err2 := bk.Client().TransactionByHash(neutralCtx, creationInfo.TransactionHash)
-				require.NoError(t, err2)
-				sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-				require.NoError(t, err2)
-				honestConfirmed := sender == txOpts.From
-
-				isChallengeChild := parent.FirstChildBlock > 0 && parent.SecondChildBlock > 0
-				if !isChallengeChild {
-					// Assertion must be be a challenge child.
-					continue
-				}
-				// We expect the honest party to have confirmed it.
-				if !honestConfirmed {
-					t.Fatal("Evil party confirmed the assertion by challenge win")
-				}
-				confirmed = true
-				break
-			}
-			time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-		}
-		// Once the honest, claimed assertion in the challenge is confirmed by time, we
-		// then continue the test.
-		t.Log("Assertion was confirmed by time")
 	})
 	// This test ensures that an honest validator can crash after a challenge has completed, can resync
 	// the completed challenge and continue playing the game until all essential edges are confirmed.
@@ -243,61 +177,186 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 	t.Run(
 		"crashes once challenged assertion is confirmed and restarts to confirm essential edges",
 		func(t *testing.T) {
-			// We start by canceling the honest context, and then wait a few seconds, and expect the honest
-			// validator to resync the challenge that just completed to continue playing the game
-			// until all essential root edges are confirmed by time.
-			honestCancel()
-			t.Log("Honest context has been canceled after challenge win")
-
-			// We then restart the honest validator after a few seconds of wait time.
-			time.Sleep(time.Second * 30)
-
-			honestCtx, honestCancel = context.WithCancel(context.Background())
-			honestChain = setupAssertionChain(t, honestCtx, bk.Client(), rollupAddr.Rollup, txOpts)
-			honestManager, err = cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
-			require.NoError(t, err)
-
-			honestManager.Start(honestCtx)
-
-			t.Log("Restarted honest validator to continue playing game after challenge has finished")
-
-			// We then expect that all essential root edges created by the honest validator are confirmed by time.
-			// Scrape all the honest edges onchain (the ones made by the honest address).
-			// Check if the edges that have claim id != None are confirmed (those are essential root edges)
-			// and also check one step edges from honest party are confirmed.
-			honestEssentialRootIds := make(map[common.Hash]bool, 0)
-			chainId, err := bk.Client().ChainID(neutralCtx)
-			require.NoError(t, err)
-			it, err := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
-			require.NoError(t, err)
-			for it.Next() {
-				txHash := it.Event.Raw.TxHash
-				tx, _, err := bk.Client().TransactionByHash(neutralCtx, txHash)
-				require.NoError(t, err)
-				sender, err := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
-				require.NoError(t, err)
-				if sender != txOpts.From {
-					continue
-				}
-				// Skip edges that are not essential roots.
-				if it.Event.ClaimId == (common.Hash{}) {
-					continue
-				}
-				honestEssentialRootIds[it.Event.EdgeId] = false
-			}
-			// Wait until all of the honest essential root ids are confirmed.
-			confirmedCount := 0
-			for confirmedCount < len(honestEssentialRootIds) {
-				for k, markedConfirmed := range honestEssentialRootIds {
-					edge, err := cmBindings.GetEdge(&bind.CallOpts{}, k)
-					require.NoError(t, err)
-					if edge.Status == 1 && !markedConfirmed {
-						confirmedCount += 1
-						honestEssentialRootIds[k] = true
-						t.Logf("Confirmed %d honest essential edges, got edge at level %d", confirmedCount, edge.Level)
-					}
-				}
-				time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-			}
+			testContinuesPlayingChallengeAfterAssertionWin(
+				t,
+				neutralCtx,
+				bk,
+				txOpts,
+				cmBindings,
+				rollupAddr.Rollup,
+				honestStateManager,
+				honestOpts,
+			)
 		})
+}
+
+func testCrashesMidChallengeAndRecovers(
+	t *testing.T,
+	neutralCtx context.Context,
+	honestCancel context.CancelFunc,
+	bk *backend.LocalSimulatedBackend,
+	honestTxOpts *bind.TransactOpts,
+	evilCtx context.Context,
+	cmBindings *challengeV2gen.EdgeChallengeManager,
+	evilChain *solimpl.AssertionChain,
+	rollupAddr common.Address,
+	honestStateManager *statemanager.L2StateBackend,
+	honestOpts []cm.StackOpt,
+) {
+	chainId, err2 := bk.Client().ChainID(neutralCtx)
+	require.NoError(t, err2)
+	var foundSubchalEdge bool
+	for neutralCtx.Err() == nil && !foundSubchalEdge {
+		it, err3 := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
+		require.NoError(t, err3)
+		for it.Next() {
+			txHash := it.Event.Raw.TxHash
+			tx, _, err3 := bk.Client().TransactionByHash(neutralCtx, txHash)
+			require.NoError(t, err3)
+			sender, err3 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+			require.NoError(t, err3)
+			if sender != honestTxOpts.From {
+				continue
+			}
+			if it.Event.Level > 0 {
+				foundSubchalEdge = true
+				t.Log("Honest validator made a subchallenge")
+				break // The honest validator made a subchallenge.
+			}
+		}
+		time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+	}
+	// Cancel the honest context.
+	honestCancel()
+	t.Log("Honest context has been canceled")
+
+	// We then restart the honest validator after a few seconds of wait time.
+	time.Sleep(time.Second * 3)
+
+	honestCtx, honestCancel := context.WithCancel(context.Background())
+	honestChain := setupAssertionChain(t, honestCtx, bk.Client(), rollupAddr, honestTxOpts)
+	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
+	require.NoError(t, err)
+
+	honestManager.Start(honestCtx)
+
+	rc, err2 := rollupgen.NewRollupCore(rollupAddr, bk.Client())
+	require.NoError(t, err2)
+
+	// Wait until a challenged assertion is confirmed by time.
+	var confirmed bool
+	for neutralCtx.Err() == nil && !confirmed {
+		var i *rollupgen.RollupCoreAssertionConfirmedIterator
+		i, err = retry.UntilSucceeds(neutralCtx, func() (*rollupgen.RollupCoreAssertionConfirmedIterator, error) {
+			return rc.FilterAssertionConfirmed(nil, nil)
+		})
+		require.NoError(t, err)
+		for i.Next() {
+			creationInfo, err2 := evilChain.ReadAssertionCreationInfo(evilCtx, protocol.AssertionHash{Hash: i.Event.AssertionHash})
+			require.NoError(t, err2)
+
+			var parent rollupgen.AssertionNode
+			parent, err = retry.UntilSucceeds(neutralCtx, func() (rollupgen.AssertionNode, error) {
+				return rc.GetAssertion(&bind.CallOpts{Context: neutralCtx}, creationInfo.ParentAssertionHash.Hash)
+			})
+			require.NoError(t, err)
+
+			tx, _, err2 := bk.Client().TransactionByHash(neutralCtx, creationInfo.TransactionHash)
+			require.NoError(t, err2)
+			sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+			require.NoError(t, err2)
+			honestConfirmed := sender == honestTxOpts.From
+
+			isChallengeChild := parent.FirstChildBlock > 0 && parent.SecondChildBlock > 0
+			if !isChallengeChild {
+				// Assertion must be be a challenge child.
+				continue
+			}
+			// We expect the honest party to have confirmed it.
+			if !honestConfirmed {
+				t.Fatal("Evil party confirmed the assertion by challenge win")
+			}
+			confirmed = true
+			break
+		}
+		time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+	}
+	// Once the honest, claimed assertion in the challenge is confirmed by time, we
+	// then continue the test.
+	t.Log("Assertion was confirmed by time")
+	honestCancel()
+}
+
+func testContinuesPlayingChallengeAfterAssertionWin(
+	t *testing.T,
+	neutralCtx context.Context,
+	bk *backend.LocalSimulatedBackend,
+	honestTxOpts *bind.TransactOpts,
+	cmBindings *challengeV2gen.EdgeChallengeManager,
+	rollupAddr common.Address,
+	honestStateManager *statemanager.L2StateBackend,
+	honestOpts []cm.StackOpt,
+) {
+	// We restart the honest validator after a few seconds of wait time.
+	time.Sleep(time.Second * 5)
+
+	honestCtx, honestCancel := context.WithCancel(context.Background())
+	defer honestCancel()
+	honestChain := setupAssertionChain(t, honestCtx, bk.Client(), rollupAddr, honestTxOpts)
+	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
+	require.NoError(t, err)
+
+	honestManager.Start(honestCtx)
+
+	t.Log("Restarted honest validator to continue playing game after challenge has finished")
+
+	// We then expect that all essential root edges created by the honest validator are confirmed by time.
+	// Scrape all the honest edges onchain (the ones made by the honest address).
+	// Check if the edges that have claim id != None are confirmed (those are essential root edges)
+	// and also check one step edges from honest party are confirmed.
+	honestEssentialRootIds := make(map[common.Hash]bool, 0)
+	chainId, err := bk.Client().ChainID(neutralCtx)
+	require.NoError(t, err)
+	it, err := cmBindings.FilterEdgeAdded(nil, nil, nil, nil)
+	require.NoError(t, err)
+	for it.Next() {
+		txHash := it.Event.Raw.TxHash
+		tx, _, err := bk.Client().TransactionByHash(neutralCtx, txHash)
+		require.NoError(t, err)
+		sender, err := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
+		require.NoError(t, err)
+		if sender != honestTxOpts.From {
+			continue
+		}
+		// Skip edges that are not essential roots.
+		if it.Event.ClaimId == (common.Hash{}) {
+			continue
+		}
+		honestEssentialRootIds[it.Event.EdgeId] = false
+	}
+	// Wait until all of the honest essential root ids are confirmed.
+	startBlk, err := bk.Client().HeaderU64(neutralCtx)
+	require.NoError(t, err)
+	chalPeriodBlocks, err := cmBindings.ChallengePeriodBlocks(&bind.CallOpts{})
+	require.NoError(t, err)
+	totalPeriod := chalPeriodBlocks * uint64(len(honestEssentialRootIds))
+	confirmedCount := 0
+	for confirmedCount < len(honestEssentialRootIds) {
+		latestBlk, err := bk.Client().HeaderU64(neutralCtx)
+		require.NoError(t, err)
+		numBlocksElapsed := latestBlk - startBlk
+		if numBlocksElapsed > totalPeriod {
+			t.Fatalf("%d blocks have passed without essential edges being confirmed", numBlocksElapsed)
+		}
+		for k, markedConfirmed := range honestEssentialRootIds {
+			edge, err := cmBindings.GetEdge(&bind.CallOpts{}, k)
+			require.NoError(t, err)
+			if edge.Status == 1 && !markedConfirmed {
+				confirmedCount += 1
+				honestEssentialRootIds[k] = true
+				t.Logf("Confirmed %d honest essential edges, got edge at level %d", confirmedCount, edge.Level)
+			}
+		}
+		time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+	}
 }
