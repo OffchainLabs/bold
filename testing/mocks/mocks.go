@@ -120,7 +120,7 @@ func (m *MockStateManager) AgreesWithHistoryCommitment(
 	return args.Get(0).(bool), args.Error(1)
 }
 
-func (m *MockStateManager) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState *protocol.GoGlobalState) (*protocol.ExecutionState, error) {
+func (m *MockStateManager) ExecutionStateAfterPreviousState(ctx context.Context, maxInboxCount uint64, previousGlobalState protocol.GoGlobalState) (*protocol.ExecutionState, error) {
 	args := m.Called(ctx, maxInboxCount, previousGlobalState)
 	return args.Get(0).(*protocol.ExecutionState), args.Error(1)
 }
@@ -468,9 +468,14 @@ func (m *MockProtocol) NumAssertions(ctx context.Context) (uint64, error) {
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *MockProtocol) MinAssertionPeriodBlocks(ctx context.Context) (uint64, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(uint64), args.Error(1)
+func (m *MockProtocol) MinAssertionPeriodBlocks() uint64 {
+	args := m.Called()
+	return args.Get(0).(uint64)
+}
+
+func (m *MockProtocol) MaxAssertionsPerChallengePeriod() uint64 {
+	args := m.Called()
+	return args.Get(0).(uint64)
 }
 
 func (m *MockProtocol) GetAssertion(ctx context.Context, opts *bind.CallOpts, id protocol.AssertionHash) (protocol.Assertion, error) {
