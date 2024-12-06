@@ -9,11 +9,12 @@ package server
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
+
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/offchainlabs/bold/api/backend"
 	"github.com/offchainlabs/bold/util/stopwaiter"
@@ -57,7 +58,7 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		if err := s.srv.Shutdown(ctx); err != nil {
-			log.Fatal(err)
+			log.Error("Could not shutdown API server", "err", err)
 		}
 	}()
 	return s.srv.ListenAndServe()
