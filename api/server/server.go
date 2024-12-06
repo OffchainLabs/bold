@@ -9,6 +9,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -53,11 +54,13 @@ func New(addr string, backend backend.BusinessLogicProvider) (*Server, error) {
 
 func (s *Server) Start(ctx context.Context) error {
 	s.StopWaiter.Start(ctx, s)
+	go func() {
+		<-ctx.Done()
+		if err := s.srv.Shutdown(ctx); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	return s.srv.ListenAndServe()
-}
-
-func (s *Server) Stop(ctx context.Context) error {
-	return s.srv.Shutdown(ctx)
 }
 
 func (s *Server) Addr() string {
