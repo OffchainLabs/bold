@@ -139,7 +139,7 @@ func (m *Manager) PostAssertionBasedOnParent(
 	) (protocol.Assertion, error),
 ) (option.Option[*protocol.AssertionCreatedInfo], error) {
 	none := option.None[*protocol.AssertionCreatedInfo]()
-	if m.times.minGapToParent != 0 {
+	if m.times.minGapToParent != 0 && protocol.GoGlobalStateFromSolidity(parentCreationInfo.AfterState.GlobalState).PosInBatch == 0 {
 		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationBlock))
 		if err != nil {
 			return none, fmt.Errorf("error getting parent assertion creation block header: %w", err)
