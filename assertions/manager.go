@@ -51,7 +51,7 @@ var defaultTimings = timings{
 	confInterval:   time.Second * 10,
 	postInterval:   time.Hour,
 	avgBlockTime:   time.Second * 12,
-	minGapToParent: time.Minute * 10, // Correct default?
+	minGapToParent: time.Minute * 15
 }
 
 // The Manager struct is responsible for several tasks related to the assertion
