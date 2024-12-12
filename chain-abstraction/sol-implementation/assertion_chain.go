@@ -125,6 +125,7 @@ type AssertionChain struct {
 	fastConfirmSafeOwners                    []common.Address
 	fastConfirmSafeApprovedHashesOwners      map[common.Hash]map[common.Address]bool
 	fastConfirmSafeThreshold                 uint64
+	withdrawalAddress                        common.Address
 	// rpcHeadBlockNumber is the block number of the latest block on the chain.
 	// It is set to rpc.FinalizedBlockNumber by default.
 	// WithRpcHeadBlockNumber can be used to set a different block number.
@@ -157,6 +158,14 @@ func WithFastConfirmSafeAddress(fastConfirmSafeAddress common.Address) Opt {
 	}
 }
 
+// WithCustomWithdrawalAddress specifies a custom withdrawal address for validators that
+// choose to perform a delegated stake to participate in BoLD.
+func WithCustomWithdrawalAddress(address common.Address) Opt {
+	return func(a *AssertionChain) {
+		a.withdrawalAddress = address
+	}
+}
+
 // NewAssertionChain instantiates an assertion chain
 // instance from a chain backend and provided options.
 func NewAssertionChain(
@@ -180,6 +189,7 @@ func NewAssertionChain(
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
 		rpcHeadBlockNumber:                       rpc.FinalizedBlockNumber,
+		withdrawalAddress:                        copiedOpts.From, // Default to the tx opts' sender.
 	}
 	for _, opt := range opts {
 		opt(chain)
@@ -354,11 +364,25 @@ func (a *AssertionChain) NewStakeOnNewAssertion(
 	parentAssertionCreationInfo *protocol.AssertionCreatedInfo,
 	postState *protocol.ExecutionState,
 ) (protocol.Assertion, error) {
+	stakeFn := func(
+		opts *bind.TransactOpts,
+		tokenAmount *big.Int,
+		assertionInputs rollupgen.AssertionInputs,
+		expectedAssertionHash [32]byte,
+	) (*types.Transaction, error) {
+		return a.userLogic.RollupUserLogicTransactor.NewStakeOnNewAssertion50f32f68(
+			opts,
+			tokenAmount,
+			assertionInputs,
+			expectedAssertionHash,
+			a.withdrawalAddress,
+		)
+	}
 	return a.createAndStakeOnAssertion(
 		ctx,
 		parentAssertionCreationInfo,
 		postState,
-		a.userLogic.RollupUserLogicTransactor.NewStakeOnNewAssertion7300201c,
+		stakeFn,
 	)
 }
 
