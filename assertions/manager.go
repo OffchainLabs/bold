@@ -27,6 +27,7 @@ import (
 	"github.com/offchainlabs/bold/challenge-manager/types"
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	l2stateprovider "github.com/offchainlabs/bold/layer2-state-provider"
+	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/util/stopwaiter"
 )
 
@@ -86,6 +87,7 @@ type Manager struct {
 	enableFastConfirmation      bool
 	mode                        types.Mode
 	rivalHandler                types.RivalHandler
+	delegatedStaking            bool
 }
 
 type assertionChainData struct {
@@ -111,6 +113,12 @@ func WithFastConfirmation() Opt {
 func WithDangerousReadyToPost() Opt {
 	return func(m *Manager) {
 		m.isReadyToPost = true
+	}
+}
+
+func WithDelegatedStaking() Opt {
+	return func(m *Manager) {
+		m.delegatedStaking = true
 	}
 }
 
@@ -219,6 +227,22 @@ func (m *Manager) SetRivalHandler(handler types.RivalHandler) {
 
 func (m *Manager) Start(ctx context.Context) {
 	m.StopWaiter.Start(ctx, m)
+	if m.delegatedStaking {
+		_, err := retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			// Attempt to become a new staker onchain until successful.
+			// This is only relevant for delegated stakers that will be funded
+			// by another party.
+			err := m.chain.NewStake(ctx)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		})
+		if err != nil {
+			log.Error("Could not become a delegated staker onchain", "err", err)
+			return
+		}
+	}
 	if !m.disablePosting {
 		m.LaunchThread(m.postAssertionRoutine)
 	}

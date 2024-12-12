@@ -356,6 +356,33 @@ func (a *AssertionChain) IsChallengeComplete(
 	return challengeConfirmed, nil
 }
 
+// NewStake is a function made for stakers that are delegated. It allows them to mark themselves as a "pending"
+// staker in the rollup contracts with some required stake and allows another party to fund the staker onchain
+// to proceed with its activities.
+func (a *AssertionChain) NewStake(
+	ctx context.Context,
+) error {
+	staked, err := a.IsStaked(ctx)
+	if err != nil {
+		return err
+	}
+	if !staked {
+		return nil
+	}
+	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return err
+	}
+	info, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+	if err != nil {
+		return err
+	}
+	_, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return a.userLogic.RollupUserLogicTransactor.NewStake(opts, info.RequiredStake, a.withdrawalAddress)
+	})
+	return err
+}
+
 // NewStakeOnNewAssertion makes an onchain claim given a previous assertion hash, execution state,
 // and a commitment to a post-state. It also adds a new stake to the newly created assertion.
 // if the validator is already staked, use StakeOnNewAssertion instead.

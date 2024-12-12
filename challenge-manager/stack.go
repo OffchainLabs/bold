@@ -35,6 +35,7 @@ type stackParams struct {
 	enableFastConfirmation              bool
 	assertionManagerOverride            *assertions.Manager
 	maxLookbackBlocks                   int64
+	delegatedStaking                    bool
 }
 
 var defaultStackParams = stackParams{
@@ -51,6 +52,7 @@ var defaultStackParams = stackParams{
 	enableFastConfirmation:              false,
 	assertionManagerOverride:            nil,
 	maxLookbackBlocks:                   blocksPerInterval(time.Second*12, 21*24*time.Hour), // Default to 3 weeks worth of blocks.
+	delegatedStaking:                    false,
 }
 
 // StackOpt is a functional option to configure the stack.
@@ -142,6 +144,15 @@ func StackWithSyncMaxLookbackBlocks(maxLookback int64) StackOpt {
 	}
 }
 
+// StackWithDelegatedStaking specifies that the challenge manager will call
+// the `newStake` function in the rollup contract on startup to await funding from another account
+// such that it becomes a delegated staker.
+func StackWithDelegatedStaking() StackOpt {
+	return func(p *stackParams) {
+		p.delegatedStaking = true
+	}
+}
+
 // OverrideAssertionManger can be used in tests to override the assertion
 // manager.
 func OverrideAssertionManager(asm *assertions.Manager) StackOpt {
@@ -217,6 +228,9 @@ func NewChallengeStack(
 		}
 		if params.enableFastConfirmation {
 			amOpts = append(amOpts, assertions.WithFastConfirmation())
+		}
+		if params.delegatedStaking {
+			amOpts = append(amOpts, assertions.WithDelegatedStaking())
 		}
 		asm, err = assertions.NewManager(
 			chain,

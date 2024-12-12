@@ -556,6 +556,13 @@ func (m *MockProtocol) IsStaked(ctx context.Context) (bool, error) {
 	return args.Get(0).(bool), args.Error(1)
 }
 
+func (m *MockProtocol) NewStake(
+	ctx context.Context,
+) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 func (m *MockProtocol) NewStakeOnNewAssertion(
 	ctx context.Context,
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
