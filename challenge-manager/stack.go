@@ -36,6 +36,8 @@ type stackParams struct {
 	assertionManagerOverride            *assertions.Manager
 	maxLookbackBlocks                   int64
 	delegatedStaking                    bool
+	autoDeposit                         bool
+	autoAllowanceApproval               bool
 }
 
 var defaultStackParams = stackParams{
@@ -53,6 +55,8 @@ var defaultStackParams = stackParams{
 	assertionManagerOverride:            nil,
 	maxLookbackBlocks:                   blocksPerInterval(time.Second*12, 21*24*time.Hour), // Default to 3 weeks worth of blocks.
 	delegatedStaking:                    false,
+	autoDeposit:                         true,
+	autoAllowanceApproval:               true,
 }
 
 // StackOpt is a functional option to configure the stack.
@@ -153,6 +157,23 @@ func StackWithDelegatedStaking() StackOpt {
 	}
 }
 
+// StackWithoutAutoDeposit specifies that the software will not call
+// the stake token's `deposit` function on startup to fund the account.
+func StackWithoutAutoDeposit() StackOpt {
+	return func(p *stackParams) {
+		p.autoDeposit = false
+	}
+}
+
+// StackWithoutAutoAllowanceApproval specifies that the software will not call
+// the stake token's `increaseAllowance` function on startup to approve allowance spending for
+// the rollup and challenge manager contracts.
+func StackWithoutAutoAllowanceApproval() StackOpt {
+	return func(p *stackParams) {
+		p.autoAllowanceApproval = false
+	}
+}
+
 // OverrideAssertionManger can be used in tests to override the assertion
 // manager.
 func OverrideAssertionManager(asm *assertions.Manager) StackOpt {
@@ -231,6 +252,12 @@ func NewChallengeStack(
 		}
 		if params.delegatedStaking {
 			amOpts = append(amOpts, assertions.WithDelegatedStaking())
+		}
+		if !params.autoDeposit {
+			amOpts = append(amOpts, assertions.WithoutAutoDeposit())
+		}
+		if !params.autoAllowanceApproval {
+			amOpts = append(amOpts, assertions.WithoutAutoAllowanceApproval())
 		}
 		asm, err = assertions.NewManager(
 			chain,

@@ -34,7 +34,9 @@ import (
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
 	"github.com/offchainlabs/bold/solgen/go/contractsgen"
+	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
+	"github.com/offchainlabs/bold/solgen/go/testgen"
 )
 
 var (
@@ -354,6 +356,80 @@ func (a *AssertionChain) IsChallengeComplete(
 		a.confirmedChallengesByParentAssertionHash.Insert(challengeParentAssertionHash)
 	}
 	return challengeConfirmed, nil
+}
+
+func (a *AssertionChain) Deposit(
+	ctx context.Context,
+) error {
+	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return err
+	}
+	latestConfirmedInfo, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+	if err != nil {
+		return err
+	}
+	stakeTokenAddr, err := a.userLogic.StakeToken(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return err
+	}
+	erc20, err := testgen.NewERC20Token(stakeTokenAddr, a.backend)
+	if err != nil {
+		return err
+	}
+	balance, err := erc20.BalanceOf(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), a.txOpts.From)
+	if err != nil {
+		return err
+	}
+	// Get the difference between the required stake and the current balance.
+	// If we have more than enough balance, we exit early.
+	if balance.Cmp(latestConfirmedInfo.RequiredStake) >= 0 {
+		return nil
+	}
+	diff := new(big.Int).Sub(latestConfirmedInfo.RequiredStake, balance)
+	weth, err := mocksgen.NewIWETH9(stakeTokenAddr, a.backend)
+	if err != nil {
+		return err
+	}
+	// Otherwise, we deposit the difference.
+	_, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		opts.Value = diff
+		return weth.Deposit(opts)
+	})
+	return err
+}
+
+func (a *AssertionChain) ApproveAllowances(
+	ctx context.Context,
+) error {
+	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return err
+	}
+	latestConfirmedInfo, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+	if err != nil {
+		return err
+	}
+	stakeTokenAddr, err := a.userLogic.StakeToken(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	if err != nil {
+		return err
+	}
+	erc20, err := testgen.NewERC20Token(stakeTokenAddr, a.backend)
+	if err != nil {
+		return err
+	}
+	// Approve the rollup and challenge manager to spend up to the required stake.
+	if _, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return erc20.Approve(opts, a.rollupAddr, latestConfirmedInfo.RequiredStake)
+	}); err != nil {
+		return err
+	}
+	if _, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return erc20.Approve(opts, a.chalManagerAddr, latestConfirmedInfo.RequiredStake)
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewStake is a function made for stakers that are delegated. It allows them to mark themselves as a "pending"

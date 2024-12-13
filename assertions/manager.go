@@ -88,6 +88,8 @@ type Manager struct {
 	mode                        types.Mode
 	rivalHandler                types.RivalHandler
 	delegatedStaking            bool
+	autoDeposit                 bool
+	autoAllowanceApproval       bool
 }
 
 type assertionChainData struct {
@@ -119,6 +121,18 @@ func WithDangerousReadyToPost() Opt {
 func WithDelegatedStaking() Opt {
 	return func(m *Manager) {
 		m.delegatedStaking = true
+	}
+}
+
+func WithoutAutoDeposit() Opt {
+	return func(m *Manager) {
+		m.autoDeposit = false
+	}
+}
+
+func WithoutAutoAllowanceApproval() Opt {
+	return func(m *Manager) {
+		m.autoAllowanceApproval = false
 	}
 }
 
@@ -207,6 +221,8 @@ func NewManager(
 		startPostingSignal:          make(chan struct{}),
 		mode:                        mode,
 		rivalHandler:                nil, // Must be set after construction if mode > DefensiveMode
+		autoDeposit:                 true,
+		autoAllowanceApproval:       true,
 	}
 	for _, o := range opts {
 		o(m)
@@ -228,18 +244,44 @@ func (m *Manager) SetRivalHandler(handler types.RivalHandler) {
 func (m *Manager) Start(ctx context.Context) {
 	m.StopWaiter.Start(ctx, m)
 	if m.delegatedStaking {
-		_, err := retry.UntilSucceeds[bool](ctx, func() (bool, error) {
-			// Attempt to become a new staker onchain until successful.
-			// This is only relevant for delegated stakers that will be funded
-			// by another party.
-			err := m.chain.NewStake(ctx)
-			if err != nil {
-				return false, err
+		// Attempt to become a new staker onchain until successful.
+		// This is only relevant for delegated stakers that will be funded
+		// by another party.
+		_, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+			if err2 := m.chain.NewStake(ctx); err2 != nil {
+				return false, err2
 			}
 			return true, nil
 		})
 		if err != nil {
 			log.Error("Could not become a delegated staker onchain", "err", err)
+			return
+		}
+	}
+	if m.autoDeposit {
+		// Attempt to auto-deposit funds until successful into the stake token.
+		_, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+			if err2 := m.chain.Deposit(ctx); err2 != nil {
+				return false, err2
+			}
+			return true, nil
+		})
+		if err != nil {
+			log.Error("Could not auto-deposit funds to become a staker", "err", err)
+			return
+		}
+	}
+	if m.autoAllowanceApproval {
+		// Attempt to auto-approve the stake token spending by the challenge manager
+		// and rollup address until successful.
+		_, err := retry.UntilSucceeds(ctx, func() (bool, error) {
+			if err2 := m.chain.ApproveAllowances(ctx); err2 != nil {
+				return false, err2
+			}
+			return true, nil
+		})
+		if err != nil {
+			log.Error("Could not auto-approve allowances", "err", err)
 			return
 		}
 	}
