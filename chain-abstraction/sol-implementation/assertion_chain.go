@@ -128,6 +128,7 @@ type AssertionChain struct {
 	fastConfirmSafeApprovedHashesOwners      map[common.Hash]map[common.Address]bool
 	fastConfirmSafeThreshold                 uint64
 	withdrawalAddress                        common.Address
+	stakeTokenAddr                           common.Address
 	// rpcHeadBlockNumber is the block number of the latest block on the chain.
 	// It is set to rpc.FinalizedBlockNumber by default.
 	// WithRpcHeadBlockNumber can be used to set a different block number.
@@ -209,7 +210,8 @@ func NewAssertionChain(
 		return nil, err
 	}
 	chain.rollup = coreBinding
-	minPeriod, err := chain.rollup.MinimumAssertionPeriod(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	callOpts := chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	minPeriod, err := chain.rollup.MinimumAssertionPeriod(callOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +221,18 @@ func NewAssertionChain(
 	if minPeriod.Uint64() == 0 {
 		minPeriod = big.NewInt(1)
 	}
+	stakeTokenAddr, err := chain.rollup.StakeToken(callOpts)
+	if err != nil {
+		return nil, err
+	}
+	code, err := backend.CodeAt(ctx, stakeTokenAddr, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(code) == 0 {
+		return nil, fmt.Errorf("stake token address %#x has no code", stakeTokenAddr)
+	}
+	chain.stakeTokenAddr = stakeTokenAddr
 	log.Info("Minimum assertion period", "blocks", minPeriod.Uint64())
 	chain.minAssertionPeriodBlocks = minPeriod.Uint64()
 	chain.userLogic = assertionChainBinding
@@ -240,7 +254,7 @@ func NewAssertionChain(
 		}
 		chain.fastConfirmSafe = safe
 		owners, err := retry.UntilSucceeds(ctx, func() ([]common.Address, error) {
-			return safe.GetOwners(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+			return safe.GetOwners(callOpts)
 		})
 		if err != nil {
 			return nil, err
@@ -252,7 +266,7 @@ func NewAssertionChain(
 		})
 		chain.fastConfirmSafeOwners = owners
 		threshold, err := retry.UntilSucceeds(ctx, func() (*big.Int, error) {
-			return safe.GetThreshold(chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+			return safe.GetThreshold(callOpts)
 		})
 		if err != nil {
 			return nil, err
@@ -361,7 +375,8 @@ func (a *AssertionChain) IsChallengeComplete(
 func (a *AssertionChain) Deposit(
 	ctx context.Context,
 ) error {
-	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	latestConfirmed, err := a.LatestConfirmed(ctx, callOpts)
 	if err != nil {
 		return err
 	}
@@ -369,25 +384,26 @@ func (a *AssertionChain) Deposit(
 	if err != nil {
 		return err
 	}
-	stakeTokenAddr, err := a.userLogic.StakeToken(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	return a.autoDepositFunds(ctx, latestConfirmedInfo.RequiredStake)
+}
+
+func (a *AssertionChain) autoDepositFunds(ctx context.Context, amount *big.Int) error {
+	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	erc20, err := testgen.NewERC20Token(a.stakeTokenAddr, a.backend)
 	if err != nil {
 		return err
 	}
-	erc20, err := testgen.NewERC20Token(stakeTokenAddr, a.backend)
+	balance, err := erc20.BalanceOf(callOpts, a.txOpts.From)
 	if err != nil {
 		return err
 	}
-	balance, err := erc20.BalanceOf(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), a.txOpts.From)
-	if err != nil {
-		return err
-	}
-	// Get the difference between the required stake and the current balance.
+	// Get the difference between the required amount and the current balance.
 	// If we have more than enough balance, we exit early.
-	if balance.Cmp(latestConfirmedInfo.RequiredStake) >= 0 {
+	if balance.Cmp(amount) >= 0 {
 		return nil
 	}
-	diff := new(big.Int).Sub(latestConfirmedInfo.RequiredStake, balance)
-	weth, err := mocksgen.NewIWETH9(stakeTokenAddr, a.backend)
+	diff := new(big.Int).Sub(amount, balance)
+	weth, err := mocksgen.NewIWETH9(a.stakeTokenAddr, a.backend)
 	if err != nil {
 		return err
 	}
@@ -402,30 +418,46 @@ func (a *AssertionChain) Deposit(
 func (a *AssertionChain) ApproveAllowances(
 	ctx context.Context,
 ) error {
-	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	stakeTokenAddr, err := a.userLogic.StakeToken(opts)
 	if err != nil {
 		return err
 	}
-	latestConfirmedInfo, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+	code, err := a.backend.CodeAt(ctx, stakeTokenAddr, nil)
 	if err != nil {
 		return err
 	}
-	stakeTokenAddr, err := a.userLogic.StakeToken(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
-	if err != nil {
-		return err
+	if len(code) == 0 {
+		return fmt.Errorf("stake token address %#x has no code", stakeTokenAddr)
 	}
 	erc20, err := testgen.NewERC20Token(stakeTokenAddr, a.backend)
 	if err != nil {
 		return err
 	}
-	// Approve the rollup and challenge manager to spend up to the required stake.
+	rollupAllowance, err := erc20.Allowance(opts, a.txOpts.From, a.rollupAddr)
+	if err != nil {
+		return err
+	}
+	chalManagerAllowance, err := erc20.Allowance(opts, a.txOpts.From, a.chalManagerAddr)
+	if err != nil {
+		return err
+	}
+	maxUint256 := new(big.Int)
+	maxUint256.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	if rollupAllowance.Cmp(maxUint256) == 0 {
+		return nil
+	}
+	// Approve the rollup and challenge manager spending the user's stake token.
 	if _, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return erc20.Approve(opts, a.rollupAddr, latestConfirmedInfo.RequiredStake)
+		return erc20.Approve(opts, a.rollupAddr, maxUint256)
 	}); err != nil {
 		return err
 	}
+	if chalManagerAllowance.Cmp(maxUint256) == 0 {
+		return nil
+	}
 	if _, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return erc20.Approve(opts, a.chalManagerAddr, latestConfirmedInfo.RequiredStake)
+		return erc20.Approve(opts, a.chalManagerAddr, maxUint256)
 	}); err != nil {
 		return err
 	}
@@ -556,6 +588,9 @@ func (a *AssertionChain) createAndStakeOnAssertion(
 	case !errors.Is(err, ErrNotFound):
 		return nil, errors.Wrapf(err, "could not fetch assertion with computed hash %#x", computedHash)
 	default:
+	}
+	if err = a.autoDepositFunds(ctx, parentAssertionCreationInfo.RequiredStake); err != nil {
+		return nil, errors.Wrapf(err, "could not auto-deposit funds for assertion creation")
 	}
 	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return stakeFn(
