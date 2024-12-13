@@ -17,6 +17,7 @@ import (
 	"github.com/ccoveille/go-safecast"
 	"github.com/pkg/errors"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -261,7 +262,16 @@ func (m *Manager) Start(ctx context.Context) {
 	if m.autoDeposit {
 		// Attempt to auto-deposit funds until successful into the stake token.
 		_, err := retry.UntilSucceeds(ctx, func() (bool, error) {
-			if err2 := m.chain.Deposit(ctx); err2 != nil {
+			callOpts := m.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+			latestConfirmed, err2 := m.chain.LatestConfirmed(ctx, callOpts)
+			if err2 != nil {
+				return false, err2
+			}
+			latestConfirmedInfo, err2 := m.chain.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
+			if err2 != nil {
+				return false, err2
+			}
+			if err2 := m.chain.Deposit(ctx, latestConfirmedInfo.RequiredStake); err2 != nil {
 				return false, err2
 			}
 			return true, nil

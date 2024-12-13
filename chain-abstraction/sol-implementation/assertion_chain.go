@@ -384,17 +384,9 @@ func (a *AssertionChain) IsChallengeComplete(
 
 func (a *AssertionChain) Deposit(
 	ctx context.Context,
+	amount *big.Int,
 ) error {
-	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
-	latestConfirmed, err := a.LatestConfirmed(ctx, callOpts)
-	if err != nil {
-		return err
-	}
-	latestConfirmedInfo, err := a.ReadAssertionCreationInfo(ctx, latestConfirmed.Id())
-	if err != nil {
-		return err
-	}
-	return a.autoDepositFunds(ctx, latestConfirmedInfo.RequiredStake)
+	return a.autoDepositFunds(ctx, amount)
 }
 
 func (a *AssertionChain) autoDepositFunds(ctx context.Context, amount *big.Int) error {
@@ -423,11 +415,15 @@ func (a *AssertionChain) autoDepositFunds(ctx context.Context, amount *big.Int) 
 		return err
 	}
 	// Otherwise, we deposit the difference.
-	_, err = a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		opts.Value = diff
 		return weth.Deposit(opts)
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	_ = receipt
+	return nil
 }
 
 func (a *AssertionChain) ApproveAllowances(

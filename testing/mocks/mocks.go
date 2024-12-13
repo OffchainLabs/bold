@@ -558,8 +558,9 @@ func (m *MockProtocol) IsStaked(ctx context.Context) (bool, error) {
 
 func (m *MockProtocol) Deposit(
 	ctx context.Context,
+	amount *big.Int,
 ) error {
-	args := m.Called(ctx)
+	args := m.Called(ctx, amount)
 	return args.Error(0)
 }
 

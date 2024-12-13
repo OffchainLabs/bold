@@ -166,6 +166,7 @@ type AssertionChain interface {
 	// Mutating methods.
 	Deposit(
 		ctx context.Context,
+		amount *big.Int,
 	) error
 	ApproveAllowances(
 		ctx context.Context,
