@@ -129,6 +129,7 @@ type AssertionChain struct {
 	fastConfirmSafeThreshold                 uint64
 	withdrawalAddress                        common.Address
 	stakeTokenAddr                           common.Address
+	autoDeposit                              bool
 	// rpcHeadBlockNumber is the block number of the latest block on the chain.
 	// It is set to rpc.FinalizedBlockNumber by default.
 	// WithRpcHeadBlockNumber can be used to set a different block number.
@@ -169,6 +170,14 @@ func WithCustomWithdrawalAddress(address common.Address) Opt {
 	}
 }
 
+// WithoutAutoDeposit prevents the assertion chain from automatically depositing stake token
+// funds when making stakes on assertions or challenge edges.
+func WithoutAutoDeposit() Opt {
+	return func(a *AssertionChain) {
+		a.autoDeposit = false
+	}
+}
+
 // NewAssertionChain instantiates an assertion chain
 // instance from a chain backend and provided options.
 func NewAssertionChain(
@@ -193,6 +202,7 @@ func NewAssertionChain(
 		transactor:                               transactor,
 		rpcHeadBlockNumber:                       rpc.FinalizedBlockNumber,
 		withdrawalAddress:                        copiedOpts.From, // Default to the tx opts' sender.
+		autoDeposit:                              true,
 	}
 	for _, opt := range opts {
 		opt(chain)
@@ -388,6 +398,9 @@ func (a *AssertionChain) Deposit(
 }
 
 func (a *AssertionChain) autoDepositFunds(ctx context.Context, amount *big.Int) error {
+	if !a.autoDeposit {
+		return nil
+	}
 	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
 	erc20, err := testgen.NewERC20Token(a.stakeTokenAddr, a.backend)
 	if err != nil {
