@@ -139,18 +139,6 @@ func (m *Manager) PostAssertionBasedOnParent(
 	) (protocol.Assertion, error),
 ) (option.Option[*protocol.AssertionCreatedInfo], error) {
 	none := option.None[*protocol.AssertionCreatedInfo]()
-	if m.times.minGapToParent != 0 && protocol.GoGlobalStateFromSolidity(parentCreationInfo.AfterState.GlobalState).PosInBatch == 0 {
-		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationBlock))
-		if err != nil {
-			return none, fmt.Errorf("error getting parent assertion creation block header: %w", err)
-		}
-		parentCreationTime, err := safecast.ToInt64(parentCreationBlock.Time)
-		if err != nil {
-			return none, fmt.Errorf("error casting parent assertion creation time to int64: %w", err)
-		}
-		targetTime := time.Unix(parentCreationTime, 0).Add(m.times.minGapToParent)
-		time.Sleep(time.Until(targetTime))
-	}
 	if !parentCreationInfo.InboxMaxCount.IsUint64() {
 		return none, errors.New("inbox max count not a uint64")
 	}
@@ -214,6 +202,18 @@ func (m *Manager) waitToPostIfNeeded(
 	ctx context.Context,
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 ) error {
+	if m.times.minGapToParent != 0 {
+		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationBlock))
+		if err != nil {
+			return fmt.Errorf("error getting parent assertion creation block header: %w", err)
+		}
+		parentCreationTime, err := safecast.ToInt64(parentCreationBlock.Time)
+		if err != nil {
+			return fmt.Errorf("error casting parent assertion creation time to int64: %w", err)
+		}
+		targetTime := time.Unix(parentCreationTime, 0).Add(m.times.minGapToParent)
+		time.Sleep(time.Until(targetTime))
+	}
 	minPeriodBlocks := m.chain.MinAssertionPeriodBlocks()
 	for {
 		latestBlockNumber, err := m.backend.HeaderU64(ctx)
