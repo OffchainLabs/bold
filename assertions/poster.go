@@ -164,7 +164,7 @@ func (m *Manager) PostAssertionBasedOnParent(
 	// contracts check for overflow assertion => assertion.afterState.globalState.u64Vals[0] < assertion.beforeStateData.configData.nextInboxPosition)
 	// then should check if we need to wait for the minimum number of blocks between assertions and a minimum time since parent assertion creation.
 	// Overflow ones are not subject to this check onchain.
-	isOverflowAssertion := newState.MachineStatus != protocol.MachineStatusErrored && newState.GlobalState.PosInBatch < batchCount
+	isOverflowAssertion := newState.MachineStatus != protocol.MachineStatusErrored && newState.GlobalState.Batch < batchCount
 	if !isOverflowAssertion {
 		if err = m.waitToPostIfNeeded(ctx, parentCreationInfo); err != nil {
 			return none, err
