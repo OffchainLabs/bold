@@ -160,10 +160,11 @@ func (m *Manager) PostAssertionBasedOnParent(
 		return none, errors.Wrapf(err, "could not get execution state at batch count %d with parent block hash %v", batchCount, parentBlockHash)
 	}
 
-	// If the assertion is not an overflow assertion (has a 0 position in batch),
-	// then should check if we need to wait for the minimum number of blocks in between
-	// assertions. Overflow ones are not subject to this check onchain.
-	if newState.GlobalState.PosInBatch == 0 {
+	// If the assertion is not an overflow assertion i.e !(newState.GlobalState.Batch < batchCount) derived from
+	// contracts check for overflow assertion => assertion.afterState.globalState.u64Vals[0] < assertion.beforeStateData.configData.nextInboxPosition)
+	// then should check if we need to wait for the minimum number of blocks between assertions and a minimum time since parent assertion creation.
+	// Overflow ones are not subject to this check onchain.
+	if newState.GlobalState.Batch >= batchCount {
 		if err = m.waitToPostIfNeeded(ctx, parentCreationInfo); err != nil {
 			return none, err
 		}
