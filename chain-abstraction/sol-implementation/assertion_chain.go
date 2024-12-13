@@ -402,6 +402,8 @@ func (a *AssertionChain) autoDepositFunds(ctx context.Context, amount *big.Int) 
 		return nil
 	}
 	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	// The validity of the stake token address containing code is checked in the constructor
+	// of the assertion chain.
 	erc20, err := testgen.NewERC20Token(a.stakeTokenAddr, a.backend)
 	if err != nil {
 		return err
@@ -432,18 +434,9 @@ func (a *AssertionChain) ApproveAllowances(
 	ctx context.Context,
 ) error {
 	opts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
-	stakeTokenAddr, err := a.userLogic.StakeToken(opts)
-	if err != nil {
-		return err
-	}
-	code, err := a.backend.CodeAt(ctx, stakeTokenAddr, nil)
-	if err != nil {
-		return err
-	}
-	if len(code) == 0 {
-		return fmt.Errorf("stake token address %#x has no code", stakeTokenAddr)
-	}
-	erc20, err := testgen.NewERC20Token(stakeTokenAddr, a.backend)
+	// The validity of the stake token address containing code is checked in the constructor
+	// of the assertion chain.
+	erc20, err := testgen.NewERC20Token(a.stakeTokenAddr, a.backend)
 	if err != nil {
 		return err
 	}
