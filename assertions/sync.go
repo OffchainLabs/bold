@@ -497,6 +497,9 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, creationInfo *protocol.
 		return err
 	}
 	status, err := assertion.Status(ctx, opts)
+	if err != nil {
+		return err
+	}
 	isFirstChild, err := assertion.IsFirstChild(ctx, opts)
 	if err != nil {
 		return err
