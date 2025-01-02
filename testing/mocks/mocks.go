@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/offchainlabs/bold/api/db"
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
@@ -428,8 +429,8 @@ func (m *MockProtocol) GetCallOptsWithDesiredRpcHeadBlockNumber(opts *bind.CallO
 	return opts
 }
 
-func (m *MockProtocol) GetDesiredRpcHeadBlockNumber() *big.Int {
-	return nil
+func (m *MockProtocol) GetDesiredRpcHeadBlockNumber() rpc.BlockNumber {
+	return rpc.LatestBlockNumber
 }
 
 // Read-only methods.
