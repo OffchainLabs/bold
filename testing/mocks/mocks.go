@@ -312,11 +312,6 @@ func (m *MockSpecEdge) LatestInheritedTimer(ctx context.Context) (protocol.Inher
 	return args.Get(0).(protocol.InheritedTimer), args.Error(1)
 }
 
-func (m *MockSpecEdge) SafeHeadInheritedTimer(ctx context.Context) (protocol.InheritedTimer, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(protocol.InheritedTimer), args.Error(1)
-}
-
 func (m *MockSpecEdge) HasRival(ctx context.Context) (bool, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(bool), args.Error(1)
