@@ -246,7 +246,7 @@ func (w *Watcher) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			toBlock, err := w.backend.HeaderU64(ctx)
+			toBlock, err := w.chain.DesiredHeaderU64(ctx)
 			if err != nil {
 				log.Error("Could not get latest header", "err", err)
 				continue
@@ -291,7 +291,7 @@ func (w *Watcher) Start(ctx context.Context) {
 // GetRoyalEdges returns all royal, tracked edges in the watcher by assertion
 // hash.
 func (w *Watcher) GetRoyalEdges(ctx context.Context) (map[protocol.AssertionHash][]*api.JsonTrackedRoyalEdge, error) {
-	blockNum, err := w.chain.Backend().HeaderU64(ctx)
+	blockNum, err := w.chain.DesiredHeaderU64(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +387,7 @@ func (w *Watcher) ComputeAncestors(
 			challengedAssertionHash,
 		)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
+	blockHeaderNumber, err := w.chain.DesiredHeaderU64(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +422,7 @@ func (w *Watcher) IsEssentialAncestorConfirmable(
 			challengedAssertionHash,
 		)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
+	blockHeaderNumber, err := w.chain.DesiredHeaderU64(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -454,7 +454,7 @@ func (w *Watcher) IsConfirmableEssentialEdge(
 	if !ok {
 		return false, nil, 0, fmt.Errorf("could not get challenge for top level assertion %#x", challengedAssertionHash)
 	}
-	blockHeaderNumber, err := w.chain.Backend().HeaderU64(ctx)
+	blockHeaderNumber, err := w.chain.DesiredHeaderU64(ctx)
 	if err != nil {
 		return false, nil, 0, err
 	}
