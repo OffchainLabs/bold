@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"sync/atomic"
 	"time"
 
@@ -935,23 +936,24 @@ type filterRange struct {
 // Gets the start and end block numbers for our filter queries, starting from
 // the latest confirmed assertion's block number up to the latest block number.
 func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) {
-	latestBlock, err := w.chain.Backend().HeaderU64(ctx)
+	desiredRPCBlock := w.chain.GetDesiredRpcHeadBlockNumber()
+	latestDesiredBlockHeader, err := w.chain.Backend().HeaderByNumber(ctx, big.NewInt(int64(desiredRPCBlock)))
 	if err != nil {
 		return filterRange{}, err
 	}
-	startBlock := latestBlock
+	if !latestDesiredBlockHeader.Number.IsUint64() {
+		return filterRange{}, errors.New("latest desired block number is not a uint64")
+	}
+	latestDesiredBlockNum := latestDesiredBlockHeader.Number.Uint64()
+	startBlock := latestDesiredBlockNum
 	if w.maxLookbackBlocks < startBlock {
 		startBlock = startBlock - w.maxLookbackBlocks
 	} else {
 		startBlock = 0
 	}
-	headerNumber, err := w.backend.HeaderU64(ctx)
-	if err != nil {
-		return filterRange{}, err
-	}
 	return filterRange{
 		startBlockNum: startBlock,
-		endBlockNum:   headerNumber,
+		endBlockNum:   latestDesiredBlockNum,
 	}, nil
 }
 
