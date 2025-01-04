@@ -24,7 +24,7 @@ type ComputePathWeightArgs struct {
 	BlockNum uint64
 }
 
-var ErrChildrenNotYetSeen = errors.New("lower child not yet tracked")
+var ErrChildrenNotYetSeen = errors.New("child not yet tracked")
 
 // ComputePathWeight from a child edge to a specified ancestor edge. A weight is the sum of the local timers
 // of all edges along the path.
