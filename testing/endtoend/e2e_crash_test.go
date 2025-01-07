@@ -40,6 +40,7 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 	defer honestCancel()
 
 	protocolCfg := defaultProtocolParams()
+	protocolCfg.challengePeriodBlocks = 40
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Second
 	inboxCfg := defaultInboxParams()
@@ -275,8 +276,8 @@ func TestEndToEnd_HonestValidatorCrashes(t *testing.T) {
 				if sender != txOpts.From {
 					continue
 				}
-				// Skip edges that are not essential roots.
-				if it.Event.ClaimId == (common.Hash{}) {
+				// Skip edges that are not essential roots (skip the top-level edge).
+				if it.Event.ClaimId == (common.Hash{}) || it.Event.Level == 0 {
 					continue
 				}
 				honestEssentialRootIds[it.Event.EdgeId] = false
