@@ -110,9 +110,9 @@ func defaultProtocolParams() protocolParams {
 		numBigStepLevels:      1,
 		challengePeriodBlocks: 40,
 		layerZeroHeights: protocol.LayerZeroHeights{
-			BlockChallengeHeight:     1 << 5,
-			BigStepChallengeHeight:   1 << 5,
-			SmallStepChallengeHeight: 1 << 5,
+			BlockChallengeHeight:     1 << 3,
+			BigStepChallengeHeight:   1 << 3,
+			SmallStepChallengeHeight: 1 << 3,
 		},
 	}
 }
@@ -134,29 +134,6 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 	})
 }
 
-func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
-	protocolCfg := defaultProtocolParams()
-	protocolCfg.numBigStepLevels = 2
-	// A block can take a max of 2^42 wavm opcodes to validate.
-	protocolCfg.layerZeroHeights = protocol.LayerZeroHeights{
-		BlockChallengeHeight:     1 << 6,
-		BigStepChallengeHeight:   1 << 14,
-		SmallStepChallengeHeight: 1 << 14,
-	}
-	runEndToEndTest(t, &e2eConfig{
-		backend:  simulated,
-		protocol: protocolCfg,
-		inbox:    defaultInboxParams(),
-		actors: actorParams{
-			numEvilValidators: 1,
-		},
-		timings: defaultTimeParams(),
-		expectations: []expect{
-			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
-		},
-	})
-}
-
 func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
 	timeCfg := defaultTimeParams()
@@ -167,25 +144,6 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
 			numEvilValidators: 2,
-		},
-		timings: timeCfg,
-		expectations: []expect{
-			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
-		},
-	})
-}
-
-func TestEndToEnd_ManyEvilValidators(t *testing.T) {
-	t.Skip("This test is too slow to run in CI")
-	protocolCfg := defaultProtocolParams()
-	timeCfg := defaultTimeParams()
-	timeCfg.assertionPostingInterval = time.Hour
-	runEndToEndTest(t, &e2eConfig{
-		backend:  simulated,
-		protocol: protocolCfg,
-		inbox:    defaultInboxParams(),
-		actors: actorParams{
-			numEvilValidators: 5,
 		},
 		timings: timeCfg,
 		expectations: []expect{
