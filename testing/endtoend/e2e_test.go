@@ -108,11 +108,11 @@ type protocolParams struct {
 func defaultProtocolParams() protocolParams {
 	return protocolParams{
 		numBigStepLevels:      1,
-		challengePeriodBlocks: 40,
+		challengePeriodBlocks: 15,
 		layerZeroHeights: protocol.LayerZeroHeights{
-			BlockChallengeHeight:     1 << 3,
-			BigStepChallengeHeight:   1 << 3,
-			SmallStepChallengeHeight: 1 << 3,
+			BlockChallengeHeight:     1 << 4,
+			BigStepChallengeHeight:   1 << 4,
+			SmallStepChallengeHeight: 1 << 4,
 		},
 	}
 }
@@ -134,6 +134,30 @@ func TestEndToEnd_SmokeTest(t *testing.T) {
 	})
 }
 
+func TestEndToEnd_MaxWavmOpcodes(t *testing.T) {
+	protocolCfg := defaultProtocolParams()
+	protocolCfg.numBigStepLevels = 2
+	// A block can take a max of 2^42 wavm opcodes to validate.
+	protocolCfg.layerZeroHeights = protocol.LayerZeroHeights{
+		BlockChallengeHeight:     1 << 6,
+		BigStepChallengeHeight:   1 << 14,
+		SmallStepChallengeHeight: 1 << 14,
+	}
+	protocolCfg.challengePeriodBlocks = 30
+	runEndToEndTest(t, &e2eConfig{
+		backend:  simulated,
+		protocol: protocolCfg,
+		inbox:    defaultInboxParams(),
+		actors: actorParams{
+			numEvilValidators: 1,
+		},
+		timings: defaultTimeParams(),
+		expectations: []expect{
+			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
+		},
+	})
+}
+
 func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 	protocolCfg := defaultProtocolParams()
 	timeCfg := defaultTimeParams()
@@ -144,6 +168,25 @@ func TestEndToEnd_TwoEvilValidators(t *testing.T) {
 		inbox:    defaultInboxParams(),
 		actors: actorParams{
 			numEvilValidators: 2,
+		},
+		timings: timeCfg,
+		expectations: []expect{
+			expectChallengeWinWithAllHonestEssentialEdgesConfirmed,
+		},
+	})
+}
+
+func TestEndToEnd_ManyEvilValidators(t *testing.T) {
+	protocolCfg := defaultProtocolParams()
+	timeCfg := defaultTimeParams()
+	timeCfg.assertionPostingInterval = time.Hour
+	protocolCfg.challengePeriodBlocks = 50
+	runEndToEndTest(t, &e2eConfig{
+		backend:  simulated,
+		protocol: protocolCfg,
+		inbox:    defaultInboxParams(),
+		actors: actorParams{
+			numEvilValidators: 5,
 		},
 		timings: timeCfg,
 		expectations: []expect{

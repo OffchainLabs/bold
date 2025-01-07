@@ -204,7 +204,7 @@ func NewAssertionChain(
 		confirmedChallengesByParentAssertionHash: threadsafe.NewLruSet(1000, threadsafe.LruSetWithMetric[protocol.AssertionHash]("confirmedChallengesByParentAssertionHash")),
 		averageTimeForBlockCreation:              time.Second * 12,
 		transactor:                               transactor,
-		rpcHeadBlockNumber:                       rpc.FinalizedBlockNumber,
+		rpcHeadBlockNumber:                       rpc.LatestBlockNumber,
 		withdrawalAddress:                        copiedOpts.From, // Default to the tx opts' sender.
 		autoDeposit:                              true,
 	}
