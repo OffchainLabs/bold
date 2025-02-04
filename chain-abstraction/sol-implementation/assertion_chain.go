@@ -501,7 +501,7 @@ func (a *AssertionChain) NewStake(
 	if err != nil {
 		return err
 	}
-	if !staked {
+	if staked {
 		return nil
 	}
 	latestConfirmed, err := a.LatestConfirmed(ctx, a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
