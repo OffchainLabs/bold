@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
+func TestEndToEnd_DelegatedStaking(t *testing.T) {
 	neutralCtx, neutralCancel := context.WithCancel(context.Background())
 	defer neutralCancel()
 	evilCtx, evilCancel := context.WithCancel(context.Background())
@@ -46,9 +46,8 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 	deployOpts := []setup.Opt{
 		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
-		setup.WithNumAccounts(5),
+		setup.WithNumAccounts(10),
 		setup.WithChallengeTestingOpts(challengeTestingOpts...),
-		setup.WithNumFundedAccounts(3),
 	}
 
 	simBackend, err := backend.NewSimulated(timeCfg.blockTime, deployOpts...)
@@ -95,6 +94,8 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 		cm.StackWithConfirmationInterval(timeCfg.assertionConfirmationAttemptInterval),
 		cm.StackWithMinimumGapToParentAssertion(0),
 		cm.StackWithHeaderProvider(shp),
+		cm.StackWithDelegatedStaking(), // Enable delegated staking.
+		cm.StackWithoutAutoDeposit(),
 	}
 
 	name := "honest"
@@ -103,15 +104,15 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 	// but has some ETH to pay for gas costs of BoLD. We ensure that the honest validator
 	// is not initially staked, and that the actual address that will be funding the honest
 	// validator has enough funds.
-	fundsCustodianOpts := accounts[1]         // The 1st account should be the funds custodian.
-	honestTxOpts := accounts[len(accounts)-1] // The last account should not be funded with stake token.
+	fundsCustodianOpts := accounts[1] // The 1st and 2nd accounts should be the funds' custodians.
+	evilFundsCustodianOpts := accounts[2]
+	honestTxOpts := accounts[len(accounts)-1]
+	evilTxOpts := accounts[len(accounts)-2]
 
 	//nolint:gocritic
 	honestOpts := append(
 		baseStackOpts,
 		cm.StackWithName(name),
-		cm.StackWithDelegatedStaking(), // Enable delegated staking for the honest validator only.
-		cm.StackWithoutAutoDeposit(),
 	)
 	// Ensure the funds custodian is the withdrawal address for the honest validator.
 	honestChain := setupAssertionChain(
@@ -123,8 +124,39 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 		solimpl.WithCustomWithdrawalAddress(fundsCustodianOpts.From),
 	)
 
-	// Ensure the honest validator is not yet staked.
-	isStaked, err := honestChain.IsStaked(context.Background())
+	machineDivergenceStep := uint64(1)
+	assertionDivergenceHeight := uint64(1)
+	assertionBlockHeightDifference := int64(1)
+
+	//nolint:gocritic
+	evilStateManagerOpts := append(
+		baseStateManagerOpts,
+		statemanager.WithMachineDivergenceStep(machineDivergenceStep),
+		statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
+		statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
+	)
+	evilStateManager, err := statemanager.NewForSimpleMachine(t, evilStateManagerOpts...)
+	require.NoError(t, err)
+
+	//nolint:gocritic
+	evilOpts := append(
+		baseStackOpts,
+		cm.StackWithName("evil"),
+	)
+	evilChain := setupAssertionChain(
+		t,
+		evilCtx,
+		bk.Client(),
+		rollupAddr.Rollup,
+		evilTxOpts,
+		solimpl.WithCustomWithdrawalAddress(evilFundsCustodianOpts.From),
+	)
+
+	// Ensure that both validators are not yet staked.
+	isStaked, err := honestChain.IsStaked(honestCtx)
+	require.NoError(t, err)
+	require.False(t, isStaked)
+	isStaked, err = evilChain.IsStaked(evilCtx)
 	require.NoError(t, err)
 	require.False(t, isStaked)
 
@@ -139,69 +171,57 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 	tokenBindings, err := mocksgen.NewTestWETH9(stakeToken, bk.Client())
 	require.NoError(t, err)
 
-	bal, err := tokenBindings.BalanceOf(&bind.CallOpts{}, honestTxOpts.From)
-	require.NoError(t, err)
-	require.True(t, bal.Cmp(requiredStake) < 0) // Ensure honest validator does not have enough stake token balance.
-
 	balCustodian, err := tokenBindings.BalanceOf(&bind.CallOpts{}, fundsCustodianOpts.From)
 	require.NoError(t, err)
 	require.True(t, balCustodian.Cmp(requiredStake) >= 0) // Ensure funds custodian DOES have enough stake token balance.
-
-	assertionDivergenceHeight := uint64(1)
-	assertionBlockHeightDifference := int64(1)
+	balEvilCustodian, err := tokenBindings.BalanceOf(&bind.CallOpts{}, evilFundsCustodianOpts.From)
+	require.NoError(t, err)
+	require.True(t, balEvilCustodian.Cmp(requiredStake) >= 0) // Ensure funds custodian DOES have enough stake token balance.
 
 	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
 	_ = honestManager
 
-	machineDivergenceStep := uint64(1)
-	//nolint:gocritic
-	evilStateManagerOpts := append(
-		baseStateManagerOpts,
-		statemanager.WithMachineDivergenceStep(machineDivergenceStep),
-		statemanager.WithBlockDivergenceHeight(assertionDivergenceHeight),
-		statemanager.WithDivergentBlockHeightOffset(assertionBlockHeightDifference),
-	)
-	evilStateManager, err := statemanager.NewForSimpleMachine(t, evilStateManagerOpts...)
-	require.NoError(t, err)
-
-	// Honest validator has index 1 in the accounts slice, as 0 is admin, so
-	// evil ones should start at 2.
-	evilTxOpts := accounts[2]
-	//nolint:gocritic
-	evilOpts := append(
-		baseStackOpts,
-		cm.StackWithName("evil"),
-	)
-	evilChain := setupAssertionChain(t, evilCtx, bk.Client(), rollupAddr.Rollup, evilTxOpts)
 	evilManager, err := cm.NewChallengeStack(evilChain, evilStateManager, evilOpts...)
 	require.NoError(t, err)
 	_ = evilManager
 
-	// honestManager.Start(honestCtx)
-
-	// Next, the custodian adds to deposit of the honest validator.
-	// Waits until the honest validator is staked with a value of 0 before adding the deposit.
-	// var isStakedWithZero bool
-	// for honestCtx.Err() == nil && !isStakedWithZero {
-	// 	isStaked, err = honestChain.IsStaked(honestCtx)
-	// 	require.NoError(t, err)
-	// 	time.Sleep(500 * time.Millisecond) // Don't spam the backend.
-	// 	if isStaked {
-	// 		isStakedWithZero = true
-	// 	}
-	// }
-
-	// // Now, adds the deposit.
-	// rollupUserLogic, err := rollupgen.NewRollupUserLogic(rollupAddr.Rollup, bk.Client())
-	// require.NoError(t, err)
-	// tx, err := rollupUserLogic.AddToDeposit(fundsCustodianOpts, honestTxOpts.From, fundsCustodianOpts.From, requiredStake)
-	// require.NoError(t, err)
-	// bind.WaitMined(honestCtx, bk.Client(), tx)
-
-	// t.Log("Delegated validator now has a deposit balance")
-
+	honestManager.Start(honestCtx)
 	evilManager.Start(evilCtx)
+
+	// Next, the custodians add deposits.
+	// Waits until the validators are staked with a value of 0 before adding the deposit.
+	var isStakedWithZero bool
+	for honestCtx.Err() == nil && !isStakedWithZero {
+		isStaked, err = honestChain.IsStaked(honestCtx)
+		require.NoError(t, err)
+		time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+		if isStaked {
+			isStakedWithZero = true
+		}
+	}
+	isStakedWithZero = false
+	for evilCtx.Err() == nil && !isStakedWithZero {
+		isStaked, err = evilChain.IsStaked(evilCtx)
+		require.NoError(t, err)
+		time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+		if isStaked {
+			isStakedWithZero = true
+		}
+	}
+
+	// Now, adds the deposit.
+	rollupUserLogic, err := rollupgen.NewRollupUserLogic(rollupAddr.Rollup, bk.Client())
+	require.NoError(t, err)
+	tx, err := rollupUserLogic.AddToDeposit(fundsCustodianOpts, honestTxOpts.From, fundsCustodianOpts.From, balCustodian)
+	require.NoError(t, err)
+	bind.WaitMined(honestCtx, bk.Client(), tx)
+
+	tx, err = rollupUserLogic.AddToDeposit(evilFundsCustodianOpts, evilTxOpts.From, evilFundsCustodianOpts.From, balEvilCustodian)
+	require.NoError(t, err)
+	bind.WaitMined(honestCtx, bk.Client(), tx)
+
+	t.Log("Delegated validators now have a deposit balance")
 
 	t.Run("expects honest validator to win challenge", func(t *testing.T) {
 		chainId, err := bk.Client().ChainID(honestCtx)
