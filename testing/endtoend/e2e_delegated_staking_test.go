@@ -46,7 +46,7 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 	deployOpts := []setup.Opt{
 		setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
-		setup.WithNumAccounts(4),
+		setup.WithNumAccounts(5),
 		setup.WithChallengeTestingOpts(challengeTestingOpts...),
 		setup.WithNumFundedAccounts(3),
 	}
@@ -106,13 +106,11 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 	fundsCustodianOpts := accounts[1]         // The 1st account should be the funds custodian.
 	honestTxOpts := accounts[len(accounts)-1] // The last account should not be funded with stake token.
 
-	txOpts := accounts[1]
 	//nolint:gocritic
 	honestOpts := append(
 		baseStackOpts,
 		cm.StackWithName(name),
 		cm.StackWithDelegatedStaking(), // Enable delegated staking for the honest validator only.
-		cm.StackWithoutAutoAllowanceApproval(),
 		cm.StackWithoutAutoDeposit(),
 	)
 	// Ensure the funds custodian is the withdrawal address for the honest validator.
@@ -121,7 +119,7 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 		honestCtx,
 		bk.Client(),
 		rollupAddr.Rollup,
-		txOpts,
+		honestTxOpts,
 		solimpl.WithCustomWithdrawalAddress(fundsCustodianOpts.From),
 	)
 
@@ -154,6 +152,7 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 
 	honestManager, err := cm.NewChallengeStack(honestChain, honestStateManager, honestOpts...)
 	require.NoError(t, err)
+	_ = honestManager
 
 	machineDivergenceStep := uint64(1)
 	//nolint:gocritic
@@ -177,8 +176,31 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 	evilChain := setupAssertionChain(t, evilCtx, bk.Client(), rollupAddr.Rollup, evilTxOpts)
 	evilManager, err := cm.NewChallengeStack(evilChain, evilStateManager, evilOpts...)
 	require.NoError(t, err)
+	_ = evilManager
 
-	honestManager.Start(honestCtx)
+	// honestManager.Start(honestCtx)
+
+	// Next, the custodian adds to deposit of the honest validator.
+	// Waits until the honest validator is staked with a value of 0 before adding the deposit.
+	// var isStakedWithZero bool
+	// for honestCtx.Err() == nil && !isStakedWithZero {
+	// 	isStaked, err = honestChain.IsStaked(honestCtx)
+	// 	require.NoError(t, err)
+	// 	time.Sleep(500 * time.Millisecond) // Don't spam the backend.
+	// 	if isStaked {
+	// 		isStakedWithZero = true
+	// 	}
+	// }
+
+	// // Now, adds the deposit.
+	// rollupUserLogic, err := rollupgen.NewRollupUserLogic(rollupAddr.Rollup, bk.Client())
+	// require.NoError(t, err)
+	// tx, err := rollupUserLogic.AddToDeposit(fundsCustodianOpts, honestTxOpts.From, fundsCustodianOpts.From, requiredStake)
+	// require.NoError(t, err)
+	// bind.WaitMined(honestCtx, bk.Client(), tx)
+
+	// t.Log("Delegated validator now has a deposit balance")
+
 	evilManager.Start(evilCtx)
 
 	t.Run("expects honest validator to win challenge", func(t *testing.T) {
@@ -206,7 +228,7 @@ func TestEndToEnd_HonestValidatorIsDelegatedStaker(t *testing.T) {
 				require.NoError(t, err2)
 				sender, err2 := gethtypes.Sender(gethtypes.NewCancunSigner(chainId), tx)
 				require.NoError(t, err2)
-				honestConfirmed := sender == txOpts.From
+				honestConfirmed := sender == honestTxOpts.From
 
 				isChallengeChild := parent.FirstChildBlock > 0 && parent.SecondChildBlock > 0
 				if !isChallengeChild {
