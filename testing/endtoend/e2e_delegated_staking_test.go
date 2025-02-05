@@ -6,9 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 	solimpl "github.com/offchainlabs/bold/chain-abstraction/sol-implementation"
 	cm "github.com/offchainlabs/bold/challenge-manager"
@@ -21,7 +24,6 @@ import (
 	"github.com/offchainlabs/bold/testing/endtoend/backend"
 	statemanager "github.com/offchainlabs/bold/testing/mocks/state-provider"
 	"github.com/offchainlabs/bold/testing/setup"
-	"github.com/stretchr/testify/require"
 )
 
 func TestEndToEnd_DelegatedStaking(t *testing.T) {
