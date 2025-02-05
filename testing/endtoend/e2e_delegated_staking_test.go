@@ -33,7 +33,7 @@ func TestEndToEnd_DelegatedStaking(t *testing.T) {
 	defer honestCancel()
 
 	protocolCfg := defaultProtocolParams()
-	protocolCfg.challengePeriodBlocks = 40
+	protocolCfg.challengePeriodBlocks = 25
 	timeCfg := defaultTimeParams()
 	timeCfg.blockTime = time.Second
 	inboxCfg := defaultInboxParams()
