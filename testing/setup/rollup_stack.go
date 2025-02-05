@@ -439,11 +439,7 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	if !ok {
 		return nil, errors.New("could not set big int")
 	}
-	numAccountsToFund := len(accs)
-	if setp.numFundedAccounts > 0 {
-		numAccountsToFund = int(setp.numFundedAccounts)
-	}
-	for i := 0; i < numAccountsToFund; i++ {
+	for i := 0; i < len(accs); i++ {
 		acc := accs[i]
 		transferTx, err := tokenBindings.TestWETH9Transactor.Transfer(accs[0].TxOpts, acc.TxOpts.From, seed)
 		if err != nil {

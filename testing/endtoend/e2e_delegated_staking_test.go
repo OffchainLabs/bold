@@ -217,11 +217,13 @@ func TestEndToEnd_DelegatedStaking(t *testing.T) {
 	require.NoError(t, err)
 	tx, err := rollupUserLogic.AddToDeposit(fundsCustodianOpts, honestTxOpts.From, fundsCustodianOpts.From, balCustodian)
 	require.NoError(t, err)
-	bind.WaitMined(honestCtx, bk.Client(), tx)
+	_, err = bind.WaitMined(honestCtx, bk.Client(), tx)
+	require.NoError(t, err)
 
 	tx, err = rollupUserLogic.AddToDeposit(evilFundsCustodianOpts, evilTxOpts.From, evilFundsCustodianOpts.From, balEvilCustodian)
 	require.NoError(t, err)
-	bind.WaitMined(honestCtx, bk.Client(), tx)
+	_, err = bind.WaitMined(evilCtx, bk.Client(), tx)
+	require.NoError(t, err)
 
 	t.Log("Delegated validators now have a deposit balance")
 
