@@ -133,10 +133,10 @@ func (m *Manager) PostAssertionBasedOnParent(
 	ctx context.Context,
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 	submitFn func(
-		ctx context.Context,
-		parentCreationInfo *protocol.AssertionCreatedInfo,
-		newState *protocol.ExecutionState,
-	) (protocol.Assertion, error),
+	ctx context.Context,
+	parentCreationInfo *protocol.AssertionCreatedInfo,
+	newState *protocol.ExecutionState,
+) (protocol.Assertion, error),
 ) (option.Option[*protocol.AssertionCreatedInfo], error) {
 	none := option.None[*protocol.AssertionCreatedInfo]()
 	if !parentCreationInfo.InboxMaxCount.IsUint64() {
@@ -216,6 +216,7 @@ func (m *Manager) waitToPostIfNeeded(
 			return fmt.Errorf("error casting parent assertion creation time to int64: %w", err)
 		}
 		targetTime := time.Unix(parentCreationTime, 0).Add(m.times.minGapToParent)
+		log.Info("Waiting for minimum time since parent assertion creation", "duration", time.Until(targetTime))
 		time.Sleep(time.Until(targetTime))
 	}
 	minPeriodBlocks := m.chain.MinAssertionPeriodBlocks()
