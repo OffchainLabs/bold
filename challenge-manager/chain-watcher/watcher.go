@@ -14,7 +14,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/big"
 	"sync/atomic"
 	"time"
 
@@ -88,7 +87,7 @@ type Watcher struct {
 	// Only track challenges for these parent assertion hashes.
 	// Track all if empty / nil.
 	trackChallengeParentAssertionHashes []protocol.AssertionHash
-	maxLookbackBlocks                   uint64
+	maxGetLogBlocks                     uint64
 }
 
 // New initializes a watcher service for frequently scanning the chain
@@ -101,7 +100,7 @@ func New(
 	assertionConfirmingInterval time.Duration,
 	averageTimeForBlockCreation time.Duration,
 	trackChallengeParentAssertionHashes []protocol.AssertionHash,
-	maxLookbackBlocks uint64,
+	maxGetLogBlocks uint64,
 ) (*Watcher, error) {
 	return &Watcher{
 		chain:                               chain,
@@ -117,7 +116,7 @@ func New(
 		averageTimeForBlockCreation:         averageTimeForBlockCreation,
 		evilEdgesByLevel:                    threadsafe.NewMap(threadsafe.MapWithMetric[protocol.ChallengeLevel, *threadsafe.Set[protocol.EdgeId]]("evilEdgesByLevel")),
 		trackChallengeParentAssertionHashes: trackChallengeParentAssertionHashes,
-		maxLookbackBlocks:                   maxLookbackBlocks,
+		maxGetLogBlocks:                     maxGetLogBlocks,
 	}, nil
 }
 
@@ -211,33 +210,39 @@ func (w *Watcher) Start(ctx context.Context) {
 		log.Error("Could not initialize edge challenge manager filterer", "err", err)
 		return
 	}
-	filterOpts := &bind.FilterOpts{
-		Start:   fromBlock,
-		End:     &toBlock,
-		Context: ctx,
-	}
+	for startBlock := fromBlock; startBlock <= toBlock; startBlock = startBlock + w.maxGetLogBlocks {
+		endBlock := startBlock + w.maxGetLogBlocks
+		if endBlock > toBlock {
+			endBlock = toBlock
+		}
+		filterOpts := &bind.FilterOpts{
+			Start:   startBlock,
+			End:     &endBlock,
+			Context: ctx,
+		}
 
-	// Checks for different events right away before we start polling.
-	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeAdded(ctx, filterer, filterOpts)
-	})
-	if err != nil {
-		log.Error("Could not check for edge added", "err", err)
-		return
-	}
-	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts)
-	})
-	if err != nil {
-		log.Error("Could not check for edge confirmed by osp", "err", err)
-		return
-	}
-	_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
-		return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
-	})
-	if err != nil {
-		log.Error("Could not check for edge confirmed by time", "err", err)
-		return
+		// Checks for different events right away before we start polling.
+		_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+			return true, w.checkForEdgeAdded(ctx, filterer, filterOpts)
+		})
+		if err != nil {
+			log.Error("Could not check for edge added", "err", err)
+			return
+		}
+		_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+			return true, w.checkForEdgeConfirmedByOneStepProof(ctx, filterer, filterOpts)
+		})
+		if err != nil {
+			log.Error("Could not check for edge confirmed by osp", "err", err)
+			return
+		}
+		_, err = retry.UntilSucceeds(ctx, func() (bool, error) {
+			return true, w.checkForEdgeConfirmedByTime(ctx, filterer, filterOpts)
+		})
+		if err != nil {
+			log.Error("Could not check for edge confirmed by time", "err", err)
+			return
+		}
 	}
 
 	fromBlock = toBlock
@@ -936,23 +941,20 @@ type filterRange struct {
 // Gets the start and end block numbers for our filter queries, starting from
 // the latest confirmed assertion's block number up to the latest block number.
 func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) {
-	desiredRPCBlock := w.chain.GetDesiredRpcHeadBlockNumber()
-	latestDesiredBlockHeader, err := w.chain.Backend().HeaderByNumber(ctx, big.NewInt(int64(desiredRPCBlock)))
+	latestConfirmedAssertion, err := retry.UntilSucceeds(ctx, func() (protocol.Assertion, error) {
+		return w.chain.LatestConfirmed(ctx, w.chain.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}))
+	})
 	if err != nil {
 		return filterRange{}, err
 	}
-	if !latestDesiredBlockHeader.Number.IsUint64() {
-		return filterRange{}, errors.New("latest desired block number is not a uint64")
-	}
-	latestDesiredBlockNum := latestDesiredBlockHeader.Number.Uint64()
-	startBlock := latestDesiredBlockNum
-	if w.maxLookbackBlocks < startBlock {
-		startBlock = startBlock - w.maxLookbackBlocks
-	} else {
-		startBlock = 0
+	latestDesiredBlockNum, err := retry.UntilSucceeds(ctx, func() (uint64, error) {
+		return w.chain.DesiredHeaderU64(ctx)
+	})
+	if err != nil {
+		return filterRange{}, err
 	}
 	return filterRange{
-		startBlockNum: startBlock,
+		startBlockNum: latestConfirmedAssertion.CreatedAtBlock(),
 		endBlockNum:   latestDesiredBlockNum,
 	}, nil
 }

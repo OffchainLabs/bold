@@ -187,7 +187,7 @@ func setupEdgeTrackersForBisection(
 		confInterval,
 		avgBlockTime,
 		nil,
-		100,
+		10,
 	)
 	require.NoError(t, err)
 	honestWatcher.SetEdgeManager(honestValidator)
@@ -219,7 +219,7 @@ func setupEdgeTrackersForBisection(
 		confInterval,
 		avgBlockTime,
 		nil,
-		100,
+		10,
 	)
 	require.NoError(t, err)
 	evilWatcher.SetEdgeManager(evilValidator)
