@@ -298,8 +298,3 @@ func NewChallengeStack(
 	}
 	return New(chain, provider, watcher, asm, cmOpts...)
 }
-
-func blocksPerInterval(avgBlockTime time.Duration, interval time.Duration) int64 {
-	// Calculate the number of blocks as an integer division
-	return int64(interval / avgBlockTime)
-}
