@@ -4,6 +4,7 @@ go_library(
     name = "sol-implementation",
     srcs = [
         "assertion_chain.go",
+        "correspondingl1blocknumber.go",
         "edge_challenge_manager.go",
         "fast_confirm.go",
         "fifo_lock.go",
@@ -30,7 +31,6 @@ go_library(
         "//solgen/go/rollupgen",
         "//solgen/go/testgen",
         "//state-commitments/history",
-        "//util",
         "@com_github_ccoveille_go_safecast//:go-safecast",
         "@com_github_ethereum_go_ethereum//:go-ethereum",
         "@com_github_ethereum_go_ethereum//accounts/abi",

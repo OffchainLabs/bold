@@ -34,7 +34,6 @@ import (
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/solgen/go/testgen"
-	"github.com/offchainlabs/bold/util"
 )
 
 var (
@@ -319,7 +318,7 @@ func (a *AssertionChain) DesiredL1HeaderU64(ctx context.Context) (uint64, error)
 	if err != nil {
 		return 0, err
 	}
-	return util.CorrespondingL1BlockNumber(ctx, a.backend, header)
+	return CorrespondingL1BlockNumber(ctx, a.backend, header)
 }
 
 func (a *AssertionChain) GetAssertion(ctx context.Context, opts *bind.CallOpts, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
@@ -893,7 +892,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	if !wantNode.IsFirstChild {
 		return 0, nil
 	}
-	assertionCreationBlock, err := a.GetAssertionCreationL1Block(ctx, b)
+	assertionCreationBlock, err := a.GetAssertionCreationParentBlock(ctx, b)
 	if err != nil {
 		return 0, err
 	}
@@ -925,7 +924,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 		if err != nil {
 			return 0, err
 		}
-		l1BlockNum, err := util.CorrespondingL1BlockNumber(ctx, a.backend, num)
+		l1BlockNum, err := CorrespondingL1BlockNumber(ctx, a.backend, num)
 		if err != nil {
 			return 0, err
 		}
@@ -953,12 +952,12 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	return prevNode.SecondChildBlock - prevNode.FirstChildBlock, nil
 }
 
-// GetAssertionCreationL1Block returns parent chain block number when the assertion was created.
+// GetAssertionCreationParentBlock returns parent chain block number when the assertion was created.
 // assertion.CreatedAtBlock is the block number when the assertion was created on L1.
 // But in case of L3, we need to look up the block number when the assertion was created on L2.
 // To do this, we use getAssertionCreationBlockForLogLookup which returns the block number when the assertion was created
 // on parent chain be it L2 or L1.
-func (a *AssertionChain) GetAssertionCreationL1Block(ctx context.Context, assertionHash common.Hash) (uint64, error) {
+func (a *AssertionChain) GetAssertionCreationParentBlock(ctx context.Context, assertionHash common.Hash) (uint64, error) {
 	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
 	createdAtBlock, err := a.userLogic.GetAssertionCreationBlockForLogLookup(callOpts, assertionHash)
 	if err != nil {
@@ -1017,7 +1016,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		var b [32]byte
 		copy(b[:], id.Bytes())
 		var err error
-		assertionCreationBlock, err = a.GetAssertionCreationL1Block(ctx, b)
+		assertionCreationBlock, err = a.GetAssertionCreationParentBlock(ctx, b)
 		if err != nil {
 			return nil, err
 		}
@@ -1045,7 +1044,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		return nil, err
 	}
 	afterState := parsedLog.Assertion.AfterState
-	creationL1Block, err := a.GetAssertionCreationL1Block(ctx, parsedLog.AssertionHash)
+	creationL1Block, err := a.GetAssertionCreationParentBlock(ctx, parsedLog.AssertionHash)
 	if err != nil {
 		return nil, err
 	}

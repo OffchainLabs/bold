@@ -2,7 +2,7 @@
 // For license information, see:
 // https://github.com/offchainlabs/bold/blob/main/LICENSE.md
 
-package util
+package solimpl
 
 import (
 	"context"

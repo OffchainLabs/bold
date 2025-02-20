@@ -429,7 +429,7 @@ func (m *MockProtocol) GetCallOptsWithDesiredRpcHeadBlockNumber(opts *bind.CallO
 	return opts
 }
 
-func (m *MockProtocol) GetAssertionCreationL1Block(ctx context.Context, assertionHash common.Hash) (uint64, error) {
+func (m *MockProtocol) GetAssertionCreationParentBlock(ctx context.Context, assertionHash common.Hash) (uint64, error) {
 	args := m.Called(ctx, assertionHash)
 	return args.Get(0).(uint64), args.Error(1)
 }

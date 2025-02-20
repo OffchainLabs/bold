@@ -47,7 +47,7 @@ func (m *Manager) syncAssertions(ctx context.Context) {
 	}
 	m.assertionChainData.Unlock()
 
-	fromBlock, err := m.chain.GetAssertionCreationL1Block(ctx, latestConfirmed.Id().Hash)
+	fromBlock, err := m.chain.GetAssertionCreationParentBlock(ctx, latestConfirmed.Id().Hash)
 	if err != nil {
 		return
 	}

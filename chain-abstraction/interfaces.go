@@ -156,7 +156,7 @@ type AssertionChain interface {
 		assertionHash AssertionHash,
 	) (AssertionStatus, error)
 	LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (Assertion, error)
-	GetAssertionCreationL1Block(ctx context.Context, assertionHash common.Hash) (uint64, error)
+	GetAssertionCreationParentBlock(ctx context.Context, assertionHash common.Hash) (uint64, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)

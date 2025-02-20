@@ -953,7 +953,7 @@ func (w *Watcher) getStartEndBlockNum(ctx context.Context) (filterRange, error) 
 	if err != nil {
 		return filterRange{}, err
 	}
-	latestConfirmedAssertionCreationBlock, err := w.chain.GetAssertionCreationL1Block(ctx, latestConfirmedAssertion.Id().Hash)
+	latestConfirmedAssertionCreationBlock, err := w.chain.GetAssertionCreationParentBlock(ctx, latestConfirmedAssertion.Id().Hash)
 	if err != nil {
 		return filterRange{}, err
 	}
