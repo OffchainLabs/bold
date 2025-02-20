@@ -129,6 +129,7 @@ type AssertionCreatedInfo struct {
 	ChallengeManager    common.Address
 	TransactionHash     common.Hash
 	CreationBlock       uint64
+	CreationL1Block     uint64
 }
 
 func (i AssertionCreatedInfo) ExecutionHash() common.Hash {
@@ -147,6 +148,7 @@ type AssertionChain interface {
 	IsChallengeComplete(ctx context.Context, challengeParentAssertionHash AssertionHash) (bool, error)
 	Backend() ChainBackend
 	DesiredHeaderU64(ctx context.Context) (uint64, error)
+	DesiredL1HeaderU64(ctx context.Context) (uint64, error)
 	RollupAddress() common.Address
 	StakerAddress() common.Address
 	AssertionStatus(
@@ -154,6 +156,7 @@ type AssertionChain interface {
 		assertionHash AssertionHash,
 	) (AssertionStatus, error)
 	LatestConfirmed(ctx context.Context, opts *bind.CallOpts) (Assertion, error)
+	GetAssertionCreationL1Block(ctx context.Context, assertionHash common.Hash) (uint64, error)
 	ReadAssertionCreationInfo(
 		ctx context.Context, id AssertionHash,
 	) (*AssertionCreatedInfo, error)
