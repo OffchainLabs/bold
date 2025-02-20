@@ -4,6 +4,7 @@ go_library(
     name = "sol-implementation",
     srcs = [
         "assertion_chain.go",
+        "correspondingl1blocknumber.go",
         "edge_challenge_manager.go",
         "fast_confirm.go",
         "fifo_lock.go",
