@@ -314,11 +314,18 @@ func (a *AssertionChain) DesiredHeaderU64(ctx context.Context) (uint64, error) {
 }
 
 func (a *AssertionChain) DesiredL1HeaderU64(ctx context.Context) (uint64, error) {
-	header, err := a.DesiredHeaderU64(ctx)
+	header, err := a.backend.HeaderByNumber(ctx, big.NewInt(int64(a.rpcHeadBlockNumber)))
 	if err != nil {
 		return 0, err
 	}
-	return CorrespondingL1BlockNumber(ctx, a.backend, header)
+	headerInfo := types.DeserializeHeaderExtraInformation(header)
+	if headerInfo.ArbOSFormatVersion > 0 {
+		return headerInfo.L1BlockNumber, nil
+	}
+	if !header.Number.IsUint64() {
+		return 0, errors.New("block number is not uint64")
+	}
+	return header.Number.Uint64(), nil
 }
 
 func (a *AssertionChain) GetAssertion(ctx context.Context, opts *bind.CallOpts, assertionHash protocol.AssertionHash) (protocol.Assertion, error) {
@@ -920,11 +927,7 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		num, err := a.DesiredHeaderU64(ctx)
-		if err != nil {
-			return 0, err
-		}
-		l1BlockNum, err := CorrespondingL1BlockNumber(ctx, a.backend, num)
+		l1BlockNum, err := a.DesiredL1HeaderU64(ctx)
 		if err != nil {
 			return 0, err
 		}
@@ -1060,7 +1063,7 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 		ChallengeManager:    parsedLog.ChallengeManager,
 		TransactionHash:     ethLog.TxHash,
-		CreationBlock:       ethLog.BlockNumber,
+		CreationParentBlock: ethLog.BlockNumber,
 		CreationL1Block:     creationL1Block,
 	}, nil
 }

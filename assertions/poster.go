@@ -207,7 +207,7 @@ func (m *Manager) waitToPostIfNeeded(
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 ) error {
 	if m.times.minGapToParent != 0 {
-		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationBlock))
+		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationParentBlock))
 		if err != nil {
 			return fmt.Errorf("error getting parent assertion creation block header: %w", err)
 		}

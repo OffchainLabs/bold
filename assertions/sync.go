@@ -531,7 +531,7 @@ func (m *Manager) saveAssertionToDB(ctx context.Context, creationInfo *protocol.
 		AfterInboxBatchAcc:       creationInfo.AfterInboxBatchAcc,
 		WasmModuleRoot:           creationInfo.WasmModuleRoot,
 		ChallengeManager:         creationInfo.ChallengeManager,
-		CreationBlock:            creationInfo.CreationBlock,
+		CreationBlock:            creationInfo.CreationParentBlock,
 		TransactionHash:          creationInfo.TransactionHash,
 		BeforeStateBlockHash:     beforeState.GlobalState.BlockHash,
 		BeforeStateSendRoot:      beforeState.GlobalState.SendRoot,

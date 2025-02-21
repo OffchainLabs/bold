@@ -39,8 +39,8 @@ func Test_challengedAssertionConfirmableBlock(t *testing.T) {
 			ConfirmPeriodBlocks: 50,
 		}
 		info := &protocol.AssertionCreatedInfo{
-			CreationBlock:   100,
-			CreationL1Block: 100, // in case of l2 chain CreationL1Block is equal to CreationBlock
+			CreationParentBlock: 100,
+			CreationL1Block:     100, // in case of l2 chain CreationL1Block is equal to CreationParentBlock
 		}
 		edgeConfirmationBlock := uint64(200)
 		gracePeriodBlocks := uint64(10)
@@ -53,8 +53,8 @@ func Test_challengedAssertionConfirmableBlock(t *testing.T) {
 			ConfirmPeriodBlocks: 50,
 		}
 		info := &protocol.AssertionCreatedInfo{
-			CreationBlock:   100,
-			CreationL1Block: 100, // in case of l2 chain CreationL1Block is equal to CreationBlock
+			CreationParentBlock: 100,
+			CreationL1Block:     100, // in case of l2 chain CreationL1Block is equal to CreationParentBlock
 		}
 		edgeConfirmationBlock := uint64(105)
 		gracePeriodBlocks := uint64(10)

@@ -128,7 +128,7 @@ type AssertionCreatedInfo struct {
 	WasmModuleRoot      common.Hash
 	ChallengeManager    common.Address
 	TransactionHash     common.Hash
-	CreationBlock       uint64
+	CreationParentBlock uint64
 	CreationL1Block     uint64
 }
 
