@@ -256,6 +256,10 @@ func (w *Watcher) Start(ctx context.Context) {
 				log.Error("Could not get latest header", "err", err)
 				continue
 			}
+			if fromBlock > toBlock { // Due to Reorg. In which case we rewind fromBlock
+				fromBlock = toBlock
+				continue
+			}
 			if fromBlock == toBlock {
 				w.initialSyncCompleted.Store(true)
 				continue
@@ -912,6 +916,7 @@ func (w *Watcher) confirmAssertionByChallengeWinner(ctx context.Context, edge pr
 			}
 
 			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			gasEstimationEphemeralErrorHandler.Reset()
 
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)
