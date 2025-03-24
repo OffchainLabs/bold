@@ -256,10 +256,9 @@ func (w *Watcher) Start(ctx context.Context) {
 				log.Error("Could not get latest header", "err", err)
 				continue
 			}
-			// Might happen due to Reorgs when assertionChain's rpcHeadBlockNumber is not set to finalized, and in case it is set to finalized
-			// this might occur due to l1 backends of load balancer not being in consensus wrt finalized. In which case we rewind fromBlock
+			// AssertionChain's rpcHeadBlockNumber is set to finalized and this might occur due to l1 backends of load balancer
+			// not being in consensus wrt finalized. In which case we ignore and continue
 			if fromBlock > toBlock {
-				fromBlock = toBlock
 				continue
 			}
 			if fromBlock == toBlock {
