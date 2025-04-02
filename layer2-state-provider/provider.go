@@ -102,7 +102,7 @@ type HistoryCommitmentRequest struct {
 	// requested history commitment originated from.
 	// Each index corresponds to a challenge level. For example,
 	// if we have three levels, where lvl 0 is the block challenge level, an
-	// input of []Height{12, 3} tells us that that the top-level subchallenge
+	// input of []Height{12, 3} tells us that the top-level subchallenge
 	// originated at height 12 then the next subchallenge originated at height
 	// 3 below that.
 	UpperChallengeOriginHeights []Height

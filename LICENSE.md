@@ -26,7 +26,7 @@ Additional Use Grant: You may use the Licensed Work in a production environment 
                       Goerli testnet (chainid:421613), and Arbitrum Sepolia Testnet
                       (chainid:421614); (b) any future blockchains authorized to be
                       designated as Covered Arbitrum Chains by the decentralized autonomous
-                      organization governing the Arbitrum network; and (c) any “Layer 3”
+                      organization governing the Arbitrum network; and (c) any "Layer 3"
                       Arbitrum-based blockchain that is built on and settles to another
                       Covered Arbitrum Chain.
 
