@@ -680,19 +680,19 @@ func deployBridgeCreator(
 
 	var dataHashesReader common.Address
 	if useBlobs {
-		reader, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
-			readerAddr, tx, _, err2 := yulgen.DeployReader4844(auth, backend)
-			if err2 != nil {
-				return common.Address{}, err2
+		reader, err2 := retry.UntilSucceeds(ctx, func() (common.Address, error) {
+			readerAddr, tx, _, err3 := yulgen.DeployReader4844(auth, backend)
+			if err3 != nil {
+				return common.Address{}, err3
 			}
-			err2 = challenge_testing.TxSucceeded(ctx, tx, readerAddr, backend, err2)
-			if err2 != nil {
-				return common.Address{}, errors.Wrap(err2, "yulgen.DeployReader4844")
+			err3 = challenge_testing.TxSucceeded(ctx, tx, readerAddr, backend, err3)
+			if err3 != nil {
+				return common.Address{}, errors.Wrap(err3, "yulgen.DeployReader4844")
 			}
 			return readerAddr, nil
 		})
-		if err != nil {
-			return common.Address{}, err
+		if err2 != nil {
+			return common.Address{}, err2
 		}
 		dataHashesReader = reader
 	}
