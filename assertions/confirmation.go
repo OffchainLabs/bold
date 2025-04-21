@@ -47,13 +47,16 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		return
 	}
 	if m.enableFastConfirmation {
-		err = m.chain.FastConfirmAssertion(ctx, creationInfo)
+		var confirmed bool
+		confirmed, err = m.chain.FastConfirmAssertion(ctx, creationInfo)
 		if err != nil {
 			log.Error("Could not fast confirm latest assertion", "err", err)
 			return
 		}
-		assertionConfirmedCounter.Inc(1)
-		log.Info("Fast Confirmed assertion", "assertionHash", creationInfo.AssertionHash)
+		if confirmed {
+			assertionConfirmedCounter.Inc(1)
+			log.Info("Fast Confirmed assertion", "assertionHash", creationInfo.AssertionHash)
+		}
 		return
 	}
 	prevCreationInfo, err := retry.UntilSucceeds(ctx, func() (*protocol.AssertionCreatedInfo, error) {
@@ -64,6 +67,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 		return
 	}
 	exceedsMaxMempoolSizeEphemeralErrorHandler := ephemeral.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	gasEstimationEphemeralErrorHandler := ephemeral.NewEphemeralErrorHandler(10*time.Minute, "gas estimation errored for tx with hash", 0)
 	ticker := time.NewTicker(m.times.confInterval)
 	defer ticker.Stop()
 	for {
@@ -90,11 +94,12 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			if parentAssertionHasSecondChild {
 				return
 			}
-			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationBlock, m.chain, m.times.avgBlockTime, option.None[protocol.EdgeId]())
+			confirmed, err := solimpl.TryConfirmingAssertion(ctx, creationInfo.AssertionHash, prevCreationInfo.ConfirmPeriodBlocks+creationInfo.CreationL1Block, m.chain, m.times.avgBlockTime, option.None[protocol.EdgeId]())
 			if err != nil {
 				if !strings.Contains(err.Error(), "PREV_NOT_LATEST_CONFIRMED") {
 					logLevel := log.Error
 					logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+					logLevel = gasEstimationEphemeralErrorHandler.LogLevel(err, logLevel)
 
 					logLevel("Could not confirm assertion", "err", err, "assertionHash", assertionHash.Hash)
 					errorConfirmingAssertionByTimeCounter.Inc(1)
@@ -103,6 +108,7 @@ func (m *Manager) keepTryingAssertionConfirmation(ctx context.Context, assertion
 			}
 
 			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			gasEstimationEphemeralErrorHandler.Reset()
 
 			if confirmed {
 				assertionConfirmedCounter.Inc(1)

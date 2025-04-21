@@ -37,6 +37,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 	}
 
 	exceedsMaxMempoolSizeEphemeralErrorHandler := ephemeral.NewEphemeralErrorHandler(10*time.Minute, "posting this transaction will exceed max mempool size", 0)
+	gasEstimationEphemeralErrorHandler := ephemeral.NewEphemeralErrorHandler(10*time.Minute, "gas estimation errored for tx with hash", 0)
 
 	log.Info("Ready to post")
 	ticker := time.NewTicker(m.times.postInterval)
@@ -51,6 +52,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 			default:
 				logLevel := log.Error
 				logLevel = exceedsMaxMempoolSizeEphemeralErrorHandler.LogLevel(err, logLevel)
+				logLevel = gasEstimationEphemeralErrorHandler.LogLevel(err, logLevel)
 
 				logLevel("Could not submit latest assertion", "err", err, "validatorName", m.validatorName)
 				errorPostingAssertionCounter.Inc(1)
@@ -62,6 +64,7 @@ func (m *Manager) postAssertionRoutine(ctx context.Context) {
 			}
 		} else {
 			exceedsMaxMempoolSizeEphemeralErrorHandler.Reset()
+			gasEstimationEphemeralErrorHandler.Reset()
 		}
 
 		select {
@@ -207,7 +210,7 @@ func (m *Manager) waitToPostIfNeeded(
 	parentCreationInfo *protocol.AssertionCreatedInfo,
 ) error {
 	if m.times.minGapToParent != 0 {
-		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationBlock))
+		parentCreationBlock, err := m.backend.HeaderByNumber(ctx, new(big.Int).SetUint64(parentCreationInfo.CreationParentBlock))
 		if err != nil {
 			return fmt.Errorf("error getting parent assertion creation block header: %w", err)
 		}
@@ -220,13 +223,13 @@ func (m *Manager) waitToPostIfNeeded(
 	}
 	minPeriodBlocks := m.chain.MinAssertionPeriodBlocks()
 	for {
-		latestBlockNumber, err := m.chain.DesiredHeaderU64(ctx)
+		latestL1BlockNumber, err := m.chain.DesiredL1HeaderU64(ctx)
 		if err != nil {
 			return err
 		}
 		blocksSinceLast := uint64(0)
-		if parentCreationInfo.CreationBlock < latestBlockNumber {
-			blocksSinceLast = latestBlockNumber - parentCreationInfo.CreationBlock
+		if parentCreationInfo.CreationL1Block < latestL1BlockNumber {
+			blocksSinceLast = latestL1BlockNumber - parentCreationInfo.CreationL1Block
 		}
 		if blocksSinceLast >= minPeriodBlocks {
 			return nil
@@ -235,7 +238,7 @@ func (m *Manager) waitToPostIfNeeded(
 		log.Info(
 			fmt.Sprintf("Need to wait %d blocks before posting next assertion. Current block number: %d",
 				minPeriodBlocks-blocksSinceLast,
-				latestBlockNumber,
+				latestL1BlockNumber,
 			),
 		)
 		select {

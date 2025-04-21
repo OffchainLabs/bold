@@ -12,7 +12,6 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"sort"
 	"strings"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -33,7 +31,6 @@ import (
 	"github.com/offchainlabs/bold/containers/threadsafe"
 	retry "github.com/offchainlabs/bold/runtime"
 	"github.com/offchainlabs/bold/solgen/go/bridgegen"
-	"github.com/offchainlabs/bold/solgen/go/contractsgen"
 	"github.com/offchainlabs/bold/solgen/go/mocksgen"
 	"github.com/offchainlabs/bold/solgen/go/rollupgen"
 	"github.com/offchainlabs/bold/solgen/go/testgen"
@@ -48,7 +45,6 @@ var (
 )
 
 var assertionCreatedId common.Hash
-var fastConfirmAssertionMethod abi.Method
 
 var defaultBaseGas = int64(500000)
 
@@ -62,15 +58,6 @@ func init() {
 		panic("RollupCore ABI missing AssertionCreated event")
 	}
 	assertionCreatedId = assertionCreatedEvent.ID
-
-	rollupUserLogicAbi, err := rollupgen.RollupUserLogicMetaData.GetAbi()
-	if err != nil {
-		panic(err)
-	}
-	fastConfirmAssertionMethod, ok = rollupUserLogicAbi.Methods["fastConfirmAssertion"]
-	if !ok {
-		panic("RollupUserLogic ABI missing fastConfirmAssertion method")
-	}
 }
 
 // ReceiptFetcher defines the ability to retrieve transactions receipts from the chain.
@@ -126,14 +113,11 @@ type AssertionChain struct {
 	averageTimeForBlockCreation              time.Duration
 	minAssertionPeriodBlocks                 uint64
 	transactor                               Transactor
-	fastConfirmSafeAddress                   common.Address
-	fastConfirmSafe                          *contractsgen.Safe
-	fastConfirmSafeOwners                    []common.Address
-	fastConfirmSafeApprovedHashesOwners      map[common.Hash]map[common.Address]bool
-	fastConfirmSafeThreshold                 uint64
 	withdrawalAddress                        common.Address
 	stakeTokenAddr                           common.Address
 	autoDeposit                              bool
+	enableFastConfirmation                   bool
+	fastConfirmSafe                          *FastConfirmSafe
 	// rpcHeadBlockNumber is the block number of the latest block on the chain.
 	// It is set to rpc.FinalizedBlockNumber by default.
 	// WithRpcHeadBlockNumber can be used to set a different block number.
@@ -160,12 +144,6 @@ func WithRpcHeadBlockNumber(rpcHeadBlockNumber rpc.BlockNumber) Opt {
 	}
 }
 
-func WithFastConfirmSafeAddress(fastConfirmSafeAddress common.Address) Opt {
-	return func(a *AssertionChain) {
-		a.fastConfirmSafeAddress = fastConfirmSafeAddress
-	}
-}
-
 // WithCustomWithdrawalAddress specifies a custom withdrawal address for validators that
 // choose to perform a delegated stake to participate in BoLD.
 func WithCustomWithdrawalAddress(address common.Address) Opt {
@@ -179,6 +157,21 @@ func WithCustomWithdrawalAddress(address common.Address) Opt {
 func WithoutAutoDeposit() Opt {
 	return func(a *AssertionChain) {
 		a.autoDeposit = false
+	}
+}
+
+// WithFastConfirmation enables fast confirmation for the assertion chain.
+func WithFastConfirmation() Opt {
+	return func(a *AssertionChain) {
+		a.enableFastConfirmation = true
+	}
+}
+
+// WithParentChainBlockCreationTime sets the average time for block creation of the chain where
+// assertions are posted to and fetched from.
+func WithParentChainBlockCreationTime(d time.Duration) Opt {
+	return func(a *AssertionChain) {
+		a.averageTimeForBlockCreation = d
 	}
 }
 
@@ -261,36 +254,50 @@ func NewAssertionChain(
 		return nil, err
 	}
 	chain.specChallengeManager = specChallengeManager
-	if chain.fastConfirmSafeAddress != (common.Address{}) {
-		safe, err := contractsgen.NewSafe(chain.fastConfirmSafeAddress, chain.backend)
-		if err != nil {
-			return nil, err
-		}
-		chain.fastConfirmSafe = safe
-		owners, err := retry.UntilSucceeds(ctx, func() ([]common.Address, error) {
-			return safe.GetOwners(callOpts)
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// This is needed because safe contract needs owners to be sorted.
-		sort.Slice(owners, func(i, j int) bool {
-			return owners[i].Cmp(owners[j]) < 0
-		})
-		chain.fastConfirmSafeOwners = owners
-		threshold, err := retry.UntilSucceeds(ctx, func() (*big.Int, error) {
-			return safe.GetThreshold(callOpts)
-		})
-		if err != nil {
-			return nil, err
-		}
-		chain.fastConfirmSafeThreshold = threshold.Uint64()
-		chain.fastConfirmSafeApprovedHashesOwners = make(map[common.Hash]map[common.Address]bool)
+	err = chain.setupFastConfirmation(callOpts)
+	if err != nil {
+		return nil, err
 	}
 	return chain, nil
 }
 
+func (a *AssertionChain) setupFastConfirmation(callOpts *bind.CallOpts) error {
+	if !a.enableFastConfirmation {
+		return nil
+	}
+	fastConfirmer, err := retry.UntilSucceeds(callOpts.Context, func() (common.Address, error) {
+		return a.rollup.AnyTrustFastConfirmer(callOpts)
+	})
+	if err != nil {
+		return fmt.Errorf("getting rollup fast confirmer address: %w", err)
+	}
+	log.Info("Setting up fast confirmation", "stakerAddress", a.StakerAddress(), "fastConfirmer", fastConfirmer)
+	if fastConfirmer == a.StakerAddress() {
+		// We can directly fast confirm nodes
+		return nil
+	} else if fastConfirmer == (common.Address{}) {
+		// No fast confirmer enabled
+		return errors.New("fast confirmation enabled in config, but no fast confirmer set in rollup contract")
+	}
+	// The fast confirmer address is a contract address, not sure if it's a safe contract yet.
+	fastConfirmSafe, err := NewFastConfirmSafe(callOpts, fastConfirmer, a)
+	if err != nil {
+		// Unknown while loading the safe contract.
+		return fmt.Errorf("loading fast confirm safe: %w", err)
+	}
+	// Fast confirmer address implements getOwners() and is probably a safe.
+	isOwner, err := retry.UntilSucceeds(callOpts.Context, func() (bool, error) {
+		return fastConfirmSafe.safe.IsOwner(callOpts, a.StakerAddress())
+	})
+	if err != nil {
+		return fmt.Errorf("checking if wallet is owner of safe: %w", err)
+	}
+	if !isOwner {
+		return fmt.Errorf("staker wallet address %v is not an owner of the fast confirm safe %v", a.StakerAddress(), fastConfirmer)
+	}
+	a.fastConfirmSafe = fastConfirmSafe
+	return nil
+}
 func (a *AssertionChain) RollupUserLogic() *rollupgen.RollupUserLogic {
 	return a.userLogic
 }
@@ -307,6 +314,21 @@ func (a *AssertionChain) DesiredHeaderU64(ctx context.Context) (uint64, error) {
 	header, err := a.backend.HeaderByNumber(ctx, big.NewInt(int64(a.rpcHeadBlockNumber)))
 	if err != nil {
 		return 0, err
+	}
+	if !header.Number.IsUint64() {
+		return 0, errors.New("block number is not uint64")
+	}
+	return header.Number.Uint64(), nil
+}
+
+func (a *AssertionChain) DesiredL1HeaderU64(ctx context.Context) (uint64, error) {
+	header, err := a.backend.HeaderByNumber(ctx, big.NewInt(int64(a.rpcHeadBlockNumber)))
+	if err != nil {
+		return 0, err
+	}
+	headerInfo := types.DeserializeHeaderExtraInformation(header)
+	if headerInfo.ArbOSFormatVersion > 0 {
+		return headerInfo.L1BlockNumber, nil
 	}
 	if !header.Number.IsUint64() {
 		return 0, errors.New("block number is not uint64")
@@ -697,20 +719,20 @@ func TryConfirmingAssertion(
 		return true, nil
 	}
 	for {
-		var latestHeaderNumber uint64
-		latestHeaderNumber, err = chain.DesiredHeaderU64(ctx)
+		var latestL1HeaderNumber uint64
+		latestL1HeaderNumber, err = chain.DesiredL1HeaderU64(ctx)
 		if err != nil {
 			return false, err
 		}
-		confirmable := latestHeaderNumber >= confirmableAfterBlock
+		confirmable := latestL1HeaderNumber >= confirmableAfterBlock
 
 		// If the assertion is not yet confirmable, we can simply wait.
 		if !confirmable {
 			var blocksLeftForConfirmation int64
-			if latestHeaderNumber > confirmableAfterBlock {
+			if latestL1HeaderNumber > confirmableAfterBlock {
 				blocksLeftForConfirmation = 0
 			} else {
-				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestHeaderNumber)
+				blocksLeftForConfirmation, err = safecast.ToInt64(confirmableAfterBlock - latestL1HeaderNumber)
 				if err != nil {
 					return false, err
 				}
@@ -837,9 +859,9 @@ func (a *AssertionChain) ConfirmAssertionByChallengeWinner(
 func (a *AssertionChain) FastConfirmAssertion(
 	ctx context.Context,
 	assertionCreationInfo *protocol.AssertionCreatedInfo,
-) error {
+) (bool, error) {
 	if a.fastConfirmSafe != nil {
-		return a.fastConfirmSafeAssertion(ctx, assertionCreationInfo)
+		return a.fastConfirmSafe.fastConfirmAssertion(ctx, assertionCreationInfo)
 	}
 	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return a.userLogic.RollupUserLogicTransactor.FastConfirmAssertion(
@@ -851,131 +873,12 @@ func (a *AssertionChain) FastConfirmAssertion(
 		)
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if len(receipt.Logs) == 0 {
-		return errors.New("no logs observed from assertion confirmation")
+		return false, errors.New("no logs observed from assertion confirmation")
 	}
-	return nil
-}
-
-func (a *AssertionChain) fastConfirmSafeAssertion(
-	ctx context.Context,
-	assertionCreationInfo *protocol.AssertionCreatedInfo,
-) error {
-	fastConfirmCallData, err := a.createFastConfirmCalldata(assertionCreationInfo)
-	if err != nil {
-		return err
-	}
-
-	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
-
-	// Current nonce of the safe.
-	nonce, err := a.fastConfirmSafe.Nonce(callOpts)
-	if err != nil {
-		return err
-	}
-	// Hash of the safe transaction.
-	safeTxHash, err := a.fastConfirmSafe.GetTransactionHash(
-		callOpts,
-		a.rollupAddr,
-		big.NewInt(0),
-		fastConfirmCallData,
-		0,
-		big.NewInt(0),
-		big.NewInt(0),
-		big.NewInt(0),
-		common.Address{},
-		common.Address{},
-		nonce,
-	)
-	if err != nil {
-		return err
-	}
-	receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return a.fastConfirmSafe.ApproveHash(opts, safeTxHash)
-	})
-	if err != nil {
-		return err
-	}
-	if len(receipt.Logs) == 0 {
-		return errors.New("no logs observed from hash approval")
-	}
-	if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash]; !ok {
-		a.fastConfirmSafeApprovedHashesOwners[safeTxHash] = make(map[common.Address]bool)
-	}
-	a.fastConfirmSafeApprovedHashesOwners[safeTxHash][a.StakerAddress()] = true
-	return a.checkApprovedHashAndExecTransaction(ctx, fastConfirmCallData, safeTxHash)
-}
-
-func (a *AssertionChain) createFastConfirmCalldata(
-	assertionCreationInfo *protocol.AssertionCreatedInfo,
-) ([]byte, error) {
-	calldata, err := fastConfirmAssertionMethod.Inputs.Pack(
-		assertionCreationInfo.AssertionHash.Hash,
-		assertionCreationInfo.ParentAssertionHash.Hash,
-		assertionCreationInfo.AfterState,
-		assertionCreationInfo.AfterInboxBatchAcc,
-	)
-	if err != nil {
-		return nil, err
-	}
-	fullCalldata := append([]byte{}, fastConfirmAssertionMethod.ID...)
-	fullCalldata = append(fullCalldata, calldata...)
-	return fullCalldata, nil
-}
-
-func (a *AssertionChain) checkApprovedHashAndExecTransaction(ctx context.Context, fastConfirmCallData []byte, safeTxHash [32]byte) error {
-	var signatures []byte
-	for _, owner := range a.fastConfirmSafeOwners {
-		if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner]; !ok {
-			iter, err := a.fastConfirmSafe.FilterApproveHash(&bind.FilterOpts{Context: ctx}, [][32]byte{safeTxHash}, []common.Address{owner})
-			if err != nil {
-				return err
-			}
-			for iter.Next() {
-				a.fastConfirmSafeApprovedHashesOwners[iter.Event.ApprovedHash][iter.Event.Owner] = true
-			}
-		}
-		// If the owner has approved the hash, we add the signature to the transaction.
-		// We add the signature in the format r, s, v.
-		// We set v to 1, as it is the only possible value for a approved hash.
-		// We set r to the owner's address.
-		// We set s to the empty hash.
-		// Refer to the Safe contract for more information.
-		if _, ok := a.fastConfirmSafeApprovedHashesOwners[safeTxHash][owner]; ok {
-			v := uint8(1)
-			r := common.BytesToHash(owner.Bytes())
-			s := common.Hash{}
-			signatures = append(signatures, r.Bytes()...)
-			signatures = append(signatures, s.Bytes()...)
-			signatures = append(signatures, v)
-		}
-	}
-	if uint64(len(a.fastConfirmSafeApprovedHashesOwners[safeTxHash])) >= a.fastConfirmSafeThreshold {
-		receipt, err := a.transact(ctx, a.backend, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return a.fastConfirmSafe.ExecTransaction(
-				opts,
-				a.rollupAddr,
-				big.NewInt(0),
-				fastConfirmCallData,
-				0,
-				big.NewInt(0),
-				big.NewInt(0),
-				big.NewInt(0),
-				common.Address{},
-				common.Address{},
-				signatures,
-			)
-		})
-		if err != nil {
-			return err
-		}
-		if len(receipt.Logs) == 0 {
-			return errors.New("no logs observed from transaction execution")
-		}
-	}
-	return nil
+	return true, nil
 }
 
 // SpecChallengeManager returns the assertions chain's spec challenge manager.
@@ -1004,6 +907,10 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	if !wantNode.IsFirstChild {
 		return 0, nil
 	}
+	assertionCreationBlock, err := a.GetAssertionCreationParentBlock(ctx, b)
+	if err != nil {
+		return 0, err
+	}
 	assertion := &Assertion{
 		id:        assertionHash,
 		chain:     a,
@@ -1028,21 +935,21 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	// If there is no second child, we simply return the number of blocks
 	// since the assertion was created and its parent.
 	if prevNode.SecondChildBlock == 0 {
-		num, err := a.DesiredHeaderU64(ctx)
+		l1BlockNum, err := a.DesiredL1HeaderU64(ctx)
 		if err != nil {
 			return 0, err
 		}
 
 		// Should never happen.
-		if wantNode.CreatedAtBlock > num {
+		if assertionCreationBlock > l1BlockNum {
 			return 0, fmt.Errorf(
 				"assertion creation block %d > latest block number %d for assertion hash %#x",
-				wantNode.CreatedAtBlock,
-				num,
+				assertionCreationBlock,
+				l1BlockNum,
 				assertionHash,
 			)
 		}
-		return num - wantNode.CreatedAtBlock, nil
+		return l1BlockNum - assertionCreationBlock, nil
 	}
 	// Should never happen.
 	if prevNode.FirstChildBlock > prevNode.SecondChildBlock {
@@ -1054,6 +961,24 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 		)
 	}
 	return prevNode.SecondChildBlock - prevNode.FirstChildBlock, nil
+}
+
+// GetAssertionCreationParentBlock returns parent chain block number when the assertion was created.
+// assertion.CreatedAtBlock is the block number when the assertion was created on L1.
+// But in case of L3, we need to look up the block number when the assertion was created on L2.
+// To do this, we use getAssertionCreationBlockForLogLookup which returns the block number when the assertion was created
+// on parent chain be it L2 or L1.
+func (a *AssertionChain) GetAssertionCreationParentBlock(ctx context.Context, assertionHash common.Hash) (uint64, error) {
+	callOpts := a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx})
+	createdAtBlock, err := a.userLogic.GetAssertionCreationBlockForLogLookup(callOpts, assertionHash)
+	if err != nil {
+		return 0, errors.Wrapf(err, "could not get assertion creation block for assertion hash %#x", assertionHash)
+	}
+	if !createdAtBlock.IsUint64() {
+		return 0, errors.New(fmt.Sprintf("for assertion hash %#x, createdAtBlock was not a uint64", assertionHash))
+
+	}
+	return createdAtBlock.Uint64(), nil
 }
 
 func (a *AssertionChain) TopLevelAssertion(ctx context.Context, edgeId protocol.EdgeId) (protocol.AssertionHash, error) {
@@ -1086,7 +1011,7 @@ func (a *AssertionChain) TopLevelClaimHeights(ctx context.Context, edgeId protoc
 func (a *AssertionChain) ReadAssertionCreationInfo(
 	ctx context.Context, id protocol.AssertionHash,
 ) (*protocol.AssertionCreatedInfo, error) {
-	var creationBlock uint64
+	var assertionCreationBlock uint64
 	var topics [][]common.Hash
 	if id == (protocol.AssertionHash{}) {
 		rollupDeploymentBlock, err := a.rollup.RollupDeploymentBlock(&bind.CallOpts{Context: ctx})
@@ -1096,21 +1021,21 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		if !rollupDeploymentBlock.IsUint64() {
 			return nil, errors.New("rollup deployment block was not a uint64")
 		}
-		creationBlock = rollupDeploymentBlock.Uint64()
+		assertionCreationBlock = rollupDeploymentBlock.Uint64()
 		topics = [][]common.Hash{{assertionCreatedId}}
 	} else {
 		var b [32]byte
 		copy(b[:], id.Bytes())
-		node, err := a.rollup.GetAssertion(&bind.CallOpts{Context: ctx}, b)
+		var err error
+		assertionCreationBlock, err = a.GetAssertionCreationParentBlock(ctx, b)
 		if err != nil {
 			return nil, err
 		}
-		creationBlock = node.CreatedAtBlock
 		topics = [][]common.Hash{{assertionCreatedId}, {id.Hash}}
 	}
 	var query = ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(creationBlock),
-		ToBlock:   new(big.Int).SetUint64(creationBlock),
+		FromBlock: new(big.Int).SetUint64(assertionCreationBlock),
+		ToBlock:   new(big.Int).SetUint64(assertionCreationBlock),
 		Addresses: []common.Address{a.rollupAddr},
 		Topics:    topics,
 	}
@@ -1130,6 +1055,10 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		return nil, err
 	}
 	afterState := parsedLog.Assertion.AfterState
+	creationL1Block, err := a.GetAssertionCreationParentBlock(ctx, parsedLog.AssertionHash)
+	if err != nil {
+		return nil, err
+	}
 	return &protocol.AssertionCreatedInfo{
 		ConfirmPeriodBlocks: parsedLog.ConfirmPeriodBlocks,
 		RequiredStake:       parsedLog.RequiredStake,
@@ -1142,7 +1071,8 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		WasmModuleRoot:      parsedLog.WasmModuleRoot,
 		ChallengeManager:    parsedLog.ChallengeManager,
 		TransactionHash:     ethLog.TxHash,
-		CreationBlock:       ethLog.BlockNumber,
+		CreationParentBlock: ethLog.BlockNumber,
+		CreationL1Block:     creationL1Block,
 	}, nil
 }
 
