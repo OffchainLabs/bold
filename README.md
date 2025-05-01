@@ -1,7 +1,7 @@
 # BOLD
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/OffchainLabs/bold)](https://goreportcard.com/report/github.com/OffchainLabs/bold)
-[![codecov](https://codecov.io/gh/OffchainLabs/bold/branch/main/graph/badge.svg)](https://codecov.io/gh/OffchainLabs/bold)
+[![codecov](https://app.codecov.io/gh/OffchainLabs/bold/branch/main/graph/badge.svg)](https://app.codecov.io/gh/OffchainLabs/bold)
 
 This repository implements Offchain Labs' BOLD (Bounded Liquidity Delay) Protocol: a dispute system to enable permissionless validation of Arbitrum chains. It is an efficient, all-vs-all challenge protocol that enables anyone on Ethereum to challenge invalid rollup state transitions. 
 
