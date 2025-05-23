@@ -907,10 +907,6 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 	if !wantNode.IsFirstChild {
 		return 0, nil
 	}
-	assertionCreationBlock, err := a.GetAssertionCreationParentBlock(ctx, b)
-	if err != nil {
-		return 0, err
-	}
 	assertion := &Assertion{
 		id:        assertionHash,
 		chain:     a,
@@ -941,15 +937,15 @@ func (a *AssertionChain) AssertionUnrivaledBlocks(ctx context.Context, assertion
 		}
 
 		// Should never happen.
-		if assertionCreationBlock > l1BlockNum {
+		if assertion.CreatedAtBlock() > l1BlockNum {
 			return 0, fmt.Errorf(
 				"assertion creation block %d > latest block number %d for assertion hash %#x",
-				assertionCreationBlock,
+				assertion.CreatedAtBlock(),
 				l1BlockNum,
 				assertionHash,
 			)
 		}
-		return l1BlockNum - assertionCreationBlock, nil
+		return l1BlockNum - assertion.CreatedAtBlock(), nil
 	}
 	// Should never happen.
 	if prevNode.FirstChildBlock > prevNode.SecondChildBlock {
@@ -1055,10 +1051,11 @@ func (a *AssertionChain) ReadAssertionCreationInfo(
 		return nil, err
 	}
 	afterState := parsedLog.Assertion.AfterState
-	creationL1Block, err := a.GetAssertionCreationParentBlock(ctx, parsedLog.AssertionHash)
+	res, err := a.rollup.GetAssertion(a.GetCallOptsWithDesiredRpcHeadBlockNumber(&bind.CallOpts{Context: ctx}), parsedLog.AssertionHash)
 	if err != nil {
 		return nil, err
 	}
+	creationL1Block := res.CreatedAtBlock
 	return &protocol.AssertionCreatedInfo{
 		ConfirmPeriodBlocks: parsedLog.ConfirmPeriodBlocks,
 		RequiredStake:       parsedLog.RequiredStake,
