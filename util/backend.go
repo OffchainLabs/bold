@@ -5,11 +5,45 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	protocol "github.com/offchainlabs/bold/chain-abstraction"
 )
+
+type EthereumReader interface {
+	ethereum.BlockNumberReader
+	ethereum.ChainReader
+	ethereum.ChainStateReader
+	ethereum.ContractCaller
+	ethereum.GasEstimator
+	ethereum.GasPricer
+	ethereum.GasPricer1559
+	ethereum.FeeHistoryReader
+	ethereum.LogFilterer
+	ethereum.PendingStateReader
+	ethereum.PendingContractCaller
+	ethereum.ChainIDReader
+	ethereum.TransactionReader
+	CallContractAtHash(ctx context.Context, msg ethereum.CallMsg, blockHash common.Hash) ([]byte, error)
+	TransactionSender(ctx context.Context, tx *types.Transaction, block common.Hash, index uint) (common.Address, error)
+	Close()
+	Client() rpc.ClientInterface
+}
+
+type EthereumWriter interface {
+	EthereumReader
+	ethereum.TransactionSender
+	bind.ContractBackend
+}
+
+type EthereumReadWriter interface {
+	EthereumReader
+	EthereumWriter
+}
 
 var (
 	_ protocol.ChainBackend = &BackendWrapper{
@@ -17,13 +51,12 @@ var (
 	}
 )
 
-type ethClient = ethclient.Client
 type BackendWrapper struct {
-	*ethClient
+	EthereumReadWriter
 	desiredBlockNum rpc.BlockNumber
 }
 
-func NewBackendWrapper(client *ethclient.Client, desiredBlockNum rpc.BlockNumber) *BackendWrapper {
+func NewBackendWrapper(client EthereumReadWriter, desiredBlockNum rpc.BlockNumber) *BackendWrapper {
 	return &BackendWrapper{client, desiredBlockNum}
 }
 
