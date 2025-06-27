@@ -517,6 +517,7 @@ type RollupStackConfig struct {
 	UseMockOneStepProver   bool
 	UseBlobs               bool
 	MinimumAssertionPeriod int64
+	CustomOsp              common.Address
 }
 
 func DeployFullRollupStack(
@@ -535,7 +536,7 @@ func DeployFullRollupStack(
 
 	log.Info("Creating rollup")
 	tx, err := retry.UntilSucceeds(ctx, func() (*types.Transaction, error) {
-		creationTx, creationErr := rollupCreator.CreateRollup(
+		creationTx, creationErr := rollupCreator.CreateRollupfdc3c7fc(
 			deployAuth,
 			rollupgen.RollupCreatorRollupDeploymentParams{
 				Config:                    config,
@@ -546,6 +547,8 @@ func DeployFullRollupStack(
 				MaxFeePerGasForRetryables: big.NewInt(0),
 				BatchPosters:              []common.Address{},
 				BatchPosterManager:        common.Address{},
+				FeeTokenPricer:            common.Address{},
+				CustomOsp:                 stackConf.CustomOsp,
 			},
 		)
 		if creationErr != nil {
