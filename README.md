@@ -194,7 +194,7 @@ cd contracts && yarn install
 Building the contracts can be done with:
 
 ```
-yarn --cwd contracts build
+yarn --cwd contracts build:all
 ```
 
 To generate the Go bindings to the contracts, at the **top-level directory**, run:
