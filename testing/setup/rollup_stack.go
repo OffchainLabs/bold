@@ -936,7 +936,7 @@ func deployChallengeFactory(
 		}
 		log.Info("Deploying ospHostIo")
 		ospHostIo, err := retry.UntilSucceeds(ctx, func() (common.Address, error) {
-			ospHostIoAddr, _, _, err2 := ospgen.DeployOneStepProverHostIo(auth, backend)
+			ospHostIoAddr, _, _, err2 := ospgen.DeployOneStepProverHostIo(auth, backend, common.Address{})
 			if err2 != nil {
 				return common.Address{}, err2
 			}

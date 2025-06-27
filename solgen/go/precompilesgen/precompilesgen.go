@@ -3029,9 +3029,492 @@ func (_ArbInfo *ArbInfoCallerSession) GetCode(account common.Address) ([]byte, e
 	return _ArbInfo.Contract.GetCode(&_ArbInfo.CallOpts, account)
 }
 
+// ArbNativeTokenManagerMetaData contains all meta data concerning the ArbNativeTokenManager contract.
+var ArbNativeTokenManagerMetaData = &bind.MetaData{
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenMinted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burnNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mintNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+}
+
+// ArbNativeTokenManagerABI is the input ABI used to generate the binding from.
+// Deprecated: Use ArbNativeTokenManagerMetaData.ABI instead.
+var ArbNativeTokenManagerABI = ArbNativeTokenManagerMetaData.ABI
+
+// ArbNativeTokenManager is an auto generated Go binding around an Ethereum contract.
+type ArbNativeTokenManager struct {
+	ArbNativeTokenManagerCaller     // Read-only binding to the contract
+	ArbNativeTokenManagerTransactor // Write-only binding to the contract
+	ArbNativeTokenManagerFilterer   // Log filterer for contract events
+}
+
+// ArbNativeTokenManagerCaller is an auto generated read-only Go binding around an Ethereum contract.
+type ArbNativeTokenManagerCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// ArbNativeTokenManagerTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type ArbNativeTokenManagerTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// ArbNativeTokenManagerFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type ArbNativeTokenManagerFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// ArbNativeTokenManagerSession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type ArbNativeTokenManagerSession struct {
+	Contract     *ArbNativeTokenManager // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts          // Call options to use throughout this session
+	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
+}
+
+// ArbNativeTokenManagerCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type ArbNativeTokenManagerCallerSession struct {
+	Contract *ArbNativeTokenManagerCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts                // Call options to use throughout this session
+}
+
+// ArbNativeTokenManagerTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type ArbNativeTokenManagerTransactorSession struct {
+	Contract     *ArbNativeTokenManagerTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts                // Transaction auth options to use throughout this session
+}
+
+// ArbNativeTokenManagerRaw is an auto generated low-level Go binding around an Ethereum contract.
+type ArbNativeTokenManagerRaw struct {
+	Contract *ArbNativeTokenManager // Generic contract binding to access the raw methods on
+}
+
+// ArbNativeTokenManagerCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type ArbNativeTokenManagerCallerRaw struct {
+	Contract *ArbNativeTokenManagerCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// ArbNativeTokenManagerTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type ArbNativeTokenManagerTransactorRaw struct {
+	Contract *ArbNativeTokenManagerTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewArbNativeTokenManager creates a new instance of ArbNativeTokenManager, bound to a specific deployed contract.
+func NewArbNativeTokenManager(address common.Address, backend bind.ContractBackend) (*ArbNativeTokenManager, error) {
+	contract, err := bindArbNativeTokenManager(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbNativeTokenManager{ArbNativeTokenManagerCaller: ArbNativeTokenManagerCaller{contract: contract}, ArbNativeTokenManagerTransactor: ArbNativeTokenManagerTransactor{contract: contract}, ArbNativeTokenManagerFilterer: ArbNativeTokenManagerFilterer{contract: contract}}, nil
+}
+
+// NewArbNativeTokenManagerCaller creates a new read-only instance of ArbNativeTokenManager, bound to a specific deployed contract.
+func NewArbNativeTokenManagerCaller(address common.Address, caller bind.ContractCaller) (*ArbNativeTokenManagerCaller, error) {
+	contract, err := bindArbNativeTokenManager(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbNativeTokenManagerCaller{contract: contract}, nil
+}
+
+// NewArbNativeTokenManagerTransactor creates a new write-only instance of ArbNativeTokenManager, bound to a specific deployed contract.
+func NewArbNativeTokenManagerTransactor(address common.Address, transactor bind.ContractTransactor) (*ArbNativeTokenManagerTransactor, error) {
+	contract, err := bindArbNativeTokenManager(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbNativeTokenManagerTransactor{contract: contract}, nil
+}
+
+// NewArbNativeTokenManagerFilterer creates a new log filterer instance of ArbNativeTokenManager, bound to a specific deployed contract.
+func NewArbNativeTokenManagerFilterer(address common.Address, filterer bind.ContractFilterer) (*ArbNativeTokenManagerFilterer, error) {
+	contract, err := bindArbNativeTokenManager(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbNativeTokenManagerFilterer{contract: contract}, nil
+}
+
+// bindArbNativeTokenManager binds a generic wrapper to an already deployed contract.
+func bindArbNativeTokenManager(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := ArbNativeTokenManagerMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_ArbNativeTokenManager *ArbNativeTokenManagerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ArbNativeTokenManager.Contract.ArbNativeTokenManagerCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_ArbNativeTokenManager *ArbNativeTokenManagerRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.ArbNativeTokenManagerTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_ArbNativeTokenManager *ArbNativeTokenManagerRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.ArbNativeTokenManagerTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_ArbNativeTokenManager *ArbNativeTokenManagerCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ArbNativeTokenManager.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_ArbNativeTokenManager *ArbNativeTokenManagerTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_ArbNativeTokenManager *ArbNativeTokenManagerTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.contract.Transact(opts, method, params...)
+}
+
+// BurnNativeToken is a paid mutator transaction binding the contract method 0x1c679a3c.
+//
+// Solidity: function burnNativeToken(uint256 amount) returns()
+func (_ArbNativeTokenManager *ArbNativeTokenManagerTransactor) BurnNativeToken(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.contract.Transact(opts, "burnNativeToken", amount)
+}
+
+// BurnNativeToken is a paid mutator transaction binding the contract method 0x1c679a3c.
+//
+// Solidity: function burnNativeToken(uint256 amount) returns()
+func (_ArbNativeTokenManager *ArbNativeTokenManagerSession) BurnNativeToken(amount *big.Int) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.BurnNativeToken(&_ArbNativeTokenManager.TransactOpts, amount)
+}
+
+// BurnNativeToken is a paid mutator transaction binding the contract method 0x1c679a3c.
+//
+// Solidity: function burnNativeToken(uint256 amount) returns()
+func (_ArbNativeTokenManager *ArbNativeTokenManagerTransactorSession) BurnNativeToken(amount *big.Int) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.BurnNativeToken(&_ArbNativeTokenManager.TransactOpts, amount)
+}
+
+// MintNativeToken is a paid mutator transaction binding the contract method 0xa6f0f7c7.
+//
+// Solidity: function mintNativeToken(uint256 amount) returns()
+func (_ArbNativeTokenManager *ArbNativeTokenManagerTransactor) MintNativeToken(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.contract.Transact(opts, "mintNativeToken", amount)
+}
+
+// MintNativeToken is a paid mutator transaction binding the contract method 0xa6f0f7c7.
+//
+// Solidity: function mintNativeToken(uint256 amount) returns()
+func (_ArbNativeTokenManager *ArbNativeTokenManagerSession) MintNativeToken(amount *big.Int) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.MintNativeToken(&_ArbNativeTokenManager.TransactOpts, amount)
+}
+
+// MintNativeToken is a paid mutator transaction binding the contract method 0xa6f0f7c7.
+//
+// Solidity: function mintNativeToken(uint256 amount) returns()
+func (_ArbNativeTokenManager *ArbNativeTokenManagerTransactorSession) MintNativeToken(amount *big.Int) (*types.Transaction, error) {
+	return _ArbNativeTokenManager.Contract.MintNativeToken(&_ArbNativeTokenManager.TransactOpts, amount)
+}
+
+// ArbNativeTokenManagerNativeTokenBurnedIterator is returned from FilterNativeTokenBurned and is used to iterate over the raw logs and unpacked data for NativeTokenBurned events raised by the ArbNativeTokenManager contract.
+type ArbNativeTokenManagerNativeTokenBurnedIterator struct {
+	Event *ArbNativeTokenManagerNativeTokenBurned // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ArbNativeTokenManagerNativeTokenBurnedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ArbNativeTokenManagerNativeTokenBurned)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ArbNativeTokenManagerNativeTokenBurned)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ArbNativeTokenManagerNativeTokenBurnedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ArbNativeTokenManagerNativeTokenBurnedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ArbNativeTokenManagerNativeTokenBurned represents a NativeTokenBurned event raised by the ArbNativeTokenManager contract.
+type ArbNativeTokenManagerNativeTokenBurned struct {
+	From   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterNativeTokenBurned is a free log retrieval operation binding the contract event 0x6621d29e942b72554ce1c391fc298b578affcc2903f78810815ee9b78d1dd645.
+//
+// Solidity: event NativeTokenBurned(address indexed from, uint256 amount)
+func (_ArbNativeTokenManager *ArbNativeTokenManagerFilterer) FilterNativeTokenBurned(opts *bind.FilterOpts, from []common.Address) (*ArbNativeTokenManagerNativeTokenBurnedIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+
+	logs, sub, err := _ArbNativeTokenManager.contract.FilterLogs(opts, "NativeTokenBurned", fromRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbNativeTokenManagerNativeTokenBurnedIterator{contract: _ArbNativeTokenManager.contract, event: "NativeTokenBurned", logs: logs, sub: sub}, nil
+}
+
+// WatchNativeTokenBurned is a free log subscription operation binding the contract event 0x6621d29e942b72554ce1c391fc298b578affcc2903f78810815ee9b78d1dd645.
+//
+// Solidity: event NativeTokenBurned(address indexed from, uint256 amount)
+func (_ArbNativeTokenManager *ArbNativeTokenManagerFilterer) WatchNativeTokenBurned(opts *bind.WatchOpts, sink chan<- *ArbNativeTokenManagerNativeTokenBurned, from []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+
+	logs, sub, err := _ArbNativeTokenManager.contract.WatchLogs(opts, "NativeTokenBurned", fromRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ArbNativeTokenManagerNativeTokenBurned)
+				if err := _ArbNativeTokenManager.contract.UnpackLog(event, "NativeTokenBurned", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseNativeTokenBurned is a log parse operation binding the contract event 0x6621d29e942b72554ce1c391fc298b578affcc2903f78810815ee9b78d1dd645.
+//
+// Solidity: event NativeTokenBurned(address indexed from, uint256 amount)
+func (_ArbNativeTokenManager *ArbNativeTokenManagerFilterer) ParseNativeTokenBurned(log types.Log) (*ArbNativeTokenManagerNativeTokenBurned, error) {
+	event := new(ArbNativeTokenManagerNativeTokenBurned)
+	if err := _ArbNativeTokenManager.contract.UnpackLog(event, "NativeTokenBurned", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ArbNativeTokenManagerNativeTokenMintedIterator is returned from FilterNativeTokenMinted and is used to iterate over the raw logs and unpacked data for NativeTokenMinted events raised by the ArbNativeTokenManager contract.
+type ArbNativeTokenManagerNativeTokenMintedIterator struct {
+	Event *ArbNativeTokenManagerNativeTokenMinted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ArbNativeTokenManagerNativeTokenMintedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ArbNativeTokenManagerNativeTokenMinted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ArbNativeTokenManagerNativeTokenMinted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ArbNativeTokenManagerNativeTokenMintedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ArbNativeTokenManagerNativeTokenMintedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ArbNativeTokenManagerNativeTokenMinted represents a NativeTokenMinted event raised by the ArbNativeTokenManager contract.
+type ArbNativeTokenManagerNativeTokenMinted struct {
+	To     common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterNativeTokenMinted is a free log retrieval operation binding the contract event 0x31cb24d7d3d91b929a08221eba2a22aac2e21df26d5f1bcdc767547073c3a20b.
+//
+// Solidity: event NativeTokenMinted(address indexed to, uint256 amount)
+func (_ArbNativeTokenManager *ArbNativeTokenManagerFilterer) FilterNativeTokenMinted(opts *bind.FilterOpts, to []common.Address) (*ArbNativeTokenManagerNativeTokenMintedIterator, error) {
+
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _ArbNativeTokenManager.contract.FilterLogs(opts, "NativeTokenMinted", toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ArbNativeTokenManagerNativeTokenMintedIterator{contract: _ArbNativeTokenManager.contract, event: "NativeTokenMinted", logs: logs, sub: sub}, nil
+}
+
+// WatchNativeTokenMinted is a free log subscription operation binding the contract event 0x31cb24d7d3d91b929a08221eba2a22aac2e21df26d5f1bcdc767547073c3a20b.
+//
+// Solidity: event NativeTokenMinted(address indexed to, uint256 amount)
+func (_ArbNativeTokenManager *ArbNativeTokenManagerFilterer) WatchNativeTokenMinted(opts *bind.WatchOpts, sink chan<- *ArbNativeTokenManagerNativeTokenMinted, to []common.Address) (event.Subscription, error) {
+
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _ArbNativeTokenManager.contract.WatchLogs(opts, "NativeTokenMinted", toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ArbNativeTokenManagerNativeTokenMinted)
+				if err := _ArbNativeTokenManager.contract.UnpackLog(event, "NativeTokenMinted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseNativeTokenMinted is a log parse operation binding the contract event 0x31cb24d7d3d91b929a08221eba2a22aac2e21df26d5f1bcdc767547073c3a20b.
+//
+// Solidity: event NativeTokenMinted(address indexed to, uint256 amount)
+func (_ArbNativeTokenManager *ArbNativeTokenManagerFilterer) ParseNativeTokenMinted(log types.Log) (*ArbNativeTokenManagerNativeTokenMinted, error) {
+	event := new(ArbNativeTokenManagerNativeTokenMinted)
+	if err := _ArbNativeTokenManager.contract.UnpackLog(event, "NativeTokenMinted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // ArbOwnerMetaData contains all meta data concerning the ArbOwner contract.
 var ArbOwnerMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes4\",\"name\":\"method\",\"type\":\"bytes4\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OwnerActs\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"addChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"addWasmCacheManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"maxWeiToRelease\",\"type\":\"uint256\"}],\"name\":\"releaseL1PricerSurplusFunds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRemove\",\"type\":\"address\"}],\"name\":\"removeChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"removeWasmCacheManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"newVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"scheduleArbOSUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"cap\",\"type\":\"uint64\"}],\"name\":\"setAmortizedCostCapBips\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"level\",\"type\":\"uint64\"}],\"name\":\"setBrotliCompressionLevel\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"chainConfig\",\"type\":\"string\"}],\"name\":\"setChainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newInfraFeeAccount\",\"type\":\"address\"}],\"name\":\"setInfraFeeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"price\",\"type\":\"uint32\"}],\"name\":\"setInkPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"inertia\",\"type\":\"uint64\"}],\"name\":\"setL1BaseFeeEstimateInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"pricePerUnit\",\"type\":\"uint256\"}],\"name\":\"setL1PricePerUnit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"equilibrationUnits\",\"type\":\"uint256\"}],\"name\":\"setL1PricingEquilibrationUnits\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"inertia\",\"type\":\"uint64\"}],\"name\":\"setL1PricingInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"weiPerUnit\",\"type\":\"uint64\"}],\"name\":\"setL1PricingRewardRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"setL1PricingRewardRecipient\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"priceInWei\",\"type\":\"uint256\"}],\"name\":\"setL2BaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"sec\",\"type\":\"uint64\"}],\"name\":\"setL2GasBacklogTolerance\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"sec\",\"type\":\"uint64\"}],\"name\":\"setL2GasPricingInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setMaxTxGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"priceInWei\",\"type\":\"uint256\"}],\"name\":\"setMinimumL2BaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newNetworkFeeAccount\",\"type\":\"address\"}],\"name\":\"setNetworkFeeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int64\",\"name\":\"cost\",\"type\":\"int64\"}],\"name\":\"setPerBatchGasCharge\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setSpeedLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"count\",\"type\":\"uint16\"}],\"name\":\"setWasmBlockCacheSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"_days\",\"type\":\"uint16\"}],\"name\":\"setWasmExpiryDays\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"pages\",\"type\":\"uint16\"}],\"name\":\"setWasmFreePages\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"percent\",\"type\":\"uint64\"}],\"name\":\"setWasmInitCostScalar\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"_days\",\"type\":\"uint16\"}],\"name\":\"setWasmKeepaliveDays\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"depth\",\"type\":\"uint32\"}],\"name\":\"setWasmMaxStackDepth\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"gas\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"cached\",\"type\":\"uint16\"}],\"name\":\"setWasmMinInitGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"gas\",\"type\":\"uint16\"}],\"name\":\"setWasmPageGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"limit\",\"type\":\"uint16\"}],\"name\":\"setWasmPageLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes4\",\"name\":\"method\",\"type\":\"bytes4\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OwnerActs\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"addChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"addNativeTokenOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"addWasmCacheManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllNativeTokenOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isNativeTokenOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"maxWeiToRelease\",\"type\":\"uint256\"}],\"name\":\"releaseL1PricerSurplusFunds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRemove\",\"type\":\"address\"}],\"name\":\"removeChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRemove\",\"type\":\"address\"}],\"name\":\"removeNativeTokenOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"removeWasmCacheManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"newVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"scheduleArbOSUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"cap\",\"type\":\"uint64\"}],\"name\":\"setAmortizedCostCapBips\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"level\",\"type\":\"uint64\"}],\"name\":\"setBrotliCompressionLevel\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"enable\",\"type\":\"bool\"}],\"name\":\"setCalldataPriceIncrease\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"chainConfig\",\"type\":\"string\"}],\"name\":\"setChainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newInfraFeeAccount\",\"type\":\"address\"}],\"name\":\"setInfraFeeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"price\",\"type\":\"uint32\"}],\"name\":\"setInkPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"inertia\",\"type\":\"uint64\"}],\"name\":\"setL1BaseFeeEstimateInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"pricePerUnit\",\"type\":\"uint256\"}],\"name\":\"setL1PricePerUnit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"equilibrationUnits\",\"type\":\"uint256\"}],\"name\":\"setL1PricingEquilibrationUnits\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"inertia\",\"type\":\"uint64\"}],\"name\":\"setL1PricingInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"weiPerUnit\",\"type\":\"uint64\"}],\"name\":\"setL1PricingRewardRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"setL1PricingRewardRecipient\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"priceInWei\",\"type\":\"uint256\"}],\"name\":\"setL2BaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"sec\",\"type\":\"uint64\"}],\"name\":\"setL2GasBacklogTolerance\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"sec\",\"type\":\"uint64\"}],\"name\":\"setL2GasPricingInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setMaxTxGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"priceInWei\",\"type\":\"uint256\"}],\"name\":\"setMinimumL2BaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"setNativeTokenManagementFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newNetworkFeeAccount\",\"type\":\"address\"}],\"name\":\"setNetworkFeeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int64\",\"name\":\"cost\",\"type\":\"int64\"}],\"name\":\"setPerBatchGasCharge\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setSpeedLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"count\",\"type\":\"uint16\"}],\"name\":\"setWasmBlockCacheSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"_days\",\"type\":\"uint16\"}],\"name\":\"setWasmExpiryDays\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"pages\",\"type\":\"uint16\"}],\"name\":\"setWasmFreePages\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"percent\",\"type\":\"uint64\"}],\"name\":\"setWasmInitCostScalar\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"_days\",\"type\":\"uint16\"}],\"name\":\"setWasmKeepaliveDays\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"size\",\"type\":\"uint32\"}],\"name\":\"setWasmMaxSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"depth\",\"type\":\"uint32\"}],\"name\":\"setWasmMaxStackDepth\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"gas\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"cached\",\"type\":\"uint16\"}],\"name\":\"setWasmMinInitGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"gas\",\"type\":\"uint16\"}],\"name\":\"setWasmPageGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"limit\",\"type\":\"uint16\"}],\"name\":\"setWasmPageLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // ArbOwnerABI is the input ABI used to generate the binding from.
@@ -3211,6 +3694,37 @@ func (_ArbOwner *ArbOwnerCallerSession) GetAllChainOwners() ([]common.Address, e
 	return _ArbOwner.Contract.GetAllChainOwners(&_ArbOwner.CallOpts)
 }
 
+// GetAllNativeTokenOwners is a free data retrieval call binding the contract method 0x3f8601e4.
+//
+// Solidity: function getAllNativeTokenOwners() view returns(address[])
+func (_ArbOwner *ArbOwnerCaller) GetAllNativeTokenOwners(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _ArbOwner.contract.Call(opts, &out, "getAllNativeTokenOwners")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetAllNativeTokenOwners is a free data retrieval call binding the contract method 0x3f8601e4.
+//
+// Solidity: function getAllNativeTokenOwners() view returns(address[])
+func (_ArbOwner *ArbOwnerSession) GetAllNativeTokenOwners() ([]common.Address, error) {
+	return _ArbOwner.Contract.GetAllNativeTokenOwners(&_ArbOwner.CallOpts)
+}
+
+// GetAllNativeTokenOwners is a free data retrieval call binding the contract method 0x3f8601e4.
+//
+// Solidity: function getAllNativeTokenOwners() view returns(address[])
+func (_ArbOwner *ArbOwnerCallerSession) GetAllNativeTokenOwners() ([]common.Address, error) {
+	return _ArbOwner.Contract.GetAllNativeTokenOwners(&_ArbOwner.CallOpts)
+}
+
 // GetInfraFeeAccount is a free data retrieval call binding the contract method 0xee95a824.
 //
 // Solidity: function getInfraFeeAccount() view returns(address)
@@ -3304,6 +3818,37 @@ func (_ArbOwner *ArbOwnerCallerSession) IsChainOwner(addr common.Address) (bool,
 	return _ArbOwner.Contract.IsChainOwner(&_ArbOwner.CallOpts, addr)
 }
 
+// IsNativeTokenOwner is a free data retrieval call binding the contract method 0xc686f4db.
+//
+// Solidity: function isNativeTokenOwner(address addr) view returns(bool)
+func (_ArbOwner *ArbOwnerCaller) IsNativeTokenOwner(opts *bind.CallOpts, addr common.Address) (bool, error) {
+	var out []interface{}
+	err := _ArbOwner.contract.Call(opts, &out, "isNativeTokenOwner", addr)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsNativeTokenOwner is a free data retrieval call binding the contract method 0xc686f4db.
+//
+// Solidity: function isNativeTokenOwner(address addr) view returns(bool)
+func (_ArbOwner *ArbOwnerSession) IsNativeTokenOwner(addr common.Address) (bool, error) {
+	return _ArbOwner.Contract.IsNativeTokenOwner(&_ArbOwner.CallOpts, addr)
+}
+
+// IsNativeTokenOwner is a free data retrieval call binding the contract method 0xc686f4db.
+//
+// Solidity: function isNativeTokenOwner(address addr) view returns(bool)
+func (_ArbOwner *ArbOwnerCallerSession) IsNativeTokenOwner(addr common.Address) (bool, error) {
+	return _ArbOwner.Contract.IsNativeTokenOwner(&_ArbOwner.CallOpts, addr)
+}
+
 // AddChainOwner is a paid mutator transaction binding the contract method 0x481f8dbf.
 //
 // Solidity: function addChainOwner(address newOwner) returns()
@@ -3323,6 +3868,27 @@ func (_ArbOwner *ArbOwnerSession) AddChainOwner(newOwner common.Address) (*types
 // Solidity: function addChainOwner(address newOwner) returns()
 func (_ArbOwner *ArbOwnerTransactorSession) AddChainOwner(newOwner common.Address) (*types.Transaction, error) {
 	return _ArbOwner.Contract.AddChainOwner(&_ArbOwner.TransactOpts, newOwner)
+}
+
+// AddNativeTokenOwner is a paid mutator transaction binding the contract method 0xaeb3a464.
+//
+// Solidity: function addNativeTokenOwner(address newOwner) returns()
+func (_ArbOwner *ArbOwnerTransactor) AddNativeTokenOwner(opts *bind.TransactOpts, newOwner common.Address) (*types.Transaction, error) {
+	return _ArbOwner.contract.Transact(opts, "addNativeTokenOwner", newOwner)
+}
+
+// AddNativeTokenOwner is a paid mutator transaction binding the contract method 0xaeb3a464.
+//
+// Solidity: function addNativeTokenOwner(address newOwner) returns()
+func (_ArbOwner *ArbOwnerSession) AddNativeTokenOwner(newOwner common.Address) (*types.Transaction, error) {
+	return _ArbOwner.Contract.AddNativeTokenOwner(&_ArbOwner.TransactOpts, newOwner)
+}
+
+// AddNativeTokenOwner is a paid mutator transaction binding the contract method 0xaeb3a464.
+//
+// Solidity: function addNativeTokenOwner(address newOwner) returns()
+func (_ArbOwner *ArbOwnerTransactorSession) AddNativeTokenOwner(newOwner common.Address) (*types.Transaction, error) {
+	return _ArbOwner.Contract.AddNativeTokenOwner(&_ArbOwner.TransactOpts, newOwner)
 }
 
 // AddWasmCacheManager is a paid mutator transaction binding the contract method 0xffdca515.
@@ -3386,6 +3952,27 @@ func (_ArbOwner *ArbOwnerSession) RemoveChainOwner(ownerToRemove common.Address)
 // Solidity: function removeChainOwner(address ownerToRemove) returns()
 func (_ArbOwner *ArbOwnerTransactorSession) RemoveChainOwner(ownerToRemove common.Address) (*types.Transaction, error) {
 	return _ArbOwner.Contract.RemoveChainOwner(&_ArbOwner.TransactOpts, ownerToRemove)
+}
+
+// RemoveNativeTokenOwner is a paid mutator transaction binding the contract method 0x96a3751d.
+//
+// Solidity: function removeNativeTokenOwner(address ownerToRemove) returns()
+func (_ArbOwner *ArbOwnerTransactor) RemoveNativeTokenOwner(opts *bind.TransactOpts, ownerToRemove common.Address) (*types.Transaction, error) {
+	return _ArbOwner.contract.Transact(opts, "removeNativeTokenOwner", ownerToRemove)
+}
+
+// RemoveNativeTokenOwner is a paid mutator transaction binding the contract method 0x96a3751d.
+//
+// Solidity: function removeNativeTokenOwner(address ownerToRemove) returns()
+func (_ArbOwner *ArbOwnerSession) RemoveNativeTokenOwner(ownerToRemove common.Address) (*types.Transaction, error) {
+	return _ArbOwner.Contract.RemoveNativeTokenOwner(&_ArbOwner.TransactOpts, ownerToRemove)
+}
+
+// RemoveNativeTokenOwner is a paid mutator transaction binding the contract method 0x96a3751d.
+//
+// Solidity: function removeNativeTokenOwner(address ownerToRemove) returns()
+func (_ArbOwner *ArbOwnerTransactorSession) RemoveNativeTokenOwner(ownerToRemove common.Address) (*types.Transaction, error) {
+	return _ArbOwner.Contract.RemoveNativeTokenOwner(&_ArbOwner.TransactOpts, ownerToRemove)
 }
 
 // RemoveWasmCacheManager is a paid mutator transaction binding the contract method 0xbf197322.
@@ -3470,6 +4057,27 @@ func (_ArbOwner *ArbOwnerSession) SetBrotliCompressionLevel(level uint64) (*type
 // Solidity: function setBrotliCompressionLevel(uint64 level) returns()
 func (_ArbOwner *ArbOwnerTransactorSession) SetBrotliCompressionLevel(level uint64) (*types.Transaction, error) {
 	return _ArbOwner.Contract.SetBrotliCompressionLevel(&_ArbOwner.TransactOpts, level)
+}
+
+// SetCalldataPriceIncrease is a paid mutator transaction binding the contract method 0x8eb911d9.
+//
+// Solidity: function setCalldataPriceIncrease(bool enable) returns()
+func (_ArbOwner *ArbOwnerTransactor) SetCalldataPriceIncrease(opts *bind.TransactOpts, enable bool) (*types.Transaction, error) {
+	return _ArbOwner.contract.Transact(opts, "setCalldataPriceIncrease", enable)
+}
+
+// SetCalldataPriceIncrease is a paid mutator transaction binding the contract method 0x8eb911d9.
+//
+// Solidity: function setCalldataPriceIncrease(bool enable) returns()
+func (_ArbOwner *ArbOwnerSession) SetCalldataPriceIncrease(enable bool) (*types.Transaction, error) {
+	return _ArbOwner.Contract.SetCalldataPriceIncrease(&_ArbOwner.TransactOpts, enable)
+}
+
+// SetCalldataPriceIncrease is a paid mutator transaction binding the contract method 0x8eb911d9.
+//
+// Solidity: function setCalldataPriceIncrease(bool enable) returns()
+func (_ArbOwner *ArbOwnerTransactorSession) SetCalldataPriceIncrease(enable bool) (*types.Transaction, error) {
+	return _ArbOwner.Contract.SetCalldataPriceIncrease(&_ArbOwner.TransactOpts, enable)
 }
 
 // SetChainConfig is a paid mutator transaction binding the contract method 0xeda73212.
@@ -3766,6 +4374,27 @@ func (_ArbOwner *ArbOwnerTransactorSession) SetMinimumL2BaseFee(priceInWei *big.
 	return _ArbOwner.Contract.SetMinimumL2BaseFee(&_ArbOwner.TransactOpts, priceInWei)
 }
 
+// SetNativeTokenManagementFrom is a paid mutator transaction binding the contract method 0xbdb8f707.
+//
+// Solidity: function setNativeTokenManagementFrom(uint64 timestamp) returns()
+func (_ArbOwner *ArbOwnerTransactor) SetNativeTokenManagementFrom(opts *bind.TransactOpts, timestamp uint64) (*types.Transaction, error) {
+	return _ArbOwner.contract.Transact(opts, "setNativeTokenManagementFrom", timestamp)
+}
+
+// SetNativeTokenManagementFrom is a paid mutator transaction binding the contract method 0xbdb8f707.
+//
+// Solidity: function setNativeTokenManagementFrom(uint64 timestamp) returns()
+func (_ArbOwner *ArbOwnerSession) SetNativeTokenManagementFrom(timestamp uint64) (*types.Transaction, error) {
+	return _ArbOwner.Contract.SetNativeTokenManagementFrom(&_ArbOwner.TransactOpts, timestamp)
+}
+
+// SetNativeTokenManagementFrom is a paid mutator transaction binding the contract method 0xbdb8f707.
+//
+// Solidity: function setNativeTokenManagementFrom(uint64 timestamp) returns()
+func (_ArbOwner *ArbOwnerTransactorSession) SetNativeTokenManagementFrom(timestamp uint64) (*types.Transaction, error) {
+	return _ArbOwner.Contract.SetNativeTokenManagementFrom(&_ArbOwner.TransactOpts, timestamp)
+}
+
 // SetNetworkFeeAccount is a paid mutator transaction binding the contract method 0xfcdde2b4.
 //
 // Solidity: function setNetworkFeeAccount(address newNetworkFeeAccount) returns()
@@ -3932,6 +4561,27 @@ func (_ArbOwner *ArbOwnerSession) SetWasmKeepaliveDays(_days uint16) (*types.Tra
 // Solidity: function setWasmKeepaliveDays(uint16 _days) returns()
 func (_ArbOwner *ArbOwnerTransactorSession) SetWasmKeepaliveDays(_days uint16) (*types.Transaction, error) {
 	return _ArbOwner.Contract.SetWasmKeepaliveDays(&_ArbOwner.TransactOpts, _days)
+}
+
+// SetWasmMaxSize is a paid mutator transaction binding the contract method 0x455ec2eb.
+//
+// Solidity: function setWasmMaxSize(uint32 size) returns()
+func (_ArbOwner *ArbOwnerTransactor) SetWasmMaxSize(opts *bind.TransactOpts, size uint32) (*types.Transaction, error) {
+	return _ArbOwner.contract.Transact(opts, "setWasmMaxSize", size)
+}
+
+// SetWasmMaxSize is a paid mutator transaction binding the contract method 0x455ec2eb.
+//
+// Solidity: function setWasmMaxSize(uint32 size) returns()
+func (_ArbOwner *ArbOwnerSession) SetWasmMaxSize(size uint32) (*types.Transaction, error) {
+	return _ArbOwner.Contract.SetWasmMaxSize(&_ArbOwner.TransactOpts, size)
+}
+
+// SetWasmMaxSize is a paid mutator transaction binding the contract method 0x455ec2eb.
+//
+// Solidity: function setWasmMaxSize(uint32 size) returns()
+func (_ArbOwner *ArbOwnerTransactorSession) SetWasmMaxSize(size uint32) (*types.Transaction, error) {
+	return _ArbOwner.Contract.SetWasmMaxSize(&_ArbOwner.TransactOpts, size)
 }
 
 // SetWasmMaxStackDepth is a paid mutator transaction binding the contract method 0x4567cc8e.
@@ -4174,7 +4824,7 @@ func (_ArbOwner *ArbOwnerFilterer) ParseOwnerActs(log types.Log) (*ArbOwnerOwner
 
 // ArbOwnerPublicMetaData contains all meta data concerning the ArbOwnerPublic contract.
 var ArbOwnerPublicMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"rectifiedOwner\",\"type\":\"address\"}],\"name\":\"ChainOwnerRectified\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBrotliCompressionLevel\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getScheduledUpgrade\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"arbosVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"scheduledForTimestamp\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRectify\",\"type\":\"address\"}],\"name\":\"rectifyChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"rectifiedOwner\",\"type\":\"address\"}],\"name\":\"ChainOwnerRectified\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllNativeTokenOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBrotliCompressionLevel\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getScheduledUpgrade\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"arbosVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"scheduledForTimestamp\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isCalldataPriceIncreaseEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isNativeTokenOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRectify\",\"type\":\"address\"}],\"name\":\"rectifyChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // ArbOwnerPublicABI is the input ABI used to generate the binding from.
@@ -4354,6 +5004,37 @@ func (_ArbOwnerPublic *ArbOwnerPublicCallerSession) GetAllChainOwners() ([]commo
 	return _ArbOwnerPublic.Contract.GetAllChainOwners(&_ArbOwnerPublic.CallOpts)
 }
 
+// GetAllNativeTokenOwners is a free data retrieval call binding the contract method 0x3f8601e4.
+//
+// Solidity: function getAllNativeTokenOwners() view returns(address[])
+func (_ArbOwnerPublic *ArbOwnerPublicCaller) GetAllNativeTokenOwners(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _ArbOwnerPublic.contract.Call(opts, &out, "getAllNativeTokenOwners")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetAllNativeTokenOwners is a free data retrieval call binding the contract method 0x3f8601e4.
+//
+// Solidity: function getAllNativeTokenOwners() view returns(address[])
+func (_ArbOwnerPublic *ArbOwnerPublicSession) GetAllNativeTokenOwners() ([]common.Address, error) {
+	return _ArbOwnerPublic.Contract.GetAllNativeTokenOwners(&_ArbOwnerPublic.CallOpts)
+}
+
+// GetAllNativeTokenOwners is a free data retrieval call binding the contract method 0x3f8601e4.
+//
+// Solidity: function getAllNativeTokenOwners() view returns(address[])
+func (_ArbOwnerPublic *ArbOwnerPublicCallerSession) GetAllNativeTokenOwners() ([]common.Address, error) {
+	return _ArbOwnerPublic.Contract.GetAllNativeTokenOwners(&_ArbOwnerPublic.CallOpts)
+}
+
 // GetBrotliCompressionLevel is a free data retrieval call binding the contract method 0x22d499c7.
 //
 // Solidity: function getBrotliCompressionLevel() view returns(uint64)
@@ -4492,6 +5173,37 @@ func (_ArbOwnerPublic *ArbOwnerPublicCallerSession) GetScheduledUpgrade() (struc
 	return _ArbOwnerPublic.Contract.GetScheduledUpgrade(&_ArbOwnerPublic.CallOpts)
 }
 
+// IsCalldataPriceIncreaseEnabled is a free data retrieval call binding the contract method 0x2aa9551e.
+//
+// Solidity: function isCalldataPriceIncreaseEnabled() view returns(bool)
+func (_ArbOwnerPublic *ArbOwnerPublicCaller) IsCalldataPriceIncreaseEnabled(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _ArbOwnerPublic.contract.Call(opts, &out, "isCalldataPriceIncreaseEnabled")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsCalldataPriceIncreaseEnabled is a free data retrieval call binding the contract method 0x2aa9551e.
+//
+// Solidity: function isCalldataPriceIncreaseEnabled() view returns(bool)
+func (_ArbOwnerPublic *ArbOwnerPublicSession) IsCalldataPriceIncreaseEnabled() (bool, error) {
+	return _ArbOwnerPublic.Contract.IsCalldataPriceIncreaseEnabled(&_ArbOwnerPublic.CallOpts)
+}
+
+// IsCalldataPriceIncreaseEnabled is a free data retrieval call binding the contract method 0x2aa9551e.
+//
+// Solidity: function isCalldataPriceIncreaseEnabled() view returns(bool)
+func (_ArbOwnerPublic *ArbOwnerPublicCallerSession) IsCalldataPriceIncreaseEnabled() (bool, error) {
+	return _ArbOwnerPublic.Contract.IsCalldataPriceIncreaseEnabled(&_ArbOwnerPublic.CallOpts)
+}
+
 // IsChainOwner is a free data retrieval call binding the contract method 0x26ef7f68.
 //
 // Solidity: function isChainOwner(address addr) view returns(bool)
@@ -4521,6 +5233,37 @@ func (_ArbOwnerPublic *ArbOwnerPublicSession) IsChainOwner(addr common.Address) 
 // Solidity: function isChainOwner(address addr) view returns(bool)
 func (_ArbOwnerPublic *ArbOwnerPublicCallerSession) IsChainOwner(addr common.Address) (bool, error) {
 	return _ArbOwnerPublic.Contract.IsChainOwner(&_ArbOwnerPublic.CallOpts, addr)
+}
+
+// IsNativeTokenOwner is a free data retrieval call binding the contract method 0xc686f4db.
+//
+// Solidity: function isNativeTokenOwner(address addr) view returns(bool)
+func (_ArbOwnerPublic *ArbOwnerPublicCaller) IsNativeTokenOwner(opts *bind.CallOpts, addr common.Address) (bool, error) {
+	var out []interface{}
+	err := _ArbOwnerPublic.contract.Call(opts, &out, "isNativeTokenOwner", addr)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsNativeTokenOwner is a free data retrieval call binding the contract method 0xc686f4db.
+//
+// Solidity: function isNativeTokenOwner(address addr) view returns(bool)
+func (_ArbOwnerPublic *ArbOwnerPublicSession) IsNativeTokenOwner(addr common.Address) (bool, error) {
+	return _ArbOwnerPublic.Contract.IsNativeTokenOwner(&_ArbOwnerPublic.CallOpts, addr)
+}
+
+// IsNativeTokenOwner is a free data retrieval call binding the contract method 0xc686f4db.
+//
+// Solidity: function isNativeTokenOwner(address addr) view returns(bool)
+func (_ArbOwnerPublic *ArbOwnerPublicCallerSession) IsNativeTokenOwner(addr common.Address) (bool, error) {
+	return _ArbOwnerPublic.Contract.IsNativeTokenOwner(&_ArbOwnerPublic.CallOpts, addr)
 }
 
 // RectifyChainOwner is a paid mutator transaction binding the contract method 0x6fe86373.
