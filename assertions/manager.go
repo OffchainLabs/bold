@@ -250,9 +250,8 @@ func NewManager(
 		autoDeposit:                 true,
 		autoAllowanceApproval:       true,
 		maxGetLogBlocks:             1000,
-
-		confirming:        threadsafe.NewLruSet[protocol.AssertionHash](maxAssertions),
-		confirmQueueMutex: sync.Mutex{},
+		confirming:                  threadsafe.NewLruSet[protocol.AssertionHash](maxAssertions),
+		confirmQueueMutex:           sync.Mutex{},
 	}
 	for _, o := range opts {
 		o(m)
