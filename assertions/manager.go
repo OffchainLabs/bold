@@ -94,6 +94,9 @@ type Manager struct {
 	autoDeposit                 bool
 	autoAllowanceApproval       bool
 	maxGetLogBlocks             uint64
+	// New
+	confirming        *threadsafe.LruSet[protocol.AssertionHash]
+	confirmQueueMutex sync.Mutex
 }
 
 type assertionChainData struct {
@@ -248,6 +251,9 @@ func NewManager(
 		autoDeposit:                 true,
 		autoAllowanceApproval:       true,
 		maxGetLogBlocks:             1000,
+
+		confirming:        threadsafe.NewLruSet[protocol.AssertionHash](maxAssertions),
+		confirmQueueMutex: sync.Mutex{},
 	}
 	for _, o := range opts {
 		o(m)
