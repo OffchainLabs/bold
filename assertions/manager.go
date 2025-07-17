@@ -94,9 +94,8 @@ type Manager struct {
 	autoDeposit                 bool
 	autoAllowanceApproval       bool
 	maxGetLogBlocks             uint64
-	// New
-	confirming        *threadsafe.LruSet[protocol.AssertionHash]
-	confirmQueueMutex sync.Mutex
+	confirming                  *threadsafe.LruSet[protocol.AssertionHash]
+	confirmQueueMutex           sync.Mutex
 }
 
 type assertionChainData struct {

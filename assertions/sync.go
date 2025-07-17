@@ -302,7 +302,6 @@ func (m *Manager) findCanonicalAssertionBranch(
 				cursor = assertion.AssertionHash
 				m.assertionChainData.latestAgreedAssertion = cursor
 				m.assertionChainData.canonicalAssertions[cursor] = assertion
-				// m.observedCanonicalAssertions <- cursor
 				m.sendToConfirmationQueue(cursor, "findCanonicalAssertionBranch")
 			}
 		}
@@ -360,7 +359,6 @@ func (m *Manager) respondToAnyInvalidAssertions(
 					m.assertionChainData.canonicalAssertions[postedAssertionHash] = postedRival
 					m.submittedAssertions.Insert(postedAssertionHash)
 					m.submittedRivalsCount++
-					// m.observedCanonicalAssertions <- postedAssertionHash
 					m.sendToConfirmationQueue(postedAssertionHash, "respondToAnyInvalidAssertions")
 				}
 			}
@@ -563,7 +561,7 @@ func (m *Manager) sendToConfirmationQueue(assertionHash protocol.AssertionHash, 
 
 	// Check if assertion is already in confirmation queue
 	if m.confirming.Has(assertionHash) {
-		log.Info("Assertion already in confirmation queue", "assertionHash", assertionHash, "addedBy", addedBy)
+		log.Debug("Assertion already in confirmation queue", "assertionHash", assertionHash, "addedBy", addedBy)
 		return // Already in confirmation queue, skip
 	}
 	log.Info("Sending assertion to confirmation queue", "assertionHash", assertionHash, "addedBy", addedBy)
