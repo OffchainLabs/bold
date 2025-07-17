@@ -571,8 +571,8 @@ func (m *Manager) sendToConfirmationQueue(assertionHash protocol.AssertionHash, 
 	// Send to confirmation queue
 	select {
 	case m.observedCanonicalAssertions <- assertionHash:
-	case <-m.GetContext().Done():
-		// If sending fails, remove from set
+	default:
 		m.confirming.Delete(assertionHash)
+		log.Warn("Failed to send assertion to confirmation queue: channel full", "assertionHash", assertionHash, "addedBy", addedBy)
 	}
 }
