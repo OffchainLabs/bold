@@ -79,13 +79,13 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20.x
+          go-version: 1.23.x
         id: go
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          cache: false
 
       - name: Build yul contracts
         run: yarn --cwd contracts build:forge:yul
