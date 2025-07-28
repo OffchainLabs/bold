@@ -25,8 +25,32 @@ import (
 
 func TestPostAssertion(t *testing.T) {
 	ctx := context.Background()
+	chainSetup, chalManager, assertionManager, stateManager := setupAssertionPosting(t)
+
+	chalManager.Start(ctx)
+
+	time.Sleep(time.Second)
+
+	aliceChain := chainSetup.Chains[0]
+	preState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 0, protocol.GoGlobalState{})
+	require.NoError(t, err)
+	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, preState.GlobalState)
+	require.NoError(t, err)
+
+	// Verify that alice can post an assertion correctly.
+	posted, err := assertionManager.PostAssertion(ctx)
+	require.NoError(t, err)
+	require.Equal(t, true, posted.IsSome())
+	creationInfo, err := aliceChain.ReadAssertionCreationInfo(ctx, posted.Unwrap().Id())
+	require.NoError(t, err)
+	require.Equal(t, postState, protocol.GoExecutionStateFromSolidity(creationInfo.AfterState))
+}
+
+func TestPostAssertionDoubleDeposit(t *testing.T) {
+}
+
+func setupAssertionPosting(t *testing.T) (*setup.ChainSetup, *cm.Manager, *assertions.Manager, *statemanager.L2StateBackend) {
 	setup, err := setup.ChainsWithEdgeChallengeManager(
-		// setup.WithMockBridge(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
@@ -77,19 +101,6 @@ func TestPostAssertion(t *testing.T) {
 		cm.OverrideAssertionManager(assertionManager),
 	)
 	require.NoError(t, err)
-	chalManager.Start(ctx)
+	return setup, chalManager, assertionManager, stateManager
 
-	preState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 0, protocol.GoGlobalState{})
-	require.NoError(t, err)
-	postState, err := stateManager.ExecutionStateAfterPreviousState(ctx, 1, preState.GlobalState)
-	require.NoError(t, err)
-
-	time.Sleep(time.Second)
-
-	posted, err := assertionManager.PostAssertion(ctx)
-	require.NoError(t, err)
-	require.Equal(t, true, posted.IsSome())
-	creationInfo, err := aliceChain.ReadAssertionCreationInfo(ctx, posted.Unwrap().Id())
-	require.NoError(t, err)
-	require.Equal(t, postState, protocol.GoExecutionStateFromSolidity(creationInfo.AfterState))
 }
