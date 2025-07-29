@@ -174,7 +174,6 @@ type ChainSetup struct {
 	numFundedAccounts          uint64
 	minimumAssertionPeriod     int64
 	autoDeposit                bool
-	baseStake                  *big.Int
 	challengeTestingOpts       []challenge_testing.Opt
 	StateManagerOpts           []statemanager.Opt
 	StakeTokenAddress          common.Address
@@ -285,9 +284,9 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	}
 	if !setp.autoDeposit {
 		accs[0].TxOpts.Value = value
-		mintTx, err := tokenBindings.Deposit(accs[0].TxOpts)
-		if err != nil {
-			return nil, err
+		mintTx, err3 := tokenBindings.Deposit(accs[0].TxOpts)
+		if err3 != nil {
+			return nil, err3
 		}
 		if waitErr := challenge_testing.WaitForTx(ctx, backend, mintTx); waitErr != nil {
 			return nil, errors.Wrap(waitErr, "errored waiting for transaction")
