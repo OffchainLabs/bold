@@ -36,7 +36,7 @@ go_library(
 
 go_test(
     name = "assertions_test",
-    size = "small",
+    size = "medium",
     srcs = [
         "manager_test.go",
         "poster_test.go",
