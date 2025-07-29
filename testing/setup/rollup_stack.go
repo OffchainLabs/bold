@@ -244,23 +244,15 @@ func WithAutoDeposit() Opt {
 	}
 }
 
-func WithBaseStake(stake *big.Int) Opt {
-	return func(setup *ChainSetup) {
-		setup.baseStake = stake
-	}
-}
-
 func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	ctx := context.Background()
 	setp := &ChainSetup{
 		numAccountsToGen: 4,
 		autoDeposit:      false,
-		baseStake:        big.NewInt(1),
 	}
 	for _, o := range opts {
 		o(setp)
 	}
-	setp.challengeTestingOpts = append(setp.challengeTestingOpts, challenge_testing.WithBaseStakeValue(setp.baseStake))
 	if setp.numAccountsToGen < 3 {
 		setp.numAccountsToGen = 3
 	}
