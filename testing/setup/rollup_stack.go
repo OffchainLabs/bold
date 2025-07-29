@@ -173,6 +173,8 @@ type ChainSetup struct {
 	numAccountsToGen           uint64
 	numFundedAccounts          uint64
 	minimumAssertionPeriod     int64
+	autoDeposit                bool
+	baseStake                  *big.Int
 	challengeTestingOpts       []challenge_testing.Opt
 	StateManagerOpts           []statemanager.Opt
 	StakeTokenAddress          common.Address
@@ -236,14 +238,29 @@ func WithNumFundedAccounts(n uint64) Opt {
 	}
 }
 
+func WithAutoDeposit() Opt {
+	return func(setup *ChainSetup) {
+		setup.autoDeposit = true
+	}
+}
+
+func WithBaseStake(stake *big.Int) Opt {
+	return func(setup *ChainSetup) {
+		setup.baseStake = stake
+	}
+}
+
 func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	ctx := context.Background()
 	setp := &ChainSetup{
 		numAccountsToGen: 4,
+		autoDeposit:      false,
+		baseStake:        big.NewInt(1),
 	}
 	for _, o := range opts {
 		o(setp)
 	}
+	setp.challengeTestingOpts = append(setp.challengeTestingOpts, challenge_testing.WithBaseStakeValue(setp.baseStake))
 	if setp.numAccountsToGen < 3 {
 		setp.numAccountsToGen = 3
 	}
@@ -274,22 +291,24 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	if !ok {
 		return nil, errors.New("could not set value")
 	}
-	accs[0].TxOpts.Value = value
-	mintTx, err := tokenBindings.Deposit(accs[0].TxOpts)
-	if err != nil {
-		return nil, err
+	if !setp.autoDeposit {
+		accs[0].TxOpts.Value = value
+		mintTx, err := tokenBindings.Deposit(accs[0].TxOpts)
+		if err != nil {
+			return nil, err
+		}
+		if waitErr := challenge_testing.WaitForTx(ctx, backend, mintTx); waitErr != nil {
+			return nil, errors.Wrap(waitErr, "errored waiting for transaction")
+		}
+		receipt, err = backend.TransactionReceipt(ctx, mintTx.Hash())
+		if err != nil {
+			return nil, err
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, errors.New("receipt not successful")
+		}
+		accs[0].TxOpts.Value = big.NewInt(0)
 	}
-	if waitErr := challenge_testing.WaitForTx(ctx, backend, mintTx); waitErr != nil {
-		return nil, errors.Wrap(waitErr, "errored waiting for transaction")
-	}
-	receipt, err = backend.TransactionReceipt(ctx, mintTx.Hash())
-	if err != nil {
-		return nil, err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return nil, errors.New("receipt not successful")
-	}
-	accs[0].TxOpts.Value = big.NewInt(0)
 
 	prod := false
 	wasmModuleRoot := common.Hash{}
@@ -445,49 +464,51 @@ func ChainsWithEdgeChallengeManager(opts ...Opt) (*ChainSetup, error) {
 	if !ok {
 		return nil, errors.New("could not set big int")
 	}
-	for i := 0; i < len(accs); i++ {
-		acc := accs[i]
-		transferTx, err := tokenBindings.Transfer(accs[0].TxOpts, acc.TxOpts.From, seed)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not approve account")
-		}
-		if waitErr := challenge_testing.WaitForTx(ctx, backend, transferTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "errored waiting for transfer transaction")
-		}
-		receipt, err := backend.TransactionReceipt(ctx, transferTx.Hash())
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get tx receipt")
-		}
-		if receipt.Status != types.ReceiptStatusSuccessful {
-			return nil, errors.New("receipt not successful")
-		}
-		approveTx, err := tokenBindings.Approve(acc.TxOpts, addresses.Rollup, value)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not approve account")
-		}
-		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "errored waiting for approval transaction")
-		}
-		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get tx receipt")
-		}
-		if receipt.Status != types.ReceiptStatusSuccessful {
-			return nil, errors.New("receipt not successful")
-		}
-		approveTx, err = tokenBindings.Approve(acc.TxOpts, chalManagerAddr, value)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not approve account")
-		}
-		if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
-			return nil, errors.Wrap(waitErr, "errored waiting for approval transaction")
-		}
-		receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get tx receipt")
-		}
-		if receipt.Status != types.ReceiptStatusSuccessful {
-			return nil, errors.New("receipt not successful")
+	if !setp.autoDeposit {
+		for i := 0; i < len(accs); i++ {
+			acc := accs[i]
+			transferTx, err := tokenBindings.Transfer(accs[0].TxOpts, acc.TxOpts.From, seed)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not approve account")
+			}
+			if waitErr := challenge_testing.WaitForTx(ctx, backend, transferTx); waitErr != nil {
+				return nil, errors.Wrap(waitErr, "errored waiting for transfer transaction")
+			}
+			receipt, err := backend.TransactionReceipt(ctx, transferTx.Hash())
+			if err != nil {
+				return nil, errors.Wrap(err, "could not get tx receipt")
+			}
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, errors.New("receipt not successful")
+			}
+			approveTx, err := tokenBindings.Approve(acc.TxOpts, addresses.Rollup, value)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not approve account")
+			}
+			if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
+				return nil, errors.Wrap(waitErr, "errored waiting for approval transaction")
+			}
+			receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
+			if err != nil {
+				return nil, errors.Wrap(err, "could not get tx receipt")
+			}
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, errors.New("receipt not successful")
+			}
+			approveTx, err = tokenBindings.Approve(acc.TxOpts, chalManagerAddr, value)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not approve account")
+			}
+			if waitErr := challenge_testing.WaitForTx(ctx, backend, approveTx); waitErr != nil {
+				return nil, errors.Wrap(waitErr, "errored waiting for approval transaction")
+			}
+			receipt, err = backend.TransactionReceipt(ctx, approveTx.Hash())
+			if err != nil {
+				return nil, errors.Wrap(err, "could not get tx receipt")
+			}
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, errors.New("receipt not successful")
+			}
 		}
 	}
 
