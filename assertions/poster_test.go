@@ -135,7 +135,6 @@ func setupAssertionPosting(t *testing.T) (*setup.ChainSetup, *cm.Manager, *asser
 	setup, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockOneStepProver(),
 		setup.WithAutoDeposit(),
-		setup.WithBaseStake(big.NewInt(10)),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
 				BlockChallengeHeight:     64,
