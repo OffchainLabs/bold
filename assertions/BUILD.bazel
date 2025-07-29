@@ -52,6 +52,7 @@ go_test(
         "//solgen/go/bridgegen",
         "//solgen/go/mocksgen",
         "//solgen/go/rollupgen",
+        "//solgen/go/testgen",
         "//testing",
         "//testing/casttest",
         "//testing/mocks/state-provider",
@@ -59,6 +60,8 @@ go_test(
         "@com_github_ethereum_go_ethereum//accounts/abi",
         "@com_github_ethereum_go_ethereum//accounts/abi/bind",
         "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//common/hexutil",
+        "@com_github_ethereum_go_ethereum//core/types",
         "@com_github_stretchr_testify//require",
     ],
 )
