@@ -1,6 +1,6 @@
 module github.com/offchainlabs/bold
 
-go 1.23.0
+go 1.24.5
 
 require (
 	github.com/ccoveille/go-safecast v1.1.0
