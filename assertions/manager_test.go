@@ -344,6 +344,7 @@ func TestFastConfirmation(t *testing.T) {
 	ctx := context.Background()
 	testData, err := setup.ChainsWithEdgeChallengeManager(
 		setup.WithMockOneStepProver(),
+		setup.WithAutoDeposit(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
 				BlockChallengeHeight:     64,
@@ -417,6 +418,7 @@ func TestFastConfirmationWithSafe(t *testing.T) {
 	ctx := context.Background()
 	testData, err := setup.ChainsWithEdgeChallengeManager(
 		// setup.WithMockBridge(),
+		setup.WithAutoDeposit(),
 		setup.WithMockOneStepProver(),
 		setup.WithChallengeTestingOpts(
 			challenge_testing.WithLayerZeroHeights(&protocol.LayerZeroHeights{
